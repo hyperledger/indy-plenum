@@ -41,7 +41,10 @@ def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
                               getattr(msg, f.INST_ID.nm) == instFilter)):
             return seconds
 
-    inner.__name__ = opType.__name__
+    if hasattr(opType, 'typename'):
+        inner.__name__ = opType.typename
+    else:
+        inner.__name__ = opType.__name__
     return inner
 
 
@@ -143,6 +146,7 @@ def msg_req_delay(delay: float, types_to_delay: List=None):
                                                     msg[0].msg_type in types_to_delay):
             return delay
 
+    specific_msgs.__name__ = MESSAGE_REQUEST
     return specific_msgs
 
 
@@ -153,6 +157,7 @@ def msg_rep_delay(delay: float, types_to_delay: List=None):
                                                     msg[0].msg_type in types_to_delay):
             return delay
 
+    specific_msgs.__name__ = MESSAGE_RESPONSE
     return specific_msgs
 
 

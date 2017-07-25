@@ -10,10 +10,6 @@ def processedPrePrepare(replica: TestReplica):
     return getAllArgs(replica, TestReplica.addToPrePrepares)
 
 
-def processedPrePrepare(replica: TestReplica):
-    return getAllArgs(replica, TestReplica.addToPrePrepares)
-
-
 def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
     params = getAllArgs(replica,
                         TestReplica.doPrepare)

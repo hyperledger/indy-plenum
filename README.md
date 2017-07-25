@@ -1,7 +1,5 @@
 # Plenum Byzantine Fault Tolerant Protocol    
 
-[![Build Status](https://jenkins.evernym.com/buildStatus/icon?job=Plenum/master)](https://jenkins.evernym.com/job/Plenum/job/master/)    
-
 Plenum is the heart of the distributed ledger technology inside Hyperledger
 Indy. As such, it provides features somewhat similar in scope to those
 found in Fabric. However, it is special-purposed for use in an identity

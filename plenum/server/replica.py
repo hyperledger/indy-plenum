@@ -18,32 +18,12 @@ from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
-    mostCommonElement
+    mostCommonElement, SortedDict
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-
-from sortedcontainers import SortedDict as _SortedDict
-if 'peekitem' in dir(_SortedDict):
-    SortedDict = _SortedDict
-else:
-    # Since older versions of `SortedDict` lack `peekitem`
-    class SortedDict(_SortedDict):
-        def peekitem(self, index=-1):
-            # This method is copied from `SortedDict`'s source code
-            """Return (key, value) item pair at index.
-
-            Unlike ``popitem``, the sorted dictionary is not modified. Index
-            defaults to -1, the last/greatest key in the dictionary. Specify
-            ``index=0`` to lookup the first/least key in the dictiony.
-
-            If index is out of range, raise IndexError.
-
-            """
-            key = self._list[index]
-            return key, self[key]
 
 
 logger = getlogger()
@@ -259,7 +239,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # self.lastOrderedPPSeqNo = 0
         # Three phase key for the last ordered batch
-        self.last_ordered_3pc = (0, 0)
+        self._last_ordered_3pc = (0, 0)
 
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
@@ -317,7 +297,17 @@ class Replica(HasActionQueue, MessageProcessor):
     def h(self, n):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
-        logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+
+    @property
+    def last_ordered_3pc(self) -> tuple:
+        return self._last_ordered_3pc
+
+    @last_ordered_3pc.setter
+    def last_ordered_3pc(self, key3PC):
+        self._last_ordered_3pc = key3PC
+        logger.debug('{} set last ordered as {}'.
+                     format(self, self._last_ordered_3pc))
 
     @property
     def lastPrePrepareSeqNo(self):
@@ -399,7 +389,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.compact_primary_names()
         if not value == self._primaryName:
             self._primaryName = value
-            logger.debug("{} setting primaryName for view no {} to: {}".
+            logger.info("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if value is None:
                 # Since the GC needs to happen after a primary has been decided.
@@ -445,11 +435,18 @@ class Replica(HasActionQueue, MessageProcessor):
         assert self.isMaster
         lst = self.last_prepared_certificate_in_view()
         self.last_prepared_before_view_change = lst
-        logger.debug('{} setting last prepared for master to {}'.format(self, lst))
+        logger.info('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         assert self.isMaster
         self.last_prepared_before_view_change = None
+
+    def on_propagate_primary_done(self):
+        assert self.isMaster
+        # if this is a Primary that is re-connected (that is view change is not actually changed,
+        # we just propagate it, then make sure that we don;t break the sequence of ppSeqNo
+        if self.isPrimary:
+            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """
@@ -493,9 +490,9 @@ class Replica(HasActionQueue, MessageProcessor):
             # view change is completely implemented
             lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
-            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
-            logger.debug('Setting last ordered for non-master {} as {}'.
+            logger.debug('{} Setting last ordered for non-master as {}'.
                          format(self, self.last_ordered_3pc))
+            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
             self._clear_last_view_message_for_non_master(self.viewNo)
 
     def _clear_last_view_message_for_non_master(self, current_view):
@@ -651,8 +648,13 @@ class Replica(HasActionQueue, MessageProcessor):
         while len(validReqs)+len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)  # Remove the first element
-            fin_req = self.requests[key].finalised
-            self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
+            if key in self.requests:
+                fin_req = self.requests[key].finalised
+                self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
+            else:
+                logger.debug('{} found {} in its request queue but but the '
+                             'corresponding request was removed'.
+                             format(self, key))
 
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
@@ -694,7 +696,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        r = self.dequeuePrePrepares() if self.node.isParticipating else 0
+        r = self.dequeue_pre_prepares() if self.node.isParticipating else 0
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
         r += self.send3PCBatch() if (self.isPrimary and
                                      self.node.isParticipating) else 0
@@ -728,7 +730,7 @@ class Replica(HasActionQueue, MessageProcessor):
             return
 
         if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
-            self.discard(msg, 'already ordered 3 phase message', logger.debug)
+            self.discard(msg, 'already ordered 3 phase message', logger.trace)
             return
 
         if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
@@ -897,7 +899,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return canOrder
 
     def doPrepare(self, pp: PrePrepare):
-        logger.debug("{} Sending PREPARE {} at {}".
+        logger.debug("{} Sending PREPARE{} at {}".
                      format(self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
         prepare = Prepare(self.instId,
                           pp.viewNo,
@@ -1099,8 +1101,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self.prePrepares[key] = pp
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
-        self.dequeuePrepares(*key)
-        self.dequeueCommits(*key)
+        self.dequeue_prepares(*key)
+        self.dequeue_commits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
@@ -1181,7 +1183,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: the PREPARE to add to the list
         """
         self.prepares.addVote(prepare, sender)
-        self.dequeueCommits(prepare.viewNo, prepare.ppSeqNo)
+        self.dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
         self.tryCommit(prepare)
 
     def getPrePrepare(self, viewNo, ppSeqNo):
@@ -1242,7 +1244,7 @@ class Replica(HasActionQueue, MessageProcessor):
         key = (commit.viewNo, commit.ppSeqNo)
         ppReq = self.getPrePrepare(*key)
         if not ppReq:
-            self.enqueueCommit(commit, sender)
+            self.enqueue_commit(commit, sender)
             return False
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
@@ -1418,18 +1420,24 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.node.applyReq(req, pp.ppTime)
             self.stashingWhileCatchingUp.remove(key)
 
+        self._discard_ordered_req_keys(pp)
+
+        self.send(ordered, TPCStat.OrderSent)
+        logger.debug("{} ordered request {}".format(self, key))
+        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
+        return True
+
+    def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
             # Using discard since the key may not be present as in case of
             # primary, the key was popped out while creating PRE-PREPARE.
             # Or in case of node catching up, it will not validate
             # PRE-PREPAREs or PREPAREs but will only validate number of COMMITs
             #  and their consistency with PRE-PREPARE of PREPAREs
-            self.requestQueues[pp.ledgerId].discard(k)
+            self.discard_req_key(pp.ledgerId, k)
 
-        self.send(ordered, TPCStat.OrderSent)
-        logger.debug("{} ordered request {}".format(self, key))
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
-        return True
+    def discard_req_key(self, ledger_id, req_key):
+        self.requestQueues[ledger_id].discard(req_key)
 
     def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
@@ -1534,7 +1542,7 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in previousCheckpoints:
             logger.debug("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self._gc(seqNo)
+        self._gc((self.viewNo, seqNo))
         logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
@@ -1613,22 +1621,22 @@ class Replica(HasActionQueue, MessageProcessor):
 
         return total_processed
 
-    def _gc(self, tillSeqNo):
-        logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
+    def _gc(self, till3PCKey):
+        logger.debug("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
-        for (v, p), pp in self.sentPrePrepares.items():
-            if p <= tillSeqNo:
-                tpcKeys.add((v, p))
+        for key3PC, pp in self.sentPrePrepares.items():
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+                tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
-        for (v, p), pp in self.prePrepares.items():
-            if p <= tillSeqNo:
-                tpcKeys.add((v, p))
+        for key3PC, pp in self.prePrepares.items():
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+                tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
 
-        logger.debug("{} found {} 3 phase keys to clean".
+        logger.debug("{} found {} 3-phase keys to clean".
                      format(self, len(tpcKeys)))
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
@@ -1647,18 +1655,19 @@ class Replica(HasActionQueue, MessageProcessor):
                 coll.pop(k, None)
 
         for k in reqKeys:
-            self.requests[k].forwardedTo -= 1
-            if self.requests[k].forwardedTo == 0:
-                logger.debug('{} clearing requests {} from previous checkpoints'.
-                             format(self, len(reqKeys)))
-                self.requests.pop(k)
+            if k in self.requests:
+                self.requests[k].forwardedTo -= 1
+                if self.requests[k].forwardedTo == 0:
+                    logger.debug('{} clearing request {} from previous checkpoints'.
+                                 format(self, k))
+                    self.requests.pop(k)
 
         self.compact_ordered()
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
         # Clear any checkpoints, since they are valid only in a view
-        self._gc(self.last_ordered_3pc[1])
+        self._gc(self.last_ordered_3pc)
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
         self._clear_prev_view_pre_prepares()
@@ -1756,7 +1765,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 "pre-prepares. {} from {}".format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (ppMsg, sender)
 
-    def dequeuePrePrepares(self):
+    def dequeue_pre_prepares(self):
         """
         Dequeue any received PRE-PREPAREs that did not have finalized requests
         or the replica was missing any PRE-PREPAREs before it
@@ -1804,7 +1813,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             self._process_stashed_pre_prepare_for_time_if_possible(key)
 
-    def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
+    def dequeue_prepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.preparesWaitingForPrePrepare:
             i = 0
@@ -1820,7 +1829,7 @@ class Replica(HasActionQueue, MessageProcessor):
                          " view no {} and seq no {}".
                          format(self, i, viewNo, ppSeqNo))
 
-    def enqueueCommit(self, request: Commit, sender: str):
+    def enqueue_commit(self, request: Commit, sender: str):
         logger.debug("Queueing commit due to unavailability of PREPARE. "
                      "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
@@ -1828,7 +1837,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
 
-    def dequeueCommits(self, viewNo: int, ppSeqNo: int):
+    def dequeue_commits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
             if not self.has_prepared(key):
@@ -2059,10 +2068,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self.outBox.append(msg)
 
     def revert_unordered_batches(self):
+        """
+        Revert changes to ledger (uncommitted) and state made by any requests
+        that have not been ordered.
+        """
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 ledger_id, count, _, prevStateRoot = self.batches.pop(key)
+                logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self.revert(ledger_id, prevStateRoot, count)
                 i += 1
             else:
@@ -2075,20 +2089,28 @@ class Replica(HasActionQueue, MessageProcessor):
         self._remove_ordered_from_queue(last_caught_up_3PC)
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
-        outdated_pre_prepares = set()
+        """
+        Remove any 3 phase messages till the last ordered key and also remove
+        any corresponding request keys
+        """
+        outdated_pre_prepares = {}
         for key, pp in self.prePrepares.items():
-            if compare_3PC_keys(key, last_caught_up_3PC) > 0:
-                outdated_pre_prepares.add(key)
+            if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
+                outdated_pre_prepares[key] = pp
+        for key, pp in self.sentPrePrepares.items():
+            if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
+                outdated_pre_prepares[key] = pp
 
         logger.debug('{} going to remove messages for {} 3PC keys'.
                      format(self, len(outdated_pre_prepares)))
 
-        for key in outdated_pre_prepares:
+        for key, pp in outdated_pre_prepares.items():
             self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
             self.prePrepares.pop(key, None)
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
+            self._discard_ordered_req_keys(pp)
 
     def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """
