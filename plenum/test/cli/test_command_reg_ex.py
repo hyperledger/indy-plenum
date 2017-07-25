@@ -33,38 +33,38 @@ def testListRegEx(grammar):
 
 
 def testUseKeyringRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "use keyring abc")
-    assertCliTokens(matchedVars, {"use_kr": "use keyring",
-                                  "keyring": "abc", "copy_as": None,
+    matchedVars = getMatchedVariables(grammar, "use wallet abc")
+    assertCliTokens(matchedVars, {"use_wallet": "use wallet",
+                                  "wallet": "abc", "copy_as": None,
                                   "copy-as-name": None, "override": None})
-    matchedVars = getMatchedVariables(grammar, "use keyring abc ")
-    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc",
+    matchedVars = getMatchedVariables(grammar, "use wallet abc ")
+    assertCliTokens(matchedVars, {"use_wallet": "use wallet", "wallet": "abc",
                                   "copy_as": None, "copy_as_name": None,
                                   "override": None})
 
-    matchedVars = getMatchedVariables(grammar, "use keyring abc copy as newkr")
-    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc",
-                                  "copy_as": "copy as", "copy_as_name": "newkr",
+    matchedVars = getMatchedVariables(grammar, "use wallet abc copy as newwallet")
+    assertCliTokens(matchedVars, {"use_wallet": "use wallet", "wallet": "abc",
+                                  "copy_as": "copy as", "copy_as_name": "newwallet",
                                   "override": None})
 
-    matchedVars = getMatchedVariables(grammar, "use keyring abc copy as newkr "
+    matchedVars = getMatchedVariables(grammar, "use wallet abc copy as newwallet "
                                                "override")
-    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc",
-                                  "copy_as": "copy as", "copy_as_name": "newkr",
+    assertCliTokens(matchedVars, {"use_wallet": "use wallet", "wallet": "abc",
+                                  "copy_as": "copy as", "copy_as_name": "newwallet",
                                   "override": "override"})
 
-    matchedVars = getMatchedVariables(grammar, "use keyring abc override")
-    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc",
+    matchedVars = getMatchedVariables(grammar, "use wallet abc override")
+    assertCliTokens(matchedVars, {"use_wallet": "use wallet", "wallet": "abc",
                                   "copy_as": None, "copy_as_name": None,
                                   "override": "override"})
 
 
 def testSaveKeyringRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "save keyring")
-    assertCliTokens(matchedVars, {"save_kr": "save keyring", "keyring": None})
-    matchedVars = getMatchedVariables(grammar, "save keyring default")
-    assertCliTokens(matchedVars, {"save_kr": "save keyring",
-                                  "keyring": "default"})
+    matchedVars = getMatchedVariables(grammar, "save wallet")
+    assertCliTokens(matchedVars, {"save_wallet": "save wallet", "wallet": None})
+    matchedVars = getMatchedVariables(grammar, "save wallet default")
+    assertCliTokens(matchedVars, {"save_wallet": "save wallet",
+                                  "wallet": "default"})
 
 
 def testPromptCommandRegEx(grammar):
@@ -75,22 +75,22 @@ def testPromptCommandRegEx(grammar):
 
 
 def testListKeyringsCommandRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "list keyrings")
-    assertCliTokens(matchedVars, {"list_krs": "list keyrings"})
+    matchedVars = getMatchedVariables(grammar, "list wallets")
+    assertCliTokens(matchedVars, {"list_wallets": "list wallets"})
 
 
 def testNewKeyRingCommandRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1")
-    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
-    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1 ")
-    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new wallet MyKey1")
+    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new wallet MyKey1 ")
+    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
 
 
 def testRenameKeyRingCommandRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "rename keyring MyKey1 to MyKey2")
-    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": "MyKey1", "to": "MyKey2"})
-    matchedVars = getMatchedVariables(grammar, "rename keyring to MyKey2")
-    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": None, "to": "MyKey2"})
+    matchedVars = getMatchedVariables(grammar, "rename wallet MyKey1 to MyKey2")
+    assertCliTokens(matchedVars, {"rename_wallet": "rename wallet", "from": "MyKey1", "to": "MyKey2"})
+    matchedVars = getMatchedVariables(grammar, "rename wallet to MyKey2")
+    assertCliTokens(matchedVars, {"rename_wallet": "rename wallet", "from": None, "to": "MyKey2"})
 
 
 def testNewKeypairCommandRegEx(grammar):

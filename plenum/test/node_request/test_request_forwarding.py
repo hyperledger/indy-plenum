@@ -9,16 +9,19 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
+from plenum.test.view_change.conftest import perf_chk_patched
 
 
-def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
-                                        wallet1, client1Connected, tconf):
+def test_all_replicas_hold_request_keys(perf_chk_patched, looper, txnPoolNodeSet,
+                                        client1, wallet1, client1Connected):
     """
     All replicas whether primary or non primary hold request keys of forwarded
     requests. Once requests are ordered, they request keys are removed from replica.
     """
-    delay_3pc_messages(txnPoolNodeSet, 0, 2)
-    delay_3pc_messages(txnPoolNodeSet, 1, 2)
+    tconf = perf_chk_patched
+    delay_3pc = 2
+    delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
+    delay_3pc_messages(txnPoolNodeSet, 1, delay_3pc)
 
     def chk(count):
         # All replicas have same amount of forwarded request keys and all keys
@@ -37,7 +40,7 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
-                                        add_delay_to_timeout=2)
+                                        add_delay_to_timeout=delay_3pc)
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
     # have processed it.
@@ -56,5 +59,5 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
               len(txnPoolNodeSet)*delay
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
-                                        add_delay_to_timeout=2)
+                                        add_delay_to_timeout=delay_3pc)
     looper.run(eventually(chk, 0))

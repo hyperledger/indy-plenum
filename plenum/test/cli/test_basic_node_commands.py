@@ -42,12 +42,12 @@ def testCreateNodeWhenClientExistsWithoutKey(be, do, cli, validNodeNames):
     clientName = "testc1"
     be(cli)
     do("new client {}".format(clientName), expect=["Active client set to {}".format(clientName)])
-    do("new node {}".format(validNodeNames[0]), expect=["No key present in keyring"], within=2)
+    do("new node {}".format(validNodeNames[0]), expect=["No key present in wallet"], within=2)
 
 
 def testCreateNodeWhenClientExistsWithKey(be, do, cli, validNodeNames):
     clientName = "testc2"
     be(cli)
     do("new client {}".format(clientName), expect=["Active client set to {}".format(clientName)])
-    do("new key", expect=["Current identifier set to "])
+    do("new key", expect=["Current DID set to "])
     addNodes(be, do, cli, validNodeNames)
