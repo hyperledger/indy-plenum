@@ -16,7 +16,6 @@ from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP,
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
-from json.decoder import JSONDecodeError
 
 logger = getlogger()
 
@@ -112,7 +111,7 @@ class TxnStackManager:
                             activeValidators.add(nodeName)
                         else:
                             activeValidators.discard(nodeName)
-        except JSONDecodeError as exc:
+        except ValueError as exc:
             logger.debug('Pool transaction file corrupted. Rebuild pool transactions.')
             print('Pool transaction file corrupted. Rebuild pool transactions.')
             exit(-1)
