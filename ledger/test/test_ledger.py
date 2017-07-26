@@ -27,6 +27,15 @@ def lst2str(l):
     return ",".join(l)
 
 
+def random_txn(int_seed):
+    return {
+        'identifier': 'cli' + str(int_seed),
+        'reqId': int_seed + 1,
+        'op': ''.join([random.choice(string.printable) for _ in range(
+            random.randint(int_seed + 1, 100))])
+    }
+
+
 orderedFields = OrderedDict([
     ("identifier", (str, str)),
     ("reqId", (str, int)),
@@ -44,7 +53,7 @@ def ledger(tempdir):
     return ledger
 
 
-def testAddTxn(tempdir, ledger):
+def testAddTxn(ledger):
     txn1 = {
         'identifier': 'cli1',
         'reqId': 1,
@@ -70,15 +79,10 @@ def testAddTxn(tempdir, ledger):
     check_ledger_generator(ledger)
 
 
-def testQueryMerkleInfo(tempdir, ledger):
+def testQueryMerkleInfo(ledger):
     merkleInfo = {}
     for i in range(100):
-        txn = {
-            'identifier': 'cli' + str(i),
-            'reqId': i+1,
-            'op': ''.join([random.choice(string.printable) for i in range(
-                random.randint(i+1, 100))])
-        }
+        txn = random_txn(i)
         mi = ledger.add(txn)
         seqNo = mi.pop(F.seqNo.name)
         assert i+1 == seqNo

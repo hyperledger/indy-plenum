@@ -12,12 +12,15 @@ from functools import partial
 
 import time
 from typing import Dict, Any
+
+from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
 import gc
 import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from plenum.test.greek import genNodeNames
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -33,15 +36,16 @@ from plenum.common.exceptions import BlowUp
 from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
+    CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
+    STEWARD, TARGET_NYM, VALIDATOR, SERVICES
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs
+    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, NODE_IP
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -483,8 +487,9 @@ def looperWithoutNodeSet():
 
 
 @pytest.fixture(scope="module")
-def poolTxnNodeNames(index=""):
-    return [n + index for n in ("Alpha", "Beta", "Gamma", "Delta")]
+def poolTxnNodeNames(request, index=""):
+    nodeCount = getValueFromModule(request, "nodeCount", 4)
+    return [n + index for n in genNodeNames(nodeCount)]
 
 
 @pytest.fixture(scope="module")
@@ -493,8 +498,9 @@ def poolTxnClientNames():
 
 
 @pytest.fixture(scope="module")
-def poolTxnStewardNames():
-    return "Steward1", "Steward2", "Steward3", "Steward4"
+def poolTxnStewardNames(request):
+    nodeCount = getValueFromModule(request, "nodeCount", 4)
+    return ['Steward'+str(i) for i in range(1, nodeCount+1)]
 
 
 @pytest.fixture(scope="module")
@@ -516,19 +522,63 @@ def dirName():
 
 
 @pytest.fixture(scope="module")
-def nodeAndClientInfoFilePath(dirName):
-    return os.path.join(dirName(__file__), "node_and_client_info.py")
+def poolTxnData(request):
+    nodeCount = getValueFromModule(request, "nodeCount", 4)
+    data = {'txns': [], 'seeds': {}}
+    for i, node_name in zip(range(1, nodeCount+1), genNodeNames(nodeCount)):
+        data['seeds'][node_name] = node_name+'0'*(32-len(node_name))
+        steward_name = 'Steward'+str(i)
+        data['seeds'][steward_name] = steward_name+'0'*(32-len(steward_name))
+        n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
+        s_idr = SimpleSigner(seed=data['seeds'][steward_name].encode()).identifier
+        data['txns'].append({
+            TXN_TYPE: NYM,
+            ROLE: STEWARD,
+            ALIAS: steward_name,
+            TARGET_NYM: s_idr
+        })
+        data['txns'].append({
+            TXN_TYPE: NODE,
+            f.IDENTIFIER.nm: s_idr,
+            TARGET_NYM: n_idr,
+            DATA: {
+                ALIAS: node_name,
+                SERVICES: [VALIDATOR],
+                NODE_IP: '127.0.0.1',
+                NODE_PORT: genHa()[1],
+                CLIENT_IP: '127.0.0.1',
+                CLIENT_PORT: genHa()[1]
+            }
+        })
 
+    # Below is some static data that is needed for some CLI tests
+    more_data = {'txns': [
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ",
+         "type": "1",
+         "alias": "Alice"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB",
+         "type": "1",
+         "alias": "Jason"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG",
+         "type": "1",
+         "alias": "John"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru",
+         "type": "1",
+         "alias": "Les"}
+    ], 'seeds': {
+        "Alice": "99999999999999999999999999999999",
+        "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "John": "dddddddddddddddddddddddddddddddd",
+        "Les": "ffffffffffffffffffffffffffffffff"
+    }}
 
-@pytest.fixture(scope="module")
-def poolTxnData(nodeAndClientInfoFilePath):
-    with open(nodeAndClientInfoFilePath) as f:
-        data = json.loads(f.read().strip())
-        for txn in data["txns"]:
-            if txn[TXN_TYPE] == NODE:
-                txn[DATA][NODE_PORT] = genHa()[1]
-                txn[DATA][CLIENT_PORT] = genHa()[1]
-        return data
+    data['txns'].extend(more_data['txns'])
+    data['seeds'].update(more_data['seeds'])
+    return data
 
 
 @pytest.fixture(scope="module")

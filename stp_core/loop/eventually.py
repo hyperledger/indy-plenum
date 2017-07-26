@@ -1,13 +1,13 @@
 import asyncio
-import inspect
-import os
 import time
 from asyncio.coroutines import CoroWrapper
 from inspect import isawaitable
 from typing import Callable, TypeVar, Optional, Iterable
+
 import psutil
 
 from stp_core.common.log import getlogger
+from stp_core.common.util import get_func_name, get_func_args
 from stp_core.ratchet import Ratchet
 
 # TODO: move it to plenum-util repo
@@ -72,7 +72,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     rem = None
     for cf in coroFuncs:
         if len(funcNames) < 2:
-            funcNames.append(getFuncName(cf))
+            funcNames.append(get_func_name(cf))
         else:
             others += 1
         # noinspection PyBroadException
@@ -90,7 +90,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
             fails += 1
             logger.debug("a coro {} with args {} timed out without succeeding; fail count: "
                          "{}, acceptable: {}".
-                         format(getFuncName(cf), get_func_args(cf), fails, acceptableFails))
+                         format(get_func_name(cf), get_func_args(cf), fails, acceptableFails))
             if fails > acceptableFails:
                 raise
 
@@ -106,22 +106,6 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     desc = ", ".join(funcNames)
     logger.debug("{} succeeded with {:.2f} seconds to spare".
                  format(desc, remaining()))
-
-
-def getFuncName(f):
-    if hasattr(f, "__name__"):
-        return f.__name__
-    elif hasattr(f, "func"):
-        return "partial({})".format(getFuncName(f.func))
-    else:
-        return "<unknown>"
-
-
-def get_func_args(f):
-    if hasattr(f, 'args'):
-        return f.args
-    else:
-        return list(inspect.signature(f).parameters)
 
 
 def recordFail(fname, timeout):
@@ -156,7 +140,7 @@ async def eventually(coroFunc: FlexFunc,
                                        timeout*slowFactor).gen() \
         if ratchetSteps else None
 
-    fname = getFuncName(coroFunc)
+    fname = get_func_name(coroFunc)
     while True:
         remain = 0
         try:

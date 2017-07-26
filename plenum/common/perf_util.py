@@ -4,7 +4,7 @@ from functools import wraps
 
 import sys
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 
 def get_size(obj, seen=None):
@@ -28,7 +28,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def timeit(method):
+def timeit(method, record_time_in: Optional[List]=None):
     @wraps(method)
     def timed(*args, **kw):
         nonlocal method
@@ -36,8 +36,14 @@ def timeit(method):
         result = method(*args, **kw)
         te = time.perf_counter()
         elapsed = te-ts
-        print('{} took {} sec'.format(method.__name__, elapsed))
-        method.elapsed = elapsed
+        # print('{} took {} sec'.format(method.__name__, elapsed))
+        try:
+            method.elapsed = elapsed
+        # setattr(method, 'elapsed', elapsed)
+        except AttributeError:
+            pass
+        if record_time_in is not None:
+            record_time_in.append(elapsed)
         return result
 
     return timed

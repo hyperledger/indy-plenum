@@ -295,7 +295,6 @@ def disconnect_node_and_ensure_disconnected(looper, poolNodes,
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
-
     disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
     ensure_node_disconnected(looper, disconnect, poolNodes,
                              timeout=timeout)
