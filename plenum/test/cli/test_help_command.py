@@ -22,7 +22,7 @@ def testNewKey(cli):
     cli.enterCmd("help new key")
     newMsg = """new key
 -------
-     title: Adds new key to active keyring
+     title: Adds new key to active wallet
 
      usage: new key [with seed <32 character seed>] [[as] <alias>]
 
