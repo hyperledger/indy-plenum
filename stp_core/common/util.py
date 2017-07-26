@@ -1,4 +1,5 @@
 # TODO: move it to plenum-util repo
+import inspect
 
 
 class Singleton(type):
@@ -45,3 +46,19 @@ class adict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
+
+
+def get_func_name(f):
+    if hasattr(f, "__name__"):
+        return f.__name__
+    elif hasattr(f, "func"):
+        return "partial({})".format(get_func_name(f.func))
+    else:
+        return "<unknown>"
+
+
+def get_func_args(f):
+    if hasattr(f, 'args'):
+        return f.args
+    else:
+        return list(inspect.signature(f).parameters)

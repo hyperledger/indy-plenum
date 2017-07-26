@@ -259,7 +259,7 @@ def checkRequest(cli, operation):
     createNewKeyring(cName, cli)
 
     cli.enterCmd("new key {}".format("testkey1"))
-    assert 'Key created in keyring {}'.format(cName) in cli.lastCmdOutput
+    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
 
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
@@ -341,20 +341,20 @@ def newKeyPair(cli: TestCli, alias: str=None):
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.idsToSigners.keys()) == len(idrs) + 1
     new_identifer = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
-    expected = ['Key created in keyring Default']
+    expected = ['Key created in wallet Default']
     if alias:
         idr = cli.activeWallet.aliasesToIds.get(alias)
         verkey = cli.activeWallet.getVerkey(idr)
-        expected.append('Identifier for key is {}'.
+        expected.append('DID for key is {}'.
                         format(idr))
         expected.append('Verification key is {}'.format(verkey))
-        expected.append('Alias for identifier is {}'.format(alias))
+        expected.append('Alias for DID is {}'.format(alias))
     else:
-        expected.append('Identifier for key is {}'.format(new_identifer))
+        expected.append('DID for key is {}'.format(new_identifer))
         verkey = cli.activeWallet.getVerkey(new_identifer)
         expected.append('Verification key is {}'.format(verkey))
 
-    expected.append('Current identifier set to {}'.format(alias or new_identifer))
+    expected.append('Current DID set to {}'.format(alias or new_identifer))
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
@@ -368,6 +368,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     assert needle in cli.lastCmdOutput
     return new_identifer
+
 
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
@@ -593,7 +594,7 @@ def checkPermissions(path, mode):
 def checkWalletRestored(cli, expectedWalletKeyName,
                        expectedIdentifiers):
 
-    cli.lastCmdOutput == "Saved keyring {} restored".format(
+    cli.lastCmdOutput == "Saved wallet {} restored".format(
         expectedWalletKeyName)
     assert cli._activeWallet.name == expectedWalletKeyName
     assert len(cli._activeWallet.identifiers) == \
@@ -610,23 +611,23 @@ def getOldIdentifiersForActiveWallet(cli):
 def createAndAssertNewCreation(do, cli, keyringName):
     oldIdentifiers = getOldIdentifiersForActiveWallet(cli)
     do('new key', within=2,
-       expect=["Key created in keyring {}".format(keyringName)])
+       expect=["Key created in wallet {}".format(keyringName)])
     assert len(cli._activeWallet.identifiers) == oldIdentifiers + 1
 
 
 def createAndAssertNewKeyringCreation(do, name, expectedMsgs=None):
     finalExpectedMsgs = expectedMsgs if expectedMsgs else [
-           'Active keyring set to "{}"'.format(name),
-           'New keyring {} created'.format(name)
+           'Active wallet set to "{}"'.format(name),
+           'New wallet {} created'.format(name)
         ]
-    do('new keyring {}'.format(name), expect=finalExpectedMsgs)
+    do('new wallet {}'.format(name), expect=finalExpectedMsgs)
 
 
 def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-                        ['Active keyring set to "{}"'.format(keyringName)]
-    do('use keyring {}'.format(name),
+                        ['Active wallet set to "{}"'.format(keyringName)]
+    do('use wallet {}'.format(name),
        expect=finalExpectedMsgs
     )
 
@@ -634,8 +635,8 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
 def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-                        ['Active keyring "{}" saved'.format(keyringName)]
-    do('save keyring'.format(name),
+                        ['Active wallet "{}" saved'.format(keyringName)]
+    do('save wallet'.format(name),
        expect=finalExpectedMsgs
     )
 
@@ -649,8 +650,8 @@ def exitFromCli(do):
 def restartCliAndAssert(cli, do, expectedRestoredWalletName,
                expectedIdentifiers):
     do(None, expect=[
-        'Saved keyring "{}" restored'.format(expectedRestoredWalletName),
-        'Active keyring set to "{}"'.format(expectedRestoredWalletName)
+        'Saved wallet "{}" restored'.format(expectedRestoredWalletName),
+        'Active wallet set to "{}"'.format(expectedRestoredWalletName)
     ], within=5)
     assert cli._activeWallet is not None
     assert len(cli._activeWallet.identifiers) == expectedIdentifiers
