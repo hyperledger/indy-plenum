@@ -33,6 +33,7 @@ def changesRequest(node):
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
+        request.digest = request.getDigest()
         if isinstance(identifier, bytes):
             identifier = identifier.decode()
         return Propagate(request.__getstate__(), identifier)

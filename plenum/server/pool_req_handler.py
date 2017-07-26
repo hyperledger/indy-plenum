@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 
-from common.serializers.json_serializer import JsonSerializer
+from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
     SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
@@ -24,7 +24,7 @@ class PoolRequestHandler(RequestHandler):
                  domainState: State):
         super().__init__(ledger, state)
         self.domainState = domainState
-        self.stateSerializer = JsonSerializer()
+        self.stateSerializer = pool_state_serializer
 
     def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)

@@ -6,6 +6,8 @@ from common.serializers.signing_serializer import SigningSerializer
 signing_serializer = SigningSerializer()
 ledger_txn_serializer = MsgPackSerializer()
 ledger_hash_serializer = MsgPackSerializer()
+domain_state_serializer = MsgPackSerializer()
+pool_state_serializer = MsgPackSerializer()
 
 def serialize_msg_for_signing(msg: Mapping, topLevelKeysToIgnore=None):
     """
