@@ -50,7 +50,9 @@ def ledger(tempdir):
     ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
                     dataDir=tempdir, serializer=ledgerSerializer)
     ledger.reset()
-    return ledger
+    yield ledger
+    # close the file
+    ledger.stop()
 
 
 def testAddTxn(ledger):
