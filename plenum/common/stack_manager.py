@@ -77,44 +77,10 @@ class TxnStackManager:
         nodeKeys = {}
         activeValidators = set()
         try:
-            for _, txn in ledger.getAllTxn():
-                if txn[TXN_TYPE] == NODE:
-                    nodeName = txn[DATA][ALIAS]
-                    clientStackName = nodeName + CLIENT_STACK_SUFFIX
-                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                        else None
-                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                        else None
-                    if nHa:
-                        nodeReg[nodeName] = HA(*nHa)
-                    if cHa:
-                        cliNodeReg[clientStackName] = HA(*cHa)
-
-                    try:
-                        # TODO: Need to handle abbreviated verkey
-                        key_type = 'verkey'
-                        verkey = cryptonymToHex(txn[TARGET_NYM])
-                        key_type = 'identifier'
-                        cryptonymToHex(txn[IDENTIFIER])
-                    except ValueError as ex:
-                        logger.debug('Invalid {}. Rebuild pool transactions.'.format(key_type))
-                        print('Invalid {}. Rebuild pool transactions.'.format(key_type))
-                        exit(-1)
-
-                    nodeKeys[nodeName] = verkey
-
-                    services = txn[DATA].get(SERVICES)
-                    if isinstance(services, list):
-                        if VALIDATOR in services:
-                            activeValidators.add(nodeName)
-                        else:
-                            activeValidators.discard(nodeName)
+            TxnStackManager._parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
         except ValueError as exc:
             logger.debug('Pool transaction file corrupted. Rebuild pool transactions.')
-            print('Pool transaction file corrupted. Rebuild pool transactions.')
-            exit(-1)
+            exit('Pool transaction file corrupted. Rebuild pool transactions.')
 
         if returnActive:
             allNodes = tuple(nodeReg.keys())
@@ -127,6 +93,45 @@ class TxnStackManager:
             return nodeReg, cliNodeReg, nodeKeys
         else:
             return nodeReg, cliNodeReg, nodeKeys, activeValidators
+
+    @staticmethod
+    def _parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+        """
+        helper function for parseLedgerForHaAndKeys
+        """
+        for _, txn in ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE:
+                nodeName = txn[DATA][ALIAS]
+                clientStackName = nodeName + CLIENT_STACK_SUFFIX
+                nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
+                    if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
+                    else None
+                cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
+                    if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
+                    else None
+                if nHa:
+                    nodeReg[nodeName] = HA(*nHa)
+                if cHa:
+                    cliNodeReg[clientStackName] = HA(*cHa)
+
+                try:
+                    # TODO: Need to handle abbreviated verkey
+                    key_type = 'verkey'
+                    verkey = cryptonymToHex(txn[TARGET_NYM])
+                    key_type = 'identifier'
+                    cryptonymToHex(txn[IDENTIFIER])
+                except ValueError as ex:
+                    logger.debug('Invalid {}. Rebuild pool transactions.'.format(key_type))
+                    exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
+
+                nodeKeys[nodeName] = verkey
+
+                services = txn[DATA].get(SERVICES)
+                if isinstance(services, list):
+                    if VALIDATOR in services:
+                        activeValidators.add(nodeName)
+                    else:
+                        activeValidators.discard(nodeName)
 
     def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
                          addRemote=True):
