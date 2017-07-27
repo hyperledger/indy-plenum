@@ -10,6 +10,7 @@ from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
     check_stacks_communicating, get_file_permission_mask, get_zstack_key_paths
 from stp_zmq.zstack import ZStack
 import time
+from stp_core.common.util import adict
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):
@@ -165,3 +166,38 @@ def test_high_load(tdir, looper, tconf):
             .format(len(expected_messages),
                     len(received_messages),
                     received_messages[-1])
+
+
+def testZStackCannotSendHugeData(tdir, looper, tconf):
+    names = ['Alpha', 'Beta']
+    (alpha, beta), _ = create_and_prep_stacks(names, tdir, looper, tconf)
+    nn = 'greetings' * int(tconf.MSG_LEN_LIMIT / 2)
+    vv = 'hello' * int(tconf.MSG_LEN_LIMIT / 2)
+    # check send message returns False
+    assert alpha.send({nn: vv}, beta.name) is False
+
+
+def testZStackCannotRecvHugeData(tdir, looper, tconf):
+    names = ['Alpha', 'Beta']
+    genKeys(tdir, names)
+    printers = [Printer(n) for n in names]
+
+    rsn = [""]
+    frc = [""]
+
+    def onRejectMsgHandler(reason, frm):
+        rsn[0] = reason
+        frc[0] = frm
+
+    (alpha, beta) = [ZStack(n, ha=genHa(), basedirpath=tdir, msgHandler=printers[i].print, restricted=True,
+                            config=adict(**tconf.__dict__), msgRejectHandler=onRejectMsgHandler)
+                     for i, n in enumerate(names)]
+    prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
+
+    msg = "msg" * tconf.MSG_LEN_LIMIT
+    assert alpha._remotes['Beta'].socket.send(msg.encode(), copy=False, track=True)
+
+    looper.runFor(5)
+
+    assert 'Message exceeded allowed limit of {}'.format(tconf.MSG_LEN_LIMIT) in rsn[0]
+    assert frc[0] == 'Alpha'
