@@ -16,15 +16,15 @@ def invalid_verkey_tdir(tdir_for_func):
     tree = CompactMerkleTree()
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     for d in range(3):
-        txn = { TXN_TYPE: '0',
-                TARGET_NYM: base58.b58encode(b'whatever'),
-                IDENTIFIER: "Th7MpTaRZVRYnPiabds81Y",
-                DATA: {
-                NAME: str(d),
-                ALIAS: 'test' + str(d),
-                SERVICES: [VALIDATOR],
-                }
-              }
+        txn = {TXN_TYPE: '0',
+               TARGET_NYM: base58.b58encode(b'whatever'),
+               IDENTIFIER: "Th7MpTaRZVRYnPiabds81Y",
+               DATA: {
+                   NAME: str(d),
+                   ALIAS: 'test' + str(d),
+                   SERVICES: [VALIDATOR],
+               }
+               }
         if d == 1:
             txn[TARGET_NYM] = "invalid===="
         ledger.add(txn)
@@ -35,15 +35,15 @@ def invalid_verkey_tdir(tdir_for_func):
 def invalid_identifier_tdir(tdir_for_func):
     tree = CompactMerkleTree()
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
-    txn = { TXN_TYPE: '0',
-            TARGET_NYM: base58.b58encode(b'whatever'),
-            IDENTIFIER: "invalid====",
-            DATA: {
-            NAME: str(2),
-            ALIAS: 'test' + str(2),
-            SERVICES: [VALIDATOR],
-            }
-          }
+    txn = {TXN_TYPE: '0',
+           TARGET_NYM: base58.b58encode(b'whatever'),
+           IDENTIFIER: "invalid====",
+           DATA: {
+                NAME: str(2),
+                ALIAS: 'test' + str(2),
+                SERVICES: [VALIDATOR],
+           }
+           }
     ledger.add(txn)
     return ledger
 
