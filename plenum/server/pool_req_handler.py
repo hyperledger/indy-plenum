@@ -95,14 +95,14 @@ class PoolRequestHandler(RequestHandler):
         return self.dataErrorWhileValidatingUpdate(data, nodeNym)
 
     def getNodeData(self, nym, isCommitted: bool = True):
-        key = self.stateSerializer.serialize(nym)
+        key = nym.encode()
         data = self.state.get(key, isCommitted)
         if not data:
             return {}
         return self.stateSerializer.deserialize(data)
 
     def updateNodeData(self, nym, data):
-        key = self.stateSerializer.serialize(nym)
+        key = nym.encode()
         val = self.stateSerializer.serialize(data)
         self.state.set(key, val)
 
@@ -159,7 +159,7 @@ class PoolRequestHandler(RequestHandler):
                 nodeData.update(data)
 
         for otherNode, otherNodeData in self.state.as_dict.items():
-            otherNode = self.stateSerializer.deserialize(otherNode)
+            otherNode = otherNode.decode()
             otherNodeData = self.stateSerializer.deserialize(otherNodeData)
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)

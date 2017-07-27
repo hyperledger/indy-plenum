@@ -106,13 +106,13 @@ class DomainRequestHandler(RequestHandler):
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
         existingData.update(newData)
-        key = self.stateSerializer.serialize(nym)
+        key = nym.encode()
         val = self.stateSerializer.serialize(existingData)
         self.state.set(key, val)
         return existingData
 
     def hasNym(self, nym, isCommitted: bool = True):
-        key = self.stateSerializer.serialize(nym)
+        key = nym.encode()
         data = self.state.get(key, isCommitted)
         return bool(data)
 
@@ -135,7 +135,7 @@ class DomainRequestHandler(RequestHandler):
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
-        key = DomainRequestHandler.stateSerializer.serialize(nym)
+        key = nym.encode()
         data = state.get(key, isCommitted)
         if not data:
             return {}
