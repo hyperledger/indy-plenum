@@ -74,13 +74,20 @@ def hash_serializer(request):
 
 @pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage', 'LeveldbStorage'])
 def ledger(request, genesis_txn_file, tempdir, txn_serializer, hash_serializer):
-    return create_ledger(request, txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    yield ledger
+    ledger.stop()
 
 
 @pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage', 'LeveldbStorage'])
 def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
-    return create_ledger(request, txn_serializer, hash_serializer, tempdir)
+    ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
+    yield ledger
+    ledger.stop()
 
 @pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage', 'LeveldbStorage'])
 def ledger_with_genesis(request, init_genesis_txn_file, tempdir, txn_serializer, hash_serializer):
-    return create_ledger(request, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    yield ledger
+    ledger.stop()
+

@@ -1,4 +1,3 @@
-import json
 from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
@@ -96,12 +95,14 @@ class PoolRequestHandler(RequestHandler):
         return self.dataErrorWhileValidatingUpdate(data, nodeNym)
 
     def getNodeData(self, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = self.stateSerializer.serialize(nym)
         data = self.state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return self.stateSerializer.deserialize(data)
 
     def updateNodeData(self, nym, data):
-        key = nym.encode()
+        key = self.stateSerializer.serialize(nym)
         val = self.stateSerializer.serialize(data)
         self.state.set(key, val)
 
@@ -118,7 +119,7 @@ class PoolRequestHandler(RequestHandler):
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
         for nodeNym, nodeData in self.state.as_dict.items():
-            nodeData = json.loads(nodeData.decode())
+            nodeData = self.stateSerializer.deserialize(nodeData)
             if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
                 return True
         return False
@@ -158,8 +159,8 @@ class PoolRequestHandler(RequestHandler):
                 nodeData.update(data)
 
         for otherNode, otherNodeData in self.state.as_dict.items():
-            otherNode = otherNode.decode()
-            otherNodeData = json.loads(otherNodeData.decode())
+            otherNode = self.stateSerializer.deserialize(otherNode)
+            otherNodeData = self.stateSerializer.deserialize(otherNodeData)
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)
             if not nodeNym or otherNode != nodeNym:

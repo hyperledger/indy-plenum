@@ -1,5 +1,3 @@
-import json
-
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
@@ -108,13 +106,13 @@ class DomainRequestHandler(RequestHandler):
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
         existingData.update(newData)
-        key = nym.encode()
+        key = self.stateSerializer.serialize(nym)
         val = self.stateSerializer.serialize(existingData)
         self.state.set(key, val)
         return existingData
 
     def hasNym(self, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = self.stateSerializer.serialize(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
@@ -137,6 +135,8 @@ class DomainRequestHandler(RequestHandler):
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = DomainRequestHandler.stateSerializer.serialize(nym)
         data = state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return DomainRequestHandler.stateSerializer.deserialize(data)

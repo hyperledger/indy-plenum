@@ -6,10 +6,12 @@ logger = getlogger()
 
 
 class LevelDbHashStore(HashStore):
-    def __init__(self, dataDir):
+    def __init__(self, dataDir, fileNamePrefix=""):
         self.dataDir = dataDir
         self.nodesDb = None
         self.leavesDb = None
+        self.nodes_db_name = fileNamePrefix + '_merkleNodes'
+        self.leaves_db_name = fileNamePrefix + '_merkleLeaves'
         self.open()
 
     @property
@@ -73,8 +75,8 @@ class LevelDbHashStore(HashStore):
                (self.nodesDb.closed and self.leavesDb.closed)
 
     def open(self):
-        self.nodesDb = KeyValueStorageLeveldb(self.dataDir, '_merkleNodes')
-        self.leavesDb = KeyValueStorageLeveldb(self.dataDir, '_merkleLeaves')
+        self.nodesDb = KeyValueStorageLeveldb(self.dataDir, self.nodes_db_name)
+        self.leavesDb = KeyValueStorageLeveldb(self.dataDir, self.leaves_db_name)
 
     def close(self):
         self.nodesDb.close()

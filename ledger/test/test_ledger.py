@@ -1,7 +1,5 @@
 import base64
 import itertools
-import random
-import string
 from binascii import hexlify
 from collections import OrderedDict
 
@@ -12,7 +10,7 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.test.conftest import orderedFields
 from ledger.test.helper import NoTransactionRecoveryLedger, \
     check_ledger_generator, create_ledger_text_file_storage, create_ledger_chunked_file_storage, \
-    create_ledger_leveldb_file_storage, create_default_ledger, txn
+    create_ledger_leveldb_file_storage, create_default_ledger, random_txn
 from ledger.test.test_file_hash_store import generateHashes
 from ledger.util import ConsistencyVerificationFailed, F
 from storage.text_file_store import TextFileStore
@@ -31,8 +29,8 @@ def lst2str(l):
 
 def test_add_txn(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
-    txn1 = txn(1)
-    txn2 = txn(2)
+    txn1 = random_txn(1)
+    txn2 = random_txn(2)
     ledger.add(txn1)
     ledger.add(txn2)
 
@@ -48,7 +46,7 @@ def test_add_txn(ledger, genesis_txns, genesis_txn_file):
 
 def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
-    txn1 = txn(1)
+    txn1 = random_txn(1)
     ledger.add(txn1)
     assert ledger.size == 1 + offset
 
@@ -56,7 +54,7 @@ def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     ledger.stop()
 
     # Check that can not add new txn for stopped ledger
-    txn2 = txn(2)
+    txn2 = random_txn(2)
     with pytest.raises(Exception):
         ledger.add(txn2)
 
@@ -71,7 +69,7 @@ def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
     merkleInfo = {}
     for i in range(100):
-        mi = ledger.add(txn(i))
+        mi = ledger.add(random_txn(i))
         seqNo = mi.pop(F.seqNo.name)
         assert i + 1 + offset == seqNo
         merkleInfo[seqNo] = mi
@@ -105,7 +103,7 @@ def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, txn_serializer, 
 def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_serializer, hash_serializer, genesis_txn_file):
     ledger = create_ledger_func(txn_serializer, hash_serializer, tempdir, genesis_txn_file)
     for d in range(100):
-        ledger.add(txn(d))
+        ledger.add(random_txn(d))
     # delete hash store, so that the only option for recovering is txn log
     ledger.tree.hashStore.reset()
     ledger.stop()
@@ -128,7 +126,7 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_seri
 def test_recover_merkle_tree_from_hash_store(tempdir):
     ledger = create_default_ledger(tempdir)
     for d in range(100):
-        ledger.add(txn(d))
+        ledger.add(random_txn(d))
     ledger.stop()
     size_before = ledger.size
     tree_root_hash_before = ledger.tree.root_hash
@@ -147,7 +145,7 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
     ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), None, tempdir)
     for d in range(100):
-        ledger.add(txn(d))
+        ledger.add(random_txn(d))
     updatedTree = ledger.tree
     ledger.stop()
 
@@ -172,7 +170,7 @@ def test_consistency_verification_on_startup_case_1(tempdir):
     ledger = create_default_ledger(tempdir)
     tranzNum = 10
     for d in range(tranzNum):
-        ledger.add(txn(d))
+        ledger.add(random_txn(d))
     # Writing one more node without adding of it to leaf and transaction logs
     badNode = (None, None, ('X' * 32))
     ledger.tree.hashStore.writeNode(badNode)
@@ -192,10 +190,10 @@ def test_consistency_verification_on_startup_case_2(tempdir):
     ledger = create_default_ledger(tempdir)
     tranzNum = 10
     for d in range(tranzNum):
-        ledger.add(txn(d))
+        ledger.add(random_txn(d))
 
     # Adding one more entry to transaction log without adding it to merkle tree
-    badData = txn(50)
+    badData = random_txn(50)
     value = ledger.serialize_for_txn_log(badData)
     key = str(tranzNum + 1)
     ledger._transactionLog.put(key=key, value=value)
