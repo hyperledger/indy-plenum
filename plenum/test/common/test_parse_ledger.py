@@ -53,7 +53,7 @@ class DummyLedger(Ledger):
         raise JSONDecodeError('', '', 0)
 
                                                             
-def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(tdirWithLedger, tdir_for_func):
+def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_verkey_tdir, tdir_for_func):
     """
     Test that invalid base58 TARGET_NYM in pool_transaction raises the proper exception (INDY-150)
     """
@@ -64,7 +64,7 @@ def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptiv
     ledger.stop()
 
 
-def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_identifier, tdir_for_func):
+def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_identifier_tdir, tdir_for_func):
     """
     Test that invalid base58 IDENTIFIER in pool_transaction raises the proper exception (INDY-150)
     """
