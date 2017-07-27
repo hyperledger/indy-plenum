@@ -11,6 +11,7 @@ import logging
 
 whitelist = ['substring not found']
 
+
 @pytest.fixture(scope="function")
 def invalid_verkey_tdir(tdir_for_func):
     tree = CompactMerkleTree()
