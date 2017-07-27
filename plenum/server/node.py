@@ -170,7 +170,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         kwargs = dict(stackParams=self.poolManager.cstack,
-                      msgHandler=self.handleOneClientMsg)
+                      msgHandler=self.handleOneClientMsg, msgRejectHandler=self.rejectClientMsgHandler)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -352,6 +352,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # higher views) are received, should one view change be interrupted in
         # between.
         self._next_view_indications = SortedDict()
+
+    def rejectClientMsgHandler(self, reason, frm):
+        self.transmitToClient(Reject("", "", reason), frm)
 
     @property
     def id(self):

@@ -11,7 +11,8 @@ class SimpleZStack(ZStack):
                  seed=None,
                  onlyListener=False,
                  sighex: str=None,
-                 config=None):
+                 config=None,
+                 msgRejectHandler=None):
 
         # TODO: sighex is unused as of now, remove once test is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
@@ -34,4 +35,5 @@ class SimpleZStack(ZStack):
                          restricted=restricted,
                          seed=seed,
                          onlyListener=onlyListener,
-                         config=config)
+                         config=config,
+                         msgRejectHandler=msgRejectHandler)

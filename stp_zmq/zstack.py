@@ -53,16 +53,18 @@ class ZStack(NetworkInterface):
     messageTimeout = 3
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
         self.seed = seed
         self.config = config or getConfig()
+        self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
         self.listenerQuota = self.config.DEFAULT_LISTENER_QUOTA
         self.senderQuota = self.config.DEFAULT_SENDER_QUOTA
+        self.msgLenLimit = self.config.MSG_LEN_LIMIT
 
         self.homeDir = None
         # As of now there would be only one file in secretKeysDir and sigKeyDir
@@ -102,6 +104,9 @@ class ZStack(NetworkInterface):
         self._created = time.perf_counter()
 
         self.last_heartbeat_at = None
+
+    def __defaultMsgRejectHandler(self, reason: str, frm):
+        pass
 
     @property
     def remotes(self):
@@ -432,17 +437,15 @@ class ZStack(NetworkInterface):
         return 0
 
     def _verifyAndAppend(self, msg, ident):
-        # if self.verify(msg, ident):
-        #     self.rxMsgs.append((msg[:-self.sigLen].decode(), ident))
-        # else:
-        #     logger.error('{} got error while '
-        #                  'verifying message {} from {}'
-        #                  .format(self, msg, ident))
         try:
+            if len(msg) > self.msgLenLimit:
+                raise ValueError('Message exceeded allowed limit of {}'.format(self.msgLenLimit))
             decoded = msg.decode()
-        except UnicodeDecodeError as ex:
-            logger.error('{} got exception while decoding {} to utf-8: {}'
-                         .format(self, msg, ex))
+        except Exception as ex:
+            errstr = 'Message will be discarded due to {}'.format(ex)
+            frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
+            logger.error("Got from {} {}".format(frm, errstr))
+            self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
         return True
