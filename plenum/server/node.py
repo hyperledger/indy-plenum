@@ -170,7 +170,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         kwargs = dict(stackParams=self.poolManager.cstack,
-                      msgHandler=self.handleOneClientMsg, msgRejectHandler=self.rejectClientMsgHandler)
+                      msgHandler=self.handleOneClientMsg, msgRejectHandler=self.reject_client_msg_handler)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -353,7 +353,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # between.
         self._next_view_indications = SortedDict()
 
-    def rejectClientMsgHandler(self, reason, frm):
+    def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
 
     @property
