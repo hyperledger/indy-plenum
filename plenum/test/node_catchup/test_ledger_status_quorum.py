@@ -1,5 +1,3 @@
-from plenum.common.messages.node_messages import LedgerStatus, DOMAIN_LEDGER_ID
-
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.util import getMaxFailures
 
