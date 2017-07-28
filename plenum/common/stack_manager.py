@@ -13,7 +13,7 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
 
@@ -76,6 +76,29 @@ class TxnStackManager:
         cliNodeReg = OrderedDict()
         nodeKeys = {}
         activeValidators = set()
+        try:
+            TxnStackManager._parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
+        except ValueError as exc:
+            logger.debug('Pool transaction file corrupted. Rebuild pool transactions.')
+            exit('Pool transaction file corrupted. Rebuild pool transactions.')
+
+        if returnActive:
+            allNodes = tuple(nodeReg.keys())
+            for nodeName in allNodes:
+                if nodeName not in activeValidators:
+                    nodeReg.pop(nodeName, None)
+                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
+                    nodeKeys.pop(nodeName, None)
+
+            return nodeReg, cliNodeReg, nodeKeys
+        else:
+            return nodeReg, cliNodeReg, nodeKeys, activeValidators
+
+    @staticmethod
+    def _parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+        """
+        helper function for parseLedgerForHaAndKeys
+        """
         for _, txn in ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
@@ -93,9 +116,13 @@ class TxnStackManager:
 
                 try:
                     # TODO: Need to handle abbreviated verkey
+                    key_type = 'verkey'
                     verkey = cryptonymToHex(txn[TARGET_NYM])
+                    key_type = 'identifier'
+                    cryptonymToHex(txn[IDENTIFIER])
                 except ValueError as ex:
-                    raise ValueError("Invalid verkey. Rebuild pool transactions.")
+                    logger.debug('Invalid {}. Rebuild pool transactions.'.format(key_type))
+                    exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
                 nodeKeys[nodeName] = verkey
 
@@ -105,18 +132,6 @@ class TxnStackManager:
                         activeValidators.add(nodeName)
                     else:
                         activeValidators.discard(nodeName)
-
-        if returnActive:
-            allNodes = tuple(nodeReg.keys())
-            for nodeName in allNodes:
-                if nodeName not in activeValidators:
-                    nodeReg.pop(nodeName, None)
-                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
-                    nodeKeys.pop(nodeName, None)
-
-            return nodeReg, cliNodeReg, nodeKeys
-        else:
-            return nodeReg, cliNodeReg, nodeKeys, activeValidators
 
     def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
                          addRemote=True):
