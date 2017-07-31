@@ -8,6 +8,7 @@ import psutil
 
 from stp_core.common.log import getlogger
 from stp_core.common.util import get_func_name, get_func_args
+from stp_core.loop.exceptions import EventuallyTimeoutException
 from stp_core.ratchet import Ratchet
 
 # TODO: move it to plenum-util repo
@@ -99,7 +100,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
         if fails > acceptableFails:
             err= 'All checks could not complete successfully since total timeout ' \
                  'expired {} sec ago'.format(-1*rem if rem<0 else 0)
-            raise Exception(err)
+            raise EventuallyTimeoutException(err)
 
     if others:
         funcNames.append("and {} others".format(others))
