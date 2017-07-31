@@ -1,10 +1,13 @@
 import math
 from itertools import combinations
 
+import time
+
+import os
 from libnacl import crypto_hash_sha256
 
 from plenum.common.util import randomString, compare_3PC_keys, \
-    check_if_all_equal_in_list, min_3PC_key, max_3PC_key
+    check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch
 from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
 
@@ -89,3 +92,31 @@ def test_3PC_key_comaparison():
     assert max_3PC_key([(2, 100), (1, 300), (5, 6)]) == (5, 6)
     assert max_3PC_key([(2, 100), (3, 20), (4, 1)]) == (4, 1)
     assert max_3PC_key([(2, 100), (2, 300), (2, 400)]) == (2, 400)
+
+
+def test_utc_epoch():
+    t1 = get_utc_epoch()
+    time.sleep(1)
+    t2 = get_utc_epoch()
+    assert 1 <= t2-t1 < 2
+
+    old_tz = os.environ.get('TZ')
+
+    t3 = get_utc_epoch()
+    os.environ['TZ'] = 'Europe/London'
+    time.tzset()
+    time.sleep(1)
+    t4 = get_utc_epoch()
+    assert 1 <= t4 - t3 < 2
+
+    t5 = get_utc_epoch()
+    os.environ['TZ'] = 'America/St_Johns'
+    time.tzset()
+    time.sleep(1)
+    t6 = get_utc_epoch()
+    assert 1 <= t6 - t5 < 2
+
+    if old_tz is None:
+        del os.environ['TZ']
+    else:
+        os.environ['TZ'] = old_tz

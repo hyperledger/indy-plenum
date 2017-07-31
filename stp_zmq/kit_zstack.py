@@ -16,14 +16,16 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
                  registry: Dict[str, HA],
                  seed=None,
                  sighex: str = None,
-                 config=None):
+                 config=None,
+                 msgRejectHandler=None):
 
         SimpleZStack.__init__(self,
                               stackParams,
                               msgHandler,
                               seed=seed,
                               sighex=sighex,
-                              config=config)
+                              config=config,
+                              msgRejectHandler=msgRejectHandler)
 
         KITNetworkInterface.__init__(self,
                                      registry=registry)
