@@ -21,6 +21,7 @@ import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
+from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -56,6 +57,11 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
 Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
 config = getConfig()
+
+
+@pytest.mark.firstresult
+def pytest_xdist_make_scheduler(config, log):
+    return GroupedLoadScheduling(config, log)
 
 
 @pytest.fixture(scope="session")
