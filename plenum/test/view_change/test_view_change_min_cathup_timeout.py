@@ -20,7 +20,7 @@ def patch_has_ordered_till_last_prepared_certificate(nodeSet):
             types.MethodType(patched_has_ordered_till_last_prepared_certificate, node)
 
 
-def test_view_change_min_catchup_timout(nodeSet, up, looper, wallet1, client1,
+def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
                                         tconf,
                                         viewNo):
     """

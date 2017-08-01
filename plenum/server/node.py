@@ -1611,20 +1611,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         logger.debug('{} is not caught up for the current view {}'.
                      format(self, self.viewNo))
+
         if self.num_txns_caught_up_in_last_catchup() == 0:
             if self.has_ordered_till_last_prepared_certificate():
                 logger.debug('{} ordered till last prepared certificate'.format(self))
                 return False
 
-            ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-            if self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE and \
-                    (ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
-                logger.debug('{} has completed {} catchup rounds for {} seconds'.
-                             format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
-                # No more 3PC messages will be processed since maximum catchup
-                # rounds have been done
-                self.master_replica.last_prepared_before_view_change = None
+            if self.is_catch_up_limit():
                 return False
+
         return True
 
     def caught_up_for_current_view(self) -> bool:
@@ -1653,6 +1648,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if lst is None:
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
+
+    def is_catch_up_limit(self):
+        ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
+        if (self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and \
+                (ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+            logger.debug('{} has completed {} catchup rounds for {} seconds'.
+                         format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
+            # No more 3PC messages will be processed since maximum catchup
+            # rounds have been done
+            self.master_replica.last_prepared_before_view_change = None
+            return True
+        return False
+
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
         count = sum([l.num_txns_caught_up for l in
