@@ -44,9 +44,12 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
     for r in npr:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
         r.node.nodeIbStasher.delay(pDelay(delay, instId))
-        # do not do any view changes since we're dealing with non-master instance and
-        # may have not order all requests if view is changed
-        r.node.nodeIbStasher.delay(icDelay(300))
+
+    # do not do any view changes since we're dealing with non-master instance and
+    # may have not order all requests if view is changed
+    # delay for all nodes (both primary and non-primary), since this is delay for receiving, not sending.
+    for node in txnPoolNodeSet:
+        node.nodeIbStasher.delay(icDelay(300))
 
     tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     batch_count = math.ceil(reqs_to_send / tconf.Max3PCBatchSize)
