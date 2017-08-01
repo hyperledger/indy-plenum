@@ -12,10 +12,10 @@ from stp_zmq.simple_zstack import SimpleZStack
 
 class ClientZStack(SimpleZStack, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
-                 config=None):
+                 config=None, msgRejectHandler=None):
         config = config or getConfig()
         SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
-                              onlyListener=True, config=config)
+                              onlyListener=True, config=config, msgRejectHandler=msgRejectHandler)
         MessageProcessor.__init__(self, allowDictOnly=False)
         self.connectedClients = set()
 

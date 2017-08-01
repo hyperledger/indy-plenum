@@ -30,6 +30,8 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_zmq.util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations, createCertsFromKeys
 from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_length
+from plenum.common.exceptions import InvalidMessageExceedingSizeException
+from stp_core.validators.message_length_validator import MessageLenValidator
 
 logger = getlogger()
 
@@ -53,16 +55,18 @@ class ZStack(NetworkInterface):
     messageTimeout = 3
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
         self.seed = seed
         self.config = config or getConfig()
+        self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
         self.listenerQuota = self.config.DEFAULT_LISTENER_QUOTA
         self.senderQuota = self.config.DEFAULT_SENDER_QUOTA
+        self.msgLenVal = MessageLenValidator(self.config.MSG_LEN_LIMIT)
 
         self.homeDir = None
         # As of now there would be only one file in secretKeysDir and sigKeyDir
@@ -102,6 +106,9 @@ class ZStack(NetworkInterface):
         self._created = time.perf_counter()
 
         self.last_heartbeat_at = None
+
+    def __defaultMsgRejectHandler(self, reason: str, frm):
+        pass
 
     @property
     def remotes(self):
@@ -432,17 +439,14 @@ class ZStack(NetworkInterface):
         return 0
 
     def _verifyAndAppend(self, msg, ident):
-        # if self.verify(msg, ident):
-        #     self.rxMsgs.append((msg[:-self.sigLen].decode(), ident))
-        # else:
-        #     logger.error('{} got error while '
-        #                  'verifying message {} from {}'
-        #                  .format(self, msg, ident))
         try:
+            self.msgLenVal.validate(msg)
             decoded = msg.decode()
-        except UnicodeDecodeError as ex:
-            logger.error('{} got exception while decoding {} to utf-8: {}'
-                         .format(self, msg, ex))
+        except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
+            errstr = 'Message will be discarded due to {}'.format(ex)
+            frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
+            logger.error("Got from {} {}".format(frm, errstr))
+            self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
         return True
@@ -674,7 +678,11 @@ class ZStack(NetworkInterface):
                 r = []
                 # Serializing beforehand since to avoid serializing for each
                 # remote
-                msg = self.serializeMsg(msg)
+                try:
+                    msg = self.prepare_to_send(msg)
+                except InvalidMessageExceedingSizeException as ex:
+                    logger.error('Cannot send message. Error {}'.format(ex))
+                    return False
                 for uid in self.remotes:
                     r.append(self.transmit(msg, uid, serialized=True))
                 return all(r)
@@ -692,7 +700,8 @@ class ZStack(NetworkInterface):
                            'for remote {}'.format(self, uid))
             return False
         try:
-            msg = self.serializeMsg(msg) if not serialized else msg
+            if not serialized:
+                msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
             logger.debug('{} transmitting message {} to {}'
@@ -706,6 +715,8 @@ class ZStack(NetworkInterface):
         except zmq.Again:
             logger.info('{} could not transmit message to {}'
                         .format(self, uid))
+        except InvalidMessageExceedingSizeException as ex:
+            logger.error('Cannot transmit message. Error {}'.format(ex))
         return False
 
     def transmitThroughListener(self, msg, ident):
@@ -717,8 +728,8 @@ class ZStack(NetworkInterface):
             logger.debug("This is a temporary workaround for not being able to "
                          "disconnect a ROUTER's remote")
             return False
-        msg = self.serializeMsg(msg)
         try:
+            msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
             # self.listener.send_multipart([ident, self.signedMsg(msg)],
             #                              flags=zmq.NOBLOCK)
@@ -727,6 +738,9 @@ class ZStack(NetworkInterface):
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
             return True
         except zmq.Again:
+            return False
+        except InvalidMessageExceedingSizeException as ex:
+            logger.error('Cannot transmit message. Error {}'.format(ex))
             return False
         except Exception as e:
             logger.error('{} got error {} while sending through listener to {}'.
@@ -913,6 +927,11 @@ class ZStack(NetworkInterface):
 
     def clearRemoteKeeps(self):
         pass
+
+    def prepare_to_send(self, msg: Any):
+        msg_bytes = self.serializeMsg(msg)
+        self.msgLenVal.validate(msg_bytes)
+        return msg_bytes
 
 
 class DummyKeep:
