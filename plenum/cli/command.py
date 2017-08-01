@@ -124,14 +124,14 @@ listIdsCmd = Command(
 useIdCmd = Command(
     id="use DID",
     title="Marks given DID active/default",
-    usage="use DID <identifier>",
+    usage="use DID <DID>",
     note="Note: To see all DIDs in active wallet, use 'list ids' command",
     examples="use DID 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
 
 addGenesisTxnCmd = Command(
     id="add genesis transaction",
     title="Adds given genesis transaction",
-    usage="add genesis transaction <type> for <dest-identifier> [by <identifier>] [with data {<json data>}] [role=<role>]",
+    usage="add genesis transaction <type> for <dest-DID> [by <DID>] [with data {<json data>}] [role=<role>]",
     examples=[
         'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
             nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
