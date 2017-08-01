@@ -14,7 +14,7 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 from math import floor
 from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -430,7 +430,7 @@ def get_utc_epoch() -> int:
     Returns epoch in UTC
     :return:
     """
-    return int(datetime.utcnow().timestamp())
+    return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
 
 def lxor(a, b):
