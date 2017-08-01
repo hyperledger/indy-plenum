@@ -7,7 +7,7 @@ import math
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.perf_util import get_memory_usage
+from plenum.common.perf_util import get_memory_usage, timeit
 from plenum.test.delayers import cr_delay
 from plenum.test.test_client import TestClient
 
@@ -98,7 +98,22 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
     time_log = []
     warm_up_batches = 10
     tolerance_factor = 2
-    from pympler import asizeof
+    print_detailed_memory_usage = False
+    from pympler import tracker
+    tr = tracker.SummaryTracker()
+    node_methods_to_capture = [TestNode.executeBatch,
+                               TestNode.recordAndPropagate,
+                               TestNode.domainDynamicValidation,
+                               TestNode.domainRequestApplication]
+    times = {n.name: {meth.__name__: [] for meth in node_methods_to_capture}
+             for n in txnPoolNodeSet}
+
+    for node in txnPoolNodeSet:
+        for meth in node_methods_to_capture:
+            meth_name = meth.__name__
+            patched = timeit(getattr(node, meth_name), times[node.name][meth_name])
+            setattr(node, meth_name, patched)
+
     for i in range(client_batches):
         s = perf_counter()
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
@@ -113,11 +128,18 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                 # print(sys.getsizeof(node))
                 print('---Node {}-----'.format(node))
                 # print('Requests {}'.format(asizeof.asizeof(node.requests, detail=1)))
-                print(get_memory_usage(node, True, get_only_non_empty=True))
+                print(get_memory_usage(node, print_detailed_memory_usage, get_only_non_empty=True))
                 for r in node.replicas:
                     print('---Replica {}-----'.format(r))
-                    print(get_memory_usage(r, True, get_only_non_empty=True))
+                    print(get_memory_usage(r, print_detailed_memory_usage, get_only_non_empty=True))
+
+            # if i % 3 == 0:
+            #     tr.print_diff()
             print('--------Memory Usage details end')
+            for node in txnPoolNodeSet:
+                for meth in node_methods_to_capture:
+                    ts = times[node.name][meth.__name__]
+                    print('{} {} {} {}'.format(node, meth.__name__, mean(ts), ts))
 
         if len(time_log) >= warm_up_batches:
             m = mean(time_log)
