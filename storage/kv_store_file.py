@@ -67,6 +67,7 @@ class KeyValueStorageFile(KeyValueStorage):
         for k, v in self.iterator():
             if k == key:
                 return v
+        raise KeyError("'{}' doesn't contain {} key".format(self.db_file, str(key)))
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if not (include_key or include_value):
