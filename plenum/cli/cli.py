@@ -150,7 +150,7 @@ class Cli:
         self.plugins = {}
         self.pluginPaths = []
         self.defaultClient = None
-        self.activeIdentifier = None
+        self.activeDID = None
         # Wallet and Client are the same from user perspective for now
         self._activeClient = None
         self._wallets = {}  # type: Dict[str, Wallet]
@@ -524,11 +524,11 @@ class Cli:
     def _addNewGenesisCommand(self, matchedVars):
         typ = self._getType(matchedVars)
 
-        nodeName, nodeData, identifier = None, None, None
+        nodeName, nodeData, DID = None, None, None
         jsonNodeData = json.loads(matchedVars.get(DATA))
         for key, value in jsonNodeData.items():
             if key == BY:
-                identifier = value
+                DID = value
             else:
                 nodeName, nodeData = key, value
 
@@ -544,7 +544,7 @@ class Cli:
 
         newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
                           TARGET_NYM: nodeData.get(VERKEY),
-                          IDENTIFIER: identifier}
+                          IDENTIFIER: DID}
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
@@ -956,8 +956,8 @@ class Cli:
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
 
-            for identifier, verkey in self.externalClientKeys.items():
-                node.clientAuthNr.addIdr(identifier, verkey)
+            for DID, verkey in self.externalClientKeys.items():
+                node.clientAuthNr.addIdr(DID, verkey)
             nodes.append(node)
         return nodes
 
@@ -1077,10 +1077,10 @@ class Cli:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
-    def bootstrapKey(wallet, node, identifier=None):
-        identifier = identifier or wallet.defaultId
-        assert identifier, "Client has no DID"
-        node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
+    def bootstrapKey(wallet, node, DID=None):
+        DID = DID or wallet.defaultId
+        assert DID, "Client has no DID"
+        node.clientAuthNr.addIdr(DID, wallet.getVerkey(DID))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -1111,11 +1111,11 @@ class Cli:
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, identifier, reqId):
+    def getReply(self, clientName, DID, reqId):
         reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        if client and (identifier, reqId) in self.requests:
-            reply, status = client.getReply(identifier, reqId)
+        if client and (DID, reqId) in self.requests:
+            reply, status = client.getReply(DID, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -1303,13 +1303,13 @@ class Cli:
         if matchedVars.get('add_key') == 'add key':
             verkey = matchedVars.get('verkey')
             # TODO make verkey case insensitive
-            identifier = matchedVars.get('identifier')
-            if identifier in self.externalClientKeys:
+            DID = matchedVars.get('DID')
+            if DID in self.externalClientKeys:
                 self.print("DID already added", Token.Error)
                 return
-            self.externalClientKeys[identifier] = verkey
+            self.externalClientKeys[DID] = verkey
             for n in self.nodes.values():
-                n.clientAuthNr.addIdr(identifier, verkey)
+                n.clientAuthNr.addIdr(DID, verkey)
             return True
 
     def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,
@@ -1322,13 +1322,13 @@ class Cli:
 
     def _newSigner(self,
                    wallet=None,
-                   identifier=None,
+                   DID=None,
                    seed=None,
                    alias=None):
 
         cseed = cleanSeed(seed)
 
-        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
+        signer = DidSigner(identifier=DID, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("DID for key is {}".format(signer.identifier))
         self.print("Verification key is {}".format(signer.verkey))
@@ -1680,17 +1680,17 @@ class Cli:
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
             if idrFromAlias:
-                self.activeIdentifier = idrFromAlias
+                self.activeDID = idrFromAlias
                 self.activeAlias = idrOrAlias
             else:
                 alias = [k for k, v
                          in wallet.aliasesToIds.items()
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
-                self.activeIdentifier = idrOrAlias
-            wallet.defaultId = self.activeIdentifier
+                self.activeDID = idrOrAlias
+            wallet.defaultId = self.activeDID
             self.print("Current DID set to {}".
-                       format(self.activeAlias or self.activeIdentifier))
+                       format(self.activeAlias or self.activeDID))
             return True
         return False
 
@@ -1784,7 +1784,7 @@ class Cli:
             self.print(" ({})".format(walletFilePath)
                        , Token.Gray)
             self.activeWallet = wallet
-            self.activeIdentifier = wallet.defaultId
+            self.activeDID = wallet.defaultId
 
             self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
@@ -1950,9 +1950,9 @@ class Cli:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
-        identifier = matchedVars.get("nym")
-        if len(names) == 1 and (seed or identifier):
-            initializer(names[0].strip(), seed=seed, identifier=identifier)
+        DID = matchedVars.get("nym")
+        if len(names) == 1 and (seed or DID):
+            initializer(names[0].strip(), seed=seed, identifier=DID)
         else:
             for name in names:
                 initializer(name.strip())
