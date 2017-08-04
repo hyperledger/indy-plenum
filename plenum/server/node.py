@@ -77,7 +77,7 @@ from stp_zmq.zstack import ZStack
 from plenum.common.constants import openTxns
 from state.state import State
 from plenum.common.messages.node_messages import ViewChangeDone
-
+from plenum.server.replicas import Replicas
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -218,7 +218,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = []  # type: List[replica.Replica]
+        self.replicas = Replicas()
+
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
         # its index in the list and each element of the deque is a named tuple
