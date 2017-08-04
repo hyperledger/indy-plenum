@@ -129,6 +129,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     @staticmethod
     def serializeReq(req: Request) -> str:
+        # TODO: separate json serialization into serialization.py
         return json.dumps(req.__getstate__())
 
     @staticmethod
