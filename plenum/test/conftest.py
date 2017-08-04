@@ -242,19 +242,19 @@ def logcapture(request, whitelist, concerningLogLevels):
 
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
-        msg = str(record.msg)
-        isWhiteListed = bool([w for w in whiteListedExceptions
-                              if re.search(w, msg)])
 
-        if not (isBenign or isTest or isWhiteListed):
-            # Stopping all loopers, so prodables like nodes, clients, etc stop.
-            #  This helps in freeing ports
-            for fv in request._fixture_values.values():
-                if isinstance(fv, Looper):
-                    fv.stopall()
-                if isinstance(fv, Prodable):
-                    fv.stop()
-            raise BlowUp("{}: {} ".format(record.levelname, record.msg))
+        if not (isBenign or isTest):
+            msg = str(record.msg)
+            isWhiteListed = any(re.search(w, msg) for w in whiteListedExceptions)
+            if not isWhiteListed:
+                # Stopping all loopers, so prodables like nodes, clients, etc stop.
+                #  This helps in freeing ports
+                for fv in request._fixture_values.values():
+                    if isinstance(fv, Looper):
+                        fv.stopall()
+                    if isinstance(fv, Prodable):
+                        fv.stop()
+                raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
