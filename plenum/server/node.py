@@ -218,7 +218,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = Replicas()
+        self.replicas = Replicas(self.name,
+                                 self.monitor)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
@@ -1003,19 +1004,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendInstanceChange(next_view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
-
-    def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
-        """
-        Create a new replica with the specified parameters.
-        This is a convenience method used to create replicas from a node
-        instead of passing in replicas in the Node's constructor.
-
-        :param instId: protocol instance number
-        :param isMaster: does this replica belong to the master protocol
-            instance?
-        :return: a new instance of Replica
-        """
-        return replica.Replica(self, instId, isMaster)
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
         """
