@@ -1840,8 +1840,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send_ack_to_client(request.key, frm)
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        txn = self.getReplyFromLedger(ledger=ledger,
-                                      seq_no=request.operation[DATA])
+        seq_no = request.operation[DATA]
+        try:
+            txn = self.getReplyFromLedger(ledger=ledger,
+                                          seq_no=seq_no)
+        except KeyError:
+            logger.debug("{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}".
+                         format(self, str(seq_no)))
+            txn = None
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
@@ -1851,7 +1857,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         if txn:
-            result[DATA] = json.dumps(txn.result)
+            result[DATA] = txn.result
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
 
         self.transmitToClient(Reply(result), frm)

@@ -67,9 +67,8 @@ def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
         eventually(checkSufficientRepliesReceived, steward1.inBox,
                    req.reqId, fValue,
                    retryWait=1, timeout=timeout))
-    get_txn_response = json.loads(get_txn_response[DATA])
 
-    del nym_response['txnTime']
-    del get_txn_response['txnTime']
+    nym_response.pop('txnTime', None)
+    get_txn_response[DATA].pop('txnTime', None)
 
-    assert nym_response == get_txn_response
+    assert nym_response == get_txn_response[DATA]
