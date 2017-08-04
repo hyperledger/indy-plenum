@@ -929,7 +929,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
-            self.addReplica()
+            self.replicas.grow()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas)-1)
 
@@ -1017,28 +1017,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: a new instance of Replica
         """
         return replica.Replica(self, instId, isMaster)
-
-    def addReplica(self):
-        """
-        Create and add a new replica to this node.
-        If this is the first replica on this node, it will belong to the Master
-        protocol instance.
-        """
-        instId = len(self.replicas)
-        if len(self.replicas) == 0:
-            isMaster = True
-            instDesc = "master"
-        else:
-            isMaster = False
-            instDesc = "backup"
-        replica = self.createReplica(instId, isMaster)
-        self.replicas.append(replica)
-        self.msgsToReplicas.append(deque())
-        self.monitor.addInstance()
-        logger.display("{} added replica {} to instance {} ({})".
-                       format(self, replica, instId, instDesc),
-                       extra={"tags": ["node-replica"]})
-        return replica
 
     def removeReplica(self):
         replica = self.replicas[-1]
