@@ -927,16 +927,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Add or remove replicas depending on `f`
         """
+        # TODO: refactor this
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.replicas.grow()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas)-1)
-
         while len(self.replicas) > self.requiredNumberOfInstances:
-            self.removeReplica()
+            self.replicas.shrink()
             newReplicas -= 1
-
         pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
         return newReplicas
 
@@ -1017,16 +1016,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: a new instance of Replica
         """
         return replica.Replica(self, instId, isMaster)
-
-    def removeReplica(self):
-        replica = self.replicas[-1]
-        self.replicas = self.replicas[:-1]
-        self.msgsToReplicas = self.msgsToReplicas[:-1]
-        self.monitor.addInstance()
-        logger.display("{} removed replica {} from instance {}".
-                       format(self, replica, replica.instId),
-                       extra={"tags": ["node-replica"]})
-        return replica
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
         """

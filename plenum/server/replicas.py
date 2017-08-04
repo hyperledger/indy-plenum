@@ -8,6 +8,8 @@ logger = getlogger()
 
 class Replicas:
 
+    # TODO: enhance logging
+
     def __init__(self):
         self.replicas = []  # type: List[Replica]
         self.messages_to_replicas = []  # type: List[Deque]
@@ -27,8 +29,14 @@ class Replicas:
         return instance_id
 
     def shrink(self) -> int:
-        # TODO: implement
-        pass
+        replica = self.replicas[-1]
+        self.replicas = self.replicas[:-1]
+        self.messages_to_replicas = self.messages_to_replicas[:-1]
+        self.monitor.removeInstance()
+        logger.display("{} removed replica {} from instance {}".
+                       format(self, replica, replica.instId),
+                       extra={"tags": ["node-replica"]})
+        return len(self)
 
     def __len__(self):
         return len(self.replicas)
