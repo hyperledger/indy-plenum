@@ -1,4 +1,3 @@
-import json
 import os
 from collections import namedtuple
 from typing import Any, List, Dict
@@ -127,14 +126,12 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         fields = getTxnOrderedFields()
         return updateFieldsWithSeqNo(fields)
 
-    @staticmethod
-    def serializeReq(req: Request) -> str:
-        # TODO: separate json serialization into serialization.py
-        return json.dumps(req.__getstate__())
+    def serializeReq(self, req: Request) -> str:
+        return self.txnSerializer.serialize(req.__getstate__(), toBytes=False)
 
-    @staticmethod
-    def deserializeReq(serReq: str) -> Request:
-        return Request.fromState(json.loads(serReq))
+    def deserializeReq(self, serReq: str) -> Request:
+        return Request.fromState(
+            self.txnSerializer.deserialize(serReq))
 
     def _getLinesWithPrefix(self, identifier: str, reqId: int,
                             prefix: str) -> List[str]:

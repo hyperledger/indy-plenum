@@ -9,6 +9,7 @@ ledger_txn_serializer = MsgPackSerializer()
 ledger_hash_serializer = MsgPackSerializer()
 domain_state_serializer = JsonSerializer()
 pool_state_serializer = JsonSerializer()
+client_req_rep_store_serializer = JsonSerializer()
 
 def serialize_msg_for_signing(msg: Mapping, topLevelKeysToIgnore=None):
     """
