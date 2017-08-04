@@ -1,5 +1,5 @@
 from plenum.server.replica import Replica
-from typing import List, Deque
+from typing import List, Deque, Optional
 from collections import deque
 from plenum.server.monitor import Monitor
 
@@ -38,6 +38,16 @@ class Replicas:
                        format(self._onwer_name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
         return len(self)
+
+    @property
+    def some_replica_has_primary(self) -> bool:
+        return self.primary_replica_id is not None
+
+    @property
+    def primary_replica_id(self) -> Optional[int]:
+        for instance_id, replica in enumerate(self._replicas):
+            if replica.isPrimary:
+                return instance_id
 
     def _new_replica(self, instance_id: int, is_master: bool) -> Replica:
         """

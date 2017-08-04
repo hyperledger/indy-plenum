@@ -1109,7 +1109,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: whether this node has a primary
         """
-        return any(replica.isPrimary for replica in self.replicas)
+        # TODO: remove this property?
+        return self.replicas.some_replica_has_primary
 
     @property
     def primaryReplicaNo(self) -> Optional[int]:
@@ -1119,12 +1120,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: index of the primary
         """
-        if self._primary_replica_no is None:
-            for idx, replica in enumerate(self.replicas):
-                if replica.isPrimary:
-                    self._primary_replica_no = idx
-                    return idx
-        return self._primary_replica_no
+        # TODO: remove this property?
+        return self.replicas.primary_replica_id
 
     @property
     def master_primary_name(self) -> Optional[str]:
