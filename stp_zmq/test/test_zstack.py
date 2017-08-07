@@ -61,7 +61,7 @@ def testZStackSendMethodReturnsFalseIfDestinationIsUnknown(tdir, looper, tconf):
     # disconnect remote
     alpha.getRemote(beta.name).disconnect()
     # check send message returns False
-    assert alpha.send({'greetings': 'hello'}, beta.name) is False
+    assert alpha.send({'greetings': 'hello'}, beta.name)[0] is False
 
 
 def test_zstack_non_utf8(tdir, looper, tconf):
@@ -198,7 +198,7 @@ def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
     prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
 
     stat = alpha.send(msg, beta.name)
-    assert stat is True
+    assert stat[0] is True
 
     looper.runFor(5)
 
@@ -240,7 +240,8 @@ def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
     prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
 
     stat = alpha.send(msg, beta.name)
-    assert stat is False
+    assert stat[0] is False
+    assert 'exceeded allowed limit of {}'.format(tconf.MSG_LEN_LIMIT) in stat[1]
 
     looper.runFor(5)
 
