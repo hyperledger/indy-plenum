@@ -2376,10 +2376,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
         return i
 
-    def sync3PhaseState(self):
-        for replica in self.replicas:
-            self.send(replica.threePhaseState)
-
     def ensureKeysAreSetup(self):
         """
         Check whether the keys are setup in the local STP keep.
