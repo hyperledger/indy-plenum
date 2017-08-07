@@ -1,5 +1,5 @@
 from plenum.server.replica import Replica
-from typing import List, Deque, Optional, Generator
+from typing import List, Optional, Generator
 from collections import deque
 from plenum.server.monitor import Monitor
 import math
@@ -14,7 +14,7 @@ class Replicas:
         self._onwer_name = onwer_name
         self._monitor = monitor
         self._replicas = []  # type: List[Replica]
-        self._messages_to_replicas = []  # type: List[Deque]
+        self._messages_to_replicas = []  # type: List[deque]
 
     def grow(self) -> int:
         instance_id = self.num_replicas
