@@ -63,8 +63,7 @@ class Stats:
         return self.stats[key]
 
     def __repr__(self):
-        return OrderedDict((TPCStat(k).name, v)
-                           for k, v in self.stats.items())
+        return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
 
 class Replica(HasActionQueue, MessageProcessor):
