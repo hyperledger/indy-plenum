@@ -218,8 +218,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = Replicas(self.name,
-                                 self.monitor)
+        self.replicas = Replicas(node=self,
+                                 monitor=self.monitor)
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a

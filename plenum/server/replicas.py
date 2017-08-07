@@ -2,7 +2,6 @@ from plenum.server.replica import Replica
 from typing import List, Optional, Generator
 from collections import deque
 from plenum.server.monitor import Monitor
-import math
 
 from stp_core.common.log import getlogger
 logger = getlogger()
@@ -10,8 +9,9 @@ logger = getlogger()
 
 class Replicas:
 
-    def __init__(self, onwer_name: str, monitor: Monitor):
-        self._onwer_name = onwer_name
+    def __init__(self, node, monitor: Monitor):
+        # passing full node because Replica requires it
+        self._node = node
         self._monitor = monitor
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
@@ -26,7 +26,10 @@ class Replicas:
         self._monitor.addInstance()
 
         logger.display("{} added replica {} to instance {} ({})"
-                       .format(self._onwer_name, replica, instance_id, description),
+                       .format(self._node.name,
+                               replica,
+                               instance_id,
+                               description),
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
@@ -36,7 +39,7 @@ class Replicas:
         self._messages_to_replicas = self._messages_to_replicas[:-1]
         self._monitor.removeInstance()
         logger.display("{} removed replica {} from instance {}".
-                       format(self._onwer_name, replica, replica.instId),
+                       format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
@@ -67,7 +70,7 @@ class Replicas:
             if per_replica == 0:
                 logger.warning("{} forcibly setting replica "
                                "message limit to {}"
-                               .format(self._onwer_name,
+                               .format(self._node.name,
                                        self.num_replicas))
                 per_replica = 1
         for replica in self._replicas:
@@ -89,7 +92,7 @@ class Replicas:
         """
         Create a new replica with the specified parameters.
         """
-        return Replica(self, instance_id, is_master)
+        return Replica(self._node, instance_id, is_master)
 
     def __len__(self):
         return self.num_replicas
