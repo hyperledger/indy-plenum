@@ -53,7 +53,11 @@ class Replicas:
     @property
     def master_replica_is_primary(self):
         if self.num_replicas > 0:
-            return self._replicas[MASTER_REPLICA_INDEX].isPrimary
+            return self._master_replica.isPrimary
+
+    @property
+    def _master_replica(self):
+        return self._replicas[MASTER_REPLICA_INDEX]
 
     def service_inboxes(self, limit: int=None):
         number_of_processed_messages = \

@@ -1089,8 +1089,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def master_replica(self):
-
-        return self.replicas[0]
+        # TODO: this must be refactored.
+        # Accessing Replica directly should be prohibited
+        return self.replicas._master_replica
 
     @staticmethod
     def is_valid_view_or_inst(n):
