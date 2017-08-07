@@ -108,3 +108,7 @@ class Replicas:
     @property
     def all_replicas_have_primary(self) -> bool:
         return all(r.primaryName is not None for r in self._replicas)
+
+    def register_new_ledger(self, ledger_id):
+        for replica in self._replicas:
+            replica.register_ledger(ledger_id)

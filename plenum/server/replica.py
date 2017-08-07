@@ -225,11 +225,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, deque]
         for ledger_id in self.ledger_ids:
-            # Using ordered set since after ordering each PRE-PREPARE,
-            # the request key is removed, so fast lookup and removal of
-            # request key is needed. Need the collection to be ordered since
-            # the request key needs to be removed once its ordered
-            self.requestQueues[ledger_id] = OrderedSet()
+            self.register_ledger(ledger_id)
 
         self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
         # Tuple[int, float, bytes]]
@@ -262,6 +258,14 @@ class Replica(HasActionQueue, MessageProcessor):
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
+
+    def register_ledger(self, ledger_id):
+        # Using ordered set since after ordering each PRE-PREPARE,
+        # the request key is removed, so fast lookup and removal of
+        # request key is needed. Need the collection to be ordered since
+        # the request key needs to be removed once its ordered
+        if ledger_id not in self.requestQueues:
+            self.requestQueues[ledger_id] = OrderedSet()
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:

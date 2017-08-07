@@ -551,11 +551,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def on_new_ledger_added(self, ledger_id):
-        for r in self.replicas:
-            # If a ledger was added after a replica was created, add a queue
-            # in the ledger to the replica
-            if ledger_id not in r.requestQueues:
-                r.requestQueues[ledger_id] = OrderedSet()
+        # If a ledger was added after a replica was created, add a queue
+        # in the ledger to the replica
+        self.replicas.register_new_ledger(ledger_id)
 
     def loadDomainState(self):
         return PruningState(
