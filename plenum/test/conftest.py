@@ -369,7 +369,7 @@ def request1(wallet1):
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submitReqs(request1)[0]
+    return client1.submitReqs(request1)[0][0]
 
 
 @pytest.fixture(scope="module")
