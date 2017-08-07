@@ -60,7 +60,7 @@ class NodeZStack(Batched, KITZStack):
                  registry: Dict[str, HA], seed=None, sighex: str=None,
                  config=None):
         config = config or getConfig()
-        Batched.__init__(self)
+        Batched.__init__(self, config=config)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
                            seed=seed, sighex=sighex, config=config)
         MessageProcessor.__init__(self, allowDictOnly=False)
