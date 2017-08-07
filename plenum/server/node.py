@@ -218,8 +218,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = Replicas(node=self,
-                                 monitor=self.monitor)
+        self.replicas = self.create_replicas()
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
@@ -351,6 +350,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # higher views) are received, should one view change be interrupted in
         # between.
         self._next_view_indications = SortedDict()
+
+    def create_replicas(self) -> Replicas:
+        return Replicas(self, self.monitor)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -1158,7 +1160,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # this in msgHas* methods!!!
         if self.msgHasAcceptableInstId(msg, frm):
             if self.msgHasAcceptableViewNo(msg, frm):
-                self.replicas.pass_message(msg.instId, msg)
+                self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToElector(self, msg, frm):
         """

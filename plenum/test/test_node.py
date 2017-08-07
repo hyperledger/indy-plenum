@@ -45,6 +45,7 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
 from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
+from plenum.server.replicas import Replicas
 
 logger = getlogger()
 
@@ -111,6 +112,9 @@ class TestNodeCore(StackedTester):
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
+
+    def create_replicas(self):
+        return TestReplicas(self, self.monitor)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -357,6 +361,12 @@ class TestReplica(replica.Replica):
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
+
+
+
+class TestReplicas(Replicas):
+    def _new_replica(self, instance_id: int, is_master: bool):
+        return TestReplica(self._node, instance_id, is_master)
 
 
 class TestNodeSet(ExitStack):

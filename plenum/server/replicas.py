@@ -64,9 +64,11 @@ class Replicas:
             sum(replica.serviceQueues(limit) for replica in self._replicas)
         return number_of_processed_messages
 
-    def pass_message(self, instance_id, message):
-        # TODO: merge it with service_inboxes?
-        self._replicas[instance_id].inBox.append(message)
+    def pass_message(self, message, instance_id=None):
+        for replica in self._replicas \
+                if instance_id is None \
+                else self._replicas[instance_id:instance_id + 1]:
+            replica.inBox.append(message)
 
     def get_output(self, limit: int=None) -> Generator:
         if limit is None:
@@ -100,9 +102,6 @@ class Replicas:
         """
         return Replica(self._node, instance_id, is_master)
 
-    def __len__(self):
-        return self.num_replicas
-
     @property
     def num_replicas(self):
         return len(self._replicas)
@@ -119,3 +118,13 @@ class Replicas:
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas:
             replica.register_ledger(ledger_id)
+
+    def __getitem__(self, item):
+        assert isinstance(item, int)
+        return self._replicas[item]
+
+    def __len__(self):
+        return self.num_replicas
+
+    def __iter__(self):
+        return self._replicas.__iter__()

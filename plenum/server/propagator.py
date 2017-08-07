@@ -205,12 +205,12 @@ class Propagator:
         """
         key = request.key
         logger.debug('{} forwarding request {} to {} replicas'.format(
-            self, key, len(self.msgsToReplicas)))
-        for q in self.msgsToReplicas:
-            q.append(ReqKey(*key))
+            self, key, self.replicas.sum_inbox_len))
+
+        self.replicas.pass_message(ReqKey(*key))
 
         self.monitor.requestUnOrdered(*key)
-        self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
+        self.requests.flagAsForwarded(request, self.replicas.sum_inbox_len)
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):
