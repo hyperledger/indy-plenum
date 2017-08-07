@@ -1067,15 +1067,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.replicas.some_replica_has_primary
 
     @property
-    def primaryReplicaNo(self) -> Optional[int]:
-        """
-        Return the index of the primary or None if there's no primary among the
-        replicas on this node.
-
-        :return: index of the primary
-        """
+    def has_master_primary(self) -> bool:
         # TODO: remove this property?
-        return self.replicas.primary_replica_id
+        return self.replicas.master_replica_is_primary
 
     @property
     def master_primary_name(self) -> Optional[str]:
@@ -2017,7 +2011,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # If the node has primary replica of master instance
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
-            self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+            self.monitor.hasMasterPrimary = self.has_master_primary
 
         if self.view_change_in_progress and \
                 self.replicas.all_instances_have_primary:

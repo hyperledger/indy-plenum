@@ -6,6 +6,7 @@ from plenum.server.monitor import Monitor
 from stp_core.common.log import getlogger
 logger = getlogger()
 
+MASTER_REPLICA_INDEX = 0
 
 class Replicas:
 
@@ -45,13 +46,14 @@ class Replicas:
 
     @property
     def some_replica_has_primary(self) -> bool:
-        return self.primary_replica_id is not None
-
-    @property
-    def primary_replica_id(self) -> Optional[int]:
         for replica in self._replicas:
             if replica.isPrimary:
                 return replica.instId
+
+    @property
+    def master_replica_is_primary(self):
+        if self.num_replicas > 0:
+            return self._replicas[MASTER_REPLICA_INDEX].isPrimary
 
     def service_inboxes(self, limit: int=None):
         number_of_processed_messages = \
