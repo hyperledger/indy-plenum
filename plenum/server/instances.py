@@ -17,6 +17,11 @@ class Instances:
         self.count += 1
         self.started.append(time.perf_counter())
 
+    def remove(self, index):
+        if index in range(len(self.started)):
+            self.count -= 1
+            del self.started[index]
+
     @property
     def ids(self) -> Sequence[int]:
         """
