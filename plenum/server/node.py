@@ -551,8 +551,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def on_new_ledger_added(self, ledger_id):
-        # If a ledger was added after a replica was created, add a queue
-        # in the ledger to the replica
+        # If a ledger was added after a replicas were created
         self.replicas.register_new_ledger(ledger_id)
 
     def loadDomainState(self):
@@ -1095,6 +1094,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def master_replica(self):
+
         return self.replicas[0]
 
     @staticmethod
@@ -2019,12 +2019,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
 
-        if self.view_change_in_progress and self.all_instances_have_primary:
+        if self.view_change_in_progress and \
+                self.replicas.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
-
-    @property
-    def all_instances_have_primary(self):
-        return self.replicas.all_replicas_have_primary
 
     def canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
