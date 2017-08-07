@@ -1059,15 +1059,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def hasPrimary(self) -> bool:
         """
-        Does this node have a primary replica?
-
-        :return: whether this node has a primary
+        Whether this node has primary of any protocol instance
         """
         # TODO: remove this property?
         return self.replicas.some_replica_has_primary
 
     @property
     def has_master_primary(self) -> bool:
+        """
+        Whether this node has primary of master protocol instance
+        """
         # TODO: remove this property?
         return self.replicas.master_replica_is_primary
 
