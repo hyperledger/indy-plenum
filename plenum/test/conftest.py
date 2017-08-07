@@ -242,7 +242,6 @@ def logcapture(request, whitelist, concerningLogLevels):
 
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
-
         if not (isBenign or isTest):
             msg = str(record.msg)
             isWhiteListed = any(re.search(w, msg) for w in whiteListedExceptions)
@@ -488,7 +487,7 @@ def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
 
 @pytest.yield_fixture(scope="module")
 def looperWithoutNodeSet():
-    with Looper(debug=False) as looper:
+    with Looper(debug=True) as looper:
         yield looper
 
 
@@ -660,7 +659,7 @@ def testClientClass():
 
 @pytest.yield_fixture(scope="module")
 def txnPoolNodesLooper():
-    with Looper(debug=False) as l:
+    with Looper(debug=True) as l:
         yield l
 
 
