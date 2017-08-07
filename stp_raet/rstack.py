@@ -261,6 +261,7 @@ class RStack(NetworkInterface):
 
     def transmit(self, msg, uid, timeout=None):
         self.raetStack.transmit(msg, uid, timeout=timeout)
+        return True, None
 
     @property
     def ha(self):
@@ -412,6 +413,7 @@ class RStack(NetworkInterface):
         rid = self.getRemote(remoteName, ha).uid
         # Setting timeout to never expire
         self.raetStack.transmit(msg, rid, timeout=self.messageTimeout)
+        return True, None
 
 
 class SimpleRStack(RStack):

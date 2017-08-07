@@ -635,20 +635,18 @@ class ZStack(NetworkInterface):
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
-        if r is True:
+        if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
-        elif r is False:
+        elif r[0] is False:
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
-            logger.info('{} failed to {} {}'.
-                        format(self.name, action, name),
-                        extra={"cli": False})
-        elif r is None:
+            logger.info('{} failed to {} {} {}'.format(self.name, action, name, r[1]), extra={"cli": False})
+        elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
             logger.warning('{} got an unexpected return value {} while sending'.
                         format(self, r))
-        return r
+        return r[0]
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
@@ -689,7 +687,9 @@ class ZStack(NetworkInterface):
                     res, err = self.transmit(msg, uid, serialized=True)
                     r.append(res)
                     e.append(err)
-                return all(r), "\n".join(e)
+                e = list(filter(lambda x: x is not None, e))
+                ret_err = None if len(e) == 0 else "\n".join(e)
+                return all(r), ret_err
             else:
                 return self.transmit(msg, remoteName)
 
