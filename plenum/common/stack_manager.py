@@ -43,22 +43,16 @@ class TxnStackManager(metaclass=ABCMeta):
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def ledgerGenesisFile(self)-> str:
-        raise NotImplementedError
 
     # noinspection PyTypeChecker
     @property
     def ledger(self):
         if self._ledger is None:
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerGenesisFile)
-            defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.ledgerGenesisFile)
-            if not os.path.exists(defaultTxnFile):
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
+            if not os.path.exists(genesis_txn_initiator.init_file):
                 logger.debug("Not using default initialization file for "
                              "pool ledger, since it does not exist: {}"
-                             .format(defaultTxnFile))
+                             .format(genesis_txn_initiator.init_file))
                 genesis_txn_initiator = None
 
             dataDir = self.ledgerLocation

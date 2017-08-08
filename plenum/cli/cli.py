@@ -283,10 +283,8 @@ class Cli:
         dataDir = self.basedirpath
         fileHashStore = FileHashStore(dataDir=dataDir)
 
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFileGenesis)
-        defaultTxnFile = os.path.join(dataDir,
-                                      self.config.poolTransactionsFileGenesis)
-        if not os.path.exists(defaultTxnFile):
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
+        if not os.path.exists(genesis_txn_initiator.init_file):
             genesis_txn_initiator = None
 
         ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
@@ -504,7 +502,7 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFileGenesis)
+            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFile)
             ledger = initiator.create_initiator_ledger()
             ledger.reset()
             for item in self.genesisTransactions:

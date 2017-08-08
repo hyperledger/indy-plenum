@@ -115,8 +115,8 @@ class TestNetworkSetup:
 
     @classmethod
     def init_pool_ledger(cls, appendToLedgers, baseDir, config, envName):
-        poolTxnFile = cls.pool_ledger_file_name(config, envName)
-        initiator = GenesisTxnInitiatorFromFile(baseDir, poolTxnFile)
+        pool_txn_file = cls.pool_ledger_file_name(config, envName)
+        initiator = GenesisTxnInitiatorFromFile(baseDir, pool_txn_file)
         pool_ledger = initiator.create_initiator_ledger()
         if not appendToLedgers:
             pool_ledger.reset()
@@ -125,8 +125,8 @@ class TestNetworkSetup:
     @classmethod
     def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
                            domainTxnFieldOrder):
-        domainTxnFile = cls.domain_ledger_file_name(config, envName)
-        initiator = GenesisTxnInitiatorFromFile(baseDir, domainTxnFile)
+        domain_txn_file = cls.domain_ledger_file_name(config, envName)
+        initiator = GenesisTxnInitiatorFromFile(baseDir, domain_txn_file)
         domain_ledger = initiator.create_initiator_ledger()
         if not appendToLedgers:
             domain_ledger.reset()

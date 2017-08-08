@@ -13,13 +13,14 @@ from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
+from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
-from plenum.config import poolTransactionsFileGenesis, domainTransactionsFileGenesis
+from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -785,11 +786,11 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFileGenesis),
-                 os.path.join(dirName, tconf.poolTransactionsFileGenesis))
+        copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(poolTransactionsFile)),
+                 os.path.join(dirName, genesis_txn_file(tconf.poolTransactionsFile)))
     if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFileGenesis),
-                 os.path.join(dirName, tconf.domainTransactionsFileGenesis))
+        copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(domainTransactionsFile)),
+                 os.path.join(dirName, genesis_txn_file(tconf.domainTransactionsFile)))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
