@@ -1,6 +1,7 @@
 import os
 
 from common.serializers.json_serializer import JsonSerializer
+from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from ledger.test.helper import create_default_ledger
 from ledger.util import F
 from storage import store_utils
@@ -9,7 +10,7 @@ from storage import store_utils
 def test_genesis_txn_file_initiator(tempdir, init_genesis_txn_file, genesis_txns):
     # Check that initiator of genesis txns work:
     # It uses a text file with JsonSerializer by default
-    genesis_file = os.path.join(tempdir, init_genesis_txn_file)
+    genesis_file = genesis_txn_file(os.path.join(tempdir, init_genesis_txn_file))
     assert os.path.exists(genesis_file)
     i = 0
     serializer = JsonSerializer()
