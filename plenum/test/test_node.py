@@ -218,10 +218,10 @@ class TestNodeCore(StackedTester):
         logger.debug("{0} received Test message: {1} from {2}".
                      format(self.nodestack.name, msg, frm))
 
-    def serviceReplicaOutBox(self, *args, **kwargs) -> int:
+    def service_replicas_outbox(self, *args, **kwargs) -> int:
         for r in self.replicas:  # type: TestReplica
             r.outBoxTestStasher.process()
-        return super().serviceReplicaOutBox(*args, **kwargs)
+        return super().service_replicas_outbox(*args, **kwargs)
 
     def ensureKeysAreSetup(self):
         pass
