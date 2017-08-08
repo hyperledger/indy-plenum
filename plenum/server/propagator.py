@@ -208,9 +208,8 @@ class Propagator:
             self, key, self.replicas.sum_inbox_len))
 
         self.replicas.pass_message(ReqKey(*key))
-
         self.monitor.requestUnOrdered(*key)
-        self.requests.flagAsForwarded(request, self.replicas.sum_inbox_len)
+        self.requests.flagAsForwarded(request, self.replicas.num_replicas)
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):
