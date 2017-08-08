@@ -24,18 +24,20 @@ def test_reopen(kv):
 
 def test_drop(kv):
     kv.put('k1', 'v1')
-    hasKeyBeforeDrop = kv.has_key('k1')
+    hasKeyBeforeDrop = 'k1' in kv
     kv.close()
     kv.drop()
 
     kv.open()
-    hasKeyAfterDrop = kv.has_key('k1')
+    hasKeyAfterDrop = 'k1' in kv
 
     assert hasKeyBeforeDrop
     assert not hasKeyAfterDrop
 
+
 def test_put_none(kv):
     kv.put('k1', None)
+
 
 def test_put_string(kv):
     kv.put('k1', 'v1')
@@ -90,9 +92,9 @@ def test_put_string_and_bytes(kv):
 
 def test_remove_string(kv):
     kv.put('k1', 'v1')
-    hasKeyBeforeRemove = kv.has_key('k1')
+    hasKeyBeforeRemove = 'k1' in kv
     kv.remove('k1')
-    hasKeyAfterRemove = kv.has_key('k1')
+    hasKeyAfterRemove = 'k1' in kv
 
     assert hasKeyBeforeRemove
     assert not hasKeyAfterRemove
@@ -100,9 +102,9 @@ def test_remove_string(kv):
 
 def test_remove_bytes(kv):
     kv.put(b'k1', b'v1')
-    hasKeyBeforeRemove = kv.has_key(b'k1')
+    hasKeyBeforeRemove = b'k1' in kv
     kv.remove(b'k1')
-    hasKeyAfterRemove = kv.has_key(b'k1')
+    hasKeyAfterRemove = b'k1' in kv
 
     assert hasKeyBeforeRemove
     assert not hasKeyAfterRemove

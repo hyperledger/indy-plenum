@@ -32,7 +32,7 @@ class KeyValueStorage:
     def drop(self):
         raise NotImplementedError
 
-    def has_key(self, key):
+    def _has_key(self, key):
         try:
             self.get(key)
             return True
@@ -40,7 +40,7 @@ class KeyValueStorage:
             return False
 
     def __contains__(self, key):
-        return self.has_key(key)
+        return self._has_key(key)
 
     @property
     def closed(self):
