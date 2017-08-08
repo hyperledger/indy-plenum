@@ -112,6 +112,7 @@ class TestNodeCore(StackedTester):
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
+        self.replicas._monitor = self.monitor
 
     def create_replicas(self):
         return TestReplicas(self, self.monitor)
