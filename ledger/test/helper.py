@@ -1,4 +1,3 @@
-import os
 import types
 
 from ledger.util import STH

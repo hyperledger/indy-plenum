@@ -22,9 +22,13 @@ def ledger(tempdir):
                              chunkSize=chunk_size,
                              storeContentHash=False,
                              ensureDurability=False)
-    ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
-                    dataDir=tempdir, serializer=JsonSerializer(),
-                    transactionLogStore=store)
+    ledger = Ledger(
+        CompactMerkleTree(
+            hashStore=FileHashStore(
+                dataDir=tempdir)),
+        dataDir=tempdir,
+        serializer=JsonSerializer(),
+        transactionLogStore=store)
     ledger.reset()
     return ledger
 
@@ -45,28 +49,28 @@ def test_add_get_txns(tempdir, ledger):
     check_ledger_generator(ledger)
 
     for s, t in ledger.getAllTxn(frm=1, to=20):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3, to=8):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=5, to=17):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=6, to=10):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3, to=3):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(to=10):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn():
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     with pytest.raises(AssertionError):
         list(ledger.getAllTxn(frm=3, to=1))
@@ -74,4 +78,4 @@ def test_add_get_txns(tempdir, ledger):
     for frm, to in [(i, j) for i, j in itertools.permutations(range(1, 21),
                                                               2) if i <= j]:
         for s, t in ledger.getAllTxn(frm=frm, to=to):
-            assert txns[s-1] == t
+            assert txns[s - 1] == t

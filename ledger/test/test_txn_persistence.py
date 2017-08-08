@@ -14,12 +14,12 @@ def testTxnPersistence(tempdir):
     tdir = tempdir
     loop = asyncio.get_event_loop()
     fields = OrderedDict([
-            ("identifier", (str, str)),
-            ("reqId", (str, int)),
-            ("txnId", (str, str)),
-            ("txnTime", (str, float)),
-            ("txnType", (str, str)),
-        ])
+        ("identifier", (str, str)),
+        ("reqId", (str, int)),
+        ("txnId", (str, str)),
+        ("txnTime", (str, float)),
+        ("txnType", (str, str)),
+    ])
     ldb = Ledger(CompactMerkleTree(), tdir,
                  serializer=CompactSerializer(fields=fields))
 
