@@ -1,6 +1,6 @@
 import os
 
-from sovrin_common.config_util import getConfig
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 
