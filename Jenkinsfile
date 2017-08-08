@@ -4,7 +4,7 @@
 
 def name = 'indy-plenum'
 
-def plenumTestUbuntu = { slice ->
+def plenumTestUbuntu = { offset, increment ->
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -17,7 +17,7 @@ def plenumTestUbuntu = { slice ->
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: slice])
+            testHelpers.testRunner([resFile: "test-result-plenum-$offset.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: "$offset/$increment"])
         }
     }
     finally {
@@ -27,15 +27,15 @@ def plenumTestUbuntu = { slice ->
 }
 
 def plenumTestUbuntuPart1 = {
-    plenumTestUbuntu('1/3')
+    plenumTestUbuntu(1, 3)
 }
 
 def plenumTestUbuntuPart2 = {
-    plenumTestUbuntu('2/3')
+    plenumTestUbuntu(2, 3)
 }
 
 def plenumTestUbuntuPart3 = {
-    plenumTestUbuntu('3/3')
+    plenumTestUbuntu(3, 3)
 }
 
 def ledgerTestUbuntu = {
