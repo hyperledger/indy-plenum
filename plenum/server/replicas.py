@@ -1,12 +1,14 @@
-from plenum.server.replica import Replica
-from typing import List, Optional, Generator
 from collections import deque
-from plenum.server.monitor import Monitor
+from typing import List, Generator
 
+from plenum.server.monitor import Monitor
+from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
+
 logger = getlogger()
 
 MASTER_REPLICA_INDEX = 0
+
 
 class Replicas:
 
