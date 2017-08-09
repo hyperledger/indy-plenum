@@ -3,8 +3,6 @@ import types
 from distutils.dir_util import copy_tree
 from stat import ST_MODE
 
-from copy import deepcopy
-
 from stp_core.common.util import adict
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -25,7 +23,6 @@ def genKeys(baseDir, names):
 
 def patch_send_ping_counter(stack):
     stack.ping_count = 0
-    origMethod = stack.sendPingPong
 
 
 def add_counters_to_ping_pong(stack):

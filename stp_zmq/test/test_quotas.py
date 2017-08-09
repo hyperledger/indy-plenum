@@ -8,7 +8,6 @@ from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, prepStacks, CollectingMsgsHandler, CounterMsgsHandler, MessageSender
 from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
-
 from plenum.test.conftest import set_info_log_level
 
 

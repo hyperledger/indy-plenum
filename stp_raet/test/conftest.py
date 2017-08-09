@@ -1,9 +1,9 @@
 import asyncio
 
+import pytest
 from stp_core.common.temp_file_util import SafeTemporaryDirectory
 from stp_core.loop.looper import Looper
 from stp_core.network.port_dispenser import genHa
-from stp_core.test.conftest import *
 
 
 @pytest.fixture()

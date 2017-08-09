@@ -1,6 +1,6 @@
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
-from typing import Dict, Mapping, Callable, Tuple, Any, Union
+from typing import Dict, Callable
 from stp_core.types import HA
 import time
 from stp_core.common.log import getlogger
@@ -51,10 +51,9 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
 
     def reconcileNodeReg(self) -> set:
         """
-        Check whether registry contains some addresses 
+        Check whether registry contains some addresses
         that were never connected to
-
-        :return: 
+        :return:
         """
 
         matches = set()
@@ -73,7 +72,7 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
             if name in exclude or remote.isConnected:
                 continue
 
-            if not name in self._retry_connect:
+            if name not in self._retry_connect:
                 self._retry_connect[name] = 0
 
             if not remote.socket or self._retry_connect[name] >= \
