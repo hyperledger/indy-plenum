@@ -139,8 +139,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
-        self.hashStore = self.getHashStore(self.name)
-
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
 
@@ -508,7 +506,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              .format(genesis_txn_initiator.init_file))
                 genesis_txn_initiator = None
 
-            return Ledger(CompactMerkleTree(hashStore=self.hashStore),
+            return Ledger(CompactMerkleTree(hashStore=self.getHashStore('domain')),
                           dataDir=self.dataLocation,
                           fileName=self.config.domainTransactionsFile,
                           ensureDurability=self.config.EnsureLedgerDurability,
@@ -527,9 +525,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         hsConfig = self.config.hashStore['type'].lower()
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.dataLocation,
-                                 fileNamePrefix=NODE_HASH_STORE_SUFFIX)
+                                 fileNamePrefix=name)
         elif hsConfig == HS_LEVELDB:
-            return LevelDbHashStore(dataDir=self.dataLocation)
+            return LevelDbHashStore(dataDir=self.dataLocation,
+                                    fileNamePrefix=name)
         else:
             return MemoryHashStore()
 

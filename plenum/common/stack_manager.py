@@ -7,11 +7,11 @@ from typing import List
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.signer_did import DidIdentity
+from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.hash_stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
@@ -56,7 +56,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 genesis_txn_initiator = None
 
             dataDir = self.ledgerLocation
-            self.hashStore = FileHashStore(dataDir=dataDir)
+            self.hashStore = LevelDbHashStore(dataDir=dataDir, fileNamePrefix='pool')
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
