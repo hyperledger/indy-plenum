@@ -230,8 +230,8 @@ def submitNodeIpChange(client, stewardWallet, name: str, nym: str,
         }
     }
     signedOp = stewardWallet.signOp(txn, stewardWallet.defaultId)
-    req, = client.submitReqs(signedOp)
-    return req
+    req, _ = client.submitReqs(signedOp)
+    return req[0]
 
 
 def __checkClientConnected(cli, ):

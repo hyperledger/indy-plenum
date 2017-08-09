@@ -1096,9 +1096,14 @@ class Cli:
         if client:
             if wallet:
                 req = wallet.signOp(msg)
-                request, = client.submitReqs(req)
-                self.requests[request.key] = request
-                self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                request, errs = client.submitReqs(req)
+                if request:
+                    rqst = request[0]
+                    self.requests[rqst.key] = rqst
+                    self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                else:
+                    for err in errs:
+                        self.print("Request error: {}".format(err), Token.Error)
             else:
                 try:
                     self._createWallet(clientName)
