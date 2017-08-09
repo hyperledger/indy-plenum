@@ -20,7 +20,6 @@ from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
-from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -786,10 +785,10 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(poolTransactionsFile)),
+        copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(tconf.poolTransactionsFile)),
                  os.path.join(dirName, genesis_txn_file(tconf.poolTransactionsFile)))
     if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(domainTransactionsFile)),
+        copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(tconf.domainTransactionsFile)),
                  os.path.join(dirName, genesis_txn_file(tconf.domainTransactionsFile)))
 
 
