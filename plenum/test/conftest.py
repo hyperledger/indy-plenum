@@ -763,3 +763,13 @@ def testNode(pluginManager, tdir):
     node.start(None)
     yield node
     node.stop()
+
+
+@pytest.fixture()
+def set_info_log_level(request):
+    Logger.setLogLevel(logging.INFO)
+
+    def reset():
+        Logger.setLogLevel(logging.NOTSET)
+
+    request.addfinalizer(reset)
