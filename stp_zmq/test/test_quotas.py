@@ -9,6 +9,8 @@ from stp_core.test.helper import Printer, prepStacks, CollectingMsgsHandler, Cou
 from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
 
+from plenum.test.conftest import set_info_log_level
+
 
 def testMessageQuota(tdir, looper):
     names = ['Alpha', 'Beta']
