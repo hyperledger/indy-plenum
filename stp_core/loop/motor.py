@@ -6,6 +6,7 @@ logger = getlogger()
 
 # TODO: move it to plenum-util repo
 
+
 class Motor(Prodable):
     """
     Base class for Prodable that includes status management.

@@ -98,6 +98,7 @@ class ProofConstructor:
     def get_mode(self):
         return self.mode[-1]
 
+
 proof = ProofConstructor()
 
 
@@ -188,6 +189,7 @@ def is_key_value_type(node_type):
     return node_type in [NODE_TYPE_LEAF,
                          NODE_TYPE_EXTENSION]
 
+
 BLANK_NODE = b''
 BLANK_ROOT = sha3rlp(BLANK_NODE)
 DEATH_ROW_OFFSET = 2**62
@@ -205,7 +207,7 @@ class Trie:
         :param db key value database
         :root: blank or trie node in form of [key, value] or [v0,v1..v15,v]
         '''
-        self._db = db # Pass in a database object directly
+        self._db = db  # Pass in a database object directly
         self.transient = transient
         if self.transient:
             self.update = self.get = self.delete = transient_trie_exception
@@ -520,7 +522,8 @@ class Trie:
             if reverse:
                 scan_range.reverse()
             for i in scan_range:
-                o = self._getany(self._decode_to_node(node[i]), path=path + [i])
+                o = self._getany(self._decode_to_node(
+                    node[i]), path=path + [i])
                 if o:
                     return [i] + o
             return None
@@ -601,8 +604,8 @@ class Trie:
             return
         """
         ===== FIXME ====
-        in the current trie implementation two nodes can share identical subtrees
-        thus we can not safely delete nodes for now
+        in the current trie implementation two nodes can share identical
+        subtrees thus we can not safely delete nodes for now
         """
         hashkey = sha3(encoded)
         self._db.dec_refcount(hashkey)
@@ -852,7 +855,8 @@ class Trie:
                 sub_dict = self._to_dict(self._decode_to_node(node[i]))
 
                 for sub_key, sub_value in sub_dict.items():
-                    full_key = (str_to_bytes(str(i)) + b'+' + sub_key).strip(b'+')
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
                     res[full_key] = sub_value
 
             if node[16]:
@@ -909,7 +913,8 @@ class Trie:
             for i in range(16):
                 sub_tree = self._iter_branch(self._decode_to_node(node[i]))
                 for sub_key, sub_value in sub_tree:
-                    full_key = (str_to_bytes(str(i)) + b'+' + sub_key).strip(b'+')
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
                     yield (full_key, sub_value)
             if node[16]:
                 yield (to_string(NIBBLE_TERMINATOR), node[-1])

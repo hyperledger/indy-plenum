@@ -23,7 +23,7 @@ class Ratchet:
 
     @classmethod
     def fromGoals(cls, start: float, end: float, steps: int):
-        b = log(end/start)/(steps-1)
+        b = log(end / start) / (steps - 1)
         return cls(a=start, b=b)
 
     @staticmethod
@@ -37,7 +37,7 @@ class Ratchet:
         :param b: exponent multiplier
         :param steps: the number of steps
         """
-        return a * (exp(b*steps)-1) / (exp(b)-1)
+        return a * (exp(b * steps) - 1) / (exp(b) - 1)
 
     @classmethod
     def fromGoalDuration(cls, start, steps, total):
@@ -69,10 +69,11 @@ class Ratchet:
                 break
             elif s < 0:
                 dn = b
-                b = (up+b)/2 if up else b + 1  # halfway between b and upper if upper defined
+                # halfway between b and upper if upper defined
+                b = (up + b) / 2 if up else b + 1
             else:
                 up = b
-                b = (dn+b)/2 if dn else b/2
+                b = (dn + b) / 2 if dn else b / 2
         return b
 
     def get(self, iteration: int):

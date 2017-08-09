@@ -6,6 +6,7 @@ class DirectoryStore:
     """
     A file based implementation of a key value store.
     """
+
     def __init__(self, baseDir, dbName):
         """
         :param dbDir: The directory where the file storing the data would be

@@ -1,12 +1,10 @@
 import base64
-import os
 import random
 import string
 from collections import OrderedDict
 
 import pytest
 from ledger.ledger import Ledger
-from ledger.serializers.json_serializer import JsonSerializer
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
@@ -47,8 +45,12 @@ ledgerSerializer = CompactSerializer(orderedFields)
 
 @pytest.fixture(scope="function")
 def ledger(tempdir):
-    ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
-                    dataDir=tempdir, serializer=ledgerSerializer)
+    ledger = Ledger(
+        CompactMerkleTree(
+            hashStore=FileHashStore(
+                dataDir=tempdir)),
+        dataDir=tempdir,
+        serializer=ledgerSerializer)
     ledger.reset()
     yield ledger
     # close the file
@@ -87,17 +89,17 @@ def testQueryMerkleInfo(ledger):
         txn = random_txn(i)
         mi = ledger.add(txn)
         seqNo = mi.pop(F.seqNo.name)
-        assert i+1 == seqNo
+        assert i + 1 == seqNo
         merkleInfo[seqNo] = mi
 
     for i in range(100):
-        assert merkleInfo[i+1] == ledger.merkleInfo(i+1)
+        assert merkleInfo[i + 1] == ledger.merkleInfo(i + 1)
 
 
 """
 If the server holding the ledger restarts, the ledger should be fully rebuilt
 from persisted data. Any incoming commands should be stashed. (Does this affect
-creation of Signed Tree Heads? I think I don't really understand what STHs are.)
+creation of Signed Tree Heads? I think I don't really understand what STHs are)
 """
 
 
@@ -131,7 +133,8 @@ def testRecoverLedgerNewFieldsToTxnsAdded(tempdir):
     tree = CompactMerkleTree(hashStore=fhs)
     ledger = Ledger(tree=tree, dataDir=tempdir, serializer=ledgerSerializer)
     for d in range(10):
-        ledger.add({"identifier": "i{}".format(d), "reqId": d, "op": "operation"})
+        ledger.add({"identifier": "i{}".format(
+            d), "reqId": d, "op": "operation"})
     updatedTree = ledger.tree
     ledger.stop()
 
@@ -144,7 +147,8 @@ def testRecoverLedgerNewFieldsToTxnsAdded(tempdir):
     newLedgerSerializer = CompactSerializer(newOrderedFields)
 
     tree = CompactMerkleTree(hashStore=fhs)
-    restartedLedger = Ledger(tree=tree, dataDir=tempdir, serializer=newLedgerSerializer)
+    restartedLedger = Ledger(tree=tree, dataDir=tempdir,
+                             serializer=newLedgerSerializer)
     assert restartedLedger.size == ledger.size
     assert restartedLedger.root_hash == ledger.root_hash
     assert restartedLedger.tree.hashes == updatedTree.hashes
@@ -202,27 +206,31 @@ def testConsistencyVerificationOnStartupCase2(tempdir):
 
 def testStartLedgerWithoutNewLineAppendedToLastRecord(ledger):
     txnStr = '{"data":{"alias":"Node1","client_ip":"127.0.0.1","client_port":9702,"node_ip":"127.0.0.1",' \
-           '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \
-           '"identifier":"FYmoFw55GeQH7SRFa37dkx1d2dZ3zUF8ckg7wmL7ofN4",' \
-           '"txnId":"fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62","type":"0"}'
+        '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \
+        '"identifier":"FYmoFw55GeQH7SRFa37dkx1d2dZ3zUF8ckg7wmL7ofN4",' \
+        '"txnId":"fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62","type":"0"}'
     lineSep = ledger._transactionLog.lineSep
     lineSep = lineSep if isinstance(lineSep, bytes) else lineSep.encode()
     ledger.start()
     ledger._transactionLog.put(txnStr)
     ledger._transactionLog.put(txnStr)
-    ledger._transactionLog.dbFile.write(txnStr)     # here, we just added data without adding new line at the end
+    # here, we just added data without adding new line at the end
+    ledger._transactionLog.dbFile.write(txnStr)
     size1 = ledger._transactionLog.numKeys
     assert size1 == 3
     ledger.stop()
-    newLineCounts = open(ledger._transactionLog.dbPath, 'rb').read().count(lineSep) + 1
+    newLineCounts = open(ledger._transactionLog.dbPath,
+                         'rb').read().count(lineSep) + 1
     assert newLineCounts == 3
 
     # now start ledger, and it should add the missing new line char at the end of the file, so
-    # if next record gets written, it will be still in proper format and won't break anything.
+    # if next record gets written, it will be still in proper format and won't
+    # break anything.
     ledger.start()
     size2 = ledger._transactionLog.numKeys
     assert size2 == size1
-    newLineCountsAferLedgerStart = open(ledger._transactionLog.dbPath, 'rb').read().count(lineSep) + 1
+    newLineCountsAferLedgerStart = open(
+        ledger._transactionLog.dbPath, 'rb').read().count(lineSep) + 1
     assert newLineCountsAferLedgerStart == 4
     ledger._transactionLog.put(txnStr)
     assert ledger._transactionLog.numKeys == 4
