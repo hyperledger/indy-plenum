@@ -67,9 +67,10 @@ class Replicas:
         return number_of_processed_messages
 
     def pass_message(self, message, instance_id=None):
-        for replica in self._replicas \
-                if instance_id is None \
-                else self._replicas[instance_id:instance_id + 1]:
+        replicas = self._replicas
+        if instance_id is not None:
+            replicas = replicas[instance_id:instance_id+1]
+        for replica in replicas:
             replica.inBox.append(message)
 
     def get_output(self, limit: int=None) -> Generator:
