@@ -1,3 +1,4 @@
+import os
 import asyncio
 import inspect
 import signal
@@ -104,7 +105,8 @@ class Looper:
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
-        self.loop.set_debug(debug)
+
+        self.loop.set_debug(bool(int(os.getenv('PYTHONASYNCIODEBUG', debug))))
 
         # TODO: uncomment this when python bug fixed (not just closed, but solved!)
         # https://bugs.python.org/issue23548

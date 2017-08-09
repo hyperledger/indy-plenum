@@ -30,6 +30,7 @@ def slow_node(request, txnPoolNodeSet):
         return nprs[0].node
 
 
+@pytest.mark.skip(reasone="It's an intermittent test, INDY-722")
 def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                                                                  txnPoolNodeSet,
                                                                  steward1,
