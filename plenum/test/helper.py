@@ -333,7 +333,7 @@ def signed_random_requests(wallet, count):
 
 
 def send_signed_requests(client: Client, signed_reqs: Sequence):
-    return client.submitReqs(*signed_reqs)
+    return client.submitReqs(*signed_reqs)[0]
 
 
 def sendRandomRequest(wallet: Wallet, client: Client):

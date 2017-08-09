@@ -249,12 +249,18 @@ class Client(Motor,
 
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
+        errs = []
         for request in reqs:
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
                (request.isForced() and self.hasAnyConnections):
                 logger.debug('Client {} sending request {}'.format(self, request))
-                self.send(request)
-                self.expectingFor(request)
+                stat, err_msg = self.send(request)
+                if stat:
+                    self.expectingFor(request)
+                else:
+                    errs.append(err_msg)
+                    logger.debug('Client {} request failed {}'.format(self, err_msg))
+                    continue
             else:
                 logger.debug("{} pending request since in mode {} and "
                              "connected to {} nodes".
@@ -263,7 +269,7 @@ class Client(Motor,
             requests.append(request)
         for r in requests:
             self.reqRepStore.addRequest(r)
-        return requests
+        return requests, errs
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
@@ -611,7 +617,7 @@ class Client(Motor,
         self.send(ledgerStatus, rid)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
-        self.nodestack.send(msg, *rids, signer=signer)
+        return self.nodestack.send(msg, *rids, signer=signer)
 
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
