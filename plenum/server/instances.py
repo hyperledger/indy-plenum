@@ -18,7 +18,7 @@ class Instances:
         self.started.append(time.perf_counter())
 
     def remove(self, index):
-        if index in range(len(self.started)):
+        if 0 <= index < len(self.started):
             self.count -= 1
             del self.started[index]
 
