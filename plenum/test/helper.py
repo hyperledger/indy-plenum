@@ -782,14 +782,16 @@ def mockImportModule(moduleName):
 
 
 def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
-                           tdirWithDomainTxns=None):
+                           tdirWithDomainTxns=None, new_pool_txn_file=None, new_domain_txn_file=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
+        new_pool_txn_file = new_pool_txn_file or tconf.poolTransactionsFile
         copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(tconf.poolTransactionsFile)),
-                 os.path.join(dirName, genesis_txn_file(tconf.poolTransactionsFile)))
+                 os.path.join(dirName, genesis_txn_file(new_pool_txn_file)))
     if tdirWithDomainTxns:
+        new_domain_txn_file = new_domain_txn_file or tconf.domainTransactionsFile
         copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(tconf.domainTransactionsFile)),
-                 os.path.join(dirName, genesis_txn_file(tconf.domainTransactionsFile)))
+                 os.path.join(dirName, genesis_txn_file(new_domain_txn_file)))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
