@@ -1,5 +1,4 @@
 import os
-import pytest
 from ledger.stores.chunked_file_store import ChunkedFileStore
 from ledger.stores.text_file_store import TextFileStore
 
@@ -12,7 +11,6 @@ def test_equality_to_text_file_store(tmpdir):
     storeContentHash = False
     ensureDurability = True
     dbDir = str(tmpdir)
-
 
     defaultFile = os.path.join(dbDir, "template")
 
@@ -51,6 +49,4 @@ def test_equality_to_text_file_store(tmpdir):
         assert textStore.get(value) == chunkedStore.get(value)
 
     assert list(chunkedStore.iterator()) == \
-           list(textStore.iterator())
-
-
+        list(textStore.iterator())

@@ -29,4 +29,3 @@ class TextFileStore(FileStore):
     def _lines(self):
         self.dbFile.seek(0)
         return store_utils.cleanLines(self.dbFile)
-
