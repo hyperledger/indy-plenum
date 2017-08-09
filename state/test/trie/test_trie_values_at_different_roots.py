@@ -5,6 +5,7 @@ from state.util.fast_rlp import encode_optimized as rlp_encode, \
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 
+
 def test_get_values_at_roots_in_memory():
     # Update key with different values but preserve root after each update
     # Check values of keys with different previous roots and check that they
@@ -78,4 +79,3 @@ def test_get_values_at_roots_in_memory():
     trie.root_node = oldroot1
     val = trie.get('k1')
     assert rlp_decode(val) == [b'v1', ]
-

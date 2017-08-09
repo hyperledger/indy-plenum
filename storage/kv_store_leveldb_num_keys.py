@@ -24,7 +24,8 @@ class KeyValueStorageLeveldbNumKeysSupport(KeyValueStorage):
         return self.db_path
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
-        return self._db.RangeIter(key_from=start, key_to=end, include_value=include_value)
+        return self._db.RangeIter(
+            key_from=start, key_to=end, include_value=include_value)
 
     def put(self, key, value):
         if isinstance(key, str):

@@ -38,13 +38,15 @@ class FileHashStore(HashStore):
             data = data.encode()
         dataSize = len(data)
         if dataSize != size:
-            raise ValueError("Data size not allowed. Size of the data should be "
-                             "{} but instead was {}".format(size, dataSize))
+            raise ValueError(
+                "Data size not allowed. Size of the data should be "
+                "{} but instead was {}".format(
+                    size, dataSize))
         store.put(key=None, value=data)
 
     @staticmethod
     def read(store: KeyValueStorageFile, entryNo, size):
-        store.db_file.seek((entryNo-1) * size)
+        store.db_file.seek((entryNo - 1) * size)
         return store.db_file.read(size)
 
     @staticmethod
@@ -94,7 +96,7 @@ class FileHashStore(HashStore):
 
     @property
     def leafCount(self) -> int:
-        return self.leavesFile.db_file.seek(0,2) // self.leafSize
+        return self.leavesFile.db_file.seek(0, 2) // self.leafSize
 
     @property
     def nodeCount(self) -> int:

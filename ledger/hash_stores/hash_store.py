@@ -1,4 +1,4 @@
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 
 from ledger.util import count_bits_set
 from ledger.util import highest_bit_set
@@ -20,7 +20,6 @@ class HashStore:
 
         :param leafHash: hash of the leaf
         """
-        pass
 
     @abstractmethod
     def writeNode(self, node):
@@ -29,7 +28,6 @@ class HashStore:
 
         :param node: tuple of start, height and nodeHash
         """
-        pass
 
     @abstractmethod
     def readLeaf(self, pos):
@@ -39,7 +37,6 @@ class HashStore:
         :param pos: the sequence number of the leaf
         :return: the leafHash at the specified position
         """
-        pass
 
     @abstractmethod
     def readNode(self, pos):
@@ -50,7 +47,6 @@ class HashStore:
         getNodePosition)
         :return: the nodeHash at the specified position
         """
-        pass
 
     @abstractmethod
     def readLeafs(self, startpos, endpos):
@@ -61,7 +57,6 @@ class HashStore:
         :param endpos: read up to this sequence number (inclusive)
         :return: list of leafHashes
         """
-        pass
 
     @abstractmethod
     def readNodes(self, startpos, endpos):
@@ -73,7 +68,6 @@ class HashStore:
         :param endpos: read up to this sequence number (inclusive)
         :return: list of nodeHashes
         """
-        pass
 
     @property
     @abstractmethod
@@ -107,7 +101,7 @@ class HashStore:
         else:
             c = pow(2, pwr)
             return cls.getNodePosition(c, pwr) + \
-                   cls.getNodePosition(start - c, height)
+                cls.getNodePosition(start - c, height)
 
     @classmethod
     def getPath(cls, seqNo, offset=0):
@@ -147,7 +141,8 @@ class HashStore:
         Returns True if number of nodes are consistent with number of leaves
         """
         from ledger.compact_merkle_tree import CompactMerkleTree
-        return self.nodeCount == CompactMerkleTree.get_expected_node_count(self.leafCount)
+        return self.nodeCount == CompactMerkleTree.get_expected_node_count(
+            self.leafCount)
 
     @staticmethod
     def _validatePos(start, end=None):
@@ -177,4 +172,3 @@ class HashStore:
 
         :return: True if completed successfully
         """
-        pass

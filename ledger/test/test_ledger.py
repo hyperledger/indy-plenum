@@ -75,13 +75,14 @@ def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
         merkleInfo[seqNo] = mi
 
     for i in range(100):
-        assert sorted(merkleInfo[i + 1 + offset].items()) == sorted(ledger.merkleInfo(i + 1 + offset).items())
+        assert sorted(merkleInfo[i + 1 + offset].items()) == \
+               sorted(ledger.merkleInfo(i + 1 + offset).items())
 
 
 """
 If the server holding the ledger restarts, the ledger should be fully rebuilt
 from persisted data. Any incoming commands should be stashed. (Does this affect
-creation of Signed Tree Heads? I think I don't really understand what STHs are.)
+creation of Signed Tree Heads? I think I don't really understand what STHs are)
 """
 
 
@@ -220,27 +221,31 @@ def test_start_ledger_without_new_line_appended_to_last_record(tempdir, txn_seri
     ledger = create_ledger_text_file_storage(txn_serializer, None, tempdir)
 
     txnStr = '{"data":{"alias":"Node1","client_ip":"127.0.0.1","client_port":9702,"node_ip":"127.0.0.1",' \
-             '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \
-             '"identifier":"FYmoFw55GeQH7SRFa37dkx1d2dZ3zUF8ckg7wmL7ofN4",' \
-             '"txnId":"fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62","type":"0"}'
+        '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \
+        '"identifier":"FYmoFw55GeQH7SRFa37dkx1d2dZ3zUF8ckg7wmL7ofN4",' \
+        '"txnId":"fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62","type":"0"}'
     lineSep = ledger._transactionLog.lineSep
     lineSep = lineSep if isinstance(lineSep, bytes) else lineSep.encode()
     ledger.start()
     ledger._transactionLog.put(None, txnStr)
     ledger._transactionLog.put(None, txnStr)
-    ledger._transactionLog.db_file.write(txnStr)  # here, we just added data without adding new line at the end
+    ledger._transactionLog.db_file.write(txnStr)
+    # here, we just added data without adding new line at the end
     size1 = ledger._transactionLog.size
     assert size1 == 3
     ledger.stop()
-    newLineCounts = open(ledger._transactionLog.db_path, 'rb').read().count(lineSep) + 1
+    newLineCounts = open(ledger._transactionLog.db_path, 'rb')\
+                        .read().count(lineSep) + 1
     assert newLineCounts == 3
 
     # now start ledger, and it should add the missing new line char at the end of the file, so
-    # if next record gets written, it will be still in proper format and won't break anything.
+    # if next record gets written, it will be still in proper format and won't
+    # break anything.
     ledger.start()
     size2 = ledger._transactionLog.size
     assert size2 == size1
-    newLineCountsAferLedgerStart = open(ledger._transactionLog.db_path, 'rb').read().count(lineSep) + 1
+    newLineCountsAferLedgerStart = open(
+        ledger._transactionLog.db_path, 'rb').read().count(lineSep) + 1
     assert newLineCountsAferLedgerStart == 4
     ledger._transactionLog.put(None, txnStr)
     assert ledger._transactionLog.size == 4

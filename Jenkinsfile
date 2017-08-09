@@ -189,10 +189,10 @@ def stateTestWindowsNoDocker = {
 }
 
 def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
-    def volumeName = "indy-plenum-deb-u1604"
+    def volumeName = "$name-deb-u1604"
     sh "docker volume rm -f $volumeName"
     dir('build-scripts/ubuntu-1604') {
-        sh "./build-indy-plenum-docker.sh $sourcePath"
+        sh "./build-$name-docker.sh $sourcePath $releaseVersion"
         sh "./build-3rd-parties-docker.sh"
     }
     return "$volumeName"

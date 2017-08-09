@@ -49,11 +49,6 @@ def invalid_identifier_tdir(tdir_for_func):
     ledger.stop()
 
 
-class DummyLedger(Ledger):
-    def getAllTxn(self, frm: int=None, to: int=None):
-        raise JSONDecodeError('', '', 0)
-
-                                                            
 def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_verkey_tdir, tdir_for_func):
     """
     Test that invalid base58 TARGET_NYM in pool_transaction raises the proper exception (INDY-150)
@@ -73,16 +68,5 @@ def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descri
         ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
     assert excinfo.value.code == 'Invalid identifier. Rebuild pool transactions.'
-    ledger.stop()
-
-
-def test_pool_file_is_invalid_raises_SystemExit_has_descriptive_error(tdir_for_func):
-    """
-    Test that that invalid pool_transaction file raises the proper exception (INDY-150)
-    """
-    ledger = DummyLedger(CompactMerkleTree(), dataDir=tdir_for_func)
-    with pytest.raises(SystemExit) as excinfo:
-        _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
-    assert excinfo.value.code == 'Pool transaction file corrupted. Rebuild pool transactions.'
     ledger.stop()
 

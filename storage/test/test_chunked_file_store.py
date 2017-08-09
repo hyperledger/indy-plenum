@@ -20,7 +20,7 @@ def getValue(key) -> str:
 
 chunkSize = 3
 dataSize = 101
-data = [getValue(i) for i in range(1, dataSize+1)]
+data = [getValue(i) for i in range(1, dataSize + 1)]
 
 
 @pytest.fixture(scope="function")
@@ -46,9 +46,9 @@ def testWriteToNewFileOnceChunkSizeIsReached(populatedChunkedFileStore):
 
 
 def testRandomRetrievalFromChunkedFiles(populatedChunkedFileStore):
-    keys = [2*chunkSize,
-            3*chunkSize+1,
-            3*chunkSize+chunkSize,
+    keys = [2 * chunkSize,
+            3 * chunkSize + 1,
+            3 * chunkSize + chunkSize,
             random.randrange(1, dataSize + 1)]
     for key in keys:
         value = getValue(key)
@@ -77,7 +77,7 @@ def testSizeChunkedFileStore(populatedChunkedFileStore):
 def testIterateOverChunkedFileStore(populatedChunkedFileStore):
     store = populatedChunkedFileStore
     for k, v in store.iterator():
-        assert data[int(k)-1] == v
+        assert data[int(k) - 1] == v
 
 
 def test_get_range(populatedChunkedFileStore):
@@ -85,14 +85,16 @@ def test_get_range(populatedChunkedFileStore):
 
     # Range begins and ends at chunk boundaries
     num = 0
-    for k, v in populatedChunkedFileStore.iterator(start=chunkSize+1, end=2*chunkSize):
+    for k, v in populatedChunkedFileStore.iterator(
+            start = chunkSize + 1, end = 2 * chunkSize):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
 
     # Range does not begin or end at chunk boundaries
     num = 0
-    for k, v in populatedChunkedFileStore.iterator(start=chunkSize+2, end=2*chunkSize+1):
+    for k, v in populatedChunkedFileStore.iterator(
+            start = chunkSize + 2, end = 2 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
@@ -103,13 +105,15 @@ def test_get_range(populatedChunkedFileStore):
                                                     end=5 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
-    assert num == 4*chunkSize
+    assert num == 4 * chunkSize
 
     with pytest.raises(AssertionError):
         list(populatedChunkedFileStore.iterator(start=5, end=1))
 
     for frm, to in [(i, j) for i, j in itertools.permutations(
             range(1, dataSize+1), 2) if i <= j]:
-        for k, v in populatedChunkedFileStore.iterator(start=frm, end=to):
+        for k, v in populatedChunkedFileStore.iterator(
+                start=frm, end=to):
             assert data[int(k) - 1] == v
+
 

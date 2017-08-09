@@ -1,6 +1,4 @@
-import os
 from importlib import import_module
-from importlib.util import module_from_spec, spec_from_file_location
 
 
 # TODO: this is a stub, remove it when new

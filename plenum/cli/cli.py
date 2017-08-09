@@ -642,7 +642,8 @@ class Cli:
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
-        part = partial(self.cli.print_tokens, [(token, msg)])
+        tkn = token or ()
+        part = partial(self.cli.print_tokens, [(tkn, msg)])
         if self.debug:
             part()
         else:

@@ -60,7 +60,7 @@ class KeyValueStorage(metaclass=ABCMeta):
         s = sum(1 for l in self.iterator())
         return sum(1 for l in self.iterator())
 
-    def has_key(self, key):
+    def _has_key(self, key):
         try:
             self.get(key)
             return True
@@ -68,5 +68,5 @@ class KeyValueStorage(metaclass=ABCMeta):
             return False
 
     def __contains__(self, key):
-        return self.has_key(key)
+        return self._has_key(key)
 

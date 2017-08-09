@@ -26,7 +26,7 @@ class ChunkedFileStore(KeyValueStorageFile):
     def _fileNameToChunkIndex(fileName):
         try:
             return int(os.path.splitext(fileName)[0])
-        except:
+        except BaseException:
             return None
 
     @staticmethod
@@ -45,8 +45,8 @@ class ChunkedFileStore(KeyValueStorageFile):
                  chunk_creator=None,
                  open=True):
         """
-        
-        :param chunkSize: number of items in one chunk. Cannot be lower then number of items in defaultFile 
+
+        :param chunkSize: number of items in one chunk. Cannot be lower then number of items in defaultFile
         :param chunkStoreConstructor: constructor of store for single chunk
         """
 
@@ -140,7 +140,8 @@ class ChunkedFileStore(KeyValueStorageFile):
         :return: opened chunk
         """
 
-        return self._chunkCreator(ChunkedFileStore._chunkIndexToFileName(index))
+        return self._chunkCreator(
+            ChunkedFileStore._chunkIndexToFileName(index))
 
     def _get_key_location(self, key) -> (int, int):
         """
@@ -267,9 +268,9 @@ class ChunkedFileStore(KeyValueStorageFile):
                 # If entries lie in the same range
                 assert end_offset >= start_offset
                 with self._openChunk(start_chunk_no) as chunk:
-                    yield from zip(range(start, end+1),
+                    yield from zip(range(start, end + 1),
                                    (l for _, l in chunk.iterator(start=start_offset,
-                                                                  end=end_offset)))
+                                                                 end=end_offset)))
             else:
                 current_chunk_no = start_chunk_no
                 while current_chunk_no <= end_chunk_no:
@@ -299,7 +300,7 @@ class ChunkedFileStore(KeyValueStorageFile):
         num_chunks = len(chunks)
         if num_chunks == 0:
             return 0
-        count = (num_chunks-1)*self.chunkSize
+        count = (num_chunks - 1) * self.chunkSize
         last_chunk = self._openChunk(chunks[-1])
         count += sum(1 for _ in last_chunk._lines())
         last_chunk.close()

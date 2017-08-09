@@ -22,7 +22,6 @@ try:
             else:
                 return uencode(o, sort_keys=True)
 
-
     JsonEncoder = UJsonEncoder()
 
 except (ImportError, TypeError):

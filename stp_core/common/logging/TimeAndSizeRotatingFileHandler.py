@@ -5,8 +5,8 @@ from logging.handlers import RotatingFileHandler
 
 class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
 
-    def __init__(self, filename, when = 'h', interval = 1, backupCount = 0,
-                 encoding = None, delay = False, utc = False, atTime = None,
+    def __init__(self, filename, when='h', interval=1, backupCount=0,
+                 encoding=None, delay=False, utc=False, atTime=None,
                  maxBytes=0):
 
         TimedRotatingFileHandler.__init__(self, filename, when, interval,
@@ -16,7 +16,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     def shouldRollover(self, record):
         return bool(TimedRotatingFileHandler.shouldRollover(self, record)) or \
-               bool(RotatingFileHandler.shouldRollover(self, record))
+            bool(RotatingFileHandler.shouldRollover(self, record))
 
     def rotation_filename(self, default_name: str):
 

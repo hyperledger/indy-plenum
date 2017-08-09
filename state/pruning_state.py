@@ -3,7 +3,8 @@ from typing import Optional
 
 from state.db.persistent_db import PersistentDB
 from state.state import State
-from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, bin_to_nibbles
+from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, \
+    bin_to_nibbles
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string, isHex
