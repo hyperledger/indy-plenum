@@ -82,7 +82,7 @@ class Replicas:
                 logger.warning("{} forcibly setting replica "
                                "message limit to {}"
                                .format(self._node.name,
-                                       self.num_replicas))
+                                       per_replica))
                 per_replica = 1
         for replica in self._replicas:
             num = 0
