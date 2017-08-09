@@ -1,9 +1,9 @@
+import os
 import asyncio
 import inspect
 import signal
 import sys
 import time
-from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List, Optional
 
@@ -16,6 +16,7 @@ from stp_core.loop.startable import Status
 logger = getlogger()
 
 # TODO: move it to plenum-util repo
+
 
 class Prodable:
     """
@@ -88,7 +89,7 @@ class Looper:
             self.loop = loop
         else:
             try:
-                #if sys.platform == 'win32':
+                # if sys.platform == 'win32':
                 #    loop = asyncio.ProactorEventLoop()
                 #    asyncio.set_event_loop(loop)
                 l = asyncio.get_event_loop()
@@ -104,7 +105,8 @@ class Looper:
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
-        self.loop.set_debug(debug)
+
+        self.loop.set_debug(bool(int(os.getenv('PYTHONASYNCIODEBUG', debug))))
 
         # TODO: uncomment this when python bug fixed (not just closed, but solved!)
         # https://bugs.python.org/issue23548
@@ -124,7 +126,8 @@ class Looper:
                 sigNum = getattr(signal, sigName)
                 setSignal(sigNum, self.handleSignal)
             except RuntimeError as e:
-                logger.debug("Cannot set handler for {} because {}".format(sigName, e))
+                logger.debug(
+                    "Cannot set handler for {} because {}".format(sigName, e))
 
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
@@ -179,7 +182,7 @@ class Looper:
                 return prodable
             else:
                 logger.warning("Trying to remove a prodable {} which is not present"
-                            .format(prodable))
+                               .format(prodable))
         else:
             logger.error("Provide a prodable object or a prodable name")
 
@@ -201,7 +204,8 @@ class Looper:
         start = time.perf_counter()
         msgsProcessed = await self.prodAllOnce()
         if msgsProcessed == 0:
-            await asyncio.sleep(0.01, loop=self.loop)  # if no let other stuff run
+            # if no let other stuff run
+            await asyncio.sleep(0.01, loop=self.loop)
         dur = time.perf_counter() - start
         if dur >= 0.5:
             logger.info("it took {:.3f} seconds to run once nicely".
@@ -238,7 +242,8 @@ class Looper:
                         else:
                             results.append(res)
                     else:
-                        raise RuntimeError("don't know how to run {}".format(coro))
+                        raise RuntimeError(
+                            "don't know how to run {}".format(coro))
                 except Exception as ex:
                     logger.error("Error while running coroutine {}: {}"
                                  .format(coro.__name__, ex.__repr__()))

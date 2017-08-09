@@ -23,7 +23,8 @@ class KeyValueStorageLeveldb(KeyValueStorage):
         return self._dbPath
 
     def iter(self, start=None, end=None, include_value=True):
-        return self._db.RangeIter(key_from=start, key_to=end, include_value=include_value)
+        return self._db.RangeIter(
+            key_from=start, key_to=end, include_value=include_value)
 
     def put(self, key, value):
         if isinstance(key, str):

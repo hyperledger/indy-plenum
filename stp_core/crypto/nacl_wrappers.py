@@ -180,6 +180,7 @@ class Signer:
     '''
     Used to sign messages with nacl digital signature
     '''
+
     def __init__(self, key=None):
         if key:
             if not isinstance(key, SigningKey):  # not key so seed to regenerate
@@ -212,6 +213,7 @@ class Verifier:
     '''
     Used to verify messages with nacl digital signature
     '''
+
     def __init__(self, key=None):
         if key:
             if not isinstance(key, VerifyKey):
@@ -423,6 +425,7 @@ class Publican:
         .key is the public key
     Intelligently converts hex encoded to object
     '''
+
     def __init__(self, key=None):
         if key:
             if not isinstance(key, PublicKey):
@@ -444,6 +447,7 @@ class Privateer:
     Container for local nacl key pair
         .key is the private key
     '''
+
     def __init__(self, key=None):
         if key:
             if not isinstance(key, PrivateKey):

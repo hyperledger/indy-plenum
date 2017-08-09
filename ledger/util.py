@@ -52,5 +52,6 @@ class F(Enum):
 
 STH = namedtuple("STH", ["tree_size", "sha256_root_hash"])
 
+
 class ConsistencyVerificationFailed(Exception):
     pass

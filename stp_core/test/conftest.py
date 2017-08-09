@@ -16,4 +16,3 @@ def tdir(tmpdir_factory):
 @pytest.fixture(scope='function')
 def tdir_for_func(tmpdir_factory):
     return tmpdir_factory.mktemp('').strpath
-

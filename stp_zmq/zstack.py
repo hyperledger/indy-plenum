@@ -635,20 +635,18 @@ class ZStack(NetworkInterface):
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
-        if r is True:
+        if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
-        elif r is False:
+        elif r[0] is False:
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
-            logger.info('{} failed to {} {}'.
-                        format(self.name, action, name),
-                        extra={"cli": False})
-        elif r is None:
+            logger.info('{} failed to {} {} {}'.format(self.name, action, name, r[1]), extra={"cli": False})
+        elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
             logger.warning('{} got an unexpected return value {} while sending'.
                         format(self, r))
-        return r
+        return r[0]
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
@@ -676,29 +674,36 @@ class ZStack(NetworkInterface):
         else:
             if remoteName is None:
                 r = []
+                e = []
                 # Serializing beforehand since to avoid serializing for each
                 # remote
                 try:
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as ex:
-                    logger.error('Cannot send message. Error {}'.format(ex))
-                    return False
+                    err_str = 'Cannot send message. Error {}'.format(ex)
+                    logger.error(err_str)
+                    return False, err_str
                 for uid in self.remotes:
-                    r.append(self.transmit(msg, uid, serialized=True))
-                return all(r)
+                    res, err = self.transmit(msg, uid, serialized=True)
+                    r.append(res)
+                    e.append(err)
+                e = list(filter(lambda x: x is not None, e))
+                ret_err = None if len(e) == 0 else "\n".join(e)
+                return all(r), ret_err
             else:
                 return self.transmit(msg, remoteName)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):
         remote = self.remotes.get(uid)
+        err_str = None
         if not remote:
             logger.debug("Remote {} does not exist!".format(uid))
-            return False
+            return False, err_str
         socket = remote.socket
         if not socket:
             logger.warning('{} has uninitialised socket '
                            'for remote {}'.format(self, uid))
-            return False
+            return False, err_str
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
@@ -711,13 +716,13 @@ class ZStack(NetworkInterface):
                                'message will not be sent immediately.'
                                'If this problem does not resolve itself - '
                                'check your firewall settings'.format(uid))
-            return True
+            return True, err_str
         except zmq.Again:
-            logger.info('{} could not transmit message to {}'
-                        .format(self, uid))
+            logger.info('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
-            logger.error('Cannot transmit message. Error {}'.format(ex))
-        return False
+            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            logger.error(err_str)
+        return False, err_str
 
     def transmitThroughListener(self, msg, ident):
         if isinstance(ident, str):
@@ -727,7 +732,7 @@ class ZStack(NetworkInterface):
                          format(self, msg, ident))
             logger.debug("This is a temporary workaround for not being able to "
                          "disconnect a ROUTER's remote")
-            return False
+            return False, None
         try:
             msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
@@ -736,15 +741,18 @@ class ZStack(NetworkInterface):
             logger.trace('{} transmitting {} to {} through listener socket'.
                          format(self, msg, ident))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
-            return True
+            return True, None
         except zmq.Again:
-            return False
+            return False, None
         except InvalidMessageExceedingSizeException as ex:
-            logger.error('Cannot transmit message. Error {}'.format(ex))
-            return False
+            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            logger.error(err_str)
+            return False, err_str
         except Exception as e:
-            logger.error('{} got error {} while sending through listener to {}'.
-                         format(self, e, ident))
+            err_str = '{} got error {} while sending through listener to {}'.format(self, e, ident)
+            logger.error(err_str)
+            return False, err_str
+        return True, None
 
     @staticmethod
     def serializeMsg(msg):

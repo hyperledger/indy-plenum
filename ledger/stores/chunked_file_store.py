@@ -1,7 +1,5 @@
 import os
 import shutil
-from itertools import chain
-from typing import List, Generator
 from ledger.stores.file_store import FileStore
 from ledger.stores.text_file_store import TextFileStore
 
@@ -27,7 +25,7 @@ class ChunkedFileStore(FileStore):
     def _fileNameToChunkIndex(fileName):
         try:
             return int(fileName)
-        except:
+        except BaseException:
             return None
 
     @staticmethod
@@ -44,8 +42,8 @@ class ChunkedFileStore(FileStore):
                  chunkStoreConstructor=TextFileStore,
                  defaultFile=None):
         """
-        
-        :param chunkSize: number of items in one chunk. Cannot be lower then number of items in defaultFile 
+
+        :param chunkSize: number of items in one chunk. Cannot be lower then number of items in defaultFile
         :param chunkStoreConstructor: constructor of store for single chunk
         """
 
@@ -145,7 +143,8 @@ class ChunkedFileStore(FileStore):
         :return: opened chunk
         """
 
-        return self._chunkCreator(ChunkedFileStore._chunkIndexToFileName(index))
+        return self._chunkCreator(
+            ChunkedFileStore._chunkIndexToFileName(index))
 
     def _get_key_location(self, key) -> (int, int):
         """
@@ -265,7 +264,7 @@ class ChunkedFileStore(FileStore):
                 # If entries lie in the same range
                 assert end_offset >= start_offset
                 with self._openChunk(start_chunk_no) as chunk:
-                    yield from zip(range(start, end+1),
+                    yield from zip(range(start, end + 1),
                                    (l for _, l in chunk.get_range(start_offset,
                                                                   end_offset)))
             else:
@@ -297,7 +296,7 @@ class ChunkedFileStore(FileStore):
         num_chunks = len(chunks)
         if num_chunks == 0:
             return 0
-        count = (num_chunks-1)*self.chunkSize
+        count = (num_chunks - 1) * self.chunkSize
         last_chunk = self._openChunk(chunks[-1])
         count += sum(1 for _ in last_chunk._lines())
         last_chunk.close()
