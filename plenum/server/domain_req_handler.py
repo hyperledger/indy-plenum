@@ -1,3 +1,5 @@
+from hashlib import sha256
+
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
@@ -106,13 +108,13 @@ class DomainRequestHandler(RequestHandler):
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
         existingData.update(newData)
-        key = nym.encode()
         val = self.stateSerializer.serialize(existingData)
+        key = self.nym_to_state_key(nym)
         self.state.set(key, val)
         return existingData
 
     def hasNym(self, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = self.nym_to_state_key(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
@@ -135,8 +137,12 @@ class DomainRequestHandler(RequestHandler):
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = DomainRequestHandler.nym_to_state_key(nym)
         data = state.get(key, isCommitted)
         if not data:
             return {}
         return DomainRequestHandler.stateSerializer.deserialize(data)
+
+    @staticmethod
+    def nym_to_state_key(nym: str) -> bytes:
+        return sha256(nym.encode()).digest()
