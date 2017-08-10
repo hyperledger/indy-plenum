@@ -8,7 +8,6 @@ from typing import Dict, Iterable
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
@@ -35,6 +34,7 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
@@ -281,20 +281,19 @@ class Cli:
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
         dataDir = self.basedirpath
-        fileHashStore = FileHashStore(dataDir=dataDir)
 
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
         if not os.path.exists(genesis_txn_initiator.init_file):
             genesis_txn_initiator = None
 
-        ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
+        ledger = Ledger(CompactMerkleTree(),
                         dataDir=dataDir,
                         fileName=self.config.poolTransactionsFile,
-                        genesis_txn_initiator=genesis_txn_initiator)
+                        genesis_txn_initiator=genesis_txn_initiator,
+                        transactionLogStore=KeyValueStorageInMemory())
         nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
             ledger)
         ledger.stop()
-        fileHashStore.close()
 
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
