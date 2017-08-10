@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 from common.serializers.msgpack_serializer import MsgPackSerializer
 
 serializer = MsgPackSerializer()
@@ -7,10 +5,6 @@ serializer = MsgPackSerializer()
 
 def check(value):
     assert value == serializer.deserialize(serializer.serialize(value))
-
-
-def check_dict(dict):
-    assert serializer.__sort_dict(dict) == serializer.deserialize(serializer.serialize(dict))
 
 
 def test_serialize_int():

@@ -11,6 +11,10 @@ from storage.text_file_store import TextFileStore
 
 
 class GenesisTxnInitiatorFromFile(GenesisTxnInitiator):
+    """
+    Creates genesis txn as a text file.
+    Can init the ledger from a text file-based genesis txn file.
+    """
 
     def __init__(self, data_dir, txn_file, serializer=JsonSerializer()):
         self.__data_dir = data_dir

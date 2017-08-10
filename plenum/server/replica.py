@@ -147,7 +147,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.prePreparesPendingPrevPP = SortedDict(lambda k: (k[0], k[1]))
 
         # PREPAREs that are stored by non primary replica for which it has not
-        #  got any PRE-PREPARE. Dictionary that hash_stores a tuple of view no and
+        #  got any PRE-PREPARE. Dictionary that stores a tuple of view no and
         #  prepare sequence number as key and a deque of PREPAREs as value.
         # This deque is attempted to be flushed on receiving every
         # PRE-PREPARE request.

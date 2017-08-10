@@ -40,7 +40,6 @@ class Ledger(ImmutableStore):
         :param fileName: the name of the transaction log file
         :param genesis_txn_initiator: file or dir to use for initialization of transaction log store
         """
-        # assert not transactionLogStore or not genesis_txn_initiator
         self.genesis_txn_initiator = genesis_txn_initiator
 
         self.dataDir = dataDir
@@ -219,7 +218,7 @@ class Ledger(ImmutableStore):
         self._transactionLog.reset()
         self.tree.hashStore.reset()
 
-    def getAllTxn(self, frm: int = None, to: int = None):
+    def getAllTxn(self, frm: int=None, to: int=None):
         yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
                     for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
 
