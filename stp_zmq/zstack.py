@@ -445,7 +445,7 @@ class ZStack(NetworkInterface):
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
             errstr = 'Message will be discarded due to {}'.format(ex)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
-            logger.error("Got from {} {}".format(frm, errstr))
+            logger.debug("Got from {} {}".format(frm, errstr))
             self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
@@ -539,7 +539,7 @@ class ZStack(NetworkInterface):
                 try:
                     msg = self.deserializeMsg(msg)
                 except Exception as e:
-                    logger.error('Error {} while converting message {} '
+                    logger.debug('Error {} while converting message {} '
                                  'to JSON from {}'.format(e, msg, ident))
                     continue
 
@@ -685,7 +685,7 @@ class ZStack(NetworkInterface):
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as ex:
                     err_str = 'Cannot send message. Error {}'.format(ex)
-                    logger.error(err_str)
+                    logger.debug(err_str)
                     return False, err_str
                 for uid in self.remotes:
                     res, err = self.transmit(msg, uid, serialized=True)
@@ -725,7 +725,7 @@ class ZStack(NetworkInterface):
             logger.debug('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             err_str = 'Cannot transmit message. Error {}'.format(ex)
-            logger.error(err_str)
+            logger.debug(err_str)
         return False, err_str
 
     def transmitThroughListener(self, msg, ident):
@@ -750,11 +750,11 @@ class ZStack(NetworkInterface):
             return False, None
         except InvalidMessageExceedingSizeException as ex:
             err_str = 'Cannot transmit message. Error {}'.format(ex)
-            logger.error(err_str)
+            logger.debug(err_str)
             return False, err_str
         except Exception as e:
             err_str = '{} got error {} while sending through listener to {}'.format(self, e, ident)
-            logger.error(err_str)
+            logger.debug(err_str)
             return False, err_str
         return True, None
 

@@ -108,7 +108,7 @@ class Batched(MessageProcessor):
                         self.transmit(payload, rid, timeout=self.messageTimeout,
                                       serialized=True)
                     else:
-                        logger.error("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
+                        logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
                            extra={"cli": False})
