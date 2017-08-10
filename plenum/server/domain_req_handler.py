@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 
 from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F
@@ -108,13 +109,13 @@ class DomainRequestHandler(RequestHandler):
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
         existingData.update(newData)
-        key = nym.encode()
         val = self.stateSerializer.serialize(existingData)
+        key = self.nym_to_state_key(nym)
         self.state.set(key, val)
         return existingData
 
     def hasNym(self, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = self.nym_to_state_key(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
@@ -137,6 +138,10 @@ class DomainRequestHandler(RequestHandler):
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
-        key = nym.encode()
+        key = DomainRequestHandler.nym_to_state_key(nym)
         data = state.get(key, isCommitted)
         return json.loads(data.decode()) if data else {}
+
+    @staticmethod
+    def nym_to_state_key(nym: str) -> bytes:
+        return sha256(nym.encode()).digest()
