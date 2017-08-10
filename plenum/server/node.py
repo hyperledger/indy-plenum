@@ -498,13 +498,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.config.primaryStorage is None:
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
-                                       self.config.domainTransactionsFile)
-            if not os.path.exists(genesis_txn_initiator.init_file):
-                logger.debug("Not using default initialization file for "
-                             "domain ledger, since it does not exist: {}"
-                             .format(genesis_txn_initiator.init_file))
-                genesis_txn_initiator = None
-
+                                                                self.config.domainTransactionsFile)
             return Ledger(CompactMerkleTree(hashStore=self.getHashStore('domain')),
                           dataDir=self.dataLocation,
                           fileName=self.config.domainTransactionsFile,

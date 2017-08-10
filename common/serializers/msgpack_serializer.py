@@ -42,9 +42,9 @@ class MsgPackSerializer(MappingSerializer, StreamSerializer):
     def get_lines(self, stream):
         return msgpack.Unpacker(stream, encoding='utf-8', object_pairs_hook=decode_to_sorted)
 
-    def __sort_dict(self, dict) -> OrderedDict:
-        dict = OrderedDict(sorted(dict.items()))
-        for k, v in dict.items():
+    def __sort_dict(self, d) -> OrderedDict:
+        d = OrderedDict(sorted(d.items()))
+        for k, v in d.items():
             if isinstance(v, Dict):
-                dict[k] = self.__sort_dict(v)
-        return dict
+                d[k] = self.__sort_dict(v)
+        return d

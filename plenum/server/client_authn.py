@@ -95,7 +95,7 @@ class NaclAuthNr(ClientAuthNr):
             verkey = self.getVerkey(identifier)
 
             if verkey is None:
-                raise CouldNotAuthenticate
+                raise CouldNotAuthenticate('Can not find verkey for DID {}'.format(identifier))
 
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)

@@ -49,12 +49,6 @@ class TxnStackManager(metaclass=ABCMeta):
     def ledger(self):
         if self._ledger is None:
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
-            if not os.path.exists(genesis_txn_initiator.init_file):
-                logger.debug("Not using default initialization file for "
-                             "pool ledger, since it does not exist: {}"
-                             .format(genesis_txn_initiator.init_file))
-                genesis_txn_initiator = None
-
             dataDir = self.ledgerLocation
             self.hashStore = LevelDbHashStore(dataDir=dataDir, fileNamePrefix='pool')
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
