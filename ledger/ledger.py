@@ -2,10 +2,8 @@ import logging
 import time
 
 import base58
-
 from common.serializers.mapping_serializer import MappingSerializer
 from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
-from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
 from ledger.immutable_store import ImmutableStore
 from ledger.merkle_tree import MerkleTree
@@ -218,7 +216,9 @@ class Ledger(ImmutableStore):
         self._transactionLog.reset()
         self.tree.hashStore.reset()
 
-    def getAllTxn(self, frm: int=None, to: int=None):
+    # TODO: rename getAllTxn to get_txn_slice with required parameters frm to
+    # add get_txn_all without args.
+    def getAllTxn(self, frm: int = None, to: int = None):
         yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
                     for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
 

@@ -3,7 +3,7 @@ import ipaddress
 import os
 from collections import namedtuple
 
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 
 from stp_core.crypto.nacl_wrappers import Signer
 
@@ -116,8 +116,7 @@ class TestNetworkSetup:
     @classmethod
     def init_pool_ledger(cls, appendToLedgers, baseDir, config, envName):
         pool_txn_file = cls.pool_ledger_file_name(config, envName)
-        initiator = GenesisTxnInitiatorFromFile(baseDir, pool_txn_file)
-        pool_ledger = initiator.create_initiator_ledger()
+        pool_ledger = create_genesis_txn_init_ledger(baseDir, pool_txn_file)
         if not appendToLedgers:
             pool_ledger.reset()
         return pool_ledger
@@ -126,8 +125,7 @@ class TestNetworkSetup:
     def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
                            domainTxnFieldOrder):
         domain_txn_file = cls.domain_ledger_file_name(config, envName)
-        initiator = GenesisTxnInitiatorFromFile(baseDir, domain_txn_file)
-        domain_ledger = initiator.create_initiator_ledger()
+        domain_ledger = create_genesis_txn_init_ledger(baseDir, domain_txn_file)
         if not appendToLedgers:
             domain_ledger.reset()
         return domain_ledger

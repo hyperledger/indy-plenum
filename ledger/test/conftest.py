@@ -5,6 +5,7 @@ from common.serializers.compact_serializer import CompactSerializer
 from common.serializers.json_serializer import JsonSerializer
 from common.serializers.msgpack_serializer import MsgPackSerializer
 from common.serializers.signing_serializer import SigningSerializer
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.test.helper import create_ledger
 
@@ -38,8 +39,7 @@ def genesis_txns():
 def genesis_txn_file(request, tempdir, genesis_txns):
     if request.param == 'without_genesis':
         return None
-    initiator = GenesisTxnInitiatorFromFile(tempdir, "init_file")
-    ledger = initiator.create_initiator_ledger()
+    ledger = create_genesis_txn_init_ledger(tempdir, "init_file")
     for txn in genesis_txns:
         ledger.add(txn)
     return "init_file"
@@ -47,8 +47,7 @@ def genesis_txn_file(request, tempdir, genesis_txns):
 
 @pytest.fixture(scope="function")
 def init_genesis_txn_file(request, tempdir, genesis_txns):
-    initiator = GenesisTxnInitiatorFromFile(tempdir, "init_file")
-    ledger = initiator.create_initiator_ledger()
+    ledger = create_genesis_txn_init_ledger(tempdir, "init_file")
     for txn in genesis_txns:
         ledger.add(txn)
     return "init_file"

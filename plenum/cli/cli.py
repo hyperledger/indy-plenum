@@ -7,6 +7,7 @@ from typing import Dict, Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
@@ -501,8 +502,7 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFile)
-            ledger = initiator.create_initiator_ledger()
+            ledger = create_genesis_txn_init_ledger(self.basedirpath, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)

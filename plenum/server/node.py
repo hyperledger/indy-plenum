@@ -497,6 +497,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This is usually an implementation of Ledger
         """
         if self.config.primaryStorage is None:
+            # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
+            # and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
                                                                 self.config.domainTransactionsFile)
             return Ledger(CompactMerkleTree(hashStore=self.getHashStore('domain')),

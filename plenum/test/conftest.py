@@ -13,7 +13,7 @@ from functools import partial
 import time
 from typing import Dict, Any
 
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
@@ -590,8 +590,7 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
 
-    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.poolTransactionsFile)
-    ledger = initiator.create_initiator_ledger()
+    ledger = create_genesis_txn_init_ledger(tdir, tconf.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
@@ -607,8 +606,7 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.domainTransactionsFile)
-    ledger = initiator.create_initiator_ledger()
+    ledger = create_genesis_txn_init_ledger(tdir, tconf.domainTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:

@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY
 from plenum.common.types import f, OPERATION
@@ -27,8 +27,7 @@ def getTxnOrderedFields():
 
 def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
                          reset=True):
-    initiator = GenesisTxnInitiatorFromFile(targetDir, fileName)
-    ledger = initiator.create_initiator_ledger()
+    ledger = create_genesis_txn_init_ledger(targetDir, fileName)
 
     if reset:
         ledger.reset()
