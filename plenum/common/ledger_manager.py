@@ -594,8 +594,8 @@ class LedgerManager(HasActionQueue):
                                                         [Ledger.strToHash(p) for p in
                                                          proof])
         except Exception as ex:
-            logger.info("{} could not verify catchup reply {} since {}".
-                        format(self, catchupReply, ex))
+            logger.debug("{} could not verify catchup reply {} since {}".
+                         format(self, catchupReply, ex))
             verified = False
         return bool(verified), nodeName, len(txns)
 

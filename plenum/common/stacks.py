@@ -46,7 +46,7 @@ class ClientZStack(SimpleZStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{} unable to send message {} to client {}; Exception: {}"
+            logger.debug("{} unable to send message {} to client {}; Exception: {}"
                          .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
@@ -71,9 +71,9 @@ class NodeZStack(Batched, KITZStack):
         # Calling service lifecycle to allow creation of remotes
         # that this stack needs to connect to
         # self.serviceLifecycle()
-        logger.info("{} listening for other nodes at {}:{}".
-                    format(self, *self.ha),
-                    extra={"tags": ["node-listening"]})
+        logger.debug("{} listening for other nodes at {}:{}".
+                     format(self, *self.ha),
+                     extra={"tags": ["node-listening"]})
 
 
 class ClientRStack(SimpleRStack, MessageProcessor):
@@ -111,7 +111,7 @@ class ClientRStack(SimpleRStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{} unable to send message {} to client {}; Exception: {}"
+            logger.debug("{} unable to send message {} to client {}; Exception: {}"
                          .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
@@ -132,9 +132,9 @@ class NodeRStack(Batched, KITRStack):
 
     def start(self):
         KITRStack.start(self)
-        logger.info("{} listening for other nodes at {}:{}".
-                    format(self, *self.ha),
-                    extra={"tags": ["node-listening"]})
+        logger.debug("{} listening for other nodes at {}:{}".
+                     format(self, *self.ha),
+                     extra={"tags": ["node-listening"]})
 
 
 nodeStackClass = NodeZStack if config.UseZStack else NodeRStack

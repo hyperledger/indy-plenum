@@ -148,8 +148,8 @@ async def eventually(coroFunc: FlexFunc,
             remain = start + timeout*slowFactor - time.perf_counter()
             if remain < 0:
                 # this provides a convenient breakpoint for a debugger
-                logger.warning("{} last try...".format(fname),
-                               extra={"cli": False})
+                logger.debug("{} last try...".format(fname),
+                             extra={"cli": False})
             # noinspection PyCallingNonCallable
             res = coroFunc(*args)
 

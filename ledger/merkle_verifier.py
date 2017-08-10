@@ -58,7 +58,7 @@ class MerkleVerifier(object):
         if old_size == new_size:
             if old_root == new_root:
                 if proof:
-                    logging.warning("Trees are identical, ignoring proof")
+                    logging.debug("Trees are identical, ignoring proof")
                 return True
             else:
                 raise error.ConsistencyError("Inconsistency: different root "
@@ -70,8 +70,8 @@ class MerkleVerifier(object):
                 # Anything is consistent with an empty tree, so ignore whatever
                 # bogus proof was supplied. Note we do not verify here that the
                 # root hash is a valid hash for an empty tree.
-                logging.warning("Ignoring non-empty consistency proof for "
-                                "empty tree.")
+                logging.debug("Ignoring non-empty consistency proof for "
+                              "empty tree.")
             return True
 
         # Now 0 < old_size < new_size
@@ -149,7 +149,7 @@ class MerkleVerifier(object):
         except StopIteration:
             pass
         else:
-            logging.warning("Proof has extra nodes")
+            logging.debug("Proof has extra nodes")
         return True
 
     def _calculate_root_hash_from_audit_path(self, leaf_hash: bytes,

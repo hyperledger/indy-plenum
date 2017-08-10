@@ -134,7 +134,7 @@ class SimpleAuthNr(NaclAuthNr):
     def addIdr(self, identifier, verkey, role=None):
         if identifier in self.clients:
             # raise RuntimeError("client already added")
-            logger.error("client already added")
+            logger.debug("client already added")
         self.clients[identifier] = {
             VERKEY: verkey,
             ROLE: role

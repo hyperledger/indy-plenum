@@ -269,9 +269,9 @@ class RStack(NetworkInterface):
     def start(self):
         if not self.opened:
             self.open()
-        logger.info("stack {} starting at {} in {} mode"
-                    .format(self, self.ha, self.raetStack.keep.auto),
-                    extra={"cli": False})
+        logger.debug("stack {} starting at {} in {} mode"
+                     .format(self, self.ha, self.raetStack.keep.auto),
+                     extra={"cli": False})
         # self.coro = self._raetcoro()
         self.coro = self._raetcoro
 
@@ -279,7 +279,7 @@ class RStack(NetworkInterface):
         if self.opened:
             self.close()
         self.coro = None
-        logger.info("stack {} stopped".format(self.name), extra={"cli": False})
+        logger.debug("stack {} stopped".format(self.name), extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """
@@ -526,7 +526,7 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
                     logger.debug("{} found a legacy remote {} "
                                  "without a matching ha {}".
                                  format(self, r.name, r.ha))
-                    logger.info(str(self.registry))
+                    logger.debug(str(self.registry))
                     legacy.add(r)
 
         # missing from remotes... need to connect

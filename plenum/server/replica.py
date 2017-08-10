@@ -297,7 +297,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def h(self, n):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
-        logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -323,7 +323,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if n > self._lastPrePrepareSeqNo:
             self._lastPrePrepareSeqNo = n
         else:
-            logger.info('{} cannot set lastPrePrepareSeqNo to {} as its '
+            logger.debug('{} cannot set lastPrePrepareSeqNo to {} as its '
                          'already {}'.format(self, n, self._lastPrePrepareSeqNo))
 
     @property
@@ -389,7 +389,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.compact_primary_names()
         if not value == self._primaryName:
             self._primaryName = value
-            logger.info("{} setting primaryName for view no {} to: {}".
+            logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if value is None:
                 # Since the GC needs to happen after a primary has been decided.
@@ -435,7 +435,7 @@ class Replica(HasActionQueue, MessageProcessor):
         assert self.isMaster
         lst = self.last_prepared_certificate_in_view()
         self.last_prepared_before_view_change = lst
-        logger.info('{} setting last prepared for master to {}'.format(self, lst))
+        logger.debug('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         assert self.isMaster
@@ -549,7 +549,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.processPostElectionMsgs()
             except SuspiciousNode as ex:
                 self.outBox.append(ex)
-                self.discard(ex.msg, ex.reason, logger.warning)
+                self.discard(ex.msg, ex.reason, logger.debug)
 
     def _stashInBox(self, msg):
         """
@@ -628,8 +628,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.node.doDynamicValidation(req)
                 self.node.applyReq(req, cons_time)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
-            logger.warning('{} encountered exception {} while processing {}, '
-                            'will reject'.format(self, ex, req))
+            logger.debug('{} encountered exception {} while processing {}, '
+                         'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))
             inValidReqs.append(req)
         else:
@@ -637,9 +637,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def create3PCBatch(self, ledger_id):
         ppSeqNo = self.lastPrePrepareSeqNo + 1
-        logger.info("{} creating batch {} for ledger {} with state root {}".
-                    format(self, ppSeqNo, ledger_id,
-                           self.stateRootHash(ledger_id, to_str=False)))
+        logger.debug("{} creating batch {} for ledger {} with state root {}".
+                     format(self, ppSeqNo, ledger_id,
+                            self.stateRootHash(ledger_id, to_str=False)))
         tm = self.utc_epoch
 
         validReqs = []
@@ -669,7 +669,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledger_id),
                                    self.txnRootHash(ledger_id)
                                    )
-        logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
+        logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
         self.last_accepted_pre_prepare_time = tm
@@ -973,9 +973,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
-        logger.info('{} reverting {} txns and state root from {} to {} for'
-                    ' ledger {}'.format(self, reqCount, state.headHash,
-                                        stateRootHash, ledgerId))
+        logger.debug('{} reverting {} txns and state root from {} to {} for'
+                     ' ledger {}'.format(self, reqCount, state.headHash,
+                                         stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
@@ -1392,7 +1392,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.info("{} ordering COMMIT{}".format(self, key))
+        logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
     def order_3pc_key(self, key):
@@ -1468,7 +1468,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
         if self.isMaster and checkpoint_state.digest != msg.digest:
-            logger.error("{} received an incorrect digest {} for "
+            logger.debug("{} received an incorrect digest {} for "
                          "checkpoint {} from {}".format(self,
                                                         msg.digest,
                                                         key,
@@ -1484,8 +1484,8 @@ class Replica(HasActionQueue, MessageProcessor):
         is_stashed_enough = quorums > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
         is_non_primary_master = self.isMaster and not self.isPrimary
         if is_stashed_enough and is_non_primary_master:
-            logger.info('{} has stashed {} checkpoints with quorum '
-                        'so the catchup procedure starts'.format(self, quorums))
+            logger.debug('{} has stashed {} checkpoints with quorum '
+                         'so the catchup procedure starts'.format(self, quorums))
             self.node.start_catchup()
             self.h = max_pp_seq_no
 
@@ -1536,7 +1536,7 @@ class Replica(HasActionQueue, MessageProcessor):
             else:
                 previousCheckpoints.append((s, e))
         else:
-            logger.error("{} could not find {} in checkpoints".
+            logger.debug("{} could not find {} in checkpoints".
                          format(self, seqNo))
             return
         self.h = seqNo
@@ -1702,7 +1702,7 @@ class Replica(HasActionQueue, MessageProcessor):
             if isinstance(item, tuple) and len(item) == 2:
                 self.dispatchThreePhaseMsg(*item)
             else:
-                logger.error("{} cannot process {} "
+                logger.debug("{} cannot process {} "
                              "from stashingWhileOutsideWaterMarks".
                              format(self, item))
             itemsToConsume -= 1
@@ -1983,7 +1983,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             self.discard(pp, reason='does not have expected state({} {} {})'.
                          format(digest, state_root, txn_root),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """
@@ -2007,11 +2007,11 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
-            logger.error('{} found {} to have incorrect time.'.format(self, pp))
+            logger.debug('{} found {} to have incorrect time.'.format(self, pp))
             key = (pp.viewNo, pp.ppSeqNo)
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                logger.info('{} marking time as correct for {}'.format(self, pp))
+                logger.debug('{} marking time as correct for {}'.format(self, pp))
                 correct = True
         return correct
 
@@ -2066,7 +2066,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
-        logger.info("{} sending {}".format(self, msg.__class__.__name__),
+        logger.debug("{} sending {}".format(self, msg.__class__.__name__),
                        extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:

@@ -95,8 +95,8 @@ class Looper:
                 if l.is_closed():
                     raise RuntimeError("event loop was closed")
             except Exception as ex:
-                logger.warning("Looper could not get default event loop; "
-                               "creating a new one: {}".format(ex))
+                logger.debug("Looper could not get default event loop; "
+                             "creating a new one: {}".format(ex))
                 # Trying out uvloop for linux
                 l = asyncio.new_event_loop()
             asyncio.set_event_loop(l)
@@ -204,8 +204,8 @@ class Looper:
             await asyncio.sleep(0.01, loop=self.loop)  # if no let other stuff run
         dur = time.perf_counter() - start
         if dur >= 0.5:
-            logger.info("it took {:.3f} seconds to run once nicely".
-                        format(dur), extra={"cli": False})
+            logger.debug("it took {:.3f} seconds to run once nicely".
+                         format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
         self.run(asyncio.sleep(timeout))
@@ -256,22 +256,22 @@ class Looper:
     def handleSignal(self, sig=None):
         # Allowing sig to be optional since asyncio not passing the signal or
         # KeyboardInterrupt (Ctrl+C)
-        logger.info("Signal {} received, stopping looper...".format(sig))
+        logger.debug("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):
         """
         Shut down this Looper.
         """
-        logger.info("Looper shutting down now...",
-                    extra={"cli": False})
+        logger.debug("Looper shutting down now...",
+                     extra={"cli": False})
         self.running = False
         start = time.perf_counter()
         await self.runFut
         self.stopall()
-        logger.info("Looper shut down in {:.3f} seconds.".
-                    format(time.perf_counter() - start),
-                    extra={"cli": False})
+        logger.debug("Looper shut down in {:.3f} seconds.".
+                     format(time.perf_counter() - start),
+                     extra={"cli": False})
 
     def __enter__(self):
         return self

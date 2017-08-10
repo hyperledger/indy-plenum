@@ -577,8 +577,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start(self, loop):
         oldstatus = self.status
         if oldstatus in Status.going():
-            logger.info("{} is already {}, so start has no effect".
-                        format(self, self.status.name))
+            logger.debug("{} is already {}, so start has no effect".
+                         format(self, self.status.name))
         else:
             super().start(loop)
             self.primaryStorage.start(loop,
@@ -594,9 +594,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             # if first time running this node
             if not self.nodestack.remotes:
-                logger.info("{} first time running..."
-                            "".format(self), extra={"cli": "LOW_STATUS",
-                                                    "tags": ["node-key-sharing"]})
+                logger.debug("{} first time running..."
+                             "".format(self), extra={"cli": "LOW_STATUS",
+                                                     "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections(force=True)
 
@@ -688,7 +688,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
-        logger.info("{} closing level dbs".format(self), extra={"cli": False})
+        logger.debug("{} closing level dbs".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgerRegistry:
             state = self.getState(ledgerId)
             if state:
@@ -1225,7 +1225,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(view_no), logMethod=logger.info)
+                         .format(view_no), logMethod=logger.debug)
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
@@ -1276,17 +1276,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
-                logger.info("{} msg validated {}".format(self, wrappedMsg),
-                            extra={"tags": ["node-msg-validation"]})
+                logger.debug("{} msg validated {}".format(self, wrappedMsg),
+                             extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.info("{} invalidated msg {}".format(self, wrappedMsg),
-                            extra={"tags": ["node-msg-validation"]})
+                logger.debug("{} invalidated msg {}".format(self, wrappedMsg),
+                             extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
             msg, frm = wrappedMsg
-            self.discard(msg, ex)
+            self.discard(msg, ex, logger.debug)
 
     def validateNodeMsg(self, wrappedMsg):
         """
@@ -1299,7 +1299,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
             self.discard(msg, "received from blacklisted node {}"
-                         .format(frm), logger.info)
+                         .format(frm), logger.debug)
             return None
 
         try:
@@ -1357,7 +1357,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 await self.nodeMsgRouter.handle(m)
             except SuspiciousNode as ex:
                 self.reportSuspiciousNodeEx(ex)
-                self.discard(m, ex)
+                self.discard(m, ex, logger.debug)
 
     def handleOneClientMsg(self, wrappedMsg):
         """
@@ -1393,7 +1393,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
-        self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
+        self.discard(wrappedMsg, friendly, logger.debug, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1404,7 +1404,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
             self.discard(msg, "received from blacklisted client {}"
-                         .format(frm), logger.info)
+                         .format(frm), logger.debug)
             return None
 
         needStaticValidation = False
@@ -1489,10 +1489,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.clientInBox:
             m = self.clientInBox.popleft()
             req, frm = m
-            logger.display("{} processing {} request {}".
-                           format(self.clientstack.name, frm, req),
-                           extra={"cli": True,
-                                  "tags": ["node-msg-processing"]})
+            logger.debug("{} processing {} request {}".
+                         format(self.clientstack.name, frm, req),
+                         extra={"cli": True,
+                                "tags": ["node-msg-processing"]})
 
             try:
                 await self.clientMsgRouter.handle(m)
@@ -1606,8 +1606,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if last catchup resulted in no txns
         """
         if self.caught_up_for_current_view():
-            logger.info('{} is caught up for the current view {}'.
-                        format(self, self.viewNo))
+            logger.debug('{} is caught up for the current view {}'.
+                         format(self, self.viewNo))
             return False
         logger.debug('{} is not caught up for the current view {}'.
                      format(self, self.viewNo))
@@ -1900,9 +1900,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                   state_root, txn_root)
                 r = True
             else:
-                logger.warning('{} did not find {} finalized requests, but '
-                               'still ordered'.format(self, len(req_idrs) -
-                                                      len(reqs)))
+                logger.debug('{} did not find {} finalized requests, but '
+                             'still ordered'.format(self, len(req_idrs) -
+                                                    len(reqs)))
                 return None
         else:
             logger.trace("{} got ordered requests from backup replica {}".
@@ -2083,7 +2083,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.info("{} sending an instance change with view_no {} since "
+            logger.debug("{} sending an instance change with view_no {} since "
                         "{}".
                         format(self, view_no, suspicion.reason))
             logger.info("{} metrics for monitor: {}".
@@ -2214,8 +2214,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Process any already Ordered requests by the replica
 
         if self.mode == Mode.starting:
-            logger.info('{} does not start the catchup procedure '
-                        'because it is already in this state'.format(self))
+            logger.debug('{} does not start the catchup procedure '
+                         'because it is already in this state'.format(self))
             return
         self.force_process_ordered()
 
@@ -2263,10 +2263,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
-        logger.info("{} authenticated {} signature on {} request {}".
-                       format(self, identifier, typ, req['reqId']),
-                       extra={"cli": True,
-                              "tags": ["node-msg-processing"]})
+        logger.debug("{} authenticated {} signature on {} request {}".
+                     format(self, identifier, typ, req['reqId']),
+                     extra={"cli": True,
+                            "tags": ["node-msg-processing"]})
 
     def authNr(self, req):
         return self.clientAuthNr
@@ -2410,7 +2410,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, TRUSTEE, None):
-                    logger.error("Role if present must be {} and not {}".
+                    logger.debug("Role if present must be {} and not {}".
                                  format(Roles.STEWARD.name, role))
                     return
                 self.clientAuthNr.addIdr(identifier,
@@ -2423,8 +2423,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txns from ledger.
         """
         if state.isEmpty:
-            logger.info('{} found state to be empty, recreating from '
-                        'ledger'.format(self))
+            logger.debug('{} found state to be empty, recreating from '
+                         'ledger'.format(self))
             for seq_no, txn in ledger.getAllTxn():
                 txn[f.SEQ_NO.nm] = seq_no
                 txn = self.update_txn_with_extra_data(txn)
@@ -2536,7 +2536,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(self, code))
 
         if offendingMsg:
-            self.discard(offendingMsg, reason, logger.warning)
+            self.discard(offendingMsg, reason, logger.debug)
 
     def reportSuspiciousClient(self, clientName: str, reason):
         """
@@ -2545,9 +2545,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param clientName: name of the client to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.warning("{} suspicion raised on client {} for {}; "
-                       "doing nothing for now".
-                       format(self, clientName, reason))
+        logger.debug("{} suspicion raised on client {} for {}"
+                     .format(self, clientName, reason))
         self.blacklistClient(clientName)
 
     def isClientBlacklisted(self, clientName: str):

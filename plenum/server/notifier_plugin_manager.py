@@ -72,7 +72,7 @@ class PluginManager:
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
                   'Usual: {}. New: {}.'\
             .format(event, nodeName, time.time(), val, newVal)
-        logger.warning(message)
+        logger.debug(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
@@ -84,7 +84,7 @@ class PluginManager:
                 module = importlib.import_module(plugin)
                 self.plugins.append(module)
                 i += 1
-                logger.info("Successfully imported Notifier Plugin: {}".format(plugin))
+                logger.debug("Successfully imported Notifier Plugin: {}".format(plugin))
             except Exception as e:
                 logger.error('Importing Notifier Plugin {} failed due to {}'.format(plugin, e))
         return i, len(plugins)

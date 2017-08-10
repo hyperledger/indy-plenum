@@ -138,7 +138,7 @@ class ZStack(NetworkInterface):
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
         else:
-            logger.warning('No remote named {} present')
+            logger.debug('No remote named {} present')
 
     @staticmethod
     def initLocalKeys(name, baseDir, sigseed, override=False):
@@ -268,9 +268,9 @@ class ZStack(NetworkInterface):
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
-            logger.info("Signing and Encryption keys were not found for {}. "
-                        "Creating them now".format(self),
-                        extra={"cli": False})
+            logger.debug("Signing and Encryption keys were not found for {}. "
+                         "Creating them now".format(self),
+                         extra={"cli": False})
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
             os.makedirs(tdirS, exist_ok=True)
@@ -314,20 +314,20 @@ class ZStack(NetworkInterface):
         if self.config.MAX_SOCKETS:
             self.ctx.MAX_SOCKETS = self.config.MAX_SOCKETS
         restricted = self.restricted if restricted is None else restricted
-        logger.info('{} starting with restricted as {} and reSetupAuth '
-                    'as {}'.format(self, restricted, reSetupAuth),
-                    extra={"cli": False, "demo": False})
+        logger.debug('{} starting with restricted as {} and reSetupAuth '
+                     'as {}'.format(self, restricted, reSetupAuth),
+                     extra={"cli": False, "demo": False})
         self.setupAuth(restricted, force=reSetupAuth)
         self.open()
 
     def stop(self):
         if self.opened:
-            logger.info('stack {} closing its listener'.format(self),
-                        extra={"cli": False, "demo": False})
+            logger.debug('stack {} closing its listener'.format(self),
+                         extra={"cli": False, "demo": False})
             self.close()
         self.teardownAuth()
-        logger.info("stack {} stopped".format(self),
-                    extra={"cli": False, "demo": False})
+        logger.debug("stack {} stopped".format(self),
+                     extra={"cli": False, "demo": False})
 
     @property
     def opened(self):
@@ -360,8 +360,8 @@ class ZStack(NetworkInterface):
 
         self._remotes = {}
         if self.remotesByKeys:
-            logger.warning('{} found remotes that were only in remotesByKeys and '
-                        'not in remotes. This is suspicious')
+            logger.debug('{} found remotes that were only in remotesByKeys and '
+                         'not in remotes. This is suspicious')
             for r in self.remotesByKeys.values():
                 r.disconnect()
             self.remotesByKeys = {}
@@ -611,9 +611,9 @@ class ZStack(NetworkInterface):
         assert name
         remote = self.remotes.get(name)
         if not remote:
-            logger.warning('{} did not find any remote '
-                           'by name {} to disconnect'
-                           .format(self, name))
+            logger.debug('{} did not find any remote '
+                         'by name {} to disconnect'
+                         .format(self, name))
             return None
         remote.disconnect()
         return remote
@@ -640,13 +640,13 @@ class ZStack(NetworkInterface):
         elif r is False:
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
-            logger.info('{} failed to {} {}'.
-                        format(self.name, action, name),
-                        extra={"cli": False})
+            logger.debug('{} failed to {} {}'.
+                         format(self.name, action, name),
+                         extra={"cli": False})
         elif r is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
-            logger.warning('{} got an unexpected return value {} while sending'.
+            logger.debug('{} got an unexpected return value {} while sending'.
                         format(self, r))
         return r
 
@@ -665,7 +665,7 @@ class ZStack(NetworkInterface):
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
-        logger.info('{} sending heartbeat to all remotes'.format(self))
+        logger.debug('{} sending heartbeat to all remotes'.format(self))
         for remote in self.remotes:
             self.sendPingPong(remote)
         self.last_heartbeat_at = time.perf_counter()
@@ -696,8 +696,8 @@ class ZStack(NetworkInterface):
             return False
         socket = remote.socket
         if not socket:
-            logger.warning('{} has uninitialised socket '
-                           'for remote {}'.format(self, uid))
+            logger.debug('{} has uninitialised socket '
+                         'for remote {}'.format(self, uid))
             return False
         try:
             if not serialized:
@@ -707,14 +707,14 @@ class ZStack(NetworkInterface):
             logger.debug('{} transmitting message {} to {}'
                         .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
-                logger.warning('Remote {} is not connected - '
-                               'message will not be sent immediately.'
-                               'If this problem does not resolve itself - '
-                               'check your firewall settings'.format(uid))
+                logger.debug('Remote {} is not connected - '
+                             'message will not be sent immediately.'
+                             'If this problem does not resolve itself - '
+                             'check your firewall settings'.format(uid))
             return True
         except zmq.Again:
-            logger.info('{} could not transmit message to {}'
-                        .format(self, uid))
+            logger.debug('{} could not transmit message to {}'
+                         .format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             logger.error('Cannot transmit message. Error {}'.format(ex))
         return False
@@ -880,8 +880,8 @@ class ZStack(NetworkInterface):
         try:
             os.remove(filePath)
         except Exception as ex:
-            logger.info('{} could delete file {} due to {}'.
-                        format(self, filePath, ex))
+            logger.debug('{} could delete file {} due to {}'.
+                         format(self, filePath, ex))
 
     def clearLocalRoleKeep(self):
         for d in (self.secretKeysDir, self.sigKeyDir):

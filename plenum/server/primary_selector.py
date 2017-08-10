@@ -109,7 +109,7 @@ class PrimarySelector(PrimaryDecider):
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
                          .format(self, sender, view_no, self.viewNo),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return False
 
         new_primary_name = msg.name
@@ -120,7 +120,7 @@ class PrimarySelector(PrimaryDecider):
                          '{} got Primary from {} for {} who was primary of '
                          'master in previous view too'
                          .format(self, sender, new_primary_name),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return False
 
         # Since a node can send ViewChangeDone more than one time
@@ -186,7 +186,7 @@ class PrimarySelector(PrimaryDecider):
             logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
 
-        logger.info("{} got view change quorum ({} >= {})"
+        logger.debug("{} got view change quorum ({} >= {})"
                      .format(self.name,
                              num_of_ready_nodes,
                              self.quorum))
@@ -259,13 +259,13 @@ class PrimarySelector(PrimaryDecider):
             return
 
         if not self.node.is_synced:
-            logger.info('{} cannot start primary selection since mode is {}'
-                        .format(self, self.node.mode))
+            logger.debug('{} cannot start primary selection since mode is {}'
+                         .format(self, self.node.mode))
             return
 
         if self.is_behind_for_view:
-            logger.info('{} is synced and has an acceptable view change quorum '
-                        'but is behind the accepted state'.format(self))
+            logger.debug('{} is synced and has an acceptable view change quorum '
+                         'but is behind the accepted state'.format(self))
             self.node.start_catchup()
             return
 
