@@ -284,9 +284,6 @@ class Cli:
         dataDir = self.basedirpath
 
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
-        if not os.path.exists(genesis_txn_initiator.init_file):
-            genesis_txn_initiator = None
-
         ledger = Ledger(CompactMerkleTree(),
                         dataDir=dataDir,
                         fileName=self.config.poolTransactionsFile,
