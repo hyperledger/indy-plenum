@@ -45,6 +45,7 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
 from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
+from plenum.server.replicas import Replicas
 
 logger = getlogger()
 
@@ -111,6 +112,10 @@ class TestNodeCore(StackedTester):
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
+        self.replicas._monitor = self.monitor
+
+    def create_replicas(self):
+        return TestReplicas(self, self.monitor)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -213,10 +218,10 @@ class TestNodeCore(StackedTester):
         logger.debug("{0} received Test message: {1} from {2}".
                      format(self.nodestack.name, msg, frm))
 
-    def serviceReplicaOutBox(self, *args, **kwargs) -> int:
+    def service_replicas_outbox(self, *args, **kwargs) -> int:
         for r in self.replicas:  # type: TestReplica
             r.outBoxTestStasher.process()
-        return super().serviceReplicaOutBox(*args, **kwargs)
+        return super().service_replicas_outbox(*args, **kwargs)
 
     def ensureKeysAreSetup(self):
         pass
@@ -357,6 +362,12 @@ class TestReplica(replica.Replica):
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
+
+
+
+class TestReplicas(Replicas):
+    def _new_replica(self, instance_id: int, is_master: bool):
+        return TestReplica(self._node, instance_id, is_master)
 
 
 class TestNodeSet(ExitStack):

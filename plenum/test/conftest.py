@@ -21,6 +21,7 @@ import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
+from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -56,6 +57,11 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
 Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
 config = getConfig()
+
+
+@pytest.mark.firstresult
+def pytest_xdist_make_scheduler(config, log):
+    return GroupedLoadScheduling(config, log)
 
 
 @pytest.fixture(scope="session")
@@ -236,19 +242,18 @@ def logcapture(request, whitelist, concerningLogLevels):
 
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
-        msg = str(record.msg)
-        isWhiteListed = bool([w for w in whiteListedExceptions
-                              if re.search(w, msg)])
-
-        if not (isBenign or isTest or isWhiteListed):
-            # Stopping all loopers, so prodables like nodes, clients, etc stop.
-            #  This helps in freeing ports
-            for fv in request._fixture_values.values():
-                if isinstance(fv, Looper):
-                    fv.stopall()
-                if isinstance(fv, Prodable):
-                    fv.stop()
-            raise BlowUp("{}: {} ".format(record.levelname, record.msg))
+        if not (isBenign or isTest):
+            msg = str(record.msg)
+            isWhiteListed = any(re.search(w, msg) for w in whiteListedExceptions)
+            if not isWhiteListed:
+                # Stopping all loopers, so prodables like nodes, clients, etc stop.
+                #  This helps in freeing ports
+                for fv in request._fixture_values.values():
+                    if isinstance(fv, Looper):
+                        fv.stopall()
+                    if isinstance(fv, Prodable):
+                        fv.stop()
+                raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
@@ -369,7 +374,7 @@ def request1(wallet1):
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submitReqs(request1)[0]
+    return client1.submitReqs(request1)[0][0]
 
 
 @pytest.fixture(scope="module")
@@ -763,3 +768,13 @@ def testNode(pluginManager, tdir):
     node.start(None)
     yield node
     node.stop()
+
+
+@pytest.fixture()
+def set_info_log_level(request):
+    Logger.setLogLevel(logging.INFO)
+
+    def reset():
+        Logger.setLogLevel(logging.NOTSET)
+
+    request.addfinalizer(reset)

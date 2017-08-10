@@ -56,12 +56,12 @@ class PortDispenser:
                 except:
                     if recurlvl < self.maxportretries:
                         self.logger.debug("port {} unavailable, trying again...".
-                                    format(port))
+                                          format(port))
                         recurlvl += 1
                     else:
                         self.logger.debug("port {} unavailable, max retries {} "
-                                    "reached".
-                                    format(port, self.maxportretries))
+                                          "reached".
+                                          format(port, self.maxportretries))
                         raise
             return ports
 

@@ -1025,7 +1025,7 @@ class Cli:
             self.print("    Replicas: {}".format(len(node.replicas)),
                        newline=False)
             if node.hasPrimary:
-                if node.primaryReplicaNo == 0:
+                if node.has_master_primary:
                     self.print("  (primary of Master)")
                 else:
                     self.print("  (primary of Backup)")
@@ -1084,9 +1084,14 @@ class Cli:
         if client:
             if wallet:
                 req = wallet.signOp(msg)
-                request, = client.submitReqs(req)
-                self.requests[request.key] = request
-                self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                request, errs = client.submitReqs(req)
+                if request:
+                    rqst = request[0]
+                    self.requests[rqst.key] = rqst
+                    self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                else:
+                    for err in errs:
+                        self.print("Request error: {}".format(err), Token.Error)
             else:
                 try:
                     self._createWallet(clientName)

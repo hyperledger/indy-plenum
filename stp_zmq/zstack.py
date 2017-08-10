@@ -13,8 +13,7 @@ import sys
 import time
 from binascii import hexlify, unhexlify
 from collections import deque
-from typing import Dict, Mapping, Tuple, Any, Union
-from typing import Set
+from typing import Mapping, Tuple, Any, Union
 
 # import stp_zmq.asyncio
 import zmq.auth
@@ -204,7 +203,7 @@ class ZStack(NetworkInterface):
     @staticmethod
     def keyDirNames():
         return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, \
-               ZStack.VerifKeyDirName, ZStack.SigKeyDirName
+            ZStack.VerifKeyDirName, ZStack.SigKeyDirName
 
     @staticmethod
     def getHaFromLocal(name, basedirpath):
@@ -343,7 +342,8 @@ class ZStack(NetworkInterface):
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
-        logger.debug('{} will bind its listener at {}'.format(self, self.ha[1]))
+        logger.debug(
+            '{} will bind its listener at {}'.format(self, self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_length(self.listener, self.config)
         self.listener.bind(
@@ -361,7 +361,7 @@ class ZStack(NetworkInterface):
         self._remotes = {}
         if self.remotesByKeys:
             logger.warning('{} found remotes that were only in remotesByKeys and '
-                        'not in remotes. This is suspicious')
+                           'not in remotes. This is suspicious')
             for r in self.remotesByKeys.values():
                 r.disconnect()
             self.remotesByKeys = {}
@@ -512,9 +512,9 @@ class ZStack(NetworkInterface):
         # These checks are kept here and not moved to a function since
         # `_serviceStack` is called very often and function call is an overhead
         if self.config.ENABLE_HEARTBEATS and (
-                        self.last_heartbeat_at is None or
-                        (time.perf_counter() - self.last_heartbeat_at) >=
-                        self.config.HEARTBEAT_FREQ):
+            self.last_heartbeat_at is None or
+            (time.perf_counter() - self.last_heartbeat_at) >=
+                self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
         self._receiveFromListener(quota=self.listenerQuota)
@@ -568,8 +568,10 @@ class ZStack(NetworkInterface):
         if name in self.remotes:
             remote = self.remotes[name]
         else:
-            publicKey = z85.encode(publicKeyRaw) if publicKeyRaw else self.getPublicKey(name)
-            verKey = z85.encode(verKeyRaw) if verKeyRaw else self.getVerKey(name)
+            publicKey = z85.encode(
+                publicKeyRaw) if publicKeyRaw else self.getPublicKey(name)
+            verKey = z85.encode(
+                verKeyRaw) if verKeyRaw else self.getVerKey(name)
             if not ha or not publicKey or (self.isRestricted and not verKey):
                 raise ValueError('{} doesnt have enough info to connect. '
                                  'Need ha, public key and verkey. {} {} {}'.
@@ -589,11 +591,11 @@ class ZStack(NetworkInterface):
 
     def reconnectRemote(self, remote):
         """
-        Disconnect remote and connect to it again        
-        
+        Disconnect remote and connect to it again
+
         :param remote: instance of Remote from self.remotes
         :param remoteName: name of remote
-        :return: 
+        :return:
         """
         assert remote
         logger.debug('{} reconnecting to {}'.format(self, remote))
@@ -635,20 +637,18 @@ class ZStack(NetworkInterface):
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
-        if r is True:
+        if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
-        elif r is False:
+        elif r[0] is False:
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
-            logger.info('{} failed to {} {}'.
-                        format(self.name, action, name),
-                        extra={"cli": False})
-        elif r is None:
+            logger.info('{} failed to {} {} {}'.format(self.name, action, name, r[1]), extra={"cli": False})
+        elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
             logger.warning('{} got an unexpected return value {} while sending'.
-                        format(self, r))
-        return r
+                           format(self, r))
+        return r[0]
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
@@ -676,48 +676,55 @@ class ZStack(NetworkInterface):
         else:
             if remoteName is None:
                 r = []
+                e = []
                 # Serializing beforehand since to avoid serializing for each
                 # remote
                 try:
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as ex:
-                    logger.error('Cannot send message. Error {}'.format(ex))
-                    return False
+                    err_str = 'Cannot send message. Error {}'.format(ex)
+                    logger.error(err_str)
+                    return False, err_str
                 for uid in self.remotes:
-                    r.append(self.transmit(msg, uid, serialized=True))
-                return all(r)
+                    res, err = self.transmit(msg, uid, serialized=True)
+                    r.append(res)
+                    e.append(err)
+                e = list(filter(lambda x: x is not None, e))
+                ret_err = None if len(e) == 0 else "\n".join(e)
+                return all(r), ret_err
             else:
                 return self.transmit(msg, remoteName)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):
         remote = self.remotes.get(uid)
+        err_str = None
         if not remote:
             logger.debug("Remote {} does not exist!".format(uid))
-            return False
+            return False, err_str
         socket = remote.socket
         if not socket:
             logger.warning('{} has uninitialised socket '
                            'for remote {}'.format(self, uid))
-            return False
+            return False, err_str
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
             logger.debug('{} transmitting message {} to {}'
-                        .format(self, msg, uid))
+                         .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.warning('Remote {} is not connected - '
                                'message will not be sent immediately.'
                                'If this problem does not resolve itself - '
                                'check your firewall settings'.format(uid))
-            return True
+            return True, err_str
         except zmq.Again:
-            logger.info('{} could not transmit message to {}'
-                        .format(self, uid))
+            logger.info('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
-            logger.error('Cannot transmit message. Error {}'.format(ex))
-        return False
+            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            logger.error(err_str)
+        return False, err_str
 
     def transmitThroughListener(self, msg, ident):
         if isinstance(ident, str):
@@ -727,7 +734,7 @@ class ZStack(NetworkInterface):
                          format(self, msg, ident))
             logger.debug("This is a temporary workaround for not being able to "
                          "disconnect a ROUTER's remote")
-            return False
+            return False, None
         try:
             msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
@@ -736,15 +743,18 @@ class ZStack(NetworkInterface):
             logger.trace('{} transmitting {} to {} through listener socket'.
                          format(self, msg, ident))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
-            return True
+            return True, None
         except zmq.Again:
-            return False
+            return False, None
         except InvalidMessageExceedingSizeException as ex:
-            logger.error('Cannot transmit message. Error {}'.format(ex))
-            return False
+            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            logger.error(err_str)
+            return False, err_str
         except Exception as e:
-            logger.error('{} got error {} while sending through listener to {}'.
-                         format(self, e, ident))
+            err_str = '{} got error {} while sending through listener to {}'.format(self, e, ident)
+            logger.error(err_str)
+            return False, err_str
+        return True, None
 
     @staticmethod
     def serializeMsg(msg):
@@ -772,7 +782,8 @@ class ZStack(NetworkInterface):
         if by not in self.remotesByKeys:
             return False
         verKey = self.remotesByKeys[by].verKey
-        r = self.verifiers[verKey].verify(msg[-self.sigLen:], msg[:-self.sigLen])
+        r = self.verifiers[verKey].verify(
+            msg[-self.sigLen:], msg[:-self.sigLen])
         return r
 
     @staticmethod
@@ -911,13 +922,13 @@ class ZStack(NetworkInterface):
     @property
     def nameRemotes(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         return self.remotes
 
     @property
     def keep(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         if not hasattr(self, '_keep'):
             self._keep = DummyKeep(self)
         return self._keep
@@ -942,13 +953,13 @@ class DummyKeep:
     @property
     def auto(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         return self._auto
 
     @auto.setter
     def auto(self, mode):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         # AutoMode.once whose value is 1 is not used os dont care
         if mode != self._auto:
             if mode == 2:

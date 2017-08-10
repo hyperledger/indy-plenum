@@ -197,6 +197,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
+    def removeInstance(self, index=None):
+        if self.instances.count > 0:
+            if index is None:
+                index = self.instances.count - 1
+            self.instances.remove(index)
+            del self.numOrderedRequests[index]
+            del self.clientAvgReqLatencies[index]
+
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False) -> Dict:
         """
