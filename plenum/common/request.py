@@ -1,12 +1,11 @@
 from hashlib import sha256
 from typing import Mapping, NamedTuple
 
-from stp_core.types import Identifier
-
-from plenum.common.signing import serializeMsg
+from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.constants import REQDIGEST, REQKEY, FORCE
-from plenum.common.types import f, OPERATION
 from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.common.types import f, OPERATION
+from stp_core.types import Identifier
 
 
 class Request:
@@ -41,7 +40,7 @@ class Request:
         return self.identifier, self.reqId
 
     def getDigest(self):
-        return sha256(serializeMsg(self.signingState)).hexdigest()
+        return sha256(serialize_msg_for_signing(self.signingState)).hexdigest()
 
     @property
     def reqDigest(self):
@@ -69,7 +68,7 @@ class Request:
         return obj
 
     def serialized(self):
-        return serializeMsg(self.__getstate__())
+        return serialize_msg_for_signing(self.__getstate__())
 
     def isForced(self):
         force = self.operation.get(FORCE)

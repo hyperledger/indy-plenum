@@ -1,6 +1,4 @@
-import json
-
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.exceptions import UnauthorizedClientRequest
@@ -15,7 +13,7 @@ logger = getlogger()
 
 
 class DomainRequestHandler(RequestHandler):
-    stateSerializer = JsonSerializer()
+    stateSerializer = domain_state_serializer
 
     def __init__(self, ledger, state, reqProcessors):
         super().__init__(ledger, state)
@@ -94,7 +92,7 @@ class DomainRequestHandler(RequestHandler):
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn[f.IDENTIFIER.nm]
+            newData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm, None)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a
@@ -139,4 +137,6 @@ class DomainRequestHandler(RequestHandler):
     def getNymDetails(state, nym, isCommitted: bool = True):
         key = nym.encode()
         data = state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return DomainRequestHandler.stateSerializer.deserialize(data)

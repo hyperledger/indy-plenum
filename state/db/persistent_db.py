@@ -1,5 +1,5 @@
 from state.db.db import BaseDB
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 
 class PersistentDB(BaseDB):

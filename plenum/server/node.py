@@ -8,10 +8,10 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 from intervaltree import IntervalTree
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.serializers.compact_serializer import CompactSerializer
-from ledger.stores.file_hash_store import FileHashStore
-from ledger.stores.hash_store import HashStore
-from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.hash_stores.file_hash_store import FileHashStore
+from ledger.hash_stores.hash_store import HashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from orderedset import OrderedSet
 
@@ -138,8 +138,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter = defaultdict(lambda: self.executeDomainTxns)
 
         Motor.__init__(self)
-
-        self.hashStore = self.getHashStore(self.name)
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
@@ -499,21 +497,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This is usually an implementation of Ledger
         """
         if self.config.primaryStorage is None:
-            fields = getTxnOrderedFields()
-            defaultTxnFile = os.path.join(self.config.baseDir,
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
                                        self.config.domainTransactionsFile)
-            if not os.path.exists(defaultTxnFile):
+            if not os.path.exists(genesis_txn_initiator.init_file):
                 logger.debug("Not using default initialization file for "
                              "domain ledger, since it does not exist: {}"
-                             .format(defaultTxnFile))
-                defaultTxnFile = None
+                             .format(genesis_txn_initiator.init_file))
+                genesis_txn_initiator = None
 
-            return Ledger(CompactMerkleTree(hashStore=self.hashStore),
+            return Ledger(CompactMerkleTree(hashStore=self.getHashStore('domain')),
                           dataDir=self.dataLocation,
-                          serializer=CompactSerializer(fields=fields),
                           fileName=self.config.domainTransactionsFile,
                           ensureDurability=self.config.EnsureLedgerDurability,
-                          defaultFile=defaultTxnFile)
+                          genesis_txn_initiator=genesis_txn_initiator)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,
@@ -528,9 +524,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         hsConfig = self.config.hashStore['type'].lower()
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.dataLocation,
-                                 fileNamePrefix=NODE_HASH_STORE_SUFFIX)
+                                 fileNamePrefix=name)
         elif hsConfig == HS_LEVELDB:
-            return LevelDbHashStore(dataDir=self.dataLocation)
+            return LevelDbHashStore(dataDir=self.dataLocation,
+                                    fileNamePrefix=name)
         else:
             return MemoryHashStore()
 
@@ -577,11 +574,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, self.status.name))
         else:
             super().start(loop)
-            self.primaryStorage.start(loop,
-                                      ensureDurability=
-                                      self.config.EnsureLedgerDurability)
-            if self.hashStore.closed:
-                self.hashStore = self.getHashStore(self.name)
+
+            # Start the ledgers
+            for ledger in self.ledgers:
+                ledger.start(loop)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -629,6 +625,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return len(self.nodestack.conns) + 1
 
+    @property
+    def ledgers(self):
+        ledgers = [self.domainLedger]
+        if self.poolLedger:
+            ledgers.append(self.poolLedger)
+        return ledgers
+
     def onStopping(self):
         """
         Actions to be performed on stopping the node.
@@ -641,33 +644,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reset()
 
         # Stop the ledgers
-        ledgers = [self.domainLedger]
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-
-        for ledger in ledgers:
+        for ledger in self.ledgers:
             try:
                 ledger.stop()
             except Exception as ex:
                 logger.warning('{} got exception while stopping ledger: {}'.
-                               format(self, ex))
-
-        # Stop the hash stores
-        hashStores = [self.hashStore]
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-        if self.hashStore:
-            hashStores.append(self.hashStore)
-        if isinstance(self.poolManager, TxnPoolManager) and self.poolManager.hashStore:
-            hashStores.append(self.poolManager.hashStore)
-        hashStores = [hs for hs in hashStores if
-                      isinstance(hs, (FileHashStore, LevelDbHashStore))
-                      and not hs.closed]
-        for hs in hashStores:
-            try:
-                hs.close()
-            except Exception as ex:
-                logger.warning('{} got exception while closing hash store: {}'.
                                format(self, ex))
 
         self.nodestack.stop()
@@ -1766,8 +1747,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send_ack_to_client(request.key, frm)
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        txn = self.getReplyFromLedger(ledger=ledger,
-                                      seq_no=request.operation[DATA])
+        seq_no = request.operation[DATA]
+        try:
+            txn = self.getReplyFromLedger(ledger=ledger,
+                                          seq_no=seq_no)
+        except KeyError:
+            logger.debug("{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}".
+                         format(self, str(seq_no)))
+            txn = None
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
@@ -1777,7 +1764,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         if txn:
-            result[DATA] = json.dumps(txn.result)
+            result[DATA] = txn.result
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
 
         self.transmitToClient(Reply(result), frm)

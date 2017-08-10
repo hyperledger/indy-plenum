@@ -56,7 +56,7 @@ setup(
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     data_files=[(
-        (BASE_DIR, ['data/pool_transactions_sandbox', ])
+        (BASE_DIR, ['data/pool_transactions_sandbox_genesis', ])
     )],
     install_requires=['jsonpickle', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments',
@@ -64,7 +64,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.8'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']

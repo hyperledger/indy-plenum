@@ -51,3 +51,4 @@ build_from_pypi intervaltree 2.1.0
 build_from_pypi ujson 1.33
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7
+build_from_pypi msgpack-python 0.4.8

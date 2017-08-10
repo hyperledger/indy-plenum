@@ -13,6 +13,7 @@ from functools import partial
 import time
 from typing import Dict, Any
 
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
@@ -28,11 +29,8 @@ from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from _pytest.recwarn import WarningsRecorder
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
-from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
-from stp_core.loop.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import BlowUp
 from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
@@ -591,9 +589,10 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     import getpass
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
-    ledger = Ledger(CompactMerkleTree(),
-                    dataDir=tdir,
-                    fileName=tconf.poolTransactionsFile)
+
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.poolTransactionsFile)
+    ledger = initiator.create_initiator_ledger()
+
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
@@ -608,10 +607,9 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    ledger = Ledger(CompactMerkleTree(),
-                    dataDir=tdir,
-                    serializer=CompactSerializer(fields=domainTxnOrderedFields),
-                    fileName=tconf.domainTransactionsFile)
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.domainTransactionsFile)
+    ledger = initiator.create_initiator_ledger()
+
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)

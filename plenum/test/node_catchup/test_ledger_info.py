@@ -1,16 +1,19 @@
 import time
 
-from ledger.test.conftest import tempdir
-from ledger.test.test_ledger import ledger, random_txn
+# noinspection PyUnresolvedReferences
+from ledger.test.conftest import *
+
+from ledger.test.helper import random_txn
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
 
 
-def test_missing_txn_request(ledger):
+def test_missing_txn_request(ledger_no_genesis):
     """
     Testing LedgerManager's `_missing_txns`
     """
+    ledger = ledger_no_genesis
     for i in range(20):
         txn = random_txn(i)
         ledger.add(txn)

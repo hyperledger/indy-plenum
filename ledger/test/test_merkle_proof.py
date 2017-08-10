@@ -7,9 +7,10 @@ import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.merkle_verifier import MerkleVerifier
+from ledger.hash_stores.hash_store import HashStore
 from ledger.tree_hasher import TreeHasher
-from ledger.stores.memory_hash_store import MemoryHashStore
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.test.helper import checkConsistency
 from ledger.util import STH
 
