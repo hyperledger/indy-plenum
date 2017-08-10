@@ -4,7 +4,7 @@
 
 def name = 'indy-plenum'
 
-def plenumTestUbuntu = {
+def plenumTestUbuntu = { offset, increment ->
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -17,13 +17,25 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner([resFile: "test-result-plenum-$offset.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: "$offset/$increment"])
         }
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
         step([$class: 'WsCleanup'])
     }
+}
+
+def plenumTestUbuntuPart1 = {
+    plenumTestUbuntu(1, 3)
+}
+
+def plenumTestUbuntuPart2 = {
+    plenumTestUbuntu(2, 3)
+}
+
+def plenumTestUbuntuPart3 = {
+    plenumTestUbuntu(3, 3)
 }
 
 def ledgerTestUbuntu = {
@@ -217,4 +229,6 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 }
 
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
+testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
+ledger: ledgerTestUbuntu,
+state: stateTestUbuntu, stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])

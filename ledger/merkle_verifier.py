@@ -82,8 +82,8 @@ class MerkleVerifier(object):
         node = old_size - 1
         last_node = new_size - 1
 
-        # While we are the right child, everything is in both trees, so move one
-        # level up.
+        # While we are the right child, everything is in both trees,
+        # so move one level up.
         while node % 2:
             node //= 2
             last_node //= 2
@@ -202,8 +202,10 @@ class MerkleVerifier(object):
         Args:
             leaf_hash: The hash of the leaf for which the proof was provided.
             leaf_index: Index of the leaf in the tree.
-            proof: A list of SHA-256 hashes representing the  Merkle audit path.
-            sth: STH with the same tree size as the one used to fetch the proof.
+            proof: A list of SHA-256 hashes representing the  Merkle audit
+            path.
+            sth: STH with the same tree size as the one used to fetch the
+            proof.
             The sha256_root_hash from this STH will be compared against the
             root hash produced from the proof.
 
@@ -216,17 +218,17 @@ class MerkleVerifier(object):
         """
         leaf_index = int(leaf_index)
         tree_size = int(sth.tree_size)
-        #TODO(eranm): Verify signature over STH
+        # TODO(eranm): Verify signature over STH
         if tree_size <= leaf_index:
             raise ValueError("Provided STH is for a tree that is smaller "
                              "than the leaf index. Tree size: %d Leaf "
                              "index: %d" % (tree_size, leaf_index))
         if tree_size < 0 or leaf_index < 0:
             raise ValueError("Negative tree size or leaf index: "
-                                   "Tree size: %d Leaf index: %d" %
-                                   (tree_size, leaf_index))
+                             "Tree size: %d Leaf index: %d" %
+                             (tree_size, leaf_index))
         calculated_root_hash = self._calculate_root_hash_from_audit_path(
-                leaf_hash, leaf_index, proof[:], tree_size)
+            leaf_hash, leaf_index, proof[:], tree_size)
         if calculated_root_hash == sth.sha256_root_hash:
             return True
 
@@ -237,7 +239,7 @@ class MerkleVerifier(object):
 
     @error.returns_true_or_raises
     def verify_leaf_inclusion(self, leaf: bytes, leaf_index: int,
-                                   proof: List[bytes], sth: STH):
+                              proof: List[bytes], sth: STH):
         """Verify a Merkle Audit Path.
 
         See section 2.1.1 of RFC6962 for the exact path description.
@@ -245,8 +247,10 @@ class MerkleVerifier(object):
         Args:
             leaf: The leaf for which the proof was provided.
             leaf_index: Index of the leaf in the tree.
-            proof: A list of SHA-256 hashes representing the  Merkle audit path.
-            sth: STH with the same tree size as the one used to fetch the proof.
+            proof: A list of SHA-256 hashes representing the  Merkle audit
+            path.
+            sth: STH with the same tree size as the one used to fetch the
+            proof.
             The sha256_root_hash from this STH will be compared against the
             root hash produced from the proof.
 

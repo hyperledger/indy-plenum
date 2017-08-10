@@ -22,7 +22,7 @@ class CustomAdapter(logging.LoggerAdapter):
         self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
-def getlogger(name: object = None) -> object:
+def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 

@@ -8,6 +8,7 @@ class FileStore:
     """
     A file based implementation of a key value store.
     """
+
     def __init__(self,
                  dbDir,
                  dbName,
@@ -31,7 +32,7 @@ class FileStore:
         it makes sense to disable flush and fsync on every write
         :param delimiter: delimiter between key and value
         :param lineSep: line separator - defaults to \r\n
-        :param defaultFile: file or dir to use for initialization 
+        :param defaultFile: file or dir to use for initialization
 
         """
         self.delimiter = delimiter
@@ -193,7 +194,8 @@ class FileStore:
                 if size > 0:
                     f.seek(-len(self.lineSep), 2)  # last character in file
                     if f.read().decode() != self.lineSep:
-                        linesep = self.lineSep if isinstance(self.lineSep, bytes) else self.lineSep.encode()
+                        linesep = self.lineSep if isinstance(
+                            self.lineSep, bytes) else self.lineSep.encode()
                         f.write(linesep)
                         logging.debug(
                             "new line added for file: {}".format(self.dbPath))

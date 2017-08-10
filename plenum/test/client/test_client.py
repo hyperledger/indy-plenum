@@ -93,7 +93,7 @@ def testSendRequestWithoutSignatureFails(pool):
 
         request = wallet.signOp(op=randomOperation())
         request.signature = None
-        request = client1.submitReqs(request)[0]
+        request = client1.submitReqs(request)[0][0]
         timeout = waits.expectedClientRequestPropagationTime(nodeCount)
 
         with pytest.raises(AssertionError):
@@ -205,7 +205,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    serializedPayload = client1.nodestack.signAndSerialize(sent1, None)
+    serializedPayload, _ = client1.nodestack.signAndSerialize(sent1, None)
     client1.nodestack._enqueueIntoAllRemotes(serializedPayload, None)
 
     def chk():
@@ -255,7 +255,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             op = randomOperation()
             req = sharedWallet.signOp(op)
 
-            request = client.submitReqs(req)[0]
+            request = client.submitReqs(req)[0][0]
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results

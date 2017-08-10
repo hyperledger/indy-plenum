@@ -22,7 +22,7 @@ def getValue(key) -> str:
 
 chunkSize = 3
 dataSize = 101
-data = [getValue(i) for i in range(1, dataSize+1)]
+data = [getValue(i) for i in range(1, dataSize + 1)]
 
 
 @pytest.fixture(scope="module")
@@ -50,9 +50,9 @@ def testWriteToNewFileOnceChunkSizeIsReached(populatedChunkedFileStore):
 
 
 def testRandomRetrievalFromChunkedFiles(populatedChunkedFileStore):
-    keys = [2*chunkSize,
-            3*chunkSize+1,
-            3*chunkSize+chunkSize,
+    keys = [2 * chunkSize,
+            3 * chunkSize + 1,
+            3 * chunkSize + chunkSize,
             random.randrange(1, dataSize + 1)]
     for key in keys:
         value = getValue(key)
@@ -81,7 +81,7 @@ def testSizeChunkedFileStore(populatedChunkedFileStore):
 def testIterateOverChunkedFileStore(populatedChunkedFileStore):
     store = populatedChunkedFileStore
     for k, v in store.iterator():
-        assert data[int(k)-1] == v
+        assert data[int(k) - 1] == v
 
 
 def test_get_range(populatedChunkedFileStore):
@@ -89,14 +89,16 @@ def test_get_range(populatedChunkedFileStore):
 
     # Range begins and ends at chunk boundaries
     num = 0
-    for k, v in populatedChunkedFileStore.get_range(chunkSize+1, 2*chunkSize):
+    for k, v in populatedChunkedFileStore.get_range(
+            chunkSize + 1, 2 * chunkSize):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
 
     # Range does not begin or end at chunk boundaries
     num = 0
-    for k, v in populatedChunkedFileStore.get_range(chunkSize+2, 2*chunkSize+1):
+    for k, v in populatedChunkedFileStore.get_range(
+            chunkSize + 2, 2 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
@@ -107,20 +109,20 @@ def test_get_range(populatedChunkedFileStore):
                                                     5 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
-    assert num == 4*chunkSize
+    assert num == 4 * chunkSize
 
     with pytest.raises(AssertionError):
         list(populatedChunkedFileStore.get_range(5, 1))
 
     for frm, to in [(i, j) for i, j in itertools.permutations(
-            range(1, dataSize+1), 2) if i <= j]:
+            range(1, dataSize + 1), 2) if i <= j]:
         for k, v in populatedChunkedFileStore.get_range(frm, to):
             assert data[int(k) - 1] == v
 
 
 def test_chunk_size_limitation_when_default_file_used(tmpdir):
     """
-    This test checks that chunk size can not be lower then a number of items 
+    This test checks that chunk size can not be lower then a number of items
     in default file, used for initialization of ChunkedFileStore
     """
 

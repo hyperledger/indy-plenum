@@ -12,6 +12,7 @@ class CompactSerializer(MappingSerializer):
      of the `Mapping` will appear in the string and also how to convert each type
       of value to and from string
     """
+
     def __init__(self, fields: OrderedDict=None):
         # TODO: add a special type (class) for fields
 
@@ -68,10 +69,12 @@ class CompactSerializer(MappingSerializer):
                     if part not in ref:
                         ref[part] = {}
                     ref = ref[part]
-                ref[nameParts[-1]] = self._destringify(name, items.pop(0), fields)
+                ref[nameParts[-1]
+                    ] = self._destringify(name, items.pop(0), fields)
             elif items:
                 result[name] = self._destringify(name, items.pop(0), fields)
             else:
-                # if we have more fields than data available, assume that all missed fields are None
+                # if we have more fields than data available, assume that all
+                # missed fields are None
                 result[name] = None
         return result

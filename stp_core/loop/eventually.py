@@ -23,7 +23,7 @@ FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 def isMinimalConfiguration():
     mem = psutil.virtual_memory()
     memAvailableGb = mem.available / (1024 * 1024 * 1024)
-    cpuCount = psutil.cpu_count()
+    # cpuCount = psutil.cpu_count()
     # we can have a 8 cpu but 100Mb free RAM and the tests will be slow
     return memAvailableGb <= 1.5  # and cpuCount == 1
 
@@ -35,6 +35,7 @@ def getSlowFactor():
     else:
         return 1
 
+
 slowFactor = getSlowFactor()
 
 
@@ -45,7 +46,7 @@ async def eventuallySoon(coroFunc: FlexFunc, *args):
                             ratchetSteps=10)
 
 
-async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if needed)
+async def eventuallyAll(*coroFuncs: FlexFunc,  # (use functools.partials if needed)
                         totalTimeout: float,
                         retryWait: float=0.1,
                         acceptableExceptions=None,
@@ -98,8 +99,8 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     if rem is not None and rem <= 0:
         fails += 1
         if fails > acceptableFails:
-            err= 'All checks could not complete successfully since total timeout ' \
-                 'expired {} sec ago'.format(-1*rem if rem<0 else 0)
+            err = 'All checks could not complete successfully since total timeout ' \
+                'expired {} sec ago'.format(-1 * rem if rem < 0 else 0)
             raise EventuallyTimeoutException(err)
 
     if others:
@@ -125,27 +126,28 @@ async def eventually(coroFunc: FlexFunc,
                      acceptableExceptions=None,
                      verbose=True,
                      override_timeout_limit=False) -> T:
-    assert timeout > 0, 'Need a timeout value of greater than 0 but got {} instead'.format(timeout)
+    assert timeout > 0, 'Need a timeout value of greater than 0 but got {} instead'.format(
+        timeout)
     if not override_timeout_limit:
         assert timeout < 240, '`eventually` timeout ({:.2f} sec) is huge. ' \
-                                 'Is it expected?'.format(timeout)
+            'Is it expected?'.format(timeout)
     else:
         logger.debug('Overriding timeout limit to {} for evaluating {}'
                      .format(timeout, coroFunc))
     if acceptableExceptions and not isinstance(acceptableExceptions, Iterable):
-            acceptableExceptions = [acceptableExceptions]
+        acceptableExceptions = [acceptableExceptions]
     start = time.perf_counter()
 
-    ratchet = Ratchet.fromGoalDuration(retryWait*slowFactor,
+    ratchet = Ratchet.fromGoalDuration(retryWait * slowFactor,
                                        ratchetSteps,
-                                       timeout*slowFactor).gen() \
+                                       timeout * slowFactor).gen() \
         if ratchetSteps else None
 
     fname = get_func_name(coroFunc)
     while True:
         remain = 0
         try:
-            remain = start + timeout*slowFactor - time.perf_counter()
+            remain = start + timeout * slowFactor - time.perf_counter()
             if remain < 0:
                 # this provides a convenient breakpoint for a debugger
                 logger.debug("{} last try...".format(fname),
@@ -159,7 +161,7 @@ async def eventually(coroFunc: FlexFunc,
                 result = res
 
             if verbose:
-                recordSuccess(fname, timeout, timeout*slowFactor, remain)
+                recordSuccess(fname, timeout, timeout * slowFactor, remain)
 
                 logger.debug("{} succeeded with {:.2f} seconds to spare".
                              format(fname, remain))
