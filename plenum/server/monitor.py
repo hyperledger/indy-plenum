@@ -186,7 +186,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
-        self.clientAvgReqLatencies = [{}]*num_instances
+        self.clientAvgReqLatencies = [{} for _ in self.instances.started]
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
 
