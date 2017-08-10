@@ -56,7 +56,7 @@ setup(
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     data_files=[(
-        (BASE_DIR, ['data/pool_transactions_sandbox', ])
+        (BASE_DIR, ['data/pool_transactions_sandbox_genesis', ])
     )],
     install_requires=['jsonpickle', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments',
