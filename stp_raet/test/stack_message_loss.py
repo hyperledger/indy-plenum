@@ -31,8 +31,10 @@ def example2():
 
     print("Finished Handshake\n")
 
-    msg =  {'subject': 'Example message alpha to beta',
-            'content': 'The dict keys in this dict are not special any dict will do.',}
+    msg = {
+        'subject': 'Example message alpha to beta',
+        'content': 'The dict keys in this dict are not special any dict will do.',
+    }
 
     alpha.transmit(msg, remote.uid)
     while True:
@@ -47,8 +49,8 @@ def example2():
     print("{0}\n".format(rx))
     print("Finished Message alpha to beta\n")
 
-    msg =  {'subject': 'Example message beta to alpha',
-            'content': 'Messages are the core of raet.',}
+    msg = {'subject': 'Example message beta to alpha',
+           'content': 'Messages are the core of raet.', }
 
     beta.transmit(msg, remote.uid)
     while True:
@@ -79,5 +81,6 @@ def example2():
         stack.keep.clearAllDir()  # clear persisted data
 
     print("Finished\n")
+
 
 example2()
