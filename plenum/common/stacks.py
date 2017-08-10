@@ -71,9 +71,9 @@ class NodeZStack(Batched, KITZStack):
         # Calling service lifecycle to allow creation of remotes
         # that this stack needs to connect to
         # self.serviceLifecycle()
-        logger.debug("{} listening for other nodes at {}:{}".
-                     format(self, *self.ha),
-                     extra={"tags": ["node-listening"]})
+        logger.info("{} listening for other nodes at {}:{}".
+                    format(self, *self.ha),
+                    extra={"tags": ["node-listening"]})
 
 
 class ClientRStack(SimpleRStack, MessageProcessor):
@@ -132,9 +132,9 @@ class NodeRStack(Batched, KITRStack):
 
     def start(self):
         KITRStack.start(self)
-        logger.debug("{} listening for other nodes at {}:{}".
-                     format(self, *self.ha),
-                     extra={"tags": ["node-listening"]})
+        logger.info("{} listening for other nodes at {}:{}".
+                    format(self, *self.ha),
+                    extra={"tags": ["node-listening"]})
 
 
 nodeStackClass = NodeZStack if config.UseZStack else NodeRStack
