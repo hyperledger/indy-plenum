@@ -1818,7 +1818,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} got ordered requests from backup replica {}".
                          format(self, inst_id))
             r = False
-        self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
+        if inst_id < self.instances.count:
+            self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
+        else:
+            logger.debug('{} got ordered request for instance {} which '
+                         'does not exist'.format(self, inst_id))
         return r
 
     def force_process_ordered(self):

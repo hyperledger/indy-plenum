@@ -180,12 +180,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Reset the monitor. Sets all monitored values to defaults.
         """
-        logger.debug("Monitor being reset")
-        self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
+        logger.debug("{}'s Monitor being reset".format(self))
+        num_instances = len(self.instances.started)
+        self.numOrderedRequests = [(0, 0)]*num_instances
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
-        self.clientAvgReqLatencies = [{} for _ in self.instances.started]
+        self.clientAvgReqLatencies = [{}]*num_instances
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
 
