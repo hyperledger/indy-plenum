@@ -13,8 +13,7 @@ import sys
 import time
 from binascii import hexlify, unhexlify
 from collections import deque
-from typing import Dict, Mapping, Tuple, Any, Union
-from typing import Set
+from typing import Mapping, Tuple, Any, Union
 
 # import stp_zmq.asyncio
 import zmq.auth
@@ -204,7 +203,7 @@ class ZStack(NetworkInterface):
     @staticmethod
     def keyDirNames():
         return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, \
-               ZStack.VerifKeyDirName, ZStack.SigKeyDirName
+            ZStack.VerifKeyDirName, ZStack.SigKeyDirName
 
     @staticmethod
     def getHaFromLocal(name, basedirpath):
@@ -343,7 +342,8 @@ class ZStack(NetworkInterface):
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
-        logger.debug('{} will bind its listener at {}'.format(self, self.ha[1]))
+        logger.debug(
+            '{} will bind its listener at {}'.format(self, self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_length(self.listener, self.config)
         self.listener.bind(
@@ -361,7 +361,7 @@ class ZStack(NetworkInterface):
         self._remotes = {}
         if self.remotesByKeys:
             logger.warning('{} found remotes that were only in remotesByKeys and '
-                        'not in remotes. This is suspicious')
+                           'not in remotes. This is suspicious')
             for r in self.remotesByKeys.values():
                 r.disconnect()
             self.remotesByKeys = {}
@@ -512,9 +512,9 @@ class ZStack(NetworkInterface):
         # These checks are kept here and not moved to a function since
         # `_serviceStack` is called very often and function call is an overhead
         if self.config.ENABLE_HEARTBEATS and (
-                        self.last_heartbeat_at is None or
-                        (time.perf_counter() - self.last_heartbeat_at) >=
-                        self.config.HEARTBEAT_FREQ):
+            self.last_heartbeat_at is None or
+            (time.perf_counter() - self.last_heartbeat_at) >=
+                self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
         self._receiveFromListener(quota=self.listenerQuota)
@@ -568,8 +568,10 @@ class ZStack(NetworkInterface):
         if name in self.remotes:
             remote = self.remotes[name]
         else:
-            publicKey = z85.encode(publicKeyRaw) if publicKeyRaw else self.getPublicKey(name)
-            verKey = z85.encode(verKeyRaw) if verKeyRaw else self.getVerKey(name)
+            publicKey = z85.encode(
+                publicKeyRaw) if publicKeyRaw else self.getPublicKey(name)
+            verKey = z85.encode(
+                verKeyRaw) if verKeyRaw else self.getVerKey(name)
             if not ha or not publicKey or (self.isRestricted and not verKey):
                 raise ValueError('{} doesnt have enough info to connect. '
                                  'Need ha, public key and verkey. {} {} {}'.
@@ -589,11 +591,11 @@ class ZStack(NetworkInterface):
 
     def reconnectRemote(self, remote):
         """
-        Disconnect remote and connect to it again        
-        
+        Disconnect remote and connect to it again
+
         :param remote: instance of Remote from self.remotes
         :param remoteName: name of remote
-        :return: 
+        :return:
         """
         assert remote
         logger.debug('{} reconnecting to {}'.format(self, remote))
@@ -645,7 +647,7 @@ class ZStack(NetworkInterface):
             logger.debug('{} will be sending in batch'.format(self))
         else:
             logger.warning('{} got an unexpected return value {} while sending'.
-                        format(self, r))
+                           format(self, r))
         return r[0]
 
     def handlePingPong(self, msg, frm, ident):
@@ -710,7 +712,7 @@ class ZStack(NetworkInterface):
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
             logger.debug('{} transmitting message {} to {}'
-                        .format(self, msg, uid))
+                         .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.warning('Remote {} is not connected - '
                                'message will not be sent immediately.'
@@ -780,7 +782,8 @@ class ZStack(NetworkInterface):
         if by not in self.remotesByKeys:
             return False
         verKey = self.remotesByKeys[by].verKey
-        r = self.verifiers[verKey].verify(msg[-self.sigLen:], msg[:-self.sigLen])
+        r = self.verifiers[verKey].verify(
+            msg[-self.sigLen:], msg[:-self.sigLen])
         return r
 
     @staticmethod
@@ -919,13 +922,13 @@ class ZStack(NetworkInterface):
     @property
     def nameRemotes(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         return self.remotes
 
     @property
     def keep(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         if not hasattr(self, '_keep'):
             self._keep = DummyKeep(self)
         return self._keep
@@ -950,13 +953,13 @@ class DummyKeep:
     @property
     def auto(self):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         return self._auto
 
     @auto.setter
     def auto(self, mode):
         logger.debug('{} proxy method used on {}'.
-                    format(inspect.stack()[0][3], self))
+                     format(inspect.stack()[0][3], self))
         # AutoMode.once whose value is 1 is not used os dont care
         if mode != self._auto:
             if mode == 2:

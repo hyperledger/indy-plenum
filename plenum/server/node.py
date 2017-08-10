@@ -77,7 +77,7 @@ from stp_zmq.zstack import ZStack
 from plenum.common.constants import openTxns
 from state.state import State
 from plenum.common.messages.node_messages import ViewChangeDone
-
+from plenum.server.replicas import Replicas
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -216,11 +216,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = []  # type: List[replica.Replica]
-        # Requests that are to be given to the replicas by the node. Each
-        # element of the list is a deque for the replica with number equal to
-        # its index in the list and each element of the deque is a named tuple
-        self.msgsToReplicas = []  # type: List[deque]
+        self.replicas = self.create_replicas()
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
@@ -352,6 +348,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # higher views) are received, should one view change be interrupted in
         # between.
         self._next_view_indications = SortedDict()
+
+    def create_replicas(self) -> Replicas:
+        return Replicas(self, self.monitor)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -551,11 +550,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def on_new_ledger_added(self, ledger_id):
-        for r in self.replicas:
-            # If a ledger was added after a replica was created, add a queue
-            # in the ledger to the replica
-            if ledger_id not in r.requestQueues:
-                r.requestQueues[ledger_id] = OrderedSet()
+        # If a ledger was added after a replicas were created
+        self.replicas.register_new_ledger(ledger_id)
 
     def loadDomainState(self):
         return PruningState(
@@ -714,18 +710,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     async def serviceReplicas(self, limit) -> int:
         """
-        Execute `serviceReplicaMsgs`, `serviceReplicaOutBox` and
-        `serviceReplicaInBox` with `limit` number of messages. See the
-        respective functions for more information.
+        Processes messages from replicas outbox and gives it time
+        for processing inbox
 
         :param limit: the maximum number of messages to process
-        :return: the sum of messages successfully processed by
-        serviceReplicaMsgs, serviceReplicaInBox and serviceReplicaOutBox
+        :return: the sum of messages successfully processed
         """
-        a = self.serviceReplicaMsgs(limit)
-        b = self.serviceReplicaOutBox(limit)
-        c = self.serviceReplicaInBox(limit)
-        return a + b + c
+        outbox_processed = self.service_replicas_outbox(limit)
+        inbox_processed = self.replicas.service_inboxes(limit)
+        return outbox_processed + inbox_processed
 
     async def serviceNodeMsgs(self, limit: int) -> int:
         """
@@ -907,16 +900,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Add or remove replicas depending on `f`
         """
+        # TODO: refactor this
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
-            self.addReplica()
+            self.replicas.grow()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas)-1)
-
         while len(self.replicas) > self.requiredNumberOfInstances:
-            self.removeReplica()
+            self.replicas.shrink()
             newReplicas -= 1
-
         pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
         return newReplicas
 
@@ -985,112 +977,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
 
-    def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
+    def service_replicas_outbox(self, limit: int=None) -> int:
         """
-        Create a new replica with the specified parameters.
-        This is a convenience method used to create replicas from a node
-        instead of passing in replicas in the Node's constructor.
+        Process `limit` number of replica messages
+        """
+        # TODO: rewrite this using Router
 
-        :param instId: protocol instance number
-        :param isMaster: does this replica belong to the master protocol
-            instance?
-        :return: a new instance of Replica
-        """
-        return replica.Replica(self, instId, isMaster)
-
-    def addReplica(self):
-        """
-        Create and add a new replica to this node.
-        If this is the first replica on this node, it will belong to the Master
-        protocol instance.
-        """
-        instId = len(self.replicas)
-        if len(self.replicas) == 0:
-            isMaster = True
-            instDesc = "master"
-        else:
-            isMaster = False
-            instDesc = "backup"
-        replica = self.createReplica(instId, isMaster)
-        self.replicas.append(replica)
-        self.msgsToReplicas.append(deque())
-        self.monitor.addInstance()
-        logger.display("{} added replica {} to instance {} ({})".
-                       format(self, replica, instId, instDesc),
-                       extra={"tags": ["node-replica"]})
-        return replica
-
-    def removeReplica(self):
-        replica = self.replicas[-1]
-        self.replicas = self.replicas[:-1]
-        self.msgsToReplicas = self.msgsToReplicas[:-1]
-        self.monitor.addInstance()
-        logger.display("{} removed replica {} from instance {}".
-                       format(self, replica, replica.instId),
-                       extra={"tags": ["node-replica"]})
-        return replica
-
-    def serviceReplicaMsgs(self, limit: int=None) -> int:
-        """
-        Process `limit` number of replica messages.
-        Here processing means appending to replica inbox.
-
-        :param limit: the maximum number of replica messages to process
-        :return: the number of replica messages processed
-        """
-        msgCount = 0
-        for idx, replicaMsgs in enumerate(self.msgsToReplicas):
-            while replicaMsgs and (not limit or msgCount < limit):
-                msgCount += 1
-                msg = replicaMsgs.popleft()
-                self.replicas[idx].inBox.append(msg)
-        return msgCount
-
-    def serviceReplicaOutBox(self, limit: int=None) -> int:
-        """
-        Process `limit` number of replica messages.
-        Here processing means appending to replica inbox.
-
-        :param limit: the maximum number of replica messages to process
-        :return: the number of replica messages processed
-        """
-        msgCount = 0
-        for replica in self.replicas:
-            while replica.outBox and (not limit or msgCount < limit):
-                msgCount += 1
-                msg = replica.outBox.popleft()
-                if isinstance(msg, (PrePrepare,
-                                    Prepare,
-                                    Commit,
-                                    Checkpoint)):
-                    self.send(msg)
-                elif isinstance(msg, Ordered):
-                    self.try_processing_ordered(msg)
-                elif isinstance(msg, Reject):
-                    reqKey = (msg.identifier, msg.reqId)
-                    reject = Reject(*reqKey,
-                                    self.reasonForClientFromException(msg.reason))
-                    self.transmitToClient(reject, self.requestSender[reqKey])
-                    self.doneProcessingReq(*reqKey)
-                elif isinstance(msg, Exception):
-                    self.processEscalatedException(msg)
-                else:
-                    logger.error("Received msg {} and don't know how to handle "
-                                 "it".format(msg))
-        return msgCount
-
-    def serviceReplicaInBox(self, limit: int=None):
-        """
-        Process `limit` number of messages in the replica inbox for each replica
-        on this node.
-
-        :param limit: the maximum number of replica messages to process
-        :return: the number of replica messages processed successfully
-        """
-        msgCount = 0
-        for replica in self.replicas:
-            msgCount += replica.serviceQueues(limit)
-        return msgCount
+        num_processed = 0
+        for message in self.replicas.get_output(limit):
+            num_processed += 1
+            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint)):
+                self.send(message)
+            elif isinstance(message, Ordered):
+                self.try_processing_ordered(message)
+            elif isinstance(message, Reject):
+                reqKey = (message.identifier, message.reqId)
+                reject = Reject(*reqKey,
+                                self.reasonForClientFromException(message.reason))
+                self.transmitToClient(reject, self.requestSender[reqKey])
+                self.doneProcessingReq(*reqKey)
+            elif isinstance(message, Exception):
+                self.processEscalatedException(message)
+            else:
+                # TODO: should not this raise exception?
+                logger.error("Received msg {} and don't "
+                             "know how to handle it".format(message))
+        return num_processed
 
     def serviceElectorOutBox(self, limit: int=None) -> int:
         """
@@ -1130,26 +1042,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def hasPrimary(self) -> bool:
         """
-        Does this node have a primary replica?
-
-        :return: whether this node has a primary
+        Whether this node has primary of any protocol instance
         """
-        return any(replica.isPrimary for replica in self.replicas)
+        # TODO: remove this property?
+        return self.replicas.some_replica_has_primary
 
     @property
-    def primaryReplicaNo(self) -> Optional[int]:
+    def has_master_primary(self) -> bool:
         """
-        Return the index of the primary or None if there's no primary among the
-        replicas on this node.
-
-        :return: index of the primary
+        Whether this node has primary of master protocol instance
         """
-        if self._primary_replica_no is None:
-            for idx, replica in enumerate(self.replicas):
-                if replica.isPrimary:
-                    self._primary_replica_no = idx
-                    return idx
-        return self._primary_replica_no
+        # TODO: remove this property?
+        return self.replicas.master_replica_is_primary
 
     @property
     def master_primary_name(self) -> Optional[str]:
@@ -1168,7 +1072,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def master_replica(self):
-        return self.replicas[0]
+        # TODO: this must be refactored.
+        # Accessing Replica directly should be prohibited
+        return self.replicas._master_replica
 
     @staticmethod
     def is_valid_view_or_inst(n):
@@ -1182,10 +1088,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
+        # TODO: refactor this! this should not do anything except checking!
         instId = getattr(msg, f.INST_ID.nm, None)
         if not self.is_valid_view_or_inst(instId):
             return False
-        if instId >= len(self.msgsToReplicas):
+        if instId >= self.replicas.num_replicas:
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
@@ -1201,6 +1108,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
+        # TODO: refactor this! this should not do anything except checking!
         view_no = getattr(msg, f.VIEW_NO.nm, None)
         if not self.is_valid_view_or_inst(view_no):
             return False
@@ -1229,9 +1137,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg, frm) and \
-                self.msgHasAcceptableViewNo(msg, frm):
-            self.msgsToReplicas[msg.instId].append((msg, frm))
+        # TODO: discard or stash messages here instead of doing
+        # this in msgHas* methods!!!
+        if self.msgHasAcceptableInstId(msg, frm):
+            if self.msgHasAcceptableViewNo(msg, frm):
+                self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToElector(self, msg, frm):
         """
@@ -1911,15 +1821,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         to the stashed ordered requests and the stashed ordered requests are
         processed with appropriate checks
         """
-        for r in self.replicas:
-            i = 0
-            for msg in r._remove_ordered_from_queue():
-                # self.processOrdered(msg)
-                self.try_processing_ordered(msg)
-                i += 1
-            logger.debug(
-                '{} processed {} Ordered batches for instance {} before '
-                'starting catch up'.format(self, i, r.instId))
+
+        for instance_id, messages in self.replicas.take_ordereds_out_of_turn():
+            num_processed = 0
+            for message in messages:
+                self.try_processing_ordered(message)
+                num_processed += 1
+            logger.debug('{} processed {} Ordered batches for instance {} '
+                         'before starting catch up'
+                         .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
         if self.isParticipating:
@@ -2092,14 +2002,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # If the node has primary replica of master instance
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
-            self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+            self.monitor.hasMasterPrimary = self.has_master_primary
 
-        if self.view_change_in_progress and self.all_instances_have_primary:
+        if self.view_change_in_progress and \
+                self.replicas.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
-
-    @property
-    def all_instances_have_primary(self):
-        return all(r.primaryName is not None for r in self.replicas)
 
     def canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
@@ -2460,10 +2367,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
         return i
 
-    def sync3PhaseState(self):
-        for replica in self.replicas:
-            self.send(replica.threePhaseState)
-
     def ensureKeysAreSetup(self):
         """
         Check whether the keys are setup in the local STP keep.
@@ -2654,7 +2557,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "replicas                : {}".format(len(self.replicas)),
             "view no                 : {}".format(self.viewNo),
             "rank                    : {}".format(self.rank),
-            "msgs to replicas        : {}".format(len(self.msgsToReplicas)),
+            "msgs to replicas        : {}".format(self.replicas.sum_inbox_len),
             "msgs to elector         : {}".format(len(self.msgsToElector)),
             "action queue            : {} {}".format(len(self.actionQueue),
                                                      id(self.actionQueue)),

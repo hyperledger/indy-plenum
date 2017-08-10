@@ -30,7 +30,7 @@ def testKitZStacksCommunication(registry, tdir, looper):
     prepStacks(looper, *stacks, connect=False, useKeys=True)
     # TODO: the connection may not be established for the first try because
     # some of the stacks may not have had a remote yet (that is they haven't had yet called connect)
-    timeout = 4*KITZStack.RETRY_TIMEOUT_RESTRICTED+1
+    timeout = 4 * KITZStack.RETRY_TIMEOUT_RESTRICTED + 1
     looper.run(eventually(
         checkStacksConnected, stacks, retryWait=1, timeout=timeout))
 
@@ -44,7 +44,8 @@ def testKitZStacksCommunication(registry, tdir, looper):
 
             looper.run(
                 eventually(chkPrinted, names[i][1], {'greetings': 'hello'}, timeout=15))
-            looper.run(eventually(chkPrinted, names[j][1], {'greetings': 'hi'}, timeout=15))
+            looper.run(eventually(chkPrinted, names[j][1], {
+                       'greetings': 'hi'}, timeout=15))
 
             names[i][1].reset()
             names[j][1].reset()
