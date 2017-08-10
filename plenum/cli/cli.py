@@ -1025,7 +1025,7 @@ class Cli:
             self.print("    Replicas: {}".format(len(node.replicas)),
                        newline=False)
             if node.hasPrimary:
-                if node.primaryReplicaNo == 0:
+                if node.has_master_primary:
                     self.print("  (primary of Master)")
                 else:
                     self.print("  (primary of Backup)")
