@@ -88,6 +88,3 @@ class KeyValueStorageLeveldb(KeyValueStorage):
     @property
     def closed(self):
         return self._db is None
-
-    def __repr__(self):
-        return self.db_path

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
-class GenesisTxnInitiator(metaclass=ABCMeta):
 
+class GenesisTxnInitiator(metaclass=ABCMeta):
     @abstractmethod
     def init_ledger_from_genesis_txn(self, ledger):
         pass
