@@ -46,7 +46,7 @@ class ClientZStack(SimpleZStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.debug("{} unable to send message {} to client {}; Exception: {}"
+            logger.error("{} unable to send message {} to client {}; Exception: {}"
                          .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
@@ -111,7 +111,7 @@ class ClientRStack(SimpleRStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.debug("{} unable to send message {} to client {}; Exception: {}"
+            logger.error("{} unable to send message {} to client {}; Exception: {}"
                          .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):

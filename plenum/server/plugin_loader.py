@@ -110,10 +110,10 @@ class PluginLoader:
                                 importSuccessful = True
 
                             if importSuccessful:
-                                logger.debug("plugin {} successfully loaded "
-                                             "from module {}".
-                                             format(c.__name__, mod),
-                                             extra={"cli": True})
+                                logger.info("plugin {} successfully loaded "
+                                            "from module {}".
+                                            format(c.__name__, mod),
+                                            extra={"cli": True})
                                 if typ in plugins:
                                     plugins[typ].add(inst)
                                 else:

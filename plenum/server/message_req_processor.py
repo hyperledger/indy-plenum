@@ -82,7 +82,7 @@ class MessageReqProcessor:
                     # the input is expected as a dict (serialization with ujson==1.33)
                     return LedgerStatus(**kwargs['ledger_status'])
                 except TypeError as ex:
-                    logger.debug(
+                    logger.warning(
                         '{} could not create LEDGER_STATUS out of {}'.
                             format(self, **kwargs['ledger_status']))
             else:
@@ -123,7 +123,7 @@ class MessageReqProcessor:
                     # the input is expected as a dict (serialization with ujson==1.33)
                     return ConsistencyProof(**kwargs['cons_proof'])
                 except TypeError as ex:
-                    logger.debug(
+                    logger.warning(
                         '{} could not create CONSISTENCY_PROOF out of {}'.
                             format(self, **kwargs['cons_proof']))
             else:
@@ -173,12 +173,12 @@ class MessageReqProcessor:
                     # the input is expected as a dict (serialization with ujson==1.33)
                     pp = PrePrepare(**kwargs['pp'])
                     if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-                        logger.debug('{} found PREPREPARE {} not satisfying '
-                                     'query criteria'.format(self, *kwargs['pp']))
+                        logger.warning('{} found PREPREPARE {} not satisfying '
+                                       'query criteria'.format(self, *kwargs['pp']))
                         return
                     return pp
                 except TypeError as ex:
-                    logger.debug(
+                    logger.warning(
                         '{} could not create PREPREPARE out of {}'.
                         format(self, **kwargs['pp']))
             else:

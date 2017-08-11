@@ -552,7 +552,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.processPostElectionMsgs()
             except SuspiciousNode as ex:
                 self.outBox.append(ex)
-                self.discard(ex.msg, ex.reason, logger.debug)
+                self.discard(ex.msg, ex.reason, logger.warning)
 
     def _stashInBox(self, msg):
         """
@@ -631,8 +631,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.node.doDynamicValidation(req)
                 self.node.applyReq(req, cons_time)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
-            logger.debug('{} encountered exception {} while processing {}, '
-                         'will reject'.format(self, ex, req))
+            logger.warning('{} encountered exception {} while processing {}, '
+                           'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))
             inValidReqs.append(req)
         else:
@@ -1471,7 +1471,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
         if self.isMaster and checkpoint_state.digest != msg.digest:
-            logger.debug("{} received an incorrect digest {} for "
+            logger.error("{} received an incorrect digest {} for "
                          "checkpoint {} from {}".format(self,
                                                         msg.digest,
                                                         key,
@@ -1986,7 +1986,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             self.discard(pp, reason='does not have expected state({} {} {})'.
                          format(digest, state_root, txn_root),
-                         logMethod=logger.debug)
+                         logMethod=logger.warning)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """

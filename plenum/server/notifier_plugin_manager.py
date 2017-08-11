@@ -84,7 +84,7 @@ class PluginManager:
                 module = importlib.import_module(plugin)
                 self.plugins.append(module)
                 i += 1
-                logger.debug("Successfully imported Notifier Plugin: {}".format(plugin))
+                logger.info("Successfully imported Notifier Plugin: {}".format(plugin))
             except Exception as e:
                 logger.error('Importing Notifier Plugin {} failed due to {}'.format(plugin, e))
         return i, len(plugins)

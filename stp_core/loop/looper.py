@@ -268,15 +268,15 @@ class Looper:
         """
         Shut down this Looper.
         """
-        logger.debug("Looper shutting down now...",
-                     extra={"cli": False})
+        logger.info("Looper shutting down now...",
+                    extra={"cli": False})
         self.running = False
         start = time.perf_counter()
         await self.runFut
         self.stopall()
-        logger.debug("Looper shut down in {:.3f} seconds.".
-                     format(time.perf_counter() - start),
-                     extra={"cli": False})
+        logger.info("Looper shut down in {:.3f} seconds.".
+                    format(time.perf_counter() - start),
+                    extra={"cli": False})
 
     def __enter__(self):
         return self

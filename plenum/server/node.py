@@ -590,9 +590,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             # if first time running this node
             if not self.nodestack.remotes:
-                logger.debug("{} first time running..."
-                             "".format(self), extra={"cli": "LOW_STATUS",
-                                                     "tags": ["node-key-sharing"]})
+                logger.info("{} first time running..."
+                            "".format(self), extra={"cli": "LOW_STATUS",
+                                                    "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections(force=True)
 
@@ -2330,8 +2330,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txns from ledger.
         """
         if state.isEmpty:
-            logger.debug('{} found state to be empty, recreating from '
-                         'ledger'.format(self))
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
             for seq_no, txn in ledger.getAllTxn():
                 txn[f.SEQ_NO.nm] = seq_no
                 txn = self.update_txn_with_extra_data(txn)
@@ -2448,8 +2448,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param clientName: name of the client to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.debug("{} suspicion raised on client {} for {}"
-                     .format(self, clientName, reason))
+        logger.warning("{} raised suspicion on client {} for {}"
+                       .format(self, clientName, reason))
         self.blacklistClient(clientName)
 
     def isClientBlacklisted(self, clientName: str):
