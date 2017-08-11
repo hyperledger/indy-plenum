@@ -1,10 +1,9 @@
 import sys
 
 import rlp
-
 import state.util.utils as utils
 from state.db.db import BaseDB
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 DEATH_ROW_OFFSET = 2**62
 ZERO_ENCODED = utils.encode_int(0)

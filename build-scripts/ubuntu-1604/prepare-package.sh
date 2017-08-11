@@ -35,6 +35,7 @@ sed -i -r "s~indy-plenum-[a-z]+~indy-plenum~" "$repo/setup.py"
 echo -e "Adapt the dependencies for the Canonical archive"
 sed -i "s~ujson==1.33~ujson==1.33-1build1~" "$repo/setup.py"
 sed -i "s~prompt_toolkit==0.57~prompt_toolkit==0.57-1~" "$repo/setup.py"
+sed -i "s~msgpack-python==0.4.6~msgpack-python==0.4.6-1build1~" "$repo/setup.py"
 
 # create manifest file
 repourl=$(git --git-dir $repo/.git --work-tree $repo config --get remote.origin.url)
