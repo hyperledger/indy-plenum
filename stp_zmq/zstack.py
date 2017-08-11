@@ -648,8 +648,8 @@ class ZStack(NetworkInterface):
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
-            logger.warning('{} got an unexpected return value {} while sending'
-                           .format(self, r))
+            logger.warning('{} got an unexpected return value {} while sending'.
+                           format(self, r))
         return r[0]
 
     def handlePingPong(self, msg, frm, ident):
