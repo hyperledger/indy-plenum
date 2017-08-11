@@ -31,7 +31,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
     requests will complete
     """
     tconf = perf_chk_patched
-    delay = 3
+    delay = 5
     instId = 1
     reqs_to_send = 2*reqs_for_logsize + 1
     logger.debug('Will send {} requests'.format(reqs_to_send))
