@@ -1,7 +1,7 @@
 from hashlib import sha256
 from typing import Optional
 
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 
 class ReqIdrToTxn:

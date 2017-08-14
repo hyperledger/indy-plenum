@@ -1,7 +1,6 @@
-import json
 from functools import lru_cache
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
     SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
@@ -24,7 +23,7 @@ class PoolRequestHandler(RequestHandler):
                  domainState: State):
         super().__init__(ledger, state)
         self.domainState = domainState
-        self.stateSerializer = JsonSerializer()
+        self.stateSerializer = pool_state_serializer
 
     def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)
@@ -98,7 +97,9 @@ class PoolRequestHandler(RequestHandler):
     def getNodeData(self, nym, isCommitted: bool = True):
         key = nym.encode()
         data = self.state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return self.stateSerializer.deserialize(data)
 
     def updateNodeData(self, nym, data):
         key = nym.encode()
@@ -118,7 +119,7 @@ class PoolRequestHandler(RequestHandler):
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
         for nodeNym, nodeData in self.state.as_dict.items():
-            nodeData = json.loads(nodeData.decode())
+            nodeData = self.stateSerializer.deserialize(nodeData)
             if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
                 return True
         return False
@@ -159,7 +160,7 @@ class PoolRequestHandler(RequestHandler):
 
         for otherNode, otherNodeData in self.state.as_dict.items():
             otherNode = otherNode.decode()
-            otherNodeData = json.loads(otherNodeData.decode())
+            otherNodeData = self.stateSerializer.deserialize(otherNodeData)
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)
             if not nodeNym or otherNode != nodeNym:

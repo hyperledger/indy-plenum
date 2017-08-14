@@ -146,6 +146,7 @@ class HasPoolManager(TxnStackManager):
             self._ledgerFile = self.config.poolTransactionsFile
         return self._ledgerFile
 
+
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))
         self.ledger.append(txn)

@@ -1,17 +1,15 @@
-import json
 import os
 from collections import namedtuple
 from typing import Any, List, Dict
 
 from plenum.common.constants import REQACK, REQNACK, REPLY, REJECT
-
-from ledger.stores.directory_store import DirectoryStore
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.request import Request
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
-from plenum.common.request import Request
 from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
+from storage.directory_store import DirectoryStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
@@ -128,13 +126,12 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         fields = getTxnOrderedFields()
         return updateFieldsWithSeqNo(fields)
 
-    @staticmethod
-    def serializeReq(req: Request) -> str:
-        return json.dumps(req.__getstate__())
+    def serializeReq(self, req: Request) -> str:
+        return self.txnSerializer.serialize(req.__getstate__(), toBytes=False)
 
-    @staticmethod
-    def deserializeReq(serReq: str) -> Request:
-        return Request.fromState(json.loads(serReq))
+    def deserializeReq(self, serReq: str) -> Request:
+        return Request.fromState(
+            self.txnSerializer.deserialize(serReq))
 
     def _getLinesWithPrefix(self, identifier: str, reqId: int,
                             prefix: str) -> List[str]:

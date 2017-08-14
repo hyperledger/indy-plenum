@@ -1,21 +1,20 @@
 """
 Clients are authenticated with a digital signature.
 """
-import base58
 from abc import abstractmethod
 from typing import Dict
 
-from stp_core.common.log import getlogger
-
+import base58
+from common.serializers.serialization import serialize_msg_for_signing
+from plenum.common.constants import VERKEY, ROLE
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
-from plenum.common.signing import serializeMsg
-from plenum.common.constants import VERKEY, ROLE
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
 from plenum.server.domain_req_handler import DomainRequestHandler
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -96,7 +95,7 @@ class NaclAuthNr(ClientAuthNr):
             verkey = self.getVerkey(identifier)
 
             if verkey is None:
-                raise CouldNotAuthenticate
+                raise CouldNotAuthenticate('Can not find verkey for DID {}'.format(identifier))
 
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
@@ -117,7 +116,7 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     def serializeForSig(self, msg, topLevelKeysToIgnore=None):
-        return serializeMsg(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
+        return serialize_msg_for_signing(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class SimpleAuthNr(NaclAuthNr):

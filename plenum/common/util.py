@@ -296,6 +296,7 @@ def runWithLoop(loop, callback, *args, **kwargs):
 
 
 def checkIfMoreThanFSameItems(items, maxF):
+    # TODO: separate json serialization into serialization.py
     jsonified_items = [json.dumps(item, sort_keys=True) for item in items]
     counts = defaultdict(int)
     for j_item in jsonified_items:

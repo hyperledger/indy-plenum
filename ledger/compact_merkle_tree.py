@@ -3,7 +3,8 @@ from binascii import hexlify
 from typing import List, Tuple, Sequence
 
 import ledger.merkle_tree as merkle_tree
-from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.hash_stores.hash_store import HashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.tree_hasher import TreeHasher
 from ledger.util import count_bits_set, lowest_bit_set
 from ledger.util import ConsistencyVerificationFailed
@@ -23,9 +24,13 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
 
         # These two queues should be written to two simple position-accessible
         # arrays (files, database tables, etc.)
-        self.hashStore = hashStore or MemoryHashStore()  # type: HashStore
+        self.__hashStore = hashStore or MemoryHashStore()  # type: HashStore
         self.__hasher = hasher
         self._update(tree_size, hashes)
+
+    @property
+    def hashStore(self):
+        return self.__hashStore
 
     def _update(self, tree_size: int, hashes: Sequence[bytes]):
         bits_set = count_bits_set(tree_size)

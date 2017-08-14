@@ -2,16 +2,14 @@ from __future__ import unicode_literals
 
 import glob
 import shutil
-from hashlib import sha256
 from os.path import basename, dirname
 from typing import Dict, Iterable
 
 from jsonpickle import json
-
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
-from ledger.stores.file_hash_store import FileHashStore
-from plenum import config
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newWalletCmd, renameWalletCmd, useWalletCmd, saveWalletCmd, \
@@ -27,21 +25,21 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet, WalletStorageHelper
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.signer_did import DidSigner
-from stp_core.crypto.util import cleanSeed, seedFromHex
-from stp_raet.util import getLocalEstateData
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
-    CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from storage.kv_in_memory import KeyValueStorageInMemory
+from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
+from stp_raet.util import getLocalEstateData
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -60,7 +58,6 @@ from functools import reduce, partial
 import sys
 
 from prompt_toolkit.history import FileHistory
-from ioflo.aid.consoling import Console
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -79,7 +76,7 @@ from plenum.common.util import getMaxFailures, \
     normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
-    getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
+    getlogger, Logger
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
@@ -130,28 +127,8 @@ class Cli:
         Logger().enableCliLogging(self.out,
                                   override_tags=override_tags)
         self.looper = looper
-        self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
-                and len(cliNodeReg)):
-            self.nodeRegLoadedFromFile = True
-            dataDir = self.basedirpath
-            fileHashStore = FileHashStore(dataDir=dataDir)
-            ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
-                dataDir=dataDir,
-                fileName=self.config.poolTransactionsFile)
-            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
-                ledger)
-            ledger.stop()
-            fileHashStore.close()
-
         self.withNode = withNode
-        self.nodeReg = nodeReg
-        self.cliNodeReg = cliNodeReg
-        self.nodeRegistry = {}
-        for nStkNm, nha in self.nodeReg.items():
-            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+        self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -285,6 +262,39 @@ class Cli:
         self.restoreLastActiveWallet()
 
         self.checkIfCmdHandlerAndCmdMappingExists()
+
+
+    def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
+        self.nodeRegLoadedFromFile = False
+        if not (useNodeReg and nodeReg and len(nodeReg)
+                and cliNodeReg and len(cliNodeReg)):
+            self.__init_registry_from_ledger()
+        else:
+            self.nodeReg = nodeReg
+            self.cliNodeReg = cliNodeReg
+
+        self.nodeRegistry = {}
+        for nStkNm, nha in self.nodeReg.items():
+            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm]))
+
+    def __init_registry_from_ledger(self):
+        self.nodeRegLoadedFromFile = True
+        dataDir = self.basedirpath
+
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
+        ledger = Ledger(CompactMerkleTree(),
+                        dataDir=dataDir,
+                        fileName=self.config.poolTransactionsFile,
+                        genesis_txn_initiator=genesis_txn_initiator,
+                        transactionLogStore=KeyValueStorageInMemory())
+        nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+            ledger)
+        ledger.stop()
+
+        self.nodeReg = nodeReg
+        self.cliNodeReg = cliNodeReg
 
     def close(self):
         """
@@ -489,14 +499,12 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            ledger = Ledger(CompactMerkleTree(),
-                            dataDir=self.basedirpath,
-                            fileName=self.config.poolTransactionsFile)
+            ledger = create_genesis_txn_init_ledger(self.basedirpath, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
             self.print('Genesis transaction file created at {} '
-                       .format(ledger._transactionLog.dbPath))
+                       .format(ledger._transactionLog.db_path))
             ledger.stop()
             return True
 
