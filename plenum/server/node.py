@@ -890,7 +890,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendToElector(message, frm)
         except TypeError as ex:
             self.discard(msg,
-                         reason="invalid election messages",
+                         reason="{}invalid election messages".format(
+                             PRIMARY_ELECTION_PREFIX),
                          logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
@@ -962,8 +963,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.msgsForFutureViews[view_no]:
             msg, frm = self.msgsForFutureViews[view_no].popleft()
             if not self._dispatch_stashed_msg(msg, frm):
-                self.discard(msg, reason="Unknown message type for view no "
-                                         "{}".format(view_no),
+                self.discard(msg,
+                             reason="{}Unknown message type for view no {}"
+                             .format(VIEW_CHANGE_PREFIX, view_no),
                              logMethod=logger.warning)
             i += 1
         logger.debug("{} processed {} stashed msgs for view no {}".
@@ -990,8 +992,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("view change to view {} is not completed in time, "
                      "starting view change for view {}"
                      .format(self.viewNo, next_view_no))
-        logger.info("{} initiating a view change to {} from {}".
-                    format(self, next_view_no, self.viewNo))
+        logger.info("{}{} initiating a view change to {} from {}".
+                    format(VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
@@ -1493,7 +1495,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
-            logger.info('{} caught up till {}'.format(self, last_caught_up_3PC),
+            logger.info('{}{} caught up till {}'
+                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
 
         # TODO: Maybe a slight optimisation is to check result of
@@ -1504,7 +1507,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
         else:
-            logger.info('{} does not need any more catchups'.format(self),
+            logger.info('{}{} does not need any more catchups'
+                        .format(CATCH_UP_PREFIX, self),
                         extra={'cli': True})
             self.no_more_catchups_needed()
 
@@ -1873,8 +1877,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".
-                         format(type(instChg.viewNo)))
+            self.discard(instChg, "{}field viewNo has incorrect type: {}".
+                         format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
         elif instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
@@ -1891,8 +1895,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.instanceChanges.hasInstChngFrom(instChg.viewNo,
                                                          self.name):
                 logger.info(
-                    "{} found master degraded after receiving instance change "
-                    "message from {}".format(self, frm))
+                    "{}{} found master degraded after receiving instance change"
+                    " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
             else:
                 logger.debug(
@@ -1905,8 +1909,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # malicious nodes sending messages early on
         can, whyNot = self.canViewChange(view_no)
         if can:
-            logger.info("{} initiating a view change to {} from {}".
-                        format(self, view_no, self.viewNo))
+            logger.info("{}{} initiating a view change to {} from {}".
+                        format(VIEW_CHANGE_PREFIX, self, view_no, self.viewNo))
             self.propagate_primary = False
             self.startViewChange(view_no)
         else:
@@ -1916,9 +1920,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _start_view_change_if_possible(self, view_no) -> bool:
         ind_count = len(self._next_view_indications[view_no])
         if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.info('{} starting view change for {} after {} view change '
+            logger.info('{}{} starting view change for {} after {} view change '
                         'indications from other nodes'.
-                        format(self, view_no, ind_count))
+                        format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
             self.propagate_primary = True
             self.startViewChange(view_no)
             return True
@@ -1996,8 +2000,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} sending an instance change with view_no {} since "
                         "{}".
                         format(self, view_no, suspicion.reason))
-            logger.info("{} metrics for monitor: {}".
-                        format(self, self.monitor.prettymetrics))
+            logger.info("{}{} metrics for monitor: {}"
+                        .format(MONITORING_PREFIX, self,
+                                self.monitor.prettymetrics))
             msg = self._create_instance_change_msg(view_no, suspicion.code)
             self.send(msg)
             self._record_inst_change_msg(msg, self.name)
@@ -2095,8 +2100,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
         # prepared certificate the first PRE-PREPARE of the new view
-        logger.info('{} changed to view {}, will start catchup now'.
-                    format(self, self.viewNo))
+        logger.info('{}{} changed to view {}, will start catchup now'.
+                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
@@ -2435,8 +2440,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG)):
             self.sendInstanceChange(self.viewNo + 1, Suspicions.get_by_code(code))
-            logger.info('{} sent instance change since suspicion code {}'
-                        .format(self, code))
+            logger.info('{}{} sent instance change since suspicion code {}'
+                        .format(VIEW_CHANGE_PREFIX, self, code))
 
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.debug)

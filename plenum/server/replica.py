@@ -1984,8 +1984,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root):
             self.processThreePhaseMsg(pp, sender)
         else:
-            self.discard(pp, reason='does not have expected state({} {} {})'.
-                         format(digest, state_root, txn_root),
+            self.discard(pp, reason='{}does not have expected state({} {} {})'.
+                         format(THREE_PC_PREFIX, digest, state_root, txn_root),
                          logMethod=logger.warning)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
@@ -2010,11 +2010,11 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
-            logger.debug('{} found {} to have incorrect time.'.format(self, pp))
+            logger.error('{} found {} to have incorrect time.'.format(self, pp))
             key = (pp.viewNo, pp.ppSeqNo)
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                logger.debug('{} marking time as correct for {}'.format(self, pp))
+                logger.info('{} marking time as correct for {}'.format(self, pp))
                 correct = True
         return correct
 

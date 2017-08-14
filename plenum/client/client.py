@@ -15,6 +15,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.stacks import nodeStackClass
 from plenum.server.quorums import Quorums
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
@@ -572,7 +573,8 @@ class Client(Motor,
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
-                logger.warning('{} could not find remote {}'.format(self, nm))
+                logger.warning('{}{} could not find remote {}'
+                               .format(CONNECTION_PREFIX, self, nm))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))

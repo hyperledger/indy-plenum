@@ -3,6 +3,7 @@ from typing import Any, Iterable
 from typing import Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
 from stp_core.common.log import getlogger
 from plenum.common.types import f
@@ -110,11 +111,14 @@ class Batched(MessageProcessor):
                     else:
                         logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
         for rid in removedRemotes:
-            logger.warning("{} rid {} has been removed".format(self, rid),
+            logger.warning("{}{} rid {} has been removed"
+                           .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
-                self.discard(msgs, "rid {} no longer available".format(rid),
+                self.discard(msgs,
+                             "{}rid {} no longer available"
+                             .format(CONNECTION_PREFIX, rid),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
 

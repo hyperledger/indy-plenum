@@ -8,6 +8,7 @@ from typing import Tuple
 import psutil
 
 from plenum.common.config_util import getConfig
+from plenum.common.constants import MONITORING_PREFIX
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -300,8 +301,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         tooLow = r < self.Delta
         if tooLow:
-            logger.info("{} master throughput ratio {} is lower than "
-                        "Delta {}.".format(self, r, self.Delta))
+            logger.info("{}{} master throughput ratio {} is lower than Delta"
+                        " {}.".format(MONITORING_PREFIX, self, r, self.Delta))
         else:
             logger.trace("{} master throughput ratio {} is acceptable.".
                          format(self, r))
@@ -316,8 +317,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             next(((key, lat) for key, lat in self.masterReqLatencies.items() if
                   lat > self.Lambda), None)
         if r:
-            logger.info("{} found master's latency {} to be higher than the "
-                         "threshold for request {}.".format(self, r[1], r[0]))
+            logger.info("{}{} found master's latency {} to be higher than the"
+                        " threshold for request {}."
+                        .format(MONITORING_PREFIX, self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "
                          "threshold for all requests.".format(self))
@@ -341,9 +343,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 return False
             d = avgLatM[cid] - lat
             if d > self.Omega:
-                logger.info("{} found difference between master's and "
+                logger.info("{}{} found difference between master's and "
                              "backups's avg latency {} to be higher than the "
-                             "threshold".format(self, d))
+                             "threshold".format(MONITORING_PREFIX, self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".

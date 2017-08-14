@@ -1,6 +1,7 @@
 import inspect
 
 from stp_core.common.config.util import getConfig
+from stp_core.common.constants import CONNECTION_PREFIX
 
 try:
     import ujson as json
@@ -581,8 +582,9 @@ class ZStack(NetworkInterface):
         public, secret = self.selfEncKeys
         remote.connect(self.ctx, public, secret)
 
-        logger.info("{} looking for {} at {}:{}".
-                    format(self, name or remote.name, *remote.ha),
+        logger.info("{}{} looking for {} at {}:{}"
+                    .format(CONNECTION_PREFIX, self,
+                            name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
         # This should be scheduled as an async task
@@ -648,8 +650,9 @@ class ZStack(NetworkInterface):
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
-            logger.warning('{} got an unexpected return value {} while sending'.
-                           format(self, r))
+            logger.warning('{}{} got an unexpected return value {}'
+                           ' while sending'
+                           .format(CONNECTION_PREFIX, self, r))
         return r[0]
 
     def handlePingPong(self, msg, frm, ident):
@@ -684,7 +687,8 @@ class ZStack(NetworkInterface):
                 try:
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as ex:
-                    err_str = 'Cannot send message. Error {}'.format(ex)
+                    err_str = '{}Cannot send message. Error {}'.format(
+                        CONNECTION_PREFIX, ex)
                     logger.error(err_str)
                     return False, err_str
                 for uid in self.remotes:
@@ -724,7 +728,8 @@ class ZStack(NetworkInterface):
         except zmq.Again:
             logger.debug('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
-            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            err_str = '{}Cannot transmit message. Error {}'.format(
+                CONNECTION_PREFIX, ex)
             logger.error(err_str)
         return False, err_str
 
@@ -749,11 +754,13 @@ class ZStack(NetworkInterface):
         except zmq.Again:
             return False, None
         except InvalidMessageExceedingSizeException as ex:
-            err_str = 'Cannot transmit message. Error {}'.format(ex)
+            err_str = '{}Cannot transmit message. Error {}'.format(
+                CONNECTION_PREFIX, ex)
             logger.error(err_str)
             return False, err_str
         except Exception as e:
-            err_str = '{} got error {} while sending through listener to {}'.format(self, e, ident)
+            err_str = '{}{} got error {} while sending through listener to {}'\
+                .format(CONNECTION_PREFIX, self, e, ident)
             logger.error(err_str)
             return False, err_str
         return True, None
