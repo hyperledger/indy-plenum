@@ -13,13 +13,13 @@ from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
+from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
-from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -750,8 +750,8 @@ def checkStateEquality(state1, state2):
 def check_seqno_db_equality(db1, db2):
     assert db1.size == db2.size,\
         "{} != {}".format(db1.size, db2.size)
-    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
-           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
+    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
+           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
 def check_last_ordered_3pc(node1, node2):
@@ -782,14 +782,16 @@ def mockImportModule(moduleName):
 
 
 def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
-                           tdirWithDomainTxns=None):
+                           tdirWithDomainTxns=None, new_pool_txn_file=None, new_domain_txn_file=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFile),
-                 os.path.join(dirName, tconf.poolTransactionsFile))
+        new_pool_txn_file = new_pool_txn_file or tconf.poolTransactionsFile
+        copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(tconf.poolTransactionsFile)),
+                 os.path.join(dirName, genesis_txn_file(new_pool_txn_file)))
     if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
-                 os.path.join(dirName, tconf.domainTransactionsFile))
+        new_domain_txn_file = new_domain_txn_file or tconf.domainTransactionsFile
+        copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(tconf.domainTransactionsFile)),
+                 os.path.join(dirName, genesis_txn_file(new_domain_txn_file)))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):

@@ -1,10 +1,10 @@
 import copy
 
 import pytest
-from state.kv.kv_in_memory import KeyValueStorageInMemory
 from state.pruning_state import PruningState
 from state.state import State
 from state.trie.pruning_trie import BLANK_ROOT, BLANK_NODE
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 @pytest.yield_fixture(scope="function")

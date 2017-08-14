@@ -29,7 +29,7 @@ def invalid_verkey_tdir(tdir_for_func):
         if d == 1:
             txn[TARGET_NYM] = "invalid===="
         ledger.add(txn)
-    return ledger
+    ledger.stop()
 
 
 @pytest.fixture(scope="function")
@@ -46,7 +46,7 @@ def invalid_identifier_tdir(tdir_for_func):
            }
            }
     ledger.add(txn)
-    return ledger
+    ledger.stop()
 
 
 def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_verkey_tdir, tdir_for_func):

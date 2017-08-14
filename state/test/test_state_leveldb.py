@@ -2,10 +2,10 @@ import copy
 import os
 
 import pytest
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
 from state.pruning_state import PruningState
 from state.state import State
 from state.trie.pruning_trie import BLANK_NODE, BLANK_ROOT
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 i = 0
 
@@ -16,7 +16,7 @@ i = 0
 def state(tempdir) -> State:
     global i
     state = PruningState(
-        KeyValueStorageLeveldb(os.path.join(tempdir, 'kv{}'.format(i))))
+        KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i)))
     yield state
     state.close()
 
@@ -25,7 +25,7 @@ def state(tempdir) -> State:
 def state2(tempdir) -> State:
     global i
     state = PruningState(
-        KeyValueStorageLeveldb(os.path.join(tempdir, 'kv2{}'.format(i))))
+        KeyValueStorageLeveldb(tempdir, 'kv2{}'.format(i)))
     yield state
     state.close()
 
