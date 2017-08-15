@@ -22,7 +22,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     def chk():
         for r in getNonPrimaryReplicas(nodeSet, instId):
             nodeSuspicions = len(getNodeSuspicions(
-                    r.node, Suspicions.WRONG_PPSEQ_NO.code))
+                r.node, Suspicions.WRONG_PPSEQ_NO.code))
             assert nodeSuspicions == 1
 
     def checkPreprepare(replica, viewNo, ppSeqNo, req, numOfPrePrepares):
@@ -36,9 +36,9 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     timeout = waits.expectedPrePrepareTime(len(nodeSet))
     for np in nonPrimaryReplicas:
         looper.run(
-                eventually(checkPreprepare, np, primary.viewNo,
-                           primary.lastPrePrepareSeqNo - 1, req, 1,
-                           retryWait=.5, timeout=timeout))
+            eventually(checkPreprepare, np, primary.viewNo,
+                       primary.lastPrePrepareSeqNo - 1, req, 1,
+                       retryWait=.5, timeout=timeout))
 
     newReqDigest = ReqDigest(req.identifier, req.reqId + 1, req.digest)
     incorrectPrePrepareReq = PrePrepare(instId,

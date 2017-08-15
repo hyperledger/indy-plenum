@@ -42,4 +42,3 @@ def test_pp_seq_no_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper, wall
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
     chk(6)
-

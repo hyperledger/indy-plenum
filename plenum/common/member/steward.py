@@ -13,6 +13,7 @@ class Steward(Member):
     """
     Provides a context for Steward operations.
     """
+
     def __init__(self, name=None, wallet=None):
         self.name = name or 'Steward' + str(id(self))
         self._wallet = wallet

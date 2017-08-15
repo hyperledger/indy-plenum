@@ -115,4 +115,3 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
-

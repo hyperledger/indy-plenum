@@ -37,8 +37,8 @@ def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
         if isinstance(msg, opType) and \
                 (not senderFilter or frm == senderFilter) and \
                 (instFilter is None or
-                     (f.INST_ID.nm in msg._fields and
-                              getattr(msg, f.INST_ID.nm) == instFilter)):
+                 (f.INST_ID.nm in msg._fields and
+                  getattr(msg, f.INST_ID.nm) == instFilter)):
             return seconds
 
     if hasattr(opType, 'typename'):
@@ -143,7 +143,7 @@ def msg_req_delay(delay: float, types_to_delay: List=None):
     # Delayer of MessageReq messages
     def specific_msgs(msg):
         if isinstance(msg[0], MessageReq) and (not types_to_delay or
-                                                    msg[0].msg_type in types_to_delay):
+                                               msg[0].msg_type in types_to_delay):
             return delay
 
     specific_msgs.__name__ = MESSAGE_REQUEST
@@ -154,7 +154,7 @@ def msg_rep_delay(delay: float, types_to_delay: List=None):
     # Delayer of MessageRep messages
     def specific_msgs(msg):
         if isinstance(msg[0], MessageRep) and (not types_to_delay or
-                                                    msg[0].msg_type in types_to_delay):
+                                               msg[0].msg_type in types_to_delay):
             return delay
 
     specific_msgs.__name__ = MESSAGE_RESPONSE
@@ -177,12 +177,12 @@ def delay(what, frm, to, howlong):
                     stasher = t.clientIbStasher
                 else:
                     raise TypeError(
-                            "from type {} for {} not supported".format(type(f),
-                                                                       f))
+                        "from type {} for {} not supported".format(type(f),
+                                                                   f))
                 stasher.delay(delayerMsgTuple(howlong, what, f.name))
             else:
                 raise TypeError(
-                        "to type {} for {} not supported".format(type(t), t))
+                    "to type {} for {} not supported".format(type(t), t))
 
 
 def delayNonPrimaries(nodeSet, instId, delay):
@@ -200,7 +200,8 @@ def delay_messages(typ, nodes, inst_id, delay=None, min_delay=None, max_delay=No
         delay_meths = (ppDelay, pDelay, cDelay)
     else:
         RuntimeError('Unknown type')
-    assert delay is not None or (min_delay is not None and max_delay is not None)
+    assert delay is not None or (
+        min_delay is not None and max_delay is not None)
     for node in nodes:
         if delay:
             d = delay

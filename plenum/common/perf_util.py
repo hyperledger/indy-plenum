@@ -35,7 +35,7 @@ def timeit(method, record_time_in: Optional[List]=None):
         ts = time.perf_counter()
         result = method(*args, **kw)
         te = time.perf_counter()
-        elapsed = te-ts
+        elapsed = te - ts
         # print('{} took {} sec'.format(method.__name__, elapsed))
         try:
             method.elapsed = elapsed
@@ -64,7 +64,8 @@ def get_collection_sizes(obj, collections: Optional[Tuple]=None,
     for attr_name in dir(obj):
         attr = getattr(obj, attr_name)
         if isinstance(attr, collections) and (not get_only_non_empty or len(attr) > 0):
-            result.append((attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
+            result.append(
+                (attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
     return result
 
 

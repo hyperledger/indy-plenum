@@ -42,7 +42,8 @@ def testUseKeyringRegEx(grammar):
                                   "copy_as": None, "copy_as_name": None,
                                   "override": None})
 
-    matchedVars = getMatchedVariables(grammar, "use wallet abc copy as newwallet")
+    matchedVars = getMatchedVariables(
+        grammar, "use wallet abc copy as newwallet")
     assertCliTokens(matchedVars, {"use_wallet": "use wallet", "wallet": "abc",
                                   "copy_as": "copy as", "copy_as_name": "newwallet",
                                   "override": None})
@@ -61,7 +62,8 @@ def testUseKeyringRegEx(grammar):
 
 def testSaveKeyringRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "save wallet")
-    assertCliTokens(matchedVars, {"save_wallet": "save wallet", "wallet": None})
+    assertCliTokens(
+        matchedVars, {"save_wallet": "save wallet", "wallet": None})
     matchedVars = getMatchedVariables(grammar, "save wallet default")
     assertCliTokens(matchedVars, {"save_wallet": "save wallet",
                                   "wallet": "default"})
@@ -81,36 +83,49 @@ def testListKeyringsCommandRegEx(grammar):
 
 def testNewKeyRingCommandRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "new wallet MyKey1")
-    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
+    assertCliTokens(
+        matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
     matchedVars = getMatchedVariables(grammar, "new wallet MyKey1 ")
-    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
+    assertCliTokens(
+        matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
 
 
 def testRenameKeyRingCommandRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "rename wallet MyKey1 to MyKey2")
-    assertCliTokens(matchedVars, {"rename_wallet": "rename wallet", "from": "MyKey1", "to": "MyKey2"})
+    matchedVars = getMatchedVariables(
+        grammar, "rename wallet MyKey1 to MyKey2")
+    assertCliTokens(matchedVars, {
+                    "rename_wallet": "rename wallet", "from": "MyKey1", "to": "MyKey2"})
     matchedVars = getMatchedVariables(grammar, "rename wallet to MyKey2")
-    assertCliTokens(matchedVars, {"rename_wallet": "rename wallet", "from": None, "to": "MyKey2"})
+    assertCliTokens(
+        matchedVars, {"rename_wallet": "rename wallet", "from": None, "to": "MyKey2"})
 
 
 def testNewKeypairCommandRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "new key")
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": None, "seed": None})
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": None, "seed": None})
 
     matchedVars = getMatchedVariables(grammar, "new key test")
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": "test", "seed": None})
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": "test", "seed": None})
 
     matchedVars = getMatchedVariables(grammar, "new key as test")
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": "test", "seed": None})
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": "test", "seed": None})
 
-    matchedVars = getMatchedVariables(grammar, "new key with seed " + 's' * 32 + " as test")
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": "test", "seed": 's' * 32})
+    matchedVars = getMatchedVariables(
+        grammar, "new key with seed " + 's' * 32 + " as test")
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": "test", "seed": 's' * 32})
 
-    matchedVars = getMatchedVariables(grammar, "new key with seed " + 's' * 32 + " test")
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": "test", "seed": 's' * 32})
+    matchedVars = getMatchedVariables(
+        grammar, "new key with seed " + 's' * 32 + " test")
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": "test", "seed": 's' * 32})
 
     matchedVars = getMatchedVariables(grammar, "new key with seed " + 's' * 32)
-    assertCliTokens(matchedVars, {"new_key": "new key", "alias": None, "seed": 's' * 32})
+    assertCliTokens(
+        matchedVars, {"new_key": "new key", "alias": None, "seed": 's' * 32})
 
 
 def testNewListIdsRegEx(grammar):
@@ -164,7 +179,8 @@ def testNewAddGenTxnByValueRegEx(grammar):
     matchedVars = getMatchedVariables(grammar,
                                       'add genesis transaction {nym} with data {data} role={role}'.format(
                                           nym=NYM, data=exportedData, role=Roles.STEWARD.name))
-    assertCliTokens(matchedVars, {TXN_TYPE: NYM, ROLE: Roles.STEWARD.name, DATA: exportedData})
+    assertCliTokens(matchedVars, {TXN_TYPE: NYM,
+                                  ROLE: Roles.STEWARD.name, DATA: exportedData})
 
     exportedData = """{"BCU": {"verkey": "ad1a8dc1836007587f6c6c2d1d6ba91a395616f923b3e63bb5797d52b025a263",
     "node_address": "127.0.0.1:9701",
@@ -180,7 +196,8 @@ def testNewAddGenTxnByNameRegEx(grammar):
     matchedVars = getMatchedVariables(grammar,
                                       'add genesis transaction {nym} with data {data} role={role}'.format(
                                           nym=PlenumTransactions.NYM.name, data=exportedData, role=Roles.STEWARD.name))
-    assertCliTokens(matchedVars, {TXN_TYPE: PlenumTransactions.NYM.name, ROLE: Roles.STEWARD.name, DATA: exportedData})
+    assertCliTokens(matchedVars, {
+                    TXN_TYPE: PlenumTransactions.NYM.name, ROLE: Roles.STEWARD.name, DATA: exportedData})
 
     exportedData = """{"BCU": {"verkey": "ad1a8dc1836007587f6c6c2d1d6ba91a395616f923b3e63bb5797d52b025a263",
     "node_address": "127.0.0.1:9701",
@@ -189,9 +206,11 @@ def testNewAddGenTxnByNameRegEx(grammar):
                                       'add genesis transaction {node} with data {data}'.format(
                                           node=PlenumTransactions.NODE.name,
                                           data=exportedData))
-    assertCliTokens(matchedVars, {TXN_TYPE: PlenumTransactions.NODE.name, DATA: exportedData})
+    assertCliTokens(
+        matchedVars, {TXN_TYPE: PlenumTransactions.NODE.name, DATA: exportedData})
 
 
 def testCreateGenesisTxnFileRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "create genesis transaction file")
+    matchedVars = getMatchedVariables(
+        grammar, "create genesis transaction file")
     assert matchedVars

@@ -66,7 +66,8 @@ class PluginManager:
             return None
 
         if (val / coefficient) <= newVal <= (val * coefficient):
-            logger.debug('{}: New value {} is within bounds. Average: {}'.format(event, newVal, val))
+            logger.debug('{}: New value {} is within bounds. Average: {}'.format(
+                event, newVal, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
@@ -84,9 +85,11 @@ class PluginManager:
                 module = importlib.import_module(plugin)
                 self.plugins.append(module)
                 i += 1
-                logger.info("Successfully imported Notifier Plugin: {}".format(plugin))
+                logger.info(
+                    "Successfully imported Notifier Plugin: {}".format(plugin))
             except Exception as e:
-                logger.error('Importing Notifier Plugin {} failed due to {}'.format(plugin, e))
+                logger.error(
+                    'Importing Notifier Plugin {} failed due to {}'.format(plugin, e))
         return i, len(plugins)
 
     def _sendMessage(self, topic, message):

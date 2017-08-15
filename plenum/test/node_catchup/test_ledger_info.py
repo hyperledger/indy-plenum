@@ -19,7 +19,7 @@ def test_missing_txn_request(ledger_no_genesis):
         ledger.add(txn)
 
     # Callbacks don't matter in this test
-    ledger_info = LedgerInfo(0, ledger, *[None]*6)
+    ledger_info = LedgerInfo(0, ledger, *[None] * 6)
     assert ledger_info.catchupReplyTimer is None
     assert LedgerManager._missing_txns(ledger_info) == (False, 0)
 

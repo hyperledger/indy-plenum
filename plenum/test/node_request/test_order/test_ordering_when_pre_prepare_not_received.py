@@ -53,6 +53,5 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
         assert len(slowRep.commitsWaitingForPrepare) == 0
         assert slowRep.spylog.count(slowRep.doOrder.__name__) == 1
 
-    timeout = waits.expectedOrderingTime(len(nonPrimReps) + 1) + 2*delay
+    timeout = waits.expectedOrderingTime(len(nonPrimReps) + 1) + 2 * delay
     looper.run(eventually(chk2, retryWait=1, timeout=timeout))
-

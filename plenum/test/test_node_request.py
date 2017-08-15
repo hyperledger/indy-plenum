@@ -44,7 +44,8 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                             assert result
                         else:
                             assert result is False
-            timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
+            timeout = waits.expectedOrderingTime(
+                nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
 
 
@@ -114,7 +115,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=delayD)) # wait little more than delay
+                    0), retryWait=1, timeout=delayD))  # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,

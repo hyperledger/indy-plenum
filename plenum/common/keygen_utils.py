@@ -9,7 +9,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 
 def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
     pubkey, verkey = nodeStackClass.initLocalKeys(name, baseDir, sigseed,
-                                            override=override)
+                                                  override=override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
     return pubkey, verkey

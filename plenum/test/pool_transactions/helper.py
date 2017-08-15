@@ -71,9 +71,9 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
     return req, \
-           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
-           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
-           sigseed
+        op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
+        op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
+        sigseed
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
@@ -301,8 +301,8 @@ def disconnect_node_and_ensure_disconnected(looper, poolNodes,
 
 
 def reconnect_node_and_ensure_connected(looper, poolNodes,
-                                            connect: Union[str, TestNode],
-                                            timeout=None):
+                                        connect: Union[str, TestNode],
+                                        timeout=None):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
@@ -317,7 +317,7 @@ def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
     names = names or ("Zeta", "Eta")
     new_nodes = []
     for node_name in names:
-        new_steward_name = "testClientSteward"+randomString(3)
+        new_steward_name = "testClientSteward" + randomString(3)
         new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
                                                                          steward,
                                                                          steward_wallet,

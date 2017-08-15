@@ -19,8 +19,8 @@ def test_view_change_in_between_3pc_all_nodes_random_delays(txnPoolNodeSet, tcon
 
 
 def test_view_change_in_between_3pc_all_nodes_random_delays_long_delay(txnPoolNodeSet,
-                                                            looper, wallet1,
-                                                            client, tconf):
+                                                                       looper, wallet1,
+                                                                       client, tconf):
     """
     - Slow processing 3PC messages for all nodes randomly
     - do view change

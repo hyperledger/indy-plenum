@@ -28,5 +28,4 @@ class TestNodeReg(TestCase):
                 allports.add(p)
 
         # ports don't overlap
-        assert len(allports) == l*2
-
+        assert len(allports) == l * 2

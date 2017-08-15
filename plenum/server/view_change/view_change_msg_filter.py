@@ -32,7 +32,7 @@ class ViewChangeMessageFilter(MessageFilter):
 
         for msg_3pc in msgs_3pc:
             if isinstance(msg, msg_3pc) and\
-                            msg.viewNo > self.__view_no:
+                    msg.viewNo > self.__view_no:
                 return True
 
         return False

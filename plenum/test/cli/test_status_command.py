@@ -172,7 +172,8 @@ def checkNonPrimaryLogs(node, msgs):
 
 def checkCommonLogs(node, msgs):
     shouldBePresent = ["Name: {}".format(node.name),
-                       "Node listener: 0.0.0.0:{}".format(node.nodestack.ha[1]),
+                       "Node listener: 0.0.0.0:{}".format(
+                           node.nodestack.ha[1]),
                        "Client listener: 0.0.0.0:{}".format(
                            node.clientstack.ha[1]),
                        "Status:",

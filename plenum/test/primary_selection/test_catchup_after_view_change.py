@@ -49,10 +49,11 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
 
     # Bad network introduced
     slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
-    slow_node.nodeIbStasher.delay(pDelay(2*delay, 0))
-    slow_node.nodeIbStasher.delay(cDelay(3*delay, 0))
+    slow_node.nodeIbStasher.delay(pDelay(2 * delay, 0))
+    slow_node.nodeIbStasher.delay(cDelay(3 * delay, 0))
     for i in range(2):
-        sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
+        sendReqsToNodesAndVerifySuffReplies(
+            looper, stewardWallet, steward1, 20)
         waitNodeDataInequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
@@ -104,4 +105,3 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     # Make sure pool is functional
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-

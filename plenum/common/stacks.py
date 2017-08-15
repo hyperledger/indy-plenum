@@ -51,7 +51,7 @@ class ClientZStack(SimpleZStack, MessageProcessor):
                          .format(CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
-        #TODO: Handle `remoteNames`
+        # TODO: Handle `remoteNames`
         for nm in self.peersWithoutRemotes:
             self.transmitToClient(msg, nm)
 

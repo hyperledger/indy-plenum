@@ -53,6 +53,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
         waitRejectWithReason(looper, client1, 'is not a steward so cannot add a '
                                               'new node', node.clientstack.name)
 
+
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                 tconf, steward1, stewardWallet, allPluginsPath):
     """
@@ -150,7 +151,8 @@ def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
 
 
 def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
-    wallet = addNewClient(None, looper, steward1, stewardWallet, randomString())
+    wallet = addNewClient(None, looper, steward1,
+                          stewardWallet, randomString())
 
     def chk():
         for node in txnPoolNodeSet:
@@ -209,7 +211,8 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
             (NODE_IP, CLIENT_IP), ('127.0.0.1 ', '256.0.0.1', '0.0.0.0')
         ),
         itertools.product(
-            (NODE_PORT, CLIENT_PORT), ('foo', '9700', 0, 65535 + 1, 4351683546843518184)
+            (NODE_PORT, CLIENT_PORT), ('foo', '9700',
+                                       0, 65535 + 1, 4351683546843518184)
         ),
     )
 

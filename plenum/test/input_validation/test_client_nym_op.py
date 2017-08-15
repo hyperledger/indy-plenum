@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.input_validation.constants import \
-        TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED, TEST_VERKEY_FULL
+    TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED, TEST_VERKEY_FULL
 
 from plenum.test.input_validation.utils import b58_by_len
 
@@ -16,7 +16,7 @@ def test_odd_length_verkey_fails():
         op_nym.validate({
             TXN_TYPE: NYM,
             TARGET_NYM: TEST_TARGET_NYM,
-            VERKEY: 'F'*45
+            VERKEY: 'F' * 45
         })
     ex_info.match(r'b58 decoded value length 33 should be one of \[32\]')
 

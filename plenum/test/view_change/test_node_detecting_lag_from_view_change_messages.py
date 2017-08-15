@@ -87,7 +87,7 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
             assert compare_3PC_keys(prepareds[slow_master_replica.node.name],
                                     prepareds[rep.node.name]) > 0
 
-    looper.run(eventually(chk2, timeout=delay_ic+5))
+    looper.run(eventually(chk2, timeout=delay_ic + 5))
 
     last_start_catchup_call_at = None
     no_more_catchup_call_at = None
@@ -111,5 +111,7 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-    assert slow_node.spylog.getLast(slow_node.start_catchup).starttime > no_more_catchup_call_at
-    assert slow_node.spylog.getLast(slow_node.start_catchup).starttime > last_start_catchup_call_at
+    assert slow_node.spylog.getLast(
+        slow_node.start_catchup).starttime > no_more_catchup_call_at
+    assert slow_node.spylog.getLast(
+        slow_node.start_catchup).starttime > last_start_catchup_call_at

@@ -7,7 +7,7 @@ from plenum.test.test_node import TestNode
 
 DISCARD_REASON = "validation error \[InstanceChange\]: expected types"
 
-whitelist = [DISCARD_REASON,]
+whitelist = [DISCARD_REASON, ]
 
 
 def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):

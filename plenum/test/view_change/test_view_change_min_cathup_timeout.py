@@ -17,12 +17,13 @@ def patch_has_ordered_till_last_prepared_certificate(nodeSet):
 
     for node in nodeSet:
         node.has_ordered_till_last_prepared_certificate = \
-            types.MethodType(patched_has_ordered_till_last_prepared_certificate, node)
+            types.MethodType(
+                patched_has_ordered_till_last_prepared_certificate, node)
 
 
 def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
-                                        tconf,
-                                        viewNo):
+                                         tconf,
+                                         viewNo):
     """
     One of the conditions to finish catch-up during view change is to have MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE
     rounds of catch-up without any new transactions caught up.
@@ -51,12 +52,14 @@ def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
     # 4. check that it's not finished till MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     no_view_chanage_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     with pytest.raises(EventuallyTimeoutException):
-        ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=no_view_chanage_timeout)
+        ensureElectionsDone(looper=looper, nodes=nodeSet,
+                            customTimeout=no_view_chanage_timeout)
 
     # 5. make sure that view change is finished eventually
     # (it should be finished quite soon after we waited for MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE)
     ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=2)
-    waitForViewChange(looper=looper, nodeSet=nodeSet, expectedViewNo=expected_view_no)
+    waitForViewChange(looper=looper, nodeSet=nodeSet,
+                      expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
 
     # 6. ensure that the pool is still functional.

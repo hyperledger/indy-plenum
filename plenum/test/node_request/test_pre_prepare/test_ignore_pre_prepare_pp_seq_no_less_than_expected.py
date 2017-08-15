@@ -11,10 +11,10 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
     """
     A node should NOT pend a pre-prepare request which 
     has ppSeqNo less than expected. 
-    
+
     https://jira.hyperledger.org/browse/INDY-159,
     https://jira.hyperledger.org/browse/INDY-160
-         
+
     """
     replica = getNonPrimaryReplicas(nodeSet, instId=0)[0]
     replica.last_ordered_3pc = (replica.viewNo, 10)
@@ -24,4 +24,3 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
                                         requests=requests)
     assert len(replica.prePreparesPendingPrevPP) == 0, \
         "the pending request buffer is empty"
-

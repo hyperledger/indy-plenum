@@ -48,19 +48,19 @@ def test_primary_names_cleaning():
 
     replica.primaryName = "Node1:0"
     assert list(replica.primaryNames.items()) == \
-           [(0, "Node1:0")]
+        [(0, "Node1:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node2:0"
     assert list(replica.primaryNames.items()) == \
-           [(0, "Node1:0"), (1, "Node2:0")]
+        [(0, "Node1:0"), (1, "Node2:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node3:0"
     assert list(replica.primaryNames.items()) == \
-           [(1, "Node2:0"), (2, "Node3:0")]
+        [(1, "Node2:0"), (2, "Node3:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node4:0"
     assert list(replica.primaryNames.items()) == \
-           [(2, "Node3:0"), (3, "Node4:0")]
+        [(2, "Node3:0"), (3, "Node4:0")]

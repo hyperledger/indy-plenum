@@ -43,19 +43,20 @@ class TxnStackManager(metaclass=ABCMeta):
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
-
     # noinspection PyTypeChecker
     @property
     def ledger(self):
         if self._ledger is None:
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+                self.basedirpath, self.ledgerFile)
             dataDir = self.ledgerLocation
-            self.hashStore = LevelDbHashStore(dataDir=dataDir, fileNamePrefix='pool')
+            self.hashStore = LevelDbHashStore(
+                dataDir=dataDir, fileNamePrefix='pool')
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
                                   ensureDurability=self.config.EnsureLedgerDurability,
-                                  genesis_txn_initiator = genesis_txn_initiator)
+                                  genesis_txn_initiator=genesis_txn_initiator)
         return self._ledger
 
     @staticmethod
@@ -72,9 +73,11 @@ class TxnStackManager(metaclass=ABCMeta):
         nodeKeys = {}
         activeValidators = set()
         try:
-            TxnStackManager._parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
+            TxnStackManager._parse_pool_transaction_file(
+                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
         except ValueError as exc:
-            logger.debug('Pool transaction file corrupted. Rebuild pool transactions.')
+            logger.debug(
+                'Pool transaction file corrupted. Rebuild pool transactions.')
             exit('Pool transaction file corrupted. Rebuild pool transactions.')
 
         if returnActive:
@@ -116,7 +119,8 @@ class TxnStackManager(metaclass=ABCMeta):
                     key_type = 'identifier'
                     cryptonymToHex(txn[IDENTIFIER])
                 except ValueError as ex:
-                    logger.debug('Invalid {}. Rebuild pool transactions.'.format(key_type))
+                    logger.debug(
+                        'Invalid {}. Rebuild pool transactions.'.format(key_type))
                     exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
                 nodeKeys[nodeName] = verkey
@@ -142,14 +146,15 @@ class TxnStackManager(metaclass=ABCMeta):
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 initRemoteKeys(self.name, remoteName, self.basedirpath,
-                                   verkey, override=True)
+                               verkey, override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
 
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
-            nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
+            nodeOrClientObj.cliNodeReg[remoteName +
+                                       CLIENT_STACK_SUFFIX] = HA(*cliHa)
             logger.debug("{} adding new node {} with HA {}".format(self.name,
                                                                    remoteName,
                                                                    nodeHa))
@@ -166,7 +171,8 @@ class TxnStackManager(metaclass=ABCMeta):
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
-            nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
+            nodeOrClientObj.cliNodeReg[remoteName +
+                                       CLIENT_STACK_SUFFIX] = HA(*cliHa)
         else:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
 
@@ -184,13 +190,14 @@ class TxnStackManager(metaclass=ABCMeta):
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
         if txn[VERKEY][0] == '~':  # abbreviated
-            verkey = cryptonymToHex(txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
+            verkey = cryptonymToHex(
+                txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
         else:
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
         initRemoteKeys(self.name, remoteName, self.basedirpath,
-                               verkey, override=True)
+                       verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -220,9 +227,9 @@ class TxnStackManager(metaclass=ABCMeta):
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
-                #if self.isNode:
+                # if self.isNode:
                 initRemoteKeys(self.name, remoteName, self.basedirpath, key,
-                                   override=True)
+                               override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
@@ -232,7 +239,7 @@ class TxnStackManager(metaclass=ABCMeta):
         # `getAllTxn` is fine
         for _, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == nym:
+                    txn[TARGET_NYM] == nym:
                 return True
         return False
 
@@ -262,4 +269,3 @@ class TxnStackManager(metaclass=ABCMeta):
     @staticmethod
     def updateNodeTxns(oldTxn, newTxn):
         updateNestedDict(oldTxn, newTxn, nestedKeysToUpdate=[DATA, ])
-

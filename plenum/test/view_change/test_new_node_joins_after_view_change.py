@@ -20,7 +20,7 @@ from plenum.test.primary_selection.conftest import nodeThetaAdded, \
 
 @pytest.fixture(scope='module')
 def all_nodes_view_change(looper, txnPoolNodeSet, stewardWallet, steward1, client1, wallet1,
-          client1Connected):
+                          client1Connected):
     for _ in range(5):
         send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     ensure_view_change(looper, txnPoolNodeSet)
@@ -30,7 +30,7 @@ def all_nodes_view_change(looper, txnPoolNodeSet, stewardWallet, steward1, clien
 
 @pytest.fixture(scope='module')
 def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
-                                      one_node_added, wallet1, client1):
+                             one_node_added, wallet1, client1):
     new_node = one_node_added
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, retryWait=1,
                           timeout=10))

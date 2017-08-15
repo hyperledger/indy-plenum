@@ -3,6 +3,7 @@ from plenum.common.messages.fields import BooleanField
 
 validator = BooleanField()
 
+
 def test_bool_true():
     assert not validator.validate(True)
 

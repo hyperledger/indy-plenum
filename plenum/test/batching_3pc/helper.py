@@ -81,8 +81,10 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             for req in reqs:
-                ledger_manager._add_txn(ledger_id, ledger, ledgerInfo, reqToTxn(req, pp.ppTime))
-            ledger_manager.catchupCompleted(DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
+                ledger_manager._add_txn(
+                    ledger_id, ledger, ledgerInfo, reqToTxn(req, pp.ppTime))
+            ledger_manager.catchupCompleted(
+                DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
             added = True
 

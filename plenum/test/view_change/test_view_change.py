@@ -9,7 +9,6 @@ nodeCount = 7
 
 # noinspection PyIncorrectDocstring
 def test_view_change_on_empty_ledger(nodeSet, up, looper):
-
     """
     Check that view change is done when no txns in the ldegr
     """
@@ -20,7 +19,7 @@ def test_view_change_on_empty_ledger(nodeSet, up, looper):
 
 # noinspection PyIncorrectDocstring
 def test_view_change_after_some_txns(looper, nodeSet, up, viewNo,
-                   wallet1, client1):
+                                     wallet1, client1):
     """
     Check that view change is done after processing some of txns
     """
@@ -33,7 +32,7 @@ def test_view_change_after_some_txns(looper, nodeSet, up, viewNo,
 
 # noinspection PyIncorrectDocstring
 def test_send_more_after_view_change(looper, nodeSet, up,
-                   wallet1, client1):
+                                     wallet1, client1):
     """
     Check that we can send more requests after view change
     """
@@ -47,7 +46,8 @@ def test_send_more_after_view_change(looper, nodeSet, up,
 
 
 def test_node_notified_about_primary_election_result(nodeSet, looper, up):
-    old_counts = {node.name: get_count(node, node.primary_selected) for node in nodeSet}
+    old_counts = {node.name: get_count(
+        node, node.primary_selected) for node in nodeSet}
     ensure_view_change(looper, nodeSet)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
     ensure_all_nodes_have_same_data(looper, nodes=nodeSet)

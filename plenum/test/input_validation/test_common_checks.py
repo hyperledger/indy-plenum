@@ -27,7 +27,7 @@ def test_message_invalid_value_fail(descriptor):
         with pytest.raises(TypeError, message='did not raise {}'.format(m)) as exc_info:
             descriptor.klass(**m)
         assert exc_info.match(r'validation error: .*')
-            
+
 
 @pytest.mark.skip('INDY-78. Roll away new validation logic')
 # @pytest.mark.parametrize('descriptor', argvalues=messages, ids=messages_names_shortcut)

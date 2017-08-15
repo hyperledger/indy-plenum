@@ -129,7 +129,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
-        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest+'random')
+        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest + 'random')
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
 
