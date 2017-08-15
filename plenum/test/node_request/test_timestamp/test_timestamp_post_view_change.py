@@ -16,7 +16,7 @@ TestRunningTimeLimitSec = 200
 
 
 def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected):
+                                     wallet1, client1Connected):
     """
     One of non-primary has a bad clock, it raises suspicions but orders
     requests after getting PREPAREs. Then a view change happens this
@@ -34,8 +34,10 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
                                               Max3PCBatchSize * 3)
 
-    ledger_sizes = {node.name: node.domainLedger.size for node in txnPoolNodeSet}
-    susp_counts = {node.name: get_timestamp_suspicion_count(node) for node in txnPoolNodeSet}
+    ledger_sizes = {
+        node.name: node.domainLedger.size for node in txnPoolNodeSet}
+    susp_counts = {node.name: get_timestamp_suspicion_count(
+        node) for node in txnPoolNodeSet}
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
@@ -62,7 +64,7 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
 
     # Eventually another view change happens
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, old_view_no + 1,
-                          retryWait=1, timeout=2*tconf.PerfCheckFreq))
+                          retryWait=1, timeout=2 * tconf.PerfCheckFreq))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     # After view change, faulty_node is no more the primary

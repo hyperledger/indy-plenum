@@ -80,19 +80,19 @@ role_field = RoleField('role')
 
 # creates node operation field
 client_node_op_data = MessageDescriptor(
-        dict,
-        fields=[
-            node_port_field,
-            client_port_field,
-            node_ip_field,
-            client_ip_field,
-            alias_field,
-            services_field,
-        ],
-        name='data',
-        optional_fields=(node_port_field, client_port_field, node_ip_field,
-                         client_ip_field, alias_field, services_field),
-    )
+    dict,
+    fields=[
+        node_port_field,
+        client_port_field,
+        node_ip_field,
+        client_ip_field,
+        alias_field,
+        services_field,
+    ],
+    name='data',
+    optional_fields=(node_port_field, client_port_field, node_ip_field,
+                     client_ip_field, alias_field, services_field),
+)
 
 
 def create_nym_op(name=None):
@@ -140,8 +140,11 @@ node_operation_field = create_node_op('operation')
 
 nym_operation_field = create_nym_op('operation')
 
-client_request_field = build_client_request_message(create_node_op('operation'), 'request')
+client_request_field = build_client_request_message(
+    create_node_op('operation'), 'request')
 
-tnxs_field = ListField('txns', build_client_request_message(create_node_op('operation')))
+tnxs_field = ListField(
+    'txns', build_client_request_message(create_node_op('operation')))
 
-messages_field = ListField('messages', build_client_request_message(create_node_op('operation')))
+messages_field = ListField(
+    'messages', build_client_request_message(create_node_op('operation')))

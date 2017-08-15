@@ -22,7 +22,7 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
     """
     tconf = perf_chk_patched
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-                 getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
     otherNodes = [r.node for r in otherR]
     ppsToDelay = 2
     delayeds = 0
@@ -44,7 +44,7 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
         node.nodeIbStasher.delay(specificPrePrepares)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client,
-                                              (ppsToDelay+1)*tconf.Max3PCBatchSize)
+                                              (ppsToDelay + 1) * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:

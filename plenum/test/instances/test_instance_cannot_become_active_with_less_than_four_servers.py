@@ -55,7 +55,7 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
 
             def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
                 logger.info("Add back the {} node and see status of {}".
-                             format(ordinal(nodeIdx + 1), expectedStatus))
+                            format(ordinal(nodeIdx + 1), expectedStatus))
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
 
                 timeout = waits.expectedNodeStartUpTimeout() + \

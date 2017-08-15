@@ -35,7 +35,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
     """
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                        pluginPaths=allPluginPaths
+                     pluginPaths=allPluginPaths
                      ) as ns:
 
         for n in ns:  # type: Node

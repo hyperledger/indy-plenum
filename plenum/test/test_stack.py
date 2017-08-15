@@ -69,11 +69,11 @@ class StackedTester:
 
     async def ensureConnectedToNodes(self, customTimeout=None, count=None):
         timeout = customTimeout or \
-                  waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
+            waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
-                "waiting for {} seconds to check client connections to "
-                "nodes...".format(timeout))
+            "waiting for {} seconds to check client connections to "
+            "nodes...".format(timeout))
         chk_connected = partial(self.checkIfConnectedTo, count)
         await eventuallyAll(chk_connected,
                             retryWait=.5,
@@ -101,6 +101,7 @@ def getTestableStack(stack: NetworkInterface):
             newMro.append(TestStack)
         newMro.append(c)
     return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
+
 
 # TODO: move to stp
 if config.UseZStack:
@@ -132,7 +133,7 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
             checkedItems[key] = 'N/A' if s == 'N/A' else getattr(obj, key)
         actualState = RemoteState(**checkedItems)
         assert actualState == state, set(actualState._asdict().items()) - \
-                                     set(state._asdict().items())
+            set(state._asdict().items())
 
 
 def checkRemoteExists(frm: RStack,

@@ -37,7 +37,7 @@ class TestClient(Client, StackedTester):
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
 
-def genTestClient(nodes = None,
+def genTestClient(nodes=None,
                   nodeReg=None,
                   tmpdir=None,
                   testClientClass=TestClient,
@@ -76,7 +76,7 @@ def genTestClient(nodes = None,
         for node in nodes:
             stack = node.clientstack
             initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
-                               override=True)
+                           override=True)
 
     w = None  # type: Wallet
     if bootstrapKeys and nodes:
@@ -90,7 +90,7 @@ def genTestClient(nodes = None,
     return tc, w
 
 
-def genTestClientProvider(nodes = None,
+def genTestClientProvider(nodes=None,
                           nodeReg=None,
                           tmpdir=None,
                           clientGnr=genTestClient):

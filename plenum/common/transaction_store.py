@@ -115,7 +115,7 @@ class TransactionStore(Storage):
         """
         return (identifier not in self.processedRequests or
                 reply.reqId not in self.processedRequests[identifier]) and \
-               txnId is not None
+            txnId is not None
 
     def size(self) -> int:
         return len(self.transactions)

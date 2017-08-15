@@ -53,7 +53,8 @@ class PluginLoaderHelper:
         finalPlugins = {}
         for typ in types:
             if typ not in allPlugins:
-                finalPlugins[typ] = PluginLoaderHelper._getDefaultPluginsByType(typ)
+                finalPlugins[typ] = PluginLoaderHelper._getDefaultPluginsByType(
+                    typ)
             else:
                 finalPlugins[typ] = allPlugins[typ]
         return finalPlugins
@@ -63,9 +64,9 @@ class PluginLoaderHelper:
         allPluginsPath = []
 
         if typ in config.DefaultPluginPath:
-            allPluginsPath.append(PluginLoaderHelper.getPluginPath(config.DefaultPluginPath.get(typ)))
+            allPluginsPath.append(PluginLoaderHelper.getPluginPath(
+                config.DefaultPluginPath.get(typ)))
             allPlugins = PluginLoaderHelper._getAllPlugins(allPluginsPath)
             return allPlugins.get(typ, [])
         else:
             return []
-

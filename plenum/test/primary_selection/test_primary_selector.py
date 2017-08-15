@@ -77,6 +77,7 @@ class FakeNode():
     def is_synced(self):
         return self.mode >= Mode.synced
 
+
 def test_has_view_change_quorum_number():
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
@@ -283,7 +284,8 @@ def test_get_msgs_for_lagged_nodes():
         selector._processViewChangeDoneMessage(*message)
 
     messages_for_lagged = selector.get_msgs_for_lagged_nodes()
-    assert {m for m in messages_for_lagged} == {m[0] for m in messages if m[1] == node.name}
+    assert {m for m in messages_for_lagged} == {
+        m[0] for m in messages if m[1] == node.name}
 
 
 def test_send_view_change_done_message():

@@ -12,6 +12,7 @@ from plenum.test.view_change.helper import start_stopped_node
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
+
 def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath, tconf, client1, wallet1, client1Connected):
     """
     Check that quorum f + 1 is used for primary selection
@@ -50,12 +51,14 @@ def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath, tco
         looper.removeProdable(stopped_node)
 
     # Start lagging node back
-    restarted_node = start_stopped_node(lagging_node, looper, tconf, lagging_node.basedirpath, allPluginsPath)
+    restarted_node = start_stopped_node(
+        lagging_node, looper, tconf, lagging_node.basedirpath, allPluginsPath)
     active_nodes = [beta, delta, restarted_node]
 
     # Check that primary selected
     expected_view_no = initial_view_no + 1
-    ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2, customTimeout=30)
+    ensureElectionsDone(looper=looper, nodes=active_nodes,
+                        numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)

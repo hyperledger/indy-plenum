@@ -83,7 +83,8 @@ class AuctionReqProcessorPlugin(HasCliCommands):
                     self.auctions[id] = SimpleNamespace(**auction)
                     result.update(auction)
             if typ == AUCTION_END:
-                success = self.auctionExists(id) and frm == self.auctions[id].creator
+                success = self.auctionExists(
+                    id) and frm == self.auctions[id].creator
                 result = {SUCCESS: success}
                 if success:
                     self.auctions[id].status = 0
@@ -92,8 +93,8 @@ class AuctionReqProcessorPlugin(HasCliCommands):
             if typ == PLACE_BID:
                 amount = data.get(AMOUNT)
                 success = self.balances[frm] >= amount and \
-                          self.auctionLive(id) \
-                          and self.auctions[id].highestBid < amount
+                    self.auctionLive(id) \
+                    and self.auctions[id].highestBid < amount
                 result = {SUCCESS: success}
                 if success:
                     self._bid(id, frm, amount)

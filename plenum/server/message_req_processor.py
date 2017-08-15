@@ -84,7 +84,7 @@ class MessageReqProcessor:
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create LEDGER_STATUS out of {}'.
-                            format(self, **kwargs['ledger_status']))
+                        format(self, **kwargs['ledger_status']))
             else:
                 return True
 
@@ -125,7 +125,7 @@ class MessageReqProcessor:
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create CONSISTENCY_PROOF out of {}'.
-                            format(self, **kwargs['cons_proof']))
+                        format(self, **kwargs['cons_proof']))
             else:
                 return True
 
@@ -165,9 +165,9 @@ class MessageReqProcessor:
 
     def _validate_requested_preprepare(self, **kwargs):
         if kwargs['inst_id'] in range(len(self.replicas)) and \
-                        kwargs['view_no'] == self.viewNo and \
-                isinstance(kwargs['pp_seq_no'], int) and \
-                        kwargs['pp_seq_no'] > 0:
+                kwargs['view_no'] == self.viewNo and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+                kwargs['pp_seq_no'] > 0:
             if 'pp' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with ujson==1.33)
@@ -223,15 +223,15 @@ class MessageReqProcessor:
                     # the input is expected as a dict (serialization with ujson==1.33)
                     ppg = Propagate(**kwargs['propagate'])
                     if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                                    ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-                            logger.debug('{} found PROPAGATE {} not '
-                                         'satisfying query criteria'.format(self, *kwargs['ppg']))
-                            return
+                            ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+                        logger.debug('{} found PROPAGATE {} not '
+                                     'satisfying query criteria'.format(self, *kwargs['ppg']))
+                        return
                     return ppg
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create PROPAGATE out of {}'.
-                            format(self, **kwargs['propagate']))
+                        format(self, **kwargs['propagate']))
             else:
                 return True
 

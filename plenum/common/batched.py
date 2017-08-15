@@ -104,12 +104,14 @@ class Batched(MessageProcessor):
                     # signed
                     payload, err_msg = self.signAndSerialize(batch)
                     if payload is not None:
-                        logger.trace("{} sending payload to {}: {}".format(self, dest, payload))
+                        logger.trace("{} sending payload to {}: {}".format(
+                            self, dest, payload))
                         # Setting timeout to never expire
                         self.transmit(payload, rid, timeout=self.messageTimeout,
                                       serialized=True)
                     else:
-                        logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
+                        logger.debug("{} error {}. tried to {}: {}".format(
+                            self, err_msg, dest, payload))
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),

@@ -18,10 +18,12 @@ def testSendGetTxnReqForExistsSeqNo(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: 1
     }
-    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    req = Request(identifier=stewardWallet.defaultId,
+                  operation=op, reqId=getTimeBasedId())
     steward1.submitReqs(req)
 
-    timeout = waits.expectedTransactionExecutionTime(len(steward1.inBox)) + c_delay
+    timeout = waits.expectedTransactionExecutionTime(
+        len(steward1.inBox)) + c_delay
     get_txn_response = looper.run(
         eventually(checkSufficientRepliesReceived, steward1.inBox,
                    req.reqId, fValue,
@@ -35,10 +37,12 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: randint(100, 1000)
     }
-    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    req = Request(identifier=stewardWallet.defaultId,
+                  operation=op, reqId=getTimeBasedId())
     steward1.submitReqs(req)
 
-    timeout = waits.expectedTransactionExecutionTime(len(steward1.inBox)) + c_delay
+    timeout = waits.expectedTransactionExecutionTime(
+        len(steward1.inBox)) + c_delay
     get_txn_response = looper.run(
         eventually(checkSufficientRepliesReceived, steward1.inBox,
                    req.reqId, fValue,
@@ -50,7 +54,8 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
 def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
     req, wallet = sendAddNewClient(STEWARD, "name", steward1, stewardWallet)
 
-    timeout = waits.expectedTransactionExecutionTime(len(steward1.inBox)) + c_delay
+    timeout = waits.expectedTransactionExecutionTime(
+        len(steward1.inBox)) + c_delay
     nym_response = looper.run(
         eventually(checkSufficientRepliesReceived, steward1.inBox,
                    req.reqId, fValue,
@@ -60,7 +65,8 @@ def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: nym_response['seqNo']
     }
-    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    req = Request(identifier=stewardWallet.defaultId,
+                  operation=op, reqId=getTimeBasedId())
     steward1.submitReqs(req)
 
     get_txn_response = looper.run(

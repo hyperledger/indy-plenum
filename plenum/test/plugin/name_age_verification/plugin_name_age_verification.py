@@ -13,4 +13,3 @@ class NameAndAgeVerifier:
             assert age >= 0, 'age must be >= 0'
         except ValueError as exc:
             raise RuntimeError('invalid age') from exc
-

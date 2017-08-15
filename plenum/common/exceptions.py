@@ -195,8 +195,10 @@ class DataDirectoryNotFound(StorageException):
 class DBConfigNotFound(StorageException):
     pass
 
+
 class KeyValueStorageConfigNotFound(StorageException):
     pass
+
 
 class UnsupportedOperation(Exception):
     pass
@@ -255,5 +257,6 @@ class OperationError(Exception):
 
 class InvalidMessageExceedingSizeException(InvalidMessageException):
     def __init__(self, expLen, actLen, *args, **kwargs):
-        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(actLen, expLen)
+        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
+            actLen, expLen)
         super().__init__(ex_txt, *args, **kwargs)

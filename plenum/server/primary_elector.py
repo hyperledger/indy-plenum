@@ -209,7 +209,8 @@ class PrimaryElector(PrimaryDecider):
             logger.debug("{} nominating itself for instance {}".
                          format(replica, instId),
                          extra={"cli": "PLAIN", "tags": ["node-nomination"]})
-            self.sendNomination(replica.name, instId, self.viewNo, replica.last_ordered_3pc[1])
+            self.sendNomination(replica.name, instId,
+                                self.viewNo, replica.last_ordered_3pc[1])
         else:
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
@@ -347,10 +348,10 @@ class PrimaryElector(PrimaryDecider):
         # same node
 
         if replica.hasPrimary:
-          logger.debug("{} Primary already selected; "
-                       "ignoring PRIMARY msg"
-                       .format(replica))
-          return
+            logger.debug("{} Primary already selected; "
+                         "ignoring PRIMARY msg"
+                         .format(replica))
+            return
 
         if self.hasPrimaryQuorum(inst_id):
             if replica.isPrimary is None:
@@ -560,8 +561,8 @@ class PrimaryElector(PrimaryDecider):
                 else:
                     votesNeeded = math.ceil((self.nodeCount + 1) / 2.0)
                     if votes >= votesNeeded or (
-                        self.scheduledPrimaryDecisions[instId] is not None and
-                        self.hasPrimaryDecisionTimerExpired(instId)):
+                            self.scheduledPrimaryDecisions[instId] is not None and
+                            self.hasPrimaryDecisionTimerExpired(instId)):
                         logger.debug("{} does not have nominations from "
                                      "all but has {} votes for {} so sending "
                                      "primary".
@@ -624,7 +625,7 @@ class PrimaryElector(PrimaryDecider):
                      format(replica, primaryName,
                             self.nominations[instId]))
         prim = Primary(primaryName, instId, self.viewNo,
-                          lastOrderedSeqNo)
+                       lastOrderedSeqNo)
         self.send(prim)
         self.select_primary(instId, prim)
 
@@ -685,7 +686,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: id of the instance for which elections are happening.
         """
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
-               > (1 * self.nodeCount)
+            > (1 * self.nodeCount)
 
     def view_change_started(self, viewNo: int):
         """

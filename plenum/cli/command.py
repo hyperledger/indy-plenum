@@ -14,7 +14,8 @@ class Command:
     def __str__(self):
         detailIndent = "    "
         header = "\n{}\n{}\n".format(self.id, '-' * (len(self.id)))
-        note = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
+        note = "{} note: {}\n\n".format(
+            detailIndent, self.note) if self.note else ""
         examplesStr = '\n{}{}'.format(detailIndent, detailIndent).join(
             self.examples) if self.examples else ""
         examples = "{} example(s):\n{}    {}\n".format(

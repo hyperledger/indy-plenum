@@ -251,7 +251,8 @@ class Wallet:
         :return: List of identifiers/aliases.
         """
         lst = list(self.aliasesToIds.keys())
-        others = set(self.idsToSigners.keys()) - set(self.aliasesToIds.values())
+        others = set(self.idsToSigners.keys()) - \
+            set(self.aliasesToIds.values())
         lst.extend(list(others))
         for x in exclude:
             lst.remove(x)
@@ -280,6 +281,7 @@ class WalletStorageHelper:
     :param fmode: (optional) permissions for files inside,
         default is 0600
     """
+
     def __init__(self, keyringsBaseDir, dmode=0o700, fmode=0o600):
         self.dmode = dmode
         self.fmode = fmode

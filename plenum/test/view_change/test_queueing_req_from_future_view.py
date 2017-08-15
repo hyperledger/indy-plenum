@@ -49,7 +49,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
         return length
 
     # No messages queued for future view
-    chk_fut_view(old_view_no+1, is_empty=True)
+    chk_fut_view(old_view_no + 1, is_empty=True)
     logger.debug('{} does not have any messages for future views'
                  .format(lagging_node))
 
@@ -72,7 +72,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
 
     # Eventually no messages queued for future view
     looper.run(eventually(chk_fut_view, old_view_no + 1, True,
-                          retryWait=1, timeout=delay_ic+10))
+                          retryWait=1, timeout=delay_ic + 10))
     logger.debug('{} exhausted pending messages for future views'
                  .format(lagging_node))
 

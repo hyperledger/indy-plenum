@@ -37,8 +37,8 @@ def test_node_catchup_after_checkpoints(looper, chk_freq_patched, txnPoolNodeSet
                 "after that the node starts catch up")
     repaired_node = repair_broken_node(broken_node)
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=2*chk_freq_patched,
-                                           num_batches=2*chk_freq_patched
+                                           num_reqs=2 * chk_freq_patched,
+                                           num_batches=2 * chk_freq_patched
                                            )
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
     # check if there was a catchup
@@ -47,8 +47,8 @@ def test_node_catchup_after_checkpoints(looper, chk_freq_patched, txnPoolNodeSet
 
     logger.info("Step 3: Check if the node is able to process requests")
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=chk_freq_patched+2,
-                                           num_batches=chk_freq_patched+2
+                                           num_reqs=chk_freq_patched + 2,
+                                           num_batches=chk_freq_patched + 2
                                            )
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
@@ -60,7 +60,8 @@ def broken_node_and_others(txnPoolNodeSet):
     node._backup_send_to_replica = node.sendToReplica
 
     def brokenSendToReplica(msg, frm):
-        logger.warning("{} is broken. 'sendToReplica' does nothing".format(node.name))
+        logger.warning(
+            "{} is broken. 'sendToReplica' does nothing".format(node.name))
 
     node.nodeMsgRouter.remove(
         (
@@ -101,7 +102,7 @@ def chk_freq_patched(tconf, request):
     oldLogSize = tconf.LOG_SIZE
 
     tconf.CHK_FREQ = 5
-    tconf.LOG_SIZE = 3*tconf.CHK_FREQ
+    tconf.LOG_SIZE = 3 * tconf.CHK_FREQ
 
     def reset():
         tconf.CHK_FREQ = oldChkFreq
@@ -118,4 +119,3 @@ def get_number_of_completed_catchups(node):
         if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
             cnt += 1
     return cnt
-

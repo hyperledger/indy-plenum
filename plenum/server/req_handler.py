@@ -48,7 +48,7 @@ class RequestHandler:
         picked up from the uncommitted list from the ledger)
         :param stateRoot: The state trie root after the txns are committed
         :param txnRoot: The txn merkle root after the txns are committed
-        
+
         :return: list of committed transactions
         """
 

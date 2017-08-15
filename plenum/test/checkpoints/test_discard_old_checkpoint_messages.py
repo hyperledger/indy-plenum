@@ -9,7 +9,8 @@ def testDiscardCheckpointMsgForStableCheckpoint(chkFreqPatched, looper,
                                                 txnPoolNodeSet, client1,
                                                 wallet1, client1Connected,
                                                 reqs_for_checkpoint):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqs_for_checkpoint, 1)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, reqs_for_checkpoint, 1)
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1))
     node1 = txnPoolNodeSet[0]
     rep1 = node1.replicas[0]

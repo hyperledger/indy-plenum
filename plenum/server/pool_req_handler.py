@@ -46,7 +46,8 @@ class PoolRequestHandler(RequestHandler):
             self.updateState(txnsWithSeqNo(start, end, [txn]))
             return txn
         else:
-            logger.debug('Cannot apply request of type {} to state'.format(typ))
+            logger.debug(
+                'Cannot apply request of type {} to state'.format(typ))
             return None
 
     def updateState(self, txns, isCommitted=False):

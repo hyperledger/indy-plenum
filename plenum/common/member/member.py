@@ -13,7 +13,7 @@ class Member:
         txn = {
             TXN_TYPE: NYM,
             TARGET_NYM: nym,
-            #TXN_ID: sha256(name.encode()).hexdigest()
+            # TXN_ID: sha256(name.encode()).hexdigest()
         }
         if verkey is not None:
             txn[VERKEY] = verkey

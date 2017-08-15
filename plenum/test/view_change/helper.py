@@ -29,7 +29,7 @@ def provoke_and_check_view_change(nodes, newViewNo, wallet, client):
         checkViewNoForNodes(nodes, newViewNo)
     else:
         logger.info('Master instance has not degraded yet, '
-                     'sending more requests')
+                    'sending more requests')
         sendRandomRequests(wallet, client, 10)
         assert False
 
@@ -40,7 +40,8 @@ def provoke_and_wait_for_view_change(looper,
                                      wallet,
                                      client,
                                      customTimeout=None):
-    timeout = customTimeout or waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolViewChangeStartedTimeout(
+        len(nodeSet))
     # timeout *= 30
     return looper.run(eventually(provoke_and_check_view_change,
                                  nodeSet,
@@ -80,15 +81,16 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
                 logger.info('{} making master look slow'.format(self))
             return rv
 
-        node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+        node.monitor.isMasterDegraded = types.MethodType(
+            slow_master, node.monitor)
 
     perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
     timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
-              perf_check_freq
+        perf_check_freq
     nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
                                                                if n not in exclude_from_check]
     logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
-    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no+1,
+    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
                           retryWait=1, timeout=timeout))
 
     logger.debug('Patching back perf check for all nodes')
@@ -105,11 +107,11 @@ def check_each_node_reaches_same_end_for_view(nodes, view_no):
     for node in nodes:
         params = [e.params for e in node.replicas[0].spylog.getAll(
             node.replicas[0].primary_changed.__name__)
-                  if e.params['view_no'] == view_no]
+            if e.params['view_no'] == view_no]
         assert params
         args[node.name] = (params[0]['last_ordered_pp_seq_no'],
                            params[0]['ledger_summary'])
-        vals[node.name] = node.replicas[0].view_ends_at[view_no-1]
+        vals[node.name] = node.replicas[0].view_ends_at[view_no - 1]
 
     arg = list(args.values())[0]
     for a in args.values():
@@ -175,8 +177,10 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5, total_timeout=30)
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 5, total_timeout=30)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet, client, 5, total_timeout=30)
+    send_reqs_to_nodes_and_verify_all_replies(
+        looper, wallet, client, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, client,
@@ -198,7 +202,8 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
 
 
 def start_stopped_node(stopped_node, looper, tconf, tdirWithPoolTxns, allPluginsPath):
-    nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*stopped_node.clientstack.ha)
+    nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*
+                                                         stopped_node.clientstack.ha)
     restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,

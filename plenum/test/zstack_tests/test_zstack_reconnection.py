@@ -20,6 +20,7 @@ def tconf(conf, tdirWithPoolTxns):
     conf.UseZStack = True
     return conf
 
+
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
                                tdirWithPoolTxns, client1Connected):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)

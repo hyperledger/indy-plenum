@@ -22,8 +22,9 @@ def evilNodes(startedNodes):
         makeNodeFaulty(node, changesRequest, partial(delaysPrePrepareProcessing,
                                                      delay=90))
 
+
 def test_num_of_prepare_2_of_6_faulty(evilNodes, looper,
-                                          nodeSet, preprepared1, noRetryReq):
+                                      nodeSet, preprepared1, noRetryReq):
     with pytest.raises(AssertionError):
         # To raise an error pass less than the actual number of faults
         checkPrepared(looper,

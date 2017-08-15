@@ -78,25 +78,26 @@ def checkPrePrepared(looper,
             with faults in system.
             """
             expectedPrePrepareRequest = PrePrepare(
-                    instId,
-                    primary.viewNo,
-                    primary.lastPrePrepareSeqNo,
-                    get_utc_epoch(),
-                    [[propagated1.identifier, propagated1.reqId]],
-                    1,
-                    Replica.batchDigest([propagated1,]),
-                    DOMAIN_LEDGER_ID,
-                    primary.stateRootHash(DOMAIN_LEDGER_ID),
-                    primary.txnRootHash(DOMAIN_LEDGER_ID),
-                    )
+                instId,
+                primary.viewNo,
+                primary.lastPrePrepareSeqNo,
+                get_utc_epoch(),
+                [[propagated1.identifier, propagated1.reqId]],
+                1,
+                Replica.batchDigest([propagated1, ]),
+                DOMAIN_LEDGER_ID,
+                primary.stateRootHash(DOMAIN_LEDGER_ID),
+                primary.txnRootHash(DOMAIN_LEDGER_ID),
+            )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][0:3]+param['pp'][4:],
+                                  if (param['pp'][0:3] + param['pp'][4:],
                                       param['sender']) == (
-                                      expectedPrePrepareRequest[0:3] + expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[0:3] +
+                                          expectedPrePrepareRequest[4:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -253,13 +254,13 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(
-                                          npr,
-                                          npr.processPrepare)
+                                      npr,
+                                      npr.processPrepare)
                                   if (param['prepare'].instId,
                                       param['prepare'].viewNo,
                                       param['prepare'].ppSeqNo) == (primary.instId,
-                                                            primary.viewNo,
-                                                            primary.lastPrePrepareSeqNo)
+                                                                    primary.viewNo,
+                                                                    primary.lastPrePrepareSeqNo)
                                   ])
 
                 passes += int(msgCountOK(nodeCount,

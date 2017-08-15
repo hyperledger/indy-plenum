@@ -78,6 +78,7 @@ def sendsUnsignedRequest(client) -> Client:
     :param client: the client to make faulty
     :return: the faulty client
     """
+
     def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg

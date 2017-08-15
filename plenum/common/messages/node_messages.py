@@ -171,7 +171,8 @@ class ThreePCState(MessageBase):
     typename = THREE_PC_STATE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+        (f.MSGS.nm, IterableField(ClientMessageValidator(
+            operation_schema_is_strict=True))),
     )
 
 
@@ -254,7 +255,7 @@ class CatchupRep(MessageBase):
         (f.TXNS.nm, AnyValueField()),
         (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
-    
+
 
 class ViewChangeDone(MessageBase):
     """
@@ -293,6 +294,8 @@ one was debated. It has some pros and some cons. We wrote up the analysis in
 http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
 lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
 """
+
+
 class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
@@ -327,8 +330,6 @@ ElectionType = (Nomination, Primary, Reelection)
 ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
-                        f.VIEW_NO,
-                        f.PP_SEQ_NO
-                    ])
-
-
+    f.VIEW_NO,
+    f.PP_SEQ_NO
+])

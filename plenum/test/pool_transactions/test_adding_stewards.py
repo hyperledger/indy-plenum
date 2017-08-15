@@ -27,8 +27,8 @@ def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
     sendAddNewClient(STEWARD, "testSteward2", client1, wallet1)
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, client1,
-                              'Only Steward is allowed to do these transactions',
-                              node.clientstack.name)
+                             'Only Steward is allowed to do these transactions',
+                             node.clientstack.name)
 
 
 def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
@@ -41,7 +41,8 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
     sendAddNewClient(STEWARD, "testSteward4", steward1, stewardWallet)
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, steward1,
-                              'New stewards cannot be added by other '
-                              'stewards as there are already {} '
-                              'stewards in the system'.format(tconf.stewardThreshold),
-                              node.clientstack.name)
+                             'New stewards cannot be added by other '
+                             'stewards as there are already {} '
+                             'stewards in the system'.format(
+                                 tconf.stewardThreshold),
+                             node.clientstack.name)

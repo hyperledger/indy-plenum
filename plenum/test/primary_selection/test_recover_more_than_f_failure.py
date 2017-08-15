@@ -12,6 +12,7 @@ from plenum.test.view_change.helper import start_stopped_node
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
+
 def stop_primary(looper, active_nodes):
     stopped_node = active_nodes[0]
     disconnect_node_and_ensure_disconnected(looper,
@@ -21,6 +22,7 @@ def stop_primary(looper, active_nodes):
     looper.removeProdable(stopped_node)
     active_nodes = active_nodes[1:]
     return stopped_node, active_nodes
+
 
 def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, client1, wallet1, client1Connected):
     """
@@ -52,11 +54,13 @@ def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, c
     stopped_node, active_nodes = stop_primary(looper, active_nodes)
 
     # Restart second node
-    restarted_node = start_stopped_node(stopped_node, looper, tconf, stopped_node.basedirpath, allPluginsPath)
+    restarted_node = start_stopped_node(
+        stopped_node, looper, tconf, stopped_node.basedirpath, allPluginsPath)
     active_nodes = active_nodes + [restarted_node]
 
     # Check that primary selected
-    ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2, customTimeout=30)
+    ensureElectionsDone(looper=looper, nodes=active_nodes,
+                        numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 

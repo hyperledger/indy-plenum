@@ -74,10 +74,12 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
 def catchup_complete_count(nodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
 
+
 @pytest.fixture(scope='module')
 def view_change_done(looper, nodeSet):
     ensure_view_change(looper, nodeSet)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
+
 
 @pytest.fixture(scope='module')
 def view_change_done(looper, nodeSet):
@@ -85,6 +87,8 @@ def view_change_done(looper, nodeSet):
     ensureElectionsDone(looper=looper, nodes=nodeSet)
 
 # noinspection PyIncorrectDocstring
+
+
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
                                         catchup_complete_count, view_change_done):
     """
@@ -94,7 +98,8 @@ def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
     # TODO: This test can fail due to view change.
 
     for n in nodeSet:
-        assert n.spylog.count(n.allLedgersCaughtUp) > catchup_complete_count[n.name]
+        assert n.spylog.count(
+            n.allLedgersCaughtUp) > catchup_complete_count[n.name]
 
     # Primary replicas before view change
     prBeforeVC = primaryReplicas

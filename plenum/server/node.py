@@ -108,7 +108,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  storage: Storage=None,
                  config=None,
                  seed=None):
-
         """
         Create a new node.
 
@@ -802,7 +801,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Ask other node for LedgerStatus
         """
         self.request_msg(LEDGER_STATUS, {f.LEDGER_ID.nm: ledger_id},
-                         [node_name,])
+                         [node_name, ])
         logger.debug("{} asking {} for ledger status of ledger {}"
                      .format(self, node_name, ledger_id))
 
@@ -902,7 +901,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.replicas.grow()
             newReplicas += 1
-            self.processStashedMsgsForReplica(len(self.replicas)-1)
+            self.processStashedMsgsForReplica(len(self.replicas) - 1)
         while len(self.replicas) > self.requiredNumberOfInstances:
             self.replicas.shrink()
             newReplicas -= 1
@@ -1986,8 +1985,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if canSendInsChange:
             logger.info("{}{} sending an instance change with view_no {}"
                         " since {}"
-                        .format(VIEW_CHANGE_PREFIX, self, view_no,
-                                suspicion.reason))
+                        .
+                        format(VIEW_CHANGE_PREFIX,self, view_no, suspicion.reason))
             logger.info("{}{} metrics for monitor: {}"
                         .format(MONITORING_PREFIX, self,
                                 self.monitor.prettymetrics))

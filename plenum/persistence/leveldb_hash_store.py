@@ -71,12 +71,13 @@ class LevelDbHashStore(HashStore):
     @property
     def closed(self):
         return (self.nodesDb is None and self.leavesDb is None) \
-               or \
+            or \
                (self.nodesDb.closed and self.leavesDb.closed)
 
     def open(self):
         self.nodesDb = KeyValueStorageLeveldb(self.dataDir, self.nodes_db_name)
-        self.leavesDb = KeyValueStorageLeveldb(self.dataDir, self.leaves_db_name)
+        self.leavesDb = KeyValueStorageLeveldb(
+            self.dataDir, self.leaves_db_name)
 
     def close(self):
         self.nodesDb.close()

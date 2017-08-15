@@ -65,12 +65,12 @@ def reqToTxn(req: Request, cons_time=None):
     # }
     # res.update(data[OPERATION])
     # return res
-    
+
     if isinstance(req, dict):
         if TXN_TYPE in req:
             return req
         data = req
-    else :
+    else:
         data = req.as_dict
 
     res = {

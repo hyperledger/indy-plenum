@@ -73,10 +73,10 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
     assert result, "reqId {}: found less than in {} same replies".format(
-                reqId, fValue)
+        reqId, fValue)
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies]), \
-            "not all replies have got reqId {}".format(reqId)
+        "not all replies have got reqId {}".format(reqId)
 
     return result
     # TODO add test case for what happens when replies don't have the same data
@@ -111,7 +111,7 @@ def waitForSufficientRepliesForRequests(looper,
 
     if not total_timeout:
         timeoutPerRequest = customTimeoutPerReq or \
-                            waits.expectedTransactionExecutionTime(nodeCount)
+            waits.expectedTransactionExecutionTime(nodeCount)
         timeoutPerRequest += add_delay_to_timeout
         # here we try to take into account what timeout for execution
         # N request - total_timeout should be in
@@ -160,13 +160,13 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
 
 
 def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
-                                        wallet: Wallet,
-                                        client: TestClient,
-                                        numReqs: int,
-                                        customTimeoutPerReq: float=None,
-                                        add_delay_to_timeout: float=0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
+                                              wallet: Wallet,
+                                              client: TestClient,
+                                              numReqs: int,
+                                              customTimeoutPerReq: float=None,
+                                              add_delay_to_timeout: float=0,
+                                              override_timeout_limit=False,
+                                              total_timeout=None):
     requests = sendRandomRequests(wallet, client, numReqs)
     nodeCount = len(client.nodeReg)
     # wait till more than nodeCount replies are received (that is all nodes answered)
@@ -190,10 +190,10 @@ def send_reqs_batches_and_get_suff_replies(looper: Looper,
                                                    num_reqs, **kwargs)
     else:
         requests = []
-        for _ in range(num_batches-1):
+        for _ in range(num_batches - 1):
             requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
                                                                 client,
-                                                                num_reqs//num_batches,
+                                                                num_reqs // num_batches,
                                                                 **kwargs))
         rem = num_reqs % num_batches
         if rem == 0:
@@ -322,9 +322,9 @@ def randomOperation():
 
 def random_requests(count):
     return [{
-                "type": "buy",
+        "type": "buy",
                 "amount": random.randint(10, 100)
-            } for _ in range(count)]
+    } for _ in range(count)]
 
 
 def signed_random_requests(wallet, count):
@@ -384,7 +384,7 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
                                       frm: NodeRef,
                                       to: NodeRef,
                                       msg: Optional[Tuple] = None,
-                                      method = None,
+                                      method=None,
                                       customTimeout=None):
     """
     Sends message from one node to another and checks that it was delivered
@@ -410,9 +410,10 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
                      timeout=timeout,
                      ratchetSteps=10)
 
+
 def sendMessageToAll(nodes: TestNodeSet,
-                frm: NodeRef,
-                msg: Optional[Tuple]=None):
+                     frm: NodeRef,
+                     msg: Optional[Tuple]=None):
     """
     Sends message from one node to all others
 
@@ -425,11 +426,12 @@ def sendMessageToAll(nodes: TestNodeSet,
         if node != frm:
             sendMessage(nodes, frm, node, msg)
 
+
 async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
-                                      frm: NodeRef,
-                                      msg: Optional[Tuple]=None,
-                                      method = None,
-                                      customTimeout=None):
+                                           frm: NodeRef,
+                                           msg: Optional[Tuple]=None,
+                                           method=None,
+                                           customTimeout=None):
     """
     Sends message from one node to all other and checks that it was delivered
 
@@ -439,11 +441,13 @@ async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
     :param customTimeout:
     :return:
     """
-    customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(len(nodes))
+    customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(
+        len(nodes))
     for node in nodes:
         if node != frm:
             await sendMessageAndCheckDelivery(nodes, frm, node, msg, method, customTimeout)
             break
+
 
 def checkMessageReceived(msg, nodes, to, method: str = None):
     allMsgs = nodes.getAllMsgReceived(to, method)
@@ -461,14 +465,16 @@ def addNodeBack(nodeSet: TestNodeSet,
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     key = identifier, reqId
     assert key in node.requests
-    assert node.quorums.propagate.is_reached(len(node.requests[key].propagates))
+    assert node.quorums.propagate.is_reached(
+        len(node.requests[key].propagates))
 
 
 def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                           instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
-    recvdOrderedReqs = [(p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
+    recvdOrderedReqs = [
+        (p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
     expected = (instId, identifier, reqId)
     return expected in recvdOrderedReqs
 
@@ -479,8 +485,9 @@ def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
 
 
 def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
-                               instId: int):
+                                  instId: int):
     assert not requestReturnedToNode(node, identifier, reqId, instId)
+
 
 def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
     instances = range(getNoInstances(len(nodeSet)))
@@ -495,6 +502,7 @@ def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
         coros.append(c)
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
@@ -565,8 +573,8 @@ def checkReplyCount(client, idr, reqId, count):
     senders = set()
     for msg, sdr in client.inBox:
         if msg[OP_FIELD_NAME] == REPLY and \
-                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
+                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
             senders.add(sdr)
     assertLength(senders, count)
 
@@ -695,7 +703,7 @@ def countDiscarded(processor, reasonPat):
     for entry in processor.spylog.getAll(processor.discard):
         if 'reason' in entry.params and (
                 (isinstance(entry.params['reason'], str) and
-                         reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
+                 reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
             c += 1
     return c
 
@@ -758,7 +766,8 @@ def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
     assert master_replica_1.last_ordered_3pc == master_replica_2.last_ordered_3pc, \
-        "{} != {}".format(master_replica_1.last_ordered_3pc, master_replica_2.last_ordered_3pc)
+        "{} != {}".format(master_replica_1.last_ordered_3pc,
+                          master_replica_2.last_ordered_3pc)
     return master_replica_1.last_ordered_3pc
 
 
@@ -851,17 +860,17 @@ def nodeByName(nodes, name):
 def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_root=None):
     last_req_id = wallet._getIdData().lastReqId or 0
     pre_prepare = PrePrepare(
-            0,
-            view_no,
-            pp_seq_no,
-            get_utc_epoch(),
-            [(wallet.defaultId, last_req_id+1)],
-            0,
-            "random digest",
-            DOMAIN_LEDGER_ID,
-            state_root or '0'*44,
-            txn_root or '0'*44
-            )
+        0,
+        view_no,
+        pp_seq_no,
+        get_utc_epoch(),
+        [(wallet.defaultId, last_req_id + 1)],
+        0,
+        "random digest",
+        DOMAIN_LEDGER_ID,
+        state_root or '0' * 44,
+        txn_root or '0' * 44
+    )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}
 
@@ -872,23 +881,23 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_roo
 
 def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):
     prepare = Prepare(
-            0,
-            view_no,
-            pp_seq_no,
-            get_utc_epoch(),
-            "random digest",
-            state_root or '0'*44,
-            txn_root or '0'*44
-            )
+        0,
+        view_no,
+        pp_seq_no,
+        get_utc_epoch(),
+        "random digest",
+        state_root or '0' * 44,
+        txn_root or '0' * 44
+    )
     primary_node = getPrimaryReplica(nodes).node
     sendMessageToAll(nodes, primary_node, prepare)
 
 
 def send_commit(view_no, pp_seq_no, nodes):
     commit = Commit(
-            0,
-            view_no,
-            pp_seq_no)
+        0,
+        view_no,
+        pp_seq_no)
     primary_node = getPrimaryReplica(nodes).node
     sendMessageToAll(nodes, primary_node, commit)
 

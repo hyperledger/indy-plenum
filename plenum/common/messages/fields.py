@@ -18,7 +18,7 @@ class FieldValidator(metaclass=ABCMeta):
     def validate(self, val):
         """
         Validates field value
-        
+
         :param val: field value to validate 
         :return: error message or None
         """
@@ -40,7 +40,7 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
         """
         Performs basic validation of field value and then passes it for 
         specific validation.
-        
+
         :param val: field value to validate 
         :return: error message or None
         """
@@ -60,7 +60,7 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
         """
         Performs specific validation of field. Should be implemented in 
         subclasses. Use it instead of overriding 'validate'.
-        
+
         :param val: field value to validate 
         :return: error message or None 
         """
@@ -355,9 +355,9 @@ class VerkeyField(FieldBase):
 
     def _specific_validation(self, val):
         if val.startswith('~'):
-            #abbreviated base58
+            # abbreviated base58
             return self._b58abbreviated.validate(val[1:])
-        #full base58
+        # full base58
         return self._b58full.validate(val)
 
 
