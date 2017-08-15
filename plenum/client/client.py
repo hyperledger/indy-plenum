@@ -36,6 +36,7 @@ from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
@@ -570,7 +571,8 @@ class Client(Motor,
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
-                logger.warning('{} could not find remote {}'.format(self, nm))
+                logger.warning('{}{} could not find remote {}'
+                               .format(CONNECTION_PREFIX, self, nm))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))

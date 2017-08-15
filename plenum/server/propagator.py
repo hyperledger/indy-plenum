@@ -4,7 +4,7 @@ from itertools import groupby
 from typing import Dict, Tuple, Union, Optional
 
 from orderedset._orderedset import OrderedSet
-from plenum.common.constants import PROPAGATE
+from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
@@ -139,10 +139,10 @@ class Propagator:
         else:
             self.requests.addPropagate(request, self.name)
             propagate = self.createPropagate(request, clientName)
-            logger.info("{} propagating {} request {} from client {}".
-                        format(self, request.identifier, request.reqId,
-                               clientName),
-                        extra={"cli": True, "tags": ["node-propagate"]})
+            logger.debug("{} propagating {} request {} from client {}".
+                         format(self, request.identifier, request.reqId,
+                                clientName),
+                         extra={"cli": True, "tags": ["node-propagate"]})
             self.send(propagate)
 
     @staticmethod
@@ -154,7 +154,8 @@ class Propagator:
         :return: a new PROPAGATE msg
         """
         if not isinstance(request, (Request, dict)):
-            logger.error("Request not formatted properly to create propagate")
+            logger.error("{}Request not formatted properly to create propagate"
+                         .format(THREE_PC_PREFIX))
             return
         logger.trace("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.as_dict if isinstance(request, Request) else \

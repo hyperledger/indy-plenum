@@ -566,8 +566,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start(self, loop):
         oldstatus = self.status
         if oldstatus in Status.going():
-            logger.info("{} is already {}, so start has no effect".
-                        format(self, self.status.name))
+            logger.debug("{} is already {}, so start has no effect".
+                         format(self, self.status.name))
         else:
             super().start(loop)
 
@@ -661,7 +661,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
-        logger.info("{} closing level dbs".format(self), extra={"cli": False})
+        logger.debug("{} closing level dbs".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgerRegistry:
             state = self.getState(ledgerId)
             if state:
@@ -867,7 +867,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendToElector(message, frm)
         except TypeError as ex:
             self.discard(msg,
-                         reason="invalid election messages",
+                         reason="{}invalid election messages".format(
+                             PRIMARY_ELECTION_PREFIX),
                          logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
@@ -939,8 +940,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.msgsForFutureViews[view_no]:
             msg, frm = self.msgsForFutureViews[view_no].popleft()
             if not self._dispatch_stashed_msg(msg, frm):
-                self.discard(msg, reason="Unknown message type for view no "
-                                         "{}".format(view_no),
+                self.discard(msg,
+                             reason="{}Unknown message type for view no {}"
+                             .format(VIEW_CHANGE_PREFIX, view_no),
                              logMethod=logger.warning)
             i += 1
         logger.debug("{} processed {} stashed msgs for view no {}".
@@ -967,8 +969,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("view change to view {} is not completed in time, "
                      "starting view change for view {}"
                      .format(self.viewNo, next_view_no))
-        logger.info("{} initiating a view change to {} from {}".
-                    format(self, next_view_no, self.viewNo))
+        logger.info("{}{} initiating a view change to {} from {}".
+                    format(VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
@@ -1110,7 +1112,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(view_no), logMethod=logger.info)
+                         .format(view_no), logMethod=logger.debug)
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
@@ -1163,17 +1165,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
-                logger.info("{} msg validated {}".format(self, wrappedMsg),
-                            extra={"tags": ["node-msg-validation"]})
+                logger.debug("{} msg validated {}".format(self, wrappedMsg),
+                             extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.info("{} invalidated msg {}".format(self, wrappedMsg),
-                            extra={"tags": ["node-msg-validation"]})
+                logger.debug("{} invalidated msg {}".format(self, wrappedMsg),
+                             extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
             msg, frm = wrappedMsg
-            self.discard(msg, ex)
+            self.discard(msg, ex, logger.debug)
 
     def validateNodeMsg(self, wrappedMsg):
         """
@@ -1186,7 +1188,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
             self.discard(msg, "received from blacklisted node {}"
-                         .format(frm), logger.info)
+                         .format(frm), logger.debug)
             return None
 
         try:
@@ -1244,7 +1246,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 await self.nodeMsgRouter.handle(m)
             except SuspiciousNode as ex:
                 self.reportSuspiciousNodeEx(ex)
-                self.discard(m, ex)
+                self.discard(m, ex, logger.debug)
 
     def handleOneClientMsg(self, wrappedMsg):
         """
@@ -1280,7 +1282,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
-        self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
+        self.discard(wrappedMsg, friendly, logger.debug, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1291,7 +1293,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
             self.discard(msg, "received from blacklisted client {}"
-                         .format(frm), logger.info)
+                         .format(frm), logger.debug)
             return None
 
         needStaticValidation = False
@@ -1376,10 +1378,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.clientInBox:
             m = self.clientInBox.popleft()
             req, frm = m
-            logger.display("{} processing {} request {}".
-                           format(self.clientstack.name, frm, req),
-                           extra={"cli": True,
-                                  "tags": ["node-msg-processing"]})
+            logger.debug("{} processing {} request {}".
+                         format(self.clientstack.name, frm, req),
+                         extra={"cli": True,
+                                "tags": ["node-msg-processing"]})
 
             try:
                 await self.clientMsgRouter.handle(m)
@@ -1470,7 +1472,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
-            logger.info('{} caught up till {}'.format(self, last_caught_up_3PC),
+            logger.info('{}{} caught up till {}'
+                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
 
         # TODO: Maybe a slight optimisation is to check result of
@@ -1481,7 +1484,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
         else:
-            logger.info('{} does not need any more catchups'.format(self),
+            logger.info('{}{} does not need any more catchups'
+                        .format(CATCH_UP_PREFIX, self),
                         extra={'cli': True})
             self.no_more_catchups_needed()
 
@@ -1493,8 +1497,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if last catchup resulted in no txns
         """
         if self.caught_up_for_current_view():
-            logger.info('{} is caught up for the current view {}'.
-                        format(self, self.viewNo))
+            logger.debug('{} is caught up for the current view {}'.
+                         format(self, self.viewNo))
             return False
         logger.debug('{} is not caught up for the current view {}'.
                      format(self, self.viewNo))
@@ -1793,9 +1797,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                   state_root, txn_root)
                 r = True
             else:
-                logger.warning('{} did not find {} finalized requests, but '
-                               'still ordered'.format(self, len(req_idrs) -
-                                                      len(reqs)))
+                logger.debug('{} did not find {} finalized requests, but '
+                             'still ordered'.format(self, len(req_idrs) -
+                                                    len(reqs)))
                 return None
         else:
             logger.trace("{} got ordered requests from backup replica {}".
@@ -1860,8 +1864,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".
-                         format(type(instChg.viewNo)))
+            self.discard(instChg, "{}field viewNo has incorrect type: {}".
+                         format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
         elif instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
@@ -1878,8 +1882,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.instanceChanges.hasInstChngFrom(instChg.viewNo,
                                                          self.name):
                 logger.info(
-                    "{} found master degraded after receiving instance change "
-                    "message from {}".format(self, frm))
+                    "{}{} found master degraded after receiving instance change"
+                    " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
             else:
                 logger.debug(
@@ -1892,8 +1896,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # malicious nodes sending messages early on
         can, whyNot = self.canViewChange(view_no)
         if can:
-            logger.info("{} initiating a view change to {} from {}".
-                        format(self, view_no, self.viewNo))
+            logger.info("{}{} initiating a view change to {} from {}".
+                        format(VIEW_CHANGE_PREFIX, self, view_no, self.viewNo))
             self.propagate_primary = False
             self.startViewChange(view_no)
         else:
@@ -1903,9 +1907,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _start_view_change_if_possible(self, view_no) -> bool:
         ind_count = len(self._next_view_indications[view_no])
         if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.info('{} starting view change for {} after {} view change '
+            logger.info('{}{} starting view change for {} after {} view change '
                         'indications from other nodes'.
-                        format(self, view_no, ind_count))
+                        format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
             self.propagate_primary = True
             self.startViewChange(view_no)
             return True
@@ -1980,11 +1984,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.info("{} sending an instance change with view_no {} since "
+            logger.debug("{} sending an instance change with view_no {} since "
                         "{}".
                         format(self, view_no, suspicion.reason))
-            logger.info("{} metrics for monitor: {}".
-                        format(self, self.monitor.prettymetrics))
+            logger.info("{}{} metrics for monitor: {}"
+                        .format(MONITORING_PREFIX, self,
+                                self.monitor.prettymetrics))
             msg = self._create_instance_change_msg(view_no, suspicion.code)
             self.send(msg)
             self._record_inst_change_msg(msg, self.name)
@@ -2082,8 +2087,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
         # prepared certificate the first PRE-PREPARE of the new view
-        logger.info('{} changed to view {}, will start catchup now'.
-                    format(self, self.viewNo))
+        logger.info('{}{} changed to view {}, will start catchup now'.
+                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
@@ -2108,8 +2113,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Process any already Ordered requests by the replica
 
         if self.mode == Mode.starting:
-            logger.info('{} does not start the catchup procedure '
-                        'because it is already in this state'.format(self))
+            logger.debug('{} does not start the catchup procedure '
+                         'because it is already in this state'.format(self))
             return
         self.force_process_ordered()
 
@@ -2157,10 +2162,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
-        logger.info("{} authenticated {} signature on {} request {}".
-                       format(self, identifier, typ, req['reqId']),
-                       extra={"cli": True,
-                              "tags": ["node-msg-processing"]})
+        logger.debug("{} authenticated {} signature on {} request {}".
+                     format(self, identifier, typ, req['reqId']),
+                     extra={"cli": True,
+                            "tags": ["node-msg-processing"]})
 
     def authNr(self, req):
         return self.clientAuthNr
@@ -2304,7 +2309,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, TRUSTEE, None):
-                    logger.error("Role if present must be {} and not {}".
+                    logger.debug("Role if present must be {} and not {}".
                                  format(Roles.STEWARD.name, role))
                     return
                 self.clientAuthNr.addIdr(identifier,
@@ -2422,11 +2427,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG)):
             self.sendInstanceChange(self.viewNo + 1, Suspicions.get_by_code(code))
-            logger.info('{} sent instance change since suspicion code {}'
-                        .format(self, code))
+            logger.info('{}{} sent instance change since suspicion code {}'
+                        .format(VIEW_CHANGE_PREFIX, self, code))
 
         if offendingMsg:
-            self.discard(offendingMsg, reason, logger.warning)
+            self.discard(offendingMsg, reason, logger.debug)
 
     def reportSuspiciousClient(self, clientName: str, reason):
         """
@@ -2435,9 +2440,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param clientName: name of the client to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.warning("{} suspicion raised on client {} for {}; "
-                       "doing nothing for now".
-                       format(self, clientName, reason))
+        logger.warning("{} raised suspicion on client {} for {}"
+                       .format(self, clientName, reason))
         self.blacklistClient(clientName)
 
     def isClientBlacklisted(self, clientName: str):

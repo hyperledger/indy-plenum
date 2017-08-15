@@ -4,6 +4,7 @@ from plenum import config
 from plenum.common.batched import Batched, logger
 from plenum.common.config_util import getConfig
 from plenum.common.message_processor import MessageProcessor
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_raet.rstack import SimpleRStack, KITRStack
 from stp_core.types import HA
 from stp_zmq.kit_zstack import KITZStack
@@ -46,8 +47,8 @@ class ClientZStack(SimpleZStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{} unable to send message {} to client {}; Exception: {}"
-                         .format(self, msg, remoteName, ex.__repr__()))
+            logger.error("{}{} unable to send message {} to client {}; Exception: {}"
+                         .format(CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         #TODO: Handle `remoteNames`
@@ -71,8 +72,8 @@ class NodeZStack(Batched, KITZStack):
         # Calling service lifecycle to allow creation of remotes
         # that this stack needs to connect to
         # self.serviceLifecycle()
-        logger.info("{} listening for other nodes at {}:{}".
-                    format(self, *self.ha),
+        logger.info("{}{} listening for other nodes at {}:{}".
+                    format(CONNECTION_PREFIX, self, *self.ha),
                     extra={"tags": ["node-listening"]})
 
 
@@ -111,8 +112,8 @@ class ClientRStack(SimpleRStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{} unable to send message {} to client {}; Exception: {}"
-                         .format(self, msg, remoteName, ex.__repr__()))
+            logger.error("{}{} unable to send message {} to client {}; Exception: {}"
+                         .format(CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         for nm in remoteNames:
@@ -132,8 +133,8 @@ class NodeRStack(Batched, KITRStack):
 
     def start(self):
         KITRStack.start(self)
-        logger.info("{} listening for other nodes at {}:{}".
-                    format(self, *self.ha),
+        logger.info("{}{} listening for other nodes at {}:{}".
+                    format(CONNECTION_PREFIX, self, *self.ha),
                     extra={"tags": ["node-listening"]})
 
 

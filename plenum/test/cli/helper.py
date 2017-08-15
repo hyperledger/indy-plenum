@@ -13,6 +13,8 @@ import sys
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
+from plenum.common.constants import PRIMARY_ELECTION_PREFIX
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -169,8 +171,10 @@ def waitNodeStarted(cli, nodeName):
                    .format(nodeName, nodeName) in msgs
         assert "{} added replica {}:1 to instance 1 (backup)" \
                    .format(nodeName, nodeName) in msgs
-        assert "{} listening for other nodes at {}:{}" \
-                   .format(nodeName, *cli.nodes[nodeName].nodestack.ha) in msgs
+        assert "{}{} listening for other nodes at {}:{}" \
+                   .format(CONNECTION_PREFIX, nodeName,
+                           *cli.nodes[nodeName].nodestack.ha) \
+               in msgs
 
     startUpTimeout = waits.expectedNodeStartUpTimeout()
     cli.looper.run(eventually(chk, timeout=startUpTimeout))
@@ -186,8 +190,8 @@ def checkAllNodesUp(cli):
     # TODO: can waitAllNodesStarted be used instead?
 
     msgs = {stmt['msg'] for stmt in cli.printeds}
-    expected = "{nm}:{inst} selected primary {pri} " \
-               "for instance {inst} (view 0)"
+    expected = PRIMARY_ELECTION_PREFIX + "{nm}:{inst} selected primary {pri}" \
+               " for instance {inst} (view 0)"
     assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
