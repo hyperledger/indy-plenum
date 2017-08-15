@@ -79,10 +79,10 @@ class Replicas:
         else:
             per_replica = round(limit / self.num_replicas)
             if per_replica == 0:
-                logger.warning("{} forcibly setting replica "
-                               "message limit to {}"
-                               .format(self._node.name,
-                                       per_replica))
+                logger.debug("{} forcibly setting replica "
+                             "message limit to {}"
+                             .format(self._node.name,
+                                     per_replica))
                 per_replica = 1
         for replica in self._replicas:
             num = 0

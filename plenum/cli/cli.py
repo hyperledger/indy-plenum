@@ -57,7 +57,6 @@ import ast
 from functools import reduce, partial
 import sys
 
-from prompt_toolkit.history import FileHistory
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -83,6 +82,7 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
+from plenum.cli.command_history import CliFileHistory
 
 
 
@@ -204,7 +204,7 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        self.pers_hist = FileHistory('.{}-cli-history'.format(self.name))
+        self.pers_hist = CliFileHistory(command_filter=self.mask_seed, filename='.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
@@ -1925,13 +1925,22 @@ class Cli:
             walletsDir = self.getContextBasedWalletsBaseDir()
             self._saveActiveWalletInDir(walletsDir, printMsgs=True)
 
+    def mask_seed(self, cmd_text):
+        parts = cmd_text.split()
+        prev_seed = False
+        for idx, val in enumerate(parts):
+            if prev_seed:
+                parts[idx] = "[redacted]"
+            prev_seed = (val == "seed")
+        return " ".join(parts)
+
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
         # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
-            self.logger.info("CLI command entered: {}".format(cmdText),
+            self.logger.info("CLI command entered: {}".format(self.mask_seed(cmdText)),
                              extra={"cli": False})
             for action in self.actions:
                 r = action(matchedVars)

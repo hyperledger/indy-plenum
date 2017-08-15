@@ -1,3 +1,4 @@
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
 from typing import Dict, Callable
@@ -92,16 +93,15 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
         if not missing:
             return missing
 
-        logger.debug("{} found the following "
-                     "missing connections: {}"
-                     .format(self, ", ".join(missing)))
+        logger.debug("{}{} found the following missing connections: {}"
+                     .format(CONNECTION_PREFIX, self, ", ".join(missing)))
 
         for name in missing:
             try:
                 self.connect(name, ha=self.registry[name])
             except ValueError as ex:
-                logger.error('{} cannot connect to {} due to {}'
-                             .format(self, name, ex))
+                logger.error('{}{} cannot connect to {} due to {}'
+                             .format(CONNECTION_PREFIX, self, name, ex))
         return missing
 
     async def service(self, limit=None):

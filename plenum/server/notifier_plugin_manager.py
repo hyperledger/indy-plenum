@@ -72,7 +72,7 @@ class PluginManager:
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
                   'Usual: {}. New: {}.'\
             .format(event, nodeName, time.time(), val, newVal)
-        logger.warning(message)
+        logger.debug(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
