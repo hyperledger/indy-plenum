@@ -2,7 +2,6 @@ import cProfile
 import profile
 import pstats
 from statistics import stdev, mean
-import inspect
 
 
 def calibrate():

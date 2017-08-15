@@ -63,7 +63,6 @@ def testTreeStateRevertedAfterBatchRejection(reverted):
     After a batch is rejected, all nodes revert their trees to last known
     correct state
     """
-    pass
 
 
 def testViewChangeAfterBatchRejected(viewChanged):
@@ -71,7 +70,6 @@ def testViewChangeAfterBatchRejected(viewChanged):
     After a batch is rejected and each batch that was created based on the
     rejected batch is discarded, the discarded batches are tried again
     """
-    pass
 
 
 def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,

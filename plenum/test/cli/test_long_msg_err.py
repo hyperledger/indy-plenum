@@ -1,5 +1,4 @@
 from plenum.test.cli.helper import createClientAndConnect
-import logging
 
 import pytest
 from stp_core.common.log import Logger

@@ -1,4 +1,3 @@
-import time
 
 from plenum.common.util import get_utc_epoch
 from stp_core.loop.eventually import eventually

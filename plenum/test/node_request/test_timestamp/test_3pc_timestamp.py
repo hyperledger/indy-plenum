@@ -1,4 +1,3 @@
-import types
 from collections import defaultdict
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_TIME

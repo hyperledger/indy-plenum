@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import Dict
 from typing import Optional
 
 from plenum.common.constants import TXN_ID

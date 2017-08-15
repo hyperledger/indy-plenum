@@ -52,7 +52,6 @@ class ClientAuthNr:
         :param verkey: the public key used to verify a signature
         :return: None
         """
-        pass
 
     @abstractmethod
     def getVerkey(self, identifier):
@@ -62,7 +61,6 @@ class ClientAuthNr:
         :param identifier: client's identifier
         :return: the verification key
         """
-        pass
 
 
 class NaclAuthNr(ClientAuthNr):

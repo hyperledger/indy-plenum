@@ -1,5 +1,4 @@
 import pytest
-import time
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
     PREPREPARE, PROPAGATE

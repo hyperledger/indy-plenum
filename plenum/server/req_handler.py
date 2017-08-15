@@ -27,20 +27,17 @@ class RequestHandler:
         """
         Validates request. Raises exception if request is invalid.
         """
-        pass
 
     def apply(self, req: Request, cons_time: int):
         """
         Applies request
         """
-        pass
 
     def updateState(self, txns, isCommitted=False):
         """
         Updates current state with a number of committed or 
         not committed transactions
         """
-        pass
 
     def commit(self, txnCount, stateRoot, txnRoot) -> List:
         """

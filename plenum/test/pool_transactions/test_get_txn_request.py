@@ -5,7 +5,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test import waits
 from plenum.test.helper import checkSufficientRepliesReceived
 from plenum.common.util import getMaxFailures
-import json
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 

@@ -62,7 +62,6 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         """
         Start election of the primary replica for each protocol instance        
         """
-        pass
 
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
@@ -122,7 +121,6 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         """
         Returns election messages from the last view change        
         """
-        pass
 
     def send(self, msg):
         """
@@ -138,4 +136,3 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         """
         Called when starting election for a particular protocol instance 
         """
-        pass

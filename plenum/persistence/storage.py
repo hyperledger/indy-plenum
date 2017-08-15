@@ -1,4 +1,3 @@
-import os
 from abc import abstractmethod, ABC
 
 from plenum.common.constants import StorageType, KeyValueStorageType

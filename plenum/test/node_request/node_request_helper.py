@@ -1,4 +1,3 @@
-import time
 from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare

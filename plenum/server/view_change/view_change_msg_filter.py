@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from typing import Optional
 
 from plenum.common.request import Request

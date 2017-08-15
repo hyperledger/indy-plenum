@@ -2,7 +2,6 @@ import itertools
 import os
 import random
 import string
-import time
 from _signal import SIGINT
 from functools import partial
 from itertools import permutations, combinations

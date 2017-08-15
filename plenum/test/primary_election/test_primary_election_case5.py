@@ -1,4 +1,3 @@
-import logging
 
 import pytest
 from plenum.common.messages.node_messages import Nomination, Primary

@@ -1,8 +1,5 @@
-import os
-import shutil
 from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
-from typing import List
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys

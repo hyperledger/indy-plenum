@@ -1,4 +1,3 @@
-import types
 from logging import getLogger
 
 import pytest

@@ -1,6 +1,5 @@
 from collections import deque
 from typing import Any, Iterable
-from typing import Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from stp_core.common.constants import CONNECTION_PREFIX

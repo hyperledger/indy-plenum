@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import glob
 import shutil
 from os.path import basename, dirname
-from typing import Dict, Iterable
+from typing import Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree

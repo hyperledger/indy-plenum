@@ -1,4 +1,3 @@
-from functools import partial
 from uuid import uuid4
 
 import pytest

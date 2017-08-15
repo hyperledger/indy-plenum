@@ -45,7 +45,6 @@ def test_new_node_has_same_view_as_others(new_node_in_correct_view):
     """
     A node joins after view change.
     """
-    pass
 
 
 def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,

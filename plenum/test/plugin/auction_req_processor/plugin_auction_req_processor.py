@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from typing import Dict
 
 from plenum.cli.constants import getPipedRegEx
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA

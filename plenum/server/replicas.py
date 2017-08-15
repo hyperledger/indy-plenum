@@ -1,5 +1,5 @@
 from collections import deque
-from typing import List, Generator
+from typing import Generator
 
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica

@@ -7,9 +7,7 @@ from tempfile import gettempdir, mkdtemp
 
 import time
 
-import logging
 
-import sys
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet

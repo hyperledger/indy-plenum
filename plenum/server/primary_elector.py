@@ -1,9 +1,9 @@
 import math
 import random
 import time
-from collections import Counter, deque
+from collections import Counter
 from functools import partial
-from typing import Sequence, Any, Union, List, Iterable
+from typing import Iterable, List, Sequence, Union
 
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX
 from plenum.common.types import f

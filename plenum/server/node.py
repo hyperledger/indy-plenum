@@ -877,7 +877,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param old: the previous status
         :param new: the current status
         """
-        pass
 
     def checkInstances(self) -> None:
         # TODO: Is this method really needed?
@@ -1420,7 +1419,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
-        pass
 
     def preLedgerCatchUp(self, ledger_id):
         # Process any Ordered requests. This causes less transactions to be

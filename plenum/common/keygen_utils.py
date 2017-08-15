@@ -1,4 +1,3 @@
-import os
 
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.util import randomSeed

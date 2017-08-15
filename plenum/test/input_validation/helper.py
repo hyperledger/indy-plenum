@@ -82,7 +82,6 @@ class MerkleRootField(TestFieldBase):
     negative_test_cases = ()
     positive_test_cases = ('47DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',)
     field_types = (str,)
-    pass
     # TODO implement
     # negative_test_cases = (
     #     '',

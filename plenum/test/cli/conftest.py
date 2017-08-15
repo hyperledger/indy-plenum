@@ -1,4 +1,3 @@
-import warnings
 from collections import OrderedDict
 from itertools import groupby
 

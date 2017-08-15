@@ -42,7 +42,6 @@ def testNodeNotProcessingOrderedReqsWhileCatchingUp(nodeStashingOrderedRequests)
     Check that node does not execute requests while catching up
     :return:
     """
-    pass
 
 
 @pytest.mark.skip(reason="SOV-553. Incomplete")

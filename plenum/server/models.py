@@ -1,7 +1,7 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Tuple, Dict
+from typing import NamedTuple, Set
 
 from plenum.common.messages.node_messages import Prepare, Commit
 

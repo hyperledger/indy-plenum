@@ -2,7 +2,6 @@ import random
 import types
 from functools import partial
 
-import time
 
 import plenum.common.error
 from plenum.common.types import f

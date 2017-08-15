@@ -1,4 +1,3 @@
-from time import perf_counter
 
 import pytest
 
@@ -34,7 +33,6 @@ def testNewNodeCatchup(newNodeCaughtUp):
     TODO: Test correct consistency proofs are generated
     :return:
     """
-    pass
 
 
 def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,

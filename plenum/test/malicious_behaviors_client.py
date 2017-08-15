@@ -1,6 +1,6 @@
 import types
 from logging import getLogger
-from typing import List, Any, Mapping
+from typing import Mapping
 
 from plenum.client.client import Client
 from plenum.common.request import Request
