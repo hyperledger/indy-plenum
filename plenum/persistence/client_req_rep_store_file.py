@@ -13,7 +13,8 @@ from storage.directory_store import DirectoryStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
-    LinePrefixes = namedtuple('LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
+    LinePrefixes = namedtuple(
+        'LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
     def __init__(self, name, baseDir):
         self.baseDir = baseDir
@@ -87,7 +88,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
         for r in self._getLinesWithPrefix(identifier, reqId, "{}{}".
-                format(self.linePrefixes.Request, self.delimiter)):
+                                          format(self.linePrefixes.Request, self.delimiter)):
             return self.deserializeReq(r[2:])
 
     def getReplies(self, identifier: str, reqId: int):
@@ -150,5 +151,3 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
             sender, reply = line[2:].split(self.delimiter, 1)
             result[sender] = reply
         return result
-
-

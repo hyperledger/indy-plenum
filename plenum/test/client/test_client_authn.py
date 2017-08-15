@@ -8,9 +8,11 @@ from plenum.server.client_authn import SimpleAuthNr
 idr = '5G72199XZB7wREviUbQma7'
 msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 
+
 class DummyAuthenticator(SimpleAuthNr):
     def getVerkey(self, _):
         return None
+
 
 @pytest.fixture(scope="module")
 def cli():
@@ -42,8 +44,8 @@ def test_authenticate_raises_correct_exception():
     verkey = simple_signer.verkey
     dummyAr = DummyAuthenticator()
     dummyAr.addIdr(identifier, verkey)
-    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
-
+    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate,
+                  msg, identifier, signature)
 
 
 def testClientAuthentication(sa, cli, msg, sig):

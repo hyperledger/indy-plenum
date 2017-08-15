@@ -21,7 +21,7 @@ TestRunningTimeLimitSec = 200
 
 @pytest.mark.skip(reason='Pending implementation')
 def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected):
+                              wallet1, client1Connected):
     """
     All nodes have bad clocks but they eventaully get repaired, an example of
     nodes being cut off from NTP server for some time or NTP sync disabled
@@ -36,7 +36,8 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet, client1,
                    txnPoolNodeSet}
     for node in txnPoolNodeSet:
         make_clock_faulty(node,
-                          clock_slow_by_sec=node.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS+randint(5, 15),
+                          clock_slow_by_sec=node.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS +
+                          randint(5, 15),
                           ppr_always_wrong=False)
 
     for _ in range(5):

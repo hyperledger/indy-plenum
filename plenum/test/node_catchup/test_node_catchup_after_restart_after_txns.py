@@ -26,7 +26,6 @@ logger = getlogger()
 txnCount = 5
 
 
-
 # TODO: This test passes but it is observed that PREPAREs are not received at
 # newly added node. If the stop and start steps are omitted then PREPAREs are
 # received. Conclusion is that due to node restart, RAET is losing messages
@@ -34,8 +33,8 @@ txnCount = 5
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
 def test_node_catchup_after_restart_with_txns(newNodeCaughtUp, txnPoolNodeSet, tconf,
-                                nodeSetWithNodeAddedAfterSomeTxns,
-                                tdirWithPoolTxns, allPluginsPath):
+                                              nodeSetWithNodeAddedAfterSomeTxns,
+                                              tdirWithPoolTxns, allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -103,7 +102,7 @@ def test_node_catchup_after_restart_with_txns(newNodeCaughtUp, txnPoolNodeSet, t
 
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-              2*delay_catchup_reply
+        2 * delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
     assert new_node_ledger.num_txns_caught_up == more_requests

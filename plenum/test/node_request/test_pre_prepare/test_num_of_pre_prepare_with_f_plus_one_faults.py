@@ -59,10 +59,10 @@ def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
 
 
 def testNumOfPrePrepareWithFPlusOneFaults(
-                                          afterElection,
-                                          noRetryReq,
-                                          nodeSet,
-                                          preprepared1WithDelay):
+        afterElection,
+        noRetryReq,
+        nodeSet,
+        preprepared1WithDelay):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:

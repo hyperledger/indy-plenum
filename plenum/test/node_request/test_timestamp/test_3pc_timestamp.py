@@ -11,7 +11,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 
 
 def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected):
+                               wallet1, client1Connected):
     # Check that each replica's PREPARE time is same as the PRE-PREPARE time
     sent_batches = 5
     for i in range(sent_batches):
@@ -29,7 +29,8 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
                     assert pp.ppTime == p.ppTime
 
             # `last_accepted_pre_prepare_time` is the time of the last PRE-PREPARE
-            assert r.last_accepted_pre_prepare_time == pp_coll.peekitem(-1)[1].ppTime
+            assert r.last_accepted_pre_prepare_time == pp_coll.peekitem(-1)[
+                1].ppTime
 
             # The ledger should store time for each txn and it should be same
             # as the time for that PRE-PREPARE
@@ -37,7 +38,8 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
                 for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID]:
                     three_pc_key = iv.data
                     for seq_no in range(iv.begin, iv.end):
-                        assert node.domainLedger.getBySeqNo(seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
+                        assert node.domainLedger.getBySeqNo(
+                            seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
@@ -53,7 +55,7 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
     make_clock_faulty(confused_npr.node)
 
     old_acceptable_rvs = getAllReturnVals(confused_npr,
-                                      confused_npr.is_pre_prepare_time_acceptable)
+                                          confused_npr.is_pre_prepare_time_acceptable)
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
 
@@ -64,4 +66,3 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
 
     # `is_pre_prepare_time_acceptable` first returned False then returned True
     assert [True, False, *old_acceptable_rvs] == new_acceptable_rvs
-

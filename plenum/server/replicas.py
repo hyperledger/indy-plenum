@@ -69,7 +69,7 @@ class Replicas:
     def pass_message(self, message, instance_id=None):
         replicas = self._replicas
         if instance_id is not None:
-            replicas = replicas[instance_id:instance_id+1]
+            replicas = replicas[instance_id:instance_id + 1]
         for replica in replicas:
             replica.inBox.append(message)
 

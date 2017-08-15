@@ -26,7 +26,7 @@ def testViewNotChangedIfBackupPrimaryDisconnected(txnPoolNodeSet,
     # Verify
     remainingNodes = set(nodes) - {primaryNodeForBackupInstance1Before}
 
-    looper.runFor(tconf.ToleratePrimaryDisconnection+2)
+    looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
 
     def assertNewPrimariesElected():
         with pytest.raises(AssertionError):

@@ -83,7 +83,8 @@ class Client(Motor,
         cha = None
         # If client information already exists is RAET then use that
         if self.exists(self.stackName, basedirpath):
-            cha = self.nodeStackClass.getHaFromLocal(self.stackName, basedirpath)
+            cha = self.nodeStackClass.getHaFromLocal(
+                self.stackName, basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -108,8 +109,8 @@ class Client(Motor,
             HasPoolManager.__init__(self)
             self.ledgerManager = LedgerManager(self, ownedByNode=False)
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.ledger,
-                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
             cliNodeReg = OrderedDict()
             for nm, (ip, port) in nodeReg.items():
@@ -208,7 +209,7 @@ class Client(Motor,
     @staticmethod
     def exists(name, basedirpath):
         return os.path.exists(basedirpath) and \
-               os.path.exists(os.path.join(basedirpath, name))
+            os.path.exists(os.path.join(basedirpath, name))
 
     @property
     def nodeStackClass(self) -> NetworkInterface:
@@ -252,13 +253,15 @@ class Client(Motor,
         for request in reqs:
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
                (request.isForced() and self.hasAnyConnections):
-                logger.debug('Client {} sending request {}'.format(self, request))
+                logger.debug(
+                    'Client {} sending request {}'.format(self, request))
                 stat, err_msg = self.send(request)
                 if stat:
                     self.expectingFor(request)
                 else:
                     errs.append(err_msg)
-                    logger.debug('Client {} request failed {}'.format(self, err_msg))
+                    logger.debug(
+                        'Client {} request failed {}'.format(self, err_msg))
                     continue
             else:
                 logger.debug("{} pending request since in mode {} and "
@@ -281,10 +284,10 @@ class Client(Motor,
         ledgerTxnTypes = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF,
                           CATCHUP_REP)
         printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not \
-                                            in ledgerTxnTypes
+            in ledgerTxnTypes
         logger.info("Client {} got msg from node {}: {}".
-                     format(self.name, frm, msg),
-                     extra={"cli": printOnCli})
+                    format(self.name, frm, msg),
+                    extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
             if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
                 cMsg = node_message_factory.get_instance(**msg)
@@ -331,7 +334,8 @@ class Client(Motor,
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
         if self._ledger:
-            self.ledgerManager.setLedgerState(POOL_LEDGER_ID, LedgerState.not_synced)
+            self.ledgerManager.setLedgerState(
+                POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
             self._ledger.stop()
             if self.hashStore and not self.hashStore.closed:
@@ -577,7 +581,6 @@ class Client(Motor,
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
 
-
             # This makes client to reconnect
             # even if pool is just busy and cannot answer quickly,
             # that's why using maintainConnections instead
@@ -620,7 +623,8 @@ class Client(Motor,
         return self.nodestack.send(msg, *rids, signer=signer)
 
     def sendToNodes(self, msg: Any, names: Iterable[str]):
-        rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
+        rids = [rid for rid, r in self.nodestack.remotes.items()
+                if r.name in names]
         self.send(msg, *rids)
 
     @staticmethod

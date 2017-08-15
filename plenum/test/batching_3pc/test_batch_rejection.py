@@ -14,7 +14,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
     # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-                 getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
     waitForSufficientRepliesForRequests(looper, client, requests=reqs,
@@ -42,7 +42,7 @@ def reverted(setup, looper):
     pr, otherR, oldStateRoot = setup
 
     def chkStateRoot(root):
-        for r in [pr]+otherR:
+        for r in [pr] + otherR:
             r.stateRootHash(DOMAIN_LEDGER_ID, to_str=False) == root
 
     looper.run(eventually(chkStateRoot, oldStateRoot))

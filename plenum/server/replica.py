@@ -137,7 +137,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # The value is a list since a malicious entry might send PRE-PREPARE
         # with a different digest and since we dont have the request finalised
         # yet, we store all PRE-PPREPAREs
-        self.prePreparesPendingFinReqs = []   # type: List[Tuple[PrePrepare, str, Set[Tuple[str, int]]]]
+        # type: List[Tuple[PrePrepare, str, Set[Tuple[str, int]]]]
+        self.prePreparesPendingFinReqs = []
 
         # PrePrepares waiting for previous PrePrepares, key being tuple of view
         # number and pre-prepare sequence numbers and value being tuple of
@@ -199,7 +200,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # Commits which are not being ordered since commits with lower
         # sequence numbers have not been ordered yet. Key is the
         # viewNo and value a map of pre-prepare sequence number to commit
-        self.stashed_out_of_order_commits = {}  # type: Dict[int,Dict[int,Commit]]
+        # type: Dict[int,Dict[int,Commit]]
+        self.stashed_out_of_order_commits = {}
 
         self.checkpoints = SortedDict(lambda k: k[1])
 
@@ -240,7 +242,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
-        self.requested_pre_prepares = {}    # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        self.requested_pre_prepares = {}
 
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
@@ -430,13 +433,14 @@ class Replica(HasActionQueue, MessageProcessor):
         replica did not stash any of this request's 3-phase request
         """
         return self.node.isParticipating and (viewNo, ppSeqNo) \
-                                             not in self.stashingWhileCatchingUp
+            not in self.stashingWhileCatchingUp
 
     def on_view_change_start(self):
         assert self.isMaster
         lst = self.last_prepared_certificate_in_view()
         self.last_prepared_before_view_change = lst
-        logger.debug('{} setting last prepared for master to {}'.format(self, lst))
+        logger.debug(
+            '{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         assert self.isMaster
@@ -601,9 +605,9 @@ class Replica(HasActionQueue, MessageProcessor):
         for lid, q in self.requestQueues.items():
             # TODO: make the condition more apparent
             if len(q) >= self.config.Max3PCBatchSize or (
-                                self.lastBatchCreated +
-                                self.config.Max3PCBatchWait <
-                                time.perf_counter() and len(q) > 0):
+                    self.lastBatchCreated +
+                    self.config.Max3PCBatchWait <
+                    time.perf_counter() and len(q) > 0):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
@@ -646,30 +650,32 @@ class Replica(HasActionQueue, MessageProcessor):
         validReqs = []
         inValidReqs = []
         rejects = []
-        while len(validReqs)+len(inValidReqs) < self.config.Max3PCBatchSize \
+        while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
-            key = self.requestQueues[ledger_id].pop(0)  # Remove the first element
+            key = self.requestQueues[ledger_id].pop(
+                0)  # Remove the first element
             if key in self.requests:
                 fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
+                self.processReqDuringBatch(
+                    fin_req, tm, validReqs, inValidReqs, rejects)
             else:
                 logger.debug('{} found {} in its request queue but but the '
                              'corresponding request was removed'.
                              format(self, key))
 
-        reqs = validReqs+inValidReqs
+        reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
         pre_prepare = PrePrepare(self.instId,
-                                   self.viewNo,
-                                   ppSeqNo,
-                                   tm,
-                                   [(req.identifier, req.reqId) for req in reqs],
-                                   len(validReqs),
-                                   digest,
-                                   ledger_id,
-                                   self.stateRootHash(ledger_id),
-                                   self.txnRootHash(ledger_id)
-                                   )
+                                 self.viewNo,
+                                 ppSeqNo,
+                                 tm,
+                                 [(req.identifier, req.reqId) for req in reqs],
+                                 len(validReqs),
+                                 digest,
+                                 ledger_id,
+                                 self.stateRootHash(ledger_id),
+                                 self.txnRootHash(ledger_id)
+                                 )
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
@@ -770,9 +776,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def can_process_since_view_change_in_progress(self, msg):
         r = isinstance(msg, Commit) and \
-               self.last_prepared_before_view_change and \
-               compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                                self.last_prepared_before_view_change) >= 0
+            self.last_prepared_before_view_change and \
+            compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
+                             self.last_prepared_before_view_change) >= 0
         if r:
             logger.debug('{} can process {} since view change is in progress'
                          .format(self, msg))
@@ -848,7 +854,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
                 logger.debug("{} cannot process incoming PREPARE".
-                               format(self))
+                             format(self))
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
@@ -988,7 +994,8 @@ class Replica(HasActionQueue, MessageProcessor):
         change, neither the committed state root hash will change)
         """
         if not self.is_pre_prepare_time_acceptable(pp):
-            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (pp, sender, False)
+            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (
+                pp, sender, False)
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
         validReqs = []
@@ -1050,7 +1057,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.isMsgFromPrimary(pp, sender):
             # Since PRE-PREPARE might be requested from others
             if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
-                raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
+                raise SuspiciousNode(
+                    sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pp) is True:
@@ -1146,7 +1154,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # If non primary replica
         if primaryStatus is False:
             if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                raise SuspiciousNode(
+                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if not ppReq:
                 self.enqueue_prepare(prepare, sender)
@@ -1154,11 +1163,13 @@ class Replica(HasActionQueue, MessageProcessor):
         # If primary replica
         if primaryStatus is True:
             if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                raise SuspiciousNode(
+                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
             elif not ppReq:
-                raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
+                raise SuspiciousNode(
+                    sender, Suspicions.UNKNOWN_PR_SENT, prepare)
 
         if primaryStatus is None and not ppReq:
             self.enqueue_prepare(prepare, sender)
@@ -1251,7 +1262,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
         if (key not in self.prepares and key not in self.sentPrePrepares) and \
-                        key not in self.preparesWaitingForPrePrepare:
+                key not in self.preparesWaitingForPrePrepare:
             logger.debug("{} rejecting COMMIT{} due to lack of prepares".
                          format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
@@ -1315,7 +1326,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
-        if self.last_ordered_3pc == (viewNo, ppSeqNo-1):
+        if self.last_ordered_3pc == (viewNo, ppSeqNo - 1):
             # Last ordered was in same view as this COMMIT
             return True
 
@@ -1516,7 +1527,8 @@ class Replica(HasActionQueue, MessageProcessor):
             # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
-                                         serialize_msg_for_signing(state.digests)
+                                         serialize_msg_for_signing(
+                                             state.digests)
                                      ).hexdigest(),
                                      digests=[])
             self.checkpoints[s, e] = state
@@ -1770,7 +1782,8 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug(
                 "Queueing pre-prepares due to unavailability of previous "
                 "pre-prepares. {} from {}".format(ppMsg, sender))
-            self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (ppMsg, sender)
+            self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (
+                ppMsg, sender)
 
     def dequeue_pre_prepares(self):
         """
@@ -1931,7 +1944,7 @@ class Replica(HasActionQueue, MessageProcessor):
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
         if pre_prepares:
             if [pp for pp in pre_prepares if
-                (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
+                    (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
                 logger.debug('{} not requesting a PRE-PREPARE since already '
                              'found stashed for {}'.format(self, three_pc_key))
                 return False
@@ -1970,7 +1983,8 @@ class Replica(HasActionQueue, MessageProcessor):
                          'received a PRE-PREPARE for {}'.format(self, key))
             return
         if self.has_already_ordered(*key):
-            logger.debug('{} has already ordered PRE-PREPARE({})'.format(self, key))
+            logger.debug(
+                '{} has already ordered PRE-PREPARE({})'.format(self, key))
             return
         if self.getPrePrepare(*key):
             logger.debug(
@@ -1996,7 +2010,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return (self.last_accepted_pre_prepare_time is None or
                 pp.ppTime >= self.last_accepted_pre_prepare_time) and \
-               abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+            abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2008,11 +2022,13 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
-            logger.error('{} found {} to have incorrect time.'.format(self, pp))
+            logger.error(
+                '{} found {} to have incorrect time.'.format(self, pp))
             key = (pp.viewNo, pp.ppSeqNo)
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                logger.info('{} marking time as correct for {}'.format(self, pp))
+                logger.info(
+                    '{} marking time as correct for {}'.format(self, pp))
                 correct = True
         return correct
 
@@ -2035,7 +2051,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 stashed_pp = self.pre_prepares_stashed_for_incorrect_time
                 pp, sender, done = stashed_pp[key]
                 if done:
-                    logger.debug('{} already processed PRE-PREPARE{}'.format(self, key))
+                    logger.debug(
+                        '{} already processed PRE-PREPARE{}'.format(self, key))
                     return True
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
@@ -2068,7 +2085,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param msg: the message to send
         """
         logger.debug("{} sending {}".format(self, msg.__class__.__name__),
-                       extra={"cli": True, "tags": ['sending']})
+                     extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)

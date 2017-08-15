@@ -40,9 +40,9 @@ def invalid_identifier_tdir(tdir_for_func):
            TARGET_NYM: base58.b58encode(b'whatever'),
            IDENTIFIER: "invalid====",
            DATA: {
-                NAME: str(2),
-                ALIAS: 'test' + str(2),
-                SERVICES: [VALIDATOR],
+               NAME: str(2),
+               ALIAS: 'test' + str(2),
+               SERVICES: [VALIDATOR],
            }
            }
     ledger.add(txn)
@@ -69,4 +69,3 @@ def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descri
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
     assert excinfo.value.code == 'Invalid identifier. Rebuild pool transactions.'
     ledger.stop()
-

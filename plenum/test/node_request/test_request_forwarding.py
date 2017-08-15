@@ -56,7 +56,7 @@ def test_all_replicas_hold_request_keys(perf_chk_patched, looper, txnPoolNodeSet
     # Since each nomination is delayed and there will be multiple nominations
     # so adding some extra time
     timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
-              len(txnPoolNodeSet)*delay
+        len(txnPoolNodeSet) * delay
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
                                         add_delay_to_timeout=delay_3pc)

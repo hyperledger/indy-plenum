@@ -43,4 +43,3 @@ def test_view_change_complex(
     view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
                                              txnPoolNodeSet, wallet1, client, tconf,
                                              min_delay=5)
-

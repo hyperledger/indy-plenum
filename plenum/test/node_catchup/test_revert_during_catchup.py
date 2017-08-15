@@ -20,10 +20,10 @@ Max3PCBatchSize = 2
 
 
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
-                                          txnPoolNodeSet,
-                                          client1,
-                                          wallet1,
-                                          client1Connected):
+                                                          txnPoolNodeSet,
+                                                          client1,
+                                                          wallet1,
+                                                          client1Connected):
     """
     Delay COMMITs to a node such that when it needs to catchup, it needs to
     revert some unordered state. Also till this time the node should have
@@ -100,11 +100,12 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
         rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
         assert rv[0] == delay_batches
 
-    looper.run(eventually(chk3, retryWait=1, timeout=catchup_req_delay+5))
+    looper.run(eventually(chk3, retryWait=1, timeout=catchup_req_delay + 5))
 
     def chk4():
         # Catchup was done once
-        assert slow_node.spylog.count(slow_node.allLedgersCaughtUp) > old_lcu_count
+        assert slow_node.spylog.count(
+            slow_node.allLedgersCaughtUp) > old_lcu_count
 
     looper.run(eventually(chk4, retryWait=1,
                           timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))

@@ -14,16 +14,18 @@ def testCheckpointCreated(chkFreqPatched, looper, txnPoolNodeSet, client1,
     """
     # Send one batch less so checkpoint is not created
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        reqs_for_checkpoint-(chkFreqPatched.Max3PCBatchSize), 1)
+                                        reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize), 1)
     # Deliberately waiting so as to verify that not more than 1 checkpoint is
     # created
     looper.runFor(2)
     chkChkpoints(txnPoolNodeSet, 1)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, chkFreqPatched.Max3PCBatchSize, 1)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, chkFreqPatched.Max3PCBatchSize, 1)
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1, timeout=timeout))
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet,
+                          1, 0, retryWait=1, timeout=timeout))
 
 
 def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
@@ -33,7 +35,7 @@ def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
     checkpoint on each replica. The old stable checkpoint should be removed
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=2*reqs_for_checkpoint,
+                                        numReqs=2 * reqs_for_checkpoint,
                                         fVal=1)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
@@ -41,4 +43,5 @@ def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
                                         fVal=1)
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 2, 0, retryWait=1, timeout=timeout))
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet,
+                          2, 0, retryWait=1, timeout=timeout))

@@ -105,12 +105,14 @@ def testSendEvenIfBufferFull(postingStatsEnabled,
 
     statsPublisher.send(message="testMessage{}".format(N))
 
-    statsPublisher.assertMessages(0, config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE, 0)
+    statsPublisher.assertMessages(
+        0, config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE, 0)
 
 
 def testUnexpectedConnectionError(postingStatsEnabled):
     statsPublisher = TestStatsPublisher()
-    statsPublisher._checkConnectionAndConnect = Mock(side_effect=AssertionError("Some Error"))
+    statsPublisher._checkConnectionAndConnect = Mock(
+        side_effect=AssertionError("Some Error"))
 
     statsPublisher.send(message="testMessage")
 
@@ -134,7 +136,8 @@ def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
     for i in range(N):
         statsPublisher.send(message="testMessage{}".format(i))
 
-    assert N == len(statsPublisher.refused) + len(statsPublisher.unexpected) + len(statsPublisher.sent)
+    assert N == len(statsPublisher.refused) + \
+        len(statsPublisher.unexpected) + len(statsPublisher.sent)
 
 
 class TestStatsPublisher(StatsPublisher):

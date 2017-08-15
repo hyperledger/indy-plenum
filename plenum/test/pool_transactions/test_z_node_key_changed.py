@@ -4,7 +4,7 @@ import types
 
 from plenum.common import stack_manager
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, \
-        initRemoteKeys
+    initRemoteKeys
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \

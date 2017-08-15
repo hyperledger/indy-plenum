@@ -25,6 +25,7 @@ def set_permissions(path, mode):
     os.chmod(path, mode)
     return stat.S_IMODE(os.stat(path).st_mode)
 
+
 def get_permissions(path):
     return stat.S_IMODE(os.stat(path).st_mode)
 
@@ -61,6 +62,7 @@ def keyrings_base_dir(tdir_for_func):
 @pytest.fixture(scope='function')
 def test_wallet():
     return Wallet("TestWallet")
+
 
 def test_keyring_base_dir_new_permissions(tdir_for_func):
     # default
@@ -143,7 +145,6 @@ def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
         wsh.saveWallet(test_wallet, os.path.join(wdir, 'wallet'))
 
     exc_info.match(r"{}".format(wdir))
-
 
 
 def test_new_file_wallet_permissions(tdir_for_func, keyrings_base_dir, test_wallet):

@@ -91,7 +91,7 @@ class HasPoolManager(TxnStackManager):
                     self.connectNewRemote(txn, remoteName, self)
                     self.setF()
                 else:
-                    self.nodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(
+                    self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                     _update(txn)
         else:
@@ -114,13 +114,14 @@ class HasPoolManager(TxnStackManager):
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
                 self.updateNodeTxns(nodeInfo, txn)
-                self.connectNewRemote(nodeInfo, remoteName, self    )
+                self.connectNewRemote(nodeInfo, remoteName, self)
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
                 try:
-                    rid = TxnStackManager.removeRemote(self.nodestack, remoteName)
+                    rid = TxnStackManager.removeRemote(
+                        self.nodestack, remoteName)
                     if rid:
                         self.nodestack.outBoxes.pop(rid, None)
                 except RemoteNotFound:
@@ -145,7 +146,6 @@ class HasPoolManager(TxnStackManager):
         if not self._ledgerFile:
             self._ledgerFile = self.config.poolTransactionsFile
         return self._ledgerFile
-
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))

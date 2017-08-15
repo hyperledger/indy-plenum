@@ -28,7 +28,7 @@ def test_caught_up_for_current_view_check(looper,
     """
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        3*Max3PCBatchSize)
+                                        3 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
@@ -45,7 +45,7 @@ def test_caught_up_for_current_view_check(looper,
         bad_method, bad_node.master_replica)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        6*Max3PCBatchSize)
+                                        6 * Max3PCBatchSize)
     waitNodeDataInequality(looper, bad_node, *other_nodes)
 
     # Patch all nodes to return ConsistencyProof of a smaller ledger to the

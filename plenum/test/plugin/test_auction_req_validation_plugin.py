@@ -56,7 +56,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: "dummy",
         DATA: {
             AMOUNT: 30
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     validTypes = ', '.join(plugin.validTxnTypes)
     update = {
@@ -108,7 +108,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: PLACE_BID,
         DATA: {
             AMOUNT: 453
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}

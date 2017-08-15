@@ -55,15 +55,15 @@ def randomString(size: int = 20) -> str:
 
     def randomStr(size):
         assert (size > 0), "Expected random string size cannot be less than 1"
-        #Approach 1
+        # Approach 1
         rv = randombytes(size // 2).hex()
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
-        #Approach 2 this is faster than Approach 1, but lovesh had a doubt
+        # Approach 2 this is faster than Approach 1, but lovesh had a doubt
         # that part of a random may not be truely random, so until
         # we have definite proof going to retain it commented
         #rstr = randombytes(size).hex()
-        #return rstr[:size]
+        # return rstr[:size]
 
     return randomStr(size)
 
@@ -88,8 +88,7 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(), logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -122,7 +121,8 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             if not mutated:
                 if deepLevel is not None and deepLevel == 0:
                     continue
-                objSearchReplace(o, toFrom, checked, logMsg, deepLevel - 1 if deepLevel is not None else deepLevel)
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel -
+                                 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 

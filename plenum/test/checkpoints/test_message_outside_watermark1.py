@@ -33,7 +33,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
     tconf = perf_chk_patched
     delay = 5
     instId = 1
-    reqs_to_send = 2*reqs_for_logsize + 1
+    reqs_to_send = 2 * reqs_for_logsize + 1
     logger.debug('Will send {} requests'.format(reqs_to_send))
 
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
@@ -51,7 +51,8 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(icDelay(300))
 
-    tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    tm_exec_1_batch = waits.expectedTransactionExecutionTime(
+        len(txnPoolNodeSet))
     batch_count = math.ceil(reqs_to_send / tconf.Max3PCBatchSize)
     total_timeout = (tm_exec_1_batch + delay) * batch_count
 

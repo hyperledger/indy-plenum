@@ -18,6 +18,7 @@ class ReqState:
     """
     Object to store the state of the request.
     """
+
     def __init__(self, request: Request):
         self.request = request
         self.forwarded = False
@@ -53,6 +54,7 @@ class Requests(OrderedDict):
     by the node and returned to the transaction store, the key for that
     request is popped out
     """
+
     def add(self, req: Request):
         """
         Add the specified request to this request store.

@@ -34,17 +34,20 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
             counts[r.name] = countDiscarded(r, pat)
         return counts
 
-    oldStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
+    oldStashCount = slowReplica.spylog.count(
+        TestReplica.stashOutsideWatermarks.__name__)
     oldDiscardCounts = discardCounts([n.replicas[instId] for n in
                                       txnPoolNodeSet if n != slowNode],
                                      'achieved stable checkpoint')
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    timeout =waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, reqsToSend, 1)
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeDataForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
                           retryWait=1, timeout=timeout))
-    newStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
+    newStashCount = slowReplica.spylog.count(
+        TestReplica.stashOutsideWatermarks.__name__)
     assert newStashCount > oldStashCount
 
     def chk():
@@ -54,5 +57,6 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
         for nm, count in counts.items():
             assert count > oldDiscardCounts[nm]
 
-    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * len(txnPoolNodeSet) + delay
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * \
+        len(txnPoolNodeSet) + delay
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

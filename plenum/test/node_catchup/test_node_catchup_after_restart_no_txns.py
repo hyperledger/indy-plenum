@@ -26,11 +26,9 @@ logger = getlogger()
 txnCount = 5
 
 
-
-
 def test_node_catchup_after_restart_no_txns(newNodeCaughtUp, txnPoolNodeSet, tconf,
-                                nodeSetWithNodeAddedAfterSomeTxns,
-                                tdirWithPoolTxns, allPluginsPath):
+                                            nodeSetWithNodeAddedAfterSomeTxns,
+                                            tdirWithPoolTxns, allPluginsPath):
     """
     A node restarts but no transactions have happened while it was down.
     It would then use the `LedgerStatus` to catchup
@@ -46,7 +44,7 @@ def test_node_catchup_after_restart_no_txns(newNodeCaughtUp, txnPoolNodeSet, tco
     logger.debug("Starting the stopped node, {}".format(new_node))
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     new_node = TestNode(new_node.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                       ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(new_node)
     txnPoolNodeSet[-1] = new_node
     looper.run(checkNodesConnected(txnPoolNodeSet))

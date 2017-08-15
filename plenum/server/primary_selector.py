@@ -68,8 +68,8 @@ class PrimarySelector(PrimaryDecider):
         if accepted:
             messages.append(ViewChangeDone(self.viewNo, *accepted))
         elif self.name in self._view_change_done:
-                messages.append(ViewChangeDone(self.viewNo,
-                                               *self._view_change_done[self.name]))
+            messages.append(ViewChangeDone(self.viewNo,
+                                           *self._view_change_done[self.name]))
         else:
             logger.debug('{} has no ViewChangeDone message to send for view {}'.
                          format(self, self.viewNo))
@@ -184,7 +184,8 @@ class PrimarySelector(PrimaryDecider):
         num_of_ready_nodes = len(self._view_change_done)
         diff = self.quorum - num_of_ready_nodes
         if diff > 0:
-            logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
+            logger.debug(
+                '{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
 
         logger.debug("{} got view change quorum ({} >= {})"
@@ -311,7 +312,7 @@ class PrimarySelector(PrimaryDecider):
 
     def next_primary_node_name(self, instance_id):
         return self.node.get_name_by_rank(self._get_primary_id(
-                self.viewNo, instance_id))
+            self.viewNo, instance_id))
 
     def next_primary_replica_name(self, instance_id):
         """

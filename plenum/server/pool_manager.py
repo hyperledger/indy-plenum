@@ -109,7 +109,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._ledger = None
         self._id = None
         self._rank = None
-        TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
+        TxnStackManager.__init__(
+            self, self.name, self.basedirpath, isNode=True)
         self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
         self.initPoolState()
@@ -155,7 +156,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
-        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
+        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(
+            self.ledger)
 
         self.addRemoteKeysFromLedger(nodeKeys)
 
@@ -231,7 +233,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
                     self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(info[DATA][CLIENT_IP],
-                                                        info[DATA][CLIENT_PORT])
+                                                                              info[DATA][CLIENT_PORT])
                     _updateNode(txn)
 
             self.node.sendPoolInfoToClients(txn)
@@ -309,7 +311,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
                     try:
-                        rid = TxnStackManager.removeRemote(self.node.nodestack, nodeName)
+                        rid = TxnStackManager.removeRemote(
+                            self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:

@@ -36,7 +36,7 @@ def loadPlugins(baseDir):
             for pluginName in config.PluginsToLoad:
                 try:
                     pluginPath = os.path.expanduser(os.path.join(pluginsDirPath,
-                                              pluginName + ".py"))
+                                                                 pluginName + ".py"))
                     if os.path.exists(pluginPath):
                         spec = spec_from_file_location(
                             pluginName,
@@ -51,8 +51,8 @@ def loadPlugins(baseDir):
                     else:
                         if not pluginsNotFound.get(pluginPath):
                             logger.warning("Note: Plugin file does not exists: {}. "
-                                        "Create plugin file if you want to load it"
-                                        .format(pluginPath), extra={"cli": False})
+                                           "Create plugin file if you want to load it"
+                                           .format(pluginPath), extra={"cli": False})
                             pluginsNotFound[pluginPath] = "Notified"
 
                 except Exception as ex:
@@ -61,7 +61,7 @@ def loadPlugins(baseDir):
                     # or it should fail if there is error in plugin loading
                     logger.warning(
                         "** Error occurred during loading plugin {}: {}"
-                            .format(pluginPath, str(ex)))
+                        .format(pluginPath, str(ex)))
 
     logger.debug(
         "Total plugins loaded from basedir {} are : {}".format(baseDir, i))

@@ -60,7 +60,8 @@ class TestNetworkSetup:
             else:
                 _localNodes = {int(_) for _ in localNodes}
         except BaseException as exc:
-            raise RuntimeError('nodeNum must be an int or set of ints') from exc
+            raise RuntimeError(
+                'nodeNum must be an int or set of ints') from exc
 
         baseDir = cls.setup_base_dir(config)
 
@@ -70,7 +71,8 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
+        trustee_txn = Member.nym_txn(
+            trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
@@ -83,7 +85,7 @@ class TestNetworkSetup:
             if nd.idx in _localNodes:
                 _, verkey = initLocalKeys(nd.name, baseDir,
                                           nd.sigseed, True, config=config)
-                _, verkey = initLocalKeys(nd.name+CLIENT_STACK_SUFFIX, baseDir,
+                _, verkey = initLocalKeys(nd.name + CLIENT_STACK_SUFFIX, baseDir,
                                           nd.sigseed, True, config=config)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
@@ -107,7 +109,8 @@ class TestNetworkSetup:
             poolLedger.add(node_txn)
 
         for cd in client_defs:
-            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
+            txn = Member.nym_txn(
+                cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
             domainLedger.add(txn)
 
         poolLedger.stop()
@@ -125,7 +128,8 @@ class TestNetworkSetup:
     def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
                            domainTxnFieldOrder):
         domain_txn_file = cls.domain_ledger_file_name(config, envName)
-        domain_ledger = create_genesis_txn_init_ledger(baseDir, domain_txn_file)
+        domain_ledger = create_genesis_txn_init_ledger(
+            baseDir, domain_txn_file)
         if not appendToLedgers:
             domain_ledger.reset()
         return domain_ledger
@@ -192,7 +196,8 @@ class TestNetworkSetup:
             assert 0 <= args.nodeNum <= args.nodes, \
                 "nodeNum should be less ore equal to nodeCount"
 
-        steward_defs, node_defs = cls.gen_defs(args.ips, args.nodes, startingPort)
+        steward_defs, node_defs = cls.gen_defs(
+            args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
         cls.bootstrapTestNodesCore(config, args.envName, args.appendToLedgers,

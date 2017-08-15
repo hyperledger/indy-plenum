@@ -27,7 +27,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
         node.processInstanceChange.__name__) for node in txnPoolNodeSet
-                           if node != partitioned_node and node != pr_node}
+        if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
     orig_retry_meth = partitioned_node.nodestack.retryDisconnected
@@ -49,7 +49,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         # primary and sends an instance change which is received by other
         # nodes except the primary (since its disconnected from primary)
         assert partitioned_node.spylog.count(
-        partitioned_node.lost_master_primary.__name__) > lost_pr_calls
+            partitioned_node.lost_master_primary.__name__) > lost_pr_calls
         for node in txnPoolNodeSet:
             if node != partitioned_node and node != pr_node:
                 assert node.spylog.count(

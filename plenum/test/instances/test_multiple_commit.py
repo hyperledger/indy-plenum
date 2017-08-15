@@ -20,7 +20,7 @@ whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     faultyRep = nonPrimaryReps[0]
     makeNodeFaulty(faultyRep.node, partial(sendDuplicate3PhaseMsg,
@@ -53,7 +53,7 @@ def testMultipleCommit(setup, looper, sent1):
     should count only one COMMIT from that sender
     """
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-                                            setup.nonPrimaryReps, setup.faultyRep
+        setup.nonPrimaryReps, setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):
@@ -63,7 +63,7 @@ def testMultipleCommit(setup, looper, sent1):
                 # PREPARE request
                 assert len(getNodeSuspicions(r.node,
                                              Suspicions.DUPLICATE_CM_SENT.code)) \
-                       == 2
+                    == 2
 
     numOfNodes = len(primaryRep.node.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)

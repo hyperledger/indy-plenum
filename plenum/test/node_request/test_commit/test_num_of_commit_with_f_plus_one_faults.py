@@ -46,4 +46,4 @@ def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
                        nodeSet,
                        prepared1,
                        range(getNoInstances(len(nodeSet))),
-                       faultyNodes-1)
+                       faultyNodes - 1)

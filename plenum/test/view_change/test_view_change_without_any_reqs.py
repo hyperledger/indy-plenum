@@ -31,7 +31,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
     delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
     sent_batches = 2
     sendRandomRequests(wallet1, client1,
-                       sent_batches*tconf.Max3PCBatchSize)
+                       sent_batches * tconf.Max3PCBatchSize)
 
     def chk1():
         t_root, s_root = check_uncommitteds_equal(other_nodes)
@@ -40,8 +40,8 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
 
     looper.run(eventually(chk1, retryWait=1))
     timeout = tconf.PerfCheckFreq + \
-              waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
-    waitForViewChange(looper, txnPoolNodeSet, old_view_no+1,
+        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+    waitForViewChange(looper, txnPoolNodeSet, old_view_no + 1,
                       customTimeout=timeout)
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
@@ -49,6 +49,6 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
 
     reset_delays_and_process_delayeds(txnPoolNodeSet)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
-                                              2*Max3PCBatchSize,
+                                              2 * Max3PCBatchSize,
                                               add_delay_to_timeout=delay_3pc)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
