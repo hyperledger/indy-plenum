@@ -868,7 +868,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except TypeError as ex:
             self.discard(msg,
                          reason="{}invalid election messages".format(
-                             PRIMARY_ELECTION_PREFIX),
+                             PRIMARY_SELECTION_PREFIX),
                          logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:

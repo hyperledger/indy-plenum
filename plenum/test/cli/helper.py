@@ -13,7 +13,7 @@ import sys
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.constants import PRIMARY_ELECTION_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
@@ -190,7 +190,7 @@ def checkAllNodesUp(cli):
     # TODO: can waitAllNodesStarted be used instead?
 
     msgs = {stmt['msg'] for stmt in cli.printeds}
-    expected = PRIMARY_ELECTION_PREFIX + "{nm}:{inst} selected primary {pri}" \
+    expected = PRIMARY_SELECTION_PREFIX + "{nm}:{inst} selected primary {pri}" \
                " for instance {inst} (view 0)"
     assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():

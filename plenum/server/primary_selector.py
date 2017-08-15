@@ -1,6 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.constants import PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
@@ -161,7 +161,7 @@ class PrimarySelector(PrimaryDecider):
         if new_primary != expected_primary:
             logger.error("{}{} expected next primary to be {}, but majority "
                          "declared {} instead for view {}"
-                         .format(PRIMARY_ELECTION_PREFIX, self.name,
+                         .format(PRIMARY_SELECTION_PREFIX, self.name,
                                  expected_primary, new_primary, self.viewNo))
             return False
 
@@ -277,7 +277,7 @@ class PrimarySelector(PrimaryDecider):
                 continue
             new_primary_name = self.next_primary_replica_name(instance_id)
             logger.display("{}{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_ELECTION_PREFIX, replica,
+                           .format(PRIMARY_SELECTION_PREFIX, replica,
                                    new_primary_name, instance_id, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
