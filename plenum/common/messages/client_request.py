@@ -1,5 +1,8 @@
-from plenum.common.constants import *
-from plenum.common.messages.fields import *
+from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR
+from plenum.common.messages.fields import NetworkIpAddressField, NetworkPortField, NonEmptyStringField, IterableField, \
+    ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, RoleField, TxnSeqNoField, IdentifierField, \
+    NonNegativeNumberField, SignatureField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 

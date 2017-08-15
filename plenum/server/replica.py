@@ -1,27 +1,33 @@
 import time
 from collections import deque, OrderedDict
+from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
 
+import base58
+from orderedset import OrderedSet
+from sortedcontainers import SortedList
+
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing
-from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.node_messages import *
+from plenum.common.messages.node_messages import Reject, Ordered, \
+    PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.request import ReqDigest, Request, ReqKey
+from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 logger = getlogger()
