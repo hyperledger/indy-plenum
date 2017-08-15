@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Dict, Set
 
-
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
@@ -87,11 +87,13 @@ class KITNetworkInterface:
         :param outs: nodes no longer connected
         """
         for o in outs:
-            logger.info("{} disconnected from {}".format(self, o),
+            logger.info("{}{} disconnected from {}"
+                        .format(CONNECTION_PREFIX, self, o),
                         extra={"cli": "IMPORTANT",
                                "tags": ["connected"]})
         for i in ins:
-            logger.info("{} now connected to {}".format(self, i),
+            logger.info("{}{} now connected to {}"
+                        .format(CONNECTION_PREFIX, self, i),
                         extra={"cli": "IMPORTANT",
                                "tags": ["connected"]})
 
