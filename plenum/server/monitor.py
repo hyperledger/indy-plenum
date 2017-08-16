@@ -8,6 +8,7 @@ from typing import Tuple
 import psutil
 
 from plenum.common.config_util import getConfig
+from plenum.common.constants import MONITORING_PREFIX
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -180,8 +181,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Reset the monitor. Sets all monitored values to defaults.
         """
-        logger.debug("Monitor being reset")
-        self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
+        logger.debug("{}'s Monitor being reset".format(self))
+        num_instances = len(self.instances.started)
+        self.numOrderedRequests = [(0, 0)]*num_instances
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
@@ -196,6 +198,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
+
+    def removeInstance(self, index=None):
+        if self.instances.count > 0:
+            if index is None:
+                index = self.instances.count - 1
+            self.instances.remove(index)
+            del self.numOrderedRequests[index]
+            del self.clientAvgReqLatencies[index]
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False) -> Dict:
@@ -292,8 +302,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         tooLow = r < self.Delta
         if tooLow:
-            logger.info("{} master throughput ratio {} is lower than "
-                        "Delta {}.".format(self, r, self.Delta))
+            logger.info("{}{} master throughput ratio {} is lower than Delta"
+                        " {}.".format(MONITORING_PREFIX, self, r, self.Delta))
         else:
             logger.trace("{} master throughput ratio {} is acceptable.".
                          format(self, r))
@@ -308,8 +318,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             next(((key, lat) for key, lat in self.masterReqLatencies.items() if
                   lat > self.Lambda), None)
         if r:
-            logger.info("{} found master's latency {} to be higher than the "
-                         "threshold for request {}.".format(self, r[1], r[0]))
+            logger.info("{}{} found master's latency {} to be higher than the"
+                        " threshold for request {}."
+                        .format(MONITORING_PREFIX, self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "
                          "threshold for all requests.".format(self))
@@ -333,9 +344,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 return False
             d = avgLatM[cid] - lat
             if d > self.Omega:
-                logger.info("{} found difference between master's and "
+                logger.info("{}{} found difference between master's and "
                              "backups's avg latency {} to be higher than the "
-                             "threshold".format(self, d))
+                             "threshold".format(MONITORING_PREFIX, self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
@@ -358,7 +369,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupThrp = totalReqs / totalTm if totalTm else None
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
-                avgReqsPerInst = totalReqs / self.instances.count
+                avgReqsPerInst = (totalReqs or 0) / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None

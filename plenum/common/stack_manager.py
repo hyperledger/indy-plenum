@@ -1,26 +1,27 @@
 import os
 import shutil
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
 from typing import List
 
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.signer_did import DidIdentity
+from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
 
 logger = getlogger()
 
 
-class TxnStackManager:
+class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
@@ -42,25 +43,19 @@ class TxnStackManager:
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
+
     # noinspection PyTypeChecker
     @property
     def ledger(self):
         if self._ledger is None:
-            defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.ledgerFile)
-            if not os.path.exists(defaultTxnFile):
-                logger.debug("Not using default initialization file for "
-                             "pool ledger, since it does not exist: {}"
-                             .format(defaultTxnFile))
-                defaultTxnFile = None
-
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
             dataDir = self.ledgerLocation
-            self.hashStore = FileHashStore(dataDir=dataDir)
+            self.hashStore = LevelDbHashStore(dataDir=dataDir, fileNamePrefix='pool')
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
                                   ensureDurability=self.config.EnsureLedgerDurability,
-                                  defaultFile=defaultTxnFile)
+                                  genesis_txn_initiator = genesis_txn_initiator)
         return self._ledger
 
     @staticmethod
@@ -76,6 +71,29 @@ class TxnStackManager:
         cliNodeReg = OrderedDict()
         nodeKeys = {}
         activeValidators = set()
+        try:
+            TxnStackManager._parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
+        except ValueError as exc:
+            logger.debug('Pool transaction file corrupted. Rebuild pool transactions.')
+            exit('Pool transaction file corrupted. Rebuild pool transactions.')
+
+        if returnActive:
+            allNodes = tuple(nodeReg.keys())
+            for nodeName in allNodes:
+                if nodeName not in activeValidators:
+                    nodeReg.pop(nodeName, None)
+                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
+                    nodeKeys.pop(nodeName, None)
+
+            return nodeReg, cliNodeReg, nodeKeys
+        else:
+            return nodeReg, cliNodeReg, nodeKeys, activeValidators
+
+    @staticmethod
+    def _parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+        """
+        helper function for parseLedgerForHaAndKeys
+        """
         for _, txn in ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
@@ -93,9 +111,13 @@ class TxnStackManager:
 
                 try:
                     # TODO: Need to handle abbreviated verkey
+                    key_type = 'verkey'
                     verkey = cryptonymToHex(txn[TARGET_NYM])
+                    key_type = 'identifier'
+                    cryptonymToHex(txn[IDENTIFIER])
                 except ValueError as ex:
-                    raise ValueError("Invalid verkey. Rebuild pool transactions.")
+                    logger.debug('Invalid {}. Rebuild pool transactions.'.format(key_type))
+                    exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
                 nodeKeys[nodeName] = verkey
 
@@ -105,18 +127,6 @@ class TxnStackManager:
                         activeValidators.add(nodeName)
                     else:
                         activeValidators.discard(nodeName)
-
-        if returnActive:
-            allNodes = tuple(nodeReg.keys())
-            for nodeName in allNodes:
-                if nodeName not in activeValidators:
-                    nodeReg.pop(nodeName, None)
-                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
-                    nodeKeys.pop(nodeName, None)
-
-            return nodeReg, cliNodeReg, nodeKeys
-        else:
-            return nodeReg, cliNodeReg, nodeKeys, activeValidators
 
     def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
                          addRemote=True):

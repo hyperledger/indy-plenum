@@ -34,7 +34,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardsSeed = None
 
     for nodeIndex, n in enumerate(txnPoolNodeSet):
-        if shouldBePrimary == (n.primaryReplicaNo == 0):
+        if shouldBePrimary == n.has_master_primary:
            subjectedNode = n
            stewardName = poolTxnStewardNames[nodeIndex]
            stewardsSeed = poolTxnData["seeds"][stewardName].encode()

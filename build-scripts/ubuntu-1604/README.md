@@ -1,14 +1,14 @@
 ### Build indy-plenum using docker
 
 ```
-./build-indy-plenum-docker.sh <path-to-sources> 
+./build-indy-plenum-docker.sh <path-to-sources> <version>
 ```
 Built package is placed in a docker volume `indy-plenum-deb-u1604`. 
 
 ### Build indy-plenum
 
 ```
-./build-indy-plenum.sh <path to sources> <output-path: default='.'>
+./build-indy-plenum.sh <path to sources> <version> <output-path: default='.'>
 ```
 
 Built package is placed in the `output-path` folder.

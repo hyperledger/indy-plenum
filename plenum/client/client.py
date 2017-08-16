@@ -11,39 +11,38 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from plenum.common.ledger import Ledger
-from plenum.common.messages.node_message_factory import node_message_factory
-from plenum.common.stacks import nodeStackClass
-from plenum.server.quorums import Quorums
-from stp_core.crypto.nacl_wrappers import Signer
-from stp_core.network.auth_mode import AuthMode
-from stp_core.network.network_interface import NetworkInterface
-from stp_core.types import HA
-
+from common.serializers.serialization import ledger_txn_serializer
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
-from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
-from stp_core.common.log import getlogger
+from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.node_message_factory import node_message_factory
+from plenum.common.messages.node_messages import Reply, LedgerStatus
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
+from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
-from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
-from plenum.common.messages.node_messages import Reply, LedgerStatus
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
-from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
+from plenum.server.quorums import Quorums
+from stp_core.common.constants import CONNECTION_PREFIX
+from stp_core.common.log import getlogger
+from stp_core.crypto.nacl_wrappers import Signer
+from stp_core.network.auth_mode import AuthMode
+from stp_core.network.exceptions import RemoteNotFound
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.types import HA
 
 logger = getlogger()
 
@@ -249,12 +248,18 @@ class Client(Motor,
 
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
+        errs = []
         for request in reqs:
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
                (request.isForced() and self.hasAnyConnections):
                 logger.debug('Client {} sending request {}'.format(self, request))
-                self.send(request)
-                self.expectingFor(request)
+                stat, err_msg = self.send(request)
+                if stat:
+                    self.expectingFor(request)
+                else:
+                    errs.append(err_msg)
+                    logger.debug('Client {} request failed {}'.format(self, err_msg))
+                    continue
             else:
                 logger.debug("{} pending request since in mode {} and "
                              "connected to {} nodes".
@@ -263,7 +268,7 @@ class Client(Motor,
             requests.append(request)
         for r in requests:
             self.reqRepStore.addRequest(r)
-        return requests
+        return requests, errs
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
@@ -566,7 +571,8 @@ class Client(Motor,
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
-                logger.warning('{} could not find remote {}'.format(self, nm))
+                logger.warning('{}{} could not find remote {}'
+                               .format(CONNECTION_PREFIX, self, nm))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
@@ -611,7 +617,7 @@ class Client(Motor,
         self.send(ledgerStatus, rid)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
-        self.nodestack.send(msg, *rids, signer=signer)
+        return self.nodestack.send(msg, *rids, signer=signer)
 
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
@@ -630,8 +636,7 @@ class Client(Motor,
         :return: True
         """
         verifier = MerkleVerifier()
-        fields = getTxnOrderedFields()
-        serializer = CompactSerializer(fields=fields)
+        serializer = ledger_txn_serializer
         ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]

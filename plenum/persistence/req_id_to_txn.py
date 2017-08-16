@@ -1,7 +1,7 @@
 from hashlib import sha256
 from typing import Optional
 
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 
 class ReqIdrToTxn:
@@ -13,7 +13,8 @@ class ReqIdrToTxn:
     def __init__(self, keyValueStorage: KeyValueStorage):
         self._keyValueStorage = keyValueStorage
 
-    def getKey(self, identifier, reqId):
+    @staticmethod
+    def getKey(identifier, reqId):
         h = sha256()
         h.update(identifier.encode())
         h.update(str(reqId).encode())

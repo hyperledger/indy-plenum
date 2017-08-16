@@ -1,5 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
 
+from plenum.common.constants import PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
@@ -109,7 +110,7 @@ class PrimarySelector(PrimaryDecider):
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
                          .format(self, sender, view_no, self.viewNo),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return False
 
         new_primary_name = msg.name
@@ -120,7 +121,7 @@ class PrimarySelector(PrimaryDecider):
                          '{} got Primary from {} for {} who was primary of '
                          'master in previous view too'
                          .format(self, sender, new_primary_name),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return False
 
         # Since a node can send ViewChangeDone more than one time
@@ -158,10 +159,10 @@ class PrimarySelector(PrimaryDecider):
 
         expected_primary = self.next_primary_node_name(0)
         if new_primary != expected_primary:
-            logger.error("{} expected next primary to be {}, but majority "
-                           "declared {} instead for view {}"
-                           .format(self.name, expected_primary, new_primary,
-                                   self.viewNo))
+            logger.error("{}{} expected next primary to be {}, but majority "
+                         "declared {} instead for view {}"
+                         .format(PRIMARY_ELECTION_PREFIX, self.name,
+                                 expected_primary, new_primary, self.viewNo))
             return False
 
         self.primary_verified = True
@@ -186,7 +187,7 @@ class PrimarySelector(PrimaryDecider):
             logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
 
-        logger.info("{} got view change quorum ({} >= {})"
+        logger.debug("{} got view change quorum ({} >= {})"
                      .format(self.name,
                              num_of_ready_nodes,
                              self.quorum))
@@ -259,13 +260,13 @@ class PrimarySelector(PrimaryDecider):
             return
 
         if not self.node.is_synced:
-            logger.info('{} cannot start primary selection since mode is {}'
-                        .format(self, self.node.mode))
+            logger.debug('{} cannot start primary selection since mode is {}'
+                         .format(self, self.node.mode))
             return
 
         if self.is_behind_for_view:
-            logger.info('{} is synced and has an acceptable view change quorum '
-                        'but is behind the accepted state'.format(self))
+            logger.debug('{} is synced and has an acceptable view change quorum '
+                         'but is behind the accepted state'.format(self))
             self.node.start_catchup()
             return
 
@@ -275,11 +276,9 @@ class PrimarySelector(PrimaryDecider):
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_name = self.next_primary_replica_name(instance_id)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(replica,
-                                   new_primary_name,
-                                   instance_id,
-                                   self.viewNo),
+            logger.display("{}{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_ELECTION_PREFIX, replica,
+                                   new_primary_name, instance_id, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
@@ -294,11 +293,12 @@ class PrimarySelector(PrimaryDecider):
             replica.primaryChanged(new_primary_name)
             self.node.primary_selected(instance_id)
 
-            logger.display("{} declares view change {} as completed for "
+            logger.display("{}{} declares view change {} as completed for "
                            "instance {}, "
                            "new primary is {}, "
                            "ledger info is {}"
-                           .format(replica,
+                           .format(VIEW_CHANGE_PREFIX,
+                                   replica,
                                    self.viewNo,
                                    instance_id,
                                    new_primary_name,

@@ -390,7 +390,7 @@ class WalletStorageHelper:
             _dpath.relative_to(self._baseDir)
         except ValueError:
             raise ValueError(
-                "path {} is not is not relative to the keyrings {}".format(
+                "path {} is not is not relative to the wallets {}".format(
                     fpath, self._baseDir))
 
         with _fpath.open() as wf:
