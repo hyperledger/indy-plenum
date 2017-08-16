@@ -1,10 +1,10 @@
 import copy
 
 import pytest
-from state.kv.kv_in_memory import KeyValueStorageInMemory
 from state.pruning_state import PruningState
 from state.state import State
 from state.trie.pruning_trie import BLANK_ROOT, BLANK_NODE
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 @pytest.yield_fixture(scope="function")
@@ -13,11 +13,13 @@ def state() -> State:
     yield state
     state.close()
 
+
 @pytest.yield_fixture(scope="function")
 def state2() -> State:
     state = PruningState(KeyValueStorageInMemory())
     yield state
     state.close()
+
 
 def test_set(state):
     state.set(b'k1', b'v1')
@@ -28,6 +30,7 @@ def test_set(state):
     state.commit(state.headHash)
     assert b'v2' == state.get(b'k2')
 
+
 def test_set_same_key(state):
     state.set(b'k1', b'v1')
     state.commit(state.headHash)
@@ -37,10 +40,11 @@ def test_set_same_key(state):
     state.commit(state.headHash)
     assert b'v2' == state.get(b'k1')
 
+
 def test_get(state):
     state.set(b'k1', b'v1')
     assert b'v1' == state.get(b'k1', isCommitted=False)
-    assert None == state.get(b'k1', isCommitted=True)
+    assert state.get(b'k1', isCommitted=True) is None
 
     state.commit(state.headHash)
     assert b'v1' == state.get(b'k1', isCommitted=False)
@@ -48,31 +52,33 @@ def test_get(state):
 
     state.set(b'k2', b'v2')
     assert b'v2' == state.get(b'k2', isCommitted=False)
-    assert None == state.get(b'k2', isCommitted=True)
+    assert state.get(b'k2', isCommitted=True) is None
     assert b'v1' == state.get(b'k1', isCommitted=True)
 
     state.set(b'k1', b'v3')
     assert b'v3' == state.get(b'k1', isCommitted=False)
     assert b'v1' == state.get(b'k1', isCommitted=True)
 
+
 def test_remove_uncommitted(state):
     state.set(b'k1', b'v1')
     assert b'v1' == state.get(b'k1', isCommitted=False)
-    assert None == state.get(b'k1', isCommitted=True)
+    assert state.get(b'k1', isCommitted=True) is None
 
     state.remove(b'k1')
-    assert None == state.get(b'k1', isCommitted=False)
-    assert None == state.get(b'k1', isCommitted=True)
+    assert state.get(b'k1', isCommitted=False) is None
+    assert state.get(b'k1', isCommitted=True) is None
+
 
 def test_remove_committed(state):
     state.set(b'k1', b'v1')
     state.commit(state.headHash)
     assert b'v1' == state.get(b'k1', isCommitted=False)
-    assert  b'v1' == state.get(b'k1', isCommitted=True)
+    assert b'v1' == state.get(b'k1', isCommitted=True)
 
     state.remove(b'k1')
     # do not remove committed
-    assert None == state.get(b'k1', isCommitted=False)
+    assert state.get(b'k1', isCommitted=False) is None
     assert b'v1' == state.get(b'k1', isCommitted=True)
 
 
@@ -81,11 +87,11 @@ def test_revert_to_last_committed_head(state):
     state.commit(state.headHash)
     state.set(b'k1', b'v2')
     assert b'v2' == state.get(b'k1', isCommitted=False)
-    assert  b'v1' == state.get(b'k1', isCommitted=True)
+    assert b'v1' == state.get(b'k1', isCommitted=True)
 
     state.revertToHead(state.committedHead)
     assert b'v1' == state.get(b'k1', isCommitted=False)
-    assert  b'v1' == state.get(b'k1', isCommitted=True)
+    assert b'v1' == state.get(b'k1', isCommitted=True)
 
 
 def test_revert_to_old_head(state):
@@ -97,7 +103,7 @@ def test_revert_to_old_head(state):
     state.set(b'k1', b'v3')
     state.commit(state.headHash)
     assert b'v3' == state.get(b'k1', isCommitted=False)
-    assert  b'v3' == state.get(b'k1', isCommitted=True)
+    assert b'v3' == state.get(b'k1', isCommitted=True)
 
     state.revertToHead(head1)
     assert b'v1' == state.get(b'k1', isCommitted=False)
@@ -153,6 +159,7 @@ def test_commit_current(state):
 
     assert head == state.committedHead
     assert headHash == state.committedHeadHash
+
 
 def test_commit_multiple_times(state):
     state.set(b'k1', b'v1')
@@ -214,6 +221,7 @@ def test_commit_to_old_head(state):
     assert head == state.committedHead
     assert headHash == state.committedHeadHash
 
+
 def testStateData(state):
     state.set(b'k1', b'v1')
     state.set(b'k2', b'v2')
@@ -221,6 +229,3 @@ def testStateData(state):
 
     data = {k: v for k, v in state.as_dict.items()}
     assert data == {b'k1': b'v1', b'k2': b'v2', b'k3': b'v3'}
-
-
-

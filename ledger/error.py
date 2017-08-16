@@ -17,9 +17,9 @@ This is a nightmare for the caller to handle.
 
 Therefore, methods in the crypto package that verify a property return True
 when verification succeeds and raise an exception on any error. This minimises
-the risk of uncaught errors, allows to provide information for callers that care
-about the specific failure reason, and makes failure handling easy for callers
-that do not care:
+the risk of uncaught errors, allows to provide information for callers that
+care about the specific failure reason, and makes failure handling easy for
+callers that do not care:
 
 try:
     verify(myargs)
@@ -43,12 +43,10 @@ import functools
 
 class Error(Exception):
     """Exceptions raised by the crypto subpackage."""
-    pass
 
 
 class UnsupportedAlgorithmError(Error):
     """An algorithm is not implemented or supported."""
-    pass
 
 
 class VerifyError(Error):
@@ -57,12 +55,10 @@ class VerifyError(Error):
     The property either verifiably does not hold, or cannot be conclusively
     verified. Domain-specific verification errors inherit from this class.
     """
-    pass
 
 
 class ConsistencyError(VerifyError):
     """There is a (cryptographic) inconsistency in the data."""
-    pass
 
 
 class ProofError(VerifyError):
@@ -72,7 +68,6 @@ class ProofError(VerifyError):
     hold but rather that the given data is insufficient for verifying the
     desired property.
     """
-    pass
 
 
 # TODO(ekasper): TBD if this hierarchy is appropriate.
@@ -81,26 +76,23 @@ class EncodingError(Error):
 
     Inputs cannot be serialized, or serialized data cannot be parsed.
     """
-    pass
 
 
 class ASN1Error(EncodingError):
     """An ASN1 object cannot be encoded or decoded."""
-    pass
 
 
 class ASN1TagError(ASN1Error):
     """ASN1 tag mismatch."""
-    pass
 
 
 class UnknownASN1TypeError(ASN1Error):
     """An OID does not map to a known ASN.1 type."""
-    pass
 
 
 class ASN1IllegalCharacter(ASN1Error):
     """String contains illegal character."""
+
     def __init__(self, message, string, index, *args):
         self.message = message
         self.string = string
@@ -111,28 +103,24 @@ class ASN1IllegalCharacter(ASN1Error):
         return "%s (string: %s, character: %s, index: %d)" % (self.message,
                                                               self.string,
                                                               self.string[
-                                                                    self.index],
+                                                                  self.index],
                                                               self.index)
 
 
 class IncompleteChainError(VerifyError):
     """A certificate is missing from the chain"""
-    pass
 
 
 class SignatureError(VerifyError):
     """A public-key signature does not verify."""
-    pass
 
 
 class UnsupportedVersionError(Error):
     """The version of the data structure is unknown."""
-    pass
 
 
 class GeneralMissingError(Error):
     """Some required attribute is missing"""
-    pass
 
 
 def returns_true_or_raises(f):

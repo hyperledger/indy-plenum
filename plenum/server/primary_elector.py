@@ -5,6 +5,7 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any, Union, List, Iterable
 
+from plenum.common.constants import PRIMARY_ELECTION_PREFIX
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.common.util import mostCommonElement
@@ -205,9 +206,9 @@ class PrimaryElector(PrimaryDecider):
         if not self.didReplicaNominate(instId):
             self.nominations[instId][replica.name] = (replica.name,
                                                       replica.last_ordered_3pc[1])
-            logger.info("{} nominating itself for instance {}".
-                        format(replica, instId),
-                        extra={"cli": "PLAIN", "tags": ["node-nomination"]})
+            logger.debug("{} nominating itself for instance {}".
+                         format(replica, instId),
+                         extra={"cli": "PLAIN", "tags": ["node-nomination"]})
             self.sendNomination(replica.name, instId, self.viewNo, replica.last_ordered_3pc[1])
         else:
             logger.debug(
@@ -251,7 +252,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(nom, '{} got Nomination from {} for {} who was primary'
                               ' of master in previous view too'.
                          format(self, sender, nom.name),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return False
 
         sndrRep = replica.generateName(sender, nom.instId)
@@ -279,7 +280,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(nom,
                          "already got nomination from {}".
                          format(sndrRep),
-                         logger.warning)
+                         logger.debug)
 
             key = (Nomination.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
@@ -305,7 +306,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                                ' of master in previous view too'.
                          format(self, sender, prim.name),
-                         logMethod=logger.warning)
+                         logMethod=logger.debug)
             return
 
         sndrRep = replica.generateName(sender, prim.instId)
@@ -323,7 +324,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(prim,
                          "already got primary declaration from {}".
                          format(sndrRep),
-                         logger.warning)
+                         logger.debug)
 
             key = (Primary.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
@@ -355,9 +356,10 @@ class PrimaryElector(PrimaryDecider):
             if replica.isPrimary is None:
                 primary, seqNo = mostCommonElement(
                     self.primaryDeclarations[inst_id].values())
-                logger.display("{} selected primary {} for instance {} "
-                               "(view {})".format(replica, primary,
-                                                  inst_id, self.viewNo),
+                logger.display("{}{} selected primary {} for instance {} "
+                               "(view {})"
+                               .format(PRIMARY_ELECTION_PREFIX, replica,
+                                       primary, inst_id, self.viewNo),
                                extra={"cli": "ANNOUNCE",
                                       "tags": ["node-election"]})
                 logger.debug("{} selected primary on the basis of {}".
@@ -461,7 +463,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(reelection,
                          "already got re-election proposal from {}".
                          format(sndrRep),
-                         logger.warning)
+                         logger.debug)
 
     def hasReelectionQuorum(self, instId: int) -> bool:
         """
@@ -580,8 +582,8 @@ class PrimaryElector(PrimaryDecider):
                 if self.hasNominationsFromAll(instId) or (
                         self.scheduledPrimaryDecisions[instId] is not None and
                         self.hasPrimaryDecisionTimerExpired(instId)):
-                    logger.info("{} proposing re-election".format(replica),
-                                extra={"cli": True, "tags": ['node-election']})
+                    logger.debug("{} proposing re-election".format(replica),
+                                 extra={"cli": True, "tags": ['node-election']})
                     self.sendReelection(instId,
                                         [n[0] for n in primaryCandidates])
                 else:

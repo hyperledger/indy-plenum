@@ -6,9 +6,9 @@ import sys
 import rlp
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
-from state.kv.kv_in_memory import KeyValueStorageInMemory
 from state.util.fast_rlp import encode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 rlp_encode = encode_optimized
 
@@ -97,6 +97,7 @@ class ProofConstructor:
 
     def get_mode(self):
         return self.mode[-1]
+
 
 proof = ProofConstructor()
 
@@ -188,6 +189,7 @@ def is_key_value_type(node_type):
     return node_type in [NODE_TYPE_LEAF,
                          NODE_TYPE_EXTENSION]
 
+
 BLANK_NODE = b''
 BLANK_ROOT = sha3rlp(BLANK_NODE)
 DEATH_ROW_OFFSET = 2**62
@@ -205,7 +207,7 @@ class Trie:
         :param db key value database
         :root: blank or trie node in form of [key, value] or [v0,v1..v15,v]
         '''
-        self._db = db # Pass in a database object directly
+        self._db = db  # Pass in a database object directly
         self.transient = transient
         if self.transient:
             self.update = self.get = self.delete = transient_trie_exception
@@ -520,7 +522,8 @@ class Trie:
             if reverse:
                 scan_range.reverse()
             for i in scan_range:
-                o = self._getany(self._decode_to_node(node[i]), path=path + [i])
+                o = self._getany(self._decode_to_node(
+                    node[i]), path=path + [i])
                 if o:
                     return [i] + o
             return None
@@ -601,8 +604,8 @@ class Trie:
             return
         """
         ===== FIXME ====
-        in the current trie implementation two nodes can share identical subtrees
-        thus we can not safely delete nodes for now
+        in the current trie implementation two nodes can share identical
+        subtrees thus we can not safely delete nodes for now
         """
         hashkey = sha3(encoded)
         self._db.dec_refcount(hashkey)
@@ -852,7 +855,8 @@ class Trie:
                 sub_dict = self._to_dict(self._decode_to_node(node[i]))
 
                 for sub_key, sub_value in sub_dict.items():
-                    full_key = (str_to_bytes(str(i)) + b'+' + sub_key).strip(b'+')
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
                     res[full_key] = sub_value
 
             if node[16]:
@@ -870,6 +874,50 @@ class Trie:
             key = nibbles_to_bin(without_terminator(nibbles))
             res[key] = value
         return res
+
+    def iter_branch(self):
+        for key_str, value in self._iter_branch(self.root_node):
+            if key_str:
+                nibbles = [int(x) for x in key_str.split(b'+')]
+            else:
+                nibbles = []
+            key = nibbles_to_bin(without_terminator(nibbles))
+            yield key, value
+
+    def _iter_branch(self, node):
+        """yield (key, value) stored in this and the descendant nodes
+        :param node: node in form of list, or BLANK_NODE
+
+        .. note::
+            Here key is in full form, rather than key of the individual node
+        """
+        if node == BLANK_NODE:
+            raise StopIteration
+
+        node_type = self._get_node_type(node)
+
+        if is_key_value_type(node_type):
+            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            key = b'+'.join([to_string(x) for x in nibbles])
+            if node_type == NODE_TYPE_EXTENSION:
+                sub_tree = self._iter_branch(self._decode_to_node(node[1]))
+            else:
+                sub_tree = [(to_string(NIBBLE_TERMINATOR), node[1])]
+
+            # prepend key of this node to the keys of children
+            for sub_key, sub_value in sub_tree:
+                full_key = (key + b'+' + sub_key).strip(b'+')
+                yield (full_key, sub_value)
+
+        elif node_type == NODE_TYPE_BRANCH:
+            for i in range(16):
+                sub_tree = self._iter_branch(self._decode_to_node(node[i]))
+                for sub_key, sub_value in sub_tree:
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
+                    yield (full_key, sub_value)
+            if node[16]:
+                yield (to_string(NIBBLE_TERMINATOR), node[-1])
 
     def get(self, key):
         return self._get(self.root_node, bin_to_nibbles(to_string(key)))
@@ -935,6 +983,25 @@ class Trie:
         :return:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
+
+    @staticmethod
+    def verify_spv_proof(root, key, proof_nodes):
+        proof.push(VERIFYING, proof_nodes)
+        t = Trie(KeyValueStorageInMemory())
+
+        for i, node in enumerate(proof_nodes):
+            R = rlp_encode(node)
+            H = sha3(R)
+            t._db.put(H, R)
+        try:
+            t.root_hash = root
+            t.get(key)
+            proof.pop()
+            return True
+        except Exception as e:
+            print(e)
+            proof.pop()
+            return False
 
 
 if __name__ == "__main__":

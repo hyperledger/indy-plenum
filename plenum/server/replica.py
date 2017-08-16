@@ -1,30 +1,28 @@
 import time
 from collections import deque, OrderedDict
+from hashlib import sha256
 from typing import Dict, List, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
-from hashlib import sha256
-
-from orderedset import OrderedSet
-from sortedcontainers import SortedList
 
 import plenum.server.node
+from common.serializers.serialization import serialize_msg_for_signing
+from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
-from plenum.common.signing import serialize
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
-from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict
-from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-
+from sortedcontainers import SortedList
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -63,8 +61,7 @@ class Stats:
         return self.stats[key]
 
     def __repr__(self):
-        return OrderedDict((TPCStat(k).name, v)
-                           for k, v in self.stats.items())
+        return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
 
 class Replica(HasActionQueue, MessageProcessor):
@@ -225,11 +222,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, deque]
         for ledger_id in self.ledger_ids:
-            # Using ordered set since after ordering each PRE-PREPARE,
-            # the request key is removed, so fast lookup and removal of
-            # request key is needed. Need the collection to be ordered since
-            # the request key needs to be removed once its ordered
-            self.requestQueues[ledger_id] = OrderedSet()
+            self.register_ledger(ledger_id)
 
         self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
         # Tuple[int, float, bytes]]
@@ -262,6 +255,14 @@ class Replica(HasActionQueue, MessageProcessor):
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
+
+    def register_ledger(self, ledger_id):
+        # Using ordered set since after ordering each PRE-PREPARE,
+        # the request key is removed, so fast lookup and removal of
+        # request key is needed. Need the collection to be ordered since
+        # the request key needs to be removed once its ordered
+        if ledger_id not in self.requestQueues:
+            self.requestQueues[ledger_id] = OrderedSet()
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -297,7 +298,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def h(self, n):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
-        logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -323,7 +324,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if n > self._lastPrePrepareSeqNo:
             self._lastPrePrepareSeqNo = n
         else:
-            logger.info('{} cannot set lastPrePrepareSeqNo to {} as its '
+            logger.debug('{} cannot set lastPrePrepareSeqNo to {} as its '
                          'already {}'.format(self, n, self._lastPrePrepareSeqNo))
 
     @property
@@ -389,7 +390,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.compact_primary_names()
         if not value == self._primaryName:
             self._primaryName = value
-            logger.info("{} setting primaryName for view no {} to: {}".
+            logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if value is None:
                 # Since the GC needs to happen after a primary has been decided.
@@ -435,7 +436,7 @@ class Replica(HasActionQueue, MessageProcessor):
         assert self.isMaster
         lst = self.last_prepared_certificate_in_view()
         self.last_prepared_before_view_change = lst
-        logger.info('{} setting last prepared for master to {}'.format(self, lst))
+        logger.debug('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         assert self.isMaster
@@ -629,7 +630,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.node.applyReq(req, cons_time)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
-                            'will reject'.format(self, ex, req))
+                           'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))
             inValidReqs.append(req)
         else:
@@ -637,9 +638,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def create3PCBatch(self, ledger_id):
         ppSeqNo = self.lastPrePrepareSeqNo + 1
-        logger.info("{} creating batch {} for ledger {} with state root {}".
-                    format(self, ppSeqNo, ledger_id,
-                           self.stateRootHash(ledger_id, to_str=False)))
+        logger.debug("{} creating batch {} for ledger {} with state root {}".
+                     format(self, ppSeqNo, ledger_id,
+                            self.stateRootHash(ledger_id, to_str=False)))
         tm = self.utc_epoch
 
         validReqs = []
@@ -669,7 +670,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledger_id),
                                    self.txnRootHash(ledger_id)
                                    )
-        logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
+        logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
         self.last_accepted_pre_prepare_time = tm
@@ -973,9 +974,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
-        logger.info('{} reverting {} txns and state root from {} to {} for'
-                    ' ledger {}'.format(self, reqCount, state.headHash,
-                                        stateRootHash, ledgerId))
+        logger.debug('{} reverting {} txns and state root from {} to {} for'
+                     ' ledger {}'.format(self, reqCount, state.headHash,
+                                         stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
@@ -1392,7 +1393,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.info("{} ordering COMMIT{}".format(self, key))
+        logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
     def order_3pc_key(self, key):
@@ -1480,13 +1481,14 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def __start_catchup_if_needed(self):
-        stashed_chks_with_quorum = self.stashed_checkpoints_with_quorum()
-        is_stashed_enough = stashed_chks_with_quorum > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
+        quorums, max_pp_seq_no = self.stashed_checkpoints_with_quorum()
+        is_stashed_enough = quorums > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
         is_non_primary_master = self.isMaster and not self.isPrimary
         if is_stashed_enough and is_non_primary_master:
-            logger.info('{} has stashed {} checkpoints with quorum '
-                        'so the catchup procedure starts'.format(self, stashed_chks_with_quorum))
+            logger.debug('{} has stashed {} checkpoints with quorum '
+                         'so the catchup procedure starts'.format(self, quorums))
             self.node.start_catchup()
+            self.h = max_pp_seq_no
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1514,7 +1516,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
-                                         serialize(state.digests).encode()
+                                         serialize_msg_for_signing(state.digests)
                                      ).hexdigest(),
                                      digests=[])
             self.checkpoints[s, e] = state
@@ -1535,7 +1537,7 @@ class Replica(HasActionQueue, MessageProcessor):
             else:
                 previousCheckpoints.append((s, e))
         else:
-            logger.error("{} could not find {} in checkpoints".
+            logger.debug("{} could not find {} in checkpoints".
                          format(self, seqNo))
             return
         self.h = seqNo
@@ -1588,9 +1590,14 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.stashedRecvdCheckpoints.pop(view_no)
 
     def stashed_checkpoints_with_quorum(self):
+        quorums = 0
+        end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
-        return sum(quorum.is_reached(len(senders))
-                   for senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).values())
+        for (_, seq_no_end), senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).items():
+            if quorum.is_reached(len(senders)):
+                quorums += 1
+                end_pp_seq_numbers.append(seq_no_end)
+        return quorums, max(end_pp_seq_numbers) if end_pp_seq_numbers else None
 
     def processStashedCheckpoints(self, key):
         self._clear_prev_view_stashed_checkpoints()
@@ -1696,7 +1703,7 @@ class Replica(HasActionQueue, MessageProcessor):
             if isinstance(item, tuple) and len(item) == 2:
                 self.dispatchThreePhaseMsg(*item)
             else:
-                logger.error("{} cannot process {} "
+                logger.debug("{} cannot process {} "
                              "from stashingWhileOutsideWaterMarks".
                              format(self, item))
             itemsToConsume -= 1
@@ -1975,8 +1982,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root):
             self.processThreePhaseMsg(pp, sender)
         else:
-            self.discard(pp, reason='does not have expected state({} {} {})'.
-                         format(digest, state_root, txn_root),
+            self.discard(pp, reason='{}does not have expected state({} {} {})'.
+                         format(THREE_PC_PREFIX, digest, state_root, txn_root),
                          logMethod=logger.warning)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
@@ -2060,7 +2067,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
-        logger.info("{} sending {}".format(self, msg.__class__.__name__),
+        logger.debug("{} sending {}".format(self, msg.__class__.__name__),
                        extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:

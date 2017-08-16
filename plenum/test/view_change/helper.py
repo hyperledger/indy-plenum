@@ -180,9 +180,12 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
 
 
 def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, client,
-                                             min_delay=0, max_delay=5):
+                                             tconf,
+                                             min_delay=0, max_delay=0):
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
 
+    # max delay should not be more than catchup timeout.
+    max_delay = max_delay or tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
     sendRandomRequests(wallet, client, 10)

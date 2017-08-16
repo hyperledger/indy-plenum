@@ -48,6 +48,5 @@ build_from_pypi sha3 0.2.1
 build_from_pypi raet 0.6.6
 build_from_pypi pyzmq 16.0.2
 build_from_pypi intervaltree 2.1.0
-build_from_pypi ujson 1.33
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7

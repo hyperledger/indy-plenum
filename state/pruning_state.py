@@ -1,24 +1,28 @@
 from binascii import unhexlify
+from typing import Optional
 
 from state.db.persistent_db import PersistentDB
-from state.kv.kv_store import KeyValueStorage
 from state.state import State
-from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, bin_to_nibbles
+from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, \
+    bin_to_nibbles
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string, isHex
+from storage.kv_store import KeyValueStorage
 
 
 class PruningState(State):
-    # This class is used to store the
-    # committed root hash of the trie in the db.
-    # The committed root hash is only updated once a batch gets written to the
-    # ledger. It might happen that a few batches are in 3 phase commit and the
-    # node crashes. Now when the node restarts, it restores the db from the
-    # committed root hash and all entries for uncommitted batches will be
-    # ignored
+    """
+    This class is used to store the
+    committed root hash of the trie in the db.
+    The committed root hash is only updated once a batch gets written to the
+    ledger. It might happen that a few batches are in 3 phase commit and the
+    node crashes. Now when the node restarts, it restores the db from the
+    committed root hash and all entries for uncommitted batches will be
+    ignored
+    """
 
-    # some key that does not collide with any state variable's name
+    # SOME KEY THAT DOES NOT COLLIDE WITH ANY STATE VARIABLE'S NAME
     rootHashKey = b'\x88\xc8\x88 \x9a\xa7\x89\x1b'
 
     def __init__(self, keyValueStorage: KeyValueStorage):
@@ -50,7 +54,7 @@ class PruningState(State):
     def set(self, key: bytes, value: bytes):
         self._trie.update(key, rlp_encode([value]))
 
-    def get(self, key: bytes, isCommitted: bool = True):
+    def get(self, key: bytes, isCommitted: bool = True) -> Optional[bytes]:
         if not isCommitted:
             val = self._trie.get(key)
         else:

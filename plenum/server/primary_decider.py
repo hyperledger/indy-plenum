@@ -1,6 +1,7 @@
 from typing import Iterable
 from collections import deque
 
+from plenum.common.constants import VIEW_CHANGE_PREFIX
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.types import f
 from plenum.server.has_action_queue import HasActionQueue
@@ -106,8 +107,9 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         calling decidePrimaries() 
         """
         if viewNo <= self.viewNo:
-            logger.warning("Provided view no {} is not greater than the "
-                           "current view no {}".format(viewNo, self.viewNo))
+            logger.warning("{}Provided view no {} is not greater"
+                           " than the current view no {}"
+                           .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
             return False
         self.viewNo = viewNo
         self.previous_master_primary = self.node.master_primary_name

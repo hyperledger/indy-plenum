@@ -13,7 +13,8 @@ def testKitZStacksConnected(registry, tdir, looper, tconf):
     stacks = []
     for name, ha in registry.items():
         printer = Printer(name)
-        stackParams = dict(name=name, ha=ha, basedirpath=tdir, auth_mode=AuthMode.RESTRICTED.value)
+        stackParams = dict(name=name, ha=ha, basedirpath=tdir,
+                           auth_mode=AuthMode.RESTRICTED.value)
         reg = copy(registry)
         reg.pop(name)
         stack = KITZStack(stackParams, printer.print, reg)
@@ -22,6 +23,6 @@ def testKitZStacksConnected(registry, tdir, looper, tconf):
     prepStacks(looper, *stacks, connect=False, useKeys=True)
     # TODO: the connection may not be established for the first try because
     # some of the stacks may not have had a remote yet (that is they haven't had yet called connect)
-    timeout = 2*tconf.RETRY_TIMEOUT_RESTRICTED+1
+    timeout = 2 * tconf.RETRY_TIMEOUT_RESTRICTED + 1
     looper.run(eventually(
         checkStacksConnected, stacks, retryWait=1, timeout=timeout))

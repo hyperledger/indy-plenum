@@ -22,7 +22,7 @@ class CustomAdapter(logging.LoggerAdapter):
         self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
-def getlogger(name: object = None) -> object:
+def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 
@@ -75,8 +75,8 @@ class Logger(metaclass=Singleton):
             else self._default_raet_verbosity
         file = raet_log_file or self._default_raet_log_file
 
-        logging.info("Setting RAET log level {}".format(verbosity),
-                     extra={"cli": False})
+        logging.debug("Setting RAET log level {}".format(verbosity),
+                      extra={"cli": False})
 
         console.reinit(verbosity=verbosity, path=file, flushy=True)
 
