@@ -30,8 +30,13 @@ nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
 #walletDir = 'wallet'
 
-poolTransactionsFile = 'pool_transactions_sandbox'
-domainTransactionsFile = 'transactions_sandbox'
+pool_transactions_file_base = 'pool_transactions'
+domain_transactions_file_base = 'domain_transactions'
+genesis_file_suffix = '_genesis'
+
+poolTransactionsFile = pool_transactions_file_base
+domainTransactionsFile = domain_transactions_file_base
+
 
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
@@ -186,6 +191,7 @@ CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 
 # permissions for keyring dirs/files
 WALLET_DIR_MODE = 0o700  # drwx------

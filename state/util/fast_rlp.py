@@ -1,8 +1,8 @@
 import sys
 
 import rlp
-from state.kv.kv_in_memory import KeyValueStorageInMemory
 from state.util.utils import int_to_big_endian, big_endian_to_int, safe_ord
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 def _encode_optimized(item):
@@ -69,6 +69,7 @@ def consume_length_prefix(rlp, start):
         ll = b0 - 192 - 56 + 1
         l = big_endian_to_int(rlp[start + 1:start + 1 + ll])
         return (list, l, start + 1 + ll)
+
 
 #
 if sys.version_info.major == 2:

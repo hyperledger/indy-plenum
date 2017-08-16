@@ -107,7 +107,7 @@ class Remote:
     def hasLostConnection(self):
 
         if self.socket is None:
-            logger.warning('Remote {} already disconnected'.format(self))
+            logger.debug('Remote {} already disconnected'.format(self))
             return False
 
         events = self._lastSocketEvents()

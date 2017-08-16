@@ -3,11 +3,15 @@ from typing import Any, Iterable
 from typing import Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
 from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Batch
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.exceptions import InvalidMessageExceedingSizeException
+from stp_core.validators.message_length_validator import MessageLenValidator
+from stp_core.common.config.util import getConfig
 
 logger = getlogger()
 
@@ -18,11 +22,14 @@ class Batched(MessageProcessor):
     Assumes a Stack (ZStack or RStack) is mixed
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """
         :param self: 'NodeStacked'
+        :param config: 'stp config'
         """
         self.outBoxes = {}  # type: Dict[int, deque]
+        self.stp_config = config or getConfig()
+        self.msg_len_val = MessageLenValidator(self.stp_config.MSG_LEN_LIMIT)
 
     def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
@@ -56,13 +63,16 @@ class Batched(MessageProcessor):
         # Signing (if required) and serializing before enqueueing otherwise
         # each call to `_enqueue` will have to sign it and `transmit` will try
         # to serialize it which is waste of resources
-        serializedPayload = self.signAndSerialize(msg, signer)
+        serializedPayload, err_msg = self.signAndSerialize(msg, signer)
+        if serializedPayload is None:
+            return False, err_msg
 
         if rids:
             for r in rids:
                 self._enqueue(serializedPayload, r, signer)
         else:
             self._enqueueIntoAllRemotes(serializedPayload, signer)
+        return True, None
 
     def flushOutBoxes(self) -> None:
         """
@@ -92,19 +102,23 @@ class Batched(MessageProcessor):
                     msgs.clear()
                     # don't need to sign the batch, when the composed msgs are
                     # signed
-                    payload = self.signAndSerialize(batch)
-                    logger.trace("{} sending payload to {}: {}".format(self,
-                                                                       dest,
-                                                                       payload))
-                    # Setting timeout to never expire
-                    self.transmit(payload, rid, timeout=self.messageTimeout,
-                                  serialized=True)
+                    payload, err_msg = self.signAndSerialize(batch)
+                    if payload is not None:
+                        logger.trace("{} sending payload to {}: {}".format(self, dest, payload))
+                        # Setting timeout to never expire
+                        self.transmit(payload, rid, timeout=self.messageTimeout,
+                                      serialized=True)
+                    else:
+                        logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
         for rid in removedRemotes:
-            logger.warning("{} rid {} has been removed".format(self, rid),
+            logger.warning("{}{} rid {} has been removed"
+                           .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
-                self.discard(msgs, "rid {} no longer available".format(rid),
+                self.discard(msgs,
+                             "{}rid {} no longer available"
+                             .format(CONNECTION_PREFIX, rid),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
 
@@ -125,4 +139,12 @@ class Batched(MessageProcessor):
 
     def signAndSerialize(self, msg, signer=None):
         payload = self.prepForSending(msg, signer)
-        return self.serializeMsg(payload)
+        msg_bytes = self.serializeMsg(payload)
+        err_msg = None
+        try:
+            self.msg_len_val.validate(msg_bytes)
+        except InvalidMessageExceedingSizeException as ex:
+            err_msg = 'Message will be discarded due to {}'.format(ex)
+            logger.debug(err_msg)
+            msg_bytes = None
+        return msg_bytes, err_msg

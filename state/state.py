@@ -1,4 +1,4 @@
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 
 
 class State:
@@ -30,19 +30,22 @@ class State:
     def close(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def head(self):
         # The current head of the state, if the state is a merkle tree then
         # head is the root
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def committedHead(self):
         # The committed head of the state, if the state is a merkle tree then
         # head is the root
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def headHash(self):
         """
         The hash of the current head of the state, if the state is a merkle
@@ -51,10 +54,12 @@ class State:
         """
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def committedHeadHash(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isEmpty(self):
         raise NotImplementedError

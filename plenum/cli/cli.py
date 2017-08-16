@@ -2,16 +2,14 @@ from __future__ import unicode_literals
 
 import glob
 import shutil
-from hashlib import sha256
 from os.path import basename, dirname
 from typing import Dict, Iterable
 
 from jsonpickle import json
-
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
-from ledger.stores.file_hash_store import FileHashStore
-from plenum import config
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newWalletCmd, renameWalletCmd, useWalletCmd, saveWalletCmd, \
@@ -27,21 +25,21 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet, WalletStorageHelper
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.signer_did import DidSigner
-from stp_core.crypto.util import cleanSeed, seedFromHex
-from stp_raet.util import getLocalEstateData
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
-    CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from storage.kv_in_memory import KeyValueStorageInMemory
+from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
+from stp_raet.util import getLocalEstateData
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -59,8 +57,6 @@ import ast
 from functools import reduce, partial
 import sys
 
-from prompt_toolkit.history import FileHistory
-from ioflo.aid.consoling import Console
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -79,13 +75,14 @@ from plenum.common.util import getMaxFailures, \
     normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
-    getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
+    getlogger, Logger
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
+from plenum.cli.command_history import CliFileHistory
 
 
 
@@ -130,28 +127,8 @@ class Cli:
         Logger().enableCliLogging(self.out,
                                   override_tags=override_tags)
         self.looper = looper
-        self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
-                and len(cliNodeReg)):
-            self.nodeRegLoadedFromFile = True
-            dataDir = self.basedirpath
-            fileHashStore = FileHashStore(dataDir=dataDir)
-            ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
-                dataDir=dataDir,
-                fileName=self.config.poolTransactionsFile)
-            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
-                ledger)
-            ledger.stop()
-            fileHashStore.close()
-
         self.withNode = withNode
-        self.nodeReg = nodeReg
-        self.cliNodeReg = cliNodeReg
-        self.nodeRegistry = {}
-        for nStkNm, nha in self.nodeReg.items():
-            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+        self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -174,7 +151,7 @@ class Cli:
         self.plugins = {}
         self.pluginPaths = []
         self.defaultClient = None
-        self.activeIdentifier = None
+        self.activeDID = None
         # Wallet and Client are the same from user perspective for now
         self._activeClient = None
         self._wallets = {}  # type: Dict[str, Wallet]
@@ -227,7 +204,7 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        self.pers_hist = FileHistory('.{}-cli-history'.format(self.name))
+        self.pers_hist = CliFileHistory(command_filter=self.mask_seed, filename='.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
@@ -285,6 +262,39 @@ class Cli:
         self.restoreLastActiveWallet()
 
         self.checkIfCmdHandlerAndCmdMappingExists()
+
+
+    def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
+        self.nodeRegLoadedFromFile = False
+        if not (useNodeReg and nodeReg and len(nodeReg)
+                and cliNodeReg and len(cliNodeReg)):
+            self.__init_registry_from_ledger()
+        else:
+            self.nodeReg = nodeReg
+            self.cliNodeReg = cliNodeReg
+
+        self.nodeRegistry = {}
+        for nStkNm, nha in self.nodeReg.items():
+            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm]))
+
+    def __init_registry_from_ledger(self):
+        self.nodeRegLoadedFromFile = True
+        dataDir = self.basedirpath
+
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
+        ledger = Ledger(CompactMerkleTree(),
+                        dataDir=dataDir,
+                        fileName=self.config.poolTransactionsFile,
+                        genesis_txn_initiator=genesis_txn_initiator,
+                        transactionLogStore=KeyValueStorageInMemory())
+        nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+            ledger)
+        ledger.stop()
+
+        self.nodeReg = nodeReg
+        self.cliNodeReg = cliNodeReg
 
     def close(self):
         """
@@ -489,14 +499,12 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            ledger = Ledger(CompactMerkleTree(),
-                            dataDir=self.basedirpath,
-                            fileName=self.config.poolTransactionsFile)
+            ledger = create_genesis_txn_init_ledger(self.basedirpath, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
             self.print('Genesis transaction file created at {} '
-                       .format(ledger._transactionLog.dbPath))
+                       .format(ledger._transactionLog.db_path))
             ledger.stop()
             return True
 
@@ -510,11 +518,11 @@ class Cli:
     def _addNewGenesisCommand(self, matchedVars):
         typ = self._getType(matchedVars)
 
-        nodeName, nodeData, identifier = None, None, None
+        nodeName, nodeData, DID = None, None, None
         jsonNodeData = json.loads(matchedVars.get(DATA))
         for key, value in jsonNodeData.items():
             if key == BY:
-                identifier = value
+                DID = value
             else:
                 nodeName, nodeData = key, value
 
@@ -530,7 +538,7 @@ class Cli:
 
         newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
                           TARGET_NYM: nodeData.get(VERKEY),
-                          IDENTIFIER: identifier}
+                          IDENTIFIER: DID}
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
@@ -630,7 +638,8 @@ class Cli:
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
-        part = partial(self.cli.print_tokens, [(token, msg)])
+        tkn = token or ()
+        part = partial(self.cli.print_tokens, [(tkn, msg)])
         if self.debug:
             part()
         else:
@@ -942,8 +951,8 @@ class Cli:
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
 
-            for identifier, verkey in self.externalClientKeys.items():
-                node.clientAuthNr.addIdr(identifier, verkey)
+            for DID, verkey in self.externalClientKeys.items():
+                node.clientAuthNr.addIdr(DID, verkey)
             nodes.append(node)
         return nodes
 
@@ -1024,7 +1033,7 @@ class Cli:
             self.print("    Replicas: {}".format(len(node.replicas)),
                        newline=False)
             if node.hasPrimary:
-                if node.primaryReplicaNo == 0:
+                if node.has_master_primary:
                     self.print("  (primary of Master)")
                 else:
                     self.print("  (primary of Backup)")
@@ -1063,10 +1072,10 @@ class Cli:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
-    def bootstrapKey(wallet, node, identifier=None):
-        identifier = identifier or wallet.defaultId
-        assert identifier, "Client has no DID"
-        node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
+    def bootstrapKey(wallet, node, DID=None):
+        DID = DID or wallet.defaultId
+        assert DID, "Client has no DID"
+        node.clientAuthNr.addIdr(DID, wallet.getVerkey(DID))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -1083,9 +1092,14 @@ class Cli:
         if client:
             if wallet:
                 req = wallet.signOp(msg)
-                request, = client.submitReqs(req)
-                self.requests[request.key] = request
-                self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                request, errs = client.submitReqs(req)
+                if request:
+                    rqst = request[0]
+                    self.requests[rqst.key] = rqst
+                    self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                else:
+                    for err in errs:
+                        self.print("Request error: {}".format(err), Token.Error)
             else:
                 try:
                     self._createWallet(clientName)
@@ -1097,11 +1111,11 @@ class Cli:
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, identifier, reqId):
+    def getReply(self, clientName, DID, reqId):
         reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        if client and (identifier, reqId) in self.requests:
-            reply, status = client.getReply(identifier, reqId)
+        if client and (DID, reqId) in self.requests:
+            reply, status = client.getReply(DID, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -1289,13 +1303,13 @@ class Cli:
         if matchedVars.get('add_key') == 'add key':
             verkey = matchedVars.get('verkey')
             # TODO make verkey case insensitive
-            identifier = matchedVars.get('identifier')
-            if identifier in self.externalClientKeys:
+            DID = matchedVars.get('DID')
+            if DID in self.externalClientKeys:
                 self.print("DID already added", Token.Error)
                 return
-            self.externalClientKeys[identifier] = verkey
+            self.externalClientKeys[DID] = verkey
             for n in self.nodes.values():
-                n.clientAuthNr.addIdr(identifier, verkey)
+                n.clientAuthNr.addIdr(DID, verkey)
             return True
 
     def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,
@@ -1308,13 +1322,13 @@ class Cli:
 
     def _newSigner(self,
                    wallet=None,
-                   identifier=None,
+                   DID=None,
                    seed=None,
                    alias=None):
 
         cseed = cleanSeed(seed)
 
-        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
+        signer = DidSigner(identifier=DID, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("DID for key is {}".format(signer.identifier))
         self.print("Verification key is {}".format(signer.verkey))
@@ -1666,17 +1680,17 @@ class Cli:
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
             if idrFromAlias:
-                self.activeIdentifier = idrFromAlias
+                self.activeDID = idrFromAlias
                 self.activeAlias = idrOrAlias
             else:
                 alias = [k for k, v
                          in wallet.aliasesToIds.items()
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
-                self.activeIdentifier = idrOrAlias
-            wallet.defaultId = self.activeIdentifier
+                self.activeDID = idrOrAlias
+            wallet.defaultId = self.activeDID
             self.print("Current DID set to {}".
-                       format(self.activeAlias or self.activeIdentifier))
+                       format(self.activeAlias or self.activeDID))
             return True
         return False
 
@@ -1770,7 +1784,7 @@ class Cli:
             self.print(" ({})".format(walletFilePath)
                        , Token.Gray)
             self.activeWallet = wallet
-            self.activeIdentifier = wallet.defaultId
+            self.activeDID = wallet.defaultId
 
             self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
@@ -1911,13 +1925,22 @@ class Cli:
             walletsDir = self.getContextBasedWalletsBaseDir()
             self._saveActiveWalletInDir(walletsDir, printMsgs=True)
 
+    def mask_seed(self, cmd_text):
+        parts = cmd_text.split()
+        prev_seed = False
+        for idx, val in enumerate(parts):
+            if prev_seed:
+                parts[idx] = "[redacted]"
+            prev_seed = (val == "seed")
+        return " ".join(parts)
+
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
         # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
-            self.logger.info("CLI command entered: {}".format(cmdText),
+            self.logger.info("CLI command entered: {}".format(self.mask_seed(cmdText)),
                              extra={"cli": False})
             for action in self.actions:
                 r = action(matchedVars)
@@ -1936,9 +1959,9 @@ class Cli:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
-        identifier = matchedVars.get("nym")
-        if len(names) == 1 and (seed or identifier):
-            initializer(names[0].strip(), seed=seed, identifier=identifier)
+        DID = matchedVars.get("nym")
+        if len(names) == 1 and (seed or DID):
+            initializer(names[0].strip(), seed=seed, identifier=DID)
         else:
             for name in names:
                 initializer(name.strip())
