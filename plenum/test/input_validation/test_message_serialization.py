@@ -20,6 +20,7 @@ def test_that_dir_returns_only_message_keys():
     message = LedgerStatus(1, 10, None, None, "AwgQhPR9cgRubttBGjRruCRMLhZFBffbejbPipj7WBBm")
     assert set(dir(message)) == set(message.keys())
 
+
 def test_serialization_of_submessages_to_dict():
     message = LedgerStatus(1, 10, None, None, "AwgQhPR9cgRubttBGjRruCRMLhZFBffbejbPipj7WBBm")
     message_rep = MessageRep(**{
