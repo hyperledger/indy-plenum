@@ -2,9 +2,14 @@ import random
 from typing import Iterable, List
 
 from plenum.common.request import Request
+
+from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
+    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
-from plenum.common.messages.node_messages import *
-from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
 

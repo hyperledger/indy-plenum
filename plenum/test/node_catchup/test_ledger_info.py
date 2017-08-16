@@ -1,12 +1,18 @@
 import time
 
-# noinspection PyUnresolvedReferences
-from ledger.test.conftest import *
+import pytest
 
-from ledger.test.helper import random_txn
+from ledger.test.helper import random_txn, create_ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
+
+
+@pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage', 'LeveldbStorage'])
+def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
+    ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
+    yield ledger
+    ledger.stop()
 
 
 def test_missing_txn_request(ledger_no_genesis):

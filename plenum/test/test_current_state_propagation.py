@@ -1,11 +1,13 @@
-from plenum.test.node_catchup.conftest import *
+from plenum.test.node_catchup.conftest import whitelist, \
+    looper, nodeCreatedAfterSomeTxns, nodeSetWithNodeAddedAfterSomeTxns, \
+    newNodeCaughtUp
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
-
-# # Do not remove the next import
-# from plenum.test.node_catchup.conftest import whitelist
+from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
+    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
+    client1Connected
 
 
 def test_current_state_propagation(newNodeCaughtUp,

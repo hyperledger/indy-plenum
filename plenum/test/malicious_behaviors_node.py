@@ -6,7 +6,11 @@ from functools import partial
 import plenum.common.error
 from plenum.common.types import f
 
-from plenum.common.messages.node_messages import *
+from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
+    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
 from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
