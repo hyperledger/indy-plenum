@@ -4,7 +4,7 @@
 
 def name = 'indy-plenum'
 
-def plenumTestUbuntu = {
+def plenumTestUbuntu = { offset, increment ->
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -17,13 +17,25 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner([resFile: "test-result-plenum-$offset.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: "$offset/$increment"])
         }
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
         step([$class: 'WsCleanup'])
     }
+}
+
+def plenumTestUbuntuPart1 = {
+    plenumTestUbuntu(1, 3)
+}
+
+def plenumTestUbuntuPart2 = {
+    plenumTestUbuntu(2, 3)
+}
+
+def plenumTestUbuntuPart3 = {
+    plenumTestUbuntu(3, 3)
 }
 
 def ledgerTestUbuntu = {
@@ -39,30 +51,12 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-legder.${NODE_NAME}.xml"])
-        }
-    }
-    finally {
-        echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def stateTestUbuntu = {
-    try {
-        echo 'Ubuntu Test: Checkout csm'
-        checkout scm
-
-        echo 'Ubuntu Test: Build docker image'
-        def testEnv = dockerHelpers.build(name)
-
-        testEnv.inside {
-            echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
-
-            echo 'Ubuntu Test: Test'
+            testHelpers.testJUnit([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml"])
         }
+
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
@@ -207,14 +201,16 @@ def stateTestWindowsNoDocker = {
 }
 
 def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
-    def volumeName = "indy-plenum-deb-u1604"
+    def volumeName = "$name-deb-u1604"
     sh "docker volume rm -f $volumeName"
     dir('build-scripts/ubuntu-1604') {
-        sh "./build-indy-plenum-docker.sh $sourcePath"
+        sh "./build-$name-docker.sh $sourcePath $releaseVersion"
         sh "./build-3rd-parties-docker.sh"
     }
     return "$volumeName"
 }
 
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
+testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
+ledger: ledgerTestUbuntu,
+stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])

@@ -1,10 +1,10 @@
 import os
 
-from ledger.serializers.compact_serializer import CompactSerializer
-from ledger.stores.text_file_store import TextFileStore
+from common.serializers.serialization import ledger_txn_serializer
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.util import updateFieldsWithSeqNo
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 
 class ClientTxnLog(HasFileStorage):
@@ -20,9 +20,10 @@ class ClientTxnLog(HasFileStorage):
         self.clientDataLocation = self.dataLocation
         if not os.path.exists(self.clientDataLocation):
             os.makedirs(self.clientDataLocation)
-        self.transactionLog = TextFileStore(self.clientDataLocation,
-                                            "transactions")
-        self.serializer = CompactSerializer(fields=self.txnFieldOrdering)
+        # self.transactionLog = TextFileStore(self.clientDataLocation,
+        #                                     "transactions")
+        self.transactionLog = KeyValueStorageLeveldb(self.clientDataLocation, "transactions")
+        self.serializer = ledger_txn_serializer
 
     def close(self):
         self.transactionLog.close()
@@ -39,11 +40,7 @@ class ClientTxnLog(HasFileStorage):
 
     def hasTxn(self, identifier, reqId) -> bool:
         key = '{}{}'.format(identifier, reqId)
-        for key in self.transactionLog.iterator(includeKey=True,
-                                                includeValue=False):
-            if key == str(reqId):
-                return True
-        return False
+        return self.transactionLog.has_key(key)
 
     def reset(self):
         self.transactionLog.reset()

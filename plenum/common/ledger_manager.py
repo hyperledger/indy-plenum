@@ -15,10 +15,11 @@ from ledger.util import F
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
-    CONSISTENCY_PROOF
+    CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.util import compare_3PC_keys
 from plenum.common.config_util import getConfig
 from plenum.server.quorums import Quorums
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.common.ledger_info import LedgerInfo
@@ -150,9 +151,9 @@ class LedgerManager(HasActionQueue):
             # is empty? It will lead to divide by 0. This should not happen
             #  but its happening.
             # https://www.pivotaltracker.com/story/show/130602115
-            logger.error("{} could not find any node to request "
+            logger.error("{}{} could not find any node to request "
                          "transactions from. Catchup process cannot "
-                         "move ahead.".format(self))
+                         "move ahead.".format(CATCH_UP_PREFIX, self))
             return
 
         # Shuffling order of nodes so that catchup requests don't go to
@@ -201,14 +202,14 @@ class LedgerManager(HasActionQueue):
                 missing = addReqsForMissing(lastSeenSeqNo + 1, end)
                 leftMissing -= missing
             else:
-                logger.error("{} still missing {} transactions. "
+                logger.error("{}{} still missing {} transactions. "
                              "Something happened which was not thought "
                              "of. {} {} {}"
-                             .format(self, leftMissing, start, end,
-                                     lastSeenSeqNo))
+                             .format(CATCH_UP_PREFIX, self, leftMissing,
+                                     start, end, lastSeenSeqNo))
             if leftMissing:
-                logger.error("{} still missing {} transactions. {} {} {}"
-                             .format(self, leftMissing,
+                logger.error("{}{} still missing {} transactions. {} {} {}"
+                             .format(CATCH_UP_PREFIX, self, leftMissing,
                                      start, end, lastSeenSeqNo))
 
         numElgNodes = len(eligibleNodes)
@@ -805,8 +806,9 @@ class LedgerManager(HasActionQueue):
                     self._schedule(partial(self.request_txns_if_needed, ledgerId),
                                    timeout)
             else:
-                logger.info('{} needs to catchup ledger {} but it has not found'
-                            ' any connected nodes'.format(self, ledgerId))
+                logger.info('{}{} needs to catchup ledger {} but it has not'
+                            ' found any connected nodes'
+                            .format(CATCH_UP_PREFIX, self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * (self.config.CatchupTransactionsTimeout +
@@ -820,14 +822,16 @@ class LedgerManager(HasActionQueue):
             self.last_caught_up_3PC = last_3PC
 
         if ledgerId not in self.ledgerRegistry:
-            logger.error("{} called catchup completed for ledger {}".
-                         format(self, ledgerId))
+            logger.error("{}{} called catchup completed for ledger {}".
+                         format(CATCH_UP_PREFIX, self, ledgerId))
             return
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.done_syncing()
-        logger.info("{} completed catching up ledger {}, caught up {} in total".
-                    format(self, ledgerId, ledgerInfo.num_txns_caught_up),
+        logger.info("{}{} completed catching up ledger {},"
+                    " caught up {} in total"
+                    .format(CATCH_UP_PREFIX, self, ledgerId,
+                            ledgerInfo.num_txns_caught_up),
                     extra={'cli': True})
 
         if self.postAllLedgersCaughtUp:
@@ -1019,8 +1023,8 @@ class LedgerManager(HasActionQueue):
         if self.nodestack.hasRemote(remoteName):
             return self.nodestack
 
-        logger.error("{} cannot find remote with name {}"
-                     .format(self, remoteName))
+        logger.error("{}{} cannot find remote with name {}"
+                     .format(CONNECTION_PREFIX, self, remoteName))
 
     def sendTo(self, msg: Any, to: str):
         stack = self.getStack(to)

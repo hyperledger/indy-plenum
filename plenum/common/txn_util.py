@@ -1,8 +1,6 @@
 from collections import OrderedDict
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
-from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY
 from plenum.common.types import f, OPERATION
@@ -29,9 +27,7 @@ def getTxnOrderedFields():
 
 def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
                          reset=True):
-    ledger = Ledger(CompactMerkleTree(), dataDir=targetDir,
-                    serializer=CompactSerializer(fields=fieldOrdering),
-                    fileName=fileName)
+    ledger = create_genesis_txn_init_ledger(targetDir, fileName)
 
     if reset:
         ledger.reset()

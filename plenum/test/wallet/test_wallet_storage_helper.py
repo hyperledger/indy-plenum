@@ -231,7 +231,7 @@ def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
         with pytest.raises(ValueError) as exc_info:
             wsh.loadWallet(path)
 
-        exc_info.match(r"path {} is not is not relative to the keyrings {}".format(
+        exc_info.match(r"path {} is not is not relative to the wallets {}".format(
             path, keyrings_base_dir))
 
     for path in inv_paths:

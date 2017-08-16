@@ -1,5 +1,5 @@
 from state.db.db import BaseDB
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 
 class PersistentDB(BaseDB):
@@ -20,7 +20,8 @@ class PersistentDB(BaseDB):
         return self._has_key(key)
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self._keyValueStorage == other._keyValueStorage
+        is_k_eq = self._keyValueStorage == other._keyValueStorage
+        return isinstance(other, self.__class__) and is_k_eq
 
     def inc_refcount(self, key, value):
         self._keyValueStorage.put(key, value)
