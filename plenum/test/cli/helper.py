@@ -217,11 +217,12 @@ def checkClientConnected(cli, nodeNames, clientName):
 
     printedMsgs = set()
     stackName = cli.clients[clientName].stackName
-    expectedMsgs = {'{} now connected to {}C'.format(stackName, nodeName)
+    expectedMsgs = {'{}{} now connected to {}C'.format(CONNECTION_PREFIX,
+                                                       stackName, nodeName)
                     for nodeName in nodeNames}
     for out in cli.printeds:
         msg = out.get('msg')
-        if '{} now connected to'.format(stackName) in msg:
+        if '{}{} now connected to'.format(CONNECTION_PREFIX, stackName) in msg:
             printedMsgs.add(msg)
 
     assert printedMsgs == expectedMsgs
