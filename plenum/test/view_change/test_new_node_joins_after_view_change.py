@@ -19,8 +19,14 @@ from plenum.test.primary_selection.conftest import nodeThetaAdded, \
 
 
 @pytest.fixture(scope='module')
-def all_nodes_view_change(looper, txnPoolNodeSet, stewardWallet, steward1, client1, wallet1,
-                          client1Connected):
+def all_nodes_view_change(
+        looper,
+        txnPoolNodeSet,
+        stewardWallet,
+        steward1,
+        client1,
+        wallet1,
+        client1Connected):
     for _ in range(5):
         send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     ensure_view_change(looper, txnPoolNodeSet)

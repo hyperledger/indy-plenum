@@ -31,12 +31,8 @@ def slow_node(request, txnPoolNodeSet):
 
 
 @pytest.mark.skip(reasone="It's an intermittent test, INDY-722")
-def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
-                                                                 txnPoolNodeSet,
-                                                                 steward1,
-                                                                 stewardWallet,
-                                                                 tconf,
-                                                                 slow_node):
+def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
+        looper, txnPoolNodeSet, steward1, stewardWallet, tconf, slow_node):
     """
     Delay 3PC to 1 node and then cause view change so by the time the view
     change happens(each node gets >n-f `INSTANCE_CHANGE`s), the slow node is
@@ -100,8 +96,10 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                 n.ledgerManager.processCatchupRep) == catchup_reply_counts[n.name]
 
     # Greater than 0 batches were reverted by the slow node
-    assert max(getAllReturnVals(slow_node.master_replica,
-                                slow_node.master_replica.revert_unordered_batches)) > 0
+    assert max(
+        getAllReturnVals(
+            slow_node.master_replica,
+            slow_node.master_replica.revert_unordered_batches)) > 0
 
     # Bad network repaired
     slow_node.reset_delays_and_process_delayeds()

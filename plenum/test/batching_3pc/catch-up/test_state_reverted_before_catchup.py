@@ -5,8 +5,8 @@ from plenum.test.helper import signed_random_requests, sendRandomRequests, waitF
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
-def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, client,
-                                                 wallet1):
+def test_unordered_state_reverted_before_catchup(
+        tconf, looper, txnPoolNodeSet, client, wallet1):
     """
     Check that unordered state is reverted before starting catchup:
     - save the initial state on a node

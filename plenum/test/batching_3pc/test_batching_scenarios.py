@@ -43,8 +43,8 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
                      format(node))
         node.nodeIbStasher.delay(specificPrePrepares)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client,
-                                              (ppsToDelay + 1) * tconf.Max3PCBatchSize)
+    send_reqs_to_nodes_and_verify_all_replies(
+        looper, wallet1, client, (ppsToDelay + 1) * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:

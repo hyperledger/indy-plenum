@@ -49,11 +49,13 @@ class TxnStackManager(metaclass=ABCMeta):
             dataDir = self.ledgerLocation
             self.hashStore = LevelDbHashStore(
                 dataDir=dataDir, fileNamePrefix='pool')
-            self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
-                                  dataDir=dataDir,
-                                  fileName=self.ledgerFile,
-                                  ensureDurability=self.config.EnsureLedgerDurability,
-                                  genesis_txn_initiator=genesis_txn_initiator)
+            self._ledger = Ledger(
+                CompactMerkleTree(
+                    hashStore=self.hashStore),
+                dataDir=dataDir,
+                fileName=self.ledgerFile,
+                ensureDurability=self.config.EnsureLedgerDurability,
+                genesis_txn_initiator=genesis_txn_initiator)
         return self._ledger
 
     @staticmethod

@@ -59,8 +59,8 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
     assert get_count(faulty_node, faulty_node.request_propagates) - \
         old_count_request_propagates == 2
 
-    requested_propagate_counts = getAllReturnVals(faulty_node,
-                                                  faulty_node.request_propagates)
+    requested_propagate_counts = getAllReturnVals(
+        faulty_node, faulty_node.request_propagates)
 
     # The last attempt to request PROPAGATEs was not successful
     assert requested_propagate_counts[0] == 0

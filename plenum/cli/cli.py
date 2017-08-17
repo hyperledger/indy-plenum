@@ -275,8 +275,8 @@ class Cli:
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+            self.nodeRegistry[nStkNm] = NodeDetail(
+                HA(*nha), cStkNm, HA(*self.cliNodeReg[cStkNm]))
 
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
@@ -583,9 +583,8 @@ class Cli:
         except KeyError:
             pass
 
-        self.print("Invalid transaction type. Valid types are: {}".
-                   format(", ".join(map(lambda r: r.name, PlenumTransactions))),
-                   Token.Error)
+        self.print("Invalid transaction type. Valid types are: {}". format(
+            ", ".join(map(lambda r: r.name, PlenumTransactions))), Token.Error)
         return None
 
     @property
@@ -775,9 +774,11 @@ class Cli:
         return ["help"]
 
     def printHelp(self):
-        self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
-                                     sort=False, printHeader=True,
-                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(
+            self.getDefaultOrderedCmds(),
+            sort=False,
+            printHeader=True,
+            showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1110,8 +1111,9 @@ class Cli:
                     self._createWallet(clientName)
                     self.printNoKeyMsg()
                 except NameAlreadyExists:
-                    self.print("Wallet with name {} is not in use, please select it by using 'use wallet {}' command"
-                               .format(clientName, clientName))
+                    self.print(
+                        "Wallet with name {} is not in use, please select it by using 'use wallet {}' command" .format(
+                            clientName, clientName))
 
         else:
             self.printMsgForUnknownClient()
@@ -1279,9 +1281,11 @@ class Cli:
                                 parserReInitNeeded = True
                             # TODO Need to check if `plugin.cliActionNames`
                             #  conflicts with any of `self.cliActions`
-                            if hasattr(plugin, "cliActionNames") and \
-                                    isinstance(plugin.cliActionNames, set) and \
-                                    plugin.cliActionNames:
+                            if hasattr(
+                                    plugin,
+                                    "cliActionNames") and isinstance(
+                                    plugin.cliActionNames,
+                                    set) and plugin.cliActionNames:
                                 self.cliActions.update(plugin.cliActionNames)
                                 # TODO: Find better way to reinitialize completers
                                 # , also might need to reinitialize lexers
@@ -1353,9 +1357,10 @@ class Cli:
         if seed:
             seed = seed.strip()
             if len(seed) != 32 and not seedFromHex(seed):
-                self.print('Seed needs to be 32 or 64 characters (if hex) long '
-                           'but is {} characters long'.format(len(seed)),
-                           Token.Error)
+                self.print(
+                    'Seed needs to be 32 or 64 characters (if hex) long '
+                    'but is {} characters long'.format(
+                        len(seed)), Token.Error)
                 return False
 
         return True
@@ -1459,8 +1464,12 @@ class Cli:
                         activeWalletSign = "*  " if isThisActiveWallet \
                             else "   "
 
-                        self.print("    {}{}{}".format(
-                            activeWalletSign, pwn, activeWalletMsg), newline=False)
+                        self.print(
+                            "    {}{}{}".format(
+                                activeWalletSign,
+                                pwn,
+                                activeWalletMsg),
+                            newline=False)
                         self.print(" (last modified at: {})".
                                    format(lastModifiedTime), Token.Gray)
 
@@ -1480,8 +1489,10 @@ class Cli:
                 self.print("Active wallet: {}".
                            format(self._activeWallet.name), newline=False)
                 if self._activeWallet.defaultId:
-                    self.print(" (active DID: {})\n".
-                               format(self._activeWallet.defaultId), Token.Gray)
+                    self.print(
+                        " (active DID: {})\n". format(
+                            self._activeWallet.defaultId),
+                        Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
                     self.print("DIDs:")
                     withVerkeys = matchedVars.get(
@@ -1954,8 +1965,10 @@ class Cli:
         # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
-            self.logger.info("CLI command entered: {}".format(self.mask_seed(cmdText)),
-                             extra={"cli": False})
+            self.logger.info(
+                "CLI command entered: {}".format(
+                    self.mask_seed(cmdText)), extra={
+                    "cli": False})
             for action in self.actions:
                 r = action(matchedVars)
                 if r:

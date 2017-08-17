@@ -4,7 +4,7 @@ from copy import copy
 import base58
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
+    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP
 from plenum.common.signer_simple import SimpleSigner
@@ -54,12 +54,19 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
     newNodeName = "Epsilon"
     sendAddNewNode(newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
-        waitRejectWithReason(looper, client1, 'is not a steward so cannot add a '
-                                              'new node', node.clientstack.name)
+        waitRejectWithReason(
+            looper, client1, 'is not a steward so cannot add a '
+            'new node', node.clientstack.name)
 
 
-def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                tconf, steward1, stewardWallet, allPluginsPath):
+def testClientConnectsToNewNode(
+        looper,
+        txnPoolNodeSet,
+        tdirWithPoolTxns,
+        tconf,
+        steward1,
+        stewardWallet,
+        allPluginsPath):
     """
     A client should be able to connect to a newly added node
     """

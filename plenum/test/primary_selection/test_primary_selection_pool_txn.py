@@ -41,8 +41,12 @@ def two_more_nodes_added(one_node_added, looper, txnPoolNodeSet,
     return new_nodes
 
 
-def test_primary_selection_increase_f(two_more_nodes_added, looper, txnPoolNodeSet,
-                                      stewardWallet, steward1):
+def test_primary_selection_increase_f(
+        two_more_nodes_added,
+        looper,
+        txnPoolNodeSet,
+        stewardWallet,
+        steward1):
     # for n in two_more_nodes_added:
     #     check_accepted_view_change_sent(n, txnPoolNodeSet)
     ensure_pool_functional(looper, txnPoolNodeSet, stewardWallet, steward1)

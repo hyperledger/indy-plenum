@@ -34,8 +34,7 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
             EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
             EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests,
             EVENT_PERIODIC_STATS_NODE_INFO: self._sendNodeInfo,
-            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo
-        }
+            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo}
 
     @abstractmethod
     def isModuleImportedSuccessfully(self):

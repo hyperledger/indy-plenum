@@ -93,8 +93,13 @@ def view_change_done(looper, nodeSet):
 # noinspection PyIncorrectDocstring
 
 
-def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
-                                        catchup_complete_count, view_change_done):
+def testPrimarySelectionAfterViewChange(
+        looper,
+        nodeSet,
+        ready,
+        primaryReplicas,
+        catchup_complete_count,
+        view_change_done):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.

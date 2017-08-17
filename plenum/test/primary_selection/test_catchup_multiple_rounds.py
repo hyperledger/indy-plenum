@@ -20,13 +20,14 @@ TestRunningTimeLimitSec = 200
 
 
 @pytest.mark.skip('Test incorrect')
-def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
-                                                                 looper,
-                                                                 txnPoolNodeSet,
-                                                                 client1,
-                                                                 wallet1,
-                                                                 one_node_added,
-                                                                 client1Connected):
+def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
+        tconf,
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        one_node_added,
+        client1Connected):
     """
     Delay 3PC messages to one node and view change messages to some others
     (including primary) so the node that does not receive enough 3PC messages is

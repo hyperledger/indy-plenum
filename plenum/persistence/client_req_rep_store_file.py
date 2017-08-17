@@ -87,8 +87,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return self.reqStore.exists(key)
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
-        for r in self._getLinesWithPrefix(identifier, reqId, "{}{}".
-                                          format(self.linePrefixes.Request, self.delimiter)):
+        for r in self._getLinesWithPrefix(
+            identifier, reqId, "{}{}". format(
+                self.linePrefixes.Request, self.delimiter)):
             return self.deserializeReq(r[2:])
 
     def getReplies(self, identifier: str, reqId: int):
@@ -114,8 +115,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return result
 
     def getRejects(self, identifier: str, reqId: int) -> dict:
-        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
-                                             format(self.linePrefixes.REJECT, self.delimiter))
+        nackLines = self._getLinesWithPrefix(
+            identifier, reqId, "{}{}". format(
+                self.linePrefixes.REJECT, self.delimiter))
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(self.delimiter, 1)

@@ -58,9 +58,11 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
     def chk():
         # `process_requested_pre_prepare` is called but
         # `processThreePhaseMsg` is not called
-        assert get_count(slow_master_replica,
-                         slow_master_replica.process_requested_pre_prepare) > count_pr_req
-        assert get_count(slow_master_replica,
-                         slow_master_replica.processThreePhaseMsg) == count_pr_tpc
+        assert get_count(
+            slow_master_replica,
+            slow_master_replica.process_requested_pre_prepare) > count_pr_req
+        assert get_count(
+            slow_master_replica,
+            slow_master_replica.processThreePhaseMsg) == count_pr_tpc
 
     looper.run(eventually(chk, retryWait=1))

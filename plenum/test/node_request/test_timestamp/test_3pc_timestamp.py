@@ -53,15 +53,15 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
 
     make_clock_faulty(confused_npr.node)
 
-    old_acceptable_rvs = getAllReturnVals(confused_npr,
-                                          confused_npr.is_pre_prepare_time_acceptable)
+    old_acceptable_rvs = getAllReturnVals(
+        confused_npr, confused_npr.is_pre_prepare_time_acceptable)
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
 
     assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count
 
-    new_acceptable_rvs = getAllReturnVals(confused_npr,
-                                          confused_npr.is_pre_prepare_time_acceptable)
+    new_acceptable_rvs = getAllReturnVals(
+        confused_npr, confused_npr.is_pre_prepare_time_acceptable)
 
     # `is_pre_prepare_time_acceptable` first returned False then returned True
     assert [True, False, *old_acceptable_rvs] == new_acceptable_rvs

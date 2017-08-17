@@ -81,8 +81,10 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
         # check the return value of `num_txns_caught_up_in_last_catchup` to be
         # greater than 0
 
-        assert max(getAllReturnVals(newNode,
-                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
+        assert max(
+            getAllReturnVals(
+                newNode,
+                newNode.num_txns_caught_up_in_last_catchup)) > 0
 
     for li in newNode.ledgerManager.ledgerRegistry.values():
         assert not li.receivedCatchUpReplies
@@ -92,8 +94,15 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
 
 
 @pytest.yield_fixture("module")
-def poolAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet, tdirWithPoolTxns,
-                      poolTxnStewardData, tconf, allPluginsPath, request):
+def poolAfterSomeTxns(
+        looper,
+        txnPoolNodesLooper,
+        txnPoolNodeSet,
+        tdirWithPoolTxns,
+        poolTxnStewardData,
+        tconf,
+        allPluginsPath,
+        request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)

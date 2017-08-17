@@ -12,18 +12,17 @@ from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
+from psutil import Popen
+
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.request import Request
+from plenum.common.types import f
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
-from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, REPLY, REQACK, REQNACK, REJECT
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -32,9 +31,6 @@ from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs,
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
     checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
-from psutil import Popen
-
-from plenum.common.types import f
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -81,8 +77,8 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     assert result, "reqId {}: found less than in {} same replies".format(
         reqId, fValue)
 
-    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies]), \
-        "not all replies have got reqId {}".format(reqId)
+    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies]
+               ), "not all replies have got reqId {}".format(reqId)
 
     return result
     # TODO add test case for what happens when replies don't have the same data
@@ -155,13 +151,15 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
-    waitForSufficientRepliesForRequests(looper, client,
-                                        requests=requests,
-                                        fVal=fVal,
-                                        customTimeoutPerReq=customTimeoutPerReq,
-                                        add_delay_to_timeout=add_delay_to_timeout,
-                                        override_timeout_limit=override_timeout_limit,
-                                        total_timeout=total_timeout)
+    waitForSufficientRepliesForRequests(
+        looper,
+        client,
+        requests=requests,
+        fVal=fVal,
+        customTimeoutPerReq=customTimeoutPerReq,
+        add_delay_to_timeout=add_delay_to_timeout,
+        override_timeout_limit=override_timeout_limit,
+        total_timeout=total_timeout)
     return requests
 
 
@@ -177,20 +175,25 @@ def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
     nodeCount = len(client.nodeReg)
     # wait till more than nodeCount replies are received (that is all nodes
     # answered)
-    waitForSufficientRepliesForRequests(looper, client,
-                                        requests=requests,
-                                        fVal=nodeCount - 1,
-                                        customTimeoutPerReq=customTimeoutPerReq,
-                                        add_delay_to_timeout=add_delay_to_timeout,
-                                        override_timeout_limit=override_timeout_limit,
-                                        total_timeout=total_timeout)
+    waitForSufficientRepliesForRequests(
+        looper,
+        client,
+        requests=requests,
+        fVal=nodeCount - 1,
+        customTimeoutPerReq=customTimeoutPerReq,
+        add_delay_to_timeout=add_delay_to_timeout,
+        override_timeout_limit=override_timeout_limit,
+        total_timeout=total_timeout)
     return requests
 
 
-def send_reqs_batches_and_get_suff_replies(looper: Looper,
-                                           wallet: Wallet,
-                                           client: TestClient,
-                                           num_reqs: int, num_batches=1, **kwargs):
+def send_reqs_batches_and_get_suff_replies(
+        looper: Looper,
+        wallet: Wallet,
+        client: TestClient,
+        num_reqs: int,
+        num_batches=1,
+        **kwargs):
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
     if num_batches == 1:
         return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
@@ -198,10 +201,14 @@ def send_reqs_batches_and_get_suff_replies(looper: Looper,
     else:
         requests = []
         for _ in range(num_batches - 1):
-            requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
-                                                                client,
-                                                                num_reqs // num_batches,
-                                                                **kwargs))
+            requests.extend(
+                sendReqsToNodesAndVerifySuffReplies(
+                    looper,
+                    wallet,
+                    client,
+                    num_reqs //
+                    num_batches,
+                    **kwargs))
         rem = num_reqs % num_batches
         if rem == 0:
             rem = num_reqs // num_batches
@@ -258,8 +265,11 @@ def assertEquality(observed: Any, expected: Any):
                                  "was {}".format(observed, expected)
 
 
-def setupNodesAndClient(looper: Looper, nodes: Sequence[TestNode], nodeReg=None,
-                        tmpdir=None):
+def setupNodesAndClient(
+        looper: Looper,
+        nodes: Sequence[TestNode],
+        nodeReg=None,
+        tmpdir=None):
     looper.run(checkNodesConnected(nodes))
     ensureElectionsDone(looper=looper, nodes=nodes)
     return setupClient(looper, nodes, nodeReg=nodeReg, tmpdir=tmpdir)
@@ -596,8 +606,8 @@ def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "") \
-                and sdr == sender:
+        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(
+                f.REASON.nm, "") and sdr == sender:
             found = True
             break
     assert found, "there is no Nack with reason: {}".format(reason)
@@ -620,8 +630,8 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
 def checkRejectWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "") \
-                and sdr == sender:
+        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(
+                f.REASON.nm, "") and sdr == sender:
             found = True
             break
     assert found
@@ -710,8 +720,11 @@ def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):
         if 'reason' in entry.params and (
-                (isinstance(entry.params['reason'], str) and
-                 reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
+            (isinstance(
+                entry.params['reason'],
+                str) and reasonPat in entry.params['reason']),
+                (reasonPat in str(
+                entry.params['reason']))):
             c += 1
     return c
 
@@ -798,17 +811,28 @@ def mockImportModule(moduleName):
     return obj
 
 
-def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
-                           tdirWithDomainTxns=None, new_pool_txn_file=None, new_domain_txn_file=None):
+def initDirWithGenesisTxns(
+        dirName,
+        tconf,
+        tdirWithPoolTxns=None,
+        tdirWithDomainTxns=None,
+        new_pool_txn_file=None,
+        new_domain_txn_file=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
         new_pool_txn_file = new_pool_txn_file or tconf.poolTransactionsFile
-        copyfile(os.path.join(tdirWithPoolTxns, genesis_txn_file(tconf.poolTransactionsFile)),
-                 os.path.join(dirName, genesis_txn_file(new_pool_txn_file)))
+        copyfile(
+            os.path.join(
+                tdirWithPoolTxns, genesis_txn_file(
+                    tconf.poolTransactionsFile)), os.path.join(
+                dirName, genesis_txn_file(new_pool_txn_file)))
     if tdirWithDomainTxns:
         new_domain_txn_file = new_domain_txn_file or tconf.domainTransactionsFile
-        copyfile(os.path.join(tdirWithDomainTxns, genesis_txn_file(tconf.domainTransactionsFile)),
-                 os.path.join(dirName, genesis_txn_file(new_domain_txn_file)))
+        copyfile(
+            os.path.join(
+                tdirWithDomainTxns, genesis_txn_file(
+                    tconf.domainTransactionsFile)), os.path.join(
+                dirName, genesis_txn_file(new_domain_txn_file)))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):

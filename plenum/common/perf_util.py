@@ -76,6 +76,7 @@ def get_memory_usage(obj, get_collections_memory_usage=False,
     from pympler import asizeof
     result.append(asizeof.asizeof(obj))
     if get_collections_memory_usage:
-        result.append(get_collection_sizes(obj,
-                                           get_only_non_empty=get_only_non_empty))
+        result.append(
+            get_collection_sizes(
+                obj, get_only_non_empty=get_only_non_empty))
     return result

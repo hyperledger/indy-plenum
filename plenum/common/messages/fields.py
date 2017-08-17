@@ -276,9 +276,8 @@ class Base58Field(FieldBase):
         if invalid_chars:
             # only 10 chars to shorten the output
             to_print = sorted(invalid_chars)[:10]
-            return 'should not contain the following chars {}{}' \
-                .format(to_print,
-                        ' (truncated)' if len(to_print) < len(invalid_chars) else '')
+            return 'should not contain the following chars {}{}' .format(
+                to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
             # TODO could impact performace, need to check
             b58len = len(base58.b58decode(val))

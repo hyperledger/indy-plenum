@@ -66,8 +66,9 @@ def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
     slow_node.nodeIbStasher.delay(msg_rep_delay(100))
 
     # slow_node has not reverted batches
-    assert sent_batches not in getAllReturnVals(slow_node.master_replica,
-                                                slow_node.master_replica.revert_unordered_batches)
+    assert sent_batches not in getAllReturnVals(
+        slow_node.master_replica,
+        slow_node.master_replica.revert_unordered_batches)
 
     ensure_view_change(looper, txnPoolNodeSet)
 

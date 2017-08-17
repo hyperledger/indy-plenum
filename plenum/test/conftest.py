@@ -64,22 +64,42 @@ def pytest_xdist_make_scheduler(config, log):
 @pytest.fixture(scope="session")
 def warnfilters():
     def _():
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='plenum\.client\.client', message="The 'warn' method is deprecated")
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='jsonpickle\.pickler',
+            message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='jsonpickle\.unpickler',
+            message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.client\.client',
+            message="The 'warn' method is deprecated")
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.common\.stacked',
+            message="The 'warn' method is deprecated")
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.test\.test_testable',
+            message='Please use assertEqual instead.')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='prompt_toolkit\.filters\.base',
+            message='inspect\.getargspec\(\) is deprecated')
         warnings.filterwarnings(
             'ignore', category=ResourceWarning, message='unclosed event loop')
         warnings.filterwarnings(
-            'ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+            'ignore',
+            category=ResourceWarning,
+            message='unclosed.*socket\.socket')
     return _
 
 
@@ -401,8 +421,13 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
                   timeout=propTimeout)
 
     # Wait until sufficient number of acks received
-    coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
-              for node in nodeSet]
+    coros2 = [
+        partial(
+            checkReqAck,
+            client1,
+            node,
+            sent1.identifier,
+            sent1.reqId) for node in nodeSet]
     ackTimeout = waits.expectedReqAckQuorumTime()
     # looper.run(eventuallyAll(*coros2,
     #                          totalTimeout=ackTimeout,
@@ -705,8 +730,8 @@ def txnPoolCliNodeReg(poolTxnData):
     for txn in poolTxnData["txns"]:
         if txn[TXN_TYPE] == NODE:
             data = txn[DATA]
-            cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
-                                                               data[CLIENT_PORT])
+            cliNodeReg[data[ALIAS] +
+                       CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP], data[CLIENT_PORT])
     return cliNodeReg
 
 

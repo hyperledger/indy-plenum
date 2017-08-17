@@ -107,8 +107,11 @@ class Batched(MessageProcessor):
                         logger.trace("{} sending payload to {}: {}".format(
                             self, dest, payload))
                         # Setting timeout to never expire
-                        self.transmit(payload, rid, timeout=self.messageTimeout,
-                                      serialized=True)
+                        self.transmit(
+                            payload,
+                            rid,
+                            timeout=self.messageTimeout,
+                            serialized=True)
                     else:
                         logger.debug("{} error {}. tried to {}: {}".format(
                             self, err_msg, dest, payload))

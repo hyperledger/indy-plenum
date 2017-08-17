@@ -14,7 +14,13 @@ from plenum.test.pool_transactions.conftest import client1, wallet1, client1Conn
 
 
 def test_selection_f_plus_one_quorum(
-        looper, txnPoolNodeSet, allPluginsPath, tconf, client1, wallet1, client1Connected):
+        looper,
+        txnPoolNodeSet,
+        allPluginsPath,
+        tconf,
+        client1,
+        wallet1,
+        client1Connected):
     """
     Check that quorum f + 1 is used for primary selection
     when initiated by CurrentState messages.

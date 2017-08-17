@@ -153,8 +153,9 @@ def req_delay(delay: float):
 def msg_req_delay(delay: float, types_to_delay: List=None):
     # Delayer of MessageReq messages
     def specific_msgs(msg):
-        if isinstance(msg[0], MessageReq) and (not types_to_delay or
-                                               msg[0].msg_type in types_to_delay):
+        if isinstance(
+                msg[0], MessageReq) and (
+                not types_to_delay or msg[0].msg_type in types_to_delay):
             return delay
 
     specific_msgs.__name__ = MESSAGE_REQUEST
@@ -164,8 +165,9 @@ def msg_req_delay(delay: float, types_to_delay: List=None):
 def msg_rep_delay(delay: float, types_to_delay: List=None):
     # Delayer of MessageRep messages
     def specific_msgs(msg):
-        if isinstance(msg[0], MessageRep) and (not types_to_delay or
-                                               msg[0].msg_type in types_to_delay):
+        if isinstance(
+                msg[0], MessageRep) and (
+                not types_to_delay or msg[0].msg_type in types_to_delay):
             return delay
 
     specific_msgs.__name__ = MESSAGE_RESPONSE

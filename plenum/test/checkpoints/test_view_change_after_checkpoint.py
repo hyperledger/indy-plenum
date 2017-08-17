@@ -40,10 +40,15 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
     # Check that correct garbage collection happens
     non_gced_batch_count = (
         sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
-    looper.run(eventually(checkRequestCounts, txnPoolNodeSet,
-                          batch_size * non_gced_batch_count, non_gced_batch_count,
-                          non_gced_batch_count,
-                          retryWait=1))
+    looper.run(
+        eventually(
+            checkRequestCounts,
+            txnPoolNodeSet,
+            batch_size *
+            non_gced_batch_count,
+            non_gced_batch_count,
+            non_gced_batch_count,
+            retryWait=1))
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)

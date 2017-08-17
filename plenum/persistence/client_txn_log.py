@@ -37,8 +37,9 @@ class ClientTxnLog(HasFileStorage):
 
     def append(self, identifier: str, reqId, txn):
         key = '{}{}'.format(identifier, reqId)
-        self.transactionLog.put(key=key, value=self.serializer.serialize(txn,
-                                                                         fields=self.txnFieldOrdering, toBytes=False))
+        self.transactionLog.put(
+            key=key, value=self.serializer.serialize(
+                txn, fields=self.txnFieldOrdering, toBytes=False))
 
     def hasTxn(self, identifier, reqId) -> bool:
         key = '{}{}'.format(identifier, reqId)

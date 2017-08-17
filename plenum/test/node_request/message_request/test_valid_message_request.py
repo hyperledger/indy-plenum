@@ -57,11 +57,11 @@ pre_prepare_msg = PrePrepare(
     '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
 )
 
-propagate_msg = Propagate(**{'request':
-                             {'identifier': '5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC',
-                              'signature': 'ZbZG68WiaK67eU3CsgpVi85jpgCztW9Yqe7D5ezDUfWbKdiPPVbWq4Tb5m4Ur3jcR5wJ8zmBUZXZudjvMN63Aa9',
-                              'operation': {'amount': 62, 'type': 'buy'},
-                              'reqId': 1499782864169193},
+propagate_msg = Propagate(**{'request': {'identifier': '5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC',
+                                         'signature': 'ZbZG68WiaK67eU3CsgpVi85jpgCztW9Yqe7D5ezDUfWbKdiPPVbWq4Tb5m4Ur3jcR5wJ8zmBUZXZudjvMN63Aa9',
+                                         'operation': {'amount': 62,
+                                                       'type': 'buy'},
+                                         'reqId': 1499782864169193},
                              'senderClient': '+DG1:vO9#de6?R?>:3RwdAXSdefgLLfxSoN4WMEe'})
 
 bad_msgs = [

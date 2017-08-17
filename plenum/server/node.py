@@ -18,7 +18,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
+    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
@@ -170,8 +170,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack = cls(**kwargs)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
-        kwargs = dict(stackParams=self.poolManager.cstack,
-                      msgHandler=self.handleOneClientMsg, msgRejectHandler=self.reject_client_msg_handler)
+        kwargs = dict(
+            stackParams=self.poolManager.cstack,
+            msgHandler=self.handleOneClientMsg,
+            msgRejectHandler=self.reject_client_msg_handler)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -263,12 +265,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # but client signatures will not be checked on these. Expressly
         # prohibited from being in this is ClientRequest and Propagation,
         # which both require client signature verification
-        self.authnWhitelist = (Nomination, Primary, Reelection,
-                               Batch, ViewChangeDone,
-                               PrePrepare, Prepare, Checkpoint,
-                               Commit, InstanceChange, LedgerStatus,
-                               ConsistencyProof, CatchupReq, CatchupRep,
-                               ThreePCState, MessageReq, MessageRep, CurrentState)
+        self.authnWhitelist = (
+            Nomination,
+            Primary,
+            Reelection,
+            Batch,
+            ViewChangeDone,
+            PrePrepare,
+            Prepare,
+            Checkpoint,
+            Commit,
+            InstanceChange,
+            LedgerStatus,
+            ConsistencyProof,
+            CatchupReq,
+            CatchupRep,
+            ThreePCState,
+            MessageReq,
+            MessageRep,
+            CurrentState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -502,13 +517,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.config.primaryStorage is None:
             # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
             # and how they are initialized
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
-                                                                self.config.domainTransactionsFile)
-            return Ledger(CompactMerkleTree(hashStore=self.getHashStore('domain')),
-                          dataDir=self.dataLocation,
-                          fileName=self.config.domainTransactionsFile,
-                          ensureDurability=self.config.EnsureLedgerDurability,
-                          genesis_txn_initiator=genesis_txn_initiator)
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+                self.config.baseDir, self.config.domainTransactionsFile)
+            return Ledger(
+                CompactMerkleTree(
+                    hashStore=self.getHashStore('domain')),
+                dataDir=self.dataLocation,
+                fileName=self.config.domainTransactionsFile,
+                ensureDurability=self.config.EnsureLedgerDurability,
+                genesis_txn_initiator=genesis_txn_initiator)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,
@@ -537,15 +554,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def init_ledger_manager(self):
         # TODO: this and tons of akin stuff should be exterminated
-        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
-                                     self.domainLedger,
-                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.ledgerManager.addLedger(
+            DOMAIN_LEDGER_ID,
+            self.domainLedger,
+            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
         if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
-                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.ledgerManager.addLedger(
+                POOL_LEDGER_ID,
+                self.poolLedger,
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def on_new_ledger_added(self, ledger_id):
@@ -585,9 +605,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             # if first time running this node
             if not self.nodestack.remotes:
-                logger.info("{} first time running..."
-                            "".format(self), extra={"cli": "LOW_STATUS",
-                                                    "tags": ["node-key-sharing"]})
+                logger.info("{} first time running..." "".format(self), extra={
+                            "cli": "LOW_STATUS", "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections(force=True)
 
@@ -675,8 +694,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
         self.nodestack.nextCheck = 0
-        logger.debug("{} clearing aqStash of size {}".format(self,
-                                                             len(self.aqStash)))
+        logger.debug(
+            "{} clearing aqStash of size {}".format(
+                self, len(
+                    self.aqStash)))
         self.nodestack.conns.clear()
         # TODO: Should `self.clientstack.conns` be cleared too
         # self.clientstack.conns.clear()
@@ -797,8 +818,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             try:
                 self._ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
-                logger.debug('{} did not find any remote for {} to send '
-                             'request for ledger status'.format(self, node_name))
+                logger.debug(
+                    '{} did not find any remote for {} to send '
+                    'request for ledger status'.format(
+                        self, node_name))
                 continue
 
     def _ask_for_ledger_status(self, node_name: str, ledger_id):
@@ -834,8 +857,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} sending new node info {} to all clients".format(self,
                                                                          txn))
         msg = PoolLedgerTxns(txn)
-        self.clientstack.transmitToClients(msg,
-                                           list(self.clientstack.connectedClients))
+        self.clientstack.transmitToClients(
+            msg, list(self.clientstack.connectedClients))
 
     @property
     def clientStackName(self):
@@ -972,8 +995,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("view change to view {} is not completed in time, "
                      "starting view change for view {}"
                      .format(self.viewNo, next_view_no))
-        logger.info("{}{} initiating a view change to {} from {}".
-                    format(VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
+        logger.info("{}{} initiating a view change to {} from {}". format(
+            VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
@@ -993,8 +1016,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.try_processing_ordered(message)
             elif isinstance(message, Reject):
                 reqKey = (message.identifier, message.reqId)
-                reject = Reject(*reqKey,
-                                self.reasonForClientFromException(message.reason))
+                reject = Reject(
+                    *reqKey,
+                    self.reasonForClientFromException(
+                        message.reason))
                 self.transmitToClient(reject, self.requestSender[reqKey])
                 self.doneProcessingReq(*reqKey)
             elif isinstance(message, Exception):
@@ -1453,8 +1478,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
         if f.IDENTIFIER.nm in txn and f.REQ_ID.nm in txn:
-            self.master_replica.discard_req_key(ledger_id,
-                                                (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
+            self.master_replica.discard_req_key(
+                ledger_id, (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
@@ -1546,10 +1571,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_catch_up_limit(self):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if (self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and \
-                (ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
-            logger.debug('{} has completed {} catchup rounds for {} seconds'.
-                         format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
+        if (self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and (
+                ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+            logger.debug('{} has completed {} catchup rounds for {} seconds'. format(
+                self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
             # No more 3PC messages will be processed since maximum catchup
             # rounds have been done
             self.master_replica.last_prepared_before_view_change = None
@@ -1755,8 +1780,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             txn = self.getReplyFromLedger(ledger=ledger,
                                           seq_no=seq_no)
         except KeyError:
-            logger.debug("{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}".
-                         format(self, str(seq_no)))
+            logger.debug(
+                "{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}". format(
+                    self, str(seq_no)))
             txn = None
 
         result = {
@@ -1791,11 +1817,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Only the request ordered by master protocol instance are executed by
         # the client
         if inst_id == self.instances.masterId:
-            reqs = [self.requests[i, r].finalised for (i, r) in req_idrs
-                    if (i, r) in self.requests and self.requests[i, r].finalised]
+            reqs = [self.requests[i, r].finalised for (i, r) in req_idrs if (
+                i, r) in self.requests and self.requests[i, r].finalised]
             if len(reqs) == len(req_idrs):
-                logger.debug("{} executing Ordered batch {} {} of {} requests".
-                             format(self.name, view_no, pp_seq_no, len(req_idrs)))
+                logger.debug(
+                    "{} executing Ordered batch {} {} of {} requests". format(
+                        self.name, view_no, pp_seq_no, len(req_idrs)))
                 self.executeBatch(view_no, pp_seq_no, pp_time, reqs, ledger_id,
                                   state_root, txn_root)
                 r = True
@@ -1886,13 +1913,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                          self.name):
                 logger.info(
                     "{}{} found master degraded after receiving instance change"
-                    " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
+                    " message from {}".format(
+                        VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
             else:
                 logger.debug(
                     "{} received instance change message {} but did not "
                     "find the master to be slow or has already sent an instance"
-                    " change message".format(self, instChg))
+                    " change message".format(
+                        self, instChg))
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
@@ -1910,9 +1939,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _start_view_change_if_possible(self, view_no) -> bool:
         ind_count = len(self._next_view_indications[view_no])
         if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.info('{}{} starting view change for {} after {} view change '
-                        'indications from other nodes'.
-                        format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
+            logger.info(
+                '{}{} starting view change for {} after {} view change '
+                'indications from other nodes'. format(
+                    VIEW_CHANGE_PREFIX, self, view_no, ind_count))
             self.propagate_primary = True
             self.startViewChange(view_no)
             return True
@@ -1987,10 +2017,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.info("{}{} sending an instance change with view_no {}"
-                        " since {}"
-                        .
-                        format(VIEW_CHANGE_PREFIX, self, view_no, suspicion.reason))
+            logger.info(
+                "{}{} sending an instance change with view_no {}"
+                " since {}" . format(
+                    VIEW_CHANGE_PREFIX,
+                    self,
+                    view_no,
+                    suspicion.reason))
             logger.info("{}{} metrics for monitor: {}"
                         .format(MONITORING_PREFIX, self,
                                 self.monitor.prettymetrics))
@@ -1998,8 +2031,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.send(msg)
             self._record_inst_change_msg(msg, self.name)
         else:
-            logger.debug("{} cannot send instance change sooner then {} seconds"
-                         .format(self, cooldown))
+            logger.debug(
+                "{} cannot send instance change sooner then {} seconds" .format(
+                    self, cooldown))
 
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):
@@ -2239,8 +2273,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
-        committedTxns = self.commitAndSendReplies(self.reqHandler, ppTime, reqs,
-                                                  stateRoot, txnRoot)
+        committedTxns = self.commitAndSendReplies(
+            self.reqHandler, ppTime, reqs, stateRoot, txnRoot)
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
@@ -2357,12 +2391,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.stashedOrderedReqs:
             msg = self.stashedOrderedReqs.popleft()
             if msg.instId == 0:
-                if compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                                    self.ledgerManager.last_caught_up_3PC) >= 0:
-                    logger.debug('{} ignoring stashed ordered msg {} since ledger '
-                                 'manager has last_caught_up_3PC as {}'.
-                                 format(self, msg,
-                                        self.ledgerManager.last_caught_up_3PC))
+                if compare_3PC_keys(
+                    (msg.viewNo,
+                     msg.ppSeqNo),
+                        self.ledgerManager.last_caught_up_3PC) >= 0:
+                    logger.debug(
+                        '{} ignoring stashed ordered msg {} since ledger '
+                        'manager has last_caught_up_3PC as {}'. format(
+                            self, msg, self.ledgerManager.last_caught_up_3PC))
                     continue
                 logger.debug(
                     '{} applying stashed Ordered msg {}'.format(

@@ -129,12 +129,18 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                 # print(sys.getsizeof(node))
                 print('---Node {}-----'.format(node))
                 # print('Requests {}'.format(asizeof.asizeof(node.requests, detail=1)))
-                print(get_memory_usage(
-                    node, print_detailed_memory_usage, get_only_non_empty=True))
+                print(
+                    get_memory_usage(
+                        node,
+                        print_detailed_memory_usage,
+                        get_only_non_empty=True))
                 for r in node.replicas:
                     print('---Replica {}-----'.format(r))
-                    print(get_memory_usage(
-                        r, print_detailed_memory_usage, get_only_non_empty=True))
+                    print(
+                        get_memory_usage(
+                            r,
+                            print_detailed_memory_usage,
+                            get_only_non_empty=True))
 
             # if i % 3 == 0:
             #     tr.print_diff()
@@ -218,8 +224,13 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
     with capsys.disabled():
         print("Starting the stopped node, {}".format(new_node))
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
-    new_node = TestNode(new_node.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    new_node = TestNode(
+        new_node.name,
+        basedirpath=tdirWithPoolTxns,
+        config=tconf,
+        ha=nodeHa,
+        cliha=nodeCHa,
+        pluginPaths=allPluginsPath)
     looper.add(new_node)
     txnPoolNodeSet[-1] = new_node
 
@@ -292,9 +303,14 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
 
 
 @skipper
-def test_node_load_after_one_node_drops_all_msgs(looper, txnPoolNodeSet, tconf,
-                                                 tdirWithPoolTxns, allPluginsPath,
-                                                 poolTxnStewardData, capsys):
+def test_node_load_after_one_node_drops_all_msgs(
+        looper,
+        txnPoolNodeSet,
+        tconf,
+        tdirWithPoolTxns,
+        allPluginsPath,
+        poolTxnStewardData,
+        capsys):
 
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,

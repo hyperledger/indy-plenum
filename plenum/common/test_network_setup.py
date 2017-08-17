@@ -48,9 +48,18 @@ class TestNetworkSetup:
             f.writelines(os.linesep.join(contents))
 
     @classmethod
-    def bootstrapTestNodesCore(cls, config, envName, appendToLedgers,
-                               domainTxnFieldOrder, trustee_def, steward_defs,
-                               node_defs, client_defs, localNodes, nodeParamsFileName):
+    def bootstrapTestNodesCore(
+            cls,
+            config,
+            envName,
+            appendToLedgers,
+            domainTxnFieldOrder,
+            trustee_def,
+            steward_defs,
+            node_defs,
+            client_defs,
+            localNodes,
+            nodeParamsFileName):
 
         if not localNodes:
             localNodes = {}
@@ -72,12 +81,19 @@ class TestNetworkSetup:
                                               envName, domainTxnFieldOrder)
 
         trustee_txn = Member.nym_txn(
-            trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
+            trustee_def.nym,
+            trustee_def.name,
+            verkey=trustee_def.verkey,
+            role=TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD,
-                                     creator=trustee_def.nym)
+            nym_txn = Member.nym_txn(
+                sd.nym,
+                sd.name,
+                verkey=sd.verkey,
+                role=STEWARD,
+                creator=trustee_def.nym)
             domainLedger.add(nym_txn)
 
         for nd in node_defs:
@@ -85,8 +101,8 @@ class TestNetworkSetup:
             if nd.idx in _localNodes:
                 _, verkey = initLocalKeys(nd.name, baseDir,
                                           nd.sigseed, True, config=config)
-                _, verkey = initLocalKeys(nd.name + CLIENT_STACK_SUFFIX, baseDir,
-                                          nd.sigseed, True, config=config)
+                _, verkey = initLocalKeys(
+                    nd.name + CLIENT_STACK_SUFFIX, baseDir, nd.sigseed, True, config=config)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
@@ -186,10 +202,11 @@ class TestNetworkSetup:
                             default="test",
                             required=False)
 
-        parser.add_argument('--appendToLedgers',
-                            help="Determine if ledger files needs to be erased "
-                                 "before writing new information or not.",
-                            action='store_true')
+        parser.add_argument(
+            '--appendToLedgers',
+            help="Determine if ledger files needs to be erased "
+            "before writing new information or not.",
+            action='store_true')
 
         args = parser.parse_args()
 

@@ -92,8 +92,8 @@ class TestCliCore:
 
     @property
     def lastCmdOutput(self):
-        printeds = [x['msg'] for x in reversed(self.printeds[:
-                                                             (len(self.printeds) - self.lastPrintIndex)])]
+        printeds = [x['msg'] for x in reversed(
+            self.printeds[: (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
                          reversed(self.printedTokens[:(
                              len(self.printedTokens) - self.lastPrintedTokenIndex)])
@@ -190,8 +190,8 @@ def checkAllNodesUp(cli):
     # TODO: can waitAllNodesStarted be used instead?
 
     msgs = {stmt['msg'] for stmt in cli.printeds}
-    expected = PRIMARY_SELECTION_PREFIX + "{nm}:{inst} selected primary {pri}" \
-        " for instance {inst} (view 0)"
+    expected = PRIMARY_SELECTION_PREFIX + \
+        "{nm}:{inst} selected primary {pri}" " for instance {inst} (view 0)"
     assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
@@ -451,7 +451,7 @@ def checkReply(cli, count, clbk):
 
 def checkSuccess(data):
     result = data.get('result')
-    return result and result.get('success') == True
+    return result and result.get('success')
 
 
 def checkBalance(balance, data):

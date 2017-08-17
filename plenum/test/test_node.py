@@ -105,11 +105,17 @@ class TestNodeCore(StackedTester):
         }
 
         pluginPaths = kwargs.get('pluginPaths', [])
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
-                                   MockedNodeStack(), MockedBlacklister(),
-                                   nodeInfo=self.nodeInfo,
-                                   notifierEventTriggeringConfig=notifierEventTriggeringConfig,
-                                   pluginPaths=pluginPaths)
+        self.monitor = TestMonitor(
+            self.name,
+            d,
+            l,
+            o,
+            self.instances,
+            MockedNodeStack(),
+            MockedBlacklister(),
+            nodeInfo=self.nodeInfo,
+            notifierEventTriggeringConfig=notifierEventTriggeringConfig,
+            pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
@@ -298,9 +304,11 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
-        return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-                                 preCatchupClbk=self.preLedgerCatchUp)
+        return TestLedgerManager(
+            self,
+            ownedByNode=True,
+            postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+            preCatchupClbk=self.preLedgerCatchUp)
 
 
 elector_spyables = [

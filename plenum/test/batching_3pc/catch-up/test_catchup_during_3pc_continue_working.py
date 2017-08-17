@@ -20,8 +20,8 @@ def tconf(tconf, request):
     return tconf
 
 
-def test_catchup_during_3pc_continue_sending(tconf, looper, txnPoolNodeSet, client,
-                                             wallet1):
+def test_catchup_during_3pc_continue_sending(
+        tconf, looper, txnPoolNodeSet, client, wallet1):
     reqs = signed_random_requests(wallet1, tconf.Max3PCBatchSize + 2)
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 

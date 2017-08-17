@@ -13,8 +13,9 @@ logger = getlogger()
 
 def test_catch_up_after_demoted(
         txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
-    logger.info("1. add a new node after sending some txns and check that catch-up "
-                "is done (the new node is up to date)")
+    logger.info(
+        "1. add a new node after sending some txns and check that catch-up "
+        "is done (the new node is up to date)")
     looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])

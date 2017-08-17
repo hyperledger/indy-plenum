@@ -111,9 +111,9 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
             mutated = False
             for old, new in toFrom.items():
                 if id(o) == id(old):
-                    logging.debug("{}in object {}, attribute {} changed from {} to {}".
-                                  format(logMsg + ": " if logMsg else "",
-                                         obj, nm, old, new))
+                    logging.debug(
+                        "{}in object {}, attribute {} changed from {} to {}". format(
+                            logMsg + ": " if logMsg else "", obj, nm, old, new))
                     if isinstance(obj, dict):
                         obj[nm] = new
                     else:

@@ -108,9 +108,11 @@ class Client(Motor,
             self.mode = None
             HasPoolManager.__init__(self)
             self.ledgerManager = LedgerManager(self, ownedByNode=False)
-            self.ledgerManager.addLedger(POOL_LEDGER_ID, self.ledger,
-                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.ledgerManager.addLedger(
+                POOL_LEDGER_ID,
+                self.ledger,
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
             cliNodeReg = OrderedDict()
             for nm, (ip, port) in nodeReg.items():
@@ -139,8 +141,9 @@ class Client(Motor,
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         if self.nodeReg:
-            logger.info("Client {} initialized with the following node registry:"
-                        .format(self.alias))
+            logger.info(
+                "Client {} initialized with the following node registry:" .format(
+                    self.alias))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
                 for name, (host, port) in self.nodeReg.items()])]
@@ -252,8 +255,8 @@ class Client(Motor,
         requests = []
         errs = []
         for request in reqs:
-            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
-               (request.isForced() and self.hasAnyConnections):
+            if (self.mode == Mode.discovered and self.hasSufficientConnections) or (
+                    request.isForced() and self.hasAnyConnections):
                 logger.debug(
                     'Client {} sending request {}'.format(self, request))
                 stat, err_msg = self.send(request)
@@ -265,9 +268,10 @@ class Client(Motor,
                         'Client {} request failed {}'.format(self, err_msg))
                     continue
             else:
-                logger.debug("{} pending request since in mode {} and "
-                             "connected to {} nodes".
-                             format(self, self.mode, self.nodestack.connecteds))
+                logger.debug(
+                    "{} pending request since in mode {} and "
+                    "connected to {} nodes". format(
+                        self, self.mode, self.nodestack.connecteds))
                 self.pendReqsTillConnection(request)
             requests.append(request)
         for r in requests:
@@ -480,8 +484,8 @@ class Client(Motor,
             tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                if (self.hasSufficientConnections and self.mode == Mode.discovered) or \
-                   (req.isForced() and self.hasAnyConnections):
+                if (self.hasSufficientConnections and self.mode == Mode.discovered) or (
+                        req.isForced() and self.hasAnyConnections):
                     self.send(req, signer=signer)
                 else:
                     tmp.append((req, signer))
@@ -615,8 +619,12 @@ class Client(Motor,
                     queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size, None, None,
-                                    self.ledger.root_hash)
+        ledgerStatus = LedgerStatus(
+            POOL_LEDGER_ID,
+            self.ledger.size,
+            None,
+            None,
+            self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)
 

@@ -98,8 +98,17 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                                   tconf, autoStart, allPluginsPath, nodeClass)
 
 
-def start_newly_added_node(looper, node_name, tdir, sigseed, node_ha, client_ha,
-                           conf, auto_start, plugin_path, nodeClass):
+def start_newly_added_node(
+        looper,
+        node_name,
+        tdir,
+        sigseed,
+        node_ha,
+        client_ha,
+        conf,
+        auto_start,
+        plugin_path,
+        nodeClass):
     initNodeKeysForBothStacks(node_name, tdir, sigseed, override=True)
     node = nodeClass(node_name, basedirpath=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
@@ -133,9 +142,17 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
 
-    newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
-                         tdir, tconf, allPluginsPath, autoStart=autoStart,
-                         nodeClass=nodeClass, transformOpFunc=transformNodeOpFunc)
+    newNode = addNewNode(
+        looper,
+        newSteward,
+        newStewardWallet,
+        newNodeName,
+        tdir,
+        tconf,
+        allPluginsPath,
+        autoStart=autoStart,
+        nodeClass=nodeClass,
+        transformOpFunc=transformNodeOpFunc)
     return newSteward, newStewardWallet, newNode
 
 

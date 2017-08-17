@@ -58,7 +58,9 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             prepareNodeSet(looper, nodeSet)
 
             nodeA, nodeB, nodeC, nodeD = tuple(
-                addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
+                addNodeBack(
+                    nodeSet, looper, nodeNames[i]) for i in range(
+                    0, 4))
 
             # Since primary selection is round robin, A and B will be primaries
 
@@ -112,10 +114,15 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
             for reqType in [PrePrepare, Prepare, Commit]:
-                looper.run(eventually(lambda: assertLength(
-                    getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                 reqType),
-                    0), retryWait=1, timeout=delayD))  # wait little more than delay
+                looper.run(
+                    eventually(
+                        lambda: assertLength(
+                            getPendingRequestsForReplica(
+                                nodeD.replicas[instNo],
+                                reqType),
+                            0),
+                        retryWait=1,
+                        timeout=delayD))  # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,

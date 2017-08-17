@@ -41,6 +41,7 @@ class MessageFilterEngine:
             filter_desc = fltr.filter_client_to_node(req)
             if filter_desc:
                 logger.debug(
-                    "Filtered client request {} since {}".format(req, filter_desc))
+                    "Filtered client request {} since {}".format(
+                        req, filter_desc))
                 return filter_desc
         return None

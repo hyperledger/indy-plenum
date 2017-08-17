@@ -176,8 +176,9 @@ class MessageReqProcessor:
                     # ujson==1.33)
                     pp = PrePrepare(**kwargs['pp'])
                     if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-                        logger.warning('{}{} found PREPREPARE {} not satisfying query criteria'
-                                       .format(THREE_PC_PREFIX, self, *kwargs['pp']))
+                        logger.warning(
+                            '{}{} found PREPREPARE {} not satisfying query criteria' .format(
+                                THREE_PC_PREFIX, self, *kwargs['pp']))
                         return
                     return pp
                 except TypeError as ex:
@@ -228,8 +229,10 @@ class MessageReqProcessor:
                     ppg = Propagate(**kwargs['propagate'])
                     if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
                             ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-                        logger.debug('{} found PROPAGATE {} not '
-                                     'satisfying query criteria'.format(self, *kwargs['ppg']))
+                        logger.debug(
+                            '{} found PROPAGATE {} not '
+                            'satisfying query criteria'.format(
+                                self, *kwargs['ppg']))
                         return
                     return ppg
                 except TypeError as ex:

@@ -33,12 +33,12 @@ class AuctionReqProcessorPlugin(HasCliCommands):
 
     STARTING_BALANCE = 1000
 
-    grams = [getPipedRegEx(pat) for pat in [
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>start\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>end\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>place\s+bid) \s+ (?P<amount>[0-9]+) \s+ on \s+(?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*) "
-    ]]
+    grams = [
+        getPipedRegEx(pat) for pat in [
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>start\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>end\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>place\s+bid) \s+ (?P<amount>[0-9]+) \s+ on \s+(?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*) "]]
 
     cliActionNames = {'balance', 'start auction', 'end auction', 'place bid'}
 

@@ -72,8 +72,9 @@ class PrimarySelector(PrimaryDecider):
             messages.append(ViewChangeDone(self.viewNo,
                                            *self._view_change_done[self.name]))
         else:
-            logger.debug('{} has no ViewChangeDone message to send for view {}'.
-                         format(self, self.viewNo))
+            logger.debug(
+                '{} has no ViewChangeDone message to send for view {}'. format(
+                    self, self.viewNo))
         return messages
 
     # overridden method of PrimaryDecider
@@ -201,9 +202,10 @@ class PrimarySelector(PrimaryDecider):
             next_primary_name = self.next_primary_node_name(0)
 
             if next_primary_name not in self._view_change_done:
-                logger.debug("{} has not received ViewChangeDone from the next "
-                             "primary {}".
-                             format(self.name, next_primary_name))
+                logger.debug(
+                    "{} has not received ViewChangeDone from the next "
+                    "primary {}". format(
+                        self.name, next_primary_name))
                 return False
             else:
                 self._has_view_change_from_primary = True
@@ -230,8 +232,9 @@ class PrimarySelector(PrimaryDecider):
             new_primary, ledger_info = mostCommonElement(votes)
             vote_count = votes.count((new_primary, ledger_info))
             if vote_count >= self.quorum:
-                logger.debug('{} found acceptable primary {} and ledger info {}'.
-                             format(self, new_primary, ledger_info))
+                logger.debug(
+                    '{} found acceptable primary {} and ledger info {}'. format(
+                        self, new_primary, ledger_info))
                 self._accepted_view_change_done_message = (new_primary,
                                                            ledger_info)
             else:
@@ -267,8 +270,9 @@ class PrimarySelector(PrimaryDecider):
             return
 
         if self.is_behind_for_view:
-            logger.debug('{} is synced and has an acceptable view change quorum '
-                         'but is behind the accepted state'.format(self))
+            logger.debug(
+                '{} is synced and has an acceptable view change quorum '
+                'but is behind the accepted state'.format(self))
             self.node.start_catchup()
             return
 

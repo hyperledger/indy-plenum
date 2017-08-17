@@ -147,8 +147,8 @@ class SimpleAuthNr(NaclAuthNr):
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = DomainRequestHandler.getNymDetails(self.state,
-                                                     identifier, isCommitted=False)
+            nym = DomainRequestHandler.getNymDetails(
+                self.state, identifier, isCommitted=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)

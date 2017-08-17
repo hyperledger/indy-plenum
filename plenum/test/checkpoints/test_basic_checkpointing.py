@@ -13,8 +13,8 @@ def testCheckpointCreated(chkFreqPatched, looper, txnPoolNodeSet, client1,
     on each replica. After `CHK_FREQ`, one checkpoint should become stable
     """
     # Send one batch less so checkpoint is not created
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize), 1)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize), 1)
     # Deliberately waiting so as to verify that not more than 1 checkpoint is
     # created
     looper.runFor(2)

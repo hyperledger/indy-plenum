@@ -19,8 +19,9 @@ def evilNodes(startedNodes):
     # Delay processing of PRE-PREPARE messages for 90
     # seconds since the timeout for checking sufficient commits is 60 seconds
     for node in startedNodes.nodes_by_rank[-faultyNodes:]:
-        makeNodeFaulty(node, changesRequest, partial(delaysPrePrepareProcessing,
-                                                     delay=90))
+        makeNodeFaulty(
+            node, changesRequest, partial(
+                delaysPrePrepareProcessing, delay=90))
 
 
 def test_num_of_commit_msg_with_2_of_6_faulty(evilNodes, looper,

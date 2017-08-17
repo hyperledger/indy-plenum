@@ -265,6 +265,7 @@ class Propagator:
         return i
 
     def _add_to_recently_requested(self, key):
-        while len(self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
+        while len(
+                self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
             self.requested_propagates_for.pop(last=False)
         self.requested_propagates_for.add(key)

@@ -17,15 +17,18 @@ def test_no_requests_processed_during_view_change(looper, nodeSet,
     sendRandomRequests(wallet1, client1, 10)
 
     waitRejectFromPoolWithReason(
-        looper, nodeSet, client1, 'Can not process requests when view change is in progress')
+        looper,
+        nodeSet,
+        client1,
+        'Can not process requests when view change is in progress')
 
     for node in nodeSet:
         check_replica_queue_empty(node)
 
 
 @pytest.mark.skip('The filter is not enabled now')
-def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,
-                                                               client1, wallet1):
+def test_no_new_view_3pc_messages_processed_during_view_change(
+        looper, nodeSet, client1, wallet1):
     for node in nodeSet:
         node.view_change_in_progress = True
 

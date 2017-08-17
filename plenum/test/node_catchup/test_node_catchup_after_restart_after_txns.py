@@ -32,9 +32,13 @@ txnCount = 5
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
-def test_node_catchup_after_restart_with_txns(newNodeCaughtUp, txnPoolNodeSet, tconf,
-                                              nodeSetWithNodeAddedAfterSomeTxns,
-                                              tdirWithPoolTxns, allPluginsPath):
+def test_node_catchup_after_restart_with_txns(
+        newNodeCaughtUp,
+        txnPoolNodeSet,
+        tconf,
+        nodeSetWithNodeAddedAfterSomeTxns,
+        tdirWithPoolTxns,
+        allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -57,8 +61,13 @@ def test_node_catchup_after_restart_with_txns(newNodeCaughtUp, txnPoolNodeSet, t
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
     logger.debug("Starting the stopped node, {}".format(newNode))
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
-    newNode = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                       ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    newNode = TestNode(
+        newNode.name,
+        basedirpath=tdirWithPoolTxns,
+        config=tconf,
+        ha=nodeHa,
+        cliha=nodeCHa,
+        pluginPaths=allPluginsPath)
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode
 

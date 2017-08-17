@@ -61,9 +61,10 @@ def testMultipleCommit(setup, looper, sent1):
                 # Every node except the one from which duplicate COMMIT was
                 # sent should raise suspicion twice, once for each extra
                 # PREPARE request
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.DUPLICATE_CM_SENT.code)) \
-                    == 2
+                assert len(
+                    getNodeSuspicions(
+                        r.node,
+                        Suspicions.DUPLICATE_CM_SENT.code)) == 2
 
     numOfNodes = len(primaryRep.node.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)

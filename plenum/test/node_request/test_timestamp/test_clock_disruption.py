@@ -35,10 +35,13 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet, client1,
     susp_counts = {node.name: get_timestamp_suspicion_count(node) for node in
                    txnPoolNodeSet}
     for node in txnPoolNodeSet:
-        make_clock_faulty(node,
-                          clock_slow_by_sec=node.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS +
-                          randint(5, 15),
-                          ppr_always_wrong=False)
+        make_clock_faulty(
+            node,
+            clock_slow_by_sec=node.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS +
+            randint(
+                5,
+                15),
+            ppr_always_wrong=False)
 
     for _ in range(5):
         sendRandomRequests(wallet1, client1, 2)

@@ -86,10 +86,10 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
             slow_master, node.monitor)
 
     perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
-    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
-        perf_check_freq
-    nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
-                                                               if n not in exclude_from_check]
+    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
+        len(nodes)) + perf_check_freq
+    nodes_to_check = nodes if exclude_from_check is None else [
+        n for n in nodes if n not in exclude_from_check]
     logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
     looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
                           retryWait=1, timeout=timeout))
@@ -184,9 +184,15 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
         looper, wallet, client, 5, total_timeout=30)
 
 
-def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, client,
-                                             tconf,
-                                             min_delay=0, max_delay=0):
+def view_change_in_between_3pc_random_delays(
+        looper,
+        nodes,
+        slow_nodes,
+        wallet,
+        client,
+        tconf,
+        min_delay=0,
+        max_delay=0):
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
 
     # max delay should not be more than catchup timeout.
@@ -204,8 +210,9 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
 
 def start_stopped_node(stopped_node, looper, tconf,
                        tdirWithPoolTxns, allPluginsPath):
-    nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*
-                                                         stopped_node.clientstack.ha)
+    nodeHa, nodeCHa = HA(*
+                         stopped_node.nodestack.ha), HA(*
+                                                        stopped_node.clientstack.ha)
     restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,

@@ -59,9 +59,12 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
         }})
 
     validTypes = ', '.join(plugin.validTxnTypes)
-    update = {'reason': makeReason(commonError, "dummy is not a valid "
-                                                "transaction type, must be "
-                                                "one of {}".format(validTypes))}
+    update = {
+        'reason': makeReason(
+            commonError,
+            "dummy is not a valid "
+            "transaction type, must be "
+            "one of {}".format(validTypes))}
 
     coros1 = [partial(checkReqNack, client1, node, req.identifier,
                       req.reqId, update) for node in nodeSet]

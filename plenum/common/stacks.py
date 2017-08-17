@@ -15,8 +15,14 @@ class ClientZStack(SimpleZStack, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
                  config=None, msgRejectHandler=None):
         config = config or getConfig()
-        SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
-                              onlyListener=True, config=config, msgRejectHandler=msgRejectHandler)
+        SimpleZStack.__init__(
+            self,
+            stackParams,
+            msgHandler,
+            seed=seed,
+            onlyListener=True,
+            config=config,
+            msgRejectHandler=msgRejectHandler)
         MessageProcessor.__init__(self, allowDictOnly=False)
         self.connectedClients = set()
 
@@ -47,8 +53,9 @@ class ClientZStack(SimpleZStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{}{} unable to send message {} to client {}; Exception: {}"
-                         .format(CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
+            logger.error(
+                "{}{} unable to send message {} to client {}; Exception: {}" .format(
+                    CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         # TODO: Handle `remoteNames`
@@ -112,8 +119,9 @@ class ClientRStack(SimpleRStack, MessageProcessor):
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error("{}{} unable to send message {} to client {}; Exception: {}"
-                         .format(CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
+            logger.error(
+                "{}{} unable to send message {} to client {}; Exception: {}" .format(
+                    CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         for nm in remoteNames:

@@ -124,8 +124,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.startRepeating(self.sendPeriodicStats,
                                 config.DashboardUpdateFreq)
 
-        self.startRepeating(self.checkPerformance,
-                            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+        self.startRepeating(
+            self.checkPerformance,
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
         if 'disable_view_change' in config.unsafe:
             self.isMasterDegraded = lambda: False
@@ -239,8 +240,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             # If avg of `n` items is `a`, thus sum of `n` items is `x` where
             # `x=n*a` then avg of `n+1` items where `y` is the new item is
             # `((n*a)+y)/n+1`
-            self.clientAvgReqLatencies[instId][identifier] = \
-                (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            self.clientAvgReqLatencies[instId][identifier] = (
+                totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
             durations[identifier, reqId] = duration
 
@@ -532,12 +533,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
         self._sendStatsDataIfRequired(
-            EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
+            EVENT_PERIODIC_STATS_NODES, remotesInfo(
+                self.nodestack, self.blacklister))
 
     def sendSystemPerfomanceInfo(self):
         logger.debug("{} sending system performance".format(self))
         self._sendStatsDataIfRequired(
-            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO, self.captureSystemPerformance())
+            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO,
+            self.captureSystemPerformance())
 
     def sendNodeInfo(self):
         logger.debug("{} sending node info".format(self))

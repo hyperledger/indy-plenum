@@ -204,8 +204,8 @@ class PrimaryElector(PrimaryDecider):
         """
         replica = self.replicas[instId]
         if not self.didReplicaNominate(instId):
-            self.nominations[instId][replica.name] = (replica.name,
-                                                      replica.last_ordered_3pc[1])
+            self.nominations[instId][replica.name] = (
+                replica.name, replica.last_ordered_3pc[1])
             logger.debug("{} nominating itself for instance {}".
                          format(replica, instId),
                          extra={"cli": "PLAIN", "tags": ["node-nomination"]})
@@ -251,10 +251,10 @@ class PrimaryElector(PrimaryDecider):
         replica = self.replicas[instId]
         if instId == 0 and replica.getNodeName(
                 nom.name) == self.previous_master_primary:
-            self.discard(nom, '{} got Nomination from {} for {} who was primary'
-                              ' of master in previous view too'.
-                         format(self, sender, nom.name),
-                         logMethod=logger.debug)
+            self.discard(
+                nom, '{} got Nomination from {} for {} who was primary'
+                ' of master in previous view too'. format(
+                    self, sender, nom.name), logMethod=logger.debug)
             return False
 
         sndrRep = replica.generateName(sender, nom.instId)
@@ -460,9 +460,11 @@ class PrimaryElector(PrimaryDecider):
                         # reelection
                         self.nominateReplica(instId)
             else:
-                logger.debug("{} does not have re-election quorum yet. "
-                             "Got only {}".format(replica,
-                                                  len(self.reElectionProposals[instId])))
+                logger.debug(
+                    "{} does not have re-election quorum yet. "
+                    "Got only {}".format(
+                        replica, len(
+                            self.reElectionProposals[instId])))
         else:
             self.discard(reelection,
                          "already got re-election proposal from {}".
@@ -536,15 +538,13 @@ class PrimaryElector(PrimaryDecider):
             self.reElectionRounds[instId] = 0
 
         if replica.name in self.primaryDeclarations[instId]:
-            logger.debug("{} has already sent a Primary: {}".
-                         format(replica,
-                                self.primaryDeclarations[instId][replica.name]))
+            logger.debug("{} has already sent a Primary: {}". format(
+                replica, self.primaryDeclarations[instId][replica.name]))
             return
 
         if replica.name in self.reElectionProposals[instId]:
-            logger.debug("{} has already sent a Re-Election for : {}".
-                         format(replica,
-                                self.reElectionProposals[instId][replica.name]))
+            logger.debug("{} has already sent a Re-Election for : {}". format(
+                replica, self.reElectionProposals[instId][replica.name]))
             return
 
         if self.hasNominationQuorum(instId):
@@ -586,8 +586,11 @@ class PrimaryElector(PrimaryDecider):
                 if self.hasNominationsFromAll(instId) or (
                         self.scheduledPrimaryDecisions[instId] is not None and
                         self.hasPrimaryDecisionTimerExpired(instId)):
-                    logger.debug("{} proposing re-election".format(replica),
-                                 extra={"cli": True, "tags": ['node-election']})
+                    logger.debug(
+                        "{} proposing re-election".format(replica),
+                        extra={
+                            "cli": True,
+                            "tags": ['node-election']})
                     self.sendReelection(instId,
                                         [n[0] for n in primaryCandidates])
                 else:
@@ -651,8 +654,11 @@ class PrimaryElector(PrimaryDecider):
                             self.reElectionRounds[instId],
                             primaryCandidates))
         self.send(
-            Reelection(instId, self.reElectionRounds[instId], primaryCandidates,
-                       self.viewNo))
+            Reelection(
+                instId,
+                self.reElectionRounds[instId],
+                primaryCandidates,
+                self.viewNo))
 
     def getPrimaryCandidates(self, instId: int):
         """

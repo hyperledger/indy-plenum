@@ -20,8 +20,13 @@ def tconf(tconf, request):
     return tconf
 
 
-def test_pp_seq_no_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper, wallet1,
-                                             client1, client1Connected):
+def test_pp_seq_no_starts_from_0_in_new_view(
+        tconf,
+        txnPoolNodeSet,
+        looper,
+        wallet1,
+        client1,
+        client1Connected):
     # This test fails since last ordered pre-prepare sequence number is
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
 

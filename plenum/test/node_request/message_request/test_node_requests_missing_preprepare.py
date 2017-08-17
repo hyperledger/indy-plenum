@@ -78,8 +78,8 @@ def malicious_setup(request, txnPoolNodeSet):
             else:
                 return orig_method(msg, frm)
 
-        bad_node.nodeMsgRouter.routes[MessageReq] = types.MethodType(do_not_send,
-                                                                     bad_node)
+        bad_node.nodeMsgRouter.routes[MessageReq] = types.MethodType(
+            do_not_send, bad_node)
         return primary_node, bad_node, good_non_primary_node, slow_node, \
             other_nodes, do_not_send, orig_method
 

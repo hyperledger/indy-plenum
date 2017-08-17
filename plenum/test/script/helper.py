@@ -39,8 +39,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
             break
 
     nodeStackNewHA, clientStackNewHA = genHa(2)
-    logger.debug("change HA for node: {} to {}".
-                 format(subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
+    logger.debug("change HA for node: {} to {}". format(
+        subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
 
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
 

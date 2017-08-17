@@ -34,12 +34,29 @@ def test_view_change_complex(
     # view_change_in_between_3pc(looper, txnPoolNodeSet, txnPoolNodeSet, wallet1,
     #                            client)
 
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client, tconf,
-                                             min_delay=0, max_delay=10)
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client, tconf,
-                                             min_delay=1, max_delay=5)
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client, tconf,
-                                             min_delay=5)
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client,
+        tconf,
+        min_delay=0,
+        max_delay=10)
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client,
+        tconf,
+        min_delay=1,
+        max_delay=5)
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client,
+        tconf,
+        min_delay=5)

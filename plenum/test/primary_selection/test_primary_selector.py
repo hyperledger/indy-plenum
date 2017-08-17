@@ -275,9 +275,16 @@ def test_get_msgs_for_lagged_nodes():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
     )
     messages = [
-        (ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo), 'Node1'),
-        (ViewChangeDone(viewNo=0, name='Node3', ledgerInfo=ledgerInfo), 'Node2')
-    ]
+        (ViewChangeDone(
+            viewNo=0,
+            name='Node2',
+            ledgerInfo=ledgerInfo),
+            'Node1'),
+        (ViewChangeDone(
+            viewNo=0,
+            name='Node3',
+            ledgerInfo=ledgerInfo),
+         'Node2')]
     node = FakeNode()
     selector = PrimarySelector(node)
     for message in messages:

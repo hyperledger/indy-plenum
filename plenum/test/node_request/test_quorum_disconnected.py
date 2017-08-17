@@ -24,8 +24,8 @@ def stop_nodes(looper, nodeSet):
     return adict(faulties=faulties)
 
 
-def test_6_nodes_pool_cannot_reach_quorum_with_2_disconnected(nodeSet, looper,
-                                                              client1, wallet1):
+def test_6_nodes_pool_cannot_reach_quorum_with_2_disconnected(
+        nodeSet, looper, client1, wallet1):
     '''
     Check that we can not reach consensus when more than n-f nodes are disconnected:
     discinnect 2 of 6 nodes

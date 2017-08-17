@@ -107,8 +107,12 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
         assert slow_node.spylog.count(
             slow_node.allLedgersCaughtUp) > old_lcu_count
 
-    looper.run(eventually(chk4, retryWait=1,
-                          timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))
+    looper.run(
+        eventually(
+            chk4,
+            retryWait=1,
+            timeout=waits.expectedPoolCatchupTime(
+                len(txnPoolNodeSet))))
 
     def chk5():
         # Once catchup was done, need of other catchup was not found

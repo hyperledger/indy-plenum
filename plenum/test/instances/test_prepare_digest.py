@@ -53,8 +53,10 @@ def testPrepareDigest(setup, looper, sent1):
                 # Every node except the one from which PREPARE with incorrect
                 # digest was sent should raise suspicion for the PREPARE
                 # message
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.PR_DIGEST_WRONG.code)) == 1
+                assert len(
+                    getNodeSuspicions(
+                        r.node,
+                        Suspicions.PR_DIGEST_WRONG.code)) == 1
 
     numOfNodes = len(primaryRep.node.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)

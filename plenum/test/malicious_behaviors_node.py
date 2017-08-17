@@ -56,8 +56,11 @@ def delaysCommitProcessing(node, delay: float=30, instId: int=None):
 
 # Could have this method directly take a replica rather than a node and an
 # instance id but this looks more useful as a complete node can be malicious
-def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
-                           instId=None):
+def sendDuplicate3PhaseMsg(
+        node: TestNode,
+        msgType: ThreePhaseMsg,
+        count: int=2,
+        instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))

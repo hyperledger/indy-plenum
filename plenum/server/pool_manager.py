@@ -230,8 +230,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 else:
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
-                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(info[DATA][CLIENT_IP],
-                                                                              info[DATA][CLIENT_PORT])
+                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
+                        info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                     _updateNode(txn)
 
             self.node.sendPoolInfoToClients(txn)
@@ -247,8 +247,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
-            self.node.sendInstanceChange(self.node.viewNo + 1,
-                                         Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+            self.node.sendInstanceChange(
+                self.node.viewNo + 1,
+                Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
