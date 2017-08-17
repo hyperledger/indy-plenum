@@ -37,11 +37,6 @@ class TestStatsConsumer(StatsConsumer):
 
     def _sendStatsOnReqOrdered(self, stats: Dict[str, object]):
         assert stats.get("created_at")
-        # DEPR: Since the master instance does state validations it might
-        # reject some requests which other instances will not, since they
-        # do not do state based validation
-        # if stats.get("hasMasterPrimary") == "Y":
-        #     assert stats.get("total requests")
 
     def _sendStatsOnNodeStart(self, stats: Dict[str, object]):
         assert stats.get("startedAtData")

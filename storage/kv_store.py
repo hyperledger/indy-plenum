@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABCMeta, abstractproperty
+from abc import abstractmethod, ABCMeta
 from typing import Tuple, Iterable
 
 
@@ -40,15 +40,18 @@ class KeyValueStorage(metaclass=ABCMeta):
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def closed(self):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def is_byte(self) -> bool:
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def db_path(self) -> str:
         pass
 

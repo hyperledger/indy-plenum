@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+
+"""
+Filters a source log and produces output where messages
+with a specific prefix only are kept.
+
+Usage:
+
+filter_log PREFIX INPUT [OUTPUT]
+
+where
+PREFIX  - the prefix of the messages to keep
+INPUT   - the path of the source log
+OUTPUT  - the path for the filtered output (by default the output is printed
+          to stdout)
+
+Examples:
+
+filter_log MONITORING Node1.log
+
+filter_log "VIEW CHANGE" /home/user/.sovrin/Node1.log /home/user/filtered.log
+"""
+
+import argparse
+import re
+
+LOG_RECORD_PREFIX = '20'
+LOG_MSG_PATTERN = '[^\|]*\|[^\|]*\|[^\|]*\|[^\|]*\| {}.*'
+
+
+def parseArgs():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('prefix',
+                        metavar='PREFIX',
+                        help='Log message prefix')
+
+    parser.add_argument('input',
+                        metavar='INPUT',
+                        help='Source log path')
+
+    parser.add_argument('output',
+                        nargs='?',
+                        default='/dev/stdout',
+                        metavar='OUTPUT',
+                        help='Filtered output path')
+
+    return parser.parse_args()
+
+
+def main(args):
+    target_log_msg_regex = re.compile(
+        LOG_MSG_PATTERN.format(re.escape(args.prefix)))
+
+    with open(args.input, 'r') as source_log, \
+            open(args.output, 'w') as filtered_output:
+
+        write_continuation = False
+
+        while True:
+            line = source_log.readline()
+
+            if not line:
+                break
+
+            if line.startswith(LOG_RECORD_PREFIX):
+                if target_log_msg_regex.match(line):
+                    filtered_output.write(line)
+                    write_continuation = True
+                else:
+                    write_continuation = False
+
+            elif write_continuation:
+                filtered_output.write(line)
+
+
+if __name__ == '__main__':
+    main(parseArgs())

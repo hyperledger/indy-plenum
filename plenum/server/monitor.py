@@ -369,7 +369,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupThrp = totalReqs / totalTm if totalTm else None
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
-                avgReqsPerInst = totalReqs / self.instances.count
+                avgReqsPerInst = (totalReqs or 0) / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None
