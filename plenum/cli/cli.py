@@ -265,8 +265,8 @@ class Cli:
 
     def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
         self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg)
-                and cliNodeReg and len(cliNodeReg)):
+        if not (useNodeReg and nodeReg and len(nodeReg) and
+                cliNodeReg and len(cliNodeReg)):
             self.__init_registry_from_ledger()
         else:
             self.nodeReg = nodeReg
@@ -739,9 +739,9 @@ class Cli:
         bottomCmds = [self.cmdHandlerToCmdMappings().get(k)
                       for k in bottomCmdsKeys]
         middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
-                      if k not in topCmdKeys
-                      and k not in bottomCmdsKeys
-                      and k not in removeCmdKeys]
+                      if k not in topCmdKeys and
+                      k not in bottomCmdsKeys and
+                      k not in removeCmdKeys]
         return [c for c in (topCmds + middleCmds +
                             bottomCmds) if c is not None]
 
@@ -1029,8 +1029,8 @@ class Cli:
             else:
                 self.printVoid()
             notConnecteds = list({r for r in self.nodes.keys()
-                                  if r not in connecteds
-                                  and r != nodeName})
+                                  if r not in connecteds and
+                                  r != nodeName})
             if notConnecteds:
                 self.print('    Not connected: ', newline=False)
                 self.printNames(notConnecteds, newline=True)

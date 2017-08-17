@@ -66,8 +66,8 @@ def malicious_setup(request, txnPoolNodeSet):
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     bad_node = [n for n in other_nodes if n != primary_node][0]
-    good_non_primary_node = [n for n in other_nodes if n != slow_node
-                             and n != bad_node and n != primary_node][0]
+    good_non_primary_node = [n for n in other_nodes if n != slow_node and
+                             n != bad_node and n != primary_node][0]
 
     if request.param == 'do_not_send':
         orig_method = bad_node.nodeMsgRouter.routes[MessageReq]
