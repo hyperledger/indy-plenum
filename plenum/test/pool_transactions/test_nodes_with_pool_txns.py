@@ -2,24 +2,19 @@ import itertools
 from copy import copy
 
 import base58
-from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP
+
+from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitRejectWithReason, \
     waitReqNackFromPoolWithReason
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, \
     addNewStewardAndNode, sendAddNewNode, add_2_nodes
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 

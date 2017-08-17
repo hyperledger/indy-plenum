@@ -2,7 +2,7 @@ from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, 
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP
+    NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, SERVICES, VALIDATOR
 from plenum.common.util import randomString
 from plenum.test.helper import waitRejectWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \

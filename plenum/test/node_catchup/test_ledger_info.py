@@ -3,6 +3,9 @@ import time
 import pytest
 
 from ledger.test.helper import random_txn, create_ledger
+
+# noinspection PyUnresolvedReferences
+from ledger.test.conftest import tempdir, txn_serializer, hash_serializer  # noqa
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
