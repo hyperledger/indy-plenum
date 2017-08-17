@@ -4,5 +4,7 @@ exclude =
     # common places
     .git,__pycache__,docs/source/conf.py,old,build,dist,
     # requires deep refactoring
-    state/util/utils.py
+    state/util/utils.py,
+    # lots unused import because of fixtures
+    plenum/test
 max-complexity = 10
