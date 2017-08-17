@@ -25,7 +25,7 @@ def test_one_seq_no_passes():
     })
 
 
-def test_one_seq_no_passes():
+def test_normal_seq_no_passes():
     op_get_txn.validate({
         TXN_TYPE: GET_TXN,
         DATA: TEST_SEQ_NORMAL

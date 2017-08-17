@@ -229,7 +229,7 @@ class MessageReqProcessor:
                             return
                     return ppg
                 except TypeError as ex:
-                    logger.debug(
+                    logger.warning(
                         '{} could not create PROPAGATE out of {}'.
                             format(self, **kwargs['propagate']))
             else:

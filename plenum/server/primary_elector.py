@@ -5,7 +5,7 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any, Union, List, Iterable
 
-from plenum.common.constants import PRIMARY_ELECTION_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.common.util import mostCommonElement
@@ -358,7 +358,7 @@ class PrimaryElector(PrimaryDecider):
                     self.primaryDeclarations[inst_id].values())
                 logger.display("{}{} selected primary {} for instance {} "
                                "(view {})"
-                               .format(PRIMARY_ELECTION_PREFIX, replica,
+                               .format(PRIMARY_SELECTION_PREFIX, replica,
                                        primary, inst_id, self.viewNo),
                                extra={"cli": "ANNOUNCE",
                                       "tags": ["node-election"]})

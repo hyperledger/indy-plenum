@@ -1,4 +1,4 @@
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from typing import Any, Sequence
 
 from common.serializers.serialization import client_req_rep_store_serializer
@@ -10,7 +10,8 @@ class ClientReqRepStore:
     def __init__(self, *args, **kwargs):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def lastReqId(self) -> int:
         pass
 
@@ -66,7 +67,8 @@ class ClientReqRepStore:
             errors = {**errors, **self.getRejects(identifier, reqId)}
         return replies, errors
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def txnFieldOrdering(self):
         raise NotImplementedError
 

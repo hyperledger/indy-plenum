@@ -13,7 +13,8 @@ class ReqIdrToTxn:
     def __init__(self, keyValueStorage: KeyValueStorage):
         self._keyValueStorage = keyValueStorage
 
-    def getKey(self, identifier, reqId):
+    @staticmethod
+    def getKey(identifier, reqId):
         h = sha256()
         h.update(identifier.encode())
         h.update(str(reqId).encode())

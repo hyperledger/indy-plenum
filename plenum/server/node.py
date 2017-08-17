@@ -868,7 +868,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except TypeError as ex:
             self.discard(msg,
                          reason="{}invalid election messages".format(
-                             PRIMARY_ELECTION_PREFIX),
+                             PRIMARY_SELECTION_PREFIX),
                          logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
@@ -1984,9 +1984,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.debug("{} sending an instance change with view_no {} since "
-                        "{}".
-                        format(self, view_no, suspicion.reason))
+            logger.info("{}{} sending an instance change with view_no {}"
+                        " since {}"
+                        .format(VIEW_CHANGE_PREFIX, self, view_no,
+                                suspicion.reason))
             logger.info("{}{} metrics for monitor: {}"
                         .format(MONITORING_PREFIX, self,
                                 self.monitor.prettymetrics))
