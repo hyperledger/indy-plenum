@@ -168,7 +168,7 @@ class MessageReqProcessor:
     def _validate_requested_preprepare(self, **kwargs):
         if kwargs['inst_id'] in range(len(self.replicas)) and \
                 kwargs['view_no'] == self.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
+                isinstance(kwargs['pp_seq_no'], int) and \
                 kwargs['pp_seq_no'] > 0:
             if 'pp' in kwargs:
                 try:

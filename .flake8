@@ -6,5 +6,7 @@ exclude =
     # requires deep refactoring
     state/util/utils.py,
     # lots unused import because of fixtures
-    plenum/test
+    plenum/test,
+    # have to skip because the file should be fixed
+    setup.py
 max-complexity = 10

@@ -41,12 +41,6 @@ from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from stp_raet.util import getLocalEstateData
 
-if is_windows():
-    from prompt_toolkit.terminal.win32_output import Win32Output
-    from prompt_toolkit.terminal.conemu_output import ConEmuOutput
-else:
-    from prompt_toolkit.terminal.vt100_output import Vt100_Output
-
 import configparser
 import os
 from configparser import ConfigParser
@@ -83,6 +77,12 @@ from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 from plenum.cli.command_history import CliFileHistory
+
+if is_windows():
+    from prompt_toolkit.terminal.win32_output import Win32Output  # noqa
+    from prompt_toolkit.terminal.conemu_output import ConEmuOutput  # noqa
+else:
+    from prompt_toolkit.terminal.vt100_output import Vt100_Output  # noqa
 
 
 class CustomOutput(Vt100_Output):
@@ -242,7 +242,7 @@ class Cli:
             Logger().enableFileLogging(logFileName)
 
         # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
-        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
+        # Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))

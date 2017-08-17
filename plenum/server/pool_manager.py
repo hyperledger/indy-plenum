@@ -3,8 +3,7 @@ import ipaddress
 from abc import abstractmethod
 from collections import OrderedDict
 
-import base58
-from typing import Dict, Tuple, Optional
+from typing import Optional
 
 from copy import deepcopy
 from typing import Dict, Tuple, List

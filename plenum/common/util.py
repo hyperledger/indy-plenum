@@ -62,7 +62,7 @@ def randomString(size: int = 20) -> str:
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
         # that part of a random may not be truely random, so until
         # we have definite proof going to retain it commented
-        #rstr = randombytes(size).hex()
+        # rstr = randombytes(size).hex()
         # return rstr[:size]
 
     return randomStr(size)

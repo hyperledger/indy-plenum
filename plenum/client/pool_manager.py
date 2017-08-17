@@ -3,7 +3,6 @@ import json
 
 from ledger.util import F
 from stp_core.network.exceptions import RemoteNotFound
-from stp_core.types import HA
 
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\

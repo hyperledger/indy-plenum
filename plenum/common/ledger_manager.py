@@ -1069,10 +1069,6 @@ class LedgerManager(HasActionQueue):
         return self.owner.send
 
     @property
-    def send(self):
-        return self.owner.send
-
-    @property
     def sendToNodes(self):
         return self.owner.sendToNodes
 

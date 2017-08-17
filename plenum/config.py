@@ -28,7 +28,7 @@ baseDir = '~/.plenum/'
 walletsDir = 'wallets'
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
-#walletDir = 'wallet'
+# walletDir = 'wallet'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'

@@ -33,7 +33,6 @@ class ChunkedFileStore(KeyValueStorageFile):
     def _chunkIndexToFileName(index):
         return str(index)
 
-
     # TODO: re-factor arguments, since they should be used depending on the chunk type
     def __init__(self,
                  dbDir,
@@ -64,12 +63,12 @@ class ChunkedFileStore(KeyValueStorageFile):
         self.currentChunkIndex = None  # type: int
 
         # TODO: fix chunk_creator support
-        default_chunk_creator = lambda name: \
-            TextFileStore(self.dataDir,
-                                  name,
-                                  isLineNoKey,
-                                  storeContentHash,
-                                  ensureDurability)
+        def default_chunk_creator(name):
+            return TextFileStore(self.dataDir,
+                                 name,
+                                 isLineNoKey,
+                                 storeContentHash,
+                                 ensureDurability)
 
         self._chunkCreator = chunk_creator or default_chunk_creator
         if open:

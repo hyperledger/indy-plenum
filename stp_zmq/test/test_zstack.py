@@ -238,7 +238,8 @@ def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
 
     stat = alpha.send(msg, beta.name)
     assert stat[0] is False
-    assert 'exceeded allowed limit of {}'.format(tconf.MSG_LEN_LIMIT) in stat[1]
+    assert 'exceeded allowed limit of {}'.format(
+        tconf.MSG_LEN_LIMIT) in stat[1]
 
     looper.runFor(5)
 
