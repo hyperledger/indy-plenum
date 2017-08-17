@@ -281,8 +281,8 @@ class ViewChangeDone(MessageBase):
 
 class CurrentState(MessageBase):
     """
-    Node sends this kind of message for nodes which 
-    suddenly reconnected (lagged). It contains information about current 
+    Node sends this kind of message for nodes which
+    suddenly reconnected (lagged). It contains information about current
     pool state, like view no, primary etc.
     """
     typename = CURRENT_STATE
@@ -318,7 +318,8 @@ class MessageRep(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
-    # TODO: support a setter for `msg` to create an instance of a type according to `msg_type`
+    # TODO: support a setter for `msg` to create an instance of a type
+    # according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),

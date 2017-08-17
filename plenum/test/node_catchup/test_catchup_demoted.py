@@ -11,7 +11,8 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-def test_catch_up_after_demoted(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
+def test_catch_up_after_demoted(
+        txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     logger.info("1. add a new node after sending some txns and check that catch-up "
                 "is done (the new node is up to date)")
     looper, newNode, client, wallet, newStewardClient, \

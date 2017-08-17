@@ -24,7 +24,7 @@ class TestNodeReg(TestCase):
         allports = set()
         for s in [nrports, cliports]:
             for p in s:
-                assert type(p) == int
+                assert isinstance(p, int)
                 allports.add(p)
 
         # ports don't overlap

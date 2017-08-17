@@ -743,7 +743,8 @@ class Cli:
                       if k not in topCmdKeys
                       and k not in bottomCmdsKeys
                       and k not in removeCmdKeys]
-        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
+        return [c for c in (topCmds + middleCmds +
+                            bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -1267,7 +1268,8 @@ class Cli:
                     pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
+                        if hasattr(
+                                plugin, "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
@@ -1559,7 +1561,8 @@ class Cli:
                        format(origName, foundIn), Token.Warning)
         return status
 
-    def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
+    def _loadWalletIfExistsAndNotLoaded(
+            self, name, copyAs=None, override=False):
         wallet = self._getWalletByName(name)
         if not wallet:
             walletFileName = normalizedWalletFileName(name)

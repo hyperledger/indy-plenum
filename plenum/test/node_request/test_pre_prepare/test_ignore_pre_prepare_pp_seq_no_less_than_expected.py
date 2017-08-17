@@ -9,8 +9,8 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
                                                          nodeSet, up,
                                                          wallet1, client1):
     """
-    A node should NOT pend a pre-prepare request which 
-    has ppSeqNo less than expected. 
+    A node should NOT pend a pre-prepare request which
+    has ppSeqNo less than expected.
 
     https://jira.hyperledger.org/browse/INDY-159,
     https://jira.hyperledger.org/browse/INDY-160

@@ -27,7 +27,8 @@ class Storage(ABC):
         pass
 
 
-def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName) -> KeyValueStorage:
+def initKeyValueStorage(keyValueType, dataLocation,
+                        keyValueStorageName) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
         return KeyValueStorageLeveldb(dataLocation, keyValueStorageName)
     elif keyValueType == KeyValueStorageType.Memory:

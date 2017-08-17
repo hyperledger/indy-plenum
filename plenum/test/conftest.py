@@ -218,7 +218,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'is already stopped',
                      'Error while running coroutine',
                      'not trying any more because',
-                     # TODO: This is too specific, move it to the particular test
+                     # TODO: This is too specific, move it to the particular
+                     # test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>",
                      'got exception while closing hash store',

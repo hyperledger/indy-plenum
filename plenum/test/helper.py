@@ -175,7 +175,8 @@ def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
                                               total_timeout=None):
     requests = sendRandomRequests(wallet, client, numReqs)
     nodeCount = len(client.nodeReg)
-    # wait till more than nodeCount replies are received (that is all nodes answered)
+    # wait till more than nodeCount replies are received (that is all nodes
+    # answered)
     waitForSufficientRepliesForRequests(looper, client,
                                         requests=requests,
                                         fVal=nodeCount - 1,
@@ -672,7 +673,8 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     return vNo
 
 
-def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout=None):
+def waitForViewChange(looper, nodeSet, expectedViewNo=None,
+                      customTimeout=None):
     """
     Waits for nodes to come to same view.
     Raises exception when time is out
@@ -863,7 +865,8 @@ def nodeByName(nodes, name):
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
 
-def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_root=None):
+def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
+                     state_root=None, txn_root=None):
     last_req_id = wallet._getIdData().lastReqId or 0
     pre_prepare = PrePrepare(
         0,

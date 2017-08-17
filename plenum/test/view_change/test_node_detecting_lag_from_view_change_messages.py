@@ -93,7 +93,8 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
     no_more_catchup_call_at = None
 
     def chk3():
-        # no_more_catchups_needed was called since node found no need of catchup
+        # no_more_catchups_needed was called since node found no need of
+        # catchup
         nonlocal last_start_catchup_call_at, no_more_catchup_call_at
         assert (get_count(slow_node, slow_node.no_more_catchups_needed)
                 - no_more_catchup_count) > 0

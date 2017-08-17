@@ -60,7 +60,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def decidePrimaries(self) -> None:
         """
-        Start election of the primary replica for each protocol instance        
+        Start election of the primary replica for each protocol instance
         """
 
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
@@ -102,8 +102,8 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     def view_change_started(self, viewNo: int):
         """
         Notifies primary decider about the fact that view changed to let it
-        prepare for election, which then will be started from outside by 
-        calling decidePrimaries() 
+        prepare for election, which then will be started from outside by
+        calling decidePrimaries()
         """
         if viewNo <= self.viewNo:
             logger.warning("{}Provided view no {} is not greater"
@@ -119,7 +119,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def get_msgs_for_lagged_nodes(self) -> List[object]:
         """
-        Returns election messages from the last view change        
+        Returns election messages from the last view change
         """
 
     def send(self, msg):
@@ -134,5 +134,5 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def start_election_for_instance(self, instance_id):
         """
-        Called when starting election for a particular protocol instance 
+        Called when starting election for a particular protocol instance
         """

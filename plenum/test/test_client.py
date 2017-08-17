@@ -57,8 +57,8 @@ def genTestClient(nodes=None,
         else:
             error("need access to nodeReg")
         for k, v in nReg.items():
-            assert type(k) == str
-            assert (type(v) == HA or type(v[0]) == HA)
+            assert isinstance(k, str)
+            assert (isinstance(v, HA) or isinstance(v[0], HA))
     else:
         logger.debug("TestClient using pool ledger")
         nReg = None

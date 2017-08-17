@@ -29,7 +29,8 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
                         numInstances=2, customTimeout=60)
     ensure_all_nodes_have_same_data(looper, nodes=active)
 
-    # Switching another node off to make sure that this time the quorum is not reaches.
+    # Switching another node off to make sure that this time the quorum is not
+    # reaches.
     stopped = [active[-1]]
     active = list(active)[:-1]
     stopNodes(stopped, looper)

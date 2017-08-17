@@ -26,7 +26,8 @@ def delayer(seconds, op, senderFilter=None, instFilter: int = None):
     return inner
 
 
-def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
+def delayerMsgTuple(seconds, opType, senderFilter=None,
+                    instFilter: int = None):
     """
     Used for nodeInBoxStasher
 
@@ -75,17 +76,20 @@ def delayerMethod(method, delay):
 
 def nom_delay(delay: float, inst_id=None, sender_filter: str=None):
     # Delayer of NOMINATE requests
-    return delayerMsgTuple(delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
 
 
 def prim_delay(delay: float, inst_id=None, sender_filter: str=None):
     # Delayer of PRIMARY requests
-    return delayerMsgTuple(delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
 
 
 def rel_delay(delay: float, inst_id=None, sender_filter: str=None):
     # Delayer of REELECTION requests
-    return delayerMsgTuple(delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
 def ppgDelay(delay: float, sender_filter: str=None):
@@ -101,12 +105,14 @@ def ppDelay(delay: float, instId: int=None, sender_filter: str=None):
 
 def pDelay(delay: float, instId: int=None, sender_filter: str=None):
     # Delayer of PREPARE requests from a particular instance
-    return delayerMsgTuple(delay, Prepare, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Prepare, instFilter=instId, senderFilter=sender_filter)
 
 
 def cDelay(delay: float, instId: int=None, sender_filter: str=None):
     # Delayer of COMMIT requests from a particular instance
-    return delayerMsgTuple(delay, Commit, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Commit, instFilter=instId, senderFilter=sender_filter)
 
 
 def icDelay(delay: float):
@@ -198,7 +204,8 @@ def delayNonPrimaries(nodeSet, instId, delay):
     return nonPrimReps
 
 
-def delay_messages(typ, nodes, inst_id, delay=None, min_delay=None, max_delay=None):
+def delay_messages(typ, nodes, inst_id, delay=None,
+                   min_delay=None, max_delay=None):
     if typ == 'election':
         delay_meths = (nom_delay, prim_delay, rel_delay)
     elif typ == '3pc':

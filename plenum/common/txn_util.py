@@ -85,7 +85,7 @@ def reqToTxn(req: Request, cons_time=None):
 
 def txnToReq(txn):
     """
-    Transforms transactions to request form (not to Request)  
+    Transforms transactions to request form (not to Request)
     """
     txn = txn.copy()
     request = {}

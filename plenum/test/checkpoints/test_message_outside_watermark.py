@@ -15,9 +15,9 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
     A node is slow in processing PRE-PREPAREs and PREPAREs such that lot of
     requests happen and the slow node has started getting 3 phase messages
     outside of it watermarks. Check that it queues up requests outside watermarks and once it
-    has received stable checkpoint it processes more requests. It sends other 
-    nodes 3 phase messages older than their stable checkpoint so they should 
-    discard them.    
+    has received stable checkpoint it processes more requests. It sends other
+    nodes 3 phase messages older than their stable checkpoint so they should
+    discard them.
     """
     delay = 15
     instId = 1

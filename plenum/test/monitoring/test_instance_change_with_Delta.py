@@ -101,7 +101,8 @@ def step2(step1, looper):
 
 @pytest.fixture(scope="module")
 def step3(step2):
-    # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
+    # make P (primary replica on master) faulty, i.e., slow to send
+    # PRE-PREPAREs
     slow_primary(step2.nodes, 0, 5)
     return step2
 

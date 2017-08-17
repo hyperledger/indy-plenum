@@ -15,7 +15,7 @@ logger = getlogger()
 class RequestHandler:
     """
     Base class for request handlers
-    Declares methods for validation, application of requests and 
+    Declares methods for validation, application of requests and
     state control
     """
 
@@ -35,7 +35,7 @@ class RequestHandler:
 
     def updateState(self, txns, isCommitted=False):
         """
-        Updates current state with a number of committed or 
+        Updates current state with a number of committed or
         not committed transactions
         """
 

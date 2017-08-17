@@ -14,7 +14,7 @@ def test_current_state_propagation(newNodeCaughtUp,
                                    txnPoolNodeSet,
                                    nodeSetWithNodeAddedAfterSomeTxns):
     """
-    Checks that nodes send CurrentState to lagged nodes. 
+    Checks that nodes send CurrentState to lagged nodes.
     """
 
     # 1. Start pool

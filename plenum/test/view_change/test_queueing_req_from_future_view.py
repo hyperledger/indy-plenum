@@ -66,7 +66,8 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
                  .format(lagging_node, l))
 
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
-    # reset delays for the lagging_node node so that it finally makes view change
+    # reset delays for the lagging_node node so that it finally makes view
+    # change
     lagging_node.reset_delays_and_process_delayeds()
 
     # Eventually no messages queued for future view

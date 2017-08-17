@@ -54,7 +54,8 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
         assert get_count(
             faulty_node, faulty_node.processRequest) == old_count_recv_req
 
-    # Attempt to request PROPAGATEs was made twice, since the faulty node has 2 replicas
+    # Attempt to request PROPAGATEs was made twice, since the faulty node has
+    # 2 replicas
     assert get_count(faulty_node, faulty_node.request_propagates) - \
         old_count_request_propagates == 2
 

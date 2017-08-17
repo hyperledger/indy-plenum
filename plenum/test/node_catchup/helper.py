@@ -136,7 +136,8 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
                 import inspect
                 curframe = inspect.currentframe()
                 calframe = inspect.getouterframes(curframe, 2)
-                # For domain ledger, send a proof for a small ledger to the bad node
+                # For domain ledger, send a proof for a small ledger to the bad
+                # node
                 if calframe[1][
                     3] == node.ledgerManager.getConsistencyProof.__name__ \
                         and calframe[2].frame.f_locals['frm'] == target_node.name \

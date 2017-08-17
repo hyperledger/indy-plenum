@@ -65,7 +65,11 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
         assert slow_node.master_replica.batches
 
     # The slow node has received some PRE-PREPAREs
-    looper.run(eventually(slow_node_processed_some, retryWait=1, timeout=delay))
+    looper.run(
+        eventually(
+            slow_node_processed_some,
+            retryWait=1,
+            timeout=delay))
 
     # No reverts have been called by the slow node
     rv = getAllReturnVals(slow_node.replicas[0],

@@ -323,4 +323,5 @@ class MessageDescriptor(TestFieldBase):
 
     @property
     def _any_positive_case_copy(self):
-        return deepcopy({field.name: field.positive_test_cases[0] for field in self.fields})
+        return deepcopy(
+            {field.name: field.positive_test_cases[0] for field in self.fields})

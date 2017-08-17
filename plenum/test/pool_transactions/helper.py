@@ -264,7 +264,8 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     return client, w
 
 
-def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], stopNode=True):
+def disconnectPoolNode(poolNodes: Iterable,
+                       disconnect: Union[str, TestNode], stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
@@ -276,7 +277,8 @@ def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], st
             node.nodestack.disconnectByName(disconnect)
 
 
-def reconnectPoolNode(poolNodes: Iterable, connect: Union[str, TestNode], looper):
+def reconnectPoolNode(poolNodes: Iterable,
+                      connect: Union[str, TestNode], looper):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)

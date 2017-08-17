@@ -389,7 +389,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         reqs, tm = self.numOrderedRequests[instId]
         return reqs / tm if tm else 0
 
-    def getInstanceMetrics(self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
+    def getInstanceMetrics(
+            self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
         """
         Calculate and return the average throughput of all the instances except
         the one specified as `forAllExcept`.

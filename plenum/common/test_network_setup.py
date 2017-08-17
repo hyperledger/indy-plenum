@@ -156,7 +156,8 @@ class TestNetworkSetup:
         return baseDir
 
     @classmethod
-    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
+    def bootstrapTestNodes(cls, config, startingPort,
+                           nodeParamsFileName, domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")

@@ -34,7 +34,8 @@ def test_serialization_of_submessages_to_dict():
     serialized_message = ZStack.serializeMsg(message).decode()
     serialized_message_reply = ZStack.serializeMsg(message_rep).decode()
 
-    # check that submessage (LedgerStatus) is serialized to the same dict as it were a common message
+    # check that submessage (LedgerStatus) is serialized to the same dict as
+    # it were a common message
     assert serialized_message in serialized_message_reply
 
     # check that de-serialized into the same message

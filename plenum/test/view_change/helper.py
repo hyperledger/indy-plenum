@@ -51,7 +51,8 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def simulate_slow_master(looper, nodeSet, wallet, client, delay=10, num_reqs=4):
+def simulate_slow_master(looper, nodeSet, wallet,
+                         client, delay=10, num_reqs=4):
     m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
@@ -201,7 +202,8 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
 
 
-def start_stopped_node(stopped_node, looper, tconf, tdirWithPoolTxns, allPluginsPath):
+def start_stopped_node(stopped_node, looper, tconf,
+                       tdirWithPoolTxns, allPluginsPath):
     nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*
                                                          stopped_node.clientstack.ha)
     restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,

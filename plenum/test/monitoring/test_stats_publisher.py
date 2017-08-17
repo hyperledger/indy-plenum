@@ -131,7 +131,8 @@ def testSendManyNoExceptions(postingStatsEnabled):
 
 def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
     N = 100
-    # use a port that may lead to assertion error (this port may be used as an input port to establish connection)
+    # use a port that may lead to assertion error (this port may be used as an
+    # input port to establish connection)
     statsPublisher = TestStatsPublisher(port=50000)
     for i in range(N):
         statsPublisher.send(message="testMessage{}".format(i))
@@ -142,7 +143,9 @@ def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
 
 class TestStatsPublisher(StatsPublisher):
     def __init__(self, ip=None, port=None, localPort=None):
-        super().__init__(ip if ip else STATS_SERVER_IP, port if port else STATS_SERVER_PORT)
+        super().__init__(
+            ip if ip else STATS_SERVER_IP,
+            port if port else STATS_SERVER_PORT)
         self.sent = []
         self.refused = []
         self.unexpected = []
@@ -159,7 +162,8 @@ class TestStatsPublisher(StatsPublisher):
         super()._connectionFailedUnexpectedly(message, ex)
         self.unexpected.append(message)
 
-    def assertMessages(self, expectedSent, expectedRefused, expectedUnexpected):
+    def assertMessages(self, expectedSent, expectedRefused,
+                       expectedUnexpected):
         assert expectedSent == len(self.sent)
         assert expectedRefused == len(self.refused)
         assert expectedUnexpected == len(self.unexpected)

@@ -54,7 +54,8 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
 
 
 @pytest.fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def nodeSetWithNodeAddedAfterSomeTxns(
+        txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)

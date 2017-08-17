@@ -12,7 +12,8 @@ class PluginLoaderHelper:
     @staticmethod
     def getPluginPath(name):
         if PLUGIN_BASE_DIR_PATH in config.DefaultPluginPath:
-            return os.path.join(config.DefaultPluginPath.get(PLUGIN_BASE_DIR_PATH), name)
+            return os.path.join(config.DefaultPluginPath.get(
+                PLUGIN_BASE_DIR_PATH), name)
         else:
             curPath = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(curPath, name)

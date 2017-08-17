@@ -79,7 +79,8 @@ class MessageReqProcessor:
                     # TODO: avoid duplication of code here: create an instance of requested class in a one place (a factory?)
                     # depending on the msg_type
 
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     return LedgerStatus(**kwargs['ledger_status'])
                 except TypeError as ex:
                     logger.warning(
@@ -120,7 +121,8 @@ class MessageReqProcessor:
                     'seq_no_end'] > 0):
             if 'cons_proof' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     return ConsistencyProof(**kwargs['cons_proof'])
                 except TypeError as ex:
                     logger.warning(
@@ -170,7 +172,8 @@ class MessageReqProcessor:
                 kwargs['pp_seq_no'] > 0:
             if 'pp' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     pp = PrePrepare(**kwargs['pp'])
                     if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
                         logger.warning('{}{} found PREPREPARE {} not satisfying query criteria'
@@ -220,7 +223,8 @@ class MessageReqProcessor:
                                                    kwargs['req_id']))):
             if 'propagate' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     ppg = Propagate(**kwargs['propagate'])
                     if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
                             ppg.request[f.REQ_ID.nm] != kwargs['req_id']:

@@ -25,7 +25,8 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
     happens and a new primary is elected the pool is functional again
     :return:
     """
-    # The node having the bad clock, this node will be primary after view change
+    # The node having the bad clock, this node will be primary after view
+    # change
     faulty_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[0].node
     make_clock_faulty(faulty_node)
 

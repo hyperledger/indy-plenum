@@ -115,7 +115,8 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     def serializeForSig(self, msg, topLevelKeysToIgnore=None):
-        return serialize_msg_for_signing(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
+        return serialize_msg_for_signing(
+            msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class SimpleAuthNr(NaclAuthNr):

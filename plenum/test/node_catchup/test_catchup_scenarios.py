@@ -37,7 +37,8 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
 
 @pytest.mark.skip(reason="SOV-552. Incomplete")
-def testNodeNotProcessingOrderedReqsWhileCatchingUp(nodeStashingOrderedRequests):
+def testNodeNotProcessingOrderedReqsWhileCatchingUp(
+        nodeStashingOrderedRequests):
     """
     Check that node does not execute requests while catching up
     :return:

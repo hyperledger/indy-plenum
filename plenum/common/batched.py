@@ -50,7 +50,8 @@ class Batched(MessageProcessor):
         for rid in self.remotes.keys():
             self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None) -> None:
+    def send(self, msg: Any, *
+             rids: Iterable[int], signer: Signer = None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
          or into the outBoxes of all the remotes if rids is None

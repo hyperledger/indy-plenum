@@ -46,7 +46,8 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
         node.startViewChange(initial_view_no + 1)
 
     # First view change should fail, because of delayed
-    # instance change messages. This then leads to new view change that we need.
+    # instance change messages. This then leads to new view change that we
+    # need.
     with pytest.raises(AssertionError):
         ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=10)
 

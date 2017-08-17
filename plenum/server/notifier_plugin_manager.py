@@ -34,16 +34,20 @@ class PluginManager:
         self.topics = notifierPluginTriggerEvents
         self.importPlugins()
 
-    def sendMessageUponNodeUpgradeScheduled(self, message='Node uprgade has been scheduled'):
+    def sendMessageUponNodeUpgradeScheduled(
+            self, message='Node uprgade has been scheduled'):
         return self._sendMessage(self.topics['nodeUpgradeScheduled'], message)
 
-    def sendMessageUponNodeUpgradeComplete(self, message='Node has successfully upgraded.'):
+    def sendMessageUponNodeUpgradeComplete(
+            self, message='Node has successfully upgraded.'):
         return self._sendMessage(self.topics['nodeUpgradeComplete'], message)
 
-    def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
+    def sendMessageUponNodeUpgradeFail(
+            self, message='Node upgrade has failed. Please take action.'):
         return self._sendMessage(self.topics['nodeUpgradeFail'], message)
 
-    def sendMessageUponPoolUpgradeCancel(self, message='Pool upgrade has been cancelled. Please take action.'):
+    def sendMessageUponPoolUpgradeCancel(
+            self, message='Pool upgrade has been cancelled. Please take action.'):
         return self._sendMessage(self.topics['poolUpgradeCancel'], message)
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,

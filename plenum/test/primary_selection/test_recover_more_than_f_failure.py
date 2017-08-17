@@ -24,7 +24,8 @@ def stop_primary(looper, active_nodes):
     return stopped_node, active_nodes
 
 
-def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, client1, wallet1, client1Connected):
+def test_recover_stop_primaries(
+        looper, txnPoolNodeSet, allPluginsPath, tconf, client1, wallet1, client1Connected):
     """
     Test that we can recover after having more than f nodes disconnected:
     - stop current master primary (Alpha)

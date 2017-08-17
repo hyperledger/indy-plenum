@@ -305,7 +305,8 @@ class LedgerManager(HasActionQueue):
         # post sending this ledger status
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
-        if self.has_ledger_status_quorum(len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
+        if self.has_ledger_status_quorum(
+                len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
             logger.debug("{} found out from {} that its "
                          "ledger of type {} is latest".
                          format(self, ledgerInfo.ledgerStatusOk, ledgerId))
@@ -318,7 +319,8 @@ class LedgerManager(HasActionQueue):
                 key = (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
                 self.do_pre_catchup(ledgerId)
                 if self.isLedgerSame(ledgerStatus) and key != (None, None):
-                    # Any state cleaup that is part of pre-catchup should be done
+                    # Any state cleaup that is part of pre-catchup should be
+                    # done
                     self.catchupCompleted(ledgerId, key)
                 else:
                     self.catchupCompleted(ledgerId)
@@ -394,7 +396,8 @@ class LedgerManager(HasActionQueue):
         adjustedQuorum = Quorums(self.owner.totalNodes - 1)
         equal_state_proofs = self.__get_equal_state_proofs_count(
             recvdConsProof)
-        return not adjustedQuorum.same_consistency_proof.is_reached(equal_state_proofs)
+        return not adjustedQuorum.same_consistency_proof.is_reached(
+            equal_state_proofs)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
@@ -691,7 +694,8 @@ class LedgerManager(HasActionQueue):
                 recvdConsProof)
             # If more than f nodes were found to be at the same state then this
             #  node's state is good too
-            if adjustedQuorum.same_consistency_proof.is_reached(null_proofs_count):
+            if adjustedQuorum.same_consistency_proof.is_reached(
+                    null_proofs_count):
                 return True, None
             result = self._latestReliableProof(grpdPrf,
                                                ledgerInfo.ledger)
@@ -733,7 +737,8 @@ class LedgerManager(HasActionQueue):
         adjustedQuorum = Quorums(self.owner.totalNodes - 1)
         result = {}
         for (start, end), val in groupedProofs.items():
-            for (view_no, lastPpSeqNo, oldRoot, newRoot, hashes), count in val.items():
+            for (view_no, lastPpSeqNo, oldRoot,
+                 newRoot, hashes), count in val.items():
                 if adjustedQuorum.same_consistency_proof.is_reached(count):
                     result[(start, end)] = (view_no, lastPpSeqNo, oldRoot,
                                             newRoot, hashes)
@@ -1015,7 +1020,8 @@ class LedgerManager(HasActionQueue):
         logger.debug('{} going to process {} stashed ledger statuses for ledger'
                      ' {}'.format(self, max_iter, ledgerId))
         # Since `processLedgerStatus` can stash some ledger statuses, make sure
-        # each item in `ledgerInfo.stashedLedgerStatuses` is processed only once
+        # each item in `ledgerInfo.stashedLedgerStatuses` is processed only
+        # once
         while max_iter != i:
             msg, frm = ledgerInfo.stashedLedgerStatuses.popleft()
             i += 1

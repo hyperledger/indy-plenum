@@ -200,7 +200,8 @@ class TestNodeCore(StackedTester):
         logger.debug("{} whitelisting {} for codes {}"
                      .format(self, clientName, codes))
 
-    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+    def blacklistClient(self, clientName: str,
+                        reason: str=None, code: int=None):
         if clientName in self.whitelistedClients:
             # If node whitelisted for all codes
             if len(self.whitelistedClients[clientName]) == 0:

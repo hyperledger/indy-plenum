@@ -63,7 +63,8 @@ def get_collection_sizes(obj, collections: Optional[Tuple]=None,
     result = []
     for attr_name in dir(obj):
         attr = getattr(obj, attr_name)
-        if isinstance(attr, collections) and (not get_only_non_empty or len(attr) > 0):
+        if isinstance(attr, collections) and (
+                not get_only_non_empty or len(attr) > 0):
             result.append(
                 (attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
     return result

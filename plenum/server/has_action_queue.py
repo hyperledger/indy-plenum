@@ -11,7 +11,8 @@ logger = getlogger()
 
 class HasActionQueue:
     def __init__(self):
-        # holds a deque of Callables; use functools.partial if the callable needs arguments
+        # holds a deque of Callables; use functools.partial if the callable
+        # needs arguments
         self.actionQueue = deque()
         self.aqStash = deque()
         self.aqNextCheck = float('inf')  # next time to check

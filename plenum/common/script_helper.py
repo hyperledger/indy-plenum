@@ -43,7 +43,8 @@ def getLedger(baseDir, dbName, storeHash=True, isLineNoKey: bool = False):
         isLineNoKey=isLineNoKey)
 
 
-def storeToFile(baseDir, dbName, value, key, storeHash=True, isLineNoKey=False):
+def storeToFile(baseDir, dbName, value, key,
+                storeHash=True, isLineNoKey=False):
     ledger = getLedger(baseDir, dbName, storeHash=storeHash,
                        isLineNoKey=isLineNoKey)
     if key is None:

@@ -114,7 +114,8 @@ def chk_freq_patched(tconf, request):
 
 def get_number_of_completed_catchups(node):
     cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(node.ledgerManager.catchupCompleted):
+    for entry in node.ledgerManager.spylog.getAll(
+            node.ledgerManager.catchupCompleted):
         if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
             cnt += 1
     return cnt

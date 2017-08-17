@@ -90,7 +90,8 @@ class TxnStackManager(metaclass=ABCMeta):
             return nodeReg, cliNodeReg, nodeKeys, activeValidators
 
     @staticmethod
-    def _parse_pool_transaction_file(ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+    def _parse_pool_transaction_file(
+            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
         """
         helper function for parseLedgerForHaAndKeys
         """

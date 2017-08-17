@@ -41,7 +41,8 @@ def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
     # 1. Send some txns
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
-    # 2. make the only condition to finish catch-up is MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
+    # 2. make the only condition to finish catch-up is
+    # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     patch_has_ordered_till_last_prepared_certificate(nodeSet)
 
     # 3. start view change
@@ -49,7 +50,8 @@ def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
     for node in nodeSet:
         node.startViewChange(expected_view_no)
 
-    # 4. check that it's not finished till MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
+    # 4. check that it's not finished till
+    # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     no_view_chanage_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     with pytest.raises(EventuallyTimeoutException):
         ensureElectionsDone(looper=looper, nodes=nodeSet,

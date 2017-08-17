@@ -42,7 +42,7 @@ class ClientTxnLog(HasFileStorage):
 
     def hasTxn(self, identifier, reqId) -> bool:
         key = '{}{}'.format(identifier, reqId)
-        return self.transactionLog.has_key(key)
+        return key in self.transactionLog
 
     def reset(self):
         self.transactionLog.reset()

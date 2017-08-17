@@ -67,10 +67,10 @@ class ClientOperationField(MessageValidator):
 
     def validate(self, dct):
         """
-        Choose a schema for client request operation and validate 
-        the operation field. If the schema is not found skips validation. 
-        :param dct: an operation field from client request 
-        :return: raises exception if invalid request 
+        Choose a schema for client request operation and validate
+        the operation field. If the schema is not found skips validation.
+        :param dct: an operation field from client request
+        :return: raises exception if invalid request
         """
         if not isinstance(dct, dict):
             # TODO this check should be in side of the validator not here

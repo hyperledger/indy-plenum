@@ -112,7 +112,8 @@ def spy(func, is_init, should_spy, spy_log=None):
     return wrap if not is_init else init_wrap if should_spy else init_only
 
 
-def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = None):
+def spyable(name: str = None, methods: SpyableMethods = None,
+            deep_level: int = None):
     def decorator(clas):
 
         if 'NO_SPIES' in globals() and globals()['NO_SPIES']:

@@ -16,7 +16,8 @@ howlong = 5
 def setup(nodeSet):
     A, B, C, D = nodeSet.nodes.values()  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
-    # Delay MessageRep by long simulating loss as if Propagate is missing, it is requested
+    # Delay MessageRep by long simulating loss as if Propagate is missing, it
+    # is requested
     delay(MessageRep, frm=[B, C, D], to=A, howlong=10 * howlong)
 
 

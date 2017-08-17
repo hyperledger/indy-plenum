@@ -111,7 +111,8 @@ if config.UseZStack:
 
     CONNECTED = RemoteState(isConnected=True)
     NOT_CONNECTED = RemoteState(isConnected=False)
-    # TODO this is to allow imports to pass until we create abstractions for RAET and ZMQ
+    # TODO this is to allow imports to pass until we create abstractions for
+    # RAET and ZMQ
     JOINED_NOT_ALLOWED = RemoteState(isConnected=False)
     JOINED = RemoteState(isConnected=False)
 else:

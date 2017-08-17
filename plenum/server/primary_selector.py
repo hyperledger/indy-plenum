@@ -13,7 +13,7 @@ logger = getlogger()
 
 class PrimarySelector(PrimaryDecider):
     """
-    Simple implementation of primary decider. 
+    Simple implementation of primary decider.
     Decides on a primary in round-robin fashion.
     Assumes that all nodes are up
     """
@@ -41,7 +41,8 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
-        # TODO: re-factor this, separate this two states (selection of a new primary and propagation of existing one)
+        # TODO: re-factor this, separate this two states (selection of a new
+        # primary and propagation of existing one)
         if not self.node.view_change_in_progress:
             return self.node.quorums.propagate_primary.value
         if self.node.propagate_primary:
@@ -58,7 +59,7 @@ class PrimarySelector(PrimaryDecider):
         """
         Returns the last accepted `ViewChangeDone` message.
         If no view change has happened returns ViewChangeDone
-        with view no 0 to a newly joined node 
+        with view no 0 to a newly joined node
         """
         # TODO: Consider a case where more than one node joins immediately,
         # then one of the node might not have an accepted
@@ -93,7 +94,7 @@ class PrimarySelector(PrimaryDecider):
                                       sender: str) -> bool:
         """
         Processes ViewChangeDone messages. Once n-f messages have been
-        received, decides on a primary for specific replica. 
+        received, decides on a primary for specific replica.
 
         :param msg: ViewChangeDone message
         :param sender: the name of the node from which this message was sent

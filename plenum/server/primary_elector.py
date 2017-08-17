@@ -249,7 +249,8 @@ class PrimaryElector(PrimaryDecider):
                      format(self.name, nom))
         instId = nom.instId
         replica = self.replicas[instId]
-        if instId == 0 and replica.getNodeName(nom.name) == self.previous_master_primary:
+        if instId == 0 and replica.getNodeName(
+                nom.name) == self.previous_master_primary:
             self.discard(nom, '{} got Nomination from {} for {} who was primary'
                               ' of master in previous view too'.
                          format(self, sender, nom.name),
@@ -303,7 +304,8 @@ class PrimaryElector(PrimaryDecider):
                      .format(self.name, sender, prim))
         instId = prim.instId
         replica = self.replicas[instId]
-        if instId == 0 and replica.getNodeName(prim.name) == self.previous_master_primary:
+        if instId == 0 and replica.getNodeName(
+                prim.name) == self.previous_master_primary:
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                                ' of master in previous view too'.
                          format(self, sender, prim.name),
@@ -454,7 +456,8 @@ class PrimaryElector(PrimaryDecider):
                         self._schedule(partial(self.nominateReplica, instId),
                                        random.randint(1, 3))
                     else:
-                        # Now try to nominate self again as there is a reelection
+                        # Now try to nominate self again as there is a
+                        # reelection
                         self.nominateReplica(instId)
             else:
                 logger.debug("{} does not have re-election quorum yet. "

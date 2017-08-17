@@ -26,7 +26,8 @@ def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, client,
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 
     # Simulate catch-up (add txns to ledger):
-    # add txns corresponding to the requests after we got enough COMMITs to order, but before ordering.
+    # add txns corresponding to the requests after we got enough COMMITs to
+    # order, but before ordering.
     add_txns_to_ledger_before_order(
         non_primary_replica, reqs[:tconf.Max3PCBatchSize])
 

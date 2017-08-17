@@ -82,7 +82,8 @@ def test_time_and_size_log_rotation1(tdir_for_func):
         logger.debug(line)
         cir_buffer.append(line)
         if i % record_per_file == 0:
-            # waiting since last modified time cannot offer good enough precision
+            # waiting since last modified time cannot offer good enough
+            # precision
             time.sleep(.5)
 
     circ_buffer_set = set(cir_buffer)

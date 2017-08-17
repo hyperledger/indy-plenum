@@ -70,7 +70,8 @@ def test_caught_up_for_current_view_check(looper,
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     assert is_catchup_needed_count() > old_count_1
-    # The bad_node caught up due to receiving sufficient ViewChangeDone messages
+    # The bad_node caught up due to receiving sufficient ViewChangeDone
+    # messages
     assert caught_up_for_current_view_count() > old_count_2
 
     bad_node.master_replica.dispatchThreePhaseMsg = types.MethodType(

@@ -72,7 +72,8 @@ class PoolRequestHandler(RequestHandler):
 
         isSteward = self.isSteward(origin, isCommitted=False)
         if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
+            return "{} is not a steward so cannot add a new node".format(
+                origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
         if self.isNodeDataConflicting(operation.get(DATA, {})):
@@ -108,7 +109,8 @@ class PoolRequestHandler(RequestHandler):
         self.state.set(key, val)
 
     def isSteward(self, nym, isCommitted: bool = True):
-        return DomainRequestHandler.isSteward(self.domainState, nym, isCommitted)
+        return DomainRequestHandler.isSteward(
+            self.domainState, nym, isCommitted)
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym, isCommitted=True):
@@ -175,7 +177,8 @@ class PoolRequestHandler(RequestHandler):
                 list(map(lambda x: bag.remove(x) if x in bag else None,
                          (None, (None, None))))
 
-                if (not nodeData and len(bag) != 3) or (nodeData and len(bag) != 6):
+                if (not nodeData and len(bag) != 3) or (
+                        nodeData and len(bag) != 6):
                     return True
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):

@@ -21,10 +21,12 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
         return counts.pop()
 
     def get_getReplyFromLedger_call_count():
-        return get_method_call_count(next(iter(txnPoolNodeSet)).getReplyFromLedger)
+        return get_method_call_count(
+            next(iter(txnPoolNodeSet)).getReplyFromLedger)
 
     def get_recordAndPropagate_call_count():
-        return get_method_call_count(next(iter(txnPoolNodeSet)).recordAndPropagate)
+        return get_method_call_count(
+            next(iter(txnPoolNodeSet)).recordAndPropagate)
 
     def get_last_returned_val():
         rvs = []

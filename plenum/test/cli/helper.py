@@ -8,7 +8,6 @@ from tempfile import gettempdir, mkdtemp
 import time
 
 
-
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX
@@ -94,9 +93,10 @@ class TestCliCore:
     @property
     def lastCmdOutput(self):
         printeds = [x['msg'] for x in reversed(self.printeds[:
-            (len(self.printeds) - self.lastPrintIndex)])]
+                                                             (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
-                         reversed(self.printedTokens[:(len(self.printedTokens) - self.lastPrintedTokenIndex)])
+                         reversed(self.printedTokens[:(
+                             len(self.printedTokens) - self.lastPrintedTokenIndex)])
                          for token in tokens.get('tokens', []) if len(token) > 1]
         pt = ''.join(printedTokens)
         return '\n'.join(printeds + [pt]).strip()
@@ -168,12 +168,12 @@ def waitNodeStarted(cli, nodeName):
         print("checking for {}".format(nodeName))
         print(msgs)
         assert "{} added replica {}:0 to instance 0 (master)" \
-                   .format(nodeName, nodeName) in msgs
+            .format(nodeName, nodeName) in msgs
         assert "{} added replica {}:1 to instance 1 (backup)" \
-                   .format(nodeName, nodeName) in msgs
+            .format(nodeName, nodeName) in msgs
         assert "{}{} listening for other nodes at {}:{}" \
-                   .format(CONNECTION_PREFIX, nodeName,
-                           *cli.nodes[nodeName].nodestack.ha) \
+            .format(CONNECTION_PREFIX, nodeName,
+                    *cli.nodes[nodeName].nodestack.ha) \
                in msgs
 
     startUpTimeout = waits.expectedNodeStartUpTimeout()
@@ -191,7 +191,7 @@ def checkAllNodesUp(cli):
 
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = PRIMARY_SELECTION_PREFIX + "{nm}:{inst} selected primary {pri}" \
-               " for instance {inst} (view 0)"
+        " for instance {inst} (view 0)"
     assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
@@ -530,7 +530,8 @@ def doByCtx(ctx):
                 prefix = "NOT found "
             elif not exp and actual:
                 prefix = "FOUND "
-            return "{}\n{}\n\n{} in\n {}".format(sepLines, e, prefix, commonMsg)
+            return "{}\n{}\n\n{} in\n {}".format(
+                sepLines, e, prefix, commonMsg)
 
         def check():
             nonlocal expect
@@ -574,7 +575,7 @@ def doByCtx(ctx):
                         else:
                             try:
                                 e(cli)
-                            except:
+                            except BaseException:
                                 # Since its a test so not using logger is not
                                 # a big deal
                                 traceback.print_exc()

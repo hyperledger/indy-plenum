@@ -74,7 +74,8 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
                          customTimeout=timeout)
     new_size = len(new_node_ledger.ledger)
 
-    # The new node ledger might catchup some transactions from the batch of `more_request` transactions
+    # The new node ledger might catchup some transactions from the batch of
+    # `more_request` transactions
     assert old_size_others - \
         old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
     sendRandomRequests(wallet, client, 2)

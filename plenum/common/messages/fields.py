@@ -19,7 +19,7 @@ class FieldValidator(metaclass=ABCMeta):
         """
         Validates field value
 
-        :param val: field value to validate 
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -38,10 +38,10 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
     # TODO: `validate` should be renamed to `validation_error`
     def validate(self, val):
         """
-        Performs basic validation of field value and then passes it for 
+        Performs basic validation of field value and then passes it for
         specific validation.
 
-        :param val: field value to validate 
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -58,11 +58,11 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
     @abstractmethod
     def _specific_validation(self, val):
         """
-        Performs specific validation of field. Should be implemented in 
+        Performs specific validation of field. Should be implemented in
         subclasses. Use it instead of overriding 'validate'.
 
-        :param val: field value to validate 
-        :return: error message or None 
+        :param val: field value to validate
+        :return: error message or None
         """
 
     def __type_check(self, val):
@@ -423,7 +423,8 @@ class VersionField(FieldBase):
     def _specific_validation(self, val):
         parts = val.split(".")
         if len(parts) not in self._comp_num:
-            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+            return "version consists of {} components, but it should contain {}".format(
+                len(parts), self._comp_num)
         for p in parts:
             if not p.isdigit():
                 return "version component should contain only digits"
@@ -463,7 +464,7 @@ class AnyValueField(FieldBase):
 
 class StringifiedNonNegativeNumberField(NonNegativeNumberField):
     """
-    This validator is needed because of json limitations: in some cases 
+    This validator is needed because of json limitations: in some cases
     numbers being converted to strings.
     """
     # TODO: Probably this should be solved another way

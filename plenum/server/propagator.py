@@ -32,7 +32,8 @@ class ReqState:
         digests = defaultdict(set)
         # this is workaround because we are getting a propagate from somebody with
         # non-str (byte) name
-        for sender, req in filter(lambda x: type(x[0]) == str, self.propagates.items()):
+        for sender, req in filter(lambda x: isinstance(
+                x[0], str), self.propagates.items()):
             digests[req.digest].add(sender)
             if quorum.is_reached(len(digests[req.digest])):
                 return req
@@ -148,7 +149,8 @@ class Propagator:
             self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], client_name) -> Propagate:
+    def createPropagate(
+            request: Union[Request, dict], client_name) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 

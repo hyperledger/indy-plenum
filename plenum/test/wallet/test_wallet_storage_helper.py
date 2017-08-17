@@ -92,7 +92,8 @@ def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
     check_permissions(dpath, mode2)
 
 
-def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_store_wallet_by_empty_path_fail(
+        tdir_for_func, keyrings_base_dir, test_wallet):
 
     wsh = WalletStorageHelper(keyrings_base_dir)
 
@@ -103,7 +104,8 @@ def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_
         exc_info.match(r'empty path')
 
 
-def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_store_wallet_outside_fail(
+        tdir_for_func, keyrings_base_dir, test_wallet):
 
     wsh = WalletStorageHelper(keyrings_base_dir)
 
@@ -147,7 +149,8 @@ def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
     exc_info.match(r"{}".format(wdir))
 
 
-def test_new_file_wallet_permissions(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_new_file_wallet_permissions(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wpath = 'ctx/test.wallet'
 
     # default
@@ -174,7 +177,8 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     check_permissions(wpath, mode2)
 
 
-def test_store_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_store_wallet_by_abs_path(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "1/2/3/wallet")
     wsh.saveWallet(test_wallet, abs_path)
@@ -250,7 +254,8 @@ def test_loaded_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
     assert encode_wallet(test_wallet) == encode_wallet(loaded_wallet)
 
 
-def test_load_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_load_wallet_by_abs_path(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "5/6/7/wallet")
     wsh.saveWallet(test_wallet, abs_path)

@@ -5,7 +5,8 @@ from enum import Enum, unique
 class Roles(Enum):
     #  These numeric constants CANNOT be changed once they have been used,
     #  because that would break backwards compatibility with the ledger
-    #  Also the numeric constants CANNOT collide with roles in dependent components.
+    # Also the numeric constants CANNOT collide with roles in dependent
+    # components.
     TRUSTEE = "0"
     STEWARD = "2"
 

@@ -58,7 +58,8 @@ class Stasher:
         for idx, d in enumerate(self.delayeds):
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
-            if ignore_age_check or (names and d[1][0].__name__ in names) or age >= d[0]:
+            if ignore_age_check or (
+                    names and d[1][0].__name__ in names) or age >= d[0]:
                 if ignore_age_check:
                     msg = '(forced)'
                 elif names and d[1][0].__name__ in names:

@@ -87,18 +87,18 @@ class Replica(HasActionQueue, MessageProcessor):
         self.config = getConfig()
 
         self.inBoxRouter = Router(
-            (ReqKey,       self.readyFor3PC),
-            (PrePrepare,   self.processThreePhaseMsg),
-            (Prepare,      self.processThreePhaseMsg),
-            (Commit,       self.processThreePhaseMsg),
-            (Checkpoint,   self.processCheckpoint),
+            (ReqKey, self.readyFor3PC),
+            (PrePrepare, self.processThreePhaseMsg),
+            (Prepare, self.processThreePhaseMsg),
+            (Commit, self.processThreePhaseMsg),
+            (Checkpoint, self.processCheckpoint),
             (ThreePCState, self.process3PhaseState),
         )
 
         self.threePhaseRouter = Router(
             (PrePrepare, self.processPrePrepare),
-            (Prepare,    self.processPrepare),
-            (Commit,     self.processCommit)
+            (Prepare, self.processPrepare),
+            (Commit, self.processCommit)
         )
 
         self.node = node
@@ -402,7 +402,8 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if value is None:
-                # Since the GC needs to happen after a primary has been decided.
+                # Since the GC needs to happen after a primary has been
+                # decided.
                 return
             self._gc_before_new_view()
             self._reset_watermarks_before_new_view()
@@ -455,11 +456,13 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_propagate_primary_done(self):
         assert self.isMaster
         # if this is a Primary that is re-connected (that is view change is not actually changed,
-        # we just propagate it, then make sure that we don;t break the sequence of ppSeqNo
+        # we just propagate it, then make sure that we don;t break the sequence
+        # of ppSeqNo
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
 
-    def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
+    def get_lowest_probable_prepared_certificate_in_view(
+            self, view_no) -> Optional[int]:
         """
         Return lowest pp_seq_no of the view for which can be prepared but
         choose from unprocessed PRE-PREPAREs and PREPAREs.
@@ -1132,7 +1135,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :param ppReq: any object with identifier and requestId attributes
         """
         if not self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo):
-            return False, 'should not participate in consensus for {}'.format(ppReq)
+            return False, 'should not participate in consensus for {}'.format(
+                ppReq)
         if self.has_sent_prepare(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
@@ -1162,7 +1166,8 @@ class Replica(HasActionQueue, MessageProcessor):
             if self.prepares.hasPrepareFrom(prepare, sender):
                 raise SuspiciousNode(
                     sender, Suspicions.DUPLICATE_PR_SENT, prepare)
-            # If PRE-PREPARE not received for the PREPARE, might be slow network
+            # If PRE-PREPARE not received for the PREPARE, might be slow
+            # network
             if not ppReq:
                 self.enqueue_prepare(prepare, sender)
                 return False
@@ -1244,7 +1249,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: the PREPARE
         """
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
-            return False, 'should not participate in consensus for {}'.format(prepare)
+            return False, 'should not participate in consensus for {}'.format(
+                prepare)
         quorum = self.quorums.prepare.value
         if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
@@ -1355,7 +1361,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def process_stashed_out_of_order_commits(self):
         # This method is called periodically to check for any commits that
-        # were stashed due to lack of commits before them and orders them if it can
+        # were stashed due to lack of commits before them and orders them if it
+        # can
         logger.debug('{} trying to order from out of order commits. {} {}'.
                      format(self, self.ordered, self.stashed_out_of_order_commits))
         if self.last_ordered_3pc:
@@ -1430,7 +1437,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if key in self.stashingWhileCatchingUp:
             if self.isMaster and self.node.isParticipating:
                 # While this request arrived the node was catching up but the
-                # node has caught up and applied the stash so apply this request
+                # node has caught up and applied the stash so apply this
+                # request
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
                 for reqKey in pp.reqIdr[:pp.discarded]:
@@ -1611,7 +1619,8 @@ class Replica(HasActionQueue, MessageProcessor):
         quorums = 0
         end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
-        for (_, seq_no_end), senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).items():
+        for (_, seq_no_end), senders in self.stashedRecvdCheckpoints.get(
+                self.viewNo, {}).items():
             if quorum.is_reached(len(senders)):
                 quorums += 1
                 end_pp_seq_numbers.append(seq_no_end)
@@ -1754,7 +1763,8 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
 
     def has_already_ordered(self, view_no, pp_seq_no):
-        return compare_3PC_keys((view_no, pp_seq_no), self.last_ordered_3pc) >= 0
+        return compare_3PC_keys((view_no, pp_seq_no),
+                                self.last_ordered_3pc) >= 0
 
     def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
@@ -1800,7 +1810,8 @@ class Replica(HasActionQueue, MessageProcessor):
         ppsReady = []
         # Check if any requests have become finalised belonging to any stashed
         # PRE-PREPAREs.
-        for i, (pp, sender, reqIds) in enumerate(self.prePreparesPendingFinReqs):
+        for i, (pp, sender, reqIds) in enumerate(
+                self.prePreparesPendingFinReqs):
             finalised = set()
             for r in reqIds:
                 if self.requests.isFinalised(r):
@@ -1927,7 +1938,8 @@ class Replica(HasActionQueue, MessageProcessor):
         store the acceptable PREPARE state (digest, roots) for verification of
         the received PRE-PREPARE
         """
-        if len(self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
+        if len(
+                self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
             logger.debug('{} not requesting a PRE-PREPARE because does not have'
                          ' sufficient PREPAREs for {}'.format(self, three_pc_key))
             return False
@@ -1999,7 +2011,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # There still might be stashed PRE-PREPARE but not checking that
         # it is expensive, also reception of PRE-PREPAREs is idempotent
         digest, state_root, txn_root = self.requested_pre_prepares[key]
-        if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root):
+        if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (
+                digest, state_root, txn_root):
             self.processThreePhaseMsg(pp, sender)
         else:
             self.discard(pp, reason='{}does not have expected state({} {} {})'.
@@ -2051,7 +2064,8 @@ class Replica(HasActionQueue, MessageProcessor):
             times = [pr.ppTime for (pr, _) in
                      self.preparesWaitingForPrePrepare[key]]
             most_common_time = mostCommonElement(times)
-            if self.quorums.timestamp.is_reached(times.count(most_common_time)):
+            if self.quorums.timestamp.is_reached(
+                    times.count(most_common_time)):
                 logger.debug('{} found sufficient PREPAREs for the '
                              'PRE-PREPARE{}'.format(self, key))
                 stashed_pp = self.pre_prepares_stashed_for_incorrect_time

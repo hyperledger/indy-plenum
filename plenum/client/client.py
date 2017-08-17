@@ -130,7 +130,8 @@ class Client(Motor,
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
-        # TODO I think this is a bug here, sighex is getting passed in the seed parameter
+        # TODO I think this is a bug here, sighex is getting passed in the seed
+        # parameter
         self.nodestack = self.nodeStackClass(stackargs,
                                              self.handleOneNodeMsg,
                                              self.nodeReg,
