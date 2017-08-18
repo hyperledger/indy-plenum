@@ -448,6 +448,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # we just propagate it, then make sure that we don;t break the sequence of ppSeqNo
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+            self.h = self.last_ordered_3pc[1]
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """
