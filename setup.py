@@ -2,7 +2,6 @@ import os
 import sys
 
 from setuptools import setup, find_packages
-from plenum.__metadata__ import __version__, __author__, __license__
 
 v = sys.version_info
 if sys.version_info < (3, 5):
