@@ -20,13 +20,14 @@ TestRunningTimeLimitSec = 200
 
 
 @pytest.mark.skip('Test incorrect')
-def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
-                                                                 looper,
-                                                                 txnPoolNodeSet,
-                                                                 client1,
-                                                                 wallet1,
-                                                                 one_node_added,
-                                                                 client1Connected):
+def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
+        tconf,
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        one_node_added,
+        client1Connected):
     """
     Delay 3PC messages to one node and view change messages to some others
     (including primary) so the node that does not receive enough 3PC messages is
@@ -51,12 +52,12 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
     for n in nodes_slow_to_inst_chg:
         n.nodeIbStasher.delay(icDelay(delay_ic))
 
-    start_count = lambda: sum([1 for e in slow_node.ledgerManager.spylog.getAll(
-                    slow_node.ledgerManager.startCatchUpProcess.__name__)
-                    if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
+    def start_count(): return sum([1 for e in slow_node.ledgerManager.spylog.getAll(
+        slow_node.ledgerManager.startCatchUpProcess.__name__)
+        if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
 
     s = start_count()
-    requests = sendRandomRequests(wallet1, client1, 10*Max3PCBatchSize)
+    requests = sendRandomRequests(wallet1, client1, 10 * Max3PCBatchSize)
 
     ensure_view_change(looper, nodes=txnPoolNodeSet,
                        exclude_from_check=nodes_slow_to_inst_chg)

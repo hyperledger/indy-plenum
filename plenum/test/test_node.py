@@ -105,11 +105,17 @@ class TestNodeCore(StackedTester):
         }
 
         pluginPaths = kwargs.get('pluginPaths', [])
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
-                                   MockedNodeStack(), MockedBlacklister(),
-                                   nodeInfo=self.nodeInfo,
-                                   notifierEventTriggeringConfig=notifierEventTriggeringConfig,
-                                   pluginPaths=pluginPaths)
+        self.monitor = TestMonitor(
+            self.name,
+            d,
+            l,
+            o,
+            self.instances,
+            MockedNodeStack(),
+            MockedBlacklister(),
+            nodeInfo=self.nodeInfo,
+            notifierEventTriggeringConfig=notifierEventTriggeringConfig,
+            pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
@@ -200,7 +206,8 @@ class TestNodeCore(StackedTester):
         logger.debug("{} whitelisting {} for codes {}"
                      .format(self, clientName, codes))
 
-    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+    def blacklistClient(self, clientName: str,
+                        reason: str=None, code: int=None):
         if clientName in self.whitelistedClients:
             # If node whitelisted for all codes
             if len(self.whitelistedClients[clientName]) == 0:
@@ -297,16 +304,18 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
-        return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-                                 preCatchupClbk=self.preLedgerCatchUp)
+        return TestLedgerManager(
+            self,
+            ownedByNode=True,
+            postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+            preCatchupClbk=self.preLedgerCatchUp)
 
 
 elector_spyables = [
-        PrimaryElector.discard,
-        PrimaryElector.processPrimary,
-        PrimaryElector.sendPrimary
-    ]
+    PrimaryElector.discard,
+    PrimaryElector.processPrimary,
+    PrimaryElector.sendPrimary
+]
 
 
 @spyable(methods=elector_spyables)
@@ -364,7 +373,6 @@ class TestReplica(replica.Replica):
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
 
-
 class TestReplicas(Replicas):
     def _new_replica(self, instance_id: int, is_master: bool):
         return TestReplica(self._node, instance_id, is_master)
@@ -381,7 +389,6 @@ class TestNodeSet(ExitStack):
                  primaryDecider=None,
                  pluginPaths: Iterable[str]=None,
                  testNodeClass=TestNode):
-
 
         super().__init__()
         self.tmpdir = tmpdir
@@ -402,7 +409,7 @@ class TestNodeSet(ExitStack):
                          genNodeNames(count) if count is not None else
                          error("only one of either names or count is required"))
             self.nodeReg = genNodeReg(
-                    names=nodeNames)  # type: Dict[str, NodeDetail]
+                names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
             self.addNode(name)
         # The following lets us access the nodes by name as attributes of the
@@ -421,15 +428,15 @@ class TestNodeSet(ExitStack):
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
-                testNodeClass(name=name,
-                              ha=ha,
-                              cliname=cliname,
-                              cliha=cliha,
-                              nodeRegistry=copy(self.nodeReg),
-                              basedirpath=self.tmpdir,
-                              primaryDecider=self.primaryDecider,
-                              pluginPaths=self.pluginPaths,
-                              seed=seed))
+            testNodeClass(name=name,
+                          ha=ha,
+                          cliname=cliname,
+                          cliha=cliha,
+                          nodeRegistry=copy(self.nodeReg),
+                          basedirpath=self.tmpdir,
+                          primaryDecider=self.primaryDecider,
+                          pluginPaths=self.pluginPaths,
+                          seed=seed))
 
         if self.keyshare:
             tellKeysToOthers(node, self.nodes.values())
@@ -564,17 +571,17 @@ class MockedBlacklister:
 
 def checkPoolReady(looper: Looper,
                    nodes: Sequence[TestNode],
-                   customTimeout = None):
+                   customTimeout=None):
     """
     Check that pool is in Ready state
     """
 
     timeout = customTimeout or waits.expectedPoolStartUpTimeout(len(nodes))
     looper.run(
-            eventually(checkNodesAreReady, nodes,
-                       retryWait=.25,
-                       timeout=timeout,
-                       ratchetSteps=10))
+        eventually(checkNodesAreReady, nodes,
+                   retryWait=.25,
+                   timeout=timeout,
+                   ratchetSteps=10))
 
 
 async def checkNodesCanRespondToClients(nodes):
@@ -596,8 +603,10 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               customTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
-    timeout = customTimeout or waits.expectedPoolInterconnectionTime(len(stacks))
-    logger.debug("waiting for {} seconds to check connections...".format(timeout))
+    timeout = customTimeout or waits.expectedPoolInterconnectionTime(
+        len(stacks))
+    logger.debug(
+        "waiting for {} seconds to check connections...".format(timeout))
     # verify every node can see every other as a remote
     funcs = [
         partial(checkRemoteExists, frm.nodestack, to.name, expectedRemoteState)
@@ -620,12 +629,12 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
             checkState(s, remote, "from: {}, to: {}".format(node, remote.name))
         except Exception as ex:
             logger.debug("state checking exception is {} and args are {}"
-                          "".format(ex, ex.args))
+                         "".format(ex, ex.args))
             raise Exception(
-                    "Error with {} checking remote {} in {}".format(node.name,
-                                                                    remote.name,
-                                                                    states
-                                                                    )) from ex
+                "Error with {} checking remote {} in {}".format(node.name,
+                                                                remote.name,
+                                                                states
+                                                                )) from ex
 
 
 def checkIfSameReplicaIPrimary(looper: Looper,
@@ -638,8 +647,8 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     def checkElectionDone():
         unknowns = [r for r in replicas if r.primaryName is None]
         assert len(unknowns) == 0, "election should be complete, " \
-                              "but {} out of {} ({}) don't know who the primary " \
-                              "is for protocol instance {}".\
+            "but {} out of {} ({}) don't know who the primary " \
+            "is for protocol instance {}".\
             format(len(unknowns), len(replicas), unknowns, replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
@@ -681,7 +690,7 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
                                                 numInstances: int = None):
 
     coro = eventually(instances, nodes, numInstances,
-                retryWait=retryWait, timeout=timeout)
+                      retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
@@ -775,8 +784,8 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
     if names is None:
         names = genNodeNames(count)
     nodeReg = OrderedDict(
-            (n, NodeDetail(genHa(), n + CLIENT_STACK_SUFFIX, genHa())) for n in
-            names)
+        (n, NodeDetail(genHa(), n + CLIENT_STACK_SUFFIX, genHa())) for n in
+        names)
 
     def extractCliNodeReg(self):
         return OrderedDict((n.cliname, n.cliha) for n in self.values())

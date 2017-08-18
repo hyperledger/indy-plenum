@@ -21,15 +21,15 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
 
     lost_pr_calls = {node.name: node.spylog.count(
         node.lost_master_primary.__name__) for node in txnPoolNodeSet
-                           if node != pr_node}
+        if node != pr_node}
 
     prp_inst_chg_calls = {node.name: node.spylog.count(
         node.propose_view_change.__name__) for node in txnPoolNodeSet
-                           if node != pr_node}
+        if node != pr_node}
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
         node.processInstanceChange.__name__) for node in txnPoolNodeSet
-                           if node != pr_node}
+        if node != pr_node}
 
     def chk1():
         # Check that non-primary nodes detects losing connection with
@@ -37,7 +37,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         for node in txnPoolNodeSet:
             if node != pr_node:
                 assert node.spylog.count(node.lost_master_primary.__name__) \
-                       > lost_pr_calls[node.name]
+                    > lost_pr_calls[node.name]
 
     def chk2():
         # Schedule an instance change but do not send it
@@ -45,16 +45,16 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         for node in txnPoolNodeSet:
             if node != pr_node:
                 assert node.spylog.count(node.propose_view_change.__name__) \
-                       > prp_inst_chg_calls[node.name]
+                    > prp_inst_chg_calls[node.name]
                 assert node.spylog.count(node.processInstanceChange.__name__) \
-                       == recv_inst_chg_calls[node.name]
+                    == recv_inst_chg_calls[node.name]
 
     # Disconnect master's primary
     for node in txnPoolNodeSet:
         if node != pr_node:
             node.nodestack.getRemote(pr_node.nodestack.name).disconnect()
 
-    timeout = min(tconf.ToleratePrimaryDisconnection-1, 1)
+    timeout = min(tconf.ToleratePrimaryDisconnection - 1, 1)
     looper.run(eventually(chk1, retryWait=.2, timeout=timeout))
 
     # Reconnect master's primary
@@ -62,7 +62,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         if node != pr_node:
             node.nodestack.retryDisconnected()
 
-    looper.run(eventually(chk2, retryWait=.2, timeout=timeout+1))
+    looper.run(eventually(chk2, retryWait=.2, timeout=timeout + 1))
 
     def chk3():
         # Check the view does not change

@@ -20,6 +20,7 @@ def tconf(conf, tdirWithPoolTxns):
     conf.UseZStack = True
     return conf
 
+
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
                                tdirWithPoolTxns, client1Connected):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
@@ -46,8 +47,12 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=60))
 
     looper.runFor(1)
-    node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                    ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)
+    node = TestNode(
+        nodeToCrash.name,
+        basedirpath=tdirWithPoolTxns,
+        config=tconf,
+        ha=nodeToCrash.nodestack.ha,
+        cliha=nodeToCrash.clientstack.ha)
     looper.add(node)
     txnPoolNodeSet[idxToCrash] = node
 

@@ -1,6 +1,5 @@
 from collections import deque
 from typing import Any, Iterable
-from typing import Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -51,7 +50,8 @@ class Batched(MessageProcessor):
         for rid in self.remotes.keys():
             self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None) -> None:
+    def send(self, msg: Any, *
+             rids: Iterable[int], signer: Signer = None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
          or into the outBoxes of all the remotes if rids is None
@@ -104,12 +104,17 @@ class Batched(MessageProcessor):
                     # signed
                     payload, err_msg = self.signAndSerialize(batch)
                     if payload is not None:
-                        logger.trace("{} sending payload to {}: {}".format(self, dest, payload))
+                        logger.trace("{} sending payload to {}: {}".format(
+                            self, dest, payload))
                         # Setting timeout to never expire
-                        self.transmit(payload, rid, timeout=self.messageTimeout,
-                                      serialized=True)
+                        self.transmit(
+                            payload,
+                            rid,
+                            timeout=self.messageTimeout,
+                            serialized=True)
                     else:
-                        logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
+                        logger.debug("{} error {}. tried to {}: {}".format(
+                            self, err_msg, dest, payload))
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),

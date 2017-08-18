@@ -25,7 +25,8 @@ class StatsPublisher:
 
     def addMsgToBuffer(self, message):
         if len(self._messageBuffer) >= config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
-            logger.warning("Message buffer is too large. Refuse to add a new message {}".format(message))
+            logger.warning(
+                "Message buffer is too large. Refuse to add a new message {}".format(message))
             return False
 
         self._messageBuffer.appendleft(message)
@@ -35,7 +36,8 @@ class StatsPublisher:
         self.addMsgToBuffer(message)
 
         if self._loop.is_running():
-            self._loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
+            self._loop.call_soon(asyncio.ensure_future,
+                                 self.sendMessagesFromBuffer())
         else:
             self._loop.run_until_complete(self.sendMessagesFromBuffer())
 

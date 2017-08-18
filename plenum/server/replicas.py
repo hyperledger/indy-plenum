@@ -1,5 +1,5 @@
 from collections import deque
-from typing import List, Generator
+from typing import Generator
 
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
@@ -69,7 +69,7 @@ class Replicas:
     def pass_message(self, message, instance_id=None):
         replicas = self._replicas
         if instance_id is not None:
-            replicas = replicas[instance_id:instance_id+1]
+            replicas = replicas[instance_id:instance_id + 1]
         for replica in replicas:
             replica.inBox.append(message)
 

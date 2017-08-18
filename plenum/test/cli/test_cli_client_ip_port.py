@@ -8,9 +8,10 @@ from plenum.test.helper import initDirWithGenesisTxns
 
 @pytest.fixture(scope="module")
 def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited, tconf):
+         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl1")
-    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
+    initDirWithGenesisTxns(
+        tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
     cli = newCLI(cliLooper, tempDir)
     yield cli
     cli.close()
@@ -18,9 +19,10 @@ def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 
 @pytest.fixture(scope="module")
 def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited, tconf):
+         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl2")
-    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
+    initDirWithGenesisTxns(
+        tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
     cli = newCLI(cliLooper, tempDir)
     yield cli
     cli.close()

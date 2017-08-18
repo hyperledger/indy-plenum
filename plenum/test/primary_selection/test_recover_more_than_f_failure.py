@@ -15,7 +15,6 @@ from plenum.test.view_change.helper import start_stopped_node
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
-
 def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
                                 allPluginsPath, tconf, client1, wallet1,
                                 client1Connected):
@@ -56,7 +55,8 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     active_nodes = active_nodes + [restarted_node]
 
     # Check that primary selected
-    ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2, customTimeout=30)
+    ensureElectionsDone(looper=looper, nodes=active_nodes,
+                        numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 

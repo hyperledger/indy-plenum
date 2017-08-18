@@ -726,7 +726,8 @@ class ZStack(NetworkInterface):
                              'check your firewall settings'.format(uid))
             return True, err_str
         except zmq.Again:
-            logger.debug('{} could not transmit message to {}'.format(self, uid))
+            logger.debug(
+                '{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(
                 CONNECTION_PREFIX, ex)

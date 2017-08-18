@@ -81,5 +81,3 @@ class MerkleTree(metaclass=ABCMeta):
     def hashStore(self) -> HashStore:
         """
         """
-
-

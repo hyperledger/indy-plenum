@@ -30,7 +30,7 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
 
     # Delaying preprepae messages from nodes and
     # sending request to force view change
-    #for i in range(3):
+    # for i in range(3):
     #    delayNonPrimaries(nodeSet, instId=i, delay=10)
     #sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
@@ -46,7 +46,8 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
         node.startViewChange(initial_view_no + 1)
 
     # First view change should fail, because of delayed
-    # instance change messages. This then leads to new view change that we need.
+    # instance change messages. This then leads to new view change that we
+    # need.
     with pytest.raises(AssertionError):
         ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=10)
 
@@ -61,7 +62,8 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
 
     # The timeout method has been called at least once
     for node in nodeSet:
-        assert get_count(node, node._check_view_change_completed) > times[node.name]['called']
+        assert get_count(
+            node, node._check_view_change_completed) > times[node.name]['called']
         assert len(getAllReturnVals(node,
                                     node._check_view_change_completed,
                                     compare_val_to=True)) > times[node.name]['returned_true']

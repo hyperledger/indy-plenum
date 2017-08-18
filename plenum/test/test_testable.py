@@ -1,4 +1,3 @@
-import logging
 import unittest
 from typing import Any
 from unittest import TestCase
@@ -25,7 +24,7 @@ class TestHelpers(TestCase):
             inits = z.spylog.getAll('__init__')
             self.assertEqual(len(inits), 1, "expected only 1 init entry")
             self.assertEqual(inits[0][pr], (params, None),
-                              "expected proper init params and result")
+                             "expected proper init params and result")
 
     def runThroughAssertions(self, z, ovrdCornResult: str = None):
         ok = 'ok' if not ovrdCornResult else ovrdCornResult
@@ -40,7 +39,7 @@ class TestHelpers(TestCase):
                 "ensure first call of method #2 returns the proper params and result"):
             z.eatCorn('canned')
             self.assertEqual(z.spylog.getLast('eatCorn')[pr],
-                              ({'kind': 'canned'}, yucky))
+                             ({'kind': 'canned'}, yucky))
             assert z.spylog.count('eatCorn') == 1
 
         with self.subTest(
@@ -54,7 +53,7 @@ class TestHelpers(TestCase):
                 "ensure third call of method #2  returns the proper params and result"):
             z.eatCorn('canned')
             assert z.spylog.getLast('eatCorn')[pr] == (
-            {'kind': 'canned'}, yucky)
+                {'kind': 'canned'}, yucky)
             assert z.spylog.count('eatCorn') == 3
 
         self.checkOneInit(z, {'s': 'x', 'p': 'y'})
@@ -63,13 +62,13 @@ class TestHelpers(TestCase):
             z.eatCorn('canned')
             z.eatCorn('whirled')
             self.assertEqual(len(z.spylog), 7,
-                              "expected 7 entries in the spy log")
+                             "expected 7 entries in the spy log")
             z.eatCorn('creamed')
             z.eatCorn('creamed')
             z.eatCorn('spun')
             z.mymethod("hello again")
             self.assertEqual(len(z.spylog), 11,
-                              "expected 11 entries in the spy log")
+                             "expected 11 entries in the spy log")
 
         with self.subTest("exceptions are handled gracefully (logged, etc.)"):
             # TODO!
@@ -108,15 +107,15 @@ class NewTestableTests(TestHelpers):
             SpySubClass = spyable(methods=methods)(SubClass)
             z = SpySubClass('a', 'b')
             self.assertEqual(len(z.spylog), ec[0],
-                              "expected certain number of entries in the spy log")
+                             "expected certain number of entries in the spy log")
             z.eatCorn('canned')
             z.eatCorn('whirled')
             self.assertEqual(len(z.spylog), ec[1],
-                              "expected certain number of entries in the spy log")
+                             "expected certain number of entries in the spy log")
             z.eatCorn('creamed')
             z.mymethod("hello again")
             self.assertEqual(len(z.spylog), ec[2],
-                              "expected certain number of entries in the spy log")
+                             "expected certain number of entries in the spy log")
 
         with TestHelpers.subTest(self, "No subset"):
             go(None, [1, 3, 5])
@@ -139,9 +138,9 @@ class NewTestableTests(TestHelpers):
         z.mymethod("hi")
         z.eatCorn("canned")
         self.assertEqual(z.spylog.getLast('eatCorn')[pr],
-                          ({'kind': 'canned'}, 'hooray!'))
+                         ({'kind': 'canned'}, 'hooray!'))
         self.assertEqual(z.spylog.getLast('mymethod')[pr],
-                          ({'inp': 'hi'}, None))
+                         ({'inp': 'hi'}, None))
 
     def testSpyOnOverriddenBaseClassMethod(self):
         SpySubClass = spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
@@ -151,7 +150,7 @@ class NewTestableTests(TestHelpers):
         z.eatCorn("canned")
         self.assertEqual(z.spylog.getLast('eatCorn'), None)
         self.assertEqual(z.spylog.getLast('mymethod')[pr],
-                          ({'inp': 'hi'}, None))
+                         ({'inp': 'hi'}, None))
 
     def testSpyOnCertainClass(self):
         # known limitation... when super() is called, we are not spy-wrapping
@@ -163,7 +162,7 @@ class NewTestableTests(TestHelpers):
         z.eatCorn("canned")
         self.assertEqual(z.spylog.getLast('eatCorn'), None)
         self.assertEqual(z.spylog.getLast('mymethod')[pr], ({'inp': 'hi'},
-                                                             None))
+                                                            None))
 
 
 class NewBaseClass:

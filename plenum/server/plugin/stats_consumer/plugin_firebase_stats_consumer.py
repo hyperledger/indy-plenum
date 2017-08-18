@@ -23,7 +23,8 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
 
     def __init__(self):
         super().__init__()
-        self.statsPublisher = StatsPublisher(STATS_SERVER_IP, STATS_SERVER_PORT)
+        self.statsPublisher = StatsPublisher(
+            STATS_SERVER_IP, STATS_SERVER_PORT)
         self._eventToFunc = {
             EVENT_REQ_ORDERED: self._sendStatsOnReqOrdered,
             EVENT_NODE_STARTED: self._sendStatsOnNodeStart,
@@ -33,8 +34,7 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
             EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
             EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests,
             EVENT_PERIODIC_STATS_NODE_INFO: self._sendNodeInfo,
-            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo
-        }
+            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo}
 
     @abstractmethod
     def isModuleImportedSuccessfully(self):

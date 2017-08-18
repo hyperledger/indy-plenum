@@ -11,6 +11,7 @@ def relist(seq):
 def getPipedRegEx(cmd):
     return cmd + "|"
 
+
 psep = re.escape(os.path.sep)
 
 NO_ENV = "no-env"
@@ -18,7 +19,7 @@ PROMPT_ENV_SEPARATOR = "@"
 WALLET_FILE_EXTENSION = "wallet"
 
 # general reusable reg ex
-NODE_OR_CLI = ['node',  'client']
+NODE_OR_CLI = ['node', 'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
 
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
@@ -79,11 +80,11 @@ CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+DID) " \
                                   "\s+ (?P<DID>[A-Za-z0-9+=/]*) \s*) "
 
 CLIENT_GRAMS_USE_WALLET_REG_EX = "(\s* (?P<use_wallet>use\s+wallet) " \
-                                  "\s+ (?P<wallet>[A-Za-z0-9+-_=/]*) \s*" \
-                                  "\s? ((?P<copy_as>copy\sas)\s" \
-                                  "(?P<copy_as_name>[A-Za-z0-9+-_=/]+)?)? \s*" \
-                                  "\s? (?P<override>override)? " \
-                                  "\s*)"
+    "\s+ (?P<wallet>[A-Za-z0-9+-_=/]*) \s*" \
+    "\s? ((?P<copy_as>copy\sas)\s" \
+    "(?P<copy_as_name>[A-Za-z0-9+-_=/]+)?)? \s*" \
+    "\s? (?P<override>override)? " \
+    "\s*)"
 
 CLIENT_GRAMS_SAVE_WALLET_REG_EX = "(\s* (?P<save_wallet>save\s+wallet)" \
                                   "\s? (?P<wallet>[A-Za-z0-9+-_=/]+)? \s*)"

@@ -5,8 +5,6 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, CLIENT_PORT, NODE_IP
 from plenum.common.stack_manager import TxnStackManager
-from json.decoder import JSONDecodeError
-import logging
 
 
 whitelist = ['substring not found']
@@ -40,16 +38,17 @@ def invalid_identifier_tdir(tdir_for_func):
            TARGET_NYM: base58.b58encode(b'whatever'),
            IDENTIFIER: "invalid====",
            DATA: {
-                NAME: str(2),
-                ALIAS: 'test' + str(2),
-                SERVICES: [VALIDATOR],
+               NAME: str(2),
+               ALIAS: 'test' + str(2),
+               SERVICES: [VALIDATOR],
            }
            }
     ledger.add(txn)
     ledger.stop()
 
 
-def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_verkey_tdir, tdir_for_func):
+def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(
+        invalid_verkey_tdir, tdir_for_func):
     """
     Test that invalid base58 TARGET_NYM in pool_transaction raises the proper exception (INDY-150)
     """
@@ -60,7 +59,8 @@ def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptiv
     ledger.stop()
 
 
-def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(invalid_identifier_tdir, tdir_for_func):
+def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descriptive_error(
+        invalid_identifier_tdir, tdir_for_func):
     """
     Test that invalid base58 IDENTIFIER in pool_transaction raises the proper exception (INDY-150)
     """
@@ -69,4 +69,3 @@ def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descri
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
     assert excinfo.value.code == 'Invalid identifier. Rebuild pool transactions.'
     ledger.stop()
-

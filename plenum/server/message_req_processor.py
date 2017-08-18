@@ -79,12 +79,13 @@ class MessageReqProcessor:
                     # TODO: avoid duplication of code here: create an instance of requested class in a one place (a factory?)
                     # depending on the msg_type
 
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     return LedgerStatus(**kwargs['ledger_status'])
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create LEDGER_STATUS out of {}'.
-                            format(self, **kwargs['ledger_status']))
+                        format(self, **kwargs['ledger_status']))
             else:
                 return True
 
@@ -120,12 +121,13 @@ class MessageReqProcessor:
                     'seq_no_end'] > 0):
             if 'cons_proof' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     return ConsistencyProof(**kwargs['cons_proof'])
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create CONSISTENCY_PROOF out of {}'.
-                            format(self, **kwargs['cons_proof']))
+                        format(self, **kwargs['cons_proof']))
             else:
                 return True
 
@@ -165,16 +167,18 @@ class MessageReqProcessor:
 
     def _validate_requested_preprepare(self, **kwargs):
         if kwargs['inst_id'] in range(len(self.replicas)) and \
-                        kwargs['view_no'] == self.viewNo and \
+                kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
-                        kwargs['pp_seq_no'] > 0:
+                kwargs['pp_seq_no'] > 0:
             if 'pp' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     pp = PrePrepare(**kwargs['pp'])
                     if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-                        logger.warning('{}{} found PREPREPARE {} not satisfying query criteria'
-                                       .format(THREE_PC_PREFIX, self, *kwargs['pp']))
+                        logger.warning(
+                            '{}{} found PREPREPARE {} not satisfying query criteria' .format(
+                                THREE_PC_PREFIX, self, *kwargs['pp']))
                         return
                     return pp
                 except TypeError as ex:
@@ -220,18 +224,21 @@ class MessageReqProcessor:
                                                    kwargs['req_id']))):
             if 'propagate' in kwargs:
                 try:
-                    # the input is expected as a dict (serialization with ujson==1.33)
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
                     ppg = Propagate(**kwargs['propagate'])
                     if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                                    ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-                            logger.debug('{} found PROPAGATE {} not '
-                                         'satisfying query criteria'.format(self, *kwargs['ppg']))
-                            return
+                            ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+                        logger.debug(
+                            '{} found PROPAGATE {} not '
+                            'satisfying query criteria'.format(
+                                self, *kwargs['ppg']))
+                        return
                     return ppg
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create PROPAGATE out of {}'.
-                            format(self, **kwargs['propagate']))
+                        format(self, **kwargs['propagate']))
             else:
                 return True
 
