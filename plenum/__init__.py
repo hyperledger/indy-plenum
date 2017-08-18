@@ -8,7 +8,7 @@ import sys
 import plenum
 from plenum.common.jsonpickle_util import setUpJsonpickle
 
-from .__metadata__ import __license__, __author__, __version__, __version_info__
+from .__metadata__ import *  # noqa
 
 if sys.version_info < (3, 5, 0):
     raise ImportError("Python 3.5.0 or later required.")
