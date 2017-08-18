@@ -34,6 +34,8 @@ class ClientNodeOperation(MessageValidator):
     )
 
 
+
+
 class ClientNYMOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(NYM)),
