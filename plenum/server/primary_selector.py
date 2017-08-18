@@ -253,6 +253,10 @@ class PrimarySelector(PrimaryDecider):
         return False
 
     def _startSelection(self):
+        if self._hasViewChangeQuorum and not self.has_view_change_from_primary:
+            self.node.lost_master_primary()
+            return
+
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '
