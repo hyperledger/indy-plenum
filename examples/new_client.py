@@ -8,7 +8,7 @@ TODO: create client
 TODO: demonstrate client verification key bootstrapping
 """
 
-#TODO Remove this file, just for now
+# TODO Remove this file, just for now
 
 from plenum.client.client import Client
 from stp_core.loop.looper import Looper

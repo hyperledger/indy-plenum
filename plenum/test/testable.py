@@ -27,7 +27,7 @@ SpyableMethods = Iterable[SpyableMethod]
 
 class SpyLog(list):
     def getLast(self, method: SpyableMethod, required: bool = False) -> \
-    Optional[Entry]:
+            Optional[Entry]:
         entry = None  # type: Optional[Entry]
         if callable(method):
             method = method.__name__
@@ -112,14 +112,16 @@ def spy(func, is_init, should_spy, spy_log=None):
     return wrap if not is_init else init_wrap if should_spy else init_only
 
 
-def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = None):
+def spyable(name: str = None, methods: SpyableMethods = None,
+            deep_level: int = None):
     def decorator(clas):
 
         if 'NO_SPIES' in globals() and globals()['NO_SPIES']:
             # Since spylog consumes resources, benchmarking tests need to be
             # able to not have spyables, so they set a module global `NO_SPIES`,
             #  it's their responsibility to unset it
-            logger.info('NOT USING SPIES ON METHODS AS THEY ARE EXPLICITLY DISABLED')
+            logger.info(
+                'NOT USING SPIES ON METHODS AS THEY ARE EXPLICITLY DISABLED')
             return clas
 
         nonlocal name
@@ -154,7 +156,8 @@ def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = 
                         "method {} not found, so no spy added".format(m),
                         extra={"cli": False})
 
-        objSearchReplace(spyable_type, morphed, logMsg="Applying spy remapping", deepLevel=deep_level)
+        objSearchReplace(spyable_type, morphed,
+                         logMsg="Applying spy remapping", deepLevel=deep_level)
         return spyable_type
 
     return decorator

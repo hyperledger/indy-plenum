@@ -25,5 +25,5 @@ def make_clock_faulty(node, clock_slow_by_sec=None, ppr_always_wrong=True):
             return False
 
         for repl in node.replicas:
-            repl.is_pre_prepare_time_correct = types.MethodType(ppr_time_is_wrong,
-                                                                repl)
+            repl.is_pre_prepare_time_correct = types.MethodType(
+                ppr_time_is_wrong, repl)

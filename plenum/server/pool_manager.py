@@ -1,12 +1,9 @@
 import ipaddress
 
-import os
 from abc import abstractmethod
 from collections import OrderedDict
 
-import base58
-from typing import Dict, Tuple, Optional
-from functools import lru_cache
+from typing import Optional
 
 from copy import deepcopy
 from typing import Dict, Tuple, List
@@ -109,7 +106,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._ledger = None
         self._id = None
         self._rank = None
-        TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
+        TxnStackManager.__init__(
+            self, self.name, self.basedirpath, isNode=True)
         self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
         self.initPoolState()
@@ -155,7 +153,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
-        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
+        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(
+            self.ledger)
 
         self.addRemoteKeysFromLedger(nodeKeys)
 
@@ -230,8 +229,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 else:
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
-                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(info[DATA][CLIENT_IP],
-                                                        info[DATA][CLIENT_PORT])
+                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
+                        info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                     _updateNode(txn)
 
             self.node.sendPoolInfoToClients(txn)
@@ -247,8 +246,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
-            self.node.sendInstanceChange(self.node.viewNo + 1,
-                                         Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+            self.node.sendInstanceChange(
+                self.node.viewNo + 1,
+                Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -309,7 +309,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
                     try:
-                        rid = TxnStackManager.removeRemote(self.node.nodestack, nodeName)
+                        rid = TxnStackManager.removeRemote(
+                            self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:

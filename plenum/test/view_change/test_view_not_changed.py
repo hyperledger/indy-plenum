@@ -1,4 +1,3 @@
-from typing import Iterable
 
 from stp_core.loop.looper import Looper
 

@@ -1,5 +1,3 @@
-import filecmp
-import os
 
 import pytest
 
@@ -35,14 +33,14 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     for nodeIndex, n in enumerate(txnPoolNodeSet):
         if shouldBePrimary == n.has_master_primary:
-           subjectedNode = n
-           stewardName = poolTxnStewardNames[nodeIndex]
-           stewardsSeed = poolTxnData["seeds"][stewardName].encode()
-           break
+            subjectedNode = n
+            stewardName = poolTxnStewardNames[nodeIndex]
+            stewardsSeed = poolTxnData["seeds"][stewardName].encode()
+            break
 
     nodeStackNewHA, clientStackNewHA = genHa(2)
-    logger.debug("change HA for node: {} to {}".
-                 format(subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
+    logger.debug("change HA for node: {} to {}". format(
+        subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
 
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
 
@@ -80,4 +78,5 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(anotherClient.ensureConnectedToNodes))
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, stewardWallet, stewardClient, 8)

@@ -55,11 +55,12 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
 
     P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        wallet1,
-                                        client1,
-                                        numReqs=5,
-                                        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
+    sendReqsToNodesAndVerifySuffReplies(
+        looper,
+        wallet1,
+        client1,
+        numReqs=5,
+        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
     return adict(nodes=startedNodes)
 

@@ -27,6 +27,7 @@ def b64d(s):
 def lst2str(l):
     return ",".join(l)
 
+
 def test_add_txn(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
     txn1 = random_txn(1)
@@ -43,6 +44,7 @@ def test_add_txn(ledger, genesis_txns, genesis_txn_file):
     assert sorted(txn1.items()) == sorted(ledger[1 + offset].items())
     assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
     check_ledger_generator(ledger)
+
 
 def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
@@ -65,6 +67,7 @@ def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     txn2[F.seqNo.name] = 2 + offset
     assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
 
+
 def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
     offset = len(genesis_txns) if genesis_txn_file else 0
     merkleInfo = {}
@@ -76,7 +79,7 @@ def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
 
     for i in range(100):
         assert sorted(merkleInfo[i + 1 + offset].items()) == \
-               sorted(ledger.merkleInfo(i + 1 + offset).items())
+            sorted(ledger.merkleInfo(i + 1 + offset).items())
 
 
 """
@@ -102,7 +105,8 @@ def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, txn_serializer, 
 
 
 def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_serializer, hash_serializer, genesis_txn_file):
-    ledger = create_ledger_func(txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    ledger = create_ledger_func(
+        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
     for d in range(100):
         ledger.add(random_txn(d))
     # delete hash store, so that the only option for recovering is txn log
@@ -115,7 +119,8 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_seri
     root_hash_before = ledger.root_hash
     hashes_before = ledger.tree.hashes
 
-    restartedLedger = create_ledger_func(txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    restartedLedger = create_ledger_func(
+        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
 
     assert size_before == restartedLedger.size
     assert root_hash_before == restartedLedger.root_hash
@@ -144,7 +149,8 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 
 
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
-    ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), None, tempdir)
+    ledger = create_ledger_text_file_storage(
+        CompactSerializer(orderedFields), None, tempdir)
     for d in range(100):
         ledger.add(random_txn(d))
     updatedTree = ledger.tree
@@ -156,7 +162,8 @@ def test_recover_ledger_new_fields_to_txns_added(tempdir):
         ("op", (str, str)),
         ("newField", (str, str))
     ])
-    restartedLedger = create_ledger_text_file_storage(CompactSerializer(newOrderedFields), None, tempdir)
+    restartedLedger = create_ledger_text_file_storage(
+        CompactSerializer(newOrderedFields), None, tempdir)
 
     assert restartedLedger.size == ledger.size
     assert restartedLedger.root_hash == ledger.root_hash
@@ -213,11 +220,6 @@ def test_start_ledger_without_new_line_appended_to_last_record(tempdir, txn_seri
         # MsgPack is a binary one, not compatible with TextFileStorage
         return
 
-    store = TextFileStore(tempdir,
-                          'transactions',
-                          isLineNoKey=True,
-                          storeContentHash=False,
-                          ensureDurability=False)
     ledger = create_ledger_text_file_storage(txn_serializer, None, tempdir)
 
     txnStr = '{"data":{"alias":"Node1","client_ip":"127.0.0.1","client_port":9702,"node_ip":"127.0.0.1",' \
@@ -235,7 +237,7 @@ def test_start_ledger_without_new_line_appended_to_last_record(tempdir, txn_seri
     assert size1 == 3
     ledger.stop()
     newLineCounts = open(ledger._transactionLog.db_path, 'rb')\
-                        .read().count(lineSep) + 1
+        .read().count(lineSep) + 1
     assert newLineCounts == 3
 
     # now start ledger, and it should add the missing new line char at the end of the file, so

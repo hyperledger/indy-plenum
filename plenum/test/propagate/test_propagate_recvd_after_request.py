@@ -11,12 +11,14 @@ from plenum.test.test_node import TestNode
 nodeCount = 4
 howlong = 5
 
+
 @pytest.fixture()
 def setup(nodeSet):
     A, B, C, D = nodeSet.nodes.values()  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
-    # Delay MessageRep by long simulating loss as if Propagate is missing, it is requested
-    delay(MessageRep, frm=[B, C, D], to=A, howlong=10*howlong)
+    # Delay MessageRep by long simulating loss as if Propagate is missing, it
+    # is requested
+    delay(MessageRep, frm=[B, C, D], to=A, howlong=10 * howlong)
 
 
 def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):

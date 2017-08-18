@@ -25,10 +25,10 @@ whitelist = ['discarding message', 'found legacy entry',
 @pytest.fixture()
 def nodeReg():
     return {
-            'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
-            'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
-            'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
-            'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
+        'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
+        'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
+        'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
+        'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
     }
 
 
@@ -224,7 +224,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
                  basedirpath=tdir, pluginPaths=allPluginsPath)
     for node in nodes:
-        tellKeysToOthers(node, [C,])
+        tellKeysToOthers(node, [C, ])
 
     looper.add(C)
     looper.runFor(5)

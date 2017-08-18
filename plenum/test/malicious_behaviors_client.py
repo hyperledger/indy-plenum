@@ -1,6 +1,6 @@
 import types
 from logging import getLogger
-from typing import List, Any, Mapping
+from typing import Mapping
 
 from plenum.client.client import Client
 from plenum.common.request import Request
@@ -78,6 +78,7 @@ def sendsUnsignedRequest(client) -> Client:
     :param client: the client to make faulty
     :return: the faulty client
     """
+
     def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg

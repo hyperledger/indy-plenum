@@ -1,0 +1,12 @@
+[flake8]
+ignore = N801, N802, N803, N806, N813, C901, E501, F401
+exclude =
+    # common places
+    .git,__pycache__,docs/source/conf.py,old,build,dist,
+    # requires deep refactoring
+    state/util/utils.py,
+    # lots unused import because of fixtures
+    plenum/test,
+    # have to skip because the file should be fixed
+    setup.py
+max-complexity = 10

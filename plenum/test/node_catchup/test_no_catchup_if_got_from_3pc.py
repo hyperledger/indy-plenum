@@ -15,7 +15,7 @@ from plenum.test.view_change.helper import ensure_view_change
 
 
 def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
-                                  client1Connected):
+                                    client1Connected):
     """
     A node is slow to receive COMMIT messages so after a view change it
     starts catchup. But before it can start requesting txns, the COMMITs messages
@@ -36,10 +36,10 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
 
     # Count of `getCatchupReqs` which is called to construct the `CatchupReq`
     # to be sent
-    domain_cr_count = lambda: sum(1 for entry in
-                               slow_node.ledgerManager.spylog.getAll(
-                                   slow_node.ledgerManager.getCatchupReqs) if
-                               entry.params['consProof'].ledgerId == DOMAIN_LEDGER_ID)
+    def domain_cr_count(): return sum(1 for entry in
+                                      slow_node.ledgerManager.spylog.getAll(
+                                          slow_node.ledgerManager.getCatchupReqs) if
+                                      entry.params['consProof'].ledgerId == DOMAIN_LEDGER_ID)
 
     old_count = domain_cr_count()
     sent_batches = 10

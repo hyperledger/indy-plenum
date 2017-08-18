@@ -14,9 +14,15 @@ from stp_core.types import HA
 TestRunningTimeLimitSec = 200
 
 
-def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
-                                       client1, wallet1, client1Connected,
-                                       tconf, tdirWithPoolTxns, allPluginsPath):
+def test_state_regenerated_from_ledger(
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        client1Connected,
+        tconf,
+        tdirWithPoolTxns,
+        allPluginsPath):
     """
     Node loses its state database but recreates it from ledger after start
     """
@@ -28,7 +34,9 @@ def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
     node_state = node_to_stop.states[DOMAIN_LEDGER_ID]
     assert not node_state.isEmpty
     state_db_path = node_state._kv.db_path
-    nodeHa, nodeCHa = HA(*node_to_stop.nodestack.ha), HA(*node_to_stop.clientstack.ha)
+    nodeHa, nodeCHa = HA(*
+                         node_to_stop.nodestack.ha), HA(*
+                                                        node_to_stop.clientstack.ha)
 
     node_to_stop.stop()
     looper.removeProdable(node_to_stop)
