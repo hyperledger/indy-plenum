@@ -50,12 +50,7 @@ def main(args):
     samples_dict = {}
 
     with open(args.input, 'r') as source_log:
-        while True:
-            line = source_log.readline()
-
-            if not line:
-                break
-
+        for line in source_log:
             match = LOG_RECORD_REGEX.match(line)
 
             if match:
