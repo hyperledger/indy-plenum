@@ -4,7 +4,7 @@ from plenum.common.util import getTimeBasedId
 from stp_core.crypto.util import randomSeed
 
 
-def add_and_sign(signersNum = 10):
+def add_and_sign(signersNum=10):
     beforeSignTimeBasedId = getTimeBasedId()
     wallet = Wallet("shared wallet")
     idrs = []

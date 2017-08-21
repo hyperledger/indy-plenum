@@ -6,6 +6,7 @@ from plenum.test.cli.helper import \
     assertNoClient, loadPlugin, \
     createClientAndConnect
 
+
 @pytest.fixture("module")
 def loadBankReqPlugin(cli):
     loadPlugin(cli, 'bank_req_validation')

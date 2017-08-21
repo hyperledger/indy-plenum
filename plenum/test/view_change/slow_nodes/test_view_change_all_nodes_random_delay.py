@@ -6,9 +6,8 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 TestRunningTimeLimitSec = 300
 
 
-def test_view_change_in_between_3pc_all_nodes_random_delays(txnPoolNodeSet, tconf,
-                                                            looper, wallet1,
-                                                            client):
+def test_view_change_in_between_3pc_all_nodes_random_delays(
+        txnPoolNodeSet, tconf, looper, wallet1, client):
     """
     - Slow processing 3PC messages for all nodes randomly
     - do view change
@@ -18,9 +17,8 @@ def test_view_change_in_between_3pc_all_nodes_random_delays(txnPoolNodeSet, tcon
                                              wallet1, client, tconf)
 
 
-def test_view_change_in_between_3pc_all_nodes_random_delays_long_delay(txnPoolNodeSet,
-                                                            looper, wallet1,
-                                                            client, tconf):
+def test_view_change_in_between_3pc_all_nodes_random_delays_long_delay(
+        txnPoolNodeSet, looper, wallet1, client, tconf):
     """
     - Slow processing 3PC messages for all nodes randomly
     - do view change

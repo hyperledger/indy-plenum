@@ -48,7 +48,8 @@ class DomainRequestHandler(RequestHandler):
 
     def apply(self, req: Request, cons_time: int):
         txn = self._reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns([self.transform_txn_for_ledger(txn)])
+        (start, end), _ = self.ledger.appendTxns(
+            [self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
         return txn
 
@@ -71,7 +72,8 @@ class DomainRequestHandler(RequestHandler):
             nym = txn.get(TARGET_NYM)
             self.updateNym(nym, txn, isCommitted=isCommitted)
         else:
-            logger.debug('Cannot apply request of type {} to state'.format(typ))
+            logger.debug(
+                'Cannot apply request of type {} to state'.format(typ))
 
     def countStewards(self) -> int:
         """

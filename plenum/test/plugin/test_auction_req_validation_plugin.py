@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from stp_core.loop.eventually import eventuallyAll
-from plenum.common.constants import TXN_TYPE,  DATA
+from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
@@ -56,7 +56,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: "dummy",
         DATA: {
             AMOUNT: 30
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     validTypes = ', '.join(plugin.validTxnTypes)
     update = {
@@ -108,7 +108,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: PLACE_BID,
         DATA: {
             AMOUNT: 453
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}

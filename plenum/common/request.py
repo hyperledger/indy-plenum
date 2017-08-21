@@ -95,6 +95,3 @@ class SafeRequest(Request, ClientMessageValidator):
     def __init__(self, **kwargs):
         self.validate(kwargs)
         super().__init__(**kwargs)
-
-
-

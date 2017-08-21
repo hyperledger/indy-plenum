@@ -14,7 +14,8 @@ class Command:
     def __str__(self):
         detailIndent = "    "
         header = "\n{}\n{}\n".format(self.id, '-' * (len(self.id)))
-        note = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
+        note = "{} note: {}\n\n".format(
+            detailIndent, self.note) if self.note else ""
         examplesStr = '\n{}{}'.format(detailIndent, detailIndent).join(
             self.examples) if self.examples else ""
         examples = "{} example(s):\n{}    {}\n".format(
@@ -134,11 +135,14 @@ addGenesisTxnCmd = Command(
     usage="add genesis transaction <type> for <dest-DID> [by <DID>] [with data {<json data>}] [role=<role>]",
     examples=[
         'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
-            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name),
         'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {{"alias": "Alice"}} role={role}'.format(
-            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name),
         'add genesis transaction {node} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML by FvDi9xQZd1CZitbK15BNKFbA7izCdXZjvxf91u3rQVzW '
-        'with data {{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}}'.format(node=PlenumTransactions.NODE.name)])
+        'with data {{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}}'.format(
+            node=PlenumTransactions.NODE.name)])
 
 createGenesisTxnFileCmd = Command(
     id="create genesis transaction file",
@@ -162,7 +166,9 @@ useWalletCmd = Command(
     id="use wallet",
     title="Loads given wallet and marks it active/default",
     usage="use wallet <name|absolute-wallet-file-path>",
-    examples=["use wallet mywallet", "use wallet /home/ubuntu/.sovrin/wallets/test/mywallet.wallet"])
+    examples=[
+        "use wallet mywallet",
+        "use wallet /home/ubuntu/.sovrin/wallets/test/mywallet.wallet"])
 
 saveWalletCmd = Command(
     id="save wallet",

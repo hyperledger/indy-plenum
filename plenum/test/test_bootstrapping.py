@@ -48,4 +48,3 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
                          keyshare=False) as nodes:
             with Looper(nodes) as looper:
                 looper.runFor(2)
-

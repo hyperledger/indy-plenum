@@ -14,9 +14,10 @@ def check_rank_consistent_across_each_node(nodes):
         for other_node in nodes:
             if node != other_node:
                 oid = other_node.poolManager.id
-                assert node.poolManager.get_rank_of(oid) ==  node_ranks[oid]
+                assert node.poolManager.get_rank_of(oid) == node_ranks[oid]
                 ork = node_ranks[oid]
-                assert node.poolManager.get_name_by_rank(ork) ==  name_by_ranks[ork]
+                assert node.poolManager.get_name_by_rank(
+                    ork) == name_by_ranks[ork]
     order = []
     for node in nodes:
         if isinstance(node.poolManager, RegistryPoolManager):

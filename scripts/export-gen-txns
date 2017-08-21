@@ -27,4 +27,3 @@ if __name__ == "__main__":
         exportNodeGenTxn(config.baseDir, args.print_gen_txn, name)
     else:
         exportStewardGenTxn(config.baseDir, args.print_gen_txn, name)
-

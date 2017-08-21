@@ -10,9 +10,8 @@ def testRequestOlderThanStableCheckpointRemoved(chkFreqPatched, looper,
                                                 reqs_for_checkpoint):
     max_batch_size = chkFreqPatched.Max3PCBatchSize
     chk_freq = chkFreqPatched.CHK_FREQ
-    reqs = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                               reqs_for_checkpoint - max_batch_size,
-                                               1)
+    reqs = sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, reqs_for_checkpoint - max_batch_size, 1)
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, retryWait=1,
                           timeout=timeout))

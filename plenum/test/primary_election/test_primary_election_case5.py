@@ -1,4 +1,3 @@
-import logging
 
 import pytest
 from plenum.common.messages.node_messages import Nomination, Primary
@@ -85,8 +84,8 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     # Ensure elections are done
     # also have to take into account the catchup procedure
     timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
-              waits.expectedPoolCatchupTime(len(nodeSet)) + \
-              delayOfElectionDone
+        waits.expectedPoolCatchupTime(len(nodeSet)) + \
+        delayOfElectionDone
     ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not

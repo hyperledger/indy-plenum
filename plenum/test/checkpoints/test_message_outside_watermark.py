@@ -7,17 +7,21 @@ from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 
 
-def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
-                                                      txnPoolNodeSet, client1,
-                                                      wallet1, client1Connected,
-                                                      reqs_for_logsize):
+def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(
+        chkFreqPatched,
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        client1Connected,
+        reqs_for_logsize):
     """
     A node is slow in processing PRE-PREPAREs and PREPAREs such that lot of
     requests happen and the slow node has started getting 3 phase messages
     outside of it watermarks. Check that it queues up requests outside watermarks and once it
-    has received stable checkpoint it processes more requests. It sends other 
-    nodes 3 phase messages older than their stable checkpoint so they should 
-    discard them.    
+    has received stable checkpoint it processes more requests. It sends other
+    nodes 3 phase messages older than their stable checkpoint so they should
+    discard them.
     """
     delay = 15
     instId = 1
@@ -34,17 +38,20 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
             counts[r.name] = countDiscarded(r, pat)
         return counts
 
-    oldStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
+    oldStashCount = slowReplica.spylog.count(
+        TestReplica.stashOutsideWatermarks.__name__)
     oldDiscardCounts = discardCounts([n.replicas[instId] for n in
                                       txnPoolNodeSet if n != slowNode],
                                      'achieved stable checkpoint')
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    timeout =waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
+    sendReqsToNodesAndVerifySuffReplies(
+        looper, wallet1, client1, reqsToSend, 1)
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeDataForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
                           retryWait=1, timeout=timeout))
-    newStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
+    newStashCount = slowReplica.spylog.count(
+        TestReplica.stashOutsideWatermarks.__name__)
     assert newStashCount > oldStashCount
 
     def chk():
@@ -54,5 +61,6 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
         for nm, count in counts.items():
             assert count > oldDiscardCounts[nm]
 
-    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * len(txnPoolNodeSet) + delay
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * \
+        len(txnPoolNodeSet) + delay
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

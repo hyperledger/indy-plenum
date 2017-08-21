@@ -1,4 +1,3 @@
-from functools import partial
 from uuid import uuid4
 
 import pytest
@@ -31,7 +30,8 @@ def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
-def testTransactions(cli, loadAuctionReqPlugin, createAllNodes, validNodeNames):
+def testTransactions(cli, loadAuctionReqPlugin,
+                     createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
     auctionId = str(uuid4())
     names = ["Jason", "John", "Les", "Timothy", "Tyler"]

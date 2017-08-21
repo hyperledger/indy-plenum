@@ -1,9 +1,9 @@
 import math
 import random
 import time
-from collections import Counter, deque
+from collections import Counter
 from functools import partial
-from typing import Sequence, Any, Union, List, Iterable
+from typing import Iterable, List, Sequence, Union
 
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX
 from plenum.common.types import f
@@ -204,12 +204,13 @@ class PrimaryElector(PrimaryDecider):
         """
         replica = self.replicas[instId]
         if not self.didReplicaNominate(instId):
-            self.nominations[instId][replica.name] = (replica.name,
-                                                      replica.last_ordered_3pc[1])
+            self.nominations[instId][replica.name] = (
+                replica.name, replica.last_ordered_3pc[1])
             logger.debug("{} nominating itself for instance {}".
                          format(replica, instId),
                          extra={"cli": "PLAIN", "tags": ["node-nomination"]})
-            self.sendNomination(replica.name, instId, self.viewNo, replica.last_ordered_3pc[1])
+            self.sendNomination(replica.name, instId,
+                                self.viewNo, replica.last_ordered_3pc[1])
         else:
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
@@ -248,11 +249,12 @@ class PrimaryElector(PrimaryDecider):
                      format(self.name, nom))
         instId = nom.instId
         replica = self.replicas[instId]
-        if instId == 0 and replica.getNodeName(nom.name) == self.previous_master_primary:
-            self.discard(nom, '{} got Nomination from {} for {} who was primary'
-                              ' of master in previous view too'.
-                         format(self, sender, nom.name),
-                         logMethod=logger.debug)
+        if instId == 0 and replica.getNodeName(
+                nom.name) == self.previous_master_primary:
+            self.discard(
+                nom, '{} got Nomination from {} for {} who was primary'
+                ' of master in previous view too'. format(
+                    self, sender, nom.name), logMethod=logger.debug)
             return False
 
         sndrRep = replica.generateName(sender, nom.instId)
@@ -302,7 +304,8 @@ class PrimaryElector(PrimaryDecider):
                      .format(self.name, sender, prim))
         instId = prim.instId
         replica = self.replicas[instId]
-        if instId == 0 and replica.getNodeName(prim.name) == self.previous_master_primary:
+        if instId == 0 and replica.getNodeName(
+                prim.name) == self.previous_master_primary:
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                                ' of master in previous view too'.
                          format(self, sender, prim.name),
@@ -347,10 +350,10 @@ class PrimaryElector(PrimaryDecider):
         # same node
 
         if replica.hasPrimary:
-          logger.debug("{} Primary already selected; "
-                       "ignoring PRIMARY msg"
-                       .format(replica))
-          return
+            logger.debug("{} Primary already selected; "
+                         "ignoring PRIMARY msg"
+                         .format(replica))
+            return
 
         if self.hasPrimaryQuorum(inst_id):
             if replica.isPrimary is None:
@@ -453,12 +456,15 @@ class PrimaryElector(PrimaryDecider):
                         self._schedule(partial(self.nominateReplica, instId),
                                        random.randint(1, 3))
                     else:
-                        # Now try to nominate self again as there is a reelection
+                        # Now try to nominate self again as there is a
+                        # reelection
                         self.nominateReplica(instId)
             else:
-                logger.debug("{} does not have re-election quorum yet. "
-                             "Got only {}".format(replica,
-                                                  len(self.reElectionProposals[instId])))
+                logger.debug(
+                    "{} does not have re-election quorum yet. "
+                    "Got only {}".format(
+                        replica, len(
+                            self.reElectionProposals[instId])))
         else:
             self.discard(reelection,
                          "already got re-election proposal from {}".
@@ -532,15 +538,13 @@ class PrimaryElector(PrimaryDecider):
             self.reElectionRounds[instId] = 0
 
         if replica.name in self.primaryDeclarations[instId]:
-            logger.debug("{} has already sent a Primary: {}".
-                         format(replica,
-                                self.primaryDeclarations[instId][replica.name]))
+            logger.debug("{} has already sent a Primary: {}". format(
+                replica, self.primaryDeclarations[instId][replica.name]))
             return
 
         if replica.name in self.reElectionProposals[instId]:
-            logger.debug("{} has already sent a Re-Election for : {}".
-                         format(replica,
-                                self.reElectionProposals[instId][replica.name]))
+            logger.debug("{} has already sent a Re-Election for : {}". format(
+                replica, self.reElectionProposals[instId][replica.name]))
             return
 
         if self.hasNominationQuorum(instId):
@@ -560,8 +564,8 @@ class PrimaryElector(PrimaryDecider):
                 else:
                     votesNeeded = math.ceil((self.nodeCount + 1) / 2.0)
                     if votes >= votesNeeded or (
-                        self.scheduledPrimaryDecisions[instId] is not None and
-                        self.hasPrimaryDecisionTimerExpired(instId)):
+                            self.scheduledPrimaryDecisions[instId] is not None and
+                            self.hasPrimaryDecisionTimerExpired(instId)):
                         logger.debug("{} does not have nominations from "
                                      "all but has {} votes for {} so sending "
                                      "primary".
@@ -582,8 +586,11 @@ class PrimaryElector(PrimaryDecider):
                 if self.hasNominationsFromAll(instId) or (
                         self.scheduledPrimaryDecisions[instId] is not None and
                         self.hasPrimaryDecisionTimerExpired(instId)):
-                    logger.debug("{} proposing re-election".format(replica),
-                                 extra={"cli": True, "tags": ['node-election']})
+                    logger.debug(
+                        "{} proposing re-election".format(replica),
+                        extra={
+                            "cli": True,
+                            "tags": ['node-election']})
                     self.sendReelection(instId,
                                         [n[0] for n in primaryCandidates])
                 else:
@@ -624,7 +631,7 @@ class PrimaryElector(PrimaryDecider):
                      format(replica, primaryName,
                             self.nominations[instId]))
         prim = Primary(primaryName, instId, self.viewNo,
-                          lastOrderedSeqNo)
+                       lastOrderedSeqNo)
         self.send(prim)
         self.select_primary(instId, prim)
 
@@ -647,8 +654,11 @@ class PrimaryElector(PrimaryDecider):
                             self.reElectionRounds[instId],
                             primaryCandidates))
         self.send(
-            Reelection(instId, self.reElectionRounds[instId], primaryCandidates,
-                       self.viewNo))
+            Reelection(
+                instId,
+                self.reElectionRounds[instId],
+                primaryCandidates,
+                self.viewNo))
 
     def getPrimaryCandidates(self, instId: int):
         """
@@ -685,7 +695,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: id of the instance for which elections are happening.
         """
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
-               > (1 * self.nodeCount)
+            > (1 * self.nodeCount)
 
     def view_change_started(self, viewNo: int):
         """

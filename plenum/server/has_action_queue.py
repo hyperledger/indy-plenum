@@ -11,7 +11,9 @@ logger = getlogger()
 
 class HasActionQueue:
     def __init__(self):
-        self.actionQueue = deque()  # holds a deque of Callables; use functools.partial if the callable needs arguments
+        # holds a deque of Callables; use functools.partial if the callable
+        # needs arguments
+        self.actionQueue = deque()
         self.aqStash = deque()
         self.aqNextCheck = float('inf')  # next time to check
         self.aid = 0  # action id
@@ -78,14 +80,17 @@ class HasActionQueue:
             self.repeatingActions.add(action)
             self._schedule(wrapper, seconds)
         else:
-            logger.debug('{} is already repeating'.format(get_func_name(action)))
+            logger.debug('{} is already repeating'.format(
+                get_func_name(action)))
 
     def stopRepeating(self, action: Callable, strict=True):
         try:
             self.repeatingActions.remove(action)
-            logger.debug('{} will not be repeating'.format(get_func_name(action)))
+            logger.debug('{} will not be repeating'.format(
+                get_func_name(action)))
         except KeyError:
-            msg = '{} not found in repeating actions'.format(get_func_name(action))
+            msg = '{} not found in repeating actions'.format(
+                get_func_name(action))
             if strict:
                 raise KeyError(msg)
             else:

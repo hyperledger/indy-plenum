@@ -23,7 +23,7 @@ whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # A non primary replica sends PREPARE messages with incorrect digest
 
@@ -44,8 +44,8 @@ def testPrepareDigest(setup, looper, sent1):
     """
 
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-                                            setup.nonPrimaryReps, \
-                                            setup.faultyRep
+        setup.nonPrimaryReps, \
+        setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):
@@ -53,8 +53,10 @@ def testPrepareDigest(setup, looper, sent1):
                 # Every node except the one from which PREPARE with incorrect
                 # digest was sent should raise suspicion for the PREPARE
                 # message
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.PR_DIGEST_WRONG.code)) == 1
+                assert len(
+                    getNodeSuspicions(
+                        r.node,
+                        Suspicions.PR_DIGEST_WRONG.code)) == 1
 
     numOfNodes = len(primaryRep.node.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)

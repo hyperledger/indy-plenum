@@ -34,20 +34,29 @@ class PluginManager:
         self.topics = notifierPluginTriggerEvents
         self.importPlugins()
 
-    def sendMessageUponNodeUpgradeScheduled(self, message='Node uprgade has been scheduled'):
+    def sendMessageUponNodeUpgradeScheduled(
+            self, message='Node uprgade has been scheduled'):
         return self._sendMessage(self.topics['nodeUpgradeScheduled'], message)
 
-    def sendMessageUponNodeUpgradeComplete(self, message='Node has successfully upgraded.'):
+    def sendMessageUponNodeUpgradeComplete(
+            self, message='Node has successfully upgraded.'):
         return self._sendMessage(self.topics['nodeUpgradeComplete'], message)
 
-    def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
+    def sendMessageUponNodeUpgradeFail(
+            self, message='Node upgrade has failed. Please take action.'):
         return self._sendMessage(self.topics['nodeUpgradeFail'], message)
 
-    def sendMessageUponPoolUpgradeCancel(self, message='Pool upgrade has been cancelled. Please take action.'):
+    def sendMessageUponPoolUpgradeCancel(
+            self, message='Pool upgrade has been cancelled. Please take action.'):
         return self._sendMessage(self.topics['poolUpgradeCancel'], message)
 
-    def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
-                                       newVal: float, config: Dict, nodeName: str):
+    def sendMessageUponSuspiciousSpike(
+            self,
+            event: str,
+            historicalData: Dict,
+            newVal: float,
+            config: Dict,
+            nodeName: str):
         assert 'value' in historicalData
         assert 'cnt' in historicalData
         assert 'minCnt' in config
@@ -66,7 +75,9 @@ class PluginManager:
             return None
 
         if (val / coefficient) <= newVal <= (val * coefficient):
-            logger.debug('{}: New value {} is within bounds. Average: {}'.format(event, newVal, val))
+            logger.debug(
+                '{}: New value {} is within bounds. Average: {}'.format(
+                    event, newVal, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
@@ -84,9 +95,12 @@ class PluginManager:
                 module = importlib.import_module(plugin)
                 self.plugins.append(module)
                 i += 1
-                logger.info("Successfully imported Notifier Plugin: {}".format(plugin))
+                logger.info(
+                    "Successfully imported Notifier Plugin: {}".format(plugin))
             except Exception as e:
-                logger.error('Importing Notifier Plugin {} failed due to {}'.format(plugin, e))
+                logger.error(
+                    'Importing Notifier Plugin {} failed due to {}'.format(
+                        plugin, e))
         return i, len(plugins)
 
     def _sendMessage(self, topic, message):

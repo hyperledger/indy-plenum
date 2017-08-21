@@ -71,9 +71,9 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
     return req, \
-           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
-           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
-           sigseed
+        op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
+        op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
+        sigseed
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
@@ -98,8 +98,17 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                                   tconf, autoStart, allPluginsPath, nodeClass)
 
 
-def start_newly_added_node(looper, node_name, tdir, sigseed, node_ha, client_ha,
-                           conf, auto_start, plugin_path, nodeClass):
+def start_newly_added_node(
+        looper,
+        node_name,
+        tdir,
+        sigseed,
+        node_ha,
+        client_ha,
+        conf,
+        auto_start,
+        plugin_path,
+        nodeClass):
     initNodeKeysForBothStacks(node_name, tdir, sigseed, override=True)
     node = nodeClass(node_name, basedirpath=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
@@ -133,9 +142,17 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
 
-    newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
-                         tdir, tconf, allPluginsPath, autoStart=autoStart,
-                         nodeClass=nodeClass, transformOpFunc=transformNodeOpFunc)
+    newNode = addNewNode(
+        looper,
+        newSteward,
+        newStewardWallet,
+        newNodeName,
+        tdir,
+        tconf,
+        allPluginsPath,
+        autoStart=autoStart,
+        nodeClass=nodeClass,
+        transformOpFunc=transformNodeOpFunc)
     return newSteward, newStewardWallet, newNode
 
 
@@ -264,7 +281,8 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     return client, w
 
 
-def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], stopNode=True):
+def disconnectPoolNode(poolNodes: Iterable,
+                       disconnect: Union[str, TestNode], stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
@@ -276,7 +294,8 @@ def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], st
             node.nodestack.disconnectByName(disconnect)
 
 
-def reconnectPoolNode(poolNodes: Iterable, connect: Union[str, TestNode], looper):
+def reconnectPoolNode(poolNodes: Iterable,
+                      connect: Union[str, TestNode], looper):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
@@ -301,8 +320,8 @@ def disconnect_node_and_ensure_disconnected(looper, poolNodes,
 
 
 def reconnect_node_and_ensure_connected(looper, poolNodes,
-                                            connect: Union[str, TestNode],
-                                            timeout=None):
+                                        connect: Union[str, TestNode],
+                                        timeout=None):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
@@ -317,7 +336,7 @@ def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
     names = names or ("Zeta", "Eta")
     new_nodes = []
     for node_name in names:
-        new_steward_name = "testClientSteward"+randomString(3)
+        new_steward_name = "testClientSteward" + randomString(3)
         new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
                                                                          steward,
                                                                          steward_wallet,

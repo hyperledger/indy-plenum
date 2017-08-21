@@ -27,10 +27,12 @@ def checkNodeDataForEquality(node: TestNode,
         check_last_ordered_3pc(node, n)
         check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
         checkLedgerEquality(node.domainLedger, n.domainLedger)
-        checkStateEquality(node.getState(DOMAIN_LEDGER_ID), n.getState(DOMAIN_LEDGER_ID))
+        checkStateEquality(node.getState(DOMAIN_LEDGER_ID),
+                           n.getState(DOMAIN_LEDGER_ID))
         if n.poolLedger:
             checkLedgerEquality(node.poolLedger, n.poolLedger)
-            checkStateEquality(node.getState(POOL_LEDGER_ID), n.getState(POOL_LEDGER_ID))
+            checkStateEquality(node.getState(POOL_LEDGER_ID),
+                               n.getState(POOL_LEDGER_ID))
 
 
 def checkNodeDataForInequality(node: TestNode,
@@ -79,7 +81,8 @@ def waitNodeDataInequality(looper,
 def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None):
     node = next(iter(nodes))
     other_nodes = [n for n in nodes if n != node]
-    waitNodeDataEquality(looper, node, *other_nodes, customTimeout=custom_timeout)
+    waitNodeDataEquality(looper, node, *other_nodes,
+                         customTimeout=custom_timeout)
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
@@ -96,7 +99,7 @@ def checkClientPoolLedgerSameAsNodes(client: TestClient,
 
 def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
                                                   client: TestClient,
-                                                  *nodes:Iterable[TestNode]):
+                                                  *nodes: Iterable[TestNode]):
     looper.run(client.ensureConnectedToNodes())
     timeout = waits.expectedPoolGetReadyTimeout(len(nodes))
     looper.run(eventually(checkClientPoolLedgerSameAsNodes,
@@ -133,7 +136,8 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
                 import inspect
                 curframe = inspect.currentframe()
                 calframe = inspect.getouterframes(curframe, 2)
-                # For domain ledger, send a proof for a small ledger to the bad node
+                # For domain ledger, send a proof for a small ledger to the bad
+                # node
                 if calframe[1][
                     3] == node.ledgerManager.getConsistencyProof.__name__ \
                         and calframe[2].frame.f_locals['frm'] == target_node.name \

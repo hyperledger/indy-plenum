@@ -22,14 +22,17 @@ def test_catchup_reply_merge(txnPoolNodeSet):
     merged = ledger_manager._get_merged_catchup_txns(existing_txns, new_txns)
     assert [(i, {}) for i in range(1, 21)] == merged
 
-    # existing_txns has a gap and new_txns overlap partially with an interval in existing_txns
-    existing_txns = [(i, {}) for i in range(1, 11)] + [(i, {}) for i in range(20, 41)]
+    # existing_txns has a gap and new_txns overlap partially with an interval
+    # in existing_txns
+    existing_txns = [(i, {}) for i in range(1, 11)] + [(i, {})
+                                                       for i in range(20, 41)]
     new_txns = [(i, {}) for i in range(15, 29)]
     merged = ledger_manager._get_merged_catchup_txns(existing_txns, new_txns)
     assert ([(i, {}) for i in range(1, 11)] +
             [(i, {}) for i in range(15, 41)]) == merged
 
-    # existing_txns has a gap and new_txns overlap completely with an interval in existing_txns
+    # existing_txns has a gap and new_txns overlap completely with an interval
+    # in existing_txns
     existing_txns = [(i, {}) for i in range(1, 11)] + \
                     [(i, {}) for i in range(20, 31)] + \
                     [(i, {}) for i in range(41, 51)]
@@ -39,7 +42,8 @@ def test_catchup_reply_merge(txnPoolNodeSet):
             [(i, {}) for i in range(15, 33)] +
             [(i, {}) for i in range(41, 51)]) == merged
 
-    # existing_txns has a gap and new_txns overlap completely with multiple intervals in existing_txns
+    # existing_txns has a gap and new_txns overlap completely with multiple
+    # intervals in existing_txns
     existing_txns = [(i, {}) for i in range(1, 11)] + \
                     [(i, {}) for i in range(20, 31)] + \
                     [(i, {}) for i in range(41, 51)] + \

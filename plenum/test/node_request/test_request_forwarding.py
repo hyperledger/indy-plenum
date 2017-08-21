@@ -12,8 +12,13 @@ from stp_core.loop.eventually import eventually
 from plenum.test.view_change.conftest import perf_chk_patched
 
 
-def test_all_replicas_hold_request_keys(perf_chk_patched, looper, txnPoolNodeSet,
-                                        client1, wallet1, client1Connected):
+def test_all_replicas_hold_request_keys(
+        perf_chk_patched,
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        client1Connected):
     """
     All replicas whether primary or non primary hold request keys of forwarded
     requests. Once requests are ordered, they request keys are removed from replica.
@@ -56,7 +61,7 @@ def test_all_replicas_hold_request_keys(perf_chk_patched, looper, txnPoolNodeSet
     # Since each nomination is delayed and there will be multiple nominations
     # so adding some extra time
     timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
-              len(txnPoolNodeSet)*delay
+        len(txnPoolNodeSet) * delay
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
                                         add_delay_to_timeout=delay_3pc)

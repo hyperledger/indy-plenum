@@ -21,4 +21,5 @@ class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
         return 0
 
     def open(self):
-        self._db = leveldb.LevelDB(self.db_path, comparator=('IntegerComparator', self.compare))
+        self._db = leveldb.LevelDB(self.db_path, comparator=(
+            'IntegerComparator', self.compare))

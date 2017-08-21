@@ -11,6 +11,4 @@ def test_valid_value():
 
 def test_invalid_value():
     assert validator.validate(-1)
-    assert validator.validate(validator._oldest_time-1)
-
-
+    assert validator.validate(validator._oldest_time - 1)
