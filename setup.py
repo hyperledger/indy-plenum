@@ -76,7 +76,8 @@ setup(
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
-             'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log']
+             'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
+             'scripts/log_stats']
 )
 
 if not os.path.exists(CONFIG_FILE):

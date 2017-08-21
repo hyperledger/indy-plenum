@@ -109,7 +109,7 @@ class Batched(MessageProcessor):
                         self.transmit(payload, rid, timeout=self.messageTimeout,
                                       serialized=True)
                     else:
-                        logger.debug("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
+                        logger.warning("{} error {}. tried to {}: {}".format(self, err_msg, dest, payload))
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),
