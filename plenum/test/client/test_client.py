@@ -62,7 +62,8 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
 
     async def go(ctx):
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
-        client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
+        client1, _ = genTestClient(
+            nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
         for node in ctx.nodeset:
             stack = node.nodestack
             args = (client1.name, stack.name, ctx.tmpdir, stack.verhex, True)
@@ -99,8 +100,8 @@ def testSendRequestWithoutSignatureFails(pool):
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
                 await eventually(
-                        checkLastClientReqForNode, node, request,
-                        retryWait=1, timeout=timeout)
+                    checkLastClientReqForNode, node, request,
+                    retryWait=1, timeout=timeout)
 
         for n in ctx.nodeset:
             params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
@@ -157,9 +158,9 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
-            eventually(checkResponseRecvdFromNodes, client1,
-                       nodeCount, request.reqId,
-                       retryWait=1, timeout=responseTimeout))
+        eventually(checkResponseRecvdFromNodes, client1,
+                   nodeCount, request.reqId,
+                   retryWait=1, timeout=responseTimeout))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
@@ -177,9 +178,9 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # have a different operations
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
-            eventually(checkResponseRecvdFromNodes, client1,
-                       nodeCount, request.reqId,
-                       retryWait=1, timeout=responseTimeout))
+        eventually(checkResponseRecvdFromNodes, client1,
+                   nodeCount, request.reqId,
+                   retryWait=1, timeout=responseTimeout))
 
     replies = (msg for msg, frm in client1.inBox
                if msg[OP_FIELD_NAME] == REPLY and
@@ -211,13 +212,13 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
-                       response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
+                          response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
                       (response[0].get(OP_FIELD_NAME) == REQACK and
                        response[0].get(f.REQ_ID.nm) == sent1.reqId)],
                      originalRequestResponsesLen + duplicateRequestRepliesLen)
 
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
-    looper.run(eventually( chk, retryWait=1, timeout=responseTimeout))
+    looper.run(eventually(chk, retryWait=1, timeout=responseTimeout))
 
 
 # noinspection PyIncorrectDocstring
@@ -259,7 +260,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
-        responseTimeout =waits.expectedTransactionExecutionTime(nodeCount)
+        responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
         for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,

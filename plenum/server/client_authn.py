@@ -52,7 +52,6 @@ class ClientAuthNr:
         :param verkey: the public key used to verify a signature
         :return: None
         """
-        pass
 
     @abstractmethod
     def getVerkey(self, identifier):
@@ -62,7 +61,6 @@ class ClientAuthNr:
         :param identifier: client's identifier
         :return: the verification key
         """
-        pass
 
 
 class NaclAuthNr(ClientAuthNr):
@@ -95,7 +93,8 @@ class NaclAuthNr(ClientAuthNr):
             verkey = self.getVerkey(identifier)
 
             if verkey is None:
-                raise CouldNotAuthenticate('Can not find verkey for DID {}'.format(identifier))
+                raise CouldNotAuthenticate(
+                    'Can not find verkey for DID {}'.format(identifier))
 
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
@@ -116,7 +115,8 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     def serializeForSig(self, msg, topLevelKeysToIgnore=None):
-        return serialize_msg_for_signing(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
+        return serialize_msg_for_signing(
+            msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class SimpleAuthNr(NaclAuthNr):
@@ -147,8 +147,8 @@ class SimpleAuthNr(NaclAuthNr):
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = DomainRequestHandler.getNymDetails(self.state,
-                                                     identifier, isCommitted=False)
+            nym = DomainRequestHandler.getNymDetails(
+                self.state, identifier, isCommitted=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)

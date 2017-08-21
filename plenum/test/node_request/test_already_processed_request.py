@@ -21,10 +21,12 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
         return counts.pop()
 
     def get_getReplyFromLedger_call_count():
-        return get_method_call_count(next(iter(txnPoolNodeSet)).getReplyFromLedger)
+        return get_method_call_count(
+            next(iter(txnPoolNodeSet)).getReplyFromLedger)
 
     def get_recordAndPropagate_call_count():
-        return get_method_call_count(next(iter(txnPoolNodeSet)).recordAndPropagate)
+        return get_method_call_count(
+            next(iter(txnPoolNodeSet)).recordAndPropagate)
 
     def get_last_returned_val():
         rvs = []
@@ -64,19 +66,20 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
 
     # Client re-sending request
     req3, = send_signed_requests(client1, [req1, ])
-    waitForSufficientRepliesForRequests(looper, client1, requests=[req3,])
+    waitForSufficientRepliesForRequests(looper, client1, requests=[req3, ])
     assert req3.reqId == req1.reqId
     rlc4 = get_getReplyFromLedger_call_count()
     rpc4 = get_recordAndPropagate_call_count()
     assert rlc4 - rlc3 == 1     # getReplyFromLedger was called again
     assert rpc4 - rpc3 == 0     # recordAndPropagate was not called
     r3 = get_last_returned_val()
-    assert r3 is not None   # getReplyFromLedger did not return None this time since had seen request
+    # getReplyFromLedger did not return None this time since had seen request
+    assert r3 is not None
     rep3 = client1.getReply(req3.identifier, req3.reqId)
 
     # Since txnTime is not stored in ledger and reading from ledger return
     # all possible fields from transactions
-    rep3 = {k:v for k,v in rep3[0].items() if v is not None}
-    rep1 = {k:v for k,v in rep1[0].items() if k in rep3}
+    rep3 = {k: v for k, v in rep3[0].items() if v is not None}
+    rep1 = {k: v for k, v in rep1[0].items() if k in rep3}
 
     assert rep3 == rep1     # The reply client got is same as the previous one

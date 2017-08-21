@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import glob
 import shutil
 from os.path import basename, dirname
-from typing import Dict, Iterable
+from typing import Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -40,12 +40,6 @@ from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from stp_raet.util import getLocalEstateData
-
-if is_windows():
-    from prompt_toolkit.terminal.win32_output import Win32Output
-    from prompt_toolkit.terminal.conemu_output import ConEmuOutput
-else:
-    from prompt_toolkit.terminal.vt100_output import Vt100_Output
 
 import configparser
 import os
@@ -84,6 +78,11 @@ from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 from plenum.cli.command_history import CliFileHistory
 
+if is_windows():
+    from prompt_toolkit.terminal.win32_output import Win32Output  # noqa
+    from prompt_toolkit.terminal.conemu_output import ConEmuOutput  # noqa
+else:
+    from prompt_toolkit.terminal.vt100_output import Vt100_Output  # noqa
 
 
 class CustomOutput(Vt100_Output):
@@ -204,7 +203,8 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        self.pers_hist = CliFileHistory(command_filter=self.mask_seed, filename='.{}-cli-history'.format(self.name))
+        self.pers_hist = CliFileHistory(
+            command_filter=self.mask_seed, filename='.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
@@ -242,7 +242,7 @@ class Cli:
             Logger().enableFileLogging(logFileName)
 
         # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
-        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
+        # Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
@@ -263,11 +263,10 @@ class Cli:
 
         self.checkIfCmdHandlerAndCmdMappingExists()
 
-
     def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
         self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg)
-                and cliNodeReg and len(cliNodeReg)):
+        if not (useNodeReg and nodeReg and len(nodeReg) and
+                cliNodeReg and len(cliNodeReg)):
             self.__init_registry_from_ledger()
         else:
             self.nodeReg = nodeReg
@@ -276,14 +275,15 @@ class Cli:
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+            self.nodeRegistry[nStkNm] = NodeDetail(
+                HA(*nha), cStkNm, HA(*self.cliNodeReg[cStkNm]))
 
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
         dataDir = self.basedirpath
 
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFile)
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            dataDir, self.config.poolTransactionsFile)
         ledger = Ledger(CompactMerkleTree(),
                         dataDir=dataDir,
                         fileName=self.config.poolTransactionsFile,
@@ -306,18 +306,18 @@ class Cli:
             self.nodes[key].stop()
 
     def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
-        msg="Command mapping not provided for '{}' command handler. " \
+        msg = "Command mapping not provided for '{}' command handler. " \
             "\nPlease add proper mapping for that command handler " \
             "(in function '{}') with corresponding command object.".\
             format(cmdHandlerFuncName, mappingFuncName)
 
-        sep = "\n" + "*"*125 + "\n"
+        sep = "\n" + "*" * 125 + "\n"
         msg = sep + msg + sep
         return msg
 
     def checkIfCmdHandlerAndCmdMappingExists(self):
         for cmdHandlerFunc in self.actions:
-            funcName = cmdHandlerFunc.__name__.replace("_","")
+            funcName = cmdHandlerFunc.__name__.replace("_", "")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
                 raise Exception(self._getCmdMappingError(
                     cmdHandlerFunc.__name__,
@@ -358,14 +358,13 @@ class Cli:
             self._config = getConfig()
             return self._config
 
-
     @property
     def walletSaver(self):
         if self._walletSaver is None:
             self._walletSaver = WalletStorageHelper(
-                    self.getWalletsBaseDir(),
-                    dmode=self.config.WALLET_DIR_MODE,
-                    fmode=self.config.WALLET_FILE_MODE)
+                self.getWalletsBaseDir(),
+                dmode=self.config.WALLET_DIR_MODE,
+                fmode=self.config.WALLET_FILE_MODE)
         return self._walletSaver
 
     @property
@@ -450,7 +449,7 @@ class Cli:
             walletsDir, normalizedWalletFileName(oldWalletName))
         if os.path.exists(oldWalletFilePath):
             newWalletFilePath = getWalletFilePath(
-            walletsDir, normalizedWalletFileName(newWalletName))
+                walletsDir, normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
                 self.print("A persistent wallet file already exists for "
                            "new wallet name. Please choose new wallet name.")
@@ -499,7 +498,8 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            ledger = create_genesis_txn_init_ledger(self.basedirpath, self.config.poolTransactionsFile)
+            ledger = create_genesis_txn_init_ledger(
+                self.basedirpath, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
@@ -549,7 +549,8 @@ class Cli:
             TARGET_NYM: destId,
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = getFriendlyIdentifier(matchedVars.get(IDENTIFIER))
+            txn[IDENTIFIER] = getFriendlyIdentifier(
+                matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
@@ -571,7 +572,7 @@ class Cli:
         typeVar = matchedVars.get(TXN_TYPE)
 
         try:
-            type =  PlenumTransactions(typeVar)
+            type = PlenumTransactions(typeVar)
             return type.value
         except ValueError:
             pass
@@ -582,9 +583,8 @@ class Cli:
         except KeyError:
             pass
 
-        self.print("Invalid transaction type. Valid types are: {}".
-                   format(", ".join(map(lambda r: r.name, PlenumTransactions))),
-                   Token.Error)
+        self.print("Invalid transaction type. Valid types are: {}". format(
+            ", ".join(map(lambda r: r.name, PlenumTransactions))), Token.Error)
         return None
 
     @property
@@ -719,7 +719,6 @@ class Cli:
         # command handlers or let it point to None
         mappings['addKeyAction'] = None         # obsolete command
 
-
         return mappings
 
     def getTopComdMappingKeysForHelp(self):
@@ -737,12 +736,14 @@ class Cli:
         bottomCmdsKeys = self.getBottomComdMappingKeysForHelp()
 
         topCmds = [self.cmdHandlerToCmdMappings().get(k) for k in topCmdKeys]
-        bottomCmds = [self.cmdHandlerToCmdMappings().get(k) for k in bottomCmdsKeys]
+        bottomCmds = [self.cmdHandlerToCmdMappings().get(k)
+                      for k in bottomCmdsKeys]
         middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
-                      if k not in topCmdKeys
-                      and k not in bottomCmdsKeys
-                      and k not in removeCmdKeys]
-        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
+                      if k not in topCmdKeys and
+                      k not in bottomCmdsKeys and
+                      k not in removeCmdKeys]
+        return [c for c in (topCmds + middleCmds +
+                            bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -761,7 +762,7 @@ class Cli:
             helpMsgFormattedLine = "\n         ".join(helpMsgLines)
 
             helpMsgStr += "{}       {} - {}".format(
-                '\n'*gapsInLines, cmd.id, helpMsgFormattedLine)
+                '\n' * gapsInLines, cmd.id, helpMsgFormattedLine)
 
             if cmd.id in showUsageFor:
                 helpMsgStr += "\n         Usage:\n            {}".\
@@ -773,9 +774,11 @@ class Cli:
         return ["help"]
 
     def printHelp(self):
-        self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
-                                     sort=False, printHeader=True,
-                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(
+            self.getDefaultOrderedCmds(),
+            sort=False,
+            printHeader=True,
+            showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -933,7 +936,8 @@ class Cli:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
 
-                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
+                learnKeysFromOthers(self.basedirpath, name,
+                                    self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
@@ -1025,8 +1029,8 @@ class Cli:
             else:
                 self.printVoid()
             notConnecteds = list({r for r in self.nodes.keys()
-                                  if r not in connecteds
-                                  and r != nodeName})
+                                  if r not in connecteds and
+                                  r != nodeName})
             if notConnecteds:
                 self.print('    Not connected: ', newline=False)
                 self.printNames(notConnecteds, newline=True)
@@ -1096,17 +1100,20 @@ class Cli:
                 if request:
                     rqst = request[0]
                     self.requests[rqst.key] = rqst
-                    self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                    self.print("Request sent, request id: {}".format(
+                        req.reqId), Token.BoldBlue)
                 else:
                     for err in errs:
-                        self.print("Request error: {}".format(err), Token.Error)
+                        self.print("Request error: {}".format(
+                            err), Token.Error)
             else:
                 try:
                     self._createWallet(clientName)
                     self.printNoKeyMsg()
                 except NameAlreadyExists:
-                    self.print("Wallet with name {} is not in use, please select it by using 'use wallet {}' command"
-                               .format(clientName, clientName))
+                    self.print(
+                        "Wallet with name {} is not in use, please select it by using 'use wallet {}' command" .format(
+                            clientName, clientName))
 
         else:
             self.printMsgForUnknownClient()
@@ -1121,8 +1128,8 @@ class Cli:
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help client show request status' for more details")
-
+            self.print(
+                "No such request. See: 'help client show request status' for more details")
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1263,7 +1270,8 @@ class Cli:
                     pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
+                        if hasattr(
+                                plugin, "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
@@ -1273,9 +1281,11 @@ class Cli:
                                 parserReInitNeeded = True
                             # TODO Need to check if `plugin.cliActionNames`
                             #  conflicts with any of `self.cliActions`
-                            if hasattr(plugin, "cliActionNames") and \
-                                    isinstance(plugin.cliActionNames, set) and \
-                                    plugin.cliActionNames:
+                            if hasattr(
+                                    plugin,
+                                    "cliActionNames") and isinstance(
+                                    plugin.cliActionNames,
+                                    set) and plugin.cliActionNames:
                                 self.cliActions.update(plugin.cliActionNames)
                                 # TODO: Find better way to reinitialize completers
                                 # , also might need to reinitialize lexers
@@ -1347,9 +1357,10 @@ class Cli:
         if seed:
             seed = seed.strip()
             if len(seed) != 32 and not seedFromHex(seed):
-                self.print('Seed needs to be 32 or 64 characters (if hex) long '
-                           'but is {} characters long'.format(len(seed)),
-                           Token.Error)
+                self.print(
+                    'Seed needs to be 32 or 64 characters (if hex) long '
+                    'but is {} characters long'.format(
+                        len(seed)), Token.Error)
                 return False
 
         return True
@@ -1409,12 +1420,15 @@ class Cli:
             dirs_to_scan = self.getAllSubDirNamesForWallets()
             if contextDirPath not in dirs_to_scan:
                 dirs_to_scan.insert(0, contextDirPath)
-            dirs_to_scan = [os.path.join(walletBaseDir, e) for e in dirs_to_scan]
+            dirs_to_scan = [os.path.join(walletBaseDir, e)
+                            for e in dirs_to_scan]
             anyWalletFound = False
             for dir in dirs_to_scan:
-                cleaned_dir_name = dir.rstrip(os.sep)   # removed os path separator at the end
+                # removed os path separator at the end
+                cleaned_dir_name = dir.rstrip(os.sep)
                 dir_name = basename(cleaned_dir_name)
-                files = glob.glob("{}/*.{}".format(cleaned_dir_name, WALLET_FILE_EXTENSION))
+                files = glob.glob(
+                    "{}/*.{}".format(cleaned_dir_name, WALLET_FILE_EXTENSION))
                 persistedWalletNames = []
                 unpersistedWalletNames = []
 
@@ -1429,27 +1443,33 @@ class Cli:
                         if n.lower() not in persistedWalletNames]
 
                 if len(persistedWalletNames) > 0 or \
-                                len(unpersistedWalletNames) > 0:
+                        len(unpersistedWalletNames) > 0:
                     anyWalletFound = True
-                    self.print("\nContext Name: {}".format(dir_name), newline=False)
+                    self.print("\nContext Name: {}".format(
+                        dir_name), newline=False)
                     self.print(" (path:{})".format(dir), Token.Gray)
 
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(cleaned_dir_name, normalizedWalletFileName(pwn))
+                        f = os.path.join(cleaned_dir_name,
+                                         normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
                         isThisActiveWallet = True if contextDirPath == cleaned_dir_name and \
-                               self._activeWallet is not None and \
-                               self._activeWallet.name.lower() == pwn.lower() \
+                            self._activeWallet is not None and \
+                            self._activeWallet.name.lower() == pwn.lower() \
                             else False
                         activeWalletMsg = " [Active wallet, may have some unsaved changes]" \
                             if isThisActiveWallet else ""
                         activeWalletSign = "*  " if isThisActiveWallet \
                             else "   "
 
-                        self.print("    {}{}{}".format(
-                            activeWalletSign, pwn, activeWalletMsg), newline=False)
+                        self.print(
+                            "    {}{}{}".format(
+                                activeWalletSign,
+                                pwn,
+                                activeWalletMsg),
+                            newline=False)
                         self.print(" (last modified at: {})".
                                    format(lastModifiedTime), Token.Gray)
 
@@ -1469,17 +1489,21 @@ class Cli:
                 self.print("Active wallet: {}".
                            format(self._activeWallet.name), newline=False)
                 if self._activeWallet.defaultId:
-                    self.print(" (active DID: {})\n".
-                           format(self._activeWallet.defaultId), Token.Gray)
+                    self.print(
+                        " (active DID: {})\n". format(
+                            self._activeWallet.defaultId),
+                        Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
                     self.print("DIDs:")
-                    withVerkeys = matchedVars.get('with_verkeys') == 'with verkeys'
+                    withVerkeys = matchedVars.get(
+                        'with_verkeys') == 'with verkeys'
                     for id in self._activeWallet.listIds():
                         verKey = ""
                         if withVerkeys:
                             aliasId = self._activeWallet.aliasesToIds.get(id)
                             actualId = aliasId if aliasId else id
-                            signer = self._activeWallet.idsToSigners.get(actualId)
+                            signer = self._activeWallet.idsToSigners.get(
+                                actualId)
                             verKey = ", verkey: {}".format(signer.verkey)
 
                         self.print("  {}{}".format(id, verKey))
@@ -1529,7 +1553,8 @@ class Cli:
                     return True, 'DID'
 
                 if checkPersistedFile:
-                    toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
+                    toBeWalletFilePath = self.checkIfPersistentWalletExists(
+                        origName)
                     if toBeWalletFilePath:
                         return True, 'wallet (stored at: {})'.\
                             format(toBeWalletFilePath)
@@ -1547,7 +1572,8 @@ class Cli:
                        format(origName, foundIn), Token.Warning)
         return status
 
-    def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
+    def _loadWalletIfExistsAndNotLoaded(
+            self, name, copyAs=None, override=False):
         wallet = self._getWalletByName(name)
         if not wallet:
             walletFileName = normalizedWalletFileName(name)
@@ -1617,7 +1643,7 @@ class Cli:
         noEnvWalletsBaseDir = self.getNoEnvWalletsBaseDir()
         baseWalletDirName = dirname(filePath)
         msg = "Given wallet file ({}) doesn't belong to current context.".\
-                format(filePath)
+            format(filePath)
         if baseWalletDirName == noEnvWalletsBaseDir:
             msg += "\nPlease disconnect and try again."
         else:
@@ -1675,7 +1701,7 @@ class Cli:
         if self.activeWallet:
             wallet = self.activeWallet
             if idrOrAlias not in wallet.aliasesToIds and \
-                            idrOrAlias not in wallet.idsToSigners:
+                    idrOrAlias not in wallet.idsToSigners:
                 return False
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
@@ -1767,7 +1793,7 @@ class Cli:
             wallet = self.walletSaver.loadWallet(walletFilePath)
 
             if copyAs:
-                wallet.name=copyAs
+                wallet.name = copyAs
 
             if not self.performValidationCheck(wallet, walletFilePath,
                                                override):
@@ -1781,8 +1807,7 @@ class Cli:
             self._wallets[wallet.name] = wallet
             self.print('\nSaved wallet "{}" restored'.
                        format(wallet.name), newline=False)
-            self.print(" ({})".format(walletFilePath)
-                       , Token.Gray)
+            self.print(" ({})".format(walletFilePath), Token.Gray)
             self.activeWallet = wallet
             self.activeDID = wallet.defaultId
 
@@ -1798,14 +1823,14 @@ class Cli:
                               format(walletFilePath))
 
     def restoreLastActiveWallet(self):
-        baseFileName=None
+        baseFileName = None
         try:
             walletPath = self.getContextBasedWalletsBaseDir()
             baseFileName = getLastSavedWalletFileName(walletPath)
             self._searchAndSetWallet(os.path.join(walletPath, baseFileName))
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
-               self.errorDuringRestoringLastActiveWallet(baseFileName, e)
+                self.errorDuringRestoringLastActiveWallet(baseFileName, e)
         except Exception as e:
             self.errorDuringRestoringLastActiveWallet(baseFileName, e)
 
@@ -1818,7 +1843,8 @@ class Cli:
     def restoreWalletByName(self, walletFileName, copyAs=None, override=False):
         walletFilePath = getWalletFilePath(
             self.getContextBasedWalletsBaseDir(), walletFileName)
-        self.restoreWalletByPath(walletFilePath, copyAs=copyAs, override=override)
+        self.restoreWalletByPath(
+            walletFilePath, copyAs=copyAs, override=override)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1837,7 +1863,6 @@ class Cli:
             else self.name
         return normalizedWalletFileName(fileName)
 
-
     @property
     def walletFileName(self):
         return self.getActiveWalletPersitentFileName()
@@ -1848,7 +1873,7 @@ class Cli:
 
     def getWalletsBaseDir(self):
         return os.path.expanduser(os.path.join(self.config.baseDir,
-                                        self.config.walletsDir))
+                                               self.config.walletsDir))
 
     def getContextBasedWalletsBaseDir(self):
         walletsBaseDir = self.getWalletsBaseDir()
@@ -1940,8 +1965,10 @@ class Cli:
         # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
-            self.logger.info("CLI command entered: {}".format(self.mask_seed(cmdText)),
-                             extra={"cli": False})
+            self.logger.info(
+                "CLI command entered: {}".format(
+                    self.mask_seed(cmdText)), extra={
+                    "cli": False})
             for action in self.actions:
                 r = action(matchedVars)
                 if r:
@@ -2028,4 +2055,3 @@ class Cli:
 
 class Exit(Exception):
     pass
-

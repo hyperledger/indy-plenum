@@ -6,7 +6,7 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 
 def slow_nodes(node_set):
     return [get_master_primary_node(node_set),
-                  get_first_master_non_primary_node(node_set)]
+            get_first_master_non_primary_node(node_set)]
 
 
 def test_view_change_in_between_3pc_2_of_4_nodes_with_old_and_new_primary(

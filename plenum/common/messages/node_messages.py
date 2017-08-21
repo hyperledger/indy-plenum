@@ -1,7 +1,12 @@
 from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import *
-from plenum.common.messages.fields import *
+from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
+    MESSAGE_REQUEST, MESSAGE_RESPONSE
+from plenum.common.messages.fields import NonEmptyStringField, NonNegativeNumberField, IterableField, \
+    SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
+    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.types import f
 from plenum.common.messages.client_request import ClientMessageValidator
@@ -171,7 +176,8 @@ class ThreePCState(MessageBase):
     typename = THREE_PC_STATE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+        (f.MSGS.nm, IterableField(ClientMessageValidator(
+            operation_schema_is_strict=True))),
     )
 
 
@@ -254,7 +260,7 @@ class CatchupRep(MessageBase):
         (f.TXNS.nm, AnyValueField()),
         (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
-    
+
 
 class ViewChangeDone(MessageBase):
     """
@@ -275,8 +281,8 @@ class ViewChangeDone(MessageBase):
 
 class CurrentState(MessageBase):
     """
-    Node sends this kind of message for nodes which 
-    suddenly reconnected (lagged). It contains information about current 
+    Node sends this kind of message for nodes which
+    suddenly reconnected (lagged). It contains information about current
     pool state, like view no, primary etc.
     """
     typename = CURRENT_STATE
@@ -293,6 +299,8 @@ one was debated. It has some pros and some cons. We wrote up the analysis in
 http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
 lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
 """
+
+
 class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
@@ -310,7 +318,8 @@ class MessageRep(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
-    # TODO: support a setter for `msg` to create an instance of a type according to `msg_type`
+    # TODO: support a setter for `msg` to create an instance of a type
+    # according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),
@@ -327,8 +336,6 @@ ElectionType = (Nomination, Primary, Reelection)
 ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
-                        f.VIEW_NO,
-                        f.PP_SEQ_NO
-                    ])
-
-
+    f.VIEW_NO,
+    f.PP_SEQ_NO
+])

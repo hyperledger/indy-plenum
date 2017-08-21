@@ -10,6 +10,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
+# noinspection PyUnresolvedReferences
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
     steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
     client1Connected
@@ -53,7 +54,8 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
 
 
 @pytest.fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def nodeSetWithNodeAddedAfterSomeTxns(
+        txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
@@ -79,8 +81,10 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
         # check the return value of `num_txns_caught_up_in_last_catchup` to be
         # greater than 0
 
-        assert max(getAllReturnVals(newNode,
-                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
+        assert max(
+            getAllReturnVals(
+                newNode,
+                newNode.num_txns_caught_up_in_last_catchup)) > 0
 
     for li in newNode.ledgerManager.ledgerRegistry.values():
         assert not li.receivedCatchUpReplies
@@ -90,8 +94,15 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
 
 
 @pytest.yield_fixture("module")
-def poolAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet, tdirWithPoolTxns,
-                      poolTxnStewardData, tconf, allPluginsPath, request):
+def poolAfterSomeTxns(
+        looper,
+        txnPoolNodesLooper,
+        txnPoolNodeSet,
+        tdirWithPoolTxns,
+        poolTxnStewardData,
+        tconf,
+        allPluginsPath,
+        request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)

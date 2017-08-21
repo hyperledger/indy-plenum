@@ -15,7 +15,7 @@ def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,
     Check that for requests which fail static validation, REQNACK is sent
     :return:
     """
-    reqs = [wallet1.signOp((lambda : {'something': 'nothing'})()) for _ in
+    reqs = [wallet1.signOp((lambda: {'something': 'nothing'})()) for _ in
             range(tconf.Max3PCBatchSize)]
     client.submitReqs(*reqs)
     for node in txnPoolNodeSet:
@@ -24,7 +24,7 @@ def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,
 
 
 def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
-                                wallet1):
+                                      wallet1):
     """
     Check that 3 phase commit happens when threshold number of requests are
     received and propagated.

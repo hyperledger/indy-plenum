@@ -13,6 +13,7 @@ class KeyValueStorageFile(KeyValueStorage):
     """
     A file based implementation of a key value store.
     """
+
     def __init__(self,
                  dbDir,
                  dbName,
@@ -58,7 +59,6 @@ class KeyValueStorageFile(KeyValueStorage):
     def _init_db_file(self):
         pass
 
-
     def open(self):
         self._initDB(self._db_dir, self._db_name)
         self._append_new_line_if_req()
@@ -67,7 +67,8 @@ class KeyValueStorageFile(KeyValueStorage):
         for k, v in self.iterator():
             if k == key:
                 return v
-        raise KeyError("'{}' doesn't contain {} key".format(self.db_file, str(key)))
+        raise KeyError("'{}' doesn't contain {} key".format(
+            self.db_file, str(key)))
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if not (include_key or include_value):
@@ -85,8 +86,8 @@ class KeyValueStorageFile(KeyValueStorage):
         raise NotImplementedError
 
     def setBatch(self, batch: Iterable[Tuple]):
-        for k,v in batch:
-            self.put(k,v)
+        for k, v in batch:
+            self.put(k, v)
 
     def _is_valid_range(self, start=None, end=None):
         if start and end:

@@ -10,13 +10,15 @@ from storage import store_utils
 def test_genesis_txn_file_initiator(tempdir, init_genesis_txn_file, genesis_txns):
     # Check that initiator of genesis txns work:
     # It uses a text file with JsonSerializer by default
-    genesis_file = genesis_txn_file(os.path.join(tempdir, init_genesis_txn_file))
+    genesis_file = genesis_txn_file(
+        os.path.join(tempdir, init_genesis_txn_file))
     assert os.path.exists(genesis_file)
     i = 0
     serializer = JsonSerializer()
     with open(genesis_file) as f:
         for line in store_utils.cleanLines(f.readlines()):
-            assert sorted(serializer.deserialize(line).items()) == sorted(genesis_txns[i].items())
+            assert sorted(serializer.deserialize(line).items()
+                          ) == sorted(genesis_txns[i].items())
             i += 1
 
 
@@ -32,7 +34,8 @@ def test_ledger_with_genesis_txns(ledger_with_genesis, genesis_txns):
 
         expected_txn = genesis_txns[i]
         expected_txn[F.seqNo.name] = seq_no
-        assert sorted(expected_txn.items()) == sorted(ledger_with_genesis.getBySeqNo(seq_no).items())
+        assert sorted(expected_txn.items()) == sorted(
+            ledger_with_genesis.getBySeqNo(seq_no).items())
 
 
 def test_merkle_tree_for_genesis_txns(ledger_with_genesis, genesis_txns):

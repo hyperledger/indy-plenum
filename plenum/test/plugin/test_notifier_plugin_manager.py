@@ -12,15 +12,20 @@ def testPluginManagerFindsPlugins(monkeypatch, pluginManager):
                      for _ in range(validPackagesCnt)]
     invalidPackages = [randomText(10) for _ in range(invalidPackagesCnt)]
 
-    monkeypatch.setattr(utils, 'get_installed_distributions',
-                        partial(mockGetInstalledDistributions, packages=validPackages+invalidPackages))
+    monkeypatch.setattr(
+        utils,
+        'get_installed_distributions',
+        partial(
+            mockGetInstalledDistributions,
+            packages=validPackages +
+            invalidPackages))
     assert len(pluginManager._findPlugins()) == validPackagesCnt
 
 
 def testPluginManagerImportsPlugins(monkeypatch, pluginManager):
     packagesCnt = 3
     packages = [pluginManager.prefix + randomText(10)
-                     for _ in range(packagesCnt)]
+                for _ in range(packagesCnt)]
 
     monkeypatch.setattr(utils, 'get_installed_distributions',
                         partial(mockGetInstalledDistributions,
@@ -116,15 +121,10 @@ def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [1]
 
     testNode.monitor.notifierEventTriggeringConfig['clusterThroughputSpike'] = {
-        'coefficient': 3,
-        'minCnt': 1,
-        'freq': 60
-    }
+        'coefficient': 3, 'minCnt': 1, 'freq': 60}
     assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [2]
     assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [4.6]
     sent, found = testNode.monitor.sendClusterThroughputSpike()
     assert sent == 3
-
-

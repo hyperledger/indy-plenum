@@ -1,12 +1,26 @@
 import time
 
-# noinspection PyUnresolvedReferences
-from ledger.test.conftest import *
+import pytest
 
-from ledger.test.helper import random_txn
+from ledger.test.helper import random_txn, create_ledger
+
+# noinspection PyUnresolvedReferences
+from ledger.test.conftest import tempdir, txn_serializer, hash_serializer  # noqa
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
+
+
+@pytest.yield_fixture(
+    scope="function",
+    params=[
+        'TextFileStorage',
+        'ChunkedFileStorage',
+        'LeveldbStorage'])
+def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
+    ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
+    yield ledger
+    ledger.stop()
 
 
 def test_missing_txn_request(ledger_no_genesis):
@@ -19,7 +33,7 @@ def test_missing_txn_request(ledger_no_genesis):
         ledger.add(txn)
 
     # Callbacks don't matter in this test
-    ledger_info = LedgerInfo(0, ledger, *[None]*6)
+    ledger_info = LedgerInfo(0, ledger, *[None] * 6)
     assert ledger_info.catchupReplyTimer is None
     assert LedgerManager._missing_txns(ledger_info) == (False, 0)
 

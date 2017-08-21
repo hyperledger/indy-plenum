@@ -3,7 +3,8 @@ from plenum.test.test_node import TestReplica
 
 
 def recvd_pre_prepares(replica: TestReplica):
-    return [arg['pp'] for arg in getAllArgs(replica, TestReplica.processPrePrepare)]
+    return [arg['pp']
+            for arg in getAllArgs(replica, TestReplica.processPrePrepare)]
 
 
 def processedPrePrepare(replica: TestReplica):
@@ -19,4 +20,5 @@ def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
 
 
 def recvd_prepares(replica: TestReplica):
-    return [arg['prepare'] for arg in getAllArgs(replica, TestReplica.processPrepare)]
+    return [arg['prepare']
+            for arg in getAllArgs(replica, TestReplica.processPrepare)]

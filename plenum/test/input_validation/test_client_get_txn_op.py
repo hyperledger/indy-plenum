@@ -30,4 +30,3 @@ def test_normal_seq_no_passes():
         TXN_TYPE: GET_TXN,
         DATA: TEST_SEQ_NORMAL
     })
-
