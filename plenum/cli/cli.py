@@ -1817,7 +1817,7 @@ class Cli:
         except (ValueError, AttributeError) as e:
             self.logger.warning(
                 "error occurred while restoring wallet {}: {}".
-                    format(walletFilePath, e))
+                format(walletFilePath, e))
         except IOError as e:
             self.logger.debug("No such wallet file exists ({})".
                               format(walletFilePath))
