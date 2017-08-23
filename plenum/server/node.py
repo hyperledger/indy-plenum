@@ -329,8 +329,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primary_replica_no = None
 
         # Need to keep track of the time when lost connection with primary,
-        # help in voting for/against a view change.
-        self.lost_primary_at = None
+        # help in voting for/against a view change. It is supposed that a primary
+        # is lost until the primary is connected.
+        self.lost_primary_at = time.perf_counter()
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
@@ -602,6 +603,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.start()
 
             self.elector = self.newPrimaryDecider()
+            self._schedule(action=self.propose_view_change,
+                           seconds=self._view_change_timeout)
 
             # if first time running this node
             if not self.nodestack.remotes:
@@ -2046,6 +2049,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
+        if self.lost_primary_at and self.nodestack.isConnectedTo(self.master_primary_name):
+            self.lost_primary_at = None
 
         if self.view_change_in_progress and \
                 self.replicas.all_instances_have_primary:
@@ -2069,9 +2074,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def propose_view_change(self):
         # Sends instance change message when primary has been
         # disconnected for long enough
-        if self.lost_primary_at and \
-                time.perf_counter() - self.lost_primary_at \
-                >= self.config.ToleratePrimaryDisconnection:
+        if not self.lost_primary_at:
+            logger.trace('The primary is already connected '
+                         'so view change will not be proposed')
+            return
+        disconnected_time = time.perf_counter() - self.lost_primary_at
+        disconnected_long_enough = disconnected_time >= \
+            self.config.ToleratePrimaryDisconnection
+        if disconnected_long_enough:
             view_no = self.viewNo + 1
             self.sendInstanceChange(view_no,
                                     Suspicions.PRIMARY_DISCONNECTED)

@@ -259,6 +259,7 @@ class PrimarySelector(PrimaryDecider):
         return False
 
     def _startSelection(self):
+
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '
