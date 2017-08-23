@@ -798,7 +798,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.master_primary_name in joined:
             self.lost_primary_at = None
         if self.master_primary_name in left:
-            logger.debug(
+            logger.info(
                 '{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
         if self.isReady():
@@ -989,12 +989,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug('{} running the scheduled check for view change '
                      'completion'.format(self))
         if not self.view_change_in_progress:
+            logger.debug('{} already completion view change'.format(self))
             return False
 
         next_view_no = self.viewNo + 1
-        logger.debug("view change to view {} is not completed in time, "
-                     "starting view change for view {}"
-                     .format(self.viewNo, next_view_no))
+        logger.info("view change to view {} is not completed in time, "
+                    "starting view change for view {}"
+                    .format(self.viewNo, next_view_no))
         logger.info("{}{} initiating a view change to {} from {}". format(
             VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
@@ -1140,7 +1141,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(view_no), logMethod=logger.debug)
+                         .format(view_no), logMethod=logger.warning)
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
@@ -1197,13 +1198,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.debug("{} invalidated msg {}".format(self, wrappedMsg),
-                             extra={"tags": ["node-msg-validation"]})
+                logger.info("{} invalidated msg {}".format(self, wrappedMsg),
+                            extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
             msg, frm = wrappedMsg
-            self.discard(msg, ex, logger.debug)
+            self.discard(msg, ex, logger.info)
 
     def validateNodeMsg(self, wrappedMsg):
         """
@@ -1216,7 +1217,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
             self.discard(msg, "received from blacklisted node {}"
-                         .format(frm), logger.debug)
+                         .format(frm), logger.info)
             return None
 
         try:
@@ -1310,7 +1311,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
-        self.discard(wrappedMsg, friendly, logger.debug, cliOutput=True)
+        self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1321,7 +1322,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
             self.discard(msg, "received from blacklisted client {}"
-                         .format(frm), logger.debug)
+                         .format(frm), logger.info)
             return None
 
         needStaticValidation = False
@@ -1433,7 +1434,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Initialising node id in case where node's information was not present
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
-        self.id
         self.catchup_next_ledger_after_pool()
 
     def catchup_next_ledger_after_pool(self):
@@ -1464,8 +1464,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # revert uncommitted txns and state for unordered requests
         r = self.master_replica.revert_unordered_batches()
-        logger.debug('{} reverted {} batches before starting catch up for '
-                     'ledger {}'.format(self, r, ledger_id))
+        logger.info('{} reverted {} batches before starting catch up for '
+                    'ledger {}'.format(self, r, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
@@ -1508,7 +1508,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.processStashedOrderedReqs()
 
         if self.is_catchup_needed():
-            logger.debug('{} needs to catchup again'.format(self))
+            logger.info('{} needs to catchup again'.format(self))
             self.start_catchup()
         else:
             logger.info('{}{} does not need any more catchups'
@@ -1598,9 +1598,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # then set mode to participating, can happen if a catchup is triggered
         # without a view change or node start
         if not self.isParticipating and self.master_replica.hasPrimary:
-            logger.debug('{} starting to participate since catchup is done, '
-                         'primaries are selected but mode was not set to '
-                         'participating'.format(self))
+            logger.info('{} starting to participate since catchup is done, '
+                        'primaries are selected but mode was not set to '
+                        'participating'.format(self))
             self.start_participating()
 
     def getLedger(self, ledgerId) -> Ledger:
@@ -1827,7 +1827,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                   state_root, txn_root)
                 r = True
             else:
-                logger.debug('{} did not find {} finalized requests, but '
+                logger.info('{} did not find {} finalized requests, but '
                              'still ordered'.format(self, len(req_idrs) -
                                                     len(reqs)))
                 return None
@@ -1869,8 +1869,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isParticipating:
             self.processOrdered(msg)
         else:
-            logger.debug("{} stashing {} since mode is {}".
-                         format(self, msg, self.mode))
+            logger.info("{} stashing {} since mode is {}".
+                        format(self, msg, self.mode))
             self.stashedOrderedReqs.append(msg)
 
     def processEscalatedException(self, ex):
@@ -1900,7 +1900,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(instChg,
                          "Received instance change request with view no {} "
                          "which is not more than its view no {}".
-                         format(instChg.viewNo, self.viewNo), logger.debug)
+                         format(instChg.viewNo, self.viewNo), logger.info)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
@@ -1964,8 +1964,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
                 self.sendInstanceChange(self.viewNo + 1)
-                logger.debug('{} sent view change since performance degraded '
-                             'of master instance'.format(self))
+                logger.info('{} sent view change since performance degraded '
+                            'of master instance'.format(self))
                 self.do_view_change_if_possible(self.viewNo + 1)
                 return False
             else:
@@ -2075,8 +2075,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             view_no = self.viewNo + 1
             self.sendInstanceChange(view_no,
                                     Suspicions.PRIMARY_DISCONNECTED)
-            logger.debug('{} sent view change since was disconnected '
-                         'from primary for too long'.format(self))
+            logger.info('{} sent view change since was disconnected '
+                        'from primary for too long'.format(self))
             self.do_view_change_if_possible(view_no)
 
     # TODO: consider moving this to pool manager
@@ -2334,8 +2334,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         self, reqKey))
                 self.transmitToClient(reply, self.requestSender[reqKey])
             else:
-                logger.debug('{} not sending reply for {}, since do not '
-                             'know client'.format(self, reqKey))
+                logger.info('{} not sending reply for {}, since do not '
+                            'know client'.format(self, reqKey))
             self.doneProcessingReq(*reqKey)
 
     def addNewRole(self, txn):
