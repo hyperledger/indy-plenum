@@ -622,7 +622,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
 
     @property
-    def rank(self) -> int:
+    def rank(self) -> Optional[int]:
         return self.poolManager.rank
 
     def get_name_by_rank(self, rank):
