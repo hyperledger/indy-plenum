@@ -112,13 +112,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.basedirpath = node.basedirpath
         self._ledger = None
         self._id = None
-        self._ordered_node_ids = None
 
         TxnStackManager.__init__(
             self, self.name, self.basedirpath, isNode=True)
         self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
         self.initPoolState()
+        self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
@@ -380,6 +380,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self._id = txn[TARGET_NYM]
         return self._id
 
+    def _load_nodes_order_from_ledger(self):
+        self._ordered_node_ids = OrderedDict()
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE:
+                self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
+
     def _order_node(self, nodeNym, nodeName):
         assert self._ordered_node_ids.get(nodeNym) in (nodeName, None), (
             "{} trying to order already ordered node {} ({}) "
@@ -390,12 +396,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     @property
     def node_ids_ordered_by_rank(self) -> List:
-        if self._ordered_node_ids is None:
-            self._ordered_node_ids = OrderedDict()
-            for _, txn in self.ledger.getAllTxn():
-                if txn[TXN_TYPE] == NODE:
-                    self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
-
         return [nym for nym, name in self._ordered_node_ids.items()
                 if name in self.nodeReg]
 
