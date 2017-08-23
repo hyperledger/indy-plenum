@@ -91,7 +91,6 @@ class PoolManager:
         """
 
 
-
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
     def __init__(self, nodeRegistry=None, ha=None, cliname=None, cliha=None):
@@ -123,8 +122,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
-        # order nodes initially by ledger
-        _ = self.node_ids_ordered_by_rank
 
         self._dataFieldsValidators = (
             (NODE_IP, self._isIpAddressValid),
@@ -383,14 +380,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self._id = txn[TARGET_NYM]
         return self._id
 
-    
     def _order_node(self, nodeNym, nodeName):
         assert self._ordered_node_ids.get(nodeNym) in (nodeName, None), (
-                "{} trying to order already ordered node {} ({}) "
-                "with other alias {}".format(
-                self.name, self._ordered_node_ids.get(nodeNym), nodeNym
-                )
-            )
+            "{} trying to order already ordered node {} ({}) "
+            "with other alias {}".format(
+                self.name, self._ordered_node_ids.get(nodeNym), nodeNym))
 
         self._ordered_node_ids[nodeNym] = nodeName
 
@@ -403,7 +397,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
 
         return [nym for nym, name in self._ordered_node_ids.items()
-                    if name in self.nodeReg]
+                if name in self.nodeReg]
 
     def get_rank_of(self, node_id) -> Optional[int]:
         if self.id is None:
@@ -430,8 +424,6 @@ class RegistryPoolManager(PoolManager):
             self.getStackParamsAndNodeReg(name=name, basedirpath=basedirpath,
                                           nodeRegistry=nodeRegistry, ha=ha,
                                           cliname=cliname, cliha=cliha)
-
-        _ = self.node_names_ordered_by_rank
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
@@ -524,7 +516,7 @@ class RegistryPoolManager(PoolManager):
         return sorted(self.nodeReg.keys())
 
     def get_rank_of(self, node_id) -> Optional[int]:
-        #TODO node_id here has got another meaning
+        # TODO node_id here has got another meaning
         return self._get_rank(node_id, self.node_names_ordered_by_rank)
 
     def get_name_by_rank(self, rank) -> Optional[str]:

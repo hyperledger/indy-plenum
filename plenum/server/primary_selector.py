@@ -323,9 +323,7 @@ class PrimarySelector(PrimaryDecider):
         assert name, ("{} failed to get node name for rank {}: "
                       "view_no {}, instance_id {}, totalNodes {}".format(
                           self, rank, self.viewNo, instance_id,
-                          self.node.totalNodes)
-                     )
-
+                          self.node.totalNodes))
         return name
 
     def next_primary_replica_name(self, instance_id):
