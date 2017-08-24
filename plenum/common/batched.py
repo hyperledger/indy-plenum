@@ -150,6 +150,6 @@ class Batched(MessageProcessor):
             self.msg_len_val.validate(msg_bytes)
         except InvalidMessageExceedingSizeException as ex:
             err_msg = 'Message will be discarded due to {}'.format(ex)
-            logger.debug(err_msg)
+            logger.warning(err_msg)
             msg_bytes = None
         return msg_bytes, err_msg
