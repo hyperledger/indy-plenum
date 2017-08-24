@@ -72,6 +72,7 @@ class Stats:
 
 class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
+    HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
@@ -711,7 +712,12 @@ class Replica(HasActionQueue, MessageProcessor):
     def readyFor3PC(self, key: ReqKey):
         cls = self.node.__class__
         fin_req = self.requests[key].finalised
-        self.requestQueues[cls.ledgerIdForRequest(fin_req)].add(key)
+        queue = self.requestQueues[cls.ledgerIdForRequest(fin_req)]
+        queue.add(key)
+        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
+            logger.warning('{} is getting requests but still does not have '
+                           'a primary so the replica will not process the request '
+                           'until a primary is chosen'.format(self))
 
     def serviceQueues(self, limit=None):
         """

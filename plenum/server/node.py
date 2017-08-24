@@ -1828,8 +1828,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 r = True
             else:
                 logger.info('{} did not find {} finalized requests, but '
-                             'still ordered'.format(self, len(req_idrs) -
-                                                    len(reqs)))
+                            'still ordered'.format(self,
+                                                   len(req_idrs) - len(reqs)))
                 return None
         else:
             logger.trace("{} got ordered requests from backup replica {}".
