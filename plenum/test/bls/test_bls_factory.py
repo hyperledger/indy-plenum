@@ -73,19 +73,18 @@ def test_bls_crypto_works(bls_factory, bls_factory2):
     pk2 = bls_crypto2.pk
 
     # each node signs the message
-    msgs = []
-    msgs.append(('Hello!', pk1))
-    msgs.append(('Hello!', pk2))
+    msg = 'Hello!'
+    pks = [pk1, pk2]
     sigs = []
-    sigs.append(bls_crypto1.sign(msgs[0][0]))
-    sigs.append(bls_crypto2.sign(msgs[1][0]))
+    sigs.append(bls_crypto1.sign(msg))
+    sigs.append(bls_crypto2.sign(msg))
 
     # each node creates multi-sig
     multi_sig1 = bls_crypto1.create_multi_sig(sigs)
     multi_sig2 = bls_crypto2.create_multi_sig(sigs)
 
     # each node verifies multi-sigs
-    assert bls_crypto1.verify_multi_sig(multi_sig1, msgs)
-    assert bls_crypto1.verify_multi_sig(multi_sig2, msgs)
-    assert bls_crypto2.verify_multi_sig(multi_sig1, msgs)
-    assert bls_crypto2.verify_multi_sig(multi_sig2, msgs)
+    assert bls_crypto1.verify_multi_sig(multi_sig1, msg, pks)
+    assert bls_crypto1.verify_multi_sig(multi_sig2, msg, pks)
+    assert bls_crypto2.verify_multi_sig(multi_sig1, msg, pks)
+    assert bls_crypto2.verify_multi_sig(multi_sig2, msg, pks)

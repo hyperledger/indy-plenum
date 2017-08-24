@@ -52,5 +52,5 @@ class BlsCrypto(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def verify_multi_sig(self, signature, messages_with_pk: Sequence) -> bool:
+    def verify_multi_sig(self, signature, message, pks: Sequence) -> bool:
         pass

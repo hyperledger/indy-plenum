@@ -56,11 +56,11 @@ class BlsCryptoCharm(BlsCrypto):
         h = self._h(message, pk)
         return pair(signature, self.g) == pair(h, pk)
 
-    def verify_multi_sig(self, signature, messages_with_pk: Sequence) -> bool:
+    def verify_multi_sig(self, signature, message, pks: Sequence) -> bool:
         multi_sig_e_list = []
-        for msg, pki in messages_with_pk:
-            h = self._h(msg, pki)
-            multi_sig_e_list.append(pair(h, pki))
+        for pk in pks:
+            h = self._h(message, pk)
+            multi_sig_e_list.append(pair(h, pk))
 
         multi_sig_e = reduce(lambda x, y: x * y, multi_sig_e_list)
         return pair(signature, self.g) == multi_sig_e

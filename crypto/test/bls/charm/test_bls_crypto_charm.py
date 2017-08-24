@@ -87,18 +87,17 @@ def test_verify_multi_signature(bls1, bls2):
     pk1 = bls1.pk
     pk2 = bls2.pk
 
-    msgs = []
-    msgs.append(('Hello!', pk1))
-    msgs.append(('Hello!', pk2))
+    msg = 'Hello!'
+    pks = [pk1, pk2]
 
     sigs = []
-    sigs.append(bls1.sign(msgs[0][0]))
-    sigs.append(bls2.sign(msgs[1][0]))
+    sigs.append(bls1.sign(msg))
+    sigs.append(bls2.sign(msg))
 
     multi_sig1 = bls1.create_multi_sig(sigs)
     multi_sig2 = bls1.create_multi_sig(sigs)
 
-    assert bls1.verify_multi_sig(multi_sig1, msgs)
-    assert bls1.verify_multi_sig(multi_sig2, msgs)
-    assert bls2.verify_multi_sig(multi_sig1, msgs)
-    assert bls2.verify_multi_sig(multi_sig2, msgs)
+    assert bls1.verify_multi_sig(multi_sig1, msg, pks)
+    assert bls1.verify_multi_sig(multi_sig2, msg, pks)
+    assert bls2.verify_multi_sig(multi_sig1, msg, pks)
+    assert bls2.verify_multi_sig(multi_sig2, msg, pks)
