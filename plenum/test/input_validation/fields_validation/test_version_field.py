@@ -17,11 +17,11 @@ def test_valid_version():
 
 
 def test_one_component_fails():
-   assert validator.validate('123')
+    assert validator.validate('123')
 
 
 def test_a_string_component_fails():
-   assert validator.validate('asdf.asdf')
+    assert validator.validate('asdf.asdf')
 
 
 def test_invalid_version():

@@ -19,7 +19,7 @@ TestRunningTimeLimitSec = 150
 
 
 def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
-                                      client1, client1Connected):
+                            client1, client1Connected):
     """
     Before starting catchup, revert any uncommitted changes to state and
     ledger. This is to avoid any re-application of requests that were
@@ -51,7 +51,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
     slow_node.nodeIbStasher.delay(cDelay(120, 0))
     sent_batches = 5
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           2*sent_batches, sent_batches)
+                                           2 * sent_batches, sent_batches)
 
     # Fast nodes have same last ordered and same data
     last_ordered = [n.master_last_ordered_3PC for n in fast_nodes]
@@ -66,8 +66,9 @@ def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
     slow_node.nodeIbStasher.delay(msg_rep_delay(100))
 
     # slow_node has not reverted batches
-    assert sent_batches not in getAllReturnVals(slow_node.master_replica,
-                                                slow_node.master_replica.revert_unordered_batches)
+    assert sent_batches not in getAllReturnVals(
+        slow_node.master_replica,
+        slow_node.master_replica.revert_unordered_batches)
 
     ensure_view_change(looper, txnPoolNodeSet)
 

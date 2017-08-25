@@ -295,7 +295,8 @@ class RStack(NetworkInterface):
         if self.opened:
             self.close()
         self.coro = None
-        logger.debug("stack {} stopped".format(self.name), extra={"cli": False})
+        logger.debug("stack {} stopped".format(
+            self.name), extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """

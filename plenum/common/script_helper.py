@@ -43,7 +43,8 @@ def getLedger(baseDir, dbName, storeHash=True, isLineNoKey: bool = False):
         isLineNoKey=isLineNoKey)
 
 
-def storeToFile(baseDir, dbName, value, key, storeHash=True, isLineNoKey=False):
+def storeToFile(baseDir, dbName, value, key,
+                storeHash=True, isLineNoKey=False):
     ledger = getLedger(baseDir, dbName, storeHash=storeHash,
                        isLineNoKey=isLineNoKey)
     if key is None:
@@ -127,7 +128,7 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     clientAddr = vclientip + ":" + vclientport
 
     return 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
-                                                                '"verkey": ' + verkey + \
+        '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
            clientAddr + '"},' \
                         '"by": "' + stewardkey + '"}'
@@ -158,7 +159,8 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 def getAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction {nym} with data {"'.format(nym=PlenumTransactions.NYM.name) \
-           + name + '": {"verkey": "' + verkey + '"} role={role}'.format(role=Roles.STEWARD.name)
+           + name + '": {"verkey": "' + verkey + \
+        '"} role={role}'.format(role=Roles.STEWARD.name)
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
@@ -195,8 +197,8 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
     clientAddr = nodeInfo.get('clientAddr')
 
     txn = 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
-                                                               '"verkey":' \
-                                                               ' "' + \
+        '"verkey":' \
+        ' "' + \
           nodeVerKey + \
           '", "node_address": "' + nodeAddr + \
           '", "client_address": "' + clientAddr + '"}, "by":"' + stewardKey + \
@@ -208,7 +210,7 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
 def exportStewardGenTxn(baseDir, displayTxn, name):
     verkey = getLocalVerKey(name, baseDir)
     txn = 'add genesis transaction {nym} with data  {"'.format(nym=PlenumTransactions.NYM.name) + name + '": {' \
-                                                               '"verkey": "' + verkey + '"} role={role}'.format(
+        '"verkey": "' + verkey + '"} role={role}'.format(
         role=Roles.STEWARD.name)
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)

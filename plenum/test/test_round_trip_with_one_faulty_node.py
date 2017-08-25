@@ -48,4 +48,3 @@ def testRequestFullRoundTrip(node_doesnt_propagate, replied1):
     With an Alpha that doesn't send propagate requests, the request should
     still be able to successfully complete a full cycle.
     """
-    pass

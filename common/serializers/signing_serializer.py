@@ -69,12 +69,14 @@ class SigningSerializer:
             strs = []
             for k in keys:
                 onm = ".".join([objname, k]) if objname else k
-                strs.append(str(k) + ":" + self.serialize(obj[k], level + 1, onm, toBytes=False))
+                strs.append(
+                    str(k) + ":" + self.serialize(obj[k], level + 1, onm, toBytes=False))
             res = "|".join(strs)
         elif isinstance(obj, Iterable):
             strs = []
             for o in obj:
-                strs.append(self.serialize(o, level + 1, objname, toBytes=False))
+                strs.append(self.serialize(
+                    o, level + 1, objname, toBytes=False))
             res = ",".join(strs)
         elif obj is None:
             res = ""

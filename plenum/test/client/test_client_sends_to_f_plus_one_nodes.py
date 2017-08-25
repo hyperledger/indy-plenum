@@ -33,7 +33,7 @@ def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, nodeSet,
                 assert node.spylog.count(prc_req) == 0
 
             # All nodes will get propagates from others
-            assert node.spylog.count(prc_ppg) == req_count*(nodeCount - 1)
+            assert node.spylog.count(prc_ppg) == req_count * (nodeCount - 1)
 
     # Ledger is same for all nodes
     waitNodeDataEquality(looper, alpha, *other_nodes)
@@ -41,7 +41,7 @@ def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, nodeSet,
 
     more_reqs_count = 5
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, fClient,
-                                               more_reqs_count, 1)
+                                        more_reqs_count, 1)
     # Ledger is same for all nodes
     waitNodeDataEquality(looper, alpha, *other_nodes)
     chk(6)  # Since one request is already sent as part of `replied1`

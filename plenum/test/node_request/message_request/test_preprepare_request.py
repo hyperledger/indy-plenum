@@ -23,12 +23,12 @@ def count_requested_preprepare_req(node):
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected, teardown):
+                                 wallet1, client1Connected, teardown):
     """
     Node requests PRE-PREPARE only once after getting PREPAREs.
     """
     slow_node, other_nodes, primary_node, \
-    other_primary_nodes = split_nodes(txnPoolNodeSet)
+        other_primary_nodes = split_nodes(txnPoolNodeSet)
     # Drop PrePrepares and Prepares
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
     slow_node.nodeIbStasher.delay(pDelay(300, 0))
@@ -44,7 +44,8 @@ def test_node_request_preprepare(looper, txnPoolNodeSet, client1,
         # Method is called
         assert count_requested_preprepare_req(slow_node) > old_count_req
         # Requesting Preprepare
-        assert count_requested_preprepare_resp(slow_node) - old_count_resp == (1 if increase else 0)
+        assert count_requested_preprepare_resp(
+            slow_node) - old_count_resp == (1 if increase else 0)
 
     for pp in primary_node.master_replica.sentPrePrepares.values():
         for rep in [n.master_replica for n in other_primary_nodes]:
@@ -80,7 +81,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet, client1,
 
 
 def test_no_preprepare_requested(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected, teardown):
+                                 wallet1, client1Connected, teardown):
     """
     Node missing Propagates hence request not finalised, hence stashes
     PRE-PREPARE but does not request PRE-PREPARE on receiving PREPARE

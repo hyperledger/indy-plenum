@@ -14,10 +14,15 @@ from plenum.test.helper import stopNodes, checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies, waitForViewChange
 
 
-def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
-                                               looper, wallet1, client1,
-                                               client1Connected, tconf,
-                                               tdirWithPoolTxns, allPluginsPath):
+def testViewChangesIfMasterPrimaryDisconnected(
+        txnPoolNodeSet,
+        looper,
+        wallet1,
+        client1,
+        client1Connected,
+        tconf,
+        tdirWithPoolTxns,
+        allPluginsPath):
     """
     View change occurs when master's primary is disconnected
     """
@@ -56,10 +61,9 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=10))
     assert len(getAllReturnVals(old_pr_node,
-                            old_pr_node._start_view_change_if_possible,
-                            compare_val_to=True)) > 0
+                                old_pr_node._start_view_change_if_possible,
+                                compare_val_to=True)) > 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     assert not old_pr_node._next_view_indications
-

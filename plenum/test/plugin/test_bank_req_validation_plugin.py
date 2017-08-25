@@ -59,9 +59,12 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
         }})
 
     validTypes = ', '.join(plugin.validTxnTypes)
-    update = {'reason': makeReason(commonError, "dummy is not a valid "
-                                                "transaction type, must be "
-                                                "one of {}".format(validTypes))}
+    update = {
+        'reason': makeReason(
+            commonError,
+            "dummy is not a valid "
+            "transaction type, must be "
+            "one of {}".format(validTypes))}
 
     coros1 = [partial(checkReqNack, client1, node, req.identifier,
                       req.reqId, update) for node in nodeSet]
@@ -69,7 +72,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
         TARGET_NYM: wallet2.defaultId,
-        })
+    })
 
     update = {
         'reason': makeReason(commonError,
@@ -108,7 +111,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                       update) for node in nodeSet]
 
     timeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=timeout))
+    looper.run(eventuallyAll(
+        *(coros1 + coros2 + coros3 + coros4), totalTimeout=timeout))
 
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,

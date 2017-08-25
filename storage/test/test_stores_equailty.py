@@ -14,7 +14,6 @@ def test_chunked_and_text_store_equality(tmpdir):
     ensureDurability = True
     dbDir = str(tmpdir)
 
-
     chunkSize = 4
     chunkedStore = ChunkedFileStore(dbDir=dbDir,
                                     dbName="chunked_data",
@@ -37,7 +36,7 @@ def test_chunked_and_text_store_equality(tmpdir):
         assert textStore.get(str(i)) == chunkedStore.get(str(i))
 
     assert list(chunkedStore.iterator()) == \
-           list(textStore.iterator())
+        list(textStore.iterator())
 
 
 def test_leveldb_and_text_store_equality(tmpdir):
@@ -50,10 +49,10 @@ def test_leveldb_and_text_store_equality(tmpdir):
     dbDir = str(tmpdir)
 
     text_store = TextFileStore(dbDir=dbDir,
-                              dbName="text_data",
-                              isLineNoKey=isLineNoKey,
-                              storeContentHash=storeContentHash,
-                              ensureDurability=ensureDurability)
+                               dbName="text_data",
+                               isLineNoKey=isLineNoKey,
+                               storeContentHash=storeContentHash,
+                               ensureDurability=ensureDurability)
 
     leveldb_store = KeyValueStorageLeveldb(dbDir, "leveldb_data")
 
@@ -64,7 +63,5 @@ def test_leveldb_and_text_store_equality(tmpdir):
         assert text_store.get(str(i))
         assert leveldb_store.get(str(i)).decode() == text_store.get(str(i))
 
-    assert list(v.decode() for k,v in leveldb_store.iterator()) == \
-           list(v for k,v in text_store.iterator())
-
-
+    assert list(v.decode() for k, v in leveldb_store.iterator()) == \
+        list(v for k, v in text_store.iterator())

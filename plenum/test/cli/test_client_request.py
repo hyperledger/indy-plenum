@@ -7,5 +7,3 @@ def testClientRequest(cli, validNodeNames, createAllNodes):
     """
     operation = '{"Hello": "There", "type": "greeting"}'
     checkRequest(cli, operation)
-
-

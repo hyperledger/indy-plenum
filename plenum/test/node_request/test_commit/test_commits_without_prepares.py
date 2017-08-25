@@ -7,8 +7,8 @@ from plenum.test.test_node import get_master_primary_node
 
 
 def test_primary_receives_delayed_prepares(looper, txnPoolNodeSet,
-                                                  client1, wallet1,
-                                                  client1Connected):
+                                           client1, wallet1,
+                                           client1Connected):
     """
     Primary gets all PREPAREs after COMMITs
     """

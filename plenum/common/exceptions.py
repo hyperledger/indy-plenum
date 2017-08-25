@@ -1,4 +1,3 @@
-from plenum.server.suspicion_codes import Suspicion
 from re import compile
 
 from plenum.server.suspicion_codes import Suspicion
@@ -195,8 +194,10 @@ class DataDirectoryNotFound(StorageException):
 class DBConfigNotFound(StorageException):
     pass
 
+
 class KeyValueStorageConfigNotFound(StorageException):
     pass
+
 
 class UnsupportedOperation(Exception):
     pass
@@ -211,7 +212,6 @@ class BlowUp(BaseException):
     An exception designed to blow through fault barriers. Useful during testing.
     Derives from BaseException so asyncio will let it through.
     """
-    pass
 
 
 class ProdableAlreadyAdded(Exception):
@@ -255,5 +255,6 @@ class OperationError(Exception):
 
 class InvalidMessageExceedingSizeException(InvalidMessageException):
     def __init__(self, expLen, actLen, *args, **kwargs):
-        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(actLen, expLen)
+        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
+            actLen, expLen)
         super().__init__(ex_txt, *args, **kwargs)

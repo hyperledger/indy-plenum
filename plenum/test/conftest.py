@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import itertools
-import json
 import logging
 import os
 import re
@@ -36,7 +35,7 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, TARGET_NYM, VALIDATOR, SERVICES
+    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, getMaxFailures
@@ -44,7 +43,7 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, NODE_IP
+    mockGetInstalledDistributions, mockImportModule, chk_all_funcs
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -65,14 +64,42 @@ def pytest_xdist_make_scheduler(config, log):
 @pytest.fixture(scope="session")
 def warnfilters():
     def _():
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
-        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
-        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='jsonpickle\.pickler',
+            message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='jsonpickle\.unpickler',
+            message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.client\.client',
+            message="The 'warn' method is deprecated")
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.common\.stacked',
+            message="The 'warn' method is deprecated")
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='plenum\.test\.test_testable',
+            message='Please use assertEqual instead.')
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='prompt_toolkit\.filters\.base',
+            message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings(
+            'ignore', category=ResourceWarning, message='unclosed event loop')
+        warnings.filterwarnings(
+            'ignore',
+            category=ResourceWarning,
+            message='unclosed.*socket\.socket')
     return _
 
 
@@ -211,7 +238,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'is already stopped',
                      'Error while running coroutine',
                      'not trying any more because',
-                     # TODO: This is too specific, move it to the particular test
+                     # TODO: This is too specific, move it to the particular
+                     # test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>",
                      'got exception while closing hash store',
@@ -242,7 +270,8 @@ def logcapture(request, whitelist, concerningLogLevels):
         # message can be an arbitrary object
         if not (isBenign or isTest):
             msg = str(record.msg)
-            isWhiteListed = any(re.search(w, msg) for w in whiteListedExceptions)
+            isWhiteListed = any(re.search(w, msg)
+                                for w in whiteListedExceptions)
             if not isWhiteListed:
                 # Stopping all loopers, so prodables like nodes, clients, etc stop.
                 #  This helps in freeing ports
@@ -279,6 +308,7 @@ def tdir(tmpdir_factory):
     tempdir = tmpdir_factory.mktemp('').strpath
     logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
+
 
 another_tdir = tdir
 
@@ -387,16 +417,23 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     # looper.run(eventuallyAll(*coros,
     #                          totalTimeout=propTimeout,
     #                          acceptableFails=faultyNodes))
-    chk_all_funcs(looper, coros, acceptable_fails=faultyNodes, timeout=propTimeout)
+    chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
+                  timeout=propTimeout)
 
     # Wait until sufficient number of acks received
-    coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
-              for node in nodeSet]
+    coros2 = [
+        partial(
+            checkReqAck,
+            client1,
+            node,
+            sent1.identifier,
+            sent1.reqId) for node in nodeSet]
     ackTimeout = waits.expectedReqAckQuorumTime()
     # looper.run(eventuallyAll(*coros2,
     #                          totalTimeout=ackTimeout,
     #                          acceptableFails=faultyNodes))
-    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes, timeout=ackTimeout)
+    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes,
+                  timeout=ackTimeout)
     return sent1
 
 
@@ -466,6 +503,7 @@ def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
     numOfNodes = len(nodeSet)
     numOfInstances = getNoInstances(numOfNodes)
     quorum = numOfInstances * (numOfNodes - faultyNodes)
+
     def checkOrderedCount():
         resp = [requestReturnedToNode(node,
                                       wallet1.defaultId,
@@ -503,7 +541,7 @@ def poolTxnClientNames():
 @pytest.fixture(scope="module")
 def poolTxnStewardNames(request):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
-    return ['Steward'+str(i) for i in range(1, nodeCount+1)]
+    return ['Steward' + str(i) for i in range(1, nodeCount + 1)]
 
 
 @pytest.fixture(scope="module")
@@ -528,12 +566,14 @@ def dirName():
 def poolTxnData(request):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
     data = {'txns': [], 'seeds': {}}
-    for i, node_name in zip(range(1, nodeCount+1), genNodeNames(nodeCount)):
-        data['seeds'][node_name] = node_name+'0'*(32-len(node_name))
-        steward_name = 'Steward'+str(i)
-        data['seeds'][steward_name] = steward_name+'0'*(32-len(steward_name))
+    for i, node_name in zip(range(1, nodeCount + 1), genNodeNames(nodeCount)):
+        data['seeds'][node_name] = node_name + '0' * (32 - len(node_name))
+        steward_name = 'Steward' + str(i)
+        data['seeds'][steward_name] = steward_name + \
+            '0' * (32 - len(steward_name))
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
-        s_idr = SimpleSigner(seed=data['seeds'][steward_name].encode()).identifier
+        s_idr = SimpleSigner(
+            seed=data['seeds'][steward_name].encode()).identifier
         data['txns'].append({
             TXN_TYPE: NYM,
             ROLE: STEWARD,
@@ -690,8 +730,8 @@ def txnPoolCliNodeReg(poolTxnData):
     for txn in poolTxnData["txns"]:
         if txn[TXN_TYPE] == NODE:
             data = txn[DATA]
-            cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
-                                                               data[CLIENT_PORT])
+            cliNodeReg[data[ALIAS] +
+                       CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP], data[CLIENT_PORT])
     return cliNodeReg
 
 

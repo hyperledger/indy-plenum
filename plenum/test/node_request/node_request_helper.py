@@ -1,4 +1,3 @@
-import time
 from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
@@ -66,7 +65,7 @@ def checkPrePrepared(looper,
             """
             l1 = len([param for param in
                       getAllArgs(primary, primary.processPrePrepare)])
-            assert l1 == 0
+            assert l1 == 0, 'Primary {} sees no pre-prepare'.format(primary)
 
         def nonPrimarySeesCorrectNumberOfPREPREPAREs():
             """
@@ -78,25 +77,26 @@ def checkPrePrepared(looper,
             with faults in system.
             """
             expectedPrePrepareRequest = PrePrepare(
-                    instId,
-                    primary.viewNo,
-                    primary.lastPrePrepareSeqNo,
-                    get_utc_epoch(),
-                    [[propagated1.identifier, propagated1.reqId]],
-                    1,
-                    Replica.batchDigest([propagated1,]),
-                    DOMAIN_LEDGER_ID,
-                    primary.stateRootHash(DOMAIN_LEDGER_ID),
-                    primary.txnRootHash(DOMAIN_LEDGER_ID),
-                    )
+                instId,
+                primary.viewNo,
+                primary.lastPrePrepareSeqNo,
+                get_utc_epoch(),
+                [[propagated1.identifier, propagated1.reqId]],
+                1,
+                Replica.batchDigest([propagated1, ]),
+                DOMAIN_LEDGER_ID,
+                primary.stateRootHash(DOMAIN_LEDGER_ID),
+                primary.txnRootHash(DOMAIN_LEDGER_ID),
+            )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][0:3]+param['pp'][4:],
+                                  if (param['pp'][0:3] + param['pp'][4:],
                                       param['sender']) == (
-                                      expectedPrePrepareRequest[0:3] + expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[0:3] +
+                                          expectedPrePrepareRequest[4:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -107,7 +107,8 @@ def checkPrePrepared(looper,
                                          actualMsgs,
                                          numOfMsgsWithZFN,
                                          numOfMsgsWithFaults))
-            assert passes >= len(nonPrimaryReplicas) - faultyNodes
+            assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
+                'Non-primary sees correct number pre-prepares - {}'.format(passes)
 
         def primarySentsCorrectNumberOfPREPREPAREs():
             """
@@ -134,7 +135,7 @@ def checkPrePrepared(looper,
                               faultyNodes,
                               actualMsgs,
                               numOfMsgsWithZFN,
-                              numOfMsgsWithZFN)
+                              numOfMsgsWithZFN), 'Primary sends correct number of per-prepare'
 
         def nonPrimaryReceivesCorrectNumberOfPREPREPAREs():
             """
@@ -161,7 +162,8 @@ def checkPrePrepared(looper,
                                      numOfMsgsWithZFN,
                                      numOfMsgsWithFaults)
 
-            assert passes >= len(nonPrimaryReplicas) - faultyNodes
+            assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
+                'Non-primary receives correct number of pre-prepare -- {}'.format(passes)
 
         primarySeesCorrectNumberOfPREPREPAREs()
         nonPrimarySeesCorrectNumberOfPREPREPAREs()
@@ -251,16 +253,17 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
             numOfMsgsWithFaults = quorums.prepare.value - 1
 
             for npr in nonPrimaryReplicas:
-                actualMsgs = len([param for param in
-                                  getAllArgs(
-                                          npr,
-                                          npr.processPrepare)
-                                  if (param['prepare'].instId,
-                                      param['prepare'].viewNo,
-                                      param['prepare'].ppSeqNo) == (primary.instId,
-                                                            primary.viewNo,
-                                                            primary.lastPrePrepareSeqNo)
-                                  ])
+                actualMsgs = len(
+                    [
+                        param for param in getAllArgs(
+                            npr,
+                            npr.processPrepare) if (
+                            param['prepare'].instId,
+                            param['prepare'].viewNo,
+                            param['prepare'].ppSeqNo) == (
+                            primary.instId,
+                            primary.viewNo,
+                            primary.lastPrePrepareSeqNo)])
 
                 passes += int(msgCountOK(nodeCount,
                                          faultyNodes,

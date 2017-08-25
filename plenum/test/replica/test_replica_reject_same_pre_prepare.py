@@ -1,5 +1,3 @@
-import time
-import types
 
 import pytest
 

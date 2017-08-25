@@ -23,6 +23,7 @@ def random_txn(i: int):
             random.randint(i + 1, 100))])
     }
 
+
 def checkLeafInclusion(verifier, leafData, leafIndex, proof, treeHead):
     assert verifier.verify_leaf_inclusion(
         leaf=leafData,
@@ -102,13 +103,13 @@ def create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir,
     db_name = 'transactions'
     if isinstance(txn_serializer, MsgPackSerializer):
         # TODO: fix chunk_creator support
-        chunk_creator = lambda name: \
-            BinarySerializerBasedFileStore(txn_serializer,
-                                           os.path.join(tempdir, db_name),
-                                           name,
-                                           isLineNoKey=True,
-                                           storeContentHash=False,
-                                           ensureDurability=False)
+        def chunk_creator(name):
+            return BinarySerializerBasedFileStore(txn_serializer,
+                                                  os.path.join(tempdir, db_name),
+                                                  name,
+                                                  isLineNoKey=True,
+                                                  storeContentHash=False,
+                                                  ensureDurability=False)
     store = ChunkedFileStore(tempdir,
                              db_name,
                              isLineNoKey=True,

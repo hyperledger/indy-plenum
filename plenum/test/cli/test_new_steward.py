@@ -28,5 +28,3 @@ def testGeneratedKeypairIsStoredInWallet():
     """
     """
     raise NotImplementedError
-
-

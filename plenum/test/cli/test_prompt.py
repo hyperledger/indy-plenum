@@ -24,5 +24,3 @@ def testPrompt(cli):
     # Check whether prompt changes work after some other commands too
     cli.enterCmd("help")
     setAndCheckPrompt(cli, "Jason")
-
-

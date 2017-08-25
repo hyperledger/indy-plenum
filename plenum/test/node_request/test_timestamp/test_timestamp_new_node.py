@@ -35,14 +35,17 @@ def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
     assert get_timestamp_suspicion_count(new_node) == old_susp_count
 
     # All nodes should reply
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, Max3PCBatchSize*3)
+    send_reqs_to_nodes_and_verify_all_replies(
+        looper, wallet1, client1, Max3PCBatchSize * 3)
     # No suspicions were raised by new_node
     assert get_timestamp_suspicion_count(new_node) == old_susp_count
 
-    suspicions = {node.name: get_timestamp_suspicion_count(node) for node in txnPoolNodeSet}
+    suspicions = {node.name: get_timestamp_suspicion_count(
+        node) for node in txnPoolNodeSet}
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, Max3PCBatchSize*3)
+    send_reqs_to_nodes_and_verify_all_replies(
+        looper, wallet1, client1, Max3PCBatchSize * 3)
     for node in txnPoolNodeSet:
         assert suspicions[node.name] == get_timestamp_suspicion_count(node)

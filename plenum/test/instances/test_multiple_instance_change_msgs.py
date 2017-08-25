@@ -28,10 +28,12 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
                     assert arg['frm'] == maliciousNode.name
 
     numOfNodes = len(nodeSet)
-    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(numOfNodes)
+    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(
+        numOfNodes)
 
     for i in range(0, 5):
-        looper.run(eventually(chk, i, retryWait=1, timeout=instanceChangeTimeout))
+        looper.run(eventually(chk, i, retryWait=1,
+                              timeout=instanceChangeTimeout))
 
     def g():
         for node in nodeSet:
