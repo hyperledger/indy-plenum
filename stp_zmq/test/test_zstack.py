@@ -165,7 +165,15 @@ def test_high_load(tdir, looper, tconf):
                 received_messages[-1])
 
 
-def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
+@pytest.fixture(scope="function")
+def patch_msg_len(tconf):
+    old_value = tconf.MSG_LEN_LIMIT
+    tconf.MSG_LEN_LIMIT = 128 * 1024
+    yield tconf.MSG_LEN_LIMIT
+    print(old_value)
+    tconf.MSG_LEN_LIMIT = old_value
+
+def testZStackSendRecvHugeDataUnderLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -202,7 +210,7 @@ def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
     assert betaHandler[0] is True
 
 
-def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
+def testZStackSendHugeDataOverLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -247,7 +255,7 @@ def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
     assert betaHandlers[1] is False
 
 
-def testZStackRecvHugeDataOverLimit(tdir, looper, tconf):
+def testZStackRecvHugeDataOverLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
