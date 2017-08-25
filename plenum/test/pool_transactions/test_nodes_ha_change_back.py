@@ -8,8 +8,8 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          tconf, steward1, stewardWallet, nodeThetaAdded):
     """
     The case:
-        The Node HA is updated with some HA (let's name it 'correct' HA). 
-        Then the Steward makes a mistake and sends the NODE txn with other HA 
+        The Node HA is updated with some HA (let's name it 'correct' HA).
+        Then the Steward makes a mistake and sends the NODE txn with other HA
         ('wrong' HA). The Steward replaces back 'wrong' HA by 'correct' HA sending
         yet another one NODE txn.
     """

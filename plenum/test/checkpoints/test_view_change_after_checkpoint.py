@@ -34,15 +34,21 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
     """
     batch_size = 2
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           batch_size*sent_batches,
+                                           batch_size * sent_batches,
                                            sent_batches)
 
     # Check that correct garbage collection happens
-    non_gced_batch_count = (sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
-    looper.run(eventually(checkRequestCounts, txnPoolNodeSet,
-                          batch_size*non_gced_batch_count, non_gced_batch_count,
-                          non_gced_batch_count,
-                          retryWait=1))
+    non_gced_batch_count = (
+        sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
+    looper.run(
+        eventually(
+            checkRequestCounts,
+            txnPoolNodeSet,
+            batch_size *
+            non_gced_batch_count,
+            non_gced_batch_count,
+            non_gced_batch_count,
+            retryWait=1))
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -53,7 +59,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
         for r in node.replicas:
             assert not r.checkpoints
             # No stashed checkpoint for previous view
-            assert not [view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]
+            assert not [
+                view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]
             assert r._h == 0
             assert r._lastPrePrepareSeqNo == 0
             assert r.h == 0
@@ -63,8 +70,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
 
     # Even after view change, chekpointing works
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                                  batch_size*sent_batches,
-                                                  sent_batches)
+                                           batch_size * sent_batches,
+                                           sent_batches)
 
     looper.run(eventually(checkRequestCounts, txnPoolNodeSet,
                           batch_size * non_gced_batch_count,

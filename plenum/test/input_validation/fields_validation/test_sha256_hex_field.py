@@ -11,7 +11,8 @@ msg = b'some message'
 
 
 def test_sha256_invalid_hex_field():
-    assert validator.validate('') == 'not a valid hash (needs to be in hex too)'
+    assert validator.validate(
+        '') == 'not a valid hash (needs to be in hex too)'
     assert validator.validate(1) == "expected types 'str', got 'int'"
 
 

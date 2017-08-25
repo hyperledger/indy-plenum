@@ -29,14 +29,16 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     """
     slow_node, fast_nodes = setup
 
-    reqs = send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 10, 5)
+    reqs = send_reqs_batches_and_get_suff_replies(
+        looper, wallet1, client1, 10, 5)
     ensure_all_nodes_have_same_data(looper, fast_nodes)
     assert slow_node.master_replica.last_ordered_3pc != \
-           fast_nodes[0].master_replica.last_ordered_3pc
+        fast_nodes[0].master_replica.last_ordered_3pc
 
     def chk(key, nodes, present):
         for node in nodes:
-            assert (key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
+            assert (
+                key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
 
     for req in reqs:
         chk(req.key, fast_nodes, False)

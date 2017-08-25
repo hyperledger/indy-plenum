@@ -85,13 +85,14 @@ class MessageBase(Mapping, MessageValidator):
         assert argsLen == len(self.schema), \
             "number of parameters should be the " \
             "same as a number of fields in schema, but it was {}" \
-                .format(argsLen)
+            .format(argsLen)
 
         input_as_dict = kwargs if kwargs else self._join_with_schema(args)
 
         self.validate(input_as_dict)
 
-        self._fields = OrderedDict((name, input_as_dict[name]) for name, _ in self.schema)
+        self._fields = OrderedDict(
+            (name, input_as_dict[name]) for name, _ in self.schema)
 
     def _join_with_schema(self, args):
         return dict(zip(map(itemgetter(0), self.schema), args))

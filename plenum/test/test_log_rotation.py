@@ -18,7 +18,7 @@ def test_time_log_rotation(tdir_for_func):
     for i in range(3):
         time.sleep(1)
         logger.debug("line")
-    assert len(os.listdir(logDirPath)) == 4 # initial + 3 new
+    assert len(os.listdir(logDirPath)) == 4  # initial + 3 new
 
 
 def test_size_log_rotation(tdir_for_func):
@@ -66,9 +66,9 @@ def test_time_and_size_log_rotation1(tdir_for_func):
     record_count = 50
     record_per_file = 4
     backup_count = 5
-    cir_buffer = collections.deque(maxlen=(backup_count+1)*record_per_file)
+    cir_buffer = collections.deque(maxlen=(backup_count + 1) * record_per_file)
     record_text = 'line'
-    record_length = len(record_text)+len(str(record_count))
+    record_length = len(record_text) + len(str(record_count))
 
     handler = TimeAndSizeRotatingFileHandler(
         logFile,
@@ -82,7 +82,8 @@ def test_time_and_size_log_rotation1(tdir_for_func):
         logger.debug(line)
         cir_buffer.append(line)
         if i % record_per_file == 0:
-            # waiting since last modified time cannot offer good enough precision
+            # waiting since last modified time cannot offer good enough
+            # precision
             time.sleep(.5)
 
     circ_buffer_set = set(cir_buffer)

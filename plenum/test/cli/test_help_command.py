@@ -9,7 +9,7 @@ def testDefaultHelp(cli):
         "help - Shows this or specific help message for given command",
         "license - Shows the license",
         "exit - Exit the command-line interface ('quit' also works)"
-        ]
+    ]
 
     for dhm in defaultHelpMsgs:
         assert dhm in cli.lastCmdOutput

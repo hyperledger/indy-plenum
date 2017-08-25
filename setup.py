@@ -1,7 +1,7 @@
 import os
 import sys
 
-from setuptools import setup, find_packages, __version__
+from setuptools import setup, find_packages
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -68,7 +68,7 @@ setup(
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
-    },
+                    },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_keys',
@@ -76,7 +76,8 @@ setup(
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
-             'scripts/udp_sender', 'scripts/udp_receiver']
+             'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
+             'scripts/log_stats']
 )
 
 if not os.path.exists(CONFIG_FILE):
@@ -118,4 +119,3 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
-

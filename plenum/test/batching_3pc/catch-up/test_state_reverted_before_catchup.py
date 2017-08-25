@@ -5,8 +5,8 @@ from plenum.test.helper import signed_random_requests, sendRandomRequests, waitF
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
-def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, client,
-                                                 wallet1):
+def test_unordered_state_reverted_before_catchup(
+        tconf, looper, txnPoolNodeSet, client, wallet1):
     """
     Check that unordered state is reverted before starting catchup:
     - save the initial state on a node
@@ -41,12 +41,17 @@ def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, 
 
     # send requests
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs, total_timeout=40)
+    waitForSufficientRepliesForRequests(
+        looper, client, requests=reqs, total_timeout=40)
 
-    committed_ledger_during_3pc = non_primary_node.getLedger(ledger_id).tree.root_hash
-    uncommitted_ledger_during_3pc = non_primary_node.getLedger(ledger_id).uncommittedRootHash
-    committed_state_during_3pc = non_primary_node.getState(ledger_id).committedHeadHash
-    uncommitted_state_during_3pc = non_primary_node.getState(ledger_id).headHash
+    committed_ledger_during_3pc = non_primary_node.getLedger(
+        ledger_id).tree.root_hash
+    uncommitted_ledger_during_3pc = non_primary_node.getLedger(
+        ledger_id).uncommittedRootHash
+    committed_state_during_3pc = non_primary_node.getState(
+        ledger_id).committedHeadHash
+    uncommitted_state_during_3pc = non_primary_node.getState(
+        ledger_id).headHash
 
     # start catchup
     non_primary_node.ledgerManager.preCatchupClbk(ledger_id)

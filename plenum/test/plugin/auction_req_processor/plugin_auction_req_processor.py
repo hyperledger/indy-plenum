@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from typing import Dict
 
 from plenum.cli.constants import getPipedRegEx
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA
@@ -34,12 +33,12 @@ class AuctionReqProcessorPlugin(HasCliCommands):
 
     STARTING_BALANCE = 1000
 
-    grams = [getPipedRegEx(pat) for pat in [
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>start\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>end\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>place\s+bid) \s+ (?P<amount>[0-9]+) \s+ on \s+(?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*) "
-    ]]
+    grams = [
+        getPipedRegEx(pat) for pat in [
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>start\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>end\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>place\s+bid) \s+ (?P<amount>[0-9]+) \s+ on \s+(?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*) "]]
 
     cliActionNames = {'balance', 'start auction', 'end auction', 'place bid'}
 
@@ -83,7 +82,8 @@ class AuctionReqProcessorPlugin(HasCliCommands):
                     self.auctions[id] = SimpleNamespace(**auction)
                     result.update(auction)
             if typ == AUCTION_END:
-                success = self.auctionExists(id) and frm == self.auctions[id].creator
+                success = self.auctionExists(
+                    id) and frm == self.auctions[id].creator
                 result = {SUCCESS: success}
                 if success:
                     self.auctions[id].status = 0
@@ -92,8 +92,8 @@ class AuctionReqProcessorPlugin(HasCliCommands):
             if typ == PLACE_BID:
                 amount = data.get(AMOUNT)
                 success = self.balances[frm] >= amount and \
-                          self.auctionLive(id) \
-                          and self.auctions[id].highestBid < amount
+                    self.auctionLive(id) \
+                    and self.auctions[id].highestBid < amount
                 result = {SUCCESS: success}
                 if success:
                     self._bid(id, frm, amount)

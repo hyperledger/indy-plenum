@@ -25,7 +25,8 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns):
 
     logger.debug("Stopping node0 with pool ledger size {}".
                  format(node0.poolManager.txnSeqNo))
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node0, stopNode=False)
+    disconnect_node_and_ensure_disconnected(
+        looper, txnPoolNodeSet, node0, stopNode=False)
     looper.removeProdable(node0)
 
     logger.debug("Sending requests")
@@ -33,7 +34,8 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns):
 
     logger.debug("Stopping node1 with pool ledger size {}".
                  format(node1.poolManager.txnSeqNo))
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node1, stopNode=False)
+    disconnect_node_and_ensure_disconnected(
+        looper, txnPoolNodeSet, node1, stopNode=False)
     looper.removeProdable(node1)
 
     # Make sure new node got out of sync

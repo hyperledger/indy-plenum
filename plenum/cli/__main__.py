@@ -27,5 +27,6 @@ def main(logfile: str=None, debug=None, cliClass=None):
             print('Goodbye.')
         return cli
 
+
 if __name__ == '__main__':
     main()

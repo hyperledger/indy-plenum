@@ -1,4 +1,3 @@
-import time
 from plenum.common.util import randomString
 
 

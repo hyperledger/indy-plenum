@@ -1,10 +1,10 @@
-from typing import Set
 
 
 class Blacklister:
     """
     Interface to be subclassed by all Blacklister types
     """
+
     def blacklist(self, name):
         """Add the given name to this blacklister's blacklist"""
         raise NotImplementedError

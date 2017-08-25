@@ -28,7 +28,7 @@ baseDir = '~/.plenum/'
 walletsDir = 'wallets'
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
-#walletDir = 'wallet'
+# walletDir = 'wallet'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
@@ -128,9 +128,9 @@ logRotationInterval = 1
 logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
-logFormatStyle='{'
-logLevel=logging.NOTSET
-enableStdOutLogging=True
+logFormatStyle = '{'
+logLevel = logging.NOTSET
+enableStdOutLogging = True
 
 # OPTIONS RELATED TO TESTS
 
@@ -181,7 +181,7 @@ MaxStateProofTime = 3
 CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
+LOG_SIZE = 3 * CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5

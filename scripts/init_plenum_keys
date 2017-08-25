@@ -54,7 +54,7 @@ if __name__ == "__main__":
         print("Generating a random seed for the keypair {}".format(args.seed))
     try:
         verkey = initLocalKeys(args.name, config.baseDir, args.seed, args.force,
-                          config=config)
+                               config=config)
     except Exception as ex:
         print(ex)
         exit()
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
         initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
-                 args.force, config=config)
+                      args.force, config=config)
     except Exception as ex:
         print(ex)
         exit()
