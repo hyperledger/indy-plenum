@@ -158,10 +158,9 @@ def test_high_load(tdir, looper, tconf):
 
     assert len(received_messages) != 0
     assert len(expected_messages) == len(received_messages), \
-        "{} != {}, LAST IS {}" \
-            .format(len(expected_messages),
-                    len(received_messages),
-                    received_messages[-1])
+        "{} != {}, LAST IS {}".format(len(expected_messages),
+                                      len(received_messages),
+                                      received_messages[-1])
 
 
 @pytest.fixture(scope="function")
