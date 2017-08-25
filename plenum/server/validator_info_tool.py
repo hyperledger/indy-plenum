@@ -7,7 +7,7 @@ import base58
 
 
 class ValidatorNodeInfoTool:
-    STATUS_NODE_JSON_SCHEMA_VERSION = '0.0.1'
+    JSON_SCHEMA_VERSION = '0.0.1'
     FILE_NAME_TEMPLATE = '{node_name}_info.json'
 
     def __init__(self, node):
@@ -30,7 +30,7 @@ class ValidatorNodeInfoTool:
                 }
             },
             'did': self.__node.wallet.defaultId,
-            'response-version': self.STATUS_NODE_JSON_SCHEMA_VERSION,
+            'response-version': self.JSON_SCHEMA_VERSION,
             'timestamp': int(time.time()),
             'verkey': base58.b58encode(self.__node.nodestack.verKey),
             'metrics': {

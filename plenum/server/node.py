@@ -98,6 +98,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
     _client_request_class = SafeRequest
+    _info_tool_class = ValidatorNodeInfoTool
     ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
     _wallet_class = Wallet
 
@@ -372,7 +373,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
-        self._info_tool = ValidatorNodeInfoTool(self)
+        self._info_tool = self._info_tool_class(self)
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
@@ -612,7 +613,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
-            self.schedule_node_status_dump()
+            self.dump_validator_info_and_schedule()
 
             # if first time running this node
             if not self.nodestack.remotes:
@@ -632,10 +633,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.logNodeInfo()
 
-    def schedule_node_status_dump(self):
+    def dump_validator_info_and_schedule(self):
+        self._info_tool.dump_json_file()
         self.startRepeating(
             self._info_tool.dump_json_file,
-            seconds=self.config.DUMP_NODE_STATUS_PERIOD_SEC,
+            seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,
         )
 
     @property
