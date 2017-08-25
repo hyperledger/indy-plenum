@@ -613,7 +613,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
-            self.dump_validator_info_and_schedule()
+            self.schedule_node_status_dump()
 
             # if first time running this node
             if not self.nodestack.remotes:
@@ -633,8 +633,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.logNodeInfo()
 
-    def dump_validator_info_and_schedule(self):
-        self._info_tool.dump_json_file()
+    def schedule_node_status_dump(self):
         self.startRepeating(
             self._info_tool.dump_json_file,
             seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,

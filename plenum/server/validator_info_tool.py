@@ -40,7 +40,7 @@ class ValidatorNodeInfoTool:
                 },
                 'transaction-count': {
                     'ledger': self.__node.domainLedger.size,
-                    'pool': self.__node.poolLedger.size,
+                    'pool': self.__node.poolLedger.size if self.__node.poolLedger else 0,
                 },
                 'uptime': int(time.time() - self.__node.created),
             },
@@ -54,7 +54,6 @@ class ValidatorNodeInfoTool:
                     'list': list(set(self.__node.nodestack.remotes.keys()) - self.__node.nodestack.conns),
                 },
                 'total-count': len(self.__node.nodestack.remotes) + 1,
-
             }
         }
 
