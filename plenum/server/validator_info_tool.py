@@ -30,9 +30,7 @@ class ValidatorNodeInfoTool:
                 }
             },
             'did': self.__node.wallet.defaultId,
-            'enabled': 'unknown',  # TODO how to implement this?
             'response-version': self.STATUS_NODE_JSON_SCHEMA_VERSION,
-            'state': 'unknown',  # TODO how to implement this?
             'timestamp': int(time.time()),
             'verkey': base58.b58encode(self.__node.nodestack.verKey),
             'metrics': {
@@ -41,7 +39,6 @@ class ValidatorNodeInfoTool:
                     'write-transactions': self.__node.monitor.totalRequests / (time.time() - self.__node.created),
                 },
                 'transaction-count': {
-                    'config': '???',
                     'ledger': self.__node.domainLedger.size,
                     'pool': self.__node.poolLedger.size,
                 },
@@ -58,10 +55,6 @@ class ValidatorNodeInfoTool:
                 },
                 'total-count': len(self.__node.nodestack.remotes) + 1,
 
-            },
-            'software': {
-                'indy-node': '???',
-                'sovrin': '???',
             }
         }
 

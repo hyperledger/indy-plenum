@@ -39,9 +39,7 @@ def test_node_status_file_schema_is_valid(status):
     assert 'protocol' in status['bindings']['node']
 
     assert 'did' in status
-    assert 'enabled' in status
     assert 'response-version' in status
-    assert 'state' in status
     assert 'timestamp' in status
     assert 'verkey' in status
 
@@ -50,7 +48,6 @@ def test_node_status_file_schema_is_valid(status):
     assert 'read-transactions' in status['metrics']['average-per-second']
     assert 'write-transactions' in status['metrics']['average-per-second']
     assert 'transaction-count' in status['metrics']
-    assert 'config' in status['metrics']['transaction-count']
     assert 'ledger' in status['metrics']['transaction-count']
     assert 'pool' in status['metrics']['transaction-count']
     assert 'uptime' in status['metrics']
@@ -63,10 +60,6 @@ def test_node_status_file_schema_is_valid(status):
     assert 'count' in status['pool']['unreachable']
     assert 'list' in status['pool']['unreachable']
     assert 'total-count' in status['pool']
-
-    assert 'software' in status
-    assert 'indy-node' in status['software']
-    assert 'sovrin' in status['software']
 
 
 def test_node_status_file_alias_field_valid(status):
@@ -86,16 +79,8 @@ def test_node_status_file_did_field_valid(status):
     assert status['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
 
 
-def test_node_status_file_enabled_field_valid(status):
-    assert status['enabled'] == 'unknown'
-
-
 def test_node_status_file_response_version_field_valid(status):
     assert status['response-version'] == ValidatorNodeInfoTool.STATUS_NODE_JSON_SCHEMA_VERSION
-
-
-def test_node_status_file_state_field_valid(status):
-    assert status['state'] == 'unknown'
 
 
 def test_node_status_file_timestamp_field_valid(status):
@@ -112,10 +97,6 @@ def test_node_status_file_metrics_avg_write_field_valid(status):
 
 def test_node_status_file_metrics_avg_read_field_valid(status):
     assert status['metrics']['average-per-second']['read-transactions'] == 0
-
-
-def test_node_status_file_metrics_count_config_field_valid(status):
-    assert status['metrics']['transaction-count']['config'] == 'unknown'
 
 
 def test_node_status_file_metrics_count_ledger_field_valid(poolTxnData, status):
@@ -150,14 +131,6 @@ def test_node_status_file_pool_unreachable_list_field_valid(status):
 
 def test_node_status_file_pool_total_count_field_valid(status):
     assert status['pool']['total-count'] == nodeCount
-
-
-def test_node_status_file_software_indy_node_field_valid(status):
-    assert status['software']['indy-node'] == 'unknown'
-
-
-def test_node_status_file_software_sovrin_field_valid(status):
-    assert status['software']['sovrin'] == 'unknown'
 
 
 @pytest.fixture(scope='module')
