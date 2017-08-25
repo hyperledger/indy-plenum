@@ -5,7 +5,8 @@ import os
 
 import base58
 
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+
+STATUS_NODE_JSON_SCHEMA_VERSION = '0.0.1'
 
 
 def calc_node_status(node):
@@ -23,21 +24,21 @@ def calc_node_status(node):
                 'protocol': 'tcp',  # TODO hard coded for now, need more smart approach here
             }
         },
-        'did': '???',
+        'did': node.wallet.defaultId,
         'enabled': 'unknown',  # TODO how to implement this?
-        'response-version': '0.0.1',
+        'response-version': STATUS_NODE_JSON_SCHEMA_VERSION,
         'state': 'unknown',  # TODO how to implement this?
         'timestamp': int(time.time()),
         'verkey': base58.b58encode(node.nodestack.verKey),
         'metrics': {
             'average-per-second': {
-                'read-transactions': '???',
+                'read-transactions': node.total_read_request_number / (time.time() - node.created),
                 'write-transactions': node.monitor.totalRequests / (time.time() - node.created),
             },
             'transaction-count': {
                 'config': '???',
                 'ledger': node.domainLedger.size,
-                'pool': '???',
+                'pool': node.poolLedger.size,
             },
             'uptime': int(time.time() - node.created),
         },

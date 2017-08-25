@@ -370,6 +370,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # between.
         self._next_view_indications = SortedDict()
 
+        # Number of read requests the node has processed
+        self.total_read_request_number = 0
+
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
 
@@ -1715,6 +1718,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if request.operation[TXN_TYPE] == GET_TXN:
             self.handle_get_txn_req(request, frm)
+            self.total_read_request_number += 1
         else:
             reply = self.getReplyFromLedger(ledger, request)
             if reply:

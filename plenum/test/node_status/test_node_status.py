@@ -6,16 +6,22 @@ import base58
 import pytest
 import re
 
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA
+from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
+from plenum.server.node_status import STATUS_NODE_JSON_SCHEMA_VERSION
 from plenum.test import waits
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, checkSufficientRepliesReceived
+# noinspection PyUnresolvedReferences
+from plenum.test.pool_transactions.conftest import steward1, stewardWallet, client1Connected  # noqa
 from stp_core.loop.eventually import eventually
 
-STATUS_FILENAME = 'alpha_node_status.json'
+
+TEST_NODE_NAME = 'Alpha'
+STATUS_FILENAME = '{}_node_status.json'.format(TEST_NODE_NAME.lower())
 PERIOD_SEC = 5
-TXNS_COUNT = 10
+TXNS_COUNT = 8
+nodeCount = 5
 
 
 def test_node_status_file_schema_is_valid(status):
@@ -67,18 +73,17 @@ def test_node_status_file_alias_field_valid(status):
     assert status['alias'] == 'Alpha'
 
 
-def test_node_status_file_bindings_field_valid(nodeSet, status):
-    alpha = nodeSet.Alpha
-    assert status['bindings']['client']['ip'] == alpha.clientstack.ha.host
-    assert status['bindings']['client']['port'] == alpha.clientstack.ha.port
+def test_node_status_file_bindings_field_valid(status, node):
+    assert status['bindings']['client']['ip'] == node.clientstack.ha.host
+    assert status['bindings']['client']['port'] == node.clientstack.ha.port
     assert status['bindings']['client']['protocol'] == 'tcp'
-    assert status['bindings']['node']['ip'] == alpha.nodestack.ha.host
-    assert status['bindings']['node']['port'] == alpha.nodestack.ha.port
+    assert status['bindings']['node']['ip'] == node.nodestack.ha.host
+    assert status['bindings']['node']['port'] == node.nodestack.ha.port
     assert status['bindings']['node']['protocol'] == 'tcp'
 
 
 def test_node_status_file_did_field_valid(status):
-    assert status['did'] == 'not implemented'
+    assert status['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
 
 
 def test_node_status_file_enabled_field_valid(status):
@@ -86,7 +91,7 @@ def test_node_status_file_enabled_field_valid(status):
 
 
 def test_node_status_file_response_version_field_valid(status):
-    assert status['response-version'] == '0.0.1'
+    assert status['response-version'] == STATUS_NODE_JSON_SCHEMA_VERSION
 
 
 def test_node_status_file_state_field_valid(status):
@@ -97,61 +102,81 @@ def test_node_status_file_timestamp_field_valid(status):
     assert re.match('\d{10}', str(status['timestamp']))
 
 
-def test_node_status_file_verkey_field_valid(nodeSet, status):
-    alpha = nodeSet.Alpha
-    assert status['verkey'] == base58.b58encode(alpha.nodestack.verKey)
+def test_node_status_file_verkey_field_valid(node, status):
+    assert status['verkey'] == base58.b58encode(node.nodestack.verKey)
 
 
-def test_node_status_file_metrics_avg_write_field_valid(looper, status_path, status):
-    assert status['metrics']['average-per-second']['write-transactions'] > 0
+def test_node_status_file_metrics_avg_write_field_valid(status):
+    assert status['metrics']['average-per-second']['write-transactions'] == 0
 
 
-def test_node_status_file_metrics_avg_read_field_valid(looper, status_path, status):
-    assert status['metrics']['average-per-second']['read-transactions'] > 0
+def test_node_status_file_metrics_avg_read_field_valid(status):
+    assert status['metrics']['average-per-second']['read-transactions'] == 0
 
 
-def test_node_status_file_metrics_count_config_field_valid(looper, status_path, status):
+def test_node_status_file_metrics_count_config_field_valid(status):
     assert status['metrics']['transaction-count']['config'] == 'unknown'
 
 
-def test_node_status_file_metrics_count_ledger_field_valid(looper, status_path, status):
-    assert status['metrics']['transaction-count']['ledger'] == TXNS_COUNT
+def test_node_status_file_metrics_count_ledger_field_valid(poolTxnData, status):
+    txns_num = sum(1 for item in poolTxnData["txns"] if item.get(TXN_TYPE) != NODE)
+    assert status['metrics']['transaction-count']['ledger'] == txns_num
 
 
-def test_node_status_file_metrics_count_pool_field_valid(looper, status_path, status):
-    assert status['metrics']['transaction-count']['pool'] == 0
+def test_node_status_file_metrics_count_pool_field_valid(status):
+    assert status['metrics']['transaction-count']['pool'] == nodeCount
 
 
-def test_node_status_file_metrics_uptime_field_valid(looper, status_path, status):
+def test_node_status_file_metrics_uptime_field_valid(status):
     assert status['metrics']['uptime'] > 0
 
 
-def test_node_status_file_pool_reachable_cnt_field_valid(looper, status_path, status):
-    assert status['pool']['reachable']['count'] == 4
+def test_node_status_file_pool_reachable_cnt_field_valid(status):
+    assert status['pool']['reachable']['count'] == nodeCount
 
 
-def test_node_status_file_pool_reachable_list_field_valid(looper, nodeSet, status_path, status):
-    assert status['pool']['reachable']['list'] == sorted(list(node.name for node in nodeSet))
+def test_node_status_file_pool_reachable_list_field_valid(txnPoolNodeSet, status):
+    assert status['pool']['reachable']['list'] == \
+        sorted(list(node.name for node in txnPoolNodeSet))
 
 
-def test_node_status_file_pool_unreachable_cnt_field_valid(looper, status_path, status):
+def test_node_status_file_pool_unreachable_cnt_field_valid(status):
     assert status['pool']['unreachable']['count'] == 0
 
 
-def test_node_status_file_pool_unreachable_list_field_valid(looper, nodeSet, status_path, status):
+def test_node_status_file_pool_unreachable_list_field_valid(status):
     assert status['pool']['unreachable']['list'] == []
 
 
-def test_node_status_file_pool_total_count_field_valid(looper, nodeSet, status_path, status):
-    assert status['pool']['total-count'] == 4
+def test_node_status_file_pool_total_count_field_valid(status):
+    assert status['pool']['total-count'] == nodeCount
 
 
-def test_node_status_file_software_indy_node_field_valid(looper, nodeSet, status_path, status):
+def test_node_status_file_software_indy_node_field_valid(status):
     assert status['software']['indy-node'] == 'unknown'
 
 
-def test_node_status_file_software_sovrin_field_valid(looper, nodeSet, status_path, status):
+def test_node_status_file_software_sovrin_field_valid(status):
     assert status['software']['sovrin'] == 'unknown'
+
+
+@pytest.fixture(scope='module')
+def status(status_path):
+    return load_status(status_path)
+
+
+def load_status(path):
+    with open(path) as fd:
+        status = json.load(fd)
+    return status
+
+
+@pytest.fixture(scope='module')
+def status_path(tdirWithPoolTxns, patched_dump_status_period, txnPoolNodesLooper, txnPoolNodeSet):
+    txnPoolNodesLooper.runFor(PERIOD_SEC)
+    path = os.path.join(tdirWithPoolTxns, STATUS_FILENAME)
+    assert os.path.exists(path), '{} exists'.format(path)
+    return path
 
 
 @pytest.fixture(scope='module')
@@ -163,43 +188,8 @@ def patched_dump_status_period(tconf):
 
 
 @pytest.fixture(scope='module')
-def writes(looper, nodeSet, wallet1, client1):
-    reqs = sendRandomRequests(wallet1, client1, TXNS_COUNT)
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
-    return reqs
-
-
-@pytest.fixture(scope='module')
-def reads(looper, nodeSet, client1, wallet1):
-    for i in range(1, 10):
-        op = {
-            TXN_TYPE: GET_TXN,
-            DATA: i
-        }
-        req = Request(identifier=wallet1.defaultId,
-                      operation=op, reqId=getTimeBasedId())
-        client1.submitReqs(req)
-
-        timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
-        looper.run(
-            eventually(checkSufficientRepliesReceived, client1.inBox,
-                       req.reqId, 0, retryWait=1, timeout=timeout))
-
-
-@pytest.fixture(scope='module')
-def status_path(tdir, patched_dump_status_period, looper, nodeSet, up, writes, reads):
-    looper.runFor(PERIOD_SEC)
-    path = os.path.join(tdir, STATUS_FILENAME)
-    assert os.path.exists(path), '{} exists'.format(path)
-    return path
-
-
-def load_status(path):
-    with open(path) as fd:
-        status = json.load(fd)
-    return status
-
-
-@pytest.fixture(scope='module')
-def status(status_path):
-    return load_status(status_path)
+def node(txnPoolNodeSet):
+    for n in txnPoolNodeSet:
+        if n.name == TEST_NODE_NAME:
+            return n
+    assert False, 'Pool does not have "{}" node'.format(TEST_NODE_NAME)
