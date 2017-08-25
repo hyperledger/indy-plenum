@@ -4,6 +4,7 @@ import time
 from binascii import unhexlify
 from collections import deque, defaultdict
 from contextlib import closing
+from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 
 from intervaltree import IntervalTree
@@ -61,6 +62,7 @@ from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
+from plenum.server.node_status import calc_node_status, calc_and_dump_node_status
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
@@ -605,6 +607,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.elector = self.newPrimaryDecider()
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
+
+            self.startRepeating(
+                partial(calc_and_dump_node_status, self, self.basedirpath),
+                seconds=self.config.DUMP_NODE_STATUS_PERIOD_SEC,
+            )
 
             # if first time running this node
             if not self.nodestack.remotes:
