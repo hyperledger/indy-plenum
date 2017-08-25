@@ -62,7 +62,7 @@ from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
-from plenum.server.node_status import calc_node_status, calc_and_dump_node_status
+from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
@@ -372,6 +372,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
+        self._info_tool = ValidatorNodeInfoTool(self)
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
@@ -611,10 +612,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
-            self.startRepeating(
-                partial(calc_and_dump_node_status, self, self.basedirpath),
-                seconds=self.config.DUMP_NODE_STATUS_PERIOD_SEC,
-            )
+            self.schedule_node_status_dump()
 
             # if first time running this node
             if not self.nodestack.remotes:
@@ -633,6 +631,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
 
         self.logNodeInfo()
+
+    def schedule_node_status_dump(self):
+        self.startRepeating(
+            self._info_tool.dump_json_file,
+            seconds=self.config.DUMP_NODE_STATUS_PERIOD_SEC,
+        )
 
     @property
     def rank(self) -> int:

@@ -9,7 +9,7 @@ import re
 from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
-from plenum.server.node_status import STATUS_NODE_JSON_SCHEMA_VERSION
+from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test import waits
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, checkSufficientRepliesReceived
 # noinspection PyUnresolvedReferences
@@ -18,7 +18,7 @@ from stp_core.loop.eventually import eventually
 
 
 TEST_NODE_NAME = 'Alpha'
-STATUS_FILENAME = '{}_node_status.json'.format(TEST_NODE_NAME.lower())
+STATUS_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
 PERIOD_SEC = 5
 TXNS_COUNT = 8
 nodeCount = 5
@@ -91,7 +91,7 @@ def test_node_status_file_enabled_field_valid(status):
 
 
 def test_node_status_file_response_version_field_valid(status):
-    assert status['response-version'] == STATUS_NODE_JSON_SCHEMA_VERSION
+    assert status['response-version'] == ValidatorNodeInfoTool.STATUS_NODE_JSON_SCHEMA_VERSION
 
 
 def test_node_status_file_state_field_valid(status):
