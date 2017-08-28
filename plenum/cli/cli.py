@@ -67,7 +67,7 @@ from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
     getFriendlyIdentifier, \
     normalizedWalletFileName, getWalletFilePath, \
-    getLastSavedWalletFileName
+    getLastSavedWalletFileName, updateWalletsBaseDirNameIfOutdated
 from stp_core.common.log import \
     getlogger, Logger
 from plenum.server.node import Node
@@ -258,6 +258,8 @@ class Cli:
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
+
+        updateWalletsBaseDirNameIfOutdated(self.config)
 
         self.restoreLastActiveWallet()
 

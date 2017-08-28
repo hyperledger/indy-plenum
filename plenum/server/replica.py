@@ -72,6 +72,7 @@ class Stats:
 
 class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
+    HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
@@ -399,7 +400,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         self.primaryNames[self.viewNo] = value
         self.compact_primary_names()
-        if not value == self._primaryName:
+        if value != self._primaryName:
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
@@ -676,7 +677,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.processReqDuringBatch(
                     fin_req, tm, validReqs, inValidReqs, rejects)
             else:
-                logger.debug('{} found {} in its request queue but but the '
+                logger.debug('{} found {} in its request queue but the '
                              'corresponding request was removed'.
                              format(self, key))
 
@@ -711,7 +712,12 @@ class Replica(HasActionQueue, MessageProcessor):
     def readyFor3PC(self, key: ReqKey):
         cls = self.node.__class__
         fin_req = self.requests[key].finalised
-        self.requestQueues[cls.ledgerIdForRequest(fin_req)].add(key)
+        queue = self.requestQueues[cls.ledgerIdForRequest(fin_req)]
+        queue.add(key)
+        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
+            logger.warning('{} is getting requests but still does not have '
+                           'a primary so the replica will not process the request '
+                           'until a primary is chosen'.format(self))
 
     def serviceQueues(self, limit=None):
         """
@@ -764,14 +770,14 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.threePhaseRouter.handleSync((msg, senderRep))
                 else:
                     self.discard(msg, 'un-acceptable pp seq no from previous '
-                                      'view', logger.debug)
+                                      'view', logger.warning)
                     return
             except SuspiciousNode as ex:
                 self.node.reportSuspiciousNodeEx(ex)
         else:
-            logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is "
-                         "not between {} and {}".
-                         format(self, msg, msg.ppSeqNo, self.h, self.H))
+            logger.warning("{} stashing 3 phase message {} since ppSeqNo {} is "
+                           "not between {} and {}".
+                           format(self, msg, msg.ppSeqNo, self.h, self.H))
             self.stashOutsideWatermarks((msg, sender))
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
@@ -822,7 +828,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.addToPrePrepares(pp)
                 if not self.node.isParticipating:
                     self.stashingWhileCatchingUp.add(key)
-                    logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
+                    logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
                     return
 
                 if self.isMaster:
@@ -973,8 +979,8 @@ class Replica(HasActionQueue, MessageProcessor):
             last_pp_seq_no = 0
 
         if pp_seq_no - last_pp_seq_no != 1:
-            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
-                         format(self, pp_seq_no, last_pp_seq_no))
+            logger.warning('{} missing PRE-PREPAREs between {} and {}'.
+                           format(self, pp_seq_no, last_pp_seq_no))
             # TODO: think of a better way, urgently
             self._setup_for_non_master()
             return False
@@ -1284,8 +1290,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # colluding and the honest nodes being slow
         if (key not in self.prepares and key not in self.sentPrePrepares) and \
                 key not in self.preparesWaitingForPrePrepare:
-            logger.debug("{} rejecting COMMIT{} due to lack of prepares".
-                         format(self, key))
+            logger.warning("{} rejecting COMMIT{} due to lack of prepares".
+                           format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
             return False
         elif self.commits.hasCommitFrom(commit, sender):
@@ -1521,7 +1527,7 @@ class Replica(HasActionQueue, MessageProcessor):
         is_stashed_enough = quorums > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
         is_non_primary_master = self.isMaster and not self.isPrimary
         if is_stashed_enough and is_non_primary_master:
-            logger.debug(
+            logger.info(
                 '{} has stashed {} checkpoints with quorum '
                 'so the catchup procedure starts'.format(
                     self, quorums))
@@ -1855,7 +1861,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        logger.debug(
+        logger.info(
             "{} queueing prepare due to unavailability of PRE-PREPARE. "
             "Prepare {} from {}".format(
                 self, pMsg, sender))
