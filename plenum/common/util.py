@@ -529,6 +529,21 @@ def getLastSavedWalletFileName(dir):
     return basename(newest)
 
 
+def updateWalletsBaseDirNameIfOutdated(config):
+    """
+    Renames the wallets base directory if it has the outdated name.
+
+    :param config: the application configuration
+    """
+    if config.walletsDir == 'wallets':  # if the parameter is not overridden
+        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'keyrings'))
+        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'wallets'))
+        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
+            os.rename(oldNamedPath, newNamedPath)
+
+
 def pop_keys(mapping: Dict, cond: Callable):
     rem = []
     for k in mapping:
