@@ -1,4 +1,3 @@
-import warnings
 from collections import OrderedDict
 from itertools import groupby
 
@@ -44,7 +43,7 @@ def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 
 @pytest.fixture("module")
 def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited):
+             tdirWithNodeKeepInited):
     cli = newCLI(cliLooper, tdir, unique_name='alice')
     yield cli
     cli.close()
@@ -59,6 +58,7 @@ def validNodeNames(cli):
 def createAllNodes(request, cli):
     cli.enterCmd("new node all")
     waitAllNodesUp(cli)
+
     def stopNodes():
         for node in cli.nodes.values():
             node.stop()

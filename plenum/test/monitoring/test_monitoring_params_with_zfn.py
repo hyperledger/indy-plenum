@@ -27,6 +27,8 @@ def testReqLatencyThreshold(nodeSet, requests):
 def testClientLatencyThreshold(nodeSet: Sequence[Node], requests):
     rq = requests[0]
     for node in nodeSet:  # type: Node
-        latc = node.monitor.getAvgLatency(node.instances.masterId)[rq.identifier]
-        avglat = node.monitor.getAvgLatency(*node.instances.backupIds)[rq.identifier]
+        latc = node.monitor.getAvgLatency(
+            node.instances.masterId)[rq.identifier]
+        avglat = node.monitor.getAvgLatency(
+            *node.instances.backupIds)[rq.identifier]
         assert latc - avglat <= node.monitor.Omega

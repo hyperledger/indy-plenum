@@ -25,8 +25,8 @@ class ReqIdrToTxn:
         self._keyValueStorage.put(key, str(seqNo))
 
     def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(seqNo))
-                                        for identifier, reqId, seqNo in batch])
+        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(
+            seqNo)) for identifier, reqId, seqNo in batch])
 
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)

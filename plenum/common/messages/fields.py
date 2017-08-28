@@ -18,8 +18,8 @@ class FieldValidator(metaclass=ABCMeta):
     def validate(self, val):
         """
         Validates field value
-        
-        :param val: field value to validate 
+
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -38,10 +38,10 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
     # TODO: `validate` should be renamed to `validation_error`
     def validate(self, val):
         """
-        Performs basic validation of field value and then passes it for 
+        Performs basic validation of field value and then passes it for
         specific validation.
-        
-        :param val: field value to validate 
+
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -58,11 +58,11 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
     @abstractmethod
     def _specific_validation(self, val):
         """
-        Performs specific validation of field. Should be implemented in 
+        Performs specific validation of field. Should be implemented in
         subclasses. Use it instead of overriding 'validate'.
-        
-        :param val: field value to validate 
-        :return: error message or None 
+
+        :param val: field value to validate
+        :return: error message or None
         """
 
     def __type_check(self, val):
@@ -276,9 +276,8 @@ class Base58Field(FieldBase):
         if invalid_chars:
             # only 10 chars to shorten the output
             to_print = sorted(invalid_chars)[:10]
-            return 'should not contain the following chars {}{}' \
-                .format(to_print,
-                        ' (truncated)' if len(to_print) < len(invalid_chars) else '')
+            return 'should not contain the following chars {}{}' .format(
+                to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
             # TODO could impact performace, need to check
             b58len = len(base58.b58decode(val))
@@ -355,9 +354,9 @@ class VerkeyField(FieldBase):
 
     def _specific_validation(self, val):
         if val.startswith('~'):
-            #abbreviated base58
+            # abbreviated base58
             return self._b58abbreviated.validate(val[1:])
-        #full base58
+        # full base58
         return self._b58full.validate(val)
 
 
@@ -423,7 +422,8 @@ class VersionField(FieldBase):
     def _specific_validation(self, val):
         parts = val.split(".")
         if len(parts) not in self._comp_num:
-            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+            return "version consists of {} components, but it should contain {}".format(
+                len(parts), self._comp_num)
         for p in parts:
             if not p.isdigit():
                 return "version component should contain only digits"
@@ -463,7 +463,7 @@ class AnyValueField(FieldBase):
 
 class StringifiedNonNegativeNumberField(NonNegativeNumberField):
     """
-    This validator is needed because of json limitations: in some cases 
+    This validator is needed because of json limitations: in some cases
     numbers being converted to strings.
     """
     # TODO: Probably this should be solved another way

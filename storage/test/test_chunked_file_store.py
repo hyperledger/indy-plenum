@@ -27,6 +27,7 @@ data = [getValue(i) for i in range(1, dataSize + 1)]
 def chunkedTextFileStore(tempdir) -> ChunkedFileStore:
     return ChunkedFileStore(tempdir, "chunked_data", True, True, chunkSize)
 
+
 @pytest.yield_fixture(scope="function")
 def populatedChunkedFileStore(tempdir, chunkedTextFileStore) -> ChunkedFileStore:
     store = chunkedTextFileStore
@@ -86,7 +87,7 @@ def test_get_range(populatedChunkedFileStore):
     # Range begins and ends at chunk boundaries
     num = 0
     for k, v in populatedChunkedFileStore.iterator(
-            start = chunkSize + 1, end = 2 * chunkSize):
+            start=chunkSize + 1, end=2 * chunkSize):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
@@ -94,7 +95,7 @@ def test_get_range(populatedChunkedFileStore):
     # Range does not begin or end at chunk boundaries
     num = 0
     for k, v in populatedChunkedFileStore.iterator(
-            start = chunkSize + 2, end = 2 * chunkSize + 1):
+            start=chunkSize + 2, end=2 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
     assert num == chunkSize
@@ -102,7 +103,7 @@ def test_get_range(populatedChunkedFileStore):
     # Range spans multiple full chunks
     num = 0
     for k, v in populatedChunkedFileStore.iterator(start=chunkSize + 2,
-                                                    end=5 * chunkSize + 1):
+                                                   end=5 * chunkSize + 1):
         assert data[int(k) - 1] == v
         num += 1
     assert num == 4 * chunkSize
@@ -111,9 +112,7 @@ def test_get_range(populatedChunkedFileStore):
         list(populatedChunkedFileStore.iterator(start=5, end=1))
 
     for frm, to in [(i, j) for i, j in itertools.permutations(
-            range(1, dataSize+1), 2) if i <= j]:
+            range(1, dataSize + 1), 2) if i <= j]:
         for k, v in populatedChunkedFileStore.iterator(
                 start=frm, end=to):
             assert data[int(k) - 1] == v
-
-

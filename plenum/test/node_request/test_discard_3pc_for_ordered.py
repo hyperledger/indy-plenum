@@ -53,11 +53,11 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     # `slow_node` did receive correct number of PREPAREs and COMMITs
-    looper.run(eventually(chk, slow_node, 0, sent_batches-1, sent_batches,
+    looper.run(eventually(chk, slow_node, 0, sent_batches - 1, sent_batches,
                           retryWait=1))
 
     # `other_nodes` have not recorded any PREPAREs or COMMITs from `slow_node`
     chk_commits_prepares_recvd(0, other_nodes, slow_node)
 
     # `other_nodes` have discarded PREPAREs and COMMITs all batches
-    count_discarded(0, 2*sent_batches)
+    count_discarded(0, 2 * sent_batches)

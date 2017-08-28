@@ -19,7 +19,7 @@ def check_accepted_view_change_sent(node, nodes):
             continue
         if other_node.name in node.elector._view_change_done:
             assert node.elector._view_change_done[other_node.name] == \
-                   node.elector._accepted_view_change_done_message
+                node.elector._accepted_view_change_done_message
 
 
 def test_primary_selection_non_genesis_node(one_node_added, looper,
@@ -30,8 +30,8 @@ def test_primary_selection_non_genesis_node(one_node_added, looper,
 
 @pytest.fixture(scope='module')
 def two_more_nodes_added(one_node_added, looper, txnPoolNodeSet,
-                                      stewardWallet, steward1,
-                                      tdirWithPoolTxns, tconf, allPluginsPath):
+                         stewardWallet, steward1,
+                         tdirWithPoolTxns, tconf, allPluginsPath):
     # check_accepted_view_change_sent(one_node_added, txnPoolNodeSet)
 
     new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
@@ -41,12 +41,15 @@ def two_more_nodes_added(one_node_added, looper, txnPoolNodeSet,
     return new_nodes
 
 
-def test_primary_selection_increase_f(two_more_nodes_added, looper, txnPoolNodeSet,
-                                      stewardWallet, steward1):
+def test_primary_selection_increase_f(
+        two_more_nodes_added,
+        looper,
+        txnPoolNodeSet,
+        stewardWallet,
+        steward1):
     # for n in two_more_nodes_added:
     #     check_accepted_view_change_sent(n, txnPoolNodeSet)
     ensure_pool_functional(looper, txnPoolNodeSet, stewardWallet, steward1)
-
 
 
 # TODO: Add more tests to make one next primary crashed, malicious, ensure primary

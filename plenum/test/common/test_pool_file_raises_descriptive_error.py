@@ -11,7 +11,8 @@ class DummyLedger(Ledger):
         raise JSONDecodeError('', '', 0)
 
 
-def test_pool_file_is_invalid_raises_SystemExit_has_descriptive_error(tdir_for_func):
+def test_pool_file_is_invalid_raises_SystemExit_has_descriptive_error(
+        tdir_for_func):
     """
     Test that that invalid pool_transaction file raises the proper exception (INDY-150)
     """

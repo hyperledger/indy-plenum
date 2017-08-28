@@ -19,7 +19,7 @@ def testLogFiltering(cli, validNodeNames, createAllNodes):
     cli.enterCmd('client {} send {}'.format(client.name, msg))
 
     lastRequestId = wallet._getIdData().lastReqId
-    waitForSufficientRepliesForRequests(cli.looper,client,
+    waitForSufficientRepliesForRequests(cli.looper, client,
                                         requestIds=[lastRequestId])
 
     assert "got msg from node" not in cli.lastCmdOutput

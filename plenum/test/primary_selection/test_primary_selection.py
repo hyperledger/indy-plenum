@@ -28,7 +28,8 @@ def primaryReplicas(nodeSet, up):
 
 
 # noinspection PyIncorrectDocstring
-def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1):
+def testPrimarySelectionAfterPoolReady(
+        looper, nodeSet, ready, wallet1, client1):
     """
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
@@ -39,21 +40,24 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
                                  key=operator.attrgetter("rank"))
 
         for idx, node in enumerate(sortedNodeNames):
-            # For instance 0, the primary replica should be on the node with rank 0
+            # For instance 0, the primary replica should be on the node with
+            # rank 0
             if idx == 0:
                 Replica.generateName(sortedNodeNames[idx], 0)
                 assert node.replicas[0].isPrimary
                 assert not node.replicas[1].isPrimary
                 assert not node.replicas[2].isPrimary
 
-            # For instance 1, the primary replica should be on the node with rank 1
+            # For instance 1, the primary replica should be on the node with
+            # rank 1
             if idx == 1:
                 Replica.generateName(sortedNodeNames[idx], 1)
                 assert not node.replicas[0].isPrimary
                 assert node.replicas[1].isPrimary
                 assert not node.replicas[2].isPrimary
 
-            # For instance 2, the primary replica should be on the node with rank 2
+            # For instance 2, the primary replica should be on the node with
+            # rank 2
             if idx == 2:
                 Replica.generateName(sortedNodeNames[idx], 2)
                 assert not node.replicas[0].isPrimary
@@ -74,10 +78,12 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
 def catchup_complete_count(nodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
 
+
 @pytest.fixture(scope='module')
 def view_change_done(looper, nodeSet):
     ensure_view_change(looper, nodeSet)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
+
 
 @pytest.fixture(scope='module')
 def view_change_done(looper, nodeSet):
@@ -85,8 +91,15 @@ def view_change_done(looper, nodeSet):
     ensureElectionsDone(looper=looper, nodes=nodeSet)
 
 # noinspection PyIncorrectDocstring
-def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
-                                        catchup_complete_count, view_change_done):
+
+
+def testPrimarySelectionAfterViewChange(
+        looper,
+        nodeSet,
+        ready,
+        primaryReplicas,
+        catchup_complete_count,
+        view_change_done):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.
@@ -94,7 +107,8 @@ def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
     # TODO: This test can fail due to view change.
 
     for n in nodeSet:
-        assert n.spylog.count(n.allLedgersCaughtUp) > catchup_complete_count[n.name]
+        assert n.spylog.count(
+            n.allLedgersCaughtUp) > catchup_complete_count[n.name]
 
     # Primary replicas before view change
     prBeforeVC = primaryReplicas

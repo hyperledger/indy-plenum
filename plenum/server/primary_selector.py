@@ -1,6 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.constants import PRIMARY_ELECTION_PREFIX, VIEW_CHANGE_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
@@ -13,7 +13,7 @@ logger = getlogger()
 
 class PrimarySelector(PrimaryDecider):
     """
-    Simple implementation of primary decider. 
+    Simple implementation of primary decider.
     Decides on a primary in round-robin fashion.
     Assumes that all nodes are up
     """
@@ -41,7 +41,8 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
-        # TODO: re-factor this, separate this two states (selection of a new primary and propagation of existing one)
+        # TODO: re-factor this, separate this two states (selection of a new
+        # primary and propagation of existing one)
         if not self.node.view_change_in_progress:
             return self.node.quorums.propagate_primary.value
         if self.node.propagate_primary:
@@ -58,7 +59,7 @@ class PrimarySelector(PrimaryDecider):
         """
         Returns the last accepted `ViewChangeDone` message.
         If no view change has happened returns ViewChangeDone
-        with view no 0 to a newly joined node 
+        with view no 0 to a newly joined node
         """
         # TODO: Consider a case where more than one node joins immediately,
         # then one of the node might not have an accepted
@@ -68,11 +69,12 @@ class PrimarySelector(PrimaryDecider):
         if accepted:
             messages.append(ViewChangeDone(self.viewNo, *accepted))
         elif self.name in self._view_change_done:
-                messages.append(ViewChangeDone(self.viewNo,
-                                               *self._view_change_done[self.name]))
+            messages.append(ViewChangeDone(self.viewNo,
+                                           *self._view_change_done[self.name]))
         else:
-            logger.debug('{} has no ViewChangeDone message to send for view {}'.
-                         format(self, self.viewNo))
+            logger.debug(
+                '{} has no ViewChangeDone message to send for view {}'. format(
+                    self, self.viewNo))
         return messages
 
     # overridden method of PrimaryDecider
@@ -93,7 +95,7 @@ class PrimarySelector(PrimaryDecider):
                                       sender: str) -> bool:
         """
         Processes ViewChangeDone messages. Once n-f messages have been
-        received, decides on a primary for specific replica. 
+        received, decides on a primary for specific replica.
 
         :param msg: ViewChangeDone message
         :param sender: the name of the node from which this message was sent
@@ -161,7 +163,7 @@ class PrimarySelector(PrimaryDecider):
         if new_primary != expected_primary:
             logger.error("{}{} expected next primary to be {}, but majority "
                          "declared {} instead for view {}"
-                         .format(PRIMARY_ELECTION_PREFIX, self.name,
+                         .format(PRIMARY_SELECTION_PREFIX, self.name,
                                  expected_primary, new_primary, self.viewNo))
             return False
 
@@ -184,7 +186,8 @@ class PrimarySelector(PrimaryDecider):
         num_of_ready_nodes = len(self._view_change_done)
         diff = self.quorum - num_of_ready_nodes
         if diff > 0:
-            logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
+            logger.debug(
+                '{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
 
         logger.debug("{} got view change quorum ({} >= {})"
@@ -199,9 +202,10 @@ class PrimarySelector(PrimaryDecider):
             next_primary_name = self.next_primary_node_name(0)
 
             if next_primary_name not in self._view_change_done:
-                logger.debug("{} has not received ViewChangeDone from the next "
-                             "primary {}".
-                             format(self.name, next_primary_name))
+                logger.debug(
+                    "{} has not received ViewChangeDone from the next "
+                    "primary {}". format(
+                        self.name, next_primary_name))
                 return False
             else:
                 self._has_view_change_from_primary = True
@@ -228,8 +232,9 @@ class PrimarySelector(PrimaryDecider):
             new_primary, ledger_info = mostCommonElement(votes)
             vote_count = votes.count((new_primary, ledger_info))
             if vote_count >= self.quorum:
-                logger.debug('{} found acceptable primary {} and ledger info {}'.
-                             format(self, new_primary, ledger_info))
+                logger.debug(
+                    '{} found acceptable primary {} and ledger info {}'. format(
+                        self, new_primary, ledger_info))
                 self._accepted_view_change_done_message = (new_primary,
                                                            ledger_info)
             else:
@@ -253,6 +258,7 @@ class PrimarySelector(PrimaryDecider):
         return False
 
     def _startSelection(self):
+
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '
@@ -265,8 +271,9 @@ class PrimarySelector(PrimaryDecider):
             return
 
         if self.is_behind_for_view:
-            logger.debug('{} is synced and has an acceptable view change quorum '
-                         'but is behind the accepted state'.format(self))
+            logger.debug(
+                '{} is synced and has an acceptable view change quorum '
+                'but is behind the accepted state'.format(self))
             self.node.start_catchup()
             return
 
@@ -277,7 +284,7 @@ class PrimarySelector(PrimaryDecider):
                 continue
             new_primary_name = self.next_primary_replica_name(instance_id)
             logger.display("{}{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_ELECTION_PREFIX, replica,
+                           .format(PRIMARY_SELECTION_PREFIX, replica,
                                    new_primary_name, instance_id, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
@@ -311,7 +318,7 @@ class PrimarySelector(PrimaryDecider):
 
     def next_primary_node_name(self, instance_id):
         return self.node.get_name_by_rank(self._get_primary_id(
-                self.viewNo, instance_id))
+            self.viewNo, instance_id))
 
     def next_primary_replica_name(self, instance_id):
         """

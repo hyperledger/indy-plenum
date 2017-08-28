@@ -68,12 +68,13 @@ def testPrimaryElectionCase4(case4Setup, looper):
 
     # also have to take into account the catchup procedure
     timeout = waits.expectedPoolNominationTimeout(len(allNodes)) + \
-              waits.expectedPoolCatchupTime(len(allNodes))
+        waits.expectedPoolCatchupTime(len(allNodes))
 
     for node in (A, C, D):
         looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
-    timeout = waits.expectedPoolElectionTimeout(len(allNodes)) + delaySelfNomination
+    timeout = waits.expectedPoolElectionTimeout(
+        len(allNodes)) + delaySelfNomination
     ensureElectionsDone(looper=looper, nodes=allNodes, customTimeout=timeout)
 
     # Node D should not have any primary replica

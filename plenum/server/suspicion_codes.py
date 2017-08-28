@@ -50,8 +50,8 @@ class Suspicions:
         Suspicion(20, "Pre-Prepare message has incorrect reject")
     PPR_STATE_WRONG = \
         Suspicion(21, "Pre-Prepare message has incorrect state trie root")
-    PPR_TXN_WRONG = \
-        Suspicion(22, "Pre-Prepare message has incorrect transaction tree root")
+    PPR_TXN_WRONG = Suspicion(
+        22, "Pre-Prepare message has incorrect transaction tree root")
     PR_STATE_WRONG = \
         Suspicion(23, "Prepare message has incorrect state trie root")
     PR_TXN_WRONG = \
@@ -60,9 +60,10 @@ class Suspicions:
                                      'degraded the performance')
     PRIMARY_DISCONNECTED = Suspicion(26, 'Primary of master protocol instance '
                                          'disconnected')
-    PRIMARY_ABOUT_TO_BE_DISCONNECTED = Suspicion(27, 'Primary of master '
-                                                     'protocol instance '
-                                                     'about to be disconnected')
+    PRIMARY_ABOUT_TO_BE_DISCONNECTED = Suspicion(
+        27, 'Primary of master '
+        'protocol instance '
+        'about to be disconnected')
     INSTANCE_CHANGE_TIMEOUT = Suspicion(28, 'View change could not complete '
                                             'in time')
 

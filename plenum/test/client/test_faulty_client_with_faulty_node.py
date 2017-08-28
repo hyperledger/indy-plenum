@@ -38,4 +38,3 @@ def testReplyUnaffectedByFaultyNode(looper, nodeSet, nodeChangesRequest,
     the PROPAGATE step. A REPLY will be generated for the correct request and
     send to client.
     """
-    pass

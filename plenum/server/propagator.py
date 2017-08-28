@@ -1,7 +1,7 @@
-from collections import OrderedDict, Counter, defaultdict
+from collections import OrderedDict, defaultdict
 from itertools import groupby
 
-from typing import Dict, Tuple, Union, Optional
+from typing import Tuple, Union
 
 from orderedset._orderedset import OrderedSet
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
@@ -18,6 +18,7 @@ class ReqState:
     """
     Object to store the state of the request.
     """
+
     def __init__(self, request: Request):
         self.request = request
         self.forwarded = False
@@ -31,7 +32,8 @@ class ReqState:
         digests = defaultdict(set)
         # this is workaround because we are getting a propagate from somebody with
         # non-str (byte) name
-        for sender, req in filter(lambda x: type(x[0]) == str, self.propagates.items()):
+        for sender, req in filter(lambda x: isinstance(
+                x[0], str), self.propagates.items()):
             digests[req.digest].add(sender)
             if quorum.is_reached(len(digests[req.digest])):
                 return req
@@ -53,6 +55,7 @@ class Requests(OrderedDict):
     by the node and returned to the transaction store, the key for that
     request is popped out
     """
+
     def add(self, req: Request):
         """
         Add the specified request to this request store.
@@ -146,7 +149,8 @@ class Propagator:
             self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], client_name) -> Propagate:
+    def createPropagate(
+            request: Union[Request, dict], client_name) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -261,6 +265,7 @@ class Propagator:
         return i
 
     def _add_to_recently_requested(self, key):
-        while len(self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
+        while len(
+                self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
             self.requested_propagates_for.pop(last=False)
         self.requested_propagates_for.add(key)

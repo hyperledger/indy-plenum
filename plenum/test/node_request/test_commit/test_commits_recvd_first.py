@@ -8,7 +8,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 
 
 def test_commits_recvd_first(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected):
+                             wallet1, client1Connected):
     slow_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet, 0)][-1]
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = 50

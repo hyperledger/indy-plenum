@@ -60,7 +60,8 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     node_req = r[0]
 
     # Send more domain ledger requests but don't wait for replies
-    requests = [node_req, *sendRandomRequests(new_steward_wallet, new_steward, 5)]
+    requests = [node_req, *
+                sendRandomRequests(new_steward_wallet, new_steward, 5)]
 
     # Make sure all requests are completed
     waitForSufficientRepliesForRequests(looper, new_steward,

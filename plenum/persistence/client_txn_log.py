@@ -11,6 +11,7 @@ class ClientTxnLog(HasFileStorage):
     """
     An immutable log of transactions made by the client.
     """
+
     def __init__(self, name, baseDir=None):
         self.dataDir = "data/clients"
         self.name = name
@@ -22,7 +23,8 @@ class ClientTxnLog(HasFileStorage):
             os.makedirs(self.clientDataLocation)
         # self.transactionLog = TextFileStore(self.clientDataLocation,
         #                                     "transactions")
-        self.transactionLog = KeyValueStorageLeveldb(self.clientDataLocation, "transactions")
+        self.transactionLog = KeyValueStorageLeveldb(
+            self.clientDataLocation, "transactions")
         self.serializer = ledger_txn_serializer
 
     def close(self):
@@ -35,13 +37,13 @@ class ClientTxnLog(HasFileStorage):
 
     def append(self, identifier: str, reqId, txn):
         key = '{}{}'.format(identifier, reqId)
-        self.transactionLog.put(key=key, value=self.serializer.serialize(txn,
-                                fields=self.txnFieldOrdering, toBytes=False))
+        self.transactionLog.put(
+            key=key, value=self.serializer.serialize(
+                txn, fields=self.txnFieldOrdering, toBytes=False))
 
     def hasTxn(self, identifier, reqId) -> bool:
         key = '{}{}'.format(identifier, reqId)
-        return self.transactionLog.has_key(key)
+        return key in self.transactionLog
 
     def reset(self):
         self.transactionLog.reset()
-

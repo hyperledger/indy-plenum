@@ -79,11 +79,11 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     # Client should get only 3 replies till the retry timeout since one node
     # is not sending any replies
     wait_for_replies(looper, client1, idr, reqId, 3,
-                     custom_timeout=tconf.CLIENT_REPLY_TIMEOUT-1)
+                     custom_timeout=tconf.CLIENT_REPLY_TIMEOUT - 1)
     end = time.perf_counter()
     # Client should wait till the retry timeout but after that should
     # get the reply from the remaining node
-    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT-(end-start))
+    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT - (end - start))
     wait_for_replies(looper, client1, idr, reqId, 4)
 
 
@@ -118,13 +118,15 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
     # Wait till ACK timeout
     looper.runFor(reqAckTimeout + 1)
-    assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+    assert client1.spylog.count(
+        client1.resendRequests.__name__) == totalResends
 
     # Wait till REPLY timeout
     retryTimeout = executionTimeout - reqAckTimeout + 1
     looper.runFor(retryTimeout)
 
-    assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+    assert client1.spylog.count(
+        client1.resendRequests.__name__) == totalResends
     idr, reqId = req.key
     wait_for_replies(looper, client1, idr, reqId, 3)
 
