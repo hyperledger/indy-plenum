@@ -754,8 +754,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the sum of messages successfully processed
         """
-        outbox_processed = self.service_replicas_outbox(limit)
         inbox_processed = self.replicas.service_inboxes(limit)
+        outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
 
     async def serviceNodeMsgs(self, limit: int) -> int:
