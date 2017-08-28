@@ -39,6 +39,8 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
 
     assert viewNo1 == viewNo0 + 1
     assert master_node.viewNo == viewNo0
+    assert len(restNodes[0].replicas) == 1 # only one instance left
+    assert restNodes[0].replicas[0].primaryName != master_node.name
 
     # ensure pool is working properly
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
@@ -47,11 +49,23 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     ensure_view_change_complete(looper, restNodes)
 
     viewNo2 = checkViewNoForNodes(restNodes)
+    assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo2 == viewNo1 + 1
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
 
     logger.info("3. force view change 3 and check final viewNo")
     ensure_view_change_complete(looper, restNodes)
     viewNo3 = checkViewNoForNodes(restNodes)
+    assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo3 == viewNo2 + 1
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+
+    logger.info("4. force view change 4 and check final viewNo")
+    ensure_view_change_complete(looper, restNodes)
+    viewNo4 = checkViewNoForNodes(restNodes)
+    assert restNodes[0].replicas[0].primaryName != master_node.name
+    assert viewNo4 == viewNo3 + 1
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
