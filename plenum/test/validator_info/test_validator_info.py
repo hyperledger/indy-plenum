@@ -151,6 +151,32 @@ def test_validator_info_file_pool_fields_valid(txnPoolNodesLooper, txnPoolNodeSe
     assert latest_info['pool']['total-count'] == nodeCount
 
 
+def test_validator_info_file_handle_fails(info,
+                                          node,
+                                          load_latest_info):
+    node._info_tool._node = None
+    latest_info = load_latest_info()
+
+    assert latest_info['alias'] is None
+    assert latest_info['bindings']['client']['ip'] is None
+    assert latest_info['bindings']['client']['port'] is None
+    assert latest_info['bindings']['node']['ip'] is None
+    assert latest_info['bindings']['node']['port'] is None
+    assert latest_info['did'] is None
+    assert latest_info['timestamp'] is not None
+    assert latest_info['verkey'] is None
+    assert latest_info['metrics']['average-per-second']['read-transactions'] is None
+    assert latest_info['metrics']['average-per-second']['write-transactions'] is None
+    assert latest_info['metrics']['transaction-count']['ledger'] is None
+    assert latest_info['metrics']['transaction-count']['pool'] is None
+    assert latest_info['metrics']['uptime'] is None
+    assert latest_info['pool']['reachable']['count'] is None
+    assert latest_info['pool']['reachable']['list'] is None
+    assert latest_info['pool']['unreachable']['count'] is None
+    assert latest_info['pool']['unreachable']['list'] is None
+    assert latest_info['pool']['total-count'] is None
+
+
 @pytest.fixture(scope='module')
 def info(info_path):
     return load_info(info_path)
@@ -226,10 +252,10 @@ def write_txn_and_get_latest_info(txnPoolNodesLooper,
     return write_wrapped
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
     def wrapped():
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
+        txnPoolNodesLooper.runFor(patched_dump_info_period + 1)
         return load_info(info_path)
     return wrapped
 
