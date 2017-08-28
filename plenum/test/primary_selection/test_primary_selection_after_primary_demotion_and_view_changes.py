@@ -5,7 +5,8 @@ from plenum.common.constants import ALIAS, SERVICES
 from plenum.test.pool_transactions.conftest import looper
 from plenum.test.pool_transactions.helper import updateNodeData
 
-from plenum.test.helper import checkViewNoForNodes
+from plenum.test.helper import checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change_complete
 
@@ -39,8 +40,12 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert viewNo1 == viewNo0 + 1
     assert master_node.viewNo == viewNo0
 
+    # ensure pool is working properly
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+
     logger.info("2. force view change 2 and check final viewNo")
     ensure_view_change_complete(looper, restNodes)
+
     viewNo2 = checkViewNoForNodes(restNodes)
     assert viewNo2 == viewNo1 + 1
 
@@ -48,3 +53,5 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     ensure_view_change_complete(looper, restNodes)
     viewNo3 = checkViewNoForNodes(restNodes)
     assert viewNo3 == viewNo2 + 1
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)

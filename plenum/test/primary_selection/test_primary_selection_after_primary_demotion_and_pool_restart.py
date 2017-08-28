@@ -6,7 +6,8 @@ from plenum.test.pool_transactions.helper import updateNodeData
 
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
-from plenum.test.helper import checkViewNoForNodes
+from plenum.test.helper import checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
 
@@ -33,6 +34,9 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     restNodes = [node for node in txnPoolNodeSet if node.name != master_node.name]
     ensureElectionsDone(looper, restNodes)
 
+    # ensure pool is working properly
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+
     logger.info("2. restart pool")
     # Stopping existing nodes
     for node in txnPoolNodeSet:
@@ -54,6 +58,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     looper.run(checkNodesConnected(restNodes))
     ensureElectionsDone(looper, restNodes)
     checkViewNoForNodes(restNodes, 0)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
 
     primariesIdxs = getPrimaryNodesIdxs(restNodes)
     assert restNodes[primariesIdxs[0]].name != master_node.name
