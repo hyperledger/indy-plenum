@@ -5,6 +5,10 @@ import stat
 from pathlib import Path
 
 import jsonpickle
+from jsonpickle import JSONBackend
+from jsonpickle import tags
+from jsonpickle.unpickler import loadclass
+from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
@@ -34,6 +38,17 @@ Alias = str
 IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
+
+
+def getClassVersionKey(cls):
+    """
+    Gets the wallet class version key for use in a serialized representation
+    of the wallet.
+
+    :param cls: the wallet class
+    :return: the class version key
+    """
+    return 'classver/{}'.format(importable_name(cls))
 
 
 class Wallet:
@@ -251,7 +266,8 @@ class Wallet:
         :return: List of identifiers/aliases.
         """
         lst = list(self.aliasesToIds.keys())
-        others = set(self.idsToSigners.keys()) - set(self.aliasesToIds.values())
+        others = set(self.idsToSigners.keys()) - \
+            set(self.aliasesToIds.values())
         lst.extend(list(others))
         for x in exclude:
             lst.remove(x)
@@ -280,6 +296,7 @@ class WalletStorageHelper:
     :param fmode: (optional) permissions for files inside,
         default is 0600
     """
+
     def __init__(self, keyringsBaseDir, dmode=0o700, fmode=0o600):
         self.dmode = dmode
         self.fmode = fmode
@@ -321,7 +338,8 @@ class WalletStorageHelper:
         return jsonpickle.encode(data, keys=True)
 
     def decode(self, data):
-        return jsonpickle.decode(data, keys=True)
+        return jsonpickle.decode(data, backend=WalletCompatibilityBackend(),
+                                 keys=True)
 
     def saveWallet(self, wallet, fpath):
         """Save wallet into specified localtion.
@@ -397,3 +415,27 @@ class WalletStorageHelper:
             wallet = self.decode(wf.read())
 
         return wallet
+
+
+class WalletCompatibilityBackend(JSONBackend):
+    """
+    Jsonpickle backend providing conversion of raw representations
+    (nested dictionaries/lists structure) of wallets from previous versions
+    to the current version.
+    """
+
+    def decode(self, string):
+        raw = super().decode(string)
+        # Note that backend.decode may be called not only for the whole object
+        # representation but also for representations of structured keys of
+        # dictionaries.
+        # Here we assume that if the string represents a class instance and
+        # this class contains makeRawCompatible method then this class is
+        # a wallet class supporting backward compatibility
+        if tags.OBJECT in raw:
+            clsName = raw[tags.OBJECT]
+            cls = loadclass(clsName)
+            if hasattr(cls, 'makeRawCompatible') \
+                    and callable(getattr(cls, 'makeRawCompatible')):
+                cls.makeRawCompatible(raw)
+        return raw

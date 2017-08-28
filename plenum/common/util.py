@@ -55,15 +55,15 @@ def randomString(size: int = 20) -> str:
 
     def randomStr(size):
         assert (size > 0), "Expected random string size cannot be less than 1"
-        #Approach 1
+        # Approach 1
         rv = randombytes(size // 2).hex()
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
-        #Approach 2 this is faster than Approach 1, but lovesh had a doubt
+        # Approach 2 this is faster than Approach 1, but lovesh had a doubt
         # that part of a random may not be truely random, so until
         # we have definite proof going to retain it commented
-        #rstr = randombytes(size).hex()
-        #return rstr[:size]
+        # rstr = randombytes(size).hex()
+        # return rstr[:size]
 
     return randomStr(size)
 
@@ -88,8 +88,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
+), logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -111,9 +111,9 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             mutated = False
             for old, new in toFrom.items():
                 if id(o) == id(old):
-                    logging.debug("{}in object {}, attribute {} changed from {} to {}".
-                                  format(logMsg + ": " if logMsg else "",
-                                         obj, nm, old, new))
+                    logging.debug(
+                        "{}in object {}, attribute {} changed from {} to {}". format(
+                            logMsg + ": " if logMsg else "", obj, nm, old, new))
                     if isinstance(obj, dict):
                         obj[nm] = new
                     else:
@@ -122,7 +122,8 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             if not mutated:
                 if deepLevel is not None and deepLevel == 0:
                     continue
-                objSearchReplace(o, toFrom, checked, logMsg, deepLevel - 1 if deepLevel is not None else deepLevel)
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel -
+                                 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 
@@ -149,7 +150,8 @@ async def runall(corogen):
     return results
 
 
-def getSymmetricallyEncryptedVal(val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
+def getSymmetricallyEncryptedVal(
+        val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
     """
     Encrypt the provided value with symmetric encryption
 
@@ -525,6 +527,21 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
+
+
+def updateWalletsBaseDirNameIfOutdated(config):
+    """
+    Renames the wallets base directory if it has the outdated name.
+
+    :param config: the application configuration
+    """
+    if config.walletsDir == 'wallets':  # if the parameter is not overridden
+        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'keyrings'))
+        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'wallets'))
+        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
+            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

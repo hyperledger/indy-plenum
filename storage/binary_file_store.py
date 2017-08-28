@@ -70,7 +70,8 @@ class BinaryFileStore(SingleFileStore):
                 if size > 0:
                     f.seek(-len(self.lineSep), 2)  # last character in file
                     if f.read() != self.lineSep:
-                        linesep = self.lineSep if isinstance(self.lineSep, bytes) else self.lineSep.encode()
+                        linesep = self.lineSep if isinstance(
+                            self.lineSep, bytes) else self.lineSep.encode()
                         f.write(linesep)
                         logging.debug(
                             "new line added for file: {}".format(self.db_path))

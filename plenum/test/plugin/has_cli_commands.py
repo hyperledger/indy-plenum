@@ -14,4 +14,3 @@ class HasCliCommands:
     @abstractmethod
     def actions(self):
         pass
-    

@@ -31,7 +31,7 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = self.uncommittedTree.root_hash
         self.uncommittedTxns.extend(txns)
         if txns:
-            return (uncommittedSize+1, uncommittedSize+len(txns)), txns
+            return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
         else:
             return (uncommittedSize, uncommittedSize), txns
 
@@ -79,7 +79,8 @@ class Ledger(_Ledger):
             self.uncommittedTree = None
             self.uncommittedRootHash = None
         else:
-            self.uncommittedTree = self.treeWithAppliedTxns(self.uncommittedTxns)
+            self.uncommittedTree = self.treeWithAppliedTxns(
+                self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
         logger.debug('Discarding {} txns and root hash {} and new root hash '
                      'is {}. {} are still uncommitted'.

@@ -13,8 +13,8 @@ def test_view_change_in_between_3pc_all_nodes(txnPoolNodeSet, looper,
                                client)
 
 
-def test_view_change_in_between_3pc_all_nodes_long_delay(txnPoolNodeSet, looper,
-                                              wallet1, client):
+def test_view_change_in_between_3pc_all_nodes_long_delay(
+        txnPoolNodeSet, looper, wallet1, client):
     """
     - Slow processing 3PC messages for all nodes
     - do view change

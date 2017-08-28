@@ -4,15 +4,15 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
 from plenum.test.helper import sendRandomRequests, \
-        send_reqs_to_nodes_and_verify_all_replies, \
-        waitForSufficientRepliesForRequests, \
-        checkViewNoForNodes, \
-        check_last_ordered_3pc
+    send_reqs_to_nodes_and_verify_all_replies, \
+    waitForSufficientRepliesForRequests, \
+    checkViewNoForNodes, \
+    check_last_ordered_3pc
 from plenum.test.delayers import delay_3pc_messages, \
-        reset_delays_and_process_delayeds
+    reset_delays_and_process_delayeds
 from plenum.test.view_change.helper import ensure_view_change_complete
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-        client1, wallet1, client1Connected, looper
+    client1, wallet1, client1Connected, looper
 
 
 def check_nodes_last_ordered_3pc(nodes, last_ordered_3pc):

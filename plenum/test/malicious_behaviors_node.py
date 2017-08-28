@@ -2,12 +2,15 @@ import random
 import types
 from functools import partial
 
-import time
 
 import plenum.common.error
 from plenum.common.types import f
 
-from plenum.common.messages.node_messages import *
+from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
+    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
 from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
@@ -53,8 +56,11 @@ def delaysCommitProcessing(node, delay: float=30, instId: int=None):
 
 # Could have this method directly take a replica rather than a node and an
 # instance id but this looks more useful as a complete node can be malicious
-def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
-                           instId=None):
+def sendDuplicate3PhaseMsg(
+        node: TestNode,
+        msgType: ThreePhaseMsg,
+        count: int=2,
+        instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
@@ -129,7 +135,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
-        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest+'random')
+        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest + 'random')
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
 

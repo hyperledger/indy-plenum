@@ -92,7 +92,7 @@ def expectedPoolConsistencyProof(nodeCount):
         (ready for catchup if it is needed)
     """
     nodeCPTimeout = __Peer2PeerRequestExchangeTime + \
-                    config.ConsistencyProofsTimeout
+        config.ConsistencyProofsTimeout
     return nodeCount * nodeCPTimeout
 
 
@@ -102,7 +102,7 @@ def expectedPoolCatchupTime(nodeCount):
     To: each of the Nodes finished the the catchup procedure
     """
     nodeCatchupTimeout = __Peer2PeerRequestExchangeTime + \
-                         config.CatchupTransactionsTimeout
+        config.CatchupTransactionsTimeout
     return nodeCount * nodeCatchupTimeout
 
 
@@ -112,8 +112,8 @@ def expectedPoolGetReadyTimeout(nodeCount):
     To: the pool ledger is equal across the Nodes
     """
     return expectedPoolInterconnectionTime(nodeCount) + \
-           expectedPoolConsistencyProof(nodeCount) + \
-           expectedPoolCatchupTime(nodeCount)
+        expectedPoolConsistencyProof(nodeCount) + \
+        expectedPoolCatchupTime(nodeCount)
 
 
 def expectedPoolLedgerCheck(nodeCount):
@@ -243,7 +243,7 @@ def expectedClientToPoolConnectionTimeout(nodeCount):
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
     return config.ExpectedConnectTime * nodeCount + \
-           config.RETRY_TIMEOUT_RESTRICTED
+        config.RETRY_TIMEOUT_RESTRICTED
 
 
 def expectedClientConsistencyProof(nodeCount):
@@ -253,7 +253,7 @@ def expectedClientConsistencyProof(nodeCount):
     """
     qN = Quorums(nodeCount).commit.value
     return qN * __Peer2PeerRequestExchangeTime + \
-           config.ConsistencyProofsTimeout
+        config.ConsistencyProofsTimeout
 
 
 def expectedClientCatchupTime(nodeCount):
@@ -263,7 +263,7 @@ def expectedClientCatchupTime(nodeCount):
     """
     qN = Quorums(nodeCount).commit.value
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
-           config.CatchupTransactionsTimeout
+        config.CatchupTransactionsTimeout
 
 
 def expectedClientToPoolRequestDeliveryTime(nodeCount):

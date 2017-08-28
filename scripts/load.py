@@ -1,10 +1,11 @@
+from time import perf_counter
+
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests
 from stp_core.network.port_dispenser import genHa
 from stp_core.loop.looper import Looper
-from time import *
 from plenum.common.signer_simple import SimpleSigner
 from stp_core.types import HA
 

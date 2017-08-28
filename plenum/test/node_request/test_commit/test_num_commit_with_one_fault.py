@@ -15,7 +15,8 @@ whitelist = ['cannot process incoming PREPARE']
 def evilAlpha(nodeSet):
     # Delay processing of PRE-PREPARE messages by Alpha for 90
     # seconds since the timeout for checking sufficient commits is 60 seconds
-    makeNodeFaulty(nodeSet.Alpha, partial(delaysPrePrepareProcessing, delay=90))
+    makeNodeFaulty(nodeSet.Alpha, partial(
+        delaysPrePrepareProcessing, delay=90))
 
 
 def testNumOfCommitMsgsWithOneFault(evilAlpha, committed1):

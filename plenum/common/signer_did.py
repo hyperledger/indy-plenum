@@ -94,7 +94,8 @@ class DidSigner(DidIdentity, Signer):
         self.naclSigner = NaclSigner(self.sk)
 
         Signer.__init__(self)
-        DidIdentity.__init__(self, identifier, rawVerkey=self.naclSigner.verraw)
+        DidIdentity.__init__(
+            self, identifier, rawVerkey=self.naclSigner.verraw)
 
         self._alias = alias
 

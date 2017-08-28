@@ -25,7 +25,8 @@ def test_view_change_after_max_catchup_rounds(txnPoolNodeSet, looper, wallet1,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     ledger_summary = txnPoolNodeSet[0].elector.ledger_summary
 
-    slow_nodes = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet, 0)[-2:]]
+    slow_nodes = [r.node for r in getNonPrimaryReplicas(
+        txnPoolNodeSet, 0)[-2:]]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
 
     # Make node slow to process Prepares and Commits
@@ -39,7 +40,8 @@ def test_view_change_after_max_catchup_rounds(txnPoolNodeSet, looper, wallet1,
     ensure_view_change(looper, nodes=txnPoolNodeSet)
 
     def last_prepared(nodes):
-        lst = [n.master_replica.last_prepared_certificate_in_view() for n in nodes]
+        lst = [n.master_replica.last_prepared_certificate_in_view()
+               for n in nodes]
         # All nodes have same last prepared
         assert check_if_all_equal_in_list(lst)
         return lst[0]

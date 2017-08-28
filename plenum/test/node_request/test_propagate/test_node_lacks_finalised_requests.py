@@ -38,22 +38,29 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
 
     old_count_recv_ppg = get_count(faulty_node, faulty_node.processPropagate)
     old_count_recv_req = get_count(faulty_node, faulty_node.processRequest)
-    old_count_request_propagates = get_count(faulty_node, faulty_node.request_propagates)
+    old_count_request_propagates = get_count(
+        faulty_node, faulty_node.request_propagates)
 
     sent_reqs = 5
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, sent_reqs)
+    send_reqs_to_nodes_and_verify_all_replies(
+        looper, wallet1, client1, sent_reqs)
 
-    assert get_count(faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
+    assert get_count(
+        faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
     if recv_client_requests:
-        assert get_count(faulty_node, faulty_node.processRequest) > old_count_recv_req
+        assert get_count(
+            faulty_node, faulty_node.processRequest) > old_count_recv_req
     else:
-        assert get_count(faulty_node, faulty_node.processRequest) == old_count_recv_req
+        assert get_count(
+            faulty_node, faulty_node.processRequest) == old_count_recv_req
 
-    # Attempt to request PROPAGATEs was made twice, since the faulty node has 2 replicas
-    assert get_count(faulty_node, faulty_node.request_propagates) - old_count_request_propagates == 2
+    # Attempt to request PROPAGATEs was made twice, since the faulty node has
+    # 2 replicas
+    assert get_count(faulty_node, faulty_node.request_propagates) - \
+        old_count_request_propagates == 2
 
-    requested_propagate_counts = getAllReturnVals(faulty_node,
-                                                  faulty_node.request_propagates)
+    requested_propagate_counts = getAllReturnVals(
+        faulty_node, faulty_node.request_propagates)
 
     # The last attempt to request PROPAGATEs was not successful
     assert requested_propagate_counts[0] == 0

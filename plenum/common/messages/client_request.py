@@ -1,5 +1,8 @@
-from plenum.common.constants import *
-from plenum.common.messages.fields import *
+from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR
+from plenum.common.messages.fields import NetworkIpAddressField, NetworkPortField, NonEmptyStringField, IterableField, \
+    ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, RoleField, TxnSeqNoField, IdentifierField, \
+    NonNegativeNumberField, SignatureField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 
@@ -64,10 +67,10 @@ class ClientOperationField(MessageValidator):
 
     def validate(self, dct):
         """
-        Choose a schema for client request operation and validate 
-        the operation field. If the schema is not found skips validation. 
-        :param dct: an operation field from client request 
-        :return: raises exception if invalid request 
+        Choose a schema for client request operation and validate
+        the operation field. If the schema is not found skips validation.
+        :param dct: an operation field from client request
+        :return: raises exception if invalid request
         """
         if not isinstance(dct, dict):
             # TODO this check should be in side of the validator not here

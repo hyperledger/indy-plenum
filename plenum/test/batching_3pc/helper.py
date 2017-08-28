@@ -1,9 +1,10 @@
 import types
 from binascii import hexlify
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn
-from plenum.common.messages.node_messages import *
+from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
     send_signed_requests
@@ -81,8 +82,10 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             for req in reqs:
-                ledger_manager._add_txn(ledger_id, ledger, ledgerInfo, reqToTxn(req, pp.ppTime))
-            ledger_manager.catchupCompleted(DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
+                ledger_manager._add_txn(
+                    ledger_id, ledger, ledgerInfo, reqToTxn(req, pp.ppTime))
+            ledger_manager.catchupCompleted(
+                DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
             added = True
 

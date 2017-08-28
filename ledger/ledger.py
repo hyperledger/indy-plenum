@@ -43,7 +43,8 @@ class Ledger(ImmutableStore):
         self.dataDir = dataDir
         self.tree = tree
         self.txn_serializer = txn_serializer or ledger_txn_serializer  # type: MappingSerializer
-        self.hash_serializer = hash_serializer or ledger_hash_serializer  # type: MappingSerializer
+        # type: MappingSerializer
+        self.hash_serializer = hash_serializer or ledger_hash_serializer
         self.hasher = TreeHasher()
         self._transactionLog = None  # type: KeyValueStorage
         self._transactionLogName = fileName or "transactions"
@@ -85,7 +86,8 @@ class Ledger(ImmutableStore):
         self.tree.hashStore.reset()
         for key, entry in self._transactionLog.iterator():
             if self.txn_serializer != self.hash_serializer:
-                entry = self.serialize_for_tree(self.txn_serializer.deserialize(entry))
+                entry = self.serialize_for_tree(
+                    self.txn_serializer.deserialize(entry))
             if isinstance(entry, str):
                 entry = entry.encode()
             self._addToTreeSerialized(entry)

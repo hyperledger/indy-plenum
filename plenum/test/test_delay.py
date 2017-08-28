@@ -68,8 +68,8 @@ def testSelfNominationDelay(tdir_for_func):
             # that it is delaying self nomination
             timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
-                               timeout=timeout))
+                eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
+                           timeout=timeout))
 
             ensureElectionsDone(looper=looper,
                                 nodes=nodeSet,
@@ -78,13 +78,13 @@ def testSelfNominationDelay(tdir_for_func):
             # node A should not have any primary replica
             timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(not nodeA.hasPrimary),
-                               retryWait=1,
-                               timeout=timeout))
+                eventually(lambda: assertExp(not nodeA.hasPrimary),
+                           retryWait=1,
+                           timeout=timeout))
 
             # Make sure that after at the most 30 seconds, nodeA's
             # `startElection` is called
             looper.run(eventually(lambda: assertExp(
-                    len(nodeA.spylog.getAll(
-                            Node.decidePrimaries.__name__)) > 0),
-                                  retryWait=1, timeout=delay))
+                len(nodeA.spylog.getAll(
+                    Node.decidePrimaries.__name__)) > 0),
+                retryWait=1, timeout=delay))

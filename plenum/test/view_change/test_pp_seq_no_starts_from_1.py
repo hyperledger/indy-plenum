@@ -6,7 +6,8 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 from plenum.test.view_change.helper import ensure_view_change
 
 
-# make sure that we send each reqeust individually to count pp_seq_no determenistically
+# make sure that we send each reqeust individually to count pp_seq_no
+# determenistically
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
     oldSize = tconf.Max3PCBatchSize
@@ -19,8 +20,13 @@ def tconf(tconf, request):
     return tconf
 
 
-def test_pp_seq_no_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper, wallet1,
-                                             client1, client1Connected):
+def test_pp_seq_no_starts_from_0_in_new_view(
+        tconf,
+        txnPoolNodeSet,
+        looper,
+        wallet1,
+        client1,
+        client1Connected):
     # This test fails since last ordered pre-prepare sequence number is
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
 
@@ -42,4 +48,3 @@ def test_pp_seq_no_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper, wall
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
     chk(6)
-
