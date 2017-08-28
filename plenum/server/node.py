@@ -4,6 +4,7 @@ import time
 from binascii import unhexlify
 from collections import deque, defaultdict
 from contextlib import closing
+from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 
 from intervaltree import IntervalTree
@@ -61,6 +62,7 @@ from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
+from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
@@ -96,6 +98,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
     _client_request_class = SafeRequest
+    _info_tool_class = ValidatorNodeInfoTool
     ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
     _wallet_class = Wallet
 
@@ -368,6 +371,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # between.
         self._next_view_indications = SortedDict()
 
+        # Number of read requests the node has processed
+        self.total_read_request_number = 0
+        self._info_tool = self._info_tool_class(self)
+
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
 
@@ -606,6 +613,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
+            self.schedule_node_status_dump()
+
             # if first time running this node
             if not self.nodestack.remotes:
                 logger.info("{} first time running..." "".format(self), extra={
@@ -623,6 +632,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
 
         self.logNodeInfo()
+
+    def schedule_node_status_dump(self):
+        self.startRepeating(
+            self._info_tool.dump_json_file,
+            seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,
+        )
 
     @property
     def rank(self) -> int:
@@ -1708,6 +1723,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if request.operation[TXN_TYPE] == GET_TXN:
             self.handle_get_txn_req(request, frm)
+            self.total_read_request_number += 1
         else:
             reply = self.getReplyFromLedger(ledger, request)
             if reply:
