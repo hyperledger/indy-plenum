@@ -5,6 +5,10 @@ import os
 
 import base58
 
+from stp_core.common.log import getlogger
+
+logger = getlogger()
+
 
 def none_on_fail(func):
 
@@ -12,6 +16,8 @@ def none_on_fail(func):
         try:
             return func(*args, **kwargs)
         except Exception as ex:
+            logger.debug('Validator info tool fails to '
+                         'execute {} because {}'.format(func.__name__, repr(ex)))
             return None
     return wrap
 
@@ -31,13 +37,17 @@ class ValidatorNodeInfoTool:
             'alias': self.__alias,
             'bindings': {
                 'client': {
-                    'ip': self.__clientstack_ip,
-                    'port': self.__clientstack_port,
+                    # ip address is going to be set in
+                    # validator-info script
+                    # 'ip': self.__client_ip,
+                    'port': self.__client_port,
                     'protocol': 'tcp',  # TODO hard coded for now, need more smart approach here
                 },
                 'node': {
-                    'ip': self.__nodestack_ip,
-                    'port': self.__nodestack_port,
+                    # ip address is going to be set in
+                    # validator-info script
+                    # 'ip': self.__node_ip,
+                    'port': self.__node_port,
                     'protocol': 'tcp',  # TODO hard coded for now, need more smart approach here
                 }
             },
@@ -66,7 +76,7 @@ class ValidatorNodeInfoTool:
                     'list': self.__unreachable_list,
                 },
                 'total-count': self.__total_count,
-            }
+            },
         }
 
     @property
@@ -76,22 +86,22 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __clientstack_ip(self):
+    def __client_ip(self):
         return self._node.clientstack.ha.host
 
     @property
     @none_on_fail
-    def __clientstack_port(self):
+    def __client_port(self):
         return self._node.clientstack.ha.port
 
     @property
     @none_on_fail
-    def __nodestack_ip(self):
+    def __node_ip(self):
         return self._node.nodestack.ha.host
 
     @property
     @none_on_fail
-    def __nodestack_port(self):
+    def __node_port(self):
         return self._node.nodestack.ha.port
 
     @property
