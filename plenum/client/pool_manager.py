@@ -1,6 +1,8 @@
 import collections
 import json
 
+from ledger.genesis_txn.genesis_txn_file_util import \
+    update_genesis_txn_file_name_if_outdated
 from ledger.util import F
 from stp_core.network.exceptions import RemoteNotFound
 
@@ -23,6 +25,8 @@ class HasPoolManager(TxnStackManager):
         self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
+        update_genesis_txn_file_name_if_outdated(self.basedirpath,
+                                                 self.ledgerFile)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg
         self.addRemoteKeysFromLedger(nodeKeys)
