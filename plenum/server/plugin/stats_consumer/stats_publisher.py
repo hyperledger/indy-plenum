@@ -2,7 +2,7 @@ import asyncio
 from collections import deque
 from enum import Enum, unique
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.config_util import getConfig
 
 logger = getlogger()
@@ -25,7 +25,8 @@ class StatsPublisher:
 
     def addMsgToBuffer(self, message):
         if len(self._messageBuffer) >= config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
-            logger.warning("Message buffer is too large. Refuse to add a new message {}".format(message))
+            logger.warning(
+                "Message buffer is too large. Refuse to add a new message {}".format(message))
             return False
 
         self._messageBuffer.appendleft(message)
@@ -35,7 +36,8 @@ class StatsPublisher:
         self.addMsgToBuffer(message)
 
         if self._loop.is_running():
-            self._loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
+            self._loop.call_soon(asyncio.ensure_future,
+                                 self.sendMessagesFromBuffer())
         else:
             self._loop.run_until_complete(self.sendMessagesFromBuffer())
 
@@ -80,7 +82,7 @@ class StatsPublisher:
         #
         # Actually currently it's no needed as long as we use a port 30000 as destination and specified port != 30000 as source
         # (which is less than default range of ports used to establish connection on Linux)
-        logger.debug("Can not publish stats message: {}".format(ex))
+        logger.debug("Cannot publish stats message: {}".format(ex))
         self._writer = None
 
 

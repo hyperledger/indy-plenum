@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.skipif(True, reason="Not implemented")
+@pytest.mark.skip(reason="SOV-544. Not implemented")
 def testNewStewardKeysWithSeeds(cli, validNodeNames, createAllNodes):
     """
     Create a CLI and issue the following command:
@@ -11,10 +11,10 @@ def testNewStewardKeysWithSeeds(cli, validNodeNames, createAllNodes):
     cli.enterCmd('new client {}'.format(cName))
     printeds = cli.printeds
     cli.looper.runFor(8)
-    assert False
+    raise NotImplementedError
 
 
-@pytest.mark.skipif(True, reason="Not implemented")
+@pytest.mark.skip(reason="SOV-545. Not implemented")
 def testNewStewardKeysWithoutSeeds():
     """
     Create a CLI and issue the following command:
@@ -23,10 +23,8 @@ def testNewStewardKeysWithoutSeeds():
     raise NotImplementedError
 
 
-@pytest.mark.skipif(True, reason="Not implemented")
+@pytest.mark.skip(reason="SOV-546. Not implemented")
 def testGeneratedKeypairIsStoredInWallet():
     """
     """
     raise NotImplementedError
-
-

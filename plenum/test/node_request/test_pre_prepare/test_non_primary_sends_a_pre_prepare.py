@@ -1,16 +1,18 @@
-import time
 import types
 
 import pytest as pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.request import ReqDigest
-from plenum.common.types import PrePrepare
+from plenum.common.types import f
+from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.util import compareNamedTuple
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
-from plenum.test.instances.helper import recvdPrePrepare
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import getNodeSuspicions
+from plenum.test import waits
+from plenum.test.instances.helper import recvd_pre_prepares
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 logger = getlogger()
 
@@ -30,40 +32,36 @@ def setup(nodeSet, up):
 
     pr = getPrimaryReplica(nodeSet, instId)
     evilMethod = types.MethodType(dontSendPrePrepareRequest, pr)
-    pr.doPrePrepare = evilMethod
+    pr.sendPrePrepare = evilMethod
 
 
 def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
-    primaryReplica = getPrimaryReplica(nodeSet, instId)
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
     firstNpr = nonPrimaryReplicas[0]
     remainingNpr = nonPrimaryReplicas[1:]
 
-    def sendPrePrepareFromNonPrimary(replica):
-        firstNpr.doPrePrepare(propagated1.reqDigest)
+    def sendPrePrepareFromNonPrimary():
+        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
+        ppReq = firstNpr.create3PCBatch(DOMAIN_LEDGER_ID)
+        firstNpr.sendPrePrepare(ppReq)
+        return ppReq
 
-        return PrePrepare(
-                replica.instId,
-                firstNpr.viewNo,
-                firstNpr.lastPrePrepareSeqNo,
-                propagated1.identifier,
-                propagated1.reqId,
-                propagated1.digest,
-                time.time())
-
-    ppr = sendPrePrepareFromNonPrimary(firstNpr)
+    ppr = sendPrePrepareFromNonPrimary()
 
     def chk():
-        for r in (primaryReplica, *remainingNpr):
-            recvdPps = recvdPrePrepare(r)
+        for r in remainingNpr:
+            recvdPps = recvd_pre_prepares(r)
             assert len(recvdPps) == 1
-            assert recvdPps[0]['pp'][:-1] == ppr[:-1]
+            assert compareNamedTuple(recvdPps[0], ppr,
+                                     f.DIGEST.nm, f.STATE_ROOT.nm,
+                                     f.TXN_ROOT.nm)
             nodeSuspicions = len(getNodeSuspicions(
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1
 
+    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
     looper.run(eventually(chk,
-                          retryWait=.5, timeout=5))
+                          retryWait=.5, timeout=timeout))
 
     # TODO Why is this here? Why would a suspicious PRE-PREPARE from a
     # non-primary warrant a view change? Need more of a story about the scenario

@@ -1,32 +1,43 @@
 from functools import partial
 
+from plenum.common.keygen_utils import initRemoteKeys
+from plenum.common.stacks import nodeStackClass
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA, Identifier
+
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
-from plenum.common.log import getlogger
-from plenum.common.port_dispenser import genHa
-from plenum.common.stacked import NodeStack
-from plenum.common.txn import REQACK, REQNACK, REPLY
-from plenum.common.types import Identifier, HA, OP_FIELD_NAME, f
-from plenum.common.util import bootstrapClientKeys
 from plenum.common.error import error
+from stp_core.common.log import getlogger
+from plenum.common.constants import REQACK, REQNACK, REPLY
+from plenum.common.types import f
+from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
+from plenum.common.constants import OP_FIELD_NAME
 
 
 logger = getlogger()
 
+client_spyables = [Client.handleOneNodeMsg, Client.resendRequests]
 
-@Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
+
+@spyable(methods=client_spyables)
 class TestClient(Client, StackedTester):
+    def __init__(self, *args, **kwargs):
+        self.NodeStackClass = nodeStackClass
+        super().__init__(*args, **kwargs)
+
     @property
-    def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(NodeStack)
+    def nodeStackClass(self) -> NetworkInterface:
+        return getTestableStack(self.NodeStackClass)
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
 
-def genTestClient(nodes = None,
+def genTestClient(nodes=None,
                   nodeReg=None,
                   tmpdir=None,
                   testClientClass=TestClient,
@@ -36,7 +47,7 @@ def genTestClient(nodes = None,
                   ha=None,
                   usePoolLedger=False,
                   name=None,
-                  sighex=None) -> TestClient:
+                  sighex=None) -> (TestClient, Wallet):
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:
@@ -46,8 +57,8 @@ def genTestClient(nodes = None,
         else:
             error("need access to nodeReg")
         for k, v in nReg.items():
-            assert type(k) == str
-            assert (type(v) == HA or type(v[0]) == HA)
+            assert isinstance(k, str)
+            assert (isinstance(v, HA) or isinstance(v[0], HA))
     else:
         logger.debug("TestClient using pool ledger")
         nReg = None
@@ -60,6 +71,13 @@ def genTestClient(nodes = None,
                          ha=ha,
                          basedirpath=tmpdir,
                          sighex=sighex)
+
+    if not usePoolLedger and nodes:
+        for node in nodes:
+            stack = node.clientstack
+            initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
+                           override=True)
+
     w = None  # type: Wallet
     if bootstrapKeys and nodes:
         if not identifier or not verkey:
@@ -72,7 +90,7 @@ def genTestClient(nodes = None,
     return tc, w
 
 
-def genTestClientProvider(nodes = None,
+def genTestClientProvider(nodes=None,
                           nodeReg=None,
                           tmpdir=None,
                           clientGnr=genTestClient):

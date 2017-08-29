@@ -1,7 +1,7 @@
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from typing import Any, Sequence
 
-from ledger.serializers.compact_serializer import CompactSerializer
+from common.serializers.serialization import client_req_rep_store_serializer
 from plenum.common.request import Request
 
 
@@ -10,7 +10,8 @@ class ClientReqRepStore:
     def __init__(self, *args, **kwargs):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def lastReqId(self) -> int:
         pass
 
@@ -24,6 +25,10 @@ class ClientReqRepStore:
 
     @abstractmethod
     def addNack(self, msg: Any, sender: str):
+        pass
+
+    @abstractmethod
+    def addReject(self, msg: Any, sender: str):
         pass
 
     @abstractmethod
@@ -51,19 +56,23 @@ class ClientReqRepStore:
     def getNacks(self, identifier: str, reqId: int) -> dict:
         pass
 
+    @abstractmethod
+    def getRejects(self, identifier: str, reqId: int) -> dict:
+        pass
+
     def getAllReplies(self, identifier: str, reqId: int):
         replies = self.getReplies(identifier, reqId)
         errors = self.getNacks(identifier, reqId)
+        if not errors:
+            errors = {**errors, **self.getRejects(identifier, reqId)}
         return replies, errors
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def txnFieldOrdering(self):
         raise NotImplementedError
 
     # noinspection PyAttributeOutsideInit
     @property
     def txnSerializer(self):
-        # if not self._serializer:
-        #     self._serializer = CompactSerializer(fields=self.txnFieldOrdering)
-        # return self._serializer
-        return CompactSerializer(fields=self.txnFieldOrdering)
+        return client_req_rep_store_serializer

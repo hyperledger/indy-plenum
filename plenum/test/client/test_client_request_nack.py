@@ -2,7 +2,9 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventuallyAll
+from stp_core.loop.eventually import eventuallyAll
+
+from plenum.test import waits
 from plenum.test.helper import checkReqNack
 
 whitelist = ['discarding message']
@@ -40,4 +42,5 @@ def testRequestFullRoundTrip(restrictiveVerifier,
     coros2 = [partial(checkReqNack, client1, node, sent1.identifier,
                       sent1.reqId, update)
               for node in nodeSet]
-    looper.run(eventuallyAll(*coros2, totalTimeout=5))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventuallyAll(*coros2, totalTimeout=timeout))

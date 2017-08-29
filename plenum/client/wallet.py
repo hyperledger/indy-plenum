@@ -1,14 +1,22 @@
 from typing import Optional, Dict, NamedTuple
+import os
+import sys
+import stat
+from pathlib import Path
 
 import jsonpickle
+from jsonpickle import JSONBackend
+from jsonpickle import tags
+from jsonpickle.unpickler import loadclass
+from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
-from plenum.common.log import getlogger
-from plenum.common.signer import Signer
-from plenum.common.types import Identifier
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.types import Identifier
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 
@@ -27,16 +35,27 @@ class EncryptedWallet:
 Alias = str
 
 
-IdData = HA = NamedTuple("IdData", [
+IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
 
 
+def getClassVersionKey(cls):
+    """
+    Gets the wallet class version key for use in a serialized representation
+    of the wallet.
+
+    :param cls: the wallet class
+    :return: the class version key
+    """
+    return 'classver/{}'.format(importable_name(cls))
+
+
 class Wallet:
     def __init__(self,
-                 name: str,
+                 name: str=None,
                  supportedDidMethods: DidMethods=None):
-        self._name = name
+        self._name = name or 'wallet' + str(id(self))
         self.ids = {}           # type: Dict[Identifier, IdData]
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
@@ -73,9 +92,6 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    # def addIdentifier(self, didMethodName=None):
-    #     return self.addSigner(didMethodName).identifier
-    #
     def addIdentifier(self,
                       identifier=None,
                       seed=None,
@@ -89,6 +105,7 @@ class Wallet:
         :param identifier: signer identifier or None to use random one
         :param seed: signer key seed or None to use random one
         :param signer: signer to add
+        :param alias: a friendly readable name for the signer
         :param didMethodName: name of DID Method if not the default
         :return:
         """
@@ -190,8 +207,9 @@ class Wallet:
         idData = self._getIdData(idr)
         req.identifier = idr
         req.reqId = getTimeBasedId()
+        req.digest = req.getDigest()
         self.ids[idr] = IdData(idData.signer, req.reqId)
-        req.signature = self.signMsg(msg=req.getSigningState(),
+        req.signature = self.signMsg(msg=req.signingState,
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
 
@@ -210,9 +228,6 @@ class Wallet:
         """
         request = Request(operation=op)
         return self.signRequest(request, identifier)
-
-    # Removed:
-    # _getIdData - removed in favor of passing RequestIdStore
 
     def _signerById(self, idr: Identifier):
         signer = self.idsToSigners.get(idr)
@@ -251,7 +266,8 @@ class Wallet:
         :return: List of identifiers/aliases.
         """
         lst = list(self.aliasesToIds.keys())
-        others = set(self.idsToSigners.keys()) - set(self.aliasesToIds.values())
+        others = set(self.idsToSigners.keys()) - \
+            set(self.aliasesToIds.values())
         lst.extend(list(others))
         for x in exclude:
             lst.remove(x)
@@ -269,3 +285,157 @@ class Wallet:
         signer = self.idsToSigners.get(idr)
         idData = self.ids.get(idr)
         return IdData(signer, idData.lastReqId if idData else None)
+
+
+class WalletStorageHelper:
+    """Manages wallets
+
+    :param ``keyringsBaseDir``: keyrings base directory
+    :param dmode: (optional) permissions for directories inside
+        including the base one, default is 0700
+    :param fmode: (optional) permissions for files inside,
+        default is 0600
+    """
+
+    def __init__(self, keyringsBaseDir, dmode=0o700, fmode=0o600):
+        self.dmode = dmode
+        self.fmode = fmode
+        self.keyringsBaseDir = keyringsBaseDir
+
+    @property
+    def keyringsBaseDir(self):
+        return str(self._baseDir)
+
+    @keyringsBaseDir.setter
+    def keyringsBaseDir(self, path):
+        self._baseDir = self._resolve(Path(path))
+
+        self._createDirIfNotExists(self._baseDir)
+        self._ensurePermissions(self._baseDir, self.dmode)
+
+    def _ensurePermissions(self, path, mode):
+        if stat.S_IMODE(path.stat().st_mode) != mode:
+            path.chmod(mode)
+
+    def _createDirIfNotExists(self, dpath):
+        if dpath.exists():
+            if not dpath.is_dir():
+                raise NotADirectoryError("{}".format(dpath))
+        else:
+            dpath.mkdir(parents=True, exist_ok=True)
+
+    def _resolve(self, path):
+        # ``strict`` argument appeared only version 3.6 of python
+        if sys.version_info < (3, 6, 0):
+            return Path(os.path.realpath(str(path)))
+        else:
+            return path.resolve(strict=False)
+
+    def _normalize(self, fpath):
+        return self._resolve(self._baseDir / fpath)
+
+    def encode(self, data):
+        return jsonpickle.encode(data, keys=True)
+
+    def decode(self, data):
+        return jsonpickle.decode(data, backend=WalletCompatibilityBackend(),
+                                 keys=True)
+
+    def saveWallet(self, wallet, fpath):
+        """Save wallet into specified localtion.
+
+        Returns the canonical path for the ``fpath`` where ``wallet``
+        has been stored.
+
+        Error cases:
+            - ``fpath`` is not inside the keyrings base dir - ValueError raised
+            - directory part of ``fpath`` exists and it's not a directory -
+              NotADirectoryError raised
+            - ``fpath`` exists and it's a directory - IsADirectoryError raised
+
+        :param wallet: wallet to save
+        :param fpath: wallet file path, absolute or relative to
+            keyrings base dir
+        """
+        if not fpath:
+            raise ValueError("empty path")
+
+        _fpath = self._normalize(fpath)
+        _dpath = _fpath.parent
+
+        try:
+            _dpath.relative_to(self._baseDir)
+        except ValueError:
+            raise ValueError(
+                "path {} is not is not relative to the keyrings {}".format(
+                    fpath, self._baseDir))
+
+        self._createDirIfNotExists(_dpath)
+
+        # ensure permissions from the bottom of the directory hierarchy
+        while _dpath != self._baseDir:
+            self._ensurePermissions(_dpath, self.dmode)
+            _dpath = _dpath.parent
+
+        with _fpath.open("w") as wf:
+            self._ensurePermissions(_fpath, self.fmode)
+            encodedWallet = self.encode(wallet)
+            wf.write(encodedWallet)
+            logger.debug("stored wallet '{}' in {}".format(
+                wallet.name, _fpath))
+
+        return str(_fpath)
+
+    def loadWallet(self, fpath):
+        """Load wallet from specified localtion.
+
+        Returns loaded wallet.
+
+        Error cases:
+            - ``fpath`` is not inside the keyrings base dir - ValueError raised
+            - ``fpath`` exists and it's a directory - IsADirectoryError raised
+
+        :param fpath: wallet file path, absolute or relative to
+            keyrings base dir
+        """
+        if not fpath:
+            raise ValueError("empty path")
+
+        _fpath = self._normalize(fpath)
+        _dpath = _fpath.parent
+
+        try:
+            _dpath.relative_to(self._baseDir)
+        except ValueError:
+            raise ValueError(
+                "path {} is not is not relative to the wallets {}".format(
+                    fpath, self._baseDir))
+
+        with _fpath.open() as wf:
+            wallet = self.decode(wf.read())
+
+        return wallet
+
+
+class WalletCompatibilityBackend(JSONBackend):
+    """
+    Jsonpickle backend providing conversion of raw representations
+    (nested dictionaries/lists structure) of wallets from previous versions
+    to the current version.
+    """
+
+    def decode(self, string):
+        raw = super().decode(string)
+        # Note that backend.decode may be called not only for the whole object
+        # representation but also for representations of structured keys of
+        # dictionaries.
+        # Here we assume that if the string represents a class instance and
+        # this class contains makeRawCompatible method then this class is
+        # a wallet class supporting backward compatibility
+        if tags.OBJECT in raw:
+            clsName = raw[tags.OBJECT]
+            cls = loadclass(clsName)
+            if hasattr(cls, 'makeRawCompatible') \
+                    and callable(getattr(cls, 'makeRawCompatible')):
+                cls.makeRawCompatible(raw)
+        return raw

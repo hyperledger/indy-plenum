@@ -1,12 +1,14 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.types import Nomination
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+from plenum.common.messages.node_messages import Nomination
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
+from plenum.test import waits
+
 
 nodeCount = 4
 
@@ -17,7 +19,8 @@ logger = getlogger()
 def electContFixture(startedNodes: TestNodeSet):
     A, B, C, D = startedNodes.nodes.values()
 
-    # Delaying nodeB' self nomination so nodeA's nomination can reach NodeC and NodeD
+    # Delaying nodeB' self nomination so nodeA's nomination can reach NodeC
+    # and NodeD
     B.delaySelfNomination(2)
 
     # For B delay nominate messages from A and C
@@ -30,6 +33,7 @@ def electContFixture(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     """
     Primary selection (Rainy Day)
@@ -53,18 +57,22 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     checkPoolReady(looper, nodeSet)
 
     logger.debug("Check nomination")
+    timeout = waits.expectedPoolNominationTimeout(nodeCount)
+
     # Checking whether Node A nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, A, A.name,
+                          retryWait=1, timeout=timeout))
 
     # Checking whether Node B nominated itself
-    looper.run(eventually(checkNomination, B, B.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, B, B.name,
+                          retryWait=1, timeout=timeout))
 
     for n in [C, D]:
         # Checking whether Node C and Node D nominated Node A
-        looper.run(eventually(checkNomination, n, A.name, retryWait=1, timeout=10))
+        looper.run(eventually(checkNomination, n, A.name,
+                              retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet,
-                                                 retryWait=1, timeout=45)
+    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
 
     # Node D should not be primary
     assert not D.hasPrimary

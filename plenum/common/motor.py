@@ -1,6 +1,6 @@
-from plenum.common.looper import Prodable
+from stp_core.loop.looper import Prodable
 from plenum.common.startable import Status
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -31,7 +31,7 @@ class Motor(Prodable):
             old = self._status
             self._status = value
             logger.debug("{} changing status from {} to {}".
-                          format(self, old.name, value.name))
+                         format(self, old.name, value.name))
             self._statusChanged(old, value)
 
     status = property(fget=get_status, fset=set_status)

@@ -1,8 +1,8 @@
 import os
 from importlib import import_module
 from importlib.util import module_from_spec, spec_from_file_location
+from stp_core.common.config.util import getConfig as STPConfig
 
-import plenum.common
 
 CONFIG = None
 
@@ -36,7 +36,10 @@ def getConfig(homeDir=None):
     """
     global CONFIG
     if not CONFIG:
-        refConfig = import_module("plenum.config")
+        stp_config = STPConfig(homeDir)
+        plenum_config = import_module("plenum.config")
+        refConfig = stp_config
+        refConfig.__dict__.update(plenum_config.__dict__)
         try:
             homeDir = os.path.expanduser(homeDir or "~")
 
@@ -47,5 +50,12 @@ def getConfig(homeDir=None):
         except FileNotFoundError:
             pass
         refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
+
+        # "unsafe" is a set of attributes that can set certain behaviors that
+        # are not safe, for example, 'disable_view_change' disables view changes
+        # from happening. This might be useful in testing scenarios, but never
+        # in a live network.
+        if not hasattr(refConfig, 'unsafe'):
+            setattr(refConfig, 'unsafe', set())
         CONFIG = refConfig
     return CONFIG

@@ -1,26 +1,40 @@
-from abc import abstractproperty
-
-import base58
 from binascii import hexlify
 from typing import Dict
 
+import base58
+from common.serializers.serialization import serialize_msg_for_signing
 from libnacl import randombytes
-from raet.nacling import SigningKey
-from raet.nacling import Signer as NaclSigner
-
-from plenum.common.signer import Signer
-from plenum.common.signing import serializeMsg
-from plenum.common.types import Identifier
-from plenum.common.util import hexToFriendly, rawToFriendly, friendlyToRaw
+from plenum.common.types import f
+from plenum.common.util import rawToFriendly, friendlyToRaw
+from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
+from stp_core.crypto.signer import Signer
+from stp_core.types import Identifier
 
 
 class DidIdentity:
+    abbr_prfx = '~'
+
     def __init__(self, identifier, verkey=None, rawVerkey=None):
+        self.abbreviated = None
+        if verkey is None and rawVerkey is None:
+            if identifier:
+                self._identifier = identifier
+                self._verkey = None
+                return
+
         assert (verkey or rawVerkey) and not (verkey and rawVerkey)
         if identifier:
             self._identifier = identifier
-            self._verkey = verkey or rawToFriendly(rawVerkey)
-            self.abbreviated = False
+            if rawVerkey:
+                self._verkey = rawToFriendly(rawVerkey)
+                self.abbreviated = False
+            else:
+                if verkey.startswith("~"):
+                    self._verkey = verkey[1:]
+                    self.abbreviated = True
+                else:
+                    self._verkey = verkey
+                    self.abbreviated = False
         else:
             verraw = rawVerkey or friendlyToRaw(verkey)
             self._identifier = rawToFriendly(verraw[:16])
@@ -33,10 +47,22 @@ class DidIdentity:
 
     @property
     def verkey(self) -> str:
+        if self._verkey is None:
+            return None
+
         if self.abbreviated:
-            return '~' + self._verkey
+            return self.abbr_prfx + self._verkey
         else:
             return self._verkey
+
+    @property
+    def full_verkey(self):
+        if self.abbreviated:
+            rtn = friendlyToRaw(self.identifier)
+            rtn += friendlyToRaw(self.verkey[1:])
+            return rawToFriendly(rtn)
+        else:
+            return self.verkey
 
 
 class DidSigner(DidIdentity, Signer):
@@ -68,7 +94,8 @@ class DidSigner(DidIdentity, Signer):
         self.naclSigner = NaclSigner(self.sk)
 
         Signer.__init__(self)
-        DidIdentity.__init__(self, identifier, rawVerkey=self.naclSigner.verraw)
+        DidIdentity.__init__(
+            self, identifier, rawVerkey=self.naclSigner.verraw)
 
         self._alias = alias
 
@@ -88,7 +115,7 @@ class DidSigner(DidIdentity, Signer):
         """
         Return a signature for the given message.
         """
-        ser = serializeMsg(msg)
+        ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

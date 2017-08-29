@@ -1,13 +1,9 @@
 """
 plenum package metadata
 """
-__version_info__ = (0, 2)
+__version_info__ = (1, 1)
 __version__ = '.'.join(map(str, __version_info__))
-__author__ = "Evernym, Inc."
+__author__ = "Hyperledger"
 __license__ = "Apache 2.0"
 
 __all__ = ['__version_info__', '__version__', '__author__', '__license__']
-
-__dependencies__ = {
-    "ledger": ">=0.0.34"
-}

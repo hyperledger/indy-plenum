@@ -3,37 +3,57 @@ from random import shuffle, randint
 import pytest
 from ioflo.aid import getConsole
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, tellKeysToOthers
+from plenum.common.util import randomString
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
+from plenum.test import waits
+from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
-    checkProtocolInstanceSetup
+    checkProtocolInstanceSetup, ensureElectionsDone
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 
-whitelist = ['discarding message', 'found legacy entry']
+whitelist = ['discarding message', 'found legacy entry',
+             'error while verifying message']
 
-nodeReg = {
-    'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
-    'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
-    'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
-    'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
+
+@pytest.fixture()
+def nodeReg():
+    return {
+        'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
+        'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
+        'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
+        'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
+    }
+
+
+def initLocalKeys(tdir, nodeReg):
+    for nName in nodeReg.keys():
+        sigseed = randomString(32).encode()
+        initNodeKeysForBothStacks(nName, tdir, sigseed, override=True)
+        logger.debug('Created keys for {}'.format(nName))
 
 
 # Its a function fixture, deliberately
 @pytest.yield_fixture()
-def tdirAndLooper():
+def tdirAndLooper(nodeReg):
     with SafeTemporaryDirectory() as td:
         logger.debug("temporary directory: {}".format(td))
         with Looper() as looper:
             yield td, looper
 
 
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
+@pytest.mark.skip(reason='INDY-109. Intermittent failures')
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
+                                       nodeReg):
     tdir, looper = tdirAndLooper
+    initLocalKeys(tdir, nodeReg)
+
     nodes = []
     names = list(nodeReg.keys())
     logger.debug("Node names: {}".format(names))
@@ -41,92 +61,129 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
     def create(name):
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
-        looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
+        return node
 
-    for name in names[:3]:
+    for name in names:
         create(name)
 
-    looper.run(checkNodesConnected(nodes))
+    logger.debug("Creating keys")
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+
+    for node in nodes[:3]:
+        looper.add(node)
+
+    looper.run(checkNodesConnected(nodes[:3]))
 
     # wait for the election to complete with the first three nodes
-    looper.runFor(10)
+    ensureElectionsDone(looper, nodes[:3], numInstances=2)
 
-    # create the fourth and see that it learns who the primaries are
+    # start the fourth and see that it learns who the primaries are
     # from the other nodes
-    create(names[3])
-    checkProtocolInstanceSetup(looper, nodes, timeout=10)
+    looper.add(nodes[3])
+
+    # ensure election is done for updated pool
+    ensureElectionsDone(looper, nodes)
+    stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
+                                           nodeReg):
     tdir, looper = tdirAndLooper
     nodes = []
+
+    initLocalKeys(tdir, nodeReg)
+
     for name in nodeReg:
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
-        looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+
+    for node in nodes:
+        looper.add(node)
+
     looper.run(checkNodesConnected(nodes))
+    stopNodes(nodes, looper)
 
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
+                                      nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
 
+    initLocalKeys(tdir, nodeReg)
+
     nodes = []
 
     names = list(nodeReg.keys())
+
     shuffle(names)
     waits = [randint(1, 10) for _ in names]
     rwaits = [randint(1, 10) for _ in names]
 
-    for i, name in enumerate(names):
+    for name in names:
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
-        looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+
+    for i, node in enumerate(nodes):
+        looper.add(node)
         looper.runFor(waits[i])
-    looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+    looper.run(checkNodesConnected(nodes))
     logger.debug("connects")
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
 
-    for n in nodes:
-        n.stop()
+    stopNodes(nodes, looper)
+
+    # # Giving some time for sockets to close, use eventually
+    # time.sleep(1)
+
     for i, n in enumerate(nodes):
         n.start(looper.loop)
         looper.runFor(rwaits[i])
     looper.runFor(3)
-    looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+    looper.run(checkNodesConnected(nodes))
+    stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdirAndLooper):
+def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
-    logger.debug(names)
     nrg = {n: nodeReg[n] for n in names}
-    A, B = [TestNode(name, nrg, basedirpath=tdir,
-                     pluginPaths=allPluginsPath)
-            for name in names]
+    initLocalKeys(tdir, nrg)
+
+    logger.debug(names)
+    nodes = []
+    for name in names:
+        node = TestNode(name, nrg, basedirpath=tdir,
+                        pluginPaths=allPluginsPath)
+        nodes.append(node)
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+
+    A, B = nodes
     looper.add(A)
-    A.startKeySharing()
     looper.runFor(4)
     logger.debug("wait done")
     looper.add(B)
-    B.startKeySharing()
     looper.runFor(4)
     looper.run(checkNodesConnected([A, B]))
     looper.stopall()
@@ -134,35 +191,10 @@ def testNodeConnection(allPluginsPath, tdirAndLooper):
     looper.runFor(4)
     B.start(looper.loop)
     looper.run(checkNodesConnected([A, B]))
+    stopNodes([A, B], looper)
 
 
-@pytest.mark.skipif(True, reason="Fails due to a bug. Its fixed here "
-                                 "https://github.com/RaetProtocol/raet/pull/9")
-def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
-    console = getConsole()
-    console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    tdir, looper = tdirAndLooper
-    timeout = 60
-    names = ["Alpha", "Beta"]
-    logger.debug(names)
-    nrg = {n: nodeReg[n] for n in names}
-    A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=tdir,
-                     pluginPaths=allPluginsPath)
-            for name in names]
-    looper.add(A)
-    A.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for A's timeout")
-    looper.add(B)
-    B.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for B's timeout")
-    A.startKeySharing(timeout=timeout)
-    B.startKeySharing(timeout=timeout)
-    looper.run(checkNodesConnected([A, B]))
-
-
-def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
+def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
@@ -170,29 +202,39 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
 
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
-    logger.debug(names)
     nrg = {n: nodeReg[n] for n in names}
-    A, B = [TestNode(name, nrg, basedirpath=tdir,
-                     pluginPaths=allPluginsPath)
-            for name in names]
-    for node in (A, B):
-        looper.add(node)
-        node.startKeySharing()
-    looper.run(checkNodesConnected([A, B]))
+    initLocalKeys(tdir, nrg)
+    logger.debug(names)
 
+    nodes = []
+    for name in names:
+        node = TestNode(name, nrg, basedirpath=tdir,
+                        pluginPaths=allPluginsPath)
+        nodes.append(node)
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+
+    A, B = nodes
+    for node in nodes:
+        looper.add(node)
+    looper.run(checkNodesConnected(nodes))
+
+    initLocalKeys(tdir, {"Gamma": nodeReg["Gamma"]})
     C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
                  basedirpath=tdir, pluginPaths=allPluginsPath)
+    for node in nodes:
+        tellKeysToOthers(node, [C, ])
+
     looper.add(C)
-    C.startKeySharing(timeout=20)
+    looper.runFor(5)
 
-    def chk():
-        assert not C.nodestack.isKeySharing
-
-    looper.run(eventually(chk, retryWait=2, timeout=21))
-    C.stop()
+    stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
-    looper.run(eventually(chk, retryWait=2, timeout=5))
+    timeout = waits.expectedPoolInterconnectionTime(len(nodeReg))
+    looper.run(eventually(chk, retryWait=2, timeout=timeout))
+    stopNodes([A, B], looper)

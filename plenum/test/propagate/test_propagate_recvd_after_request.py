@@ -1,19 +1,24 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import Propagate
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import Propagate, MessageRep
+from plenum.test import waits
 from plenum.test.delayers import delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate
 from plenum.test.test_node import TestNode
 
 nodeCount = 4
+howlong = 5
 
 
 @pytest.fixture()
 def setup(nodeSet):
     A, B, C, D = nodeSet.nodes.values()  # type: TestNode
-    delay(Propagate, frm=[B, C, D], to=A, howlong=5)
+    delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
+    # Delay MessageRep by long simulating loss as if Propagate is missing, it
+    # is requested
+    delay(MessageRep, frm=[B, C, D], to=A, howlong=10 * howlong)
 
 
 def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
@@ -27,7 +32,8 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         # A should have sent a PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    looper.run(eventually(x, retryWait=.5, timeout=3))
+    timeout = howlong - 2
+    looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
     def y():
         # A should have received 3 PROPAGATEs
@@ -39,4 +45,5 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    looper.run(eventually(y, retryWait=.5, timeout=7))
+    timeout = howlong + 2
+    looper.run(eventually(y, retryWait=.5, timeout=timeout))

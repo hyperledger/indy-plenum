@@ -1,10 +1,9 @@
-from plenum.common.log import getlogger
-
-logger = getlogger()
+# TODO: remove this
 
 
 def fault(ex: Exception, msg: str):
-    logger.error(msg, exc_info=ex)
+    from stp_core.common.log import getlogger
+    getlogger().error(msg, exc_info=ex)
 
 
 def error(msg: str) -> Exception:

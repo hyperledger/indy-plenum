@@ -1,10 +1,10 @@
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.types import Commit, PrePrepare
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.test.helper import sendRandomRequests, \
-    checkSufficientRepliesForRequests, checkLedgerEquality, getPrimaryReplica, \
-    checkAllLedgersEqual
-from plenum.test.test_node import getNonPrimaryReplicas
+    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 nodeCount = 7
 
@@ -20,7 +20,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     https://www.pivotaltracker.com/n/projects/1889887/stories/133655009
     """
     pr, replicas = getPrimaryReplica(nodeSet, instId=0), \
-                   getNonPrimaryReplicas(nodeSet, instId=0)
+        getNonPrimaryReplicas(nodeSet, instId=0)
     assert len(replicas) == 6
 
     rep0 = pr
@@ -43,8 +43,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     commitDelay = 3  # delay each COMMIT by this number of seconds
     delayedPpSeqNos = set()
 
-    requestCount = 15
-    requests = sendRandomRequests(wallet1, client1, requestCount)
+    requestCount = 10
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5
@@ -52,8 +51,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         if isinstance(msg, PrePrepare):
             if len(delayedPpSeqNos) < ppSeqsToDelay:
                 delayedPpSeqNos.add(msg.ppSeqNo)
-                logger.debug('ppSeqNo {} corresponding to request id {} would '
-                             'be delayed'.format(msg.ppSeqNo, msg.reqId))
+                logger.debug('ppSeqNo {} be delayed'.format(msg.ppSeqNo))
         if isinstance(msg, Commit) and msg.instId == 0 and \
             sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:
@@ -63,14 +61,17 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    checkSufficientRepliesForRequests(looper, client1, requests)
+    requests = sendRandomRequests(wallet1, client1, requestCount)
+    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
 
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    looper.run(eventually(ensureSlowNodesHaveAllTxns, retryWait=1, timeout=15))
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
+    looper.run(eventually(ensureSlowNodesHaveAllTxns,
+                          retryWait=1, timeout=timeout))
 
     checkAllLedgersEqual((n.domainLedger for n in (node0, node3, node4,
                                                    node5, node6)))

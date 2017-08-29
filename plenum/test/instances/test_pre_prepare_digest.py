@@ -2,15 +2,18 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import PrePrepare
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.instances.helper import sentPrepare
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.PPR_DIGEST_WRONG.reason,
              'cannot process incoming PRE-PREPARE']
@@ -19,7 +22,7 @@ whitelist = [Suspicions.PPR_DIGEST_WRONG.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # The primary replica would send PRE-PREPARE messages with incorrect digest
     makeNodeFaulty(primaryRep.node, partial(send3PhaseMsgWithIncorrectDigest,
@@ -41,9 +44,16 @@ def testPrePrepareDigest(setup, looper, sent1):
         for r in nonPrimaryReps:
             # Every node with non primary replicas of instance 0 should raise
             # suspicion
+            susp_code = Suspicions.PPR_DIGEST_WRONG.code
+            # Since the node sending bad requests might become primary of
+            # some backup instance after view changes, it will again send a
+            # PRE-PREPARE with incorrect digest, so other nodes might raise
+            # suspicion more than once
             assert len(getNodeSuspicions(r.node,
-                                         Suspicions.PPR_DIGEST_WRONG.code)) == 1
+                                         susp_code)) >= 1
             # No non primary replica should send any PREPARE
-            assert len(sentPrepare(r)) == 0
+            assert len(sentPrepare(r, viewNo=0, ppSeqNo=1)) == 0
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

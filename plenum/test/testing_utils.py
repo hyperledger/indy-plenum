@@ -3,7 +3,7 @@ import sys
 
 from ioflo.base.consoling import getConsole
 from plenum.common.error import error
-from plenum.common.log import getlogger, addTraceToLogging, TRACE_LOG_LEVEL
+from stp_core.common.log import getlogger, TRACE_LOG_LEVEL
 
 logger = getlogger()
 
@@ -39,13 +39,9 @@ def checkDblImp():
 
 
 def setupTestLogging():
-    addTraceToLogging()
-
     logging.basicConfig(
-            level=TRACE_LOG_LEVEL,
-            format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
-            style='{')
+        level=TRACE_LOG_LEVEL,
+        format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
+        style='{')
     console = getConsole()
     console.reinit(verbosity=console.Wordage.concise)
-
-

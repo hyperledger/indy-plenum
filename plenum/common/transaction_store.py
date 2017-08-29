@@ -1,11 +1,11 @@
 import asyncio
 import time
-from typing import Dict
 from typing import Optional
 
-from plenum.common.txn import TXN_ID
-from plenum.common.types import Reply, f
-from plenum.common.log import getlogger
+from plenum.common.constants import TXN_ID
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Reply
+from stp_core.common.log import getlogger
 from plenum.persistence.storage import Storage
 
 logger = getlogger()
@@ -114,7 +114,7 @@ class TransactionStore(Storage):
         """
         return (identifier not in self.processedRequests or
                 reply.reqId not in self.processedRequests[identifier]) and \
-               txnId is not None
+            txnId is not None
 
     def size(self) -> int:
         return len(self.transactions)

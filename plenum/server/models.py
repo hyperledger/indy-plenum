@@ -1,9 +1,9 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Tuple
+from typing import NamedTuple, Set
 
-from plenum.common.types import Commit, Prepare
+from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str])])
@@ -75,8 +75,8 @@ class Prepares(TrackedMsgs):
     def hasPrepareFrom(self, prepare: Prepare, voter: str) -> bool:
         return super().hasVote(prepare, voter)
 
-    def hasQuorum(self, prepare: Prepare, f: int) -> bool:
-        return self.hasEnoughVotes(prepare, 2 * f)
+    def hasQuorum(self, prepare: Prepare, quorum: int) -> bool:
+        return self.hasEnoughVotes(prepare, quorum)
 
 
 class Commits(TrackedMsgs):
@@ -112,25 +112,29 @@ class Commits(TrackedMsgs):
     def hasCommitFrom(self, commit: Commit, voter: str) -> bool:
         return super().hasVote(commit, voter)
 
-    def hasQuorum(self, commit: Commit, f: int) -> bool:
-        return self.hasEnoughVotes(commit, 2 * f + 1)
+    def hasQuorum(self, commit: Commit, quorum: int) -> bool:
+        return self.hasEnoughVotes(commit, quorum)
 
 
 class InstanceChanges(TrackedMsgs):
     """
     Stores senders of received instance change requests. Key is the view
     no and and value is the set of senders
+    Does not differentiate between reason for view change. Maybe it should,
+    but the current assumption is that since a malicious node can raise
+    different suspicions on different nodes, its ok to consider all suspicions
+    that can trigger a view change as equal
     """
 
     def newVoteMsg(self, msg):
-        return InsChgVotes(msg, set())
+        return InsChgVotes(msg.viewNo, set())
 
-    def getKey(self, viewNo):
-        return viewNo
+    def getKey(self, msg):
+        return msg if isinstance(msg, int) else msg.viewNo
 
     # noinspection PyMethodMayBeStatic
-    def addVote(self, viewNo: int, voter: str):
-        super().addMsg(viewNo, voter)
+    def addVote(self, msg: int, voter: str):
+        super().addMsg(msg, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasView(self, viewNo: int) -> bool:
@@ -140,5 +144,5 @@ class InstanceChanges(TrackedMsgs):
     def hasInstChngFrom(self, viewNo: int, voter: str) -> bool:
         return super().hasVote(viewNo, voter)
 
-    def hasQuorum(self, viewNo: int, f: int) -> bool:
-        return self.hasEnoughVotes(viewNo, 2 * f + 1)
+    def hasQuorum(self, viewNo: int, quorum: int) -> bool:
+        return self.hasEnoughVotes(viewNo, quorum)

@@ -1,6 +1,5 @@
-from plenum.common.eventually import eventually
 from plenum.common.util import randomString
-from plenum.test.cli.helper import checkClientConnected
+from plenum.test.cli.helper import waitClientConnected
 
 
 def testClientNames(cli, validNodeNames, createAllNodes):
@@ -28,9 +27,7 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     assert len(cli.clients) == 1
     # Client name should be in cli.client
     assert cName in cli.clients
-
-    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames, cName,
-                              retryWait=1, timeout=5))
+    waitClientConnected(cli, validNodeNames, cName)
 
     # Add clients with name same as a node name or starting with a node name
     for i, nm in enumerate(validNodeNames):
@@ -52,4 +49,3 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     msg = cli.lastPrintArgs['msg']
     # Appropriate error msg should be printed
     assert msg == "Client {} already exists.".format(cName)
-

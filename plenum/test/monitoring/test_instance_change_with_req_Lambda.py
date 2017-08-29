@@ -1,12 +1,10 @@
-from functools import partial
-
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import PrePrepare, f
-from plenum.common.util import adict
-from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
+from plenum.common.messages.node_messages import PrePrepare
+from stp_core.common.util import adict
+from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import getPrimaryReplica
 from plenum.test.spy_helpers import getAllReturnVals
 
 nodeCount = 7
@@ -25,29 +23,44 @@ Verify a view change happens
 """
 
 
-@pytest.fixture(scope="module")
-def setup(looper, startedNodes, up, wallet1, client1):
+@pytest.fixture('module')
+def setup(looper, tconf, startedNodes, up, wallet1, client1):
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        numReqs=5)
     # Get the master replica of the master protocol instance
     P = getPrimaryReplica(startedNodes)
 
-    # Make `Delta` small enough so throughput check passes.
-    for node in startedNodes:
-        node.monitor.Delta = .001
+    # set LAMBDA smaller than the production config to make the test faster
+    testLambda = 30
+    delay_by = testLambda + 5
 
-    slowRequest = None
+    for node in startedNodes:
+        # Make `Delta` small enough so throughput check passes.
+        node.monitor.Delta = .001
+        node.monitor.Lambda = testLambda
+        for r in node.replicas:
+            r.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS += delay_by
+
+    slowed_request = False
 
     # make P (primary replica on master) faulty, i.e., slow to send
     # PRE-PREPARE for a specific client request only
-    def by65SpecificPrePrepare(msg):
-        nonlocal slowRequest
-        if isinstance(msg, PrePrepare) and slowRequest is None:
-            slowRequest = getattr(msg, f.REQ_ID.nm)
-            return 65
+    def specificPrePrepare(msg):
+        nonlocal slowed_request
+        if isinstance(msg, PrePrepare) and slowed_request is False:
+            slowed_request = True
+            return delay_by  # just more that LAMBDA
 
-    P.outBoxTestStasher.delay(by65SpecificPrePrepare)
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=5, timeoutPerReq=80)
+    P.outBoxTestStasher.delay(specificPrePrepare)
+    # TODO select or create a timeout for this case in 'waits'
+    sendReqsToNodesAndVerifySuffReplies(
+        looper,
+        wallet1,
+        client1,
+        numReqs=5,
+        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
     return adict(nodes=startedNodes)
 
@@ -58,5 +71,5 @@ def testInstChangeWithMoreReqLat(looper, setup):
         node.checkPerformance()
         assert any(getAllReturnVals(node.monitor,
                                     node.monitor.isMasterReqLatencyTooHigh))
-    looper.run(eventually(partial(checkViewNoForNodes, nodes, 1),
-                          retryWait=1, timeout=20))
+
+    waitForViewChange(looper, nodes)

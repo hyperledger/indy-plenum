@@ -1,7 +1,8 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import Primary
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import Primary
+from plenum.test import waits
 
 whitelist = ['got primary declaration',
              'doing nothing for now',
@@ -9,7 +10,7 @@ whitelist = ['got primary declaration',
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True, reason="Implementation changed.")
+@pytest.mark.skip(reason="SOV-541. Implementation changed.")
 def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
                                                    keySharedNodes,
                                                    ready):
@@ -29,4 +30,5 @@ def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet.nodes))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

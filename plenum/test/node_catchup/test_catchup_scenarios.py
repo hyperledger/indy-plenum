@@ -1,13 +1,15 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
-from plenum.test.delayers import crDelay
+from plenum.test.delayers import cqDelay
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.test_node import checkNodesConnected
+from plenum.test import waits
+
 
 logger = getlogger()
 
@@ -18,31 +20,32 @@ txnCount = 10
 def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
     for node in txnPoolNodeSet:
-        node.nodeIbStasher.delay(crDelay(5))
+        node.nodeIbStasher.delay(cqDelay(5))
     txnPoolNodeSet.append(newNode)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet[:-1])
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=15))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     def stashing():
         assert newNode.mode != Mode.participating
         assert len(newNode.stashedOrderedReqs) > 0
-        assert len(newNode.reqsFromCatchupReplies) > 0
+        # assert len(newNode.reqsFromCatchupReplies) > 0
 
-    looper.run(eventually(stashing, retryWait=1, timeout=20))
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    looper.run(eventually(stashing, retryWait=1, timeout=timeout))
 
 
-@pytest.mark.skipif(True, reason="Incomplete")
-def testNodeNotProcessingOrderedReqsWhileCatchingUp(nodeStashingOrderedRequests):
+@pytest.mark.skip(reason="SOV-552. Incomplete")
+def testNodeNotProcessingOrderedReqsWhileCatchingUp(
+        nodeStashingOrderedRequests):
     """
     Check that node does not execute requests while catching up
     :return:
     """
-    pass
 
 
-@pytest.mark.skipif(True, reason="Incomplete")
+@pytest.mark.skip(reason="SOV-553. Incomplete")
 def testExecutedInOrderAfterCatchingUp(txnPoolNodeSet,
                                        nodeStashingOrderedRequests):
     """

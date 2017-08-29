@@ -1,4 +1,4 @@
-from plenum.common.txn import TXN_TYPE, DATA
+from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 
 AUCTION_START = "AUCTION_START"
@@ -21,7 +21,7 @@ class AuctionReqValidationPlugin:
         typ = operation.get(TXN_TYPE)
         assert typ in self.validTxnTypes, \
             "{} is not a valid transaction type, must be one of {}".\
-                format(typ, ', '.join(self.validTxnTypes))
+            format(typ, ', '.join(self.validTxnTypes))
         if typ in [AUCTION_START, AUCTION_END, PLACE_BID]:
             data = operation.get(DATA)
             assert isinstance(data, dict), \
@@ -32,6 +32,6 @@ class AuctionReqValidationPlugin:
                 amount = data.get(AMOUNT)
                 assert isinstance(amount, (int, float)) and amount > 0, \
                     "{} must be present and should be a number greater than 0"\
-                        .format(AMOUNT)
+                    .format(AMOUNT)
 
         self.count += 1

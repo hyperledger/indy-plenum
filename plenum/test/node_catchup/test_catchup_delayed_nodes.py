@@ -1,10 +1,11 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
+
+from plenum.test import waits
 from plenum.test.delayers import cpDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected
 
@@ -15,7 +16,7 @@ txnCount = 10
 whitelist = ['found legacy entry']  # logged errors to ignore
 
 
-@pytest.mark.skipif(True, reason="Incomplete implementation")
+@pytest.mark.skip(reason="SOV-551. Incomplete implementation")
 def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
                             txnPoolCliNodeReg, tdirWithPoolTxns, tconf,
                             allPluginsPath):
@@ -34,22 +35,26 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     nodeYName = "Eta"
     stewardZName = "testClientStewardZ"
     nodeZName = "Theta"
+    delayX = 45
+    delayY = 2
     stewardX, nodeX = addNewStewardAndNode(looper, client, stewardXName,
-                                               nodeXName,
-                                               tdirWithPoolTxns, tconf,
-                                               allPluginsPath, autoStart=False)
+                                           nodeXName,
+                                           tdirWithPoolTxns, tconf,
+                                           allPluginsPath, autoStart=False)
     stewardY, nodeY = addNewStewardAndNode(looper, client, stewardYName,
                                            nodeYName,
                                            tdirWithPoolTxns, tconf,
                                            allPluginsPath, autoStart=False)
-    nodeX.nodeIbStasher.delay(cpDelay(45))
-    nodeY.nodeIbStasher.delay(cpDelay(2))
+    nodeX.nodeIbStasher.delay(cpDelay(delayX))
+    nodeY.nodeIbStasher.delay(cpDelay(delayY))
     looper.add(nodeX)
     looper.add(nodeY)
     txnPoolNodeSet.append(nodeX)
     txnPoolNodeSet.append(nodeY)
 
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
+    timeout = waits.expectedPoolCatchupTime(
+        len(txnPoolNodeSet)) + delayX + delayY
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=timeout))
     logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
                                                              nodeY.name))
     nodeX.stop()
@@ -60,7 +65,5 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
                                                                   nodeY.name))
     nodeX.start(looper.loop)
     nodeY.start(looper.loop)
-    looper.run(eventually(checkNodeLedgersForEquality, nodeX,
-                          *txnPoolNodeSet[:5], retryWait=1, timeout=15))
-    looper.run(eventually(checkNodeLedgersForEquality, nodeY,
-                          *txnPoolNodeSet[:5], retryWait=1, timeout=15))
+    waitNodeDataEquality(looper, nodeX, *txnPoolNodeSet[:5])
+    waitNodeDataEquality(looper, nodeY, *txnPoolNodeSet[:5])

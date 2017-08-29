@@ -1,9 +1,11 @@
 import pytest
 
+from plenum.test import waits
 from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
-from plenum.common.util import getMaxFailures, adict
-from plenum.test.helper import checkNodesConnected, sendMsgAndCheck, msgAll
+from plenum.common.util import getMaxFailures
+from stp_core.common.util import adict
+from plenum.test.helper import checkNodesConnected, sendMessageAndCheckDelivery, msgAll
 from plenum.test.msgs import randomMsg
 
 nodeCount = 4
@@ -11,10 +13,10 @@ nodeCount = 4
 
 @pytest.fixture(scope="module")
 def pool(looper, nodeSet):
-    for n in nodeSet:  # type: TestNode
-        n.startKeySharing()
+    # for n in nodeSet:  # type: TestNode
+    #     n.startKeySharing()
     looper.run(checkNodesConnected(nodeSet))
-    checkProtocolInstanceSetup(looper, nodeSet, timeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet)
     return adict(looper=looper, nodeset=nodeSet)
 
 
@@ -29,12 +31,13 @@ def testAllBroadcast(pool):
 def testMsgSendingTime(pool, nodeReg):
     nodeNames = list(nodeReg.keys())
     msg = randomMsg()
+    timeout = waits.expectedNodeStartUpTimeout()
     pool.looper.run(
-            sendMsgAndCheck(pool.nodeset,
-                            nodeNames[0],
-                            nodeNames[1],
-                            msg,
-                            1))
+        sendMessageAndCheckDelivery(pool.nodeset,
+                                    nodeNames[0],
+                                    nodeNames[1],
+                                    msg,
+                                    customTimeout=timeout))
 
 
 def testCorrectNumOfProtocolInstances(pool):
@@ -59,7 +62,7 @@ def testCorrectNumOfReplicas(pool):
         for instId in getProtocolInstanceNums(node):
             # num of replicas for a instance on a node must be 1
             assert len([node.replicas[instId]]) == 1 and \
-                   node.replicas[instId].instId == instId
+                node.replicas[instId].instId == instId
             # num of primary on every protocol instance is 1
             numberOfPrimary = len([node for node in pool.nodeset
                                    if node.replicas[instId].isPrimary])

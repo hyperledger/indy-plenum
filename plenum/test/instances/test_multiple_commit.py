@@ -1,16 +1,17 @@
+import types
 from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import Commit
-from plenum.common.util import adict
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import Commit
+from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, \
-    getNodeSuspicions, whitelistNode
+from plenum.test.helper import getNodeSuspicions, whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
              'cannot process incoming COMMIT']
@@ -19,7 +20,7 @@ whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     faultyRep = nonPrimaryReps[0]
     makeNodeFaulty(faultyRep.node, partial(sendDuplicate3PhaseMsg,
@@ -34,6 +35,12 @@ def setup(nodeSet, up):
                   [node for node in nodeSet if node != faultyRep.node],
                   Suspicions.DUPLICATE_CM_SENT.code)
 
+    # If the request is ordered then COMMIT will be rejected much earlier
+    for r in [primaryRep, *nonPrimaryReps]:
+        def do_nothing(self, commit):
+            pass
+        r.doOrder = types.MethodType(do_nothing, r)
+
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
                  faultyRep=faultyRep)
 
@@ -46,7 +53,7 @@ def testMultipleCommit(setup, looper, sent1):
     should count only one COMMIT from that sender
     """
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-                                            setup.nonPrimaryReps, setup.faultyRep
+        setup.nonPrimaryReps, setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):
@@ -54,8 +61,11 @@ def testMultipleCommit(setup, looper, sent1):
                 # Every node except the one from which duplicate COMMIT was
                 # sent should raise suspicion twice, once for each extra
                 # PREPARE request
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.DUPLICATE_CM_SENT.code)) \
-                       == 2
+                assert len(
+                    getNodeSuspicions(
+                        r.node,
+                        Suspicions.DUPLICATE_CM_SENT.code)) == 2
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

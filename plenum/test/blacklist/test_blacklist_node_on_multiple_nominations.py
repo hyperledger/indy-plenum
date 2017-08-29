@@ -1,14 +1,15 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import Nomination
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import Nomination
+from plenum.test import waits
 
 whitelist = ['already got nomination',
              'doing nothing for now']
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-@pytest.mark.skipif(True, reason="Implementation changed.")
+@pytest.mark.skip(reason="SOV-540. Implementation changed.")
 def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
     """
     A node that sends multiple nominations must be blacklisted by other nodes
@@ -25,4 +26,5 @@ def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet.nodes))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

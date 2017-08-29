@@ -1,9 +1,14 @@
 import math
 from itertools import combinations
 
+import time
+
+import os
 from libnacl import crypto_hash_sha256
 
-from plenum.common.util import evenCompare, distributedConnectionMap, randomString
+from plenum.common.util import randomString, compare_3PC_keys, \
+    check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch
+from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
 
 
@@ -52,3 +57,66 @@ def test_distributedConnectionMapIsDeterministic():
         conmaps = [distributedConnectionMap(rands) for _ in range(10)]
         for conmap1, conmap2 in combinations(conmaps, 2):
             assert conmap1 == conmap2
+
+
+def test_list_item_equality():
+    l = [
+        {'a': 1, 'b': 2, 'c': 3},
+        {'c': 3, 'a': 1, 'b': 2},
+        {'c': 3, 'a': 1, 'b': 2},
+        {'a': 1, 'b': 2, 'c': 3},
+        {'c': 3, 'a': 1, 'b': 2},
+        {'b': 2, 'c': 3, 'a': 1},
+    ]
+    l1 = [{'a', 'b', 'c', 1}, {'c', 'a', 'b', 1}, {1, 'a', 'c', 'b'}]
+    assert check_if_all_equal_in_list(l)
+    assert check_if_all_equal_in_list(l1)
+    assert check_if_all_equal_in_list([1, 1, 1, 1])
+    assert check_if_all_equal_in_list(['a', 'a', 'a', 'a'])
+    assert not check_if_all_equal_in_list(['b', 'a', 'a', 'a'])
+    assert not check_if_all_equal_in_list(l + [{'a': 1, 'b': 2, 'c': 33}])
+    assert not check_if_all_equal_in_list(l1 + [{'c', 'a', 'b', 11}])
+
+
+def test_3PC_key_comaparison():
+    assert compare_3PC_keys((1, 2), (1, 2)) == 0
+    assert compare_3PC_keys((1, 3), (1, 2)) < 0
+    assert compare_3PC_keys((1, 2), (1, 3)) > 0
+    assert compare_3PC_keys((1, 2), (1, 10)) > 0
+    assert compare_3PC_keys((1, 100), (2, 3)) > 0
+    assert compare_3PC_keys((1, 100), (4, 3)) > 0
+    assert compare_3PC_keys((2, 100), (1, 300)) < 0
+    assert min_3PC_key([(2, 100), (1, 300), (5, 600)]) == (1, 300)
+    assert min_3PC_key([(2, 100), (2, 300), (2, 600)]) == (2, 100)
+    assert min_3PC_key([(2, 100), (2, 300), (1, 600)]) == (1, 600)
+    assert max_3PC_key([(2, 100), (1, 300), (5, 6)]) == (5, 6)
+    assert max_3PC_key([(2, 100), (3, 20), (4, 1)]) == (4, 1)
+    assert max_3PC_key([(2, 100), (2, 300), (2, 400)]) == (2, 400)
+
+
+def test_utc_epoch():
+    t1 = get_utc_epoch()
+    time.sleep(1)
+    t2 = get_utc_epoch()
+    assert 1 <= t2 - t1 < 2
+
+    old_tz = os.environ.get('TZ')
+
+    t3 = get_utc_epoch()
+    os.environ['TZ'] = 'Europe/London'
+    time.tzset()
+    time.sleep(1)
+    t4 = get_utc_epoch()
+    assert 1 <= t4 - t3 < 2
+
+    t5 = get_utc_epoch()
+    os.environ['TZ'] = 'America/St_Johns'
+    time.tzset()
+    time.sleep(1)
+    t6 = get_utc_epoch()
+    assert 1 <= t6 - t5 < 2
+
+    if old_tz is None:
+        del os.environ['TZ']
+    else:
+        os.environ['TZ'] = old_tz

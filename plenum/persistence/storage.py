@@ -1,10 +1,12 @@
 from abc import abstractmethod, ABC
 
-from ledger.stores.text_file_store import TextFileStore
-from plenum.common.exceptions import DataDirectoryNotFound, DBConfigNotFound
-from plenum.common.txn import StorageType
-from plenum.common.types import Reply
-from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.common.constants import StorageType, KeyValueStorageType
+from plenum.common.exceptions import DataDirectoryNotFound, KeyValueStorageConfigNotFound
+from plenum.common.messages.node_messages import Reply
+from storage.kv_in_memory import KeyValueStorageInMemory
+from storage.kv_store import KeyValueStorage
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.text_file_store import TextFileStore
 
 
 class Storage(ABC):
@@ -25,17 +27,18 @@ class Storage(ABC):
         pass
 
 
+def initKeyValueStorage(keyValueType, dataLocation,
+                        keyValueStorageName) -> KeyValueStorage:
+    if keyValueType == KeyValueStorageType.Leveldb:
+        return KeyValueStorageLeveldb(dataLocation, keyValueStorageName)
+    elif keyValueType == KeyValueStorageType.Memory:
+        return KeyValueStorageInMemory()
+    else:
+        raise KeyValueStorageConfigNotFound
+
+
 def initStorage(storageType, name, dataDir=None, config=None):
     if storageType == StorageType.File:
         if dataDir is None:
             raise DataDirectoryNotFound
         return TextFileStore(dataDir, name)
-    elif storageType == StorageType.OrientDB:
-        if config is None:
-            raise DBConfigNotFound
-        orientConf = config.OrientDB
-        return OrientDbStore(user=orientConf["user"],
-                             password=orientConf["password"],
-                             host=orientConf["host"],
-                             port=orientConf["port"],
-                             dbName=name)

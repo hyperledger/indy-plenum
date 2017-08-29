@@ -19,8 +19,7 @@ class TestStatsConsumer(StatsConsumer):
             EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
             EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests,
             EVENT_PERIODIC_STATS_NODE_INFO: self._sendNodeInfo,
-            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo
-        }
+            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO: self._sendSystemPerformanceInfo}
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED,
@@ -37,8 +36,6 @@ class TestStatsConsumer(StatsConsumer):
 
     def _sendStatsOnReqOrdered(self, stats: Dict[str, object]):
         assert stats.get("created_at")
-        if stats.get("hasMasterPrimary") == "Y":
-            assert stats.get("total requests")
 
     def _sendStatsOnNodeStart(self, stats: Dict[str, object]):
         assert stats.get("startedAtData")

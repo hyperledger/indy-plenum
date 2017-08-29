@@ -1,11 +1,10 @@
-import logging
 import unittest
 from typing import Any
 from unittest import TestCase
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server.node import Node
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 
 
 pr = slice(3, 5)  # params and result
@@ -23,9 +22,9 @@ class TestHelpers(TestCase):
         with self.subTest(
                 "ensure __init__ entry is there for {}".format(params)):
             inits = z.spylog.getAll('__init__')
-            self.assertEquals(len(inits), 1, "expected only 1 init entry")
-            self.assertEquals(inits[0][pr], (params, None),
-                              "expected proper init params and result")
+            self.assertEqual(len(inits), 1, "expected only 1 init entry")
+            self.assertEqual(inits[0][pr], (params, None),
+                             "expected proper init params and result")
 
     def runThroughAssertions(self, z, ovrdCornResult: str = None):
         ok = 'ok' if not ovrdCornResult else ovrdCornResult
@@ -39,8 +38,8 @@ class TestHelpers(TestCase):
         with self.subTest(
                 "ensure first call of method #2 returns the proper params and result"):
             z.eatCorn('canned')
-            self.assertEquals(z.spylog.getLast('eatCorn')[pr],
-                              ({'kind': 'canned'}, yucky))
+            self.assertEqual(z.spylog.getLast('eatCorn')[pr],
+                             ({'kind': 'canned'}, yucky))
             assert z.spylog.count('eatCorn') == 1
 
         with self.subTest(
@@ -54,7 +53,7 @@ class TestHelpers(TestCase):
                 "ensure third call of method #2  returns the proper params and result"):
             z.eatCorn('canned')
             assert z.spylog.getLast('eatCorn')[pr] == (
-            {'kind': 'canned'}, yucky)
+                {'kind': 'canned'}, yucky)
             assert z.spylog.count('eatCorn') == 3
 
         self.checkOneInit(z, {'s': 'x', 'p': 'y'})
@@ -62,14 +61,14 @@ class TestHelpers(TestCase):
         with self.subTest("ensure entries accummulate properly"):
             z.eatCorn('canned')
             z.eatCorn('whirled')
-            self.assertEquals(len(z.spylog), 7,
-                              "expected 7 entries in the spy log")
+            self.assertEqual(len(z.spylog), 7,
+                             "expected 7 entries in the spy log")
             z.eatCorn('creamed')
             z.eatCorn('creamed')
             z.eatCorn('spun')
             z.mymethod("hello again")
-            self.assertEquals(len(z.spylog), 11,
-                              "expected 11 entries in the spy log")
+            self.assertEqual(len(z.spylog), 11,
+                             "expected 11 entries in the spy log")
 
         with self.subTest("exceptions are handled gracefully (logged, etc.)"):
             # TODO!
@@ -78,26 +77,26 @@ class TestHelpers(TestCase):
 
 class NewTestableTests(TestHelpers):
     def testNew(self):
-        X = Spyable(Node)
+        X = spyable(Node)
         print(X)
 
     def testSpyableBaseClass(self):
-        SpyBaseClass = Spyable()(NewBaseClass)
+        SpyBaseClass = spyable()(NewBaseClass)
         z = SpyBaseClass('x', 'y')
         self.runThroughAssertions(z)
 
     def testSpyableSubClass(self):
-        SpySubClass = Spyable()(SubClass)
+        SpySubClass = spyable()(SubClass)
         z = SpySubClass('x', 'y')
         self.runThroughAssertions(z)
 
     def testSpyableSubClassWithOverride(self):
-        SpySubClassOvrd = Spyable()(SubClassWithOverride)
+        SpySubClassOvrd = spyable()(SubClassWithOverride)
         z = SpySubClassOvrd('x', 'y')
         self.runThroughAssertions(z, 'hooray!')
 
     def testEveryObjectGetsItsOwnSpyLog(self):
-        SpySubClass = Spyable()(SubClass)
+        SpySubClass = spyable()(SubClass)
         y = SpySubClass('a', 'b')
         z = SpySubClass('x', 'y')
         self.checkOneInit(y, {'s': 'a', 'p': 'b'})
@@ -105,18 +104,18 @@ class NewTestableTests(TestHelpers):
 
     def testSpyOnSubsetOfMethods(self):
         def go(methods, ec: "expected counts"):
-            SpySubClass = Spyable(methods=methods)(SubClass)
+            SpySubClass = spyable(methods=methods)(SubClass)
             z = SpySubClass('a', 'b')
-            self.assertEquals(len(z.spylog), ec[0],
-                              "expected certain number of entries in the spy log")
+            self.assertEqual(len(z.spylog), ec[0],
+                             "expected certain number of entries in the spy log")
             z.eatCorn('canned')
             z.eatCorn('whirled')
-            self.assertEquals(len(z.spylog), ec[1],
-                              "expected certain number of entries in the spy log")
+            self.assertEqual(len(z.spylog), ec[1],
+                             "expected certain number of entries in the spy log")
             z.eatCorn('creamed')
             z.mymethod("hello again")
-            self.assertEquals(len(z.spylog), ec[2],
-                              "expected certain number of entries in the spy log")
+            self.assertEqual(len(z.spylog), ec[2],
+                             "expected certain number of entries in the spy log")
 
         with TestHelpers.subTest(self, "No subset"):
             go(None, [1, 3, 5])
@@ -132,38 +131,38 @@ class NewTestableTests(TestHelpers):
             go([SubClass.eatCorn, SubClass.mymethod], [0, 2, 4])
 
     def testSpyOnOverriddenClassMethod(self):
-        SpySubClass = Spyable(
+        SpySubClass = spyable(
             methods=[SubClassWithOverride.eatCorn, "mymethod"])(
             SubClassWithOverride)
         z = SpySubClass('a', 'b')
         z.mymethod("hi")
         z.eatCorn("canned")
-        self.assertEquals(z.spylog.getLast('eatCorn')[pr],
-                          ({'kind': 'canned'}, 'hooray!'))
-        self.assertEquals(z.spylog.getLast('mymethod')[pr],
-                          ({'inp': 'hi'}, None))
+        self.assertEqual(z.spylog.getLast('eatCorn')[pr],
+                         ({'kind': 'canned'}, 'hooray!'))
+        self.assertEqual(z.spylog.getLast('mymethod')[pr],
+                         ({'inp': 'hi'}, None))
 
     def testSpyOnOverriddenBaseClassMethod(self):
-        SpySubClass = Spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
+        SpySubClass = spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
             SubClassWithOverride)
         z = SpySubClass('a', 'b')
         z.mymethod("hi")
         z.eatCorn("canned")
-        self.assertEquals(z.spylog.getLast('eatCorn'), None)
-        self.assertEquals(z.spylog.getLast('mymethod')[pr],
-                          ({'inp': 'hi'}, None))
+        self.assertEqual(z.spylog.getLast('eatCorn'), None)
+        self.assertEqual(z.spylog.getLast('mymethod')[pr],
+                         ({'inp': 'hi'}, None))
 
     def testSpyOnCertainClass(self):
         # known limitation... when super() is called, we are not spy-wrapping
         # base base class methods.
-        SpySubClass = Spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
+        SpySubClass = spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
             SubClassWithOverrideAndSuperCall)
         z = SpySubClass('a', 'b')
         z.mymethod("hi")
         z.eatCorn("canned")
-        self.assertEquals(z.spylog.getLast('eatCorn'), None)
-        self.assertEquals(z.spylog.getLast('mymethod')[pr], ({'inp': 'hi'},
-                                                             None))
+        self.assertEqual(z.spylog.getLast('eatCorn'), None)
+        self.assertEqual(z.spylog.getLast('mymethod')[pr], ({'inp': 'hi'},
+                                                            None))
 
 
 class NewBaseClass:

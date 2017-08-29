@@ -1,48 +1,75 @@
 import asyncio
-import os
-
 import collections
+import functools
+import glob
 import inspect
+import ipaddress
 import itertools
 import json
 import logging
 import math
+import os
 import random
-import socket
-import string
 import time
 from binascii import unhexlify, hexlify
-from collections import Counter
+from collections import Counter, defaultdict
 from collections import OrderedDict
+from datetime import datetime, timezone
 from math import floor
+from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple, Callable
+    Tuple, Union, NamedTuple, Callable
 
 import base58
 import libnacl.secret
-from ledger.util import F
-from libnacl import crypto_hash_sha256
-from plenum.common.error import error
+import psutil
+from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
+from sortedcontainers import SortedDict as _SortedDict
+
+from ledger.util import F
+from plenum.cli.constants import WALLET_FILE_EXTENSION
+from plenum.common.error import error
+from stp_core.crypto.util import isHexKey, isHex
+from stp_core.network.exceptions import \
+    InvalidEndpointIpAddress, InvalidEndpointPort
+
+# Do not remove the next import until imports in sovrin are fixed
+from stp_core.common.util import adict
+
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
 
 
-def randomString(size: int = 20,
-                 chars: str = string.ascii_letters + string.digits) -> str:
+def randomString(size: int = 20) -> str:
     """
-    Generate a random string of the specified size.
+    Generate a random string in hex of the specified size
 
-    Ensure that the size is less than the length of chars as this function uses random.choice
-    which uses random sampling without replacement.
+    DO NOT use python provided random class its a Pseudo Random Number Generator
+    and not secure enough for our needs
 
     :param size: size of the random string to generate
-    :param chars: the set of characters to use to generate the random string. Uses alphanumerics by default.
-    :return: the random string generated
+    :return: the hexadecimal random string
     """
-    assert size < len(chars), 'size should be less than the number of characters'
-    return ''.join(random.sample(chars, size))
+
+    def randomStr(size):
+        assert (size > 0), "Expected random string size cannot be less than 1"
+        # Approach 1
+        rv = randombytes(size // 2).hex()
+        return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
+
+        # Approach 2 this is faster than Approach 1, but lovesh had a doubt
+        # that part of a random may not be truely random, so until
+        # we have definite proof going to retain it commented
+        # rstr = randombytes(size).hex()
+        # return rstr[:size]
+
+    return randomStr(size)
+
+
+def randomSeed(size=32):
+    return randomString(size)
 
 
 def mostCommonElement(elements: Iterable[T]) -> T:
@@ -61,8 +88,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
+), logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -84,16 +111,19 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             mutated = False
             for old, new in toFrom.items():
                 if id(o) == id(old):
-                    logging.debug("{}in object {}, attribute {} changed from {} to {}".
-                                  format(logMsg + ": " if logMsg else "",
-                                         obj, nm, old, new))
+                    logging.debug(
+                        "{}in object {}, attribute {} changed from {} to {}". format(
+                            logMsg + ": " if logMsg else "", obj, nm, old, new))
                     if isinstance(obj, dict):
                         obj[nm] = new
                     else:
                         setattr(obj, nm, new)
                     mutated = True
             if not mutated:
-                objSearchReplace(o, toFrom, checked, logMsg)
+                if deepLevel is not None and deepLevel == 0:
+                    continue
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel -
+                                 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 
@@ -104,22 +134,6 @@ def getRandomPortNumber() -> int:
     :return: a random port number
     """
     return random.randint(8090, 65530)
-
-
-def isHex(val: str) -> bool:
-    """
-    Return whether the given str represents a hex value or not
-
-    :param val: the string to check
-    :return: whether the given str represents a hex value
-    """
-    if isinstance(val, bytes):
-        # only decodes utf-8 string
-        try:
-            val = val.decode()
-        except:
-            return False
-    return isinstance(val, str) and all(c in string.hexdigits for c in val)
 
 
 async def runall(corogen):
@@ -136,7 +150,8 @@ async def runall(corogen):
     return results
 
 
-def getSymmetricallyEncryptedVal(val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
+def getSymmetricallyEncryptedVal(
+        val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
     """
     Encrypt the provided value with symmetric encryption
 
@@ -166,24 +181,9 @@ def getMaxFailures(nodeCount: int) -> int:
     :return: maximum permissible Byzantine failures in the system
     """
     if nodeCount >= 4:
-        return floor((nodeCount - 1) / 3)
+        return int(floor((nodeCount - 1) / 3))
     else:
         return 0
-
-
-def getQuorum(nodeCount: int = None, f: int = None) -> int:
-    r"""
-    Return the minimum number of nodes where the number of correct nodes is
-    greater than the number of faulty nodes.
-    Calculated as :math:`2*f + 1`
-
-    :param nodeCount: the number of nodes in the system
-    :param f: the max. number of failures
-    """
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return 2 * f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:
@@ -195,6 +195,13 @@ def getNoInstances(nodeCount: int) -> int:
     :return: number of protocol instances
     """
     return getMaxFailures(nodeCount) + 1
+
+
+def totalConnections(nodeCount: int) -> int:
+    """
+    :return: number of connections between nodes
+    """
+    return math.ceil((nodeCount * (nodeCount - 1)) / 2)
 
 
 def prime_gen() -> int:
@@ -214,99 +221,6 @@ def prime_gen() -> int:
             while x in D:
                 x += p
             D[x] = p
-
-
-def evenCompare(a: str, b: str) -> bool:
-    """
-    A deterministic but more evenly distributed comparator than simple alphabetical.
-    Useful when comparing consecutive strings and an even distribution is needed.
-    Provides an even chance of returning true as often as false
-    """
-    ab = a.encode('utf-8')
-    bb = b.encode('utf-8')
-    ac = crypto_hash_sha256(ab)
-    bc = crypto_hash_sha256(bb)
-    return ac < bc
-
-
-def distributedConnectionMap(names: List[str]) -> OrderedDict:
-    """
-    Create a map where every node is connected every other node.
-    Assume each key in the returned dictionary to be connected to each item in
-    its value(list).
-
-    :param names: a list of node names
-    :return: a dictionary of name -> list(name).
-    """
-    names.sort()
-    combos = list(itertools.combinations(names, 2))
-    maxPer = math.ceil(len(list(combos)) / len(names))
-    # maxconns = math.ceil(len(names) / 2)
-    connmap = OrderedDict((n, []) for n in names)
-    for a, b in combos:
-        if len(connmap[a]) < maxPer:
-            connmap[a].append(b)
-        else:
-            connmap[b].append(a)
-    return connmap
-
-
-def checkPortAvailable(ha):
-    """Checks whether the given port is available"""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.bind(ha)
-    except BaseException as ex:
-        logging.warning("Checked port availability for opening "
-                        "and address was already in use: {}".format(ha))
-        raise ex
-    finally:
-        sock.close()
-
-
-class MessageProcessor:
-    """
-    Helper functions for messages.
-    """
-
-    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
-        """
-        Discard a message and log a reason using the specified `logMethod`.
-
-        :param msg: the message to discard
-        :param reason: the reason why this message is being discarded
-        :param logMethod: the logging function to be used
-        :param cliOutput: if truthy, informs a CLI that the logged msg should
-        be printed
-        """
-        reason = "" if not reason else " because {}".format(reason)
-        logMethod("{} discarding message {}{}".format(self, msg, reason),
-                  extra={"cli": cliOutput})
-
-
-class adict(dict):
-    """Dict with attr access to keys."""
-    marker = object()
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        for key in kwargs:
-            self.__setitem__(key, kwargs[key])
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict) and not isinstance(value, adict):
-            value = adict(**value)
-        super(adict, self).__setitem__(key, value)
-
-    def __getitem__(self, key):
-        found = self.get(key, adict.marker)
-        if found is adict.marker:
-            found = adict()
-            super(adict, self).__setitem__(key, found)
-        return found
-
-    __setattr__ = __setitem__
-    __getattr__ = __getitem__
 
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
@@ -329,19 +243,6 @@ async def untilTrue(condition, *args, timeout=5) -> bool:
     return result
 
 
-def hasKeys(data, keynames):
-    """
-    Checks whether all keys are present in the given data, and are not None
-    """
-    # if all keys in `keynames` are not present in `data`
-    if len(set(keynames).difference(set(data.keys()))) != 0:
-        return False
-    for key in keynames:
-        if data[key] is None:
-            return False
-    return True
-
-
 def firstKey(d: Dict):
     return next(iter(d.keys()))
 
@@ -350,40 +251,13 @@ def firstValue(d: Dict):
     return next(iter(d.values()))
 
 
-def seedFromHex(seed):
-    if len(seed) == 64:
-        try:
-            return unhexlify(seed)
-        except:
-            pass
-
-
-def cleanSeed(seed=None):
-    if seed:
-        bts = seedFromHex(seed)
-        if not bts:
-            if isinstance(seed, str):
-                seed = seed.encode('utf-8')
-            bts = bytes(seed)
-            if len(seed) != 32:
-                error('seed length must be 32 bytes')
-        return bts
-
-
-def isHexKey(key):
-    try:
-        if len(key) == 64 and isHex(key):
-            return True
-    except ValueError as ex:
-        return False
-    except Exception as ex:
-        print(ex)
-        exit()
-
-
 def getCryptonym(identifier):
     return base58.b58encode(unhexlify(identifier.encode())).decode() \
         if isHexKey(identifier) else identifier
+
+
+def getFriendlyIdentifier(dest):
+    return hexToFriendly(dest) if isHexKey(dest) else dest
 
 
 def hexToFriendly(hx):
@@ -393,11 +267,22 @@ def hexToFriendly(hx):
     return rawToFriendly(raw)
 
 
+def friendlyToHex(f):
+    if not isinstance(f, str):
+        f = f.decode('ascii')
+    raw = friendlyToRaw(f)
+    return hexlify(raw)
+
+
+def friendlyToHexStr(f):
+    return friendlyToHex(f).decode()
+
+
 def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
-def friendlyToRaw(f ):
+def friendlyToRaw(f):
     return base58.b58decode(f)
 
 
@@ -413,10 +298,11 @@ def runWithLoop(loop, callback, *args, **kwargs):
 
 
 def checkIfMoreThanFSameItems(items, maxF):
-    jsonifiedItems = [json.dumps(item, sort_keys=True) for item in items]
-    counts = {}
-    for jItem in jsonifiedItems:
-        counts[jItem] = counts.get(jItem, 0) + 1
+    # TODO: separate json serialization into serialization.py
+    jsonified_items = [json.dumps(item, sort_keys=True) for item in items]
+    counts = defaultdict(int)
+    for j_item in jsonified_items:
+        counts[j_item] += 1
     if counts and counts[max(counts, key=counts.get)] > maxF:
         return json.loads(max(counts, key=counts.get))
     else:
@@ -444,10 +330,26 @@ def updateFieldsWithSeqNo(fields):
     return r
 
 
+def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
+    """
+    Compare provided fields of 2 named tuples for equality and returns true
+    :param tuple1:
+    :param tuple2:
+    :param fields:
+    :return:
+    """
+    tuple1 = tuple1._asdict()
+    tuple2 = tuple2._asdict()
+    comp = []
+    for field in fields:
+        comp.append(tuple1[field] == tuple2[field])
+    return all(comp)
+
+
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(identifier, verkey)
+        n.clientAuthNr.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):
@@ -526,9 +428,12 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
-def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits)
-                   for _ in range(size)).encode()
+def get_utc_epoch() -> int:
+    """
+    Returns epoch in UTC
+    :return:
+    """
+    return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
 
 def lxor(a, b):
@@ -539,7 +444,10 @@ def lxor(a, b):
 
 def getCallableName(callable: Callable):
     # If it is a function or method then access its `__name__`
-    if inspect.isfunction(callable) or inspect.ismethod(callable):
+    if inspect.isfunction(callable) or \
+            inspect.ismethod(callable) or \
+            isinstance(callable, functools.partial):
+
         if hasattr(callable, "__name__"):
             return callable.__name__
         # If it is a partial then access its `func`'s `__name__`
@@ -565,3 +473,123 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
 def createDirIfNotExists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+
+def is_network_port_valid(port):
+    return port.isdigit() and 0 < int(port) < 65536
+
+
+def is_network_ip_address_valid(ip_address):
+    try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def check_endpoint_valid(endpoint):
+    if ':' not in endpoint:
+        # TODO: replace with more suitable exception
+        raise InvalidEndpointIpAddress(endpoint)
+    ip, port = endpoint.split(':')
+    if not is_network_ip_address_valid(ip):
+        raise InvalidEndpointIpAddress(endpoint)
+    if not is_network_port_valid(port):
+        raise InvalidEndpointPort(endpoint)
+
+
+def getOpenConnections():
+    pr = psutil.Process(os.getpid())
+    return pr.connections()
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
+
+
+def normalizedWalletFileName(walletName):
+    return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
+
+
+def getWalletFilePath(basedir, walletFileName):
+    return os.path.join(basedir, walletFileName)
+
+
+def getLastSavedWalletFileName(dir):
+    # TODO move that to WalletStorageHelper
+    def getLastModifiedTime(file):
+        return os.stat(file).st_mtime_ns
+
+    filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
+    newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
+                 key=getLastModifiedTime)
+    return basename(newest)
+
+
+def updateWalletsBaseDirNameIfOutdated(config):
+    """
+    Renames the wallets base directory if it has the outdated name.
+
+    :param config: the application configuration
+    """
+    if config.walletsDir == 'wallets':  # if the parameter is not overridden
+        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'keyrings'))
+        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
+                                                       'wallets'))
+        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
+            os.rename(oldNamedPath, newNamedPath)
+
+
+def pop_keys(mapping: Dict, cond: Callable):
+    rem = []
+    for k in mapping:
+        if cond(k):
+            rem.append(k)
+    for i in rem:
+        mapping.pop(i)
+
+
+def check_if_all_equal_in_list(lst):
+    return lst.count(lst[0]) == len(lst)
+
+
+def compare_3PC_keys(key1, key2) -> int:
+    """
+    Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
+    """
+    if key1[0] == key2[0]:
+        return key2[1] - key1[1]
+    else:
+        return key2[0] - key1[0]
+
+
+def min_3PC_key(keys) -> Tuple[int, int]:
+    return min(keys, key=lambda k: (k[0], k[1]))
+
+
+def max_3PC_key(keys) -> Tuple[int, int]:
+    return max(keys, key=lambda k: (k[0], k[1]))
+
+
+if 'peekitem' in dir(_SortedDict):
+    SortedDict = _SortedDict
+else:
+    # Since older versions of `SortedDict` lack `peekitem`
+    class SortedDict(_SortedDict):
+        def peekitem(self, index=-1):
+            # This method is copied from `SortedDict`'s source code
+            """Return (key, value) item pair at index.
+
+            Unlike ``popitem``, the sorted dictionary is not modified. Index
+            defaults to -1, the last/greatest key in the dictionary. Specify
+            ``index=0`` to lookup the first/least key in the dictiony.
+
+            If index is out of range, raise IndexError.
+
+            """
+            key = self._list[index]
+            return key, self[key]

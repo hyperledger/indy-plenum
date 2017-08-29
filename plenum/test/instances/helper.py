@@ -2,8 +2,13 @@ from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestReplica
 
 
-def recvdPrePrepare(replica: TestReplica):
-    return getAllArgs(replica, TestReplica.processPrePrepare)
+def recvd_pre_prepares(replica: TestReplica):
+    return [arg['pp']
+            for arg in getAllArgs(replica, TestReplica.processPrePrepare)]
+
+
+def processedPrePrepare(replica: TestReplica):
+    return getAllArgs(replica, TestReplica.addToPrePrepares)
 
 
 def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
@@ -14,5 +19,6 @@ def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
             (viewNo is None or param["pp"].viewNo == viewNo)]
 
 
-def recvdPrepare(replica: TestReplica):
-    return getAllArgs(replica, TestReplica.processPrepare)
+def recvd_prepares(replica: TestReplica):
+    return [arg['prepare']
+            for arg in getAllArgs(replica, TestReplica.processPrepare)]

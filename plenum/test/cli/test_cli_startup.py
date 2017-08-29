@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.util import firstValue
 from plenum.test.cli.helper import newCLI
 
@@ -11,8 +11,8 @@ def assertPrintsDefaultClientAndIdentifier(cli):
     assert cli.printeds[1]['msg'] == "Current wallet set to {walletName}". \
         format(walletName=dc.name)
     assert cli.printeds[0]['msg'] == \
-           "Current identifier set to {alias} ({cryptonym})". \
-               format(alias=dc.name, cryptonym=verstr)
+        "Current identifier set to {alias} ({cryptonym})". \
+        format(alias=dc.name, cryptonym=verstr)
 
 
 def printedMessages(cli):
@@ -26,7 +26,7 @@ def initStatements(cli):
     return ["New wallet {} created".format(name),
             "Current wallet set to " + name,
             "Key created in wallet " + name,
-            "Identifier for key is " + cryptonym,
+            "DID for key is " + cryptonym,
             "Current identifier set to " + cryptonym,
             "Note: To rename this wallet, use following command:",
             "    rename wallet Default to NewName"]
@@ -43,17 +43,19 @@ def reincarnatedCLI(nodeRegsForCLI, newLooper, tdir, cli):
     """
     Creating a new cli instance is equivalent to starting and stopping a cli
     """
-    return newCLI(nodeRegsForCLI, newLooper, tdir)
+    cli = newCLI(nodeRegsForCLI, newLooper, tdir, unique_name='reincarnate')
+    yield cli
+    cli.close()
 
 
-@pytest.mark.skipif(True, reason="Implementation changed")
+@pytest.mark.skip(reason="SOV-542. Implementation changed")
 def testFirstStartup(cli, initStatements):
     messages = printedMessages(cli)
     assert set(initStatements).issubset(messages)
     assertPrintsDefaultClientAndIdentifier(cli)
 
 
-@pytest.mark.skipif(True, reason="Implementation changed")
+@pytest.mark.skip(reason="SOV-543. Implementation changed")
 def testSubsequentStartup(reincarnatedCLI, initStatements):
     messages = printedMessages(reincarnatedCLI)
     assert not set(initStatements).issubset(messages)

@@ -1,17 +1,19 @@
 import os
-import random
 
 from jsonpickle import json
-
-from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually
-from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
+from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE
-from plenum.common.types import CLIENT_STACK_SUFFIX, HA
+from plenum.common.transactions import PlenumTransactions
+from plenum.test import waits
+from storage.text_file_store import TextFileStore
+from stp_core.loop.eventually import eventually
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
+from stp_raet.util import getLocalVerKey, getLocalPubKey
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
@@ -41,19 +43,22 @@ def getLedger(baseDir, dbName, storeHash=True, isLineNoKey: bool = False):
         isLineNoKey=isLineNoKey)
 
 
-def storeToFile(baseDir, dbName, value, key, storeHash=True, isLineNoKey=False):
+def storeToFile(baseDir, dbName, value, key,
+                storeHash=True, isLineNoKey=False):
     ledger = getLedger(baseDir, dbName, storeHash=storeHash,
                        isLineNoKey=isLineNoKey)
     if key is None:
         ledger.put(value)
     else:
         ledger.put(value, key)
+    ledger.close()
 
 
 def getNodeInfo(baseDir, nodeName):
     ledger = getLedger(baseDir, NodeInfoFile, storeHash=False,
                        isLineNoKey=False)
     rec = ledger.get(nodeName)
+    ledger.close()
     return json.loads(rec)
 
 
@@ -79,8 +84,8 @@ def storeNodeInfo(baseDir, nodeName, steward, nodeip, nodeport, clientip,
                     storeHash=False, isLineNoKey=False)
     elif not storedJsonData == newJsonData:
         newRec = []
-        for key, jsonValue in ledger.iterator(includeKey=True,
-                                              includeValue=True):
+        for key, jsonValue in ledger.iterator(include_key=True,
+                                              include_value=True):
             if key != nodeName:
                 newRec.append((key, jsonValue))
         newRec.append((nodeName, newJsonData))
@@ -88,6 +93,7 @@ def storeNodeInfo(baseDir, nodeName, steward, nodeip, nodeport, clientip,
         for key, value in newRec:
             storeToFile(baseDir, NodeInfoFile, value, key, storeHash=False,
                         isLineNoKey=False)
+    ledger.close()
 
 
 def storeExportedTxns(baseDir, txn):
@@ -98,13 +104,6 @@ def storeExportedTxns(baseDir, txn):
 def storeGenTxns(baseDir, txn):
     storeToFile(baseDir, GenTxnFile, txn, None, storeHash=False,
                 isLineNoKey=True)
-
-
-def initKeep(baseDir, name, sigseed, override=False):
-    pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
-    print("Public key is", pubkey)
-    print("Verification key is", verkey)
-    return pubkey, verkey
 
 
 def getStewardKeyFromName(baseDir, name):
@@ -128,11 +127,11 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     nodeAddr = vnodeip + ":" + vnodeport
     clientAddr = vclientip + ":" + vclientport
 
-    return 'add genesis transaction NODE with data {"' + name + '": {' \
-                                                                    '"verkey": ' + verkey + \
+    return 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
+        '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
            clientAddr + '"},' \
-                                                                                    '"by": "' + stewardkey + '"}'
+                        '"by": "' + stewardkey + '"}'
 
 
 def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
@@ -141,7 +140,7 @@ def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
                                                                   nodeport,
                                                                   clientip,
                                                                   clientport)
-    return 'add genesis transaction NODE for ' + verkey + ' by ' + \
+    return 'add genesis transaction {node} for '.format(node=PlenumTransactions.NODE.name) + verkey + ' by ' + \
            stewardverkey + ' with data {"node_ip": "' + \
            vnodeip + '", "node_port": ' + vnodeport + ', "client_ip": "' + \
            vclientip + '", "client_port": ' + \
@@ -159,15 +158,16 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 
 def getAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction NYM with data {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
+    return 'add genesis transaction {nym} with data {"'.format(nym=PlenumTransactions.NYM.name) \
+           + name + '": {"verkey": "' + verkey + \
+        '"} role={role}'.format(role=Roles.STEWARD.name)
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction NYM for ' + verkey + ' with data ' \
-                                                                 '{"alias": ' \
-                                                                 '"' + name +\
-           '"} role=STEWARD'
+    return 'add genesis transaction {nym} for '.format(nym=PlenumTransactions.NYM.name) + verkey + ' with data ' \
+                                                                                                   '{"alias": ' \
+                                                                                                   '"' + name + \
+           '"} role={role}'.format(role=Roles.STEWARD.name)
 
 
 def generateStewardGenesisTxn(baseDir, displayTxn, name, verkey):
@@ -196,12 +196,12 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
     nodeAddr = nodeInfo.get('nodeAddr')
     clientAddr = nodeInfo.get('clientAddr')
 
-    txn = 'add genesis transaction NODE with data {"' + name + '": {' \
-                                                                   '"verkey":' \
-                                                                   ' "' + \
+    txn = 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
+        '"verkey":' \
+        ' "' + \
           nodeVerKey + \
           '", "node_address": "' + nodeAddr + \
-          '", "client_address": "' + clientAddr + '"}, "by":"' + stewardKey +\
+          '", "client_address": "' + clientAddr + '"}, "by":"' + stewardKey + \
           '"}'
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)
@@ -209,8 +209,9 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
 
 def exportStewardGenTxn(baseDir, displayTxn, name):
     verkey = getLocalVerKey(name, baseDir)
-    txn = 'add genesis transaction NYM with data  {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
+    txn = 'add genesis transaction {nym} with data  {"'.format(nym=PlenumTransactions.NYM.name) + name + '": {' \
+        '"verkey": "' + verkey + '"} role={role}'.format(
+        role=Roles.STEWARD.name)
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)
 
@@ -226,12 +227,13 @@ def submitNodeIpChange(client, stewardWallet, name: str, nym: str,
             NODE_PORT: int(nodePort),
             CLIENT_IP: clientIp,
             CLIENT_PORT: int(clientPort),
-            ALIAS: name
+            ALIAS: name,
+            SERVICES: [VALIDATOR],
         }
     }
     signedOp = stewardWallet.signOp(txn, stewardWallet.defaultId)
-    req, = client.submitReqs(signedOp)
-    return req
+    req, _ = client.submitReqs(signedOp)
+    return req[0]
 
 
 def __checkClientConnected(cli, ):
@@ -240,7 +242,6 @@ def __checkClientConnected(cli, ):
 
 def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
              stewardName, stewardsSeed, newClientHA=None):
-
     if not newClientHA:
         newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
 
@@ -250,12 +251,13 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     stewardWallet.addIdentifier(signer=stewardSigner)
 
     # prepare client to submit change ha request to sovrin
-    randomClientPort = random.randint(9700, 9799)
+    _, randomClientPort = genHa()
     client = Client(stewardName,
                     ha=('0.0.0.0', randomClientPort), config=config)
     looper.add(client)
+    timeout = waits.expectedClientToPoolConnectionTimeout(4)
     looper.run(eventually(__checkClientConnected, client,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=timeout))
 
     nodeVerKey = SimpleSigner(seed=nodeSeed).verkey
 

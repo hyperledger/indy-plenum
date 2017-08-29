@@ -1,8 +1,9 @@
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
+from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    sendRandomRequest, checkSufficientRepliesForRequests
+    sendRandomRequest, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.test_client import genTestClient
@@ -30,11 +31,11 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
     logger.debug("{} starting at {}".format(newClient, newClient.nodestack.ha))
     looper.add(newClient)
     logger.debug("Public keys of client {} {}".format(
-        newClient.nodestack.local.priver.keyhex,
-        newClient.nodestack.local.priver.pubhex))
+        newClient.nodestack.prihex,
+        newClient.nodestack.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
     newClient.stop()
     looper.removeProdable(newClient)
@@ -44,11 +45,11 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
                                                   newClient.nodestack.ha))
     looper.add(newClient)
     logger.debug("Public keys of client {} {}".format(
-        newClient.nodestack.local.priver.keyhex,
-        newClient.nodestack.local.priver.pubhex))
+        newClient.nodestack.prihex,
+        newClient.nodestack.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
 
 
@@ -57,7 +58,6 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                       poolTxnNodeNames,
                                       allPluginsPath):
     name = poolTxnClientNames[-1]
-    seed = poolTxnData["seeds"][name]
     newClient, w = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
                                  name=name, usePoolLedger=True)
     looper.add(newClient)
@@ -76,21 +76,20 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.add(node)
         txnPoolNodeSet.append(node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
-                        timeout=10)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     def chk():
         for node in txnPoolNodeSet:
             assert node.isParticipating
 
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
 
     req = sendRandomRequest(w, newClient)
-    checkSufficientRepliesForRequests(looper, newClient, [req, ],
-                                      timeoutPerReq=10)
+    waitForSufficientRepliesForRequests(looper, newClient, requests=[req])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 1, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 3, 1)

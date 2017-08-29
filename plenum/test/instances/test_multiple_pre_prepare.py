@@ -2,15 +2,17 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import PrePrepare
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.instances.helper import sentPrepare
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.DUPLICATE_PPR_SENT.reason,
              'cannot process incoming PRE-PREPARE',
@@ -24,7 +26,7 @@ whitelist = [Suspicions.DUPLICATE_PPR_SENT.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # The primary replica would send 3 duplicate PRE-PREPARE requests to
     # non primary replicas
@@ -52,9 +54,15 @@ def testMultiplePrePrepareWithSameSeqNo(setup, looper, sent1):
         for r in nonPrimaryReps:
             # Every node with non primary replicas of instance 0 should raise
             # suspicion twice, once for each extra PRE-PREPARE request
-            assert len(getNodeSuspicions(r.node,
-                                         Suspicions.DUPLICATE_PPR_SENT.code)) == 2
+
+            suspectingNodes = \
+                getNodeSuspicions(r.node,
+                                  Suspicions.DUPLICATE_PPR_SENT.code)
+            assert len(suspectingNodes) == 2
+
             # Each non primary replica should just send one PREPARE
             assert len(sentPrepare(r)) == 1
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

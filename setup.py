@@ -1,10 +1,7 @@
-import shutil
-import sys
 import os
-from setuptools import setup, find_packages, __version__
-from pip.req import parse_requirements
-import data
+import sys
 
+from setuptools import setup, find_packages
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -41,15 +38,15 @@ if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
 
 setup(
-    name='plenum',
+    name='indy-plenum',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
-    url='https://github.com/evernym/plenum',
-    download_url='https://github.com/evernym/plenum/tarball/{}'.
+    url='https://github.com/hyperledger/indy-plenum',
+    download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
         format(__version__),
     author=__author__,
-    author_email='dev@evernym.us',
+    author_email='hyperledger-indy@lists.hyperledger.org',
     license=__license__,
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
@@ -59,23 +56,28 @@ setup(
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     data_files=[(
-        (BASE_DIR, ['data/pool_transactions_sandbox', ])
+        (BASE_DIR, ['data/pool_transactions_sandbox_genesis', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker==0.5.7',
-                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
+    install_requires=['jsonpickle', 'ujson==1.33',
+                      'prompt_toolkit==0.57', 'pygments',
+                      'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers', 'psutil'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip',
+                      'portalocker==0.5.7', 'pyzmq', 'raet',
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6'],
     extras_require={
-        'stats': ['python-firebase']
-    },
+        'stats': ['python-firebase'],
+        'benchmark': ['pympler']
+                    },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
-    scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
+    scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
-             'scripts/udp_sender', 'scripts/udp_receiver']
+             'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
+             'scripts/log_stats']
 )
 
 if not os.path.exists(CONFIG_FILE):
@@ -86,10 +88,6 @@ if not os.path.exists(CONFIG_FILE):
               "# Any entry you add here would override that from config " \
               "example\n"
         f.write(msg)
-
-DATA_DIR = os.path.dirname(data.__file__)
-shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
-                POOL_TXN_FILE)
 
 
 # TODO: This code should not be copied here.
@@ -121,4 +119,3 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
-

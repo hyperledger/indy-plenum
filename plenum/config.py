@@ -1,11 +1,15 @@
+
 import os
 import sys
 from collections import OrderedDict
 
-from plenum.common.txn import ClientBootStrategy
+import logging
+
+from plenum.common.constants import ClientBootStrategy, HS_FILE, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
+
 nodeReg = OrderedDict([
     ('Alpha', ('127.0.0.1', 9701)),
     ('Beta', ('127.0.0.1', 9703)),
@@ -20,36 +24,38 @@ cliNodeReg = OrderedDict([
     ('DeltaC', ('127.0.0.1', 9708))
 ])
 
-baseDir = "~/.plenum/"
+baseDir = '~/.plenum/'
+walletsDir = 'wallets'
+nodeDataDir = 'data/nodes'
+clientDataDir = 'data/clients'
+# walletDir = 'wallet'
 
-keyringsDir = "keyrings"
+pool_transactions_file_base = 'pool_transactions'
+domain_transactions_file_base = 'domain_transactions'
+genesis_file_suffix = '_genesis'
 
-nodeDataDir = "data/nodes"
+poolTransactionsFile = pool_transactions_file_base
+domainTransactionsFile = domain_transactions_file_base
 
-clientDataDir = "data/clients"
 
-domainTransactionsFile = "transactions_sandbox"
+poolStateDbName = 'pool_state'
+domainStateDbName = 'domain_state'
 
-poolTransactionsFile = "pool_transactions_sandbox"
-
-walletDir = "wallet"
+# There is only one seqNoDB as it maintain the mapping of
+# request id to sequence numbers
+seqNoDbName = 'seq_no_db'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": "file"
+    "type": HS_FILE
 }
 
 primaryStorage = None
 
-secondaryStorage = None
-
-OrientDB = {
-    "user": "root",
-    "password": "password",
-    "host": "127.0.0.1",
-    "port": 2424
-}
+domainStateStorage = KeyValueStorageType.Leveldb
+poolStateStorage = KeyValueStorageType.Leveldb
+reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -63,10 +69,13 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
-DELTA = 0.8
+
+# Temporarily reducing DELTA till the calculations for extra work are not
+# incorporated
+DELTA = 0.4
 LAMBDA = 60
 OMEGA = 5
-SendMonitorStats = True
+SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
@@ -96,8 +105,14 @@ RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
-
+# Controls sending of view change messages, a node will only send view change
+# messages if it did not send any sent instance change messages in last
+# `ViewChangeWindowSize` seconds
 ViewChangeWindowSize = 60
+
+# A node if finds itself disconnected from primary of the master instance will
+# wait for `ToleratePrimaryDisconnection` before sending a view change message
+ToleratePrimaryDisconnection = 2
 
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
@@ -106,43 +121,83 @@ ConsistencyProofsTimeout = 5
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
 
+
 # Log configuration
 logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
-logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
-logFormatStyle='{'
-
+logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
+logFormatStyle = '{'
+logLevel = logging.NOTSET
+enableStdOutLogging = True
 
 # OPTIONS RELATED TO TESTS
 
+# todo test 60sec after https://evernym.atlassian.net/browse/SOV-995 closed
+TestRunningTimeLimitSec = 100
+
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.1
-
-# After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-CHK_FREQ = 100
-
-# Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
-
-
-CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = 10
-CLIENT_MAX_RETRY_ACK = 5
-CLIENT_MAX_RETRY_REPLY = 5
-
-# The client when learns of new nodes or any change in configuration of
-# other nodes, updates the genesis pool transaction file if this option is set
-# to True. This option is overwritten by default for tests to keep multiple
-# clients from reading an updated pool transaction file, this helps us
-# emulate clients on different machines.
-UpdateGenesisPoolTxnFile = True
-
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
 
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
 # repository
-EnsureLedgerDurability = True
+EnsureLedgerDurability = False
 
+log_override_tags = dict(cli={}, demo={})
+
+# TODO needs to be refactored to use a transport protocol abstraction
+UseZStack = True
+
+
+# Number of messages zstack accepts at once
+LISTENER_MESSAGE_QUOTA = 100
+REMOTES_MESSAGE_QUOTA = 100
+
+# After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
+# a 3 phase batch is sent
+# Max batch size for 3 phase commit
+Max3PCBatchSize = 100
+# Max time to wait before creating a batch for 3 phase commit
+Max3PCBatchWait = .001
+
+
+# Each node keeps a map of PrePrepare sequence numbers and the corresponding
+# txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
+ProcessedBatchMapsToKeep = 100
+
+
+# After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
+# earlier, a signed state proof is sent
+# Max 3 state proof size
+MaxStateProofSize = 10
+# State proof timeout
+MaxStateProofTime = 3
+
+
+# After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
+CHK_FREQ = 100
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3 * CHK_FREQ
+
+
+CLIENT_REQACK_TIMEOUT = 5
+CLIENT_REPLY_TIMEOUT = 15
+CLIENT_MAX_RETRY_ACK = 5
+CLIENT_MAX_RETRY_REPLY = 5
+
+VIEW_CHANGE_TIMEOUT = 60  # seconds
+MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
+
+# permissions for keyring dirs/files
+WALLET_DIR_MODE = 0o700  # drwx------
+WALLET_FILE_MODE = 0o600  # -rw-------
+
+# This timeout is high enough so that even if some PRE-PREPAREs are stashed
+# because of being delivered out of order or being out of watermarks or not
+# having finalised requests.
+ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 600  # seconds

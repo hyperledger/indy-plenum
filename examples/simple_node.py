@@ -12,7 +12,7 @@ Where <node_name> is one of Alpha, Beta, Gamma, Delta.
 import sys
 from collections import OrderedDict
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.server.node import Node
 
@@ -46,7 +46,7 @@ def run_node():
             # see simple_client.py
             joe_verkey = b'cffbb88a142be2f62d1b408818e21a2f' \
                          b'887c4442ae035a260d4cc2ec28ae24d6'
-            node.clientAuthNr.addClient("Joe", joe_verkey)
+            node.clientAuthNr.addIdr("Joe", joe_verkey)
 
             looper.add(node)
             node.startKeySharing()

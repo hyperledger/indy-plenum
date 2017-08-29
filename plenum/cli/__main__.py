@@ -1,7 +1,7 @@
 import sys
 
 from plenum.cli.cli import Cli
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.config_util import getConfig
 
 
@@ -26,6 +26,7 @@ def main(logfile: str=None, debug=None, cliClass=None):
             looper.run(cli.shell(*sys.argv[1:]))
             print('Goodbye.')
         return cli
+
 
 if __name__ == '__main__':
     main()

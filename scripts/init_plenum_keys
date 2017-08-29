@@ -1,0 +1,80 @@
+#! /usr/bin/env python3
+
+import argparse
+
+from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
+    buildKeepDirIfNotExists
+from plenum.common.keygen_utils import initLocalKeys
+from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.util import randomString
+from plenum.common.config_util import getConfig
+
+config = getConfig()
+
+
+def printGenesisTrans(type, name, verkey, stewardverkey, nodeip, nodeport):
+    if type == 'steward':
+        print('\n' + getOldAddNewGenStewardCommand(name, verkey))
+    elif type == 'node':
+        print('\n' + getOldAddNewGenNodeCommand(name, verkey,
+                                                stewardverkey, nodeip, nodeport,
+                                                None, None))
+
+
+if __name__ == "__main__":
+    buildKeepDirIfNotExists(config.baseDir)
+
+    parser = argparse.ArgumentParser(
+        description="Generate keys for a node's stacks "
+                    "by taking the node's name and a seed")
+
+    parser.add_argument('--type', required=False, help='steward or node')
+    parser.add_argument('--stewardverkey', required=False, help="in case of "
+                                                                "node, "
+                                                                "requires "
+                                                                "steward's "
+                                                                "verkey")
+    parser.add_argument('--nodeip', required=False, help="node ip address")
+    parser.add_argument('--nodeport', required=False, help="node port")
+    parser.add_argument('--name', required=True, help='node name')
+    parser.add_argument('--seed', required=False, type=str,
+                        help='seeds for keypair')
+    parser.add_argument('--print_gen_txn', help='overrides keys',
+                        action='store_true')
+    parser.add_argument('--force', help='overrides keys', action='store_true')
+
+    args = parser.parse_args()
+
+    # Initialize node stack
+    print("For node stack, stack name is", args.name)
+    verkey = None
+
+    if not args.seed:
+        args.seed = randomString(32)
+        print("Generating a random seed for the keypair {}".format(args.seed))
+    try:
+        verkey = initLocalKeys(args.name, config.baseDir, args.seed, args.force,
+                               config=config)
+    except Exception as ex:
+        print(ex)
+        exit()
+
+    # Initialize client stack
+    print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
+    try:
+        initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
+                      args.force, config=config)
+    except Exception as ex:
+        print(ex)
+        exit()
+
+    typ = args.type or "node"
+
+    # Print genesis transaction commands
+    try:
+        if args.print_gen_txn:
+            printGenesisTrans(typ, args.name, verkey, args.stewardverkey,
+                              args.nodeip, args.nodeport)
+    except Exception as ex:
+        print(ex)
+        exit()

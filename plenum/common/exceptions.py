@@ -1,5 +1,6 @@
+from re import compile
+
 from plenum.server.suspicion_codes import Suspicion
-from re import compile, match
 
 
 class ReqInfo:
@@ -105,14 +106,20 @@ class UnregisteredIdentifier(SigningException):
     reason = 'provided owner identifier not registered with agent'
 
 
-class RaetKeysNotFoundException(Exception):
+class KeysNotFoundException(Exception):
     code = 141
     reason = 'Keys not found in the keep for {}. ' \
              'To generate them run script '
 
 
+class InvalidKey(Exception):
+    code = 142
+    reason = 'invalid key'
+
+
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
+        node = node.decode() if isinstance(node, bytes) else node
         self.code = suspicion.code if suspicion else None
         self.reason = suspicion.reason if suspicion else None
         p = compile(r'(\b\w+)(:(\d+))?')
@@ -188,6 +195,10 @@ class DBConfigNotFound(StorageException):
     pass
 
 
+class KeyValueStorageConfigNotFound(StorageException):
+    pass
+
+
 class UnsupportedOperation(Exception):
     pass
 
@@ -201,7 +212,6 @@ class BlowUp(BaseException):
     An exception designed to blow through fault barriers. Useful during testing.
     Derives from BaseException so asyncio will let it through.
     """
-    pass
 
 
 class ProdableAlreadyAdded(Exception):
@@ -218,3 +228,33 @@ class NotConnectedToAny(Exception):
 
 class NameAlreadyExists(Exception):
     pass
+
+
+class WalletError(Exception):
+    pass
+
+
+class WalletNotSet(WalletError):
+    pass
+
+
+class WalletNotInitialized(WalletError):
+    pass
+
+
+class PortNotAvailable(OSError):
+    def __init__(self, port):
+        self.port = port
+        super().__init__("port not available: {}".format(port))
+
+
+class OperationError(Exception):
+    def __init__(self, error):
+        super().__init__("error occurred during operation: {}".format(error))
+
+
+class InvalidMessageExceedingSizeException(InvalidMessageException):
+    def __init__(self, expLen, actLen, *args, **kwargs):
+        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
+            actLen, expLen)
+        super().__init__(ex_txt, *args, **kwargs)

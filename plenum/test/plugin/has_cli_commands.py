@@ -1,4 +1,4 @@
-from abc import abstractproperty
+from abc import abstractmethod
 
 
 class HasCliCommands:
@@ -10,6 +10,7 @@ class HasCliCommands:
     def cli(self, cli):
         self._cli = cli
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def actions(self):
         pass

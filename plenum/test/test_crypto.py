@@ -3,8 +3,9 @@ from binascii import hexlify
 import pytest
 from libnacl import randombytes, crypto_sign, crypto_sign_open
 from libnacl.public import SecretKey, Box
-from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
-from raet.nacling import Signer, SigningKey, Verifier, PrivateKey
+from stp_core.crypto.util import ed25519SkToCurve25519, ed25519PkToCurve25519
+from stp_core.crypto.nacl_wrappers import Signer, SigningKey, Verifier, \
+    PrivateKey
 
 pytestmark = pytest.mark.smoke
 
@@ -67,7 +68,8 @@ def testFullSigning():
     # helper for signing
     signer = Signer(sk)
 
-    # this is the public key used to verify signatures (securely shared before-hand with recipient)
+    # this is the public key used to verify signatures (securely shared
+    # before-hand with recipient)
     verkey = signer.verhex
 
     # the message to be signed
@@ -140,7 +142,7 @@ def testKeyConversionFromEd25519ToCurve25519():
     publicKey = ed25519PkToCurve25519(vk)
     assert PrivateKey(secretKey).public_key.__bytes__() == publicKey
     assert ed25519PkToCurve25519(vk, toHex=True) == \
-           hexlify(PrivateKey(secretKey).public_key.__bytes__())
+        hexlify(PrivateKey(secretKey).public_key.__bytes__())
 
     # Check when keys are passed as hex
     secretKey = ed25519SkToCurve25519(hexlify(sk))

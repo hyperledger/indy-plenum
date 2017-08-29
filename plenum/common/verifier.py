@@ -1,10 +1,10 @@
+from abc import abstractmethod
 from typing import Dict
 
-from abc import abstractmethod
-
 from base58 import b58decode, b58encode
-from plenum.common.signing import serializeMsg
-from raet.nacling import Verifier as NaclVerifier
+from common.serializers.serialization import serialize_msg_for_signing
+from plenum.common.exceptions import InvalidKey
+from stp_core.crypto.nacl_wrappers import Verifier as NaclVerifier
 
 
 class Verifier:
@@ -13,22 +13,28 @@ class Verifier:
         pass
 
     def verifyMsg(self, sig, msg: Dict):
-        ser = serializeMsg(msg)
+        ser = serialize_msg_for_signing(msg)
         return self.verify(sig, ser)
 
 
 class DidVerifier(Verifier):
     def __init__(self, verkey, identifier=None):
+        _verkey = verkey
         self._verkey = None
         self._vr = None
         if identifier:
             rawIdr = b58decode(identifier)
             if len(rawIdr) == 32 and not verkey:  # assume cryptonym
                 verkey = identifier
+
+            assert verkey, 'verkey must be provided'
             if verkey[0] == '~':  # abbreviated
                 verkey = b58encode(b58decode(identifier) +
                                    b58decode(verkey[1:]))
-        self.verkey = verkey
+        try:
+            self.verkey = verkey
+        except Exception as ex:
+            raise InvalidKey("verkey {}".format(_verkey)) from ex
 
     @property
     def verkey(self):

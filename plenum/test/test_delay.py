@@ -1,12 +1,13 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.eventually import eventually, slowFactor
+from stp_core.common.log import getlogger
+from stp_core.loop.looper import Looper
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple
-from plenum.test.helper import sendMsgAndCheck, addNodeBack, assertExp
-from plenum.test.msgs import randomMsg
+from plenum.test.helper import sendMessageAndCheckDelivery, addNodeBack, assertExp
+from plenum.test.msgs import randomMsg, TestMsg
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone, prepareNodeSet
 
@@ -21,32 +22,32 @@ def testTestNodeDelay(tdir_for_func):
         nodeB = nodes.getNode("testB")
 
         with Looper(nodes) as looper:
-            for n in nodes:
-                n.startKeySharing()
-
-            logger.debug("connect")
             looper.run(checkNodesConnected(nodes))
-            logger.debug("send one message, without delay")
-            msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 1))
-            logger.debug("set delay, then send another message and find that "
-                          "it doesn't arrive")
-            msg = randomMsg()
 
-            nodeB.nodeIbStasher.delay(delayerMsgTuple(6, type(msg), nodeA.name))
+            # send one message, without delay
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
 
+            # set delay, then send another message
+            # and find that it doesn't arrive
+            delay = 5 * waits.expectedNodeToNodeMessageDeliveryTime()
+            nodeB.nodeIbStasher.delay(
+                delayerMsgTuple(delay, TestMsg, nodeA.name)
+            )
             with pytest.raises(AssertionError):
-                looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 3))
-            logger.debug("but then find that it arrives after the delay "
-                          "duration has passed")
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 4))
-            logger.debug(
-                    "reset the delay, and find another message comes quickly")
-            nodeB.nodeIbStasher.resetDelays()
-            msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 1))
+                looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
+
+            # but then find that it arrives after the delay
+            # duration has passed
+            timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delay
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB,
+                                                   customTimeout=timeout))
+
+            # reset the delay, and find another message comes quickly
+            nodeB.nodeIbStasher.reset_delays_and_process_delayeds()
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
 
 
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testSelfNominationDelay(tdir_for_func):
     nodeNames = ["testA", "testB", "testC", "testD"]
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
@@ -65,23 +66,25 @@ def testSelfNominationDelay(tdir_for_func):
 
             # Ensuring that NodeA is started before any other node to demonstrate
             # that it is delaying self nomination
+            timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
-                               timeout=5))
+                eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
+                           timeout=timeout))
 
-            # Elections should be done
-            ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1,
-                                timeout=10)
+            ensureElectionsDone(looper=looper,
+                                nodes=nodeSet,
+                                retryWait=1)
 
             # node A should not have any primary replica
+            timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(not nodeA.hasPrimary),
-                               retryWait=1,
-                               timeout=10))
+                eventually(lambda: assertExp(not nodeA.hasPrimary),
+                           retryWait=1,
+                           timeout=timeout))
 
             # Make sure that after at the most 30 seconds, nodeA's
             # `startElection` is called
             looper.run(eventually(lambda: assertExp(
-                    len(nodeA.spylog.getAll(
-                            Node.decidePrimaries.__name__)) > 0),
-                                  retryWait=1, timeout=30))
+                len(nodeA.spylog.getAll(
+                    Node.decidePrimaries.__name__)) > 0),
+                retryWait=1, timeout=delay))

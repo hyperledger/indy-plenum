@@ -2,14 +2,16 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.types import Prepare
+from stp_core.loop.eventually import eventually
+from plenum.common.messages.node_messages import Prepare
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
              'Invalid prepare message received',
@@ -21,7 +23,7 @@ whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # A non primary replica sends PREPARE messages with incorrect digest
 
@@ -42,8 +44,8 @@ def testPrepareDigest(setup, looper, sent1):
     """
 
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-                                            setup.nonPrimaryReps, \
-                                            setup.faultyRep
+        setup.nonPrimaryReps, \
+        setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):
@@ -51,7 +53,11 @@ def testPrepareDigest(setup, looper, sent1):
                 # Every node except the one from which PREPARE with incorrect
                 # digest was sent should raise suspicion for the PREPARE
                 # message
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.PR_DIGEST_WRONG.code)) == 1
+                assert len(
+                    getNodeSuspicions(
+                        r.node,
+                        Suspicions.PR_DIGEST_WRONG.code)) == 1
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

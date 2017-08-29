@@ -1,12 +1,15 @@
-import logging
 from functools import partial
 
 import pytest
-from plenum.test.malicious_behaviors_node import makeNodeFaulty, delaysPrePrepareProcessing, \
-    changesRequest
-from plenum.common.util import adict
-from plenum.common.log import getlogger
 
+from plenum.test import waits
+from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
+    delaysPrePrepareProcessing, changesRequest
+from plenum.common.util import getNoInstances
+from stp_core.common.util import adict
+from stp_core.common.log import getlogger
+
+from plenum.test.node_request.node_request_helper import checkPrePrepared
 from plenum.test.test_node import TestNodeSet
 
 nodeCount = 7
@@ -18,17 +21,24 @@ whitelist = ['InvalidSignature',
 
 logger = getlogger()
 
+delayPrePrepareSec = 60
+
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
+    # Making nodes faulty such that no primary is chosen
+    A = startedNodes.Eta
+    B = startedNodes.Gamma
+    G = startedNodes.Zeta
     for node in A, B, G:
-        makeNodeFaulty(node,
-                       changesRequest,
-                       partial(delaysPrePrepareProcessing, delay=60))
-        node.delaySelfNomination(10)
+        makeNodeFaulty(
+            node,
+            changesRequest,
+            partial(
+                delaysPrePrepareProcessing,
+                delay=delayPrePrepareSec))
+        # Delaying nomination to avoid becoming primary
+        # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 
@@ -39,10 +49,22 @@ def afterElection(setup, up):
             assert not r.isPrimary
 
 
-def testNumOfPrePrepareWithFPlusOneFaults(afterElection,
-                                          noRetryReq,
-                                          preprepared1,
-                                          nodeSet):
+@pytest.fixture(scope="module")
+def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
+    timeouts = waits.expectedPrePrepareTime(len(nodeSet)) + delayPrePrepareSec
+    checkPrePrepared(looper,
+                     nodeSet,
+                     propagated1,
+                     range(getNoInstances(len(nodeSet))),
+                     faultyNodes,
+                     timeout=timeouts)
+
+
+def testNumOfPrePrepareWithFPlusOneFaults(
+        afterElection,
+        noRetryReq,
+        nodeSet,
+        preprepared1WithDelay):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:

@@ -1,7 +1,7 @@
-from plenum.common.eventually import eventually
-from plenum.common.types import InstanceChange
+from stp_core.loop.eventually import eventually
 from plenum.server.node import Node
-from plenum.test.helper import checkDiscardMsg, checkViewNoForNodes
+from plenum.test import waits
+from plenum.test.helper import checkDiscardMsg, waitForViewChange
 
 
 # noinspection PyIncorrectDocstring
@@ -14,15 +14,18 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = InstanceChange(curViewNo - 1)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
-    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
-                          'less than its view no', nodeSet.Alpha, timeout=5))
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
 
     # Check that that message is discarded.
-    looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
+                          'which is not more than its view no',
+                          nodeSet.Alpha, timeout=timeout))
+
+    waitForViewChange(looper, nodeSet)
 
 
 # noinspection PyIncorrectDocstring
@@ -43,13 +46,13 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
         sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
 
     # Send an instance change message to all nodes
-    icMsg = InstanceChange(curViewNo)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.
-    looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    waitForViewChange(looper, nodeSet)
     # No node should have sent a view change and thus must not have called
     # `sendInstanceChange`
     for n in nodeSet:
         assert n.spylog.count(instChngMethodName) == \
-                   sentInstChanges.get(n.name, 0)
+            sentInstChanges.get(n.name, 0)

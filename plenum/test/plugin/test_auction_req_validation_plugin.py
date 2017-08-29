@@ -3,11 +3,12 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.common.eventually import eventuallyAll
-from plenum.common.txn import TXN_TYPE,  DATA
+from stp_core.loop.eventually import eventuallyAll
+from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
+from plenum.test import waits
 from plenum.test.helper import checkReqNack
 from plenum.test.plugin.auction_req_validation.plugin_auction_req_validation \
     import AMOUNT, PLACE_BID, AUCTION_START, ID, AUCTION_END
@@ -55,7 +56,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: "dummy",
         DATA: {
             AMOUNT: 30
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     validTypes = ', '.join(plugin.validTxnTypes)
     update = {
@@ -107,7 +108,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: PLACE_BID,
         DATA: {
             AMOUNT: 453
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}
@@ -154,8 +155,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
 
     allCoros += [partial(checkReqNack, client1, node, req.identifier,
                          req.reqId, update) for node in nodeSet]
-
-    looper.run(eventuallyAll(*allCoros, totalTimeout=5))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventuallyAll(*allCoros, totalTimeout=timeout))
 
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers

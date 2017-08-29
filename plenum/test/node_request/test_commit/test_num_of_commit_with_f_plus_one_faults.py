@@ -2,8 +2,9 @@ from functools import partial
 
 import pytest
 
-from plenum.common.util import getNoInstances, adict
-from plenum.test.node_request.node_request_helper import checkCommited
+from plenum.common.util import getNoInstances
+from stp_core.common.util import adict
+from plenum.test.node_request.node_request_helper import checkCommitted
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
     changesRequest
@@ -18,13 +19,16 @@ whitelist = ['InvalidSignature',
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
+    # Making nodes faulty such that no primary is chosen
+    A = startedNodes.Eta
+    B = startedNodes.Gamma
+    G = startedNodes.Zeta
     for node in A, B, G:
-        makeNodeFaulty(node, changesRequest, partial(delaysPrePrepareProcessing,
-                                                     delay=90))
-        node.delaySelfNomination(10)
+        makeNodeFaulty(
+            node, changesRequest, partial(
+                delaysPrePrepareProcessing, delay=90))
+        # Delaying nomination to avoid becoming primary
+        # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 
@@ -38,8 +42,9 @@ def afterElection(setup, up):
 def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
                                           nodeSet, prepared1, noRetryReq):
     with pytest.raises(AssertionError):
-        checkCommited(looper,
-                      nodeSet,
-                      prepared1,
-                      range(getNoInstances(len(nodeSet))),
-                      faultyNodes)
+        # To raise an error pass less than the actual number of faults
+        checkCommitted(looper,
+                       nodeSet,
+                       prepared1,
+                       range(getNoInstances(len(nodeSet))),
+                       faultyNodes - 1)

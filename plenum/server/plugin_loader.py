@@ -9,7 +9,7 @@ from typing import Any, Set, Dict
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -51,6 +51,7 @@ class PluginLoader:
         assert len(operation['name']) <= 50, 'name too long'
 
     """
+
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
@@ -92,16 +93,16 @@ class PluginLoader:
                         logger.debug("skipping plugin {}[class: {}] "
                                      "because it does not have a '{}' "
                                      "attribute".
-                                       format(mod, c, self._pluginTypeAttrName))
+                                     format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
                             logger.debug("skipping plugin '{0}' because it "
-                                           "does not have a valid '{1}' "
-                                           "attribute; valid {1} are: {2}".
-                                           format(mod,
-                                                  self._pluginTypeAttrName,
-                                                  self._validTypes))
+                                         "does not have a valid '{1}' "
+                                         "attribute; valid {1} are: {2}".
+                                         format(mod,
+                                                self._pluginTypeAttrName,
+                                                self._validTypes))
                         else:
                             inst = c()
                             if isinstance(inst, HasDynamicallyImportedModules):
@@ -111,8 +112,9 @@ class PluginLoader:
 
                             if importSuccessful:
                                 logger.info("plugin {} successfully loaded "
-                                             "from module {}".
-                                            format(c.__name__, mod))
+                                            "from module {}".
+                                            format(c.__name__, mod),
+                                            extra={"cli": True})
                                 if typ in plugins:
                                     plugins[typ].add(inst)
                                 else:

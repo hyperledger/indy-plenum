@@ -1,6 +1,5 @@
-from typing import Iterable
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 
 from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkViewNoForNodes, \
@@ -36,4 +35,4 @@ def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, wallet1,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
-    checkViewNoForNodes(nodeSet, 0)
+    checkViewNoForNodes(nodeSet, expectedViewNo=0)

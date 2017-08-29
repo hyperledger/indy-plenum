@@ -5,10 +5,11 @@ pool.
 from ioflo.base.consoling import getConsole
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.looper import Looper
-from plenum.common.script_helper import initKeep
+from stp_core.loop.looper import Looper
+from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.temp_file_util import SafeTemporaryDirectory
-from plenum.common.types import HA, NodeDetail
+from plenum.common.types import NodeDetail
+from stp_core.types import HA
 from plenum.common.util import randomString
 from plenum.server.node import Node
 from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
@@ -31,14 +32,14 @@ with SafeTemporaryDirectory() as tmpdir:
         """
         The nodes need to have the their keys initialized
         """
-        initKeep(tmpdir, 'Alpha', randomString(32), override=True)
-        initKeep(tmpdir, 'AlphaC', randomString(32), override=True)
-        initKeep(tmpdir, 'Beta', randomString(32), override=True)
-        initKeep(tmpdir, 'BetaC', randomString(32), override=True)
-        initKeep(tmpdir, 'Gamma', randomString(32), override=True)
-        initKeep(tmpdir, 'GammaC', randomString(32), override=True)
-        initKeep(tmpdir, 'Delta', randomString(32), override=True)
-        initKeep(tmpdir, 'DeltaC', randomString(32), override=True)
+        initLocalKeys('Alpha', tmpdir, randomString(32), override=True)
+        initLocalKeys('AlphaC', tmpdir, randomString(32), override=True)
+        initLocalKeys('Beta', tmpdir, randomString(32), override=True)
+        initLocalKeys('BetaC', tmpdir, randomString(32), override=True)
+        initLocalKeys('Gamma', tmpdir, randomString(32), override=True)
+        initLocalKeys('GammaC', tmpdir, randomString(32), override=True)
+        initLocalKeys('Delta', tmpdir, randomString(32), override=True)
+        initLocalKeys('DeltaC', tmpdir, randomString(32), override=True)
 
         """
         A node registry is a dictionary of Node names and their IP addresses
@@ -144,7 +145,7 @@ with SafeTemporaryDirectory() as tmpdir:
         each node.
         """
         for node in alpha, beta, gamma, delta:
-            node.clientAuthNr.addClient(*idAndKey)
+            node.clientAuthNr.addIdr(*idAndKey)
 
         """
         We give the client a little time to connect
@@ -176,7 +177,7 @@ with SafeTemporaryDirectory() as tmpdir:
         Let's get the reply.
         """
         reply, status = client.getReply(request.reqId)
-        
+
         """
         Check the reply and see if consensus has been reached.
         """

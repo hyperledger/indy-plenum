@@ -2,13 +2,15 @@ import collections
 import json
 
 from ledger.util import F
+from stp_core.network.exceptions import RemoteNotFound
+
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR
-from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f, HA
-from plenum.common.util import getMaxFailures, updateNestedDict
-from plenum.common.txn_util import updateGenesisPoolTxnFile
-from plenum.common.log import getlogger
+from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+from plenum.common.types import f, HA
+from plenum.common.messages.node_messages import PoolLedgerTxns
+from plenum.common.util import getMaxFailures
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 t = f.TXN.nm
@@ -31,6 +33,7 @@ class HasPoolManager(TxnStackManager):
         self.tempNodeTxns = {}  # type: Dict[int, Dict[str, Dict]]
 
     def poolTxnReceived(self, msg: PoolLedgerTxns, frm):
+        global t
         logger.debug("{} received pool txn {} from {}".format(self, msg, frm))
         txn = getattr(msg, t)
         seqNo = txn.pop(F.seqNo.name)
@@ -45,19 +48,12 @@ class HasPoolManager(TxnStackManager):
                 # TODO: Shouldnt this use `checkIfMoreThanFSameItems`
                 txns = [item for item, count in
                         collections.Counter(
-                            [json.dumps(t, sort_keys=True)
-                             for t in self.tempNodeTxns[seqNo].values()]
+                            [json.dumps(_t, sort_keys=True)
+                             for _t in self.tempNodeTxns[seqNo].values()]
                         ).items() if count > f]
                 if len(txns) > 0:
                     txn = json.loads(txns[0])
                     self.addToLedger(txn)
-                    if self.config.UpdateGenesisPoolTxnFile:
-                        # Adding sequence number field since needed for safely
-                        # updating genesis file
-                        txn[F.seqNo.name] = len(self.ledger)
-                        updateGenesisPoolTxnFile(self.config.baseDir,
-                                                 self.config.poolTransactionsFile,
-                                                 txn)
                     self.tempNodeTxns.pop(seqNo)
                 else:
                     logger.error("{} has not got enough similar node "
@@ -94,7 +90,7 @@ class HasPoolManager(TxnStackManager):
                     self.connectNewRemote(txn, remoteName, self)
                     self.setF()
                 else:
-                    self.nodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(
+                    self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                     _update(txn)
         else:
@@ -106,8 +102,8 @@ class HasPoolManager(TxnStackManager):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug(
                 "Client {} not changing {} since it is same as existing"
@@ -117,14 +113,19 @@ class HasPoolManager(TxnStackManager):
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
                 self.updateNodeTxns(nodeInfo, txn)
-                self.connectNewRemote(nodeInfo, remoteName, self    )
+                self.connectNewRemote(nodeInfo, remoteName, self)
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
-                rid = self.nodestack.removeRemoteByName(remoteName)
-                if rid:
-                    self.nodestack.outBoxes.pop(rid, None)
+                try:
+                    rid = TxnStackManager.removeRemote(
+                        self.nodestack, remoteName)
+                    if rid:
+                        self.nodestack.outBoxes.pop(rid, None)
+                except RemoteNotFound:
+                    logger.debug('{} did not find remote {} to remove'.
+                                 format(self, remoteName))
 
     # noinspection PyUnresolvedReferences
     @property

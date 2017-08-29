@@ -16,4 +16,3 @@ def testReplyWhenRequestSentToLessThanFPlusOneNodes(looper, nodeSet,
     In a system with no faulty nodes, even if the client sends the request to
      one node it will get replies from all the nodes.
     """
-    pass

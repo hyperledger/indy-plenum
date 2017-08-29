@@ -1,9 +1,10 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
+from plenum.test import waits
 
 nodeCount = 4
 
@@ -17,7 +18,9 @@ def electContFixture(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
-def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes):
+@pytest.mark.skip('Nodes use round robin primary selection')
+def testPrimaryElectionWithAClearWinner(
+        electContFixture, looper, keySharedNodes):
     """
     Primary selection (Sunny Day)
     A, B, C, D, E
@@ -57,13 +60,15 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
     checkPoolReady(looper, nodeSet)
 
     # Checking whether one of the replicas of Node A nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
+    looper.run(eventually(checkNomination, A,
+                          A.name, retryWait=1, timeout=timeout))
 
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     for n in nodesBCD:
         # Checking whether Node B, C and D nominated Node A
-        looper.run(eventually(checkNomination, n, A.name, retryWait=1,
-                              timeout=10))
+        looper.run(eventually(checkNomination, n, A.name,
+                              retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
-                               timeout=10)
+    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
     assert A.hasPrimary
