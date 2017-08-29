@@ -427,12 +427,12 @@ class WalletCompatibilityBackend(JSONBackend):
     def decode(self, string):
         raw = super().decode(string)
         # Note that backend.decode may be called not only for the whole object
-        # representation but also for representations of structured keys of
+        # representation but also for representations of non-string keys of
         # dictionaries.
         # Here we assume that if the string represents a class instance and
         # this class contains makeRawCompatible method then this class is
         # a wallet class supporting backward compatibility
-        if tags.OBJECT in raw:
+        if isinstance(raw, dict) and tags.OBJECT in raw:
             clsName = raw[tags.OBJECT]
             cls = loadclass(clsName)
             if hasattr(cls, 'makeRawCompatible') \

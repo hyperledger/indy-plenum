@@ -7,7 +7,8 @@ from typing import Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger, \
+    update_genesis_txn_file_name_if_outdated
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
@@ -282,12 +283,12 @@ class Cli:
 
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
-        dataDir = self.basedirpath
-
+        update_genesis_txn_file_name_if_outdated(
+            self.basedirpath, self.config.poolTransactionsFile)
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-            dataDir, self.config.poolTransactionsFile)
+            self.basedirpath, self.config.poolTransactionsFile)
         ledger = Ledger(CompactMerkleTree(),
-                        dataDir=dataDir,
+                        dataDir=self.basedirpath,
                         fileName=self.config.poolTransactionsFile,
                         genesis_txn_initiator=genesis_txn_initiator,
                         transactionLogStore=KeyValueStorageInMemory())
