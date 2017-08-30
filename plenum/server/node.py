@@ -634,6 +634,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
 
     def schedule_node_status_dump(self):
+        # one-shot dump right after start
+        self._schedule(action=self._info_tool.dump_json_file,
+                       seconds=3)
         self.startRepeating(
             self._info_tool.dump_json_file,
             seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,
