@@ -99,6 +99,9 @@ STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
+# Node status configuration
+DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
+
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
 RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
