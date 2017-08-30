@@ -970,9 +970,10 @@ class Trie:
             return True
         return self.root_hash in self._db
 
-    def produce_spv_proof(self, key):
+    def produce_spv_proof(self, key, root=None):
+        root = root or self.root_node
         proof.push(RECORDING)
-        self.get(key)
+        self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
         return o
@@ -986,10 +987,11 @@ class Trie:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
-    def generate_state_proof(self, key, serialize=False):
+    def generate_state_proof(self, key, root=None, serialize=False):
         # NOTE: The method `produce_spv_proof` is not deliberately modified
-        pf = self.produce_spv_proof(key)
-        pf.append(copy.deepcopy(self.root_node))
+        root = root or self.root_node
+        pf = self.produce_spv_proof(key, root)
+        pf.append(copy.deepcopy(root))
         return pf if not serialize else self.serialize_proof(pf)
 
     @staticmethod

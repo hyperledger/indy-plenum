@@ -88,8 +88,8 @@ class PruningState(State):
         self._trie.replace_root_hash(self._trie.root_node, head)
 
     # Proofs are always generated over committed state
-    def generate_state_proof(self, key: bytes, serialize=False):
-        return self._trie.generate_state_proof(key, serialize)
+    def generate_state_proof(self, key: bytes, root=None, serialize=False):
+        return self._trie.generate_state_proof(key, root, serialize)
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):

@@ -1,6 +1,8 @@
 from copy import deepcopy
 from random import random, randint, choice
 
+import pytest
+
 from plenum.common.util import randomString
 from state.db.persistent_db import PersistentDB
 from state.trie.pruning_trie import Trie, rlp_encode
@@ -186,3 +188,28 @@ def test_proof_serialize_deserialize():
         assert isinstance(prf, bytes)
         assert client_trie.verify_spv_proof(node_trie.root_hash, k, keys[k][0],
                                             prf, serialized=True)
+
+
+@pytest.mark.skip(reason='Need to check if need/possible to build proof for an '
+                         'arbitrary old root')
+def test_proof_specific_root():
+    node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+
+    node_trie.update('k1'.encode(), rlp_encode(['v1']))
+    node_trie.update('k2'.encode(), rlp_encode(['v2']))
+    node_trie.update('x3'.encode(), rlp_encode(['v3']))
+
+    root_hash_0 = node_trie.root_hash
+    root_node_0 = node_trie.root_node
+
+    node_trie.update('x4'.encode(), rlp_encode(['v5']))
+    node_trie.update('y99'.encode(), rlp_encode(['v6']))
+    node_trie.update('x5'.encode(), rlp_encode(['v7']))
+
+    # root_hash_1 = node_trie.root_hash
+    # root_node_1 = node_trie.root_node
+
+    k, v = 'k1'.encode(), rlp_encode(['v1'])
+    old_root_proof = node_trie.generate_state_proof(k, root=root_node_0)
+    assert client_trie.verify_spv_proof(root_hash_0, k, v, old_root_proof)
