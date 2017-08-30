@@ -5,6 +5,7 @@ import os
 
 import base58
 
+from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -41,14 +42,14 @@ class ValidatorNodeInfoTool:
                     # validator-info script
                     # 'ip': self.__client_ip,
                     'port': self.__client_port,
-                    'protocol': 'tcp',  # TODO hard coded for now, need more smart approach here
+                    'protocol': ZMQ_NETWORK_PROTOCOL,
                 },
                 'node': {
                     # ip address is going to be set in
                     # validator-info script
                     # 'ip': self.__node_ip,
                     'port': self.__node_port,
-                    'protocol': 'tcp',  # TODO hard coded for now, need more smart approach here
+                    'protocol': ZMQ_NETWORK_PROTOCOL,
                 }
             },
             'did': self.__did,

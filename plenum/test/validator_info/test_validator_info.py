@@ -20,6 +20,7 @@ from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolL
 from plenum.test.pool_transactions.conftest import steward1, stewardWallet, client1Connected  # noqa
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_client import genTestClient
+from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
 
 
@@ -76,13 +77,13 @@ def test_validator_info_file_bindings_field_valid(info, node):
     # assert info['bindings']['client']['ip'] == node.clientstack.ha.host
     assert 'ip' not in info['bindings']['client']
     assert info['bindings']['client']['port'] == node.clientstack.ha.port
-    assert info['bindings']['client']['protocol'] == 'tcp'
+    assert info['bindings']['client']['protocol'] == ZMQ_NETWORK_PROTOCOL
 
     # don't forget enable this check if ip comes back
     # assert info['bindings']['node']['ip'] == node.nodestack.ha.host
     assert 'ip' not in info['bindings']['node']
     assert info['bindings']['node']['port'] == node.nodestack.ha.port
-    assert info['bindings']['node']['protocol'] == 'tcp'
+    assert info['bindings']['node']['protocol'] == ZMQ_NETWORK_PROTOCOL
 
 
 def test_validator_info_file_did_field_valid(info):
