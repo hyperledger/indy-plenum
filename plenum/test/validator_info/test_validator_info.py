@@ -20,6 +20,7 @@ from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolL
 from plenum.test.pool_transactions.conftest import steward1, stewardWallet, client1Connected  # noqa
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_client import genTestClient
+from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
 
 
@@ -35,11 +36,11 @@ def test_validator_info_file_schema_is_valid(info):
 
     assert 'bindings' in info
     assert 'client' in info['bindings']
-    assert 'ip' in info['bindings']['client']
+    assert 'ip' not in info['bindings']['client']
     assert 'port' in info['bindings']['client']
     assert 'protocol' in info['bindings']['client']
     assert 'node' in info['bindings']
-    assert 'ip' in info['bindings']['node']
+    assert 'ip' not in info['bindings']['node']
     assert 'port' in info['bindings']['node']
     assert 'protocol' in info['bindings']['node']
 
@@ -72,12 +73,17 @@ def test_validator_info_file_alias_field_valid(info):
 
 
 def test_validator_info_file_bindings_field_valid(info, node):
-    assert info['bindings']['client']['ip'] == node.clientstack.ha.host
+    # don't forget enable this check if ip comes back
+    # assert info['bindings']['client']['ip'] == node.clientstack.ha.host
+    assert 'ip' not in info['bindings']['client']
     assert info['bindings']['client']['port'] == node.clientstack.ha.port
-    assert info['bindings']['client']['protocol'] == 'tcp'
-    assert info['bindings']['node']['ip'] == node.nodestack.ha.host
+    assert info['bindings']['client']['protocol'] == ZMQ_NETWORK_PROTOCOL
+
+    # don't forget enable this check if ip comes back
+    # assert info['bindings']['node']['ip'] == node.nodestack.ha.host
+    assert 'ip' not in info['bindings']['node']
     assert info['bindings']['node']['port'] == node.nodestack.ha.port
-    assert info['bindings']['node']['protocol'] == 'tcp'
+    assert info['bindings']['node']['protocol'] == ZMQ_NETWORK_PROTOCOL
 
 
 def test_validator_info_file_did_field_valid(info):
@@ -89,8 +95,7 @@ def test_validator_info_file_response_version_field_valid(info):
 
 
 def test_validator_info_file_timestamp_field_valid(load_latest_info,
-                                                   info,
-                                                   ):
+                                                   info):
     assert re.match('\d{10}', str(info['timestamp']))
     latest_info = load_latest_info()
     assert latest_info['timestamp'] > info['timestamp']
@@ -158,9 +163,11 @@ def test_validator_info_file_handle_fails(info,
     latest_info = load_latest_info()
 
     assert latest_info['alias'] is None
-    assert latest_info['bindings']['client']['ip'] is None
+    # assert latest_info['bindings']['client']['ip'] is None
+    assert 'ip' not in info['bindings']['client']
     assert latest_info['bindings']['client']['port'] is None
-    assert latest_info['bindings']['node']['ip'] is None
+    # assert latest_info['bindings']['node']['ip'] is None
+    assert 'ip' not in info['bindings']['node']
     assert latest_info['bindings']['node']['port'] is None
     assert latest_info['did'] is None
     assert latest_info['timestamp'] is not None
