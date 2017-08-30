@@ -987,13 +987,13 @@ class Trie:
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
     def generate_state_proof(self, key, serialize=False):
-        # NOTE: The method `produce_spv_proof` is not deliberatley modified
+        # NOTE: The method `produce_spv_proof` is not deliberately modified
         pf = self.produce_spv_proof(key)
         pf.append(copy.deepcopy(self.root_node))
         return pf if not serialize else self.serialize_proof(pf)
 
     @staticmethod
-    def verify_spv_proof(root, key, proof_nodes, serialized=False):
+    def verify_spv_proof(root, key, value, proof_nodes, serialized=False):
         # NOTE: `root` is a derivative of the last element of `proof_nodes`
         # but it's important to keep `root` as a separate as signed root
         # hashes will be published.
@@ -1008,9 +1008,9 @@ class Trie:
             new_trie._db.put(H, R)
         try:
             new_trie.root_hash = root
-            new_trie.get(key)
+            v = new_trie.get(key)
             proof.pop()
-            return True
+            return v == value
         except Exception as e:
             print(e)
             proof.pop()
