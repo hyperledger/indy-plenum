@@ -56,6 +56,11 @@ def test_verify_proof():
                                         rlp_encode(['v3']), p3)
     assert client_trie.verify_spv_proof(root_hash_1, 'x1'.encode(),
                                         rlp_encode(['y1']), p4)
+
+    # Proof is correct but value is different
+    assert not client_trie.verify_spv_proof(root_hash_1, 'x1'.encode(),
+                                            rlp_encode(['y99']), p4)
+
     # Verify same proof again
     assert client_trie.verify_spv_proof(root_hash_1, 'k3'.encode(),
                                         rlp_encode(['v3']), p3)
@@ -102,12 +107,22 @@ def test_verify_proof_generated_using_helper():
                                         rlp_encode(['v3']), p3)
     assert client_trie.verify_spv_proof(root_hash_1, 'x1'.encode(),
                                         rlp_encode(['y1']), p4)
+
+    # Proof is correct but value is different
+    assert not client_trie.verify_spv_proof(root_hash_1, 'x1'.encode(),
+                                            rlp_encode(['y99']), p4)
+
     # Verify same proof again
     assert client_trie.verify_spv_proof(root_hash_1, 'k3'.encode(),
                                         rlp_encode(['v3']), p3)
 
     assert client_trie.verify_spv_proof(root_hash_0, 'k2'.encode(),
                                         rlp_encode(['v2']), p0)
+
+    # Proof generated using non-existent key fails verification
+    p5 = node_trie.generate_state_proof('x909'.encode())
+    assert not client_trie.verify_spv_proof(root_hash_1, 'x909'.encode(),
+                                            rlp_encode(['y909']), p5)
 
 
 def test_verify_proof_random_data():
