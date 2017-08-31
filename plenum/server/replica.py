@@ -8,13 +8,11 @@ from typing import Set
 from typing import Tuple
 
 import base58
+import plenum.server.node
+from common.serializers.serialization import serialize_msg_for_signing
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from orderedset import OrderedSet
 from plenum.bls.bls import create_default_bls_factory
-from sortedcontainers import SortedList
-
-import plenum.server.node
-from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE
 from plenum.common.exceptions import SuspiciousNode, \
@@ -30,6 +28,7 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -130,7 +129,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the
         # instance is
-        self._primaryName = None    # type: Optional[str]
+        self._primaryName = None  # type: Optional[str]
 
         # TODO: Rename since it will contain all messages till primary is
         # selected, primary selection is only done once pool ledger is
@@ -194,7 +193,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo).
-        self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
+        self.ordered = OrderedSet()  # type: OrderedSet[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -203,7 +202,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Holds tuple of view no and prepare seq no of 3-phase messages it
         # received while it was not participating
-        self.stashingWhileCatchingUp = set()       # type: Set[Tuple]
+        self.stashingWhileCatchingUp = set()  # type: Set[Tuple]
 
         # Commits which are not being ordered since commits with lower
         # sequence numbers have not been ordered yet. Key is the
@@ -217,15 +216,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # dictionary is the view_no, value being a dictionary with key as the
         # range of the checkpoint and its value again being a mapping between
         # senders and their sent checkpoint
-        self.stashedRecvdCheckpoints = {}   # type: Dict[int, Dict[Tuple,
+        self.stashedRecvdCheckpoints = {}  # type: Dict[int, Dict[Tuple,
         # Dict[str, Checkpoint]]]
 
         self.stashingWhileOutsideWaterMarks = deque()
 
         # Low water mark
-        self._h = 0              # type: int
+        self._h = 0  # type: int
         # Set high water mark (`H`) too
-        self.h = 0   # type: int
+        self.h = 0  # type: int
 
         self._lastPrePrepareSeqNo = self.h  # type: int
 
@@ -271,7 +270,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def _create_bls_bft(self):
         try:
-           return create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
+            return create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
         except LoadBLSKeyError as ex:
             # TODO: for now we allow that BLS is optional, so that we don't require it
             logger.warning(
@@ -457,7 +456,7 @@ class Replica(HasActionQueue, MessageProcessor):
         replica did not stash any of this request's 3-phase request
         """
         return self.node.isParticipating and (viewNo, ppSeqNo) \
-            not in self.stashingWhileCatchingUp
+                                             not in self.stashingWhileCatchingUp
 
     def on_view_change_start(self):
         assert self.isMaster
@@ -487,7 +486,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         # TODO: Naive implementation, dont need to iterate over the complete
         # data structures, fix this later
-        seq_no_pp = SortedList()      # pp_seq_no of PRE-PREPAREs
+        seq_no_pp = SortedList()  # pp_seq_no of PRE-PREPAREs
         # pp_seq_no of PREPAREs with count of PREPAREs for each
         seq_no_p = set()
 
@@ -632,9 +631,9 @@ class Replica(HasActionQueue, MessageProcessor):
         for lid, q in self.requestQueues.items():
             # TODO: make the condition more apparent
             if len(q) >= self.config.Max3PCBatchSize or (
-                    self.lastBatchCreated +
-                    self.config.Max3PCBatchWait <
-                    time.perf_counter() and len(q) > 0):
+                                self.lastBatchCreated +
+                                self.config.Max3PCBatchWait <
+                            time.perf_counter() and len(q) > 0):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
@@ -874,7 +873,7 @@ class Replica(HasActionQueue, MessageProcessor):
                      format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
-                         "achieved stable checkpoint for Preapre",
+                         "achieved stable checkpoint for Prepare",
                          logger.debug)
             return
         try:
@@ -939,7 +938,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return canOrder
 
     def doPrepare(self, pp: PrePrepare):
-        logger.debug("{} Sending PREPARE{} at {}". format(
+        logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
         prepare = Prepare(self.instId,
                           pp.viewNo,
@@ -1030,6 +1029,9 @@ class Replica(HasActionQueue, MessageProcessor):
             self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (
                 pp, sender, False)
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
+
+        if self._bls_bft:
+            self._bls_bft.validate_pre_prepare(pp, sender)
 
         validReqs = []
         inValidReqs = []
@@ -1219,8 +1221,11 @@ class Replica(HasActionQueue, MessageProcessor):
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
                                  prepare)
-        else:
-            return True
+
+        if self._bls_bft:
+            self._bls_bft.validate_prepare(prepare, sender)
+
+        return True
 
     def addToPrepares(self, prepare: Prepare, sender: str):
         """
@@ -1298,7 +1303,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
         if (key not in self.prepares and key not in self.sentPrePrepares) and \
-                key not in self.preparesWaitingForPrePrepare:
+                        key not in self.preparesWaitingForPrePrepare:
             logger.debug("{} rejecting COMMIT{} due to lack of prepares".
                          format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
@@ -1335,8 +1340,8 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         quorum = self.quorums.commit.value
         if not self.commits.hasQuorum(commit, quorum):
-            return False, "no quorum ({}): {} commits where f is {}".\
-                          format(quorum, commit, self.f)
+            return False, "no quorum ({}): {} commits where f is {}". \
+                format(quorum, commit, self.f)
 
         key = (commit.viewNo, commit.ppSeqNo)
         if self.has_already_ordered(*key):
@@ -1348,7 +1353,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.stashed_out_of_order_commits[viewNo] = {}
             self.stashed_out_of_order_commits[viewNo][ppSeqNo] = commit
             self.startRepeating(self.process_stashed_out_of_order_commits, 1)
-            return False, "stashing {} since out of order".\
+            return False, "stashing {} since out of order". \
                 format(commit)
 
         return True, None
@@ -1387,7 +1392,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it
         # can
-        logger.debug('{} trying to order from out of order commits. {} {}'. format(
+        logger.debug('{} trying to order from out of order commits. {} {}'.format(
             self, self.ordered, self.stashed_out_of_order_commits))
         if self.last_ordered_3pc:
             lastOrdered = self.last_ordered_3pc
@@ -1721,7 +1726,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.requests[k].forwardedTo -= 1
                 if self.requests[k].forwardedTo == 0:
                     logger.debug(
-                        '{} clearing request {} from previous checkpoints'. format(
+                        '{} clearing request {} from previous checkpoints'.format(
                             self, k))
                     self.requests.pop(k)
 
@@ -1816,7 +1821,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
-                            nonFinReqs: Set=None):
+                            nonFinReqs: Set = None):
         if nonFinReqs:
             logger.debug(
                 "Queueing pre-prepares due to unavailability of finalised "
@@ -2063,7 +2068,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return (self.last_accepted_pre_prepare_time is None or
                 pp.ppTime >= self.last_accepted_pre_prepare_time) and \
-            abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+               abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2199,9 +2204,9 @@ class Replica(HasActionQueue, MessageProcessor):
         to_remove = []
         for i, msg in enumerate(self.outBox):
             if isinstance(msg, Ordered) and (not last_caught_up_3PC or
-                                             compare_3PC_keys(
-                                                 (msg.viewNo, msg.ppSeqNo),
-                                                 last_caught_up_3PC) >= 0):
+                                                     compare_3PC_keys(
+                                                         (msg.viewNo, msg.ppSeqNo),
+                                                         last_caught_up_3PC) >= 0):
                 to_remove.append(i)
 
         logger.debug('{} going to remove {} Ordered messages from outbox'.

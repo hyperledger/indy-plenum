@@ -567,7 +567,7 @@ def dirName():
 def poolTxnData(request):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
     nodes_with_bls = getValueFromModule(request, "nodes_wth_bls", nodeCount)
-    data = {'txns': [], 'seeds': {}, 'nodesWithBls': set()}
+    data = {'txns': [], 'seeds': {}, 'nodesWithBls': {}}
     for i, node_name in zip(range(1, nodeCount + 1), genNodeNames(nodeCount)):
         data['seeds'][node_name] = node_name + '0' * (32 - len(node_name))
         steward_name = 'Steward' + str(i)
@@ -602,7 +602,7 @@ def poolTxnData(request):
             _, bls_key = create_default_bls_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             node_txn[DATA][BLS_KEY] = bls_key
-            data['nodesWithBls'].update(node_name)
+            data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)
 

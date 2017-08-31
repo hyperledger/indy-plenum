@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any
 
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister

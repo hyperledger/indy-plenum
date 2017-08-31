@@ -12,14 +12,11 @@ class BlsBftPlenum(BlsBft):
         super().__init__(bls_crypto, bls_key_register)
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        if f.BLS_MULTI_SIG.nm in pre_prepare:
-            self._validate_multi_sig_pre_prepare(pre_prepare, sender)
-        if f.BLS_SIG.nm in pre_prepare:
-            self._validate_sig_pre_prepare(pre_prepare, sender)
+        self._validate_multi_sig_pre_prepare(pre_prepare, sender)
+        self._validate_sig_pre_prepare(pre_prepare, sender)
 
     def validate_prepare(self, prepare: Prepare, sender):
-        if f.BLS_SIG.nm in prepare:
-            self._validate_sig_prepare(prepare, sender)
+        self._validate_sig_prepare(prepare, sender)
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
@@ -51,7 +48,35 @@ class BlsBftPlenum(BlsBft):
                 sender, Suspicions.PPR_BLS_MULTISIG_WRONG, pre_prepare)
 
     def _validate_sig_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        pass
+        if not f.BLS_SIG.nm in pre_prepare:
+            # TODO: It's optional for now
+            return
+
+        pk = self.bls_key_register.get_latest_key(sender)
+        if not pk:
+            # TODO: It's optional for now
+            return
+
+        sig = pre_prepare.blsSig
+        msg = pre_prepare.stateRootHash
+
+        if not self.bls_crypto.verify_sig(sig, msg, pk):
+            raise SuspiciousNode(
+                sender, Suspicions.PPR_BLS_SIG_WRONG, pre_prepare)
 
     def _validate_sig_prepare(self, prepare: Prepare, sender):
-        pass
+        if not f.BLS_SIG.nm in prepare:
+            # TODO: It's optional for now
+            return
+
+        pk = self.bls_key_register.get_latest_key(sender)
+        if not pk:
+            # TODO: It's optional for now
+            return
+
+        sig = prepare.blsSig
+        msg = prepare.stateRootHash
+
+        if not self.bls_crypto.verify_sig(sig, msg, pk):
+            raise SuspiciousNode(
+                sender, Suspicions.PR_BLS_SIG_WRONG, prepare)

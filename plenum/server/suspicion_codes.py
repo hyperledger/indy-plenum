@@ -1,6 +1,5 @@
-from typing import NamedTuple
 import inspect
-
+from typing import NamedTuple
 
 Suspicion = NamedTuple("SuspicionCode", [("code", int), ("reason", str)])
 
@@ -62,13 +61,16 @@ class Suspicions:
                                          'disconnected')
     PRIMARY_ABOUT_TO_BE_DISCONNECTED = Suspicion(
         27, 'Primary of master '
-        'protocol instance '
-        'about to be disconnected')
+            'protocol instance '
+            'about to be disconnected')
     INSTANCE_CHANGE_TIMEOUT = Suspicion(28, 'View change could not complete '
                                             'in time')
     PPR_BLS_MULTISIG_WRONG = \
-        Suspicion(11, "Pre-Prepare message has invalid BLS multi-signature")
-
+        Suspicion(29, "Pre-Prepare message has invalid BLS multi-signature")
+    PPR_BLS_SIG_WRONG = \
+        Suspicion(30, "Pre-Prepare message has invalid BLS signature")
+    PR_BLS_SIG_WRONG = \
+        Suspicion(31, "Prepare message has invalid BLS signature")
 
     @classmethod
     def get_list(cls):
