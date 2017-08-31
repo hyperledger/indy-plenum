@@ -64,7 +64,7 @@ class Batched(MessageProcessor):
         # Signing (if required) and serializing before enqueueing otherwise
         # each call to `_enqueue` will have to sign it and `transmit` will try
         # to serialize it which is waste of resources
-        serializedPayload, err_msg = self.signAndSerialize(msg, signer)
+        serializedPayload, err_msg = self.signSerializeAndCheckLen(msg, signer)
         if serializedPayload is None:
             return False, err_msg
 
@@ -131,7 +131,7 @@ class Batched(MessageProcessor):
 
     def _make_batch(self, msgs):
         batch = Batch(msgs, None)
-        serialized_batch, _ = self.signAndSerialize(batch)
+        serialized_batch = self.sign_and_serialize(batch)
         return serialized_batch
 
     def _test_batch_len(self, batch_len):
@@ -152,9 +152,8 @@ class Batched(MessageProcessor):
                 msg[f.MSGS.nm] = relevantMsgs
         return msg
 
-    def signAndSerialize(self, msg, signer=None):
-        payload = self.prepForSending(msg, signer)
-        msg_bytes = self.serializeMsg(payload)
+    def signSerializeAndCheckLen(self, msg, signer=None):
+        msg_bytes = self.sign_and_serialize(msg, signer)
         err_msg = None
         try:
             self.msg_len_val.validate(msg_bytes)
@@ -163,3 +162,8 @@ class Batched(MessageProcessor):
             logger.warning(err_msg)
             msg_bytes = None
         return msg_bytes, err_msg
+
+    def sign_and_serialize(self, msg, signer=None):
+        payload = self.prepForSending(msg, signer)
+        msg_bytes = self.serializeMsg(payload)
+        return msg_bytes
