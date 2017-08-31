@@ -1703,18 +1703,20 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requested_pre_prepares,
             self.pre_prepares_stashed_for_incorrect_time,
         )
-        for k in tpcKeys:
+        for request_key in tpcKeys:
             for coll in to_clean_up:
-                coll.pop(k, None)
+                coll.pop(request_key, None)
 
-        for k in reqKeys:
-            if k in self.requests:
-                self.requests[k].forwardedTo -= 1
-                if self.requests[k].forwardedTo == 0:
-                    logger.debug(
-                        '{} clearing request {} from previous checkpoints'. format(
-                            self, k))
-                    self.requests.pop(k)
+        for request_key in reqKeys:
+            request = self.requests.get(request_key)
+            if request is None or not request.executed:
+                continue
+            request.forwardedTo -= 1
+            if request.forwardedTo == 0:
+                logger.debug(
+                    '{} clearing request {} from previous checkpoints'
+                    .format(self, request_key))
+                self.requests.pop(request_key)
 
         self.compact_ordered()
 
