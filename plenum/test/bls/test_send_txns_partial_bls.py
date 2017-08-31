@@ -3,7 +3,7 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 
 nodeCount = 4
-nodes_wth_bls = 0
+nodes_wth_bls = 2
 
 def test_send_txns_no_bls(tconf, looper, txnPoolNodeSet,
                           client1, client1Connected, wallet1):
