@@ -1,8 +1,10 @@
 import os
+from typing import Any
 
 import pytest
 from common.serializers.json_serializer import JsonSerializer
-from plenum.server.bls.bls_key_manager_file import BlsKeyManagerFile
+from crypto.bls.bls_crypto import BlsSerializer
+from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 from stp_zmq.test.helper import get_file_permission_mask
 
 
@@ -12,14 +14,31 @@ def tempdir(tmpdir_factory):
 
 
 @pytest.fixture()
-def serializer():
-    return JsonSerializer()
+def bls_json_serializer():
+    class JsonBlsSerializer(BlsSerializer):
+        def __init__(self):
+            super().__init__(None)
+            self.json_ser = JsonSerializer()
+
+        def serialize_to_bytes(self, obj: Any) -> bytes:
+            return self.json_ser.serialize(obj, toBytes=True)
+
+        def deserialize_from_bytes(self, obj: bytes) -> Any:
+            return self.json_ser.deserialize(obj)
+
+        def serialize_to_str(self, obj: Any) -> str:
+            return self.json_ser.serialize(obj, toBytes=False)
+
+        def deserialize_from_str(self, obj: str) -> Any:
+            return self.json_ser.deserialize(obj)
+
+    return JsonBlsSerializer()
 
 
 @pytest.fixture()
-def bls_key_manager_file(tempdir, serializer):
+def bls_key_manager_file(tempdir, bls_json_serializer):
     os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsKeyManagerFile(serializer, tempdir, 'Node1')
+    return BlsKeyManagerFile(bls_json_serializer, tempdir, 'Node1')
 
 
 def test_key_dir(bls_key_manager_file):

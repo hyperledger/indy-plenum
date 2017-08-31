@@ -1,9 +1,7 @@
-
+from plenum.bls.bls import create_default_bls_factory
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.util import randomSeed
-from stp_zmq.util import createCertsFromKeys
-
-from plenum.common.constants import CLIENT_STACK_SUFFIX
 
 
 def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
@@ -17,6 +15,13 @@ def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
 def initRemoteKeys(name, remote_name, baseDir, verkey, override=False):
     nodeStackClass.initRemoteKeys(name, remote_name, baseDir, verkey,
                                   override=override)
+
+
+def init_bls_keys(baseDir, node_name, seed=None):
+    # TODO: do we need keys based on transport keys?
+    bls_factory = create_default_bls_factory(baseDir, node_name)
+    stored_pk = bls_factory.generate_and_store_bls_keys(seed)
+    return stored_pk
 
 
 def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):

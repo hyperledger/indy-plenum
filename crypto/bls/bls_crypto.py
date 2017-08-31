@@ -17,11 +17,19 @@ class BlsSerializer(metaclass=ABCMeta):
         self._group_params = params
 
     @abstractmethod
-    def serialize(self, obj: Any) -> bytes:
+    def serialize_to_bytes(self, obj: Any) -> bytes:
         pass
 
     @abstractmethod
-    def deserialize(self, obj: bytes) -> Any:
+    def deserialize_from_bytes(self, obj: bytes) -> Any:
+        pass
+
+    @abstractmethod
+    def serialize_to_str(self, obj: Any) -> str:
+        pass
+
+    @abstractmethod
+    def deserialize_from_str(self, obj: str) -> Any:
         pass
 
 
@@ -36,7 +44,7 @@ class BlsCrypto(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def generate_keys(params: GroupParams) -> (Any, Any):
+    def generate_keys(params: GroupParams, seed=None) -> (Any, Any):
         pass
 
     @abstractmethod

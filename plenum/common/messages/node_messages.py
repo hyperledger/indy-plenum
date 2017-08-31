@@ -136,6 +136,8 @@ class PrePrepare(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
+        (f.BLS_MULTI_SIG.nm, NonEmptyStringField(optional=True)),
     )
 
 
@@ -149,6 +151,7 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
     )
 
 

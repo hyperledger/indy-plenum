@@ -13,8 +13,8 @@ class BlsKeyManager(metaclass=ABCMeta):
         self._serializer = serializer
 
     def save_keys(self, sk, pk):
-        sk = self._serializer.serialize(sk)
-        pk = self._serializer.serialize(pk)
+        sk = self._serializer.serialize_to_bytes(sk)
+        pk = self._serializer.serialize_to_bytes(pk)
         self._save_secret_key(sk)
         self._save_public_key(pk)
         return sk, pk
@@ -26,8 +26,8 @@ class BlsKeyManager(metaclass=ABCMeta):
         except BaseException as e:
             raise LoadBLSKeyError(e)
 
-        sk = self._serializer.deserialize(sk)
-        pk = self._serializer.deserialize(pk)
+        sk = self._serializer.deserialize_from_bytes(sk)
+        pk = self._serializer.deserialize_from_bytes(pk)
         return sk, pk
 
     @abstractmethod

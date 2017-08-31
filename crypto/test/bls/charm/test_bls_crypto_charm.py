@@ -35,7 +35,7 @@ def test_default_params(default_params):
     assert isinstance(g, pc_element)
 
 
-def test_generate_keys(default_params):
+def test_generate_keys_no_seed(default_params):
     sk, pk = BlsCryptoCharm.generate_keys(default_params)
     assert sk
     assert isinstance(sk, pc_element)
@@ -44,10 +44,56 @@ def test_generate_keys(default_params):
     assert sk != pk
 
 
+def test_generate_keys_int_seed(default_params):
+    seed = 123456789
+    sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
+    assert sk
+    assert isinstance(sk, pc_element)
+    assert pk
+    assert isinstance(pk, pc_element)
+    assert sk != pk
+
+
+def test_generate_keys_str_seed(default_params):
+    seed = 'Seed' + '0' * (32 - len('Seed'))
+    sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
+    assert sk
+    assert isinstance(sk, pc_element)
+    assert pk
+    assert isinstance(pk, pc_element)
+    assert sk != pk
+
+
+def test_generate_keys_bytes_seed(default_params):
+    seed = 'Seed' + '0' * (32 - len('Seed'))
+    seed = seed.encode()
+    sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
+    assert sk
+    assert isinstance(sk, pc_element)
+    assert pk
+    assert isinstance(pk, pc_element)
+    assert sk != pk
+
+
+def test_generate_different_keys(default_params):
+    seed1 = 123456789
+    seed2 = 'Seed' + '0' * (32 - len('Seed'))
+    seed3 = 'seeeed'.encode()
+
+    sk1, pk1 = BlsCryptoCharm.generate_keys(default_params)
+    sk2, pk2 = BlsCryptoCharm.generate_keys(default_params, seed1)
+    sk3, pk3 = BlsCryptoCharm.generate_keys(default_params, seed2)
+    sk4, pk4 = BlsCryptoCharm.generate_keys(default_params, seed3)
+    assert sk1 != sk2 != sk3 != sk4
+    assert pk1 != pk2 != pk3 != pk4
+
+
 def test_serialize(keys, serializer):
     sk, pk = keys
-    assert sk == serializer.deserialize(serializer.serialize(sk))
-    assert pk == serializer.deserialize(serializer.serialize(pk))
+    assert sk == serializer.deserialize_from_bytes(serializer.serialize_to_bytes(sk))
+    assert pk == serializer.deserialize_from_bytes(serializer.serialize_to_bytes(pk))
+    assert sk == serializer.deserialize_from_str(serializer.serialize_to_str(sk))
+    assert pk == serializer.deserialize_from_str(serializer.serialize_to_str(pk))
 
 
 def test_new(keys, default_params, serializer):

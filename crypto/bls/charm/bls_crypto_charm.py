@@ -21,11 +21,17 @@ class BlsSerializerCharm(BlsSerializer):
         super().__init__(params)
         self.group = BlsCryptoCharm._create_group(params)
 
-    def serialize(self, obj: Any) -> bytes:
+    def serialize_to_bytes(self, obj: Any) -> bytes:
         return objectToBytes(obj, self.group)
 
-    def deserialize(self, obj: bytes) -> Any:
+    def deserialize_from_bytes(self, obj: bytes) -> Any:
         return bytesToObject(obj, self.group)
+
+    def serialize_to_str(self, obj: Any) -> str:
+        return self.serialize_to_bytes(obj).decode()
+
+    def deserialize_from_str(self, obj: str) -> Any:
+        return self.deserialize_from_bytes(obj.encode())
 
 
 class BlsCryptoCharm(BlsCrypto):
@@ -39,11 +45,24 @@ class BlsCryptoCharm(BlsCrypto):
         return PairingGroup(params.group_name)
 
     @staticmethod
-    def generate_keys(params: GroupParams) -> (Any, Any):
+    def generate_keys(params: GroupParams, seed=None) -> (Any, Any):
+        seed = BlsCryptoCharm._prepare_seed(seed)
         group = BlsCryptoCharm._create_group(params)
-        sk = group.random()
+        sk = group.random(seed=seed)
         pk = params.g ** sk
         return sk, pk
+
+    @staticmethod
+    def _prepare_seed(seed):
+        if not seed:
+            return None
+        if isinstance(seed, int):
+            return seed
+        if isinstance(seed, str):
+            seed = seed.encode()
+        if not isinstance(seed, (bytes, bytearray)):
+            raise RuntimeError('Unknown seed type for BLS keys. Must be either int, str or bytes')
+        return int.from_bytes(seed[:4], byteorder='little')
 
     def sign(self, message) -> Any:
         M = self._msgForSign(message, self.pk)
@@ -70,6 +89,6 @@ class BlsCryptoCharm(BlsCrypto):
         return self.group.hash(M, G1)
 
     def _msgForSign(self, message, pk):
-        msg = self._serializer.serialize(message)
-        msg_pk = self._serializer.serialize(pk)
+        msg = self._serializer.serialize_to_bytes(message)
+        msg_pk = self._serializer.serialize_to_bytes(pk)
         return msg + msg_pk
