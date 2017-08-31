@@ -1,10 +1,9 @@
-import pytest
-import json
-from plenum.common.prepare_batch import split_msgs_on_batches
+from plenum.common.prepare_batch import split_msgs_on_batches, SPLIT_STEPS_LIMIT
 
 
 LEN_LIMIT_BYTES = 100
 SERIALIZATION_OTHER_HEAD_BYTES = 10
+MAX_ONE_MSG_LEN = LEN_LIMIT_BYTES - SERIALIZATION_OTHER_HEAD_BYTES
 
 
 def make_batch_func(msgs):
@@ -26,31 +25,35 @@ def test_empty_msgs_returns_one_batch():
 
 def test_less_than_limit_returns_one_batch():
     msgs = [b'1'] * 10
-    assert check_batch_len_func(len(make_batch_func(msgs)))
     assert len(split_ut(msgs)) == 1
 
 
-def test_msgs_total_len_excesses_limit_more_than_one_batch():
+def test_total_len_excesses_limit_two_batches():
     msgs = [b'1'] * (LEN_LIMIT_BYTES + 1)
-    assert not check_batch_len_func(len(make_batch_func(msgs)))
-    assert len(split_ut(msgs)) > 1
+    assert len(split_ut(msgs)) == 2
 
 
-def test_one_msg_excesses_limit():
+def test_each_msg_almost_excesses_limit_one_msg_per_batch():
+    count = 100
+    msgs = [b'1' * MAX_ONE_MSG_LEN] * count
+    assert len(split_ut(msgs)) == count
+
+
+def test_small_msgs_with_one_huge_more_than_one_batch():
+    msgs = [b'1', b'1', b'1', b'1' * MAX_ONE_MSG_LEN, b'1']
+    assert len(split_ut(msgs)) == 4
+
+
+def test_one_msg_excesses_limit_split_fails():
     msgs = [b'1' * (LEN_LIMIT_BYTES + 1)]
     assert split_ut(msgs) is None
 
 
-def test_one_msg_almost_excesses_limit():
-    msgs = [b'1' * (LEN_LIMIT_BYTES - SERIALIZATION_OTHER_HEAD_BYTES + 1)]
+def test_one_msg_almost_excesses_limit_split_fails():
+    msgs = [b'1' * (MAX_ONE_MSG_LEN + 1)]
     assert split_ut(msgs) is None
 
 
-def test_each_msg_almost_excesses_limit():
-    count = 100
-    msgs = [b'1' * (LEN_LIMIT_BYTES - SERIALIZATION_OTHER_HEAD_BYTES)] * count
-    assert len(split_ut(msgs)) == count
-
-
-def test_recursion_depth():
-    assert split_msgs_on_batches([], make_batch_func, lambda l: False) is None
+def test_excesses_limit_of_split_steps_split_fails():
+    msgs = [b'1' * MAX_ONE_MSG_LEN] * 2**(SPLIT_STEPS_LIMIT + 1)
+    assert split_ut(msgs) is None
