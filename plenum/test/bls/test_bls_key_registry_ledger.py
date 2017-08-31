@@ -4,8 +4,8 @@ from plenum.bls.bls_key_register_pool_ledger import BlsKeyRegisterPoolLedger
 
 
 @pytest.fixture()
-def bls_key_register_ledger(bls_serializer):
-    return BlsKeyRegisterPoolLedger(bls_serializer)
+def bls_key_register_ledger():
+    return BlsKeyRegisterPoolLedger()
 
 
 @pytest.fixture()
@@ -24,10 +24,7 @@ def test_get_key(bls_key_register_ledger_loaded, txnPoolNodeSet):
     for node in txnPoolNodeSet:
         bls_key = bls_key_register_ledger_loaded.get_latest_key(node.name)
         assert bls_key
-        # check that returned value is deserialized
-        assert not isinstance(bls_key, str)
-        assert not isinstance(bls_key, bytes)
-        assert not isinstance(bls_key, bytearray)
+        assert isinstance(bls_key, str)
 
 
 def test_get_unknown(bls_key_register_ledger_loaded):
@@ -39,17 +36,14 @@ def test_get_key_for_multisig(bls_key_register_ledger_loaded, txnPoolNodeSet):
     for node in txnPoolNodeSet:
         bls_key = bls_key_register_ledger_loaded.get_latest_key(node.name)
         assert bls_key
-        # check that returned value is deserialized
-        assert not isinstance(bls_key, str)
-        assert not isinstance(bls_key, bytes)
-        assert not isinstance(bls_key, bytearray)
+        assert isinstance(bls_key, str)
 
 
 def test_replace_key(bls_key_register_ledger_loaded, txnPoolNodeSet):
     node = txnPoolNodeSet[0]
 
     old_bls_key = bls_key_register_ledger_loaded.get_latest_key(node.name)
-    new_bls_key = create_default_bls_factory().generate_bls_keys_as_str()
+    _, new_bls_key = create_default_bls_factory().generate_bls_keys()
 
     bls_key_register_ledger_loaded.add_latest_key(node.name, new_bls_key)
 
@@ -59,7 +53,7 @@ def test_replace_key(bls_key_register_ledger_loaded, txnPoolNodeSet):
 
 def test_add_key(bls_key_register_ledger_loaded):
     new_node_name = 'NewNode1'
-    new_bls_key = create_default_bls_factory().generate_bls_keys_as_str()
+    _, new_bls_key = create_default_bls_factory().generate_bls_keys()
     bls_key_register_ledger_loaded.add_latest_key(new_node_name, new_bls_key)
     assert bls_key_register_ledger_loaded.get_latest_key(new_node_name)
 

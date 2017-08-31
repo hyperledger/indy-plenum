@@ -6,8 +6,8 @@ nodes_wth_bls = 0
 
 
 @pytest.fixture()
-def bls_key_register_ledger(bls_serializer):
-    return BlsKeyRegisterPoolLedger(bls_serializer)
+def bls_key_register_ledger():
+    return BlsKeyRegisterPoolLedger()
 
 
 def test_load_keys_no_bls_keys(bls_key_register_ledger, txnPoolNodeSet):

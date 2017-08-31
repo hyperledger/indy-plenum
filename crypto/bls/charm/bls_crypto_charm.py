@@ -4,7 +4,7 @@ from typing import Any, Sequence
 from charm.core.engine.util import objectToBytes, bytesToObject
 from charm.core.math.pairing import G1, pair
 from charm.toolbox.pairinggroup import PairingGroup
-from crypto.bls.bls_crypto import BlsCrypto, GroupParams, BlsGroupParamsLoader, BlsSerializer
+from crypto.bls.bls_crypto import BlsCrypto, GroupParams, BlsGroupParamsLoader
 
 
 class BlsGroupParamsLoaderCharmHardcoded(BlsGroupParamsLoader):
@@ -16,9 +16,8 @@ class BlsGroupParamsLoaderCharmHardcoded(BlsGroupParamsLoader):
         return GroupParams(group_name, g)
 
 
-class BlsSerializerCharm(BlsSerializer):
+class BlsSerializerCharm:
     def __init__(self, params: GroupParams):
-        super().__init__(params)
         self.group = BlsCryptoCharm._create_group(params)
 
     def serialize_to_bytes(self, obj: Any) -> bytes:
@@ -35,22 +34,30 @@ class BlsSerializerCharm(BlsSerializer):
 
 
 class BlsCryptoCharm(BlsCrypto):
-    def __init__(self, sk: Any, pk: Any, params: GroupParams, serializer: BlsSerializer):
-        super().__init__(sk, pk, params, serializer)
+    def __init__(self, sk: str, pk: str, params: GroupParams):
+        super().__init__(sk, pk, params)
         self.group = self._create_group(params)
         self.g = params.g
+        self._serializer = BlsSerializerCharm(params)
+        self._sk_ec = self._serializer.deserialize_from_str(sk)
+        self._pk_ec = self._serializer.deserialize_from_str(pk)
 
     @staticmethod
     def _create_group(params: GroupParams) -> PairingGroup:
         return PairingGroup(params.group_name)
 
     @staticmethod
-    def generate_keys(params: GroupParams, seed=None) -> (Any, Any):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str):
         seed = BlsCryptoCharm._prepare_seed(seed)
         group = BlsCryptoCharm._create_group(params)
         sk = group.random(seed=seed)
         pk = params.g ** sk
-        return sk, pk
+
+        serializer = BlsSerializerCharm(params)
+        sk_str = serializer.serialize_to_str(sk)
+        pk_str = serializer.serialize_to_str(pk)
+
+        return sk_str, pk_str
 
     @staticmethod
     def _prepare_seed(seed):
@@ -64,31 +71,36 @@ class BlsCryptoCharm(BlsCrypto):
             raise RuntimeError('Unknown seed type for BLS keys. Must be either int, str or bytes')
         return int.from_bytes(seed[:4], byteorder='little')
 
-    def sign(self, message) -> Any:
+    def sign(self, message: str) -> str:
         M = self._msgForSign(message, self.pk)
-        return self.group.hash(M, G1) ** self._sk
+        signature = self.group.hash(M, G1) ** self._sk_ec
+        return self._serializer.serialize_to_str(signature)
 
-    def create_multi_sig(self, signatures: Sequence) -> Any:
-        return reduce(lambda x, y: x * y, signatures)
+    def create_multi_sig(self, signatures: Sequence[str]) -> str:
+        signatures = [self._serializer.deserialize_from_str(signature) for signature in signatures]
+        multi_sig = reduce(lambda x, y: x * y, signatures)
+        return self._serializer.serialize_to_str(multi_sig)
 
-    def verify_sig(self, signature, message, pk) -> bool:
+    def verify_sig(self, signature: str, message: str, pk: str) -> bool:
         h = self._h(message, pk)
+        signature = self._serializer.deserialize_from_str(signature)
+        pk = self._serializer.deserialize_from_str(pk)
         return pair(signature, self.g) == pair(h, pk)
 
-    def verify_multi_sig(self, signature, message, pks: Sequence) -> bool:
+    def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
         multi_sig_e_list = []
         for pk in pks:
             h = self._h(message, pk)
+            pk = self._serializer.deserialize_from_str(pk)
             multi_sig_e_list.append(pair(h, pk))
 
         multi_sig_e = reduce(lambda x, y: x * y, multi_sig_e_list)
+        signature = self._serializer.deserialize_from_str(signature)
         return pair(signature, self.g) == multi_sig_e
 
-    def _h(self, msg, pk):
+    def _h(self, msg: str, pk: str):
         M = self._msgForSign(msg, pk)
         return self.group.hash(M, G1)
 
-    def _msgForSign(self, message, pk):
-        msg = self._serializer.serialize_to_bytes(message)
-        msg_pk = self._serializer.serialize_to_bytes(pk)
-        return msg + msg_pk
+    def _msgForSign(self, message: str, msg_pk: str):
+        return message + msg_pk

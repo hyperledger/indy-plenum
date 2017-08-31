@@ -599,7 +599,7 @@ def poolTxnData(request):
         }
 
         if i <= nodes_with_bls:
-            bls_key = create_default_bls_factory().generate_bls_keys_as_str(
+            _, bls_key = create_default_bls_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             node_txn[DATA][BLS_KEY] = bls_key
             data['nodesWithBls'].update(node_name)

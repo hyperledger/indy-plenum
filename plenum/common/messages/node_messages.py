@@ -137,6 +137,7 @@ class PrePrepare(MessageBase):
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
+        (f.BLS_SIG_NODES.nm, IterableField(NonEmptyStringField(), optional=True)),
         (f.BLS_MULTI_SIG.nm, NonEmptyStringField(optional=True)),
     )
 

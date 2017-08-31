@@ -1,7 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any
-
-from crypto.bls.bls_crypto import BlsSerializer
 
 
 class LoadBLSKeyError(RuntimeError):
@@ -9,39 +6,34 @@ class LoadBLSKeyError(RuntimeError):
 
 
 class BlsKeyManager(metaclass=ABCMeta):
-    def __init__(self, serializer: BlsSerializer):
-        self._serializer = serializer
-
-    def save_keys(self, sk, pk):
-        sk = self._serializer.serialize_to_bytes(sk)
-        pk = self._serializer.serialize_to_bytes(pk)
+    def save_keys(self, sk: str, pk: str):
+        assert isinstance(sk, str)
+        assert isinstance(pk, str)
         self._save_secret_key(sk)
         self._save_public_key(pk)
         return sk, pk
 
-    def load_keys(self) -> (Any, Any):
+    def load_keys(self) -> (str, str):
         try:
             sk = self._load_secret_key()
             pk = self._load_public_key()
         except BaseException as e:
             raise LoadBLSKeyError(e)
 
-        sk = self._serializer.deserialize_from_bytes(sk)
-        pk = self._serializer.deserialize_from_bytes(pk)
         return sk, pk
 
     @abstractmethod
-    def _save_secret_key(self, sk: bytes):
+    def _save_secret_key(self, sk: str):
         pass
 
     @abstractmethod
-    def _save_public_key(self, pk: bytes):
+    def _save_public_key(self, pk: str):
         pass
 
     @abstractmethod
-    def _load_secret_key(self) -> bytes:
+    def _load_secret_key(self) -> str:
         pass
 
     @abstractmethod
-    def _load_public_key(self) -> bytes:
+    def _load_public_key(self) -> str:
         pass

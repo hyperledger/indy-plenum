@@ -7,7 +7,7 @@ class BlsKeyRegister(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def add_latest_key(self, node_id, bls_key_str):
+    def add_latest_key(self, node_id, bls_key: str):
         pass
 
     @abstractmethod
@@ -15,7 +15,7 @@ class BlsKeyRegister(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_latest_key(self, node_id):
+    def get_latest_key(self, node_id) -> str:
         pass
 
     @abstractmethod

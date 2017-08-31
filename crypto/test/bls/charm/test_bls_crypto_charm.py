@@ -15,18 +15,13 @@ def keys(default_params):
 
 
 @pytest.fixture()
-def serializer(default_params):
-    return BlsSerializerCharm(default_params)
+def bls1(keys, default_params):
+    return BlsCryptoCharm(*keys, default_params)
 
 
 @pytest.fixture()
-def bls1(keys, default_params, serializer):
-    return BlsCryptoCharm(*keys, default_params, serializer)
-
-
-@pytest.fixture()
-def bls2(keys, default_params, serializer):
-    return BlsCryptoCharm(*keys, default_params, serializer)
+def bls2(keys, default_params):
+    return BlsCryptoCharm(*keys, default_params)
 
 
 def test_default_params(default_params):
@@ -38,9 +33,9 @@ def test_default_params(default_params):
 def test_generate_keys_no_seed(default_params):
     sk, pk = BlsCryptoCharm.generate_keys(default_params)
     assert sk
-    assert isinstance(sk, pc_element)
+    assert isinstance(sk, str)
     assert pk
-    assert isinstance(pk, pc_element)
+    assert isinstance(pk, str)
     assert sk != pk
 
 
@@ -48,9 +43,9 @@ def test_generate_keys_int_seed(default_params):
     seed = 123456789
     sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
     assert sk
-    assert isinstance(sk, pc_element)
+    assert isinstance(sk, str)
     assert pk
-    assert isinstance(pk, pc_element)
+    assert isinstance(pk, str)
     assert sk != pk
 
 
@@ -58,9 +53,9 @@ def test_generate_keys_str_seed(default_params):
     seed = 'Seed' + '0' * (32 - len('Seed'))
     sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
     assert sk
-    assert isinstance(sk, pc_element)
+    assert isinstance(sk, str)
     assert pk
-    assert isinstance(pk, pc_element)
+    assert isinstance(pk, str)
     assert sk != pk
 
 
@@ -69,9 +64,9 @@ def test_generate_keys_bytes_seed(default_params):
     seed = seed.encode()
     sk, pk = BlsCryptoCharm.generate_keys(default_params, seed)
     assert sk
-    assert isinstance(sk, pc_element)
+    assert isinstance(sk, str)
     assert pk
-    assert isinstance(pk, pc_element)
+    assert isinstance(pk, str)
     assert sk != pk
 
 
@@ -88,7 +83,8 @@ def test_generate_different_keys(default_params):
     assert pk1 != pk2 != pk3 != pk4
 
 
-def test_serialize(keys, serializer):
+def test_serialize(keys, default_params):
+    serializer = BlsSerializerCharm(default_params)
     sk, pk = keys
     assert sk == serializer.deserialize_from_bytes(serializer.serialize_to_bytes(sk))
     assert pk == serializer.deserialize_from_bytes(serializer.serialize_to_bytes(pk))
@@ -96,8 +92,8 @@ def test_serialize(keys, serializer):
     assert pk == serializer.deserialize_from_str(serializer.serialize_to_str(pk))
 
 
-def test_new(keys, default_params, serializer):
-    bls = BlsCryptoCharm(*keys, default_params, serializer)
+def test_new(keys, default_params):
+    bls = BlsCryptoCharm(*keys, default_params)
     assert bls.group
     assert bls.g == default_params[1]
 

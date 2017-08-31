@@ -66,6 +66,9 @@ class Suspicions:
         'about to be disconnected')
     INSTANCE_CHANGE_TIMEOUT = Suspicion(28, 'View change could not complete '
                                             'in time')
+    PPR_BLS_MULTISIG_WRONG = \
+        Suspicion(11, "Pre-Prepare message has invalid BLS multi-signature")
+
 
     @classmethod
     def get_list(cls):

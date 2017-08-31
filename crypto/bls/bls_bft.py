@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Any
 
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
@@ -11,17 +12,17 @@ class BlsBft(metaclass=ABCMeta):
         self.bls_key_register = bls_key_register
 
     @abstractmethod
-    def validate_pre_prepare(self, pre_prepare: PrePrepare):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         pass
 
     @abstractmethod
-    def validate_prepare(self, pre_prepare: Prepare):
+    def validate_prepare(self, prepare: Prepare, sender):
         pass
 
     @abstractmethod
-    def sign_state(self, state):
+    def sign_state(self, state_root: str) -> str:
         pass
 
     @abstractmethod
-    def save_multi_sig(self, multi_sig):
+    def save_multi_sig(self, multi_sig: str):
         pass

@@ -8,7 +8,9 @@ from typing import Set
 from typing import Tuple
 
 import base58
+from crypto.bls.bls_key_manager import LoadBLSKeyError
 from orderedset import OrderedSet
+from plenum.bls.bls import create_default_bls_factory
 from sortedcontainers import SortedList
 
 import plenum.server.node
@@ -264,6 +266,19 @@ class Replica(HasActionQueue, MessageProcessor):
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
+
+        self._bls_bft = self._create_bls_bft()
+
+    def _create_bls_bft(self):
+        try:
+           return create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
+        except LoadBLSKeyError as ex:
+            # TODO: for now we allow that BLS is optional, so that we don't require it
+            logger.warning(
+                'BLS Signatures will not be used for the node, since BLS keys were not found. '
+                'Please make sure that a script to init keys was called,'
+                ' and NODE txn was sent with BLS public keys. Error: '.format(ex))
+            return None
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,

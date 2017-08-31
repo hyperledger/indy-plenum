@@ -48,6 +48,7 @@ class f:  # provides a namespace for reusable field constants
     STATE_ROOT = Field("stateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
+    BLS_SIG_NODES = Field("blsSigNodes", List[str])
     BLS_MULTI_SIG = Field("blsMultiSig", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
