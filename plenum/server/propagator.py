@@ -27,6 +27,7 @@ class ReqState:
         self.forwardedTo = 0
         self.propagates = {}
         self.finalised = None
+        self.executed = False
 
     def req_with_acceptable_quorum(self, quorum: Quorum):
         digests = defaultdict(set)
@@ -106,6 +107,10 @@ class Requests(OrderedDict):
     def set_finalised(self, req: Request):
         state = self[req.key]
         state.set_finalised(req)
+
+    def mark_as_executed(self, req: Request):
+        state = self[req.key]
+        state.executed = True
 
     def hasPropagated(self, req: Request, sender: str) -> bool:
         """

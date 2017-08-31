@@ -2277,7 +2277,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         committedTxns = self.requestExecuter[ledger_id](pp_time, reqs,
                                                         state_root, txn_root)
         for request in reqs:
-            request.mark_as_executed()
+            self.requests.mark_as_executed(request)
 
         if committedTxns:
             first_txn_seq_no = committedTxns[0][F.seqNo.name]

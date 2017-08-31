@@ -19,7 +19,6 @@ class Request:
         self.operation = operation
         self.digest = self.getDigest()
         self.signature = signature
-        self.executed = False
 
     @property
     def as_dict(self):
@@ -77,9 +76,6 @@ class Request:
 
     def __hash__(self):
         return hash(self.serialized())
-
-    def mark_as_executed(self):
-        self.executed = True
 
 
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
