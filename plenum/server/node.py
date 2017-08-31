@@ -1736,9 +1736,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 if not self.isProcessingReq(*request.key):
                     self.startedProcessingReq(*request.key, frm)
-                # If not already got the propagate request(PROPAGATE) for the
-                # corresponding client request(REQUEST)
-                self.recordAndPropagate(request, frm)
+                    self.recordAndPropagate(request, frm)
                 self.send_ack_to_client(request.key, frm)
 
     # noinspection PyUnusedLocal
@@ -2608,8 +2606,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seq_no = seq_no if seq_no else self.seqNoDB.get(
-            request.identifier, request.reqId)
+        seq_no = seq_no if seq_no else self.seqNoDB.get(request.identifier, request.reqId)
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
