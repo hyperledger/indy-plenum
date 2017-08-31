@@ -1822,56 +1822,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def processOrdered(self, ordered: Ordered):
         """
-        Process and orderedRequest.
+        Execute ordered request
 
-        Execute client request with retries if client request hasn't yet reached
-        this node but corresponding PROPAGATE, PRE-PREPARE, PREPARE and
-        COMMIT request did
-
-        :param ordered: an orderedRequest
-        :param retryNo: the retry number used in recursion
-        :return: True if successful, None otherwise
+        :param ordered: an ordered request
+        :return: whether executed
         """
 
-        # Only the request ordered by master protocol instance are executed by
-        # the client
-        if ordered.instId == self.instances.masterId:
-            logger.trace("{} got ordered requests from master replica")
-            reqs = [self.requests[request_id].finalised
+        if ordered.instId < self.instances.count:
+            logger.warning('{} got ordered request for instance {} which '
+                           'does not exist'.format(self, ordered.instId))
+            return False
+
+        if ordered.instId != self.instances.masterId:
+            # Requests from backup replicas are not executed
+            logger.trace("{} got ordered requests from backup replica {}"
+                         .format(self, ordered.instId))
+            self.monitor.requestOrdered(ordered.reqIdr,
+                                        ordered.instId,
+                                        byMaster=False)
+            return False
+
+        logger.trace("{} got ordered requests from master replica")
+        requests = [self.requests[request_id].finalised
                     for request_id in ordered.reqIdr
                     if request_id in self.requests and
                     self.requests[request_id].finalised]
 
-            if len(reqs) == len(ordered.reqIdr):
-                logger.debug("{} executing Ordered batch {} {} of {} requests"
-                             .format(self.name,
-                                     ordered.viewNo,
-                                     ordered.ppSeqNo,
-                                     len(ordered.reqIdr)))
+        if len(requests) != len(ordered.reqIdr):
+            logger.warning('{} did not find {} finalized '
+                           'requests, but still ordered'
+                           .format(self, len(ordered.reqIdr) - len(requests)))
+            return False
 
-                self.executeBatch(ordered.viewNo,
-                                  ordered.ppSeqNo,
-                                  ordered.ppTime,
-                                  reqs,
-                                  ordered.ledgerId,
-                                  ordered.stateRootHash,
-                                  ordered.txnRootHash)
-                r = True
-            else:
-                logger.info('{} did not find {} finalized requests, but '
-                            'still ordered'.format(self,
-                                                   len(ordered.reqIdr) - len(reqs)))
-                return None
-        else:
-            logger.trace("{} got ordered requests from backup replica {}"
-                         .format(self, ordered.instId))
-            r = False
-        if ordered.instId < self.instances.count:
-            self.monitor.requestOrdered(ordered.reqIdr, ordered.instId, byMaster=r)
-        else:
-            logger.debug('{} got ordered request for instance {} which '
-                         'does not exist'.format(self, ordered.instId))
-        return r
+        logger.debug("{} executing Ordered batch {} {} of {} requests"
+                     .format(self.name,
+                             ordered.viewNo,
+                             ordered.ppSeqNo,
+                             len(ordered.reqIdr)))
+
+        self.executeBatch(ordered.viewNo,
+                          ordered.ppSeqNo,
+                          ordered.ppTime,
+                          requests,
+                          ordered.ledgerId,
+                          ordered.stateRootHash,
+                          ordered.txnRootHash)
+
+        self.monitor.requestOrdered(ordered.reqIdr,
+                                    ordered.instId,
+                                    byMaster=True)
+
+        return True
 
     def force_process_ordered(self):
         """
