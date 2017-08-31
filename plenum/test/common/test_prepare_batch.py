@@ -1,4 +1,4 @@
-from plenum.common.prepare_batch import split_msgs_on_batches, SPLIT_STEPS_LIMIT
+from plenum.common.prepare_batch import split_messages_on_batches, SPLIT_STEPS_LIMIT
 
 
 LEN_LIMIT_BYTES = 100
@@ -16,7 +16,7 @@ def check_batch_len_func(length):
 
 
 def split_ut(msgs):
-    return split_msgs_on_batches(msgs, make_batch_func, check_batch_len_func)
+    return split_messages_on_batches(msgs, make_batch_func, check_batch_len_func)
 
 
 def test_empty_msgs_returns_one_batch():
