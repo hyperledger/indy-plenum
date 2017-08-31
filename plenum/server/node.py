@@ -1833,35 +1833,44 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        inst_id, view_no, req_idrs, pp_seq_no, pp_time, ledger_id, \
-            state_root, txn_root = tuple(ordered)
-
         # Only the request ordered by master protocol instance are executed by
         # the client
-        if inst_id == self.instances.masterId:
-            reqs = [self.requests[i, r].finalised for (i, r) in req_idrs if (
-                i, r) in self.requests and self.requests[i, r].finalised]
-            if len(reqs) == len(req_idrs):
-                logger.debug(
-                    "{} executing Ordered batch {} {} of {} requests". format(
-                        self.name, view_no, pp_seq_no, len(req_idrs)))
-                self.executeBatch(view_no, pp_seq_no, pp_time, reqs, ledger_id,
-                                  state_root, txn_root)
+        if ordered.instId == self.instances.masterId:
+            logger.trace("{} got ordered requests from master replica")
+            reqs = [self.requests[request_id].finalised
+                    for request_id in ordered.reqIdr
+                    if request_id in self.requests and
+                    self.requests[request_id].finalised]
+
+            if len(reqs) == len(ordered.reqIdr):
+                logger.debug("{} executing Ordered batch {} {} of {} requests"
+                             .format(self.name,
+                                     ordered.viewNo,
+                                     ordered.ppSeqNo,
+                                     len(ordered.reqIdr)))
+
+                self.executeBatch(ordered.viewNo,
+                                  ordered.ppSeqNo,
+                                  ordered.ppTime,
+                                  reqs,
+                                  ordered.ledgerId,
+                                  ordered.stateRootHash,
+                                  ordered.txnRootHash)
                 r = True
             else:
                 logger.info('{} did not find {} finalized requests, but '
                             'still ordered'.format(self,
-                                                   len(req_idrs) - len(reqs)))
+                                                   len(ordered.reqIdr) - len(reqs)))
                 return None
         else:
-            logger.trace("{} got ordered requests from backup replica {}".
-                         format(self, inst_id))
+            logger.trace("{} got ordered requests from backup replica {}"
+                         .format(self, ordered.instId))
             r = False
-        if inst_id < self.instances.count:
-            self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
+        if ordered.instId < self.instances.count:
+            self.monitor.requestOrdered(ordered.reqIdr, ordered.instId, byMaster=r)
         else:
             logger.debug('{} got ordered request for instance {} which '
-                         'does not exist'.format(self, inst_id))
+                         'does not exist'.format(self, ordered.instId))
         return r
 
     def force_process_ordered(self):
