@@ -1,5 +1,5 @@
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
-    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
 from plenum.common.messages.fields import NetworkIpAddressField, NetworkPortField, NonEmptyStringField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField
@@ -15,6 +15,7 @@ class ClientNodeOperationData(MessageValidator):
         (CLIENT_PORT, NetworkPortField(optional=True)),
         (ALIAS, NonEmptyStringField()),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
+        (BLS_KEY, NonEmptyStringField(optional=True)),
     )
 
     def _validate_message(self, dct):
