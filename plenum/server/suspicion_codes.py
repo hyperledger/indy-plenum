@@ -67,10 +67,8 @@ class Suspicions:
                                             'in time')
     PPR_BLS_MULTISIG_WRONG = \
         Suspicion(29, "Pre-Prepare message has invalid BLS multi-signature")
-    PPR_BLS_SIG_WRONG = \
-        Suspicion(30, "Pre-Prepare message has invalid BLS signature")
-    PR_BLS_SIG_WRONG = \
-        Suspicion(31, "Prepare message has invalid BLS signature")
+    CM_BLS_SIG_WRONG = \
+        Suspicion(30, "Commit message has invalid BLS signature")
 
     @classmethod
     def get_list(cls):

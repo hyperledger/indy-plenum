@@ -159,3 +159,6 @@ class MessageBase(Mapping, MessageValidator):
 
     def __dir__(self):
         return self.keys()
+
+    def __contains__(self, key):
+        return key in self._fields

@@ -4,12 +4,12 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKL
     POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE
+from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonEmptyStringField, NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField
-from plenum.common.messages.message_base import MessageBase
+from plenum.common.messages.message_base import MessageBase, MessageValidator
 from plenum.common.types import f
-from plenum.common.messages.client_request import ClientMessageValidator
 
 
 class Nomination(MessageBase):
@@ -24,7 +24,6 @@ class Nomination(MessageBase):
 
 
 class Batch(MessageBase):
-
     typename = BATCH
 
     schema = (
@@ -123,6 +122,14 @@ class Propagate(MessageBase):
     )
 
 
+class BlsMultiSignature(MessageValidator):
+    schema = (
+        (f.BLS_MULTI_SIG_NODES.nm, IterableField(NonEmptyStringField())),
+        (f.BLS_MULTI_SIG_VALUE.nm, NonEmptyStringField()),
+    )
+    optional = True
+
+
 class PrePrepare(MessageBase):
     typename = PREPREPARE
     schema = (
@@ -136,9 +143,7 @@ class PrePrepare(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
-        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
-        (f.BLS_SIG_NODES.nm, IterableField(NonEmptyStringField(), optional=True)),
-        (f.BLS_MULTI_SIG.nm, NonEmptyStringField(optional=True)),
+        (f.BLS_MULTI_SIG.nm, BlsMultiSignature()),
     )
 
 
@@ -152,7 +157,6 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
-        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
     )
 
 
@@ -162,6 +166,7 @@ class Commit(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
     )
 
 
@@ -334,7 +339,6 @@ class MessageRep(MessageBase):
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
-
 
 ElectionType = (Nomination, Primary, Reelection)
 ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
