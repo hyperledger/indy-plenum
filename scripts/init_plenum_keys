@@ -4,7 +4,7 @@ import argparse
 
 from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
     buildKeepDirIfNotExists
-from plenum.common.keygen_utils import initLocalKeys
+from plenum.common.keygen_utils import initLocalKeys, init_bls_keys
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
@@ -55,6 +55,7 @@ if __name__ == "__main__":
     try:
         verkey = initLocalKeys(args.name, config.baseDir, args.seed, args.force,
                                config=config)
+        bls_key = init_bls_keys(config.baseDir, args.name, args.seed)
     except Exception as ex:
         print(ex)
         exit()

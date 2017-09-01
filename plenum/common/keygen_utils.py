@@ -21,6 +21,7 @@ def init_bls_keys(baseDir, node_name, seed=None):
     # TODO: do we need keys based on transport keys?
     bls_factory = create_default_bls_factory(baseDir, node_name)
     stored_pk = bls_factory.generate_and_store_bls_keys(seed)
+    print("BLS Public key is", stored_pk)
     return stored_pk
 
 
