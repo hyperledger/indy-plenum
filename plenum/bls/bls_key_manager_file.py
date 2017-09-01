@@ -17,10 +17,14 @@ class BlsKeyManagerFile(BlsKeyManager):
         self._init_dirs()
 
     def _init_dirs(self):
-        assert os.path.isdir(self._key_path)
+        os.makedirs(
+            self._key_path,
+            exist_ok=True)
         self._bls_keys_dir = os.path.join(self._key_path, self.BLS_KEYS_DIR_NAME)
-        if not os.path.exists(self._bls_keys_dir):
-            os.mkdir(self._bls_keys_dir, self.BLS_KEYS_DIR_MODE)
+        os.makedirs(
+            self._bls_keys_dir,
+            self.BLS_KEYS_DIR_MODE,
+            exist_ok=True)
 
     def _save_secret_key(self, sk: str):
         self.__save_to_file(sk, self.BLS_SK_FILE_NAME, self.BLS_SK_FILE_MODE)
