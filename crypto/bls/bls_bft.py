@@ -22,7 +22,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender, state_root):
+    def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
         pass
 
     @abstractmethod
@@ -30,13 +30,17 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def calculate_multi_sig(self, key_3PC, quorums: Quorums, commits: Sequence[Commit]) -> str:
+    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> str:
         pass
 
     @abstractmethod
-    def save_multi_sig_local(self, multi_sig: str):
+    def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
         pass
 
     @abstractmethod
-    def save_multi_sig_shared(self, multi_sig: str):
+    def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
+        pass
+
+    @abstractmethod
+    def gc(self, key_3PC):
         pass

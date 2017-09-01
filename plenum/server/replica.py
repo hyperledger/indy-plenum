@@ -845,6 +845,9 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.node.onBatchCreated(pp.ledgerId,
                                              self.stateRootHash(pp.ledgerId,
                                                                 to_str=False))
+                    if self._bls_bft:
+                        self._bls_bft.save_multi_sig_shared(pp, key)
+
                 self.trackBatches(pp, oldStateRoot)
                 logger.debug("{} processed incoming PRE-PREPARE{}".format(self,
                                                                           key), extra={"tags": ["processing"]})
@@ -1315,7 +1318,7 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
         if self._bls_bft:
-            self._bls_bft.validate_commit(commit, sender, ppReq.stateRootHash)
+            self._bls_bft.validate_commit(key, commit, sender, ppReq.stateRootHash)
 
         return True
 
@@ -1488,6 +1491,12 @@ class Replica(HasActionQueue, MessageProcessor):
         self.send(ordered, TPCStat.OrderSent)
         logger.debug("{} ordered request {}".format(self, key))
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
+
+        if self._bls_bft:
+            bls_multi_sig = self._bls_bft.calculate_multi_sig(key, self.quorums)
+            state_root = pp.stateRootHash
+            self._bls_bft.save_multi_sig_local(bls_multi_sig, state_root, key)
+
         return True
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
@@ -1737,6 +1746,9 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.requests.pop(k)
 
         self.compact_ordered()
+
+        if self._bls_bft:
+            self._bls_bft.gc(till3PCKey)
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view

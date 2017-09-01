@@ -1,11 +1,10 @@
-from typing import Sequence
-
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
+from plenum.common.util import compare_3PC_keys
 from plenum.server.quorums import Quorums
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -16,6 +15,7 @@ logger = getlogger()
 class BlsBftPlenum(BlsBft):
     def __init__(self, bls_crypto: BlsCrypto, bls_key_register: BlsKeyRegister, node_id):
         super().__init__(bls_crypto, bls_key_register, node_id)
+        self._commits = {}
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         self._validate_multi_sig_pre_prepare(pre_prepare, sender)
@@ -24,15 +24,21 @@ class BlsBftPlenum(BlsBft):
         # not needed now
         pass
 
-    def validate_commit(self, commit: Commit, sender, state_root):
-        self._validate_sig_commit(commit, sender, state_root)
+    def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
+        if self._validate_sig_commit(commit, sender, state_root):
+            if not key_3PC in self._commits:
+                self._commits[key_3PC] = []
+            self._commits[key_3PC].append(commit)
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
 
-    def calculate_multi_sig(self, key_3PC, quorums: Quorums, commits: Sequence[Commit]) -> str:
+    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> str:
+        if not key_3PC in self._commits:
+            return None
+
         bls_signatures = []
-        for commit in commits:
+        for commit in self._commits[key_3PC]:
             if f.BLS_SIG.nm in commit:
                 bls_signatures.append(commit.blsSig)
 
@@ -47,11 +53,37 @@ class BlsBftPlenum(BlsBft):
 
         return self.bls_crypto.create_multi_sig(bls_signatures)
 
-    def save_multi_sig_local(self, multi_sig: str):
+    def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
+        '''
+        Save multi-sig as calculated by the node independently
+        :param multi_sig:
+        :return:
+        '''
         pass
 
-    def save_multi_sig_shared(self, multi_sig: str):
-        pass
+    def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
+        '''
+        Save multi-sig as received from the Primary
+        :param multi_sig:
+        :return:
+        '''
+        if not f.BLS_MULTI_SIG.nm in pre_prepare:
+            return
+        multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]
+        state_root = pre_prepare.stateRootHash
+
+        # TODO: store
+        # TODO: support multiple multi-sigs for multiple previous batches
+
+
+    def gc(self, key_3PC):
+        keys_to_remove = []
+        for key in self._commits.keys():
+            if compare_3PC_keys(key, key_3PC) >= 0:
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            self._commits.pop(key, None)
 
     def _validate_multi_sig_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if not f.BLS_MULTI_SIG.nm in pre_prepare:
@@ -76,14 +108,16 @@ class BlsBftPlenum(BlsBft):
     def _validate_sig_commit(self, commit: Commit, sender, state_root):
         if not f.BLS_SIG.nm in commit:
             # TODO: It's optional for now
-            return
+            return False
 
         pk = self.bls_key_register.get_latest_key(sender)
         if not pk:
             # TODO: It's optional for now
-            return
+            return False
 
         sig = commit.blsSig
         if not self.bls_crypto.verify_sig(sig, state_root, pk):
             raise SuspiciousNode(
                 sender, Suspicions.CM_BLS_SIG_WRONG, commit)
+
+        return True
