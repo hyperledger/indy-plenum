@@ -17,6 +17,8 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 from plenum.test.primary_selection.conftest import nodeThetaAdded, \
     one_node_added
 
+from stp_core.common.log import getlogger
+logger = getlogger()
 
 @pytest.fixture(scope='module')
 def all_nodes_view_change(
@@ -88,4 +90,5 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                 compare_val_to=True)) > 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    ensureElectionsDone(looper, txnPoolNodeSet)
     assert not restarted_node._next_view_indications

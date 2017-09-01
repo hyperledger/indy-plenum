@@ -1,5 +1,5 @@
 import pytest
-
+from stp_core.common.util import adict
 from stp_core.crypto.util import randomSeed
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -7,7 +7,6 @@ from stp_core.test.helper import Printer, prepStacks, chkPrinted
 from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
     check_stacks_communicating, get_file_permission_mask, get_zstack_key_paths
 from stp_zmq.zstack import ZStack
-from stp_core.common.util import adict
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):
@@ -82,7 +81,7 @@ def test_zstack_non_utf8(tdir, looper, tconf):
         alpha.transmit(b'{"k2": "v2\x9c"}', uid, serialized=True)
     with pytest.raises(AssertionError):
         looper.run(eventually(chkPrinted, betaP, {"k2": "v2\x9c"}))
-    # TODO: A better test where the output of the parsing method is checked
+        # TODO: A better test where the output of the parsing method is checked
         # requires spyable methods
 
     # Again send a utf-8 message and see its received (checks if stack is
@@ -159,13 +158,21 @@ def test_high_load(tdir, looper, tconf):
 
     assert len(received_messages) != 0
     assert len(expected_messages) == len(received_messages), \
-        "{} != {}, LAST IS {}"\
-        .format(len(expected_messages),
-                len(received_messages),
-                received_messages[-1])
+        "{} != {}, LAST IS {}".format(len(expected_messages),
+                                      len(received_messages),
+                                      received_messages[-1])
 
 
-def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
+@pytest.fixture(scope="function")
+def patch_msg_len(tconf):
+    old_value = tconf.MSG_LEN_LIMIT
+    tconf.MSG_LEN_LIMIT = 128 * 1024
+    yield tconf.MSG_LEN_LIMIT
+    print(old_value)
+    tconf.MSG_LEN_LIMIT = old_value
+
+
+def testZStackSendRecvHugeDataUnderLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -202,7 +209,7 @@ def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
     assert betaHandler[0] is True
 
 
-def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
+def testZStackSendHugeDataOverLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -247,7 +254,7 @@ def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
     assert betaHandlers[1] is False
 
 
-def testZStackRecvHugeDataOverLimit(tdir, looper, tconf):
+def testZStackRecvHugeDataOverLimit(patch_msg_len, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 

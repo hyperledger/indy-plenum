@@ -2,11 +2,11 @@ import types
 
 import pytest
 
-from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
     checkRejectWithReason, waitForSufficientRepliesForRequests
+from stp_core.loop.eventually import eventually
 
 
 def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,

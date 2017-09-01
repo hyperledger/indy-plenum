@@ -1,5 +1,7 @@
+from typing import Sequence, List
+
 from plenum.server.pool_manager import RegistryPoolManager, TxnPoolManager
-from plenum.test.test_node import checkProtocolInstanceSetup
+from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 
 
 def check_rank_consistent_across_each_node(nodes):
@@ -23,7 +25,7 @@ def check_rank_consistent_across_each_node(nodes):
         if isinstance(node.poolManager, RegistryPoolManager):
             order.append(node.poolManager.node_names_ordered_by_rank)
         elif isinstance(node.poolManager, TxnPoolManager):
-            order.append(node.poolManager.node_ids_in_ordered_by_rank)
+            order.append(node.poolManager.node_ids_ordered_by_rank)
         else:
             RuntimeError('Dont know this pool manager {}'.
                          format(node.poolManager))
@@ -41,3 +43,15 @@ def check_newly_added_nodes(looper, all_nodes, new_nodes):
         assert all(new_node.rank > n.rank for n in old_nodes)
         old_nodes.append(new_node)
     checkProtocolInstanceSetup(looper, all_nodes, retryWait=1)
+
+
+def getPrimaryNodesIdxs(nodes: Sequence[TestNode]) -> List[TestNode]:
+    primariesIdxs = []
+    for instId in range(len(nodes[0].replicas)):
+        for idx, node in enumerate(nodes):
+            if node.replicas[instId].isPrimary:
+                assert instId == len(primariesIdxs)
+                primariesIdxs.append(idx)
+
+    assert len(set(primariesIdxs)) == len(nodes[0].replicas)
+    return primariesIdxs

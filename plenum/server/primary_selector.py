@@ -204,8 +204,9 @@ class PrimarySelector(PrimaryDecider):
             if next_primary_name not in self._view_change_done:
                 logger.debug(
                     "{} has not received ViewChangeDone from the next "
-                    "primary {}". format(
-                        self.name, next_primary_name))
+                    "primary {} (viewNo: {}, totalNodes: {})". format(
+                        self.name, next_primary_name,
+                        self.viewNo, self.node.totalNodes))
                 return False
             else:
                 self._has_view_change_from_primary = True
@@ -258,6 +259,7 @@ class PrimarySelector(PrimaryDecider):
         return False
 
     def _startSelection(self):
+
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '
@@ -316,8 +318,14 @@ class PrimarySelector(PrimaryDecider):
         return (view_no + instance_id) % self.node.totalNodes
 
     def next_primary_node_name(self, instance_id):
-        return self.node.get_name_by_rank(self._get_primary_id(
-            self.viewNo, instance_id))
+        rank = self._get_primary_id(self.viewNo, instance_id)
+        name = self.node.get_name_by_rank(rank)
+
+        assert name, ("{} failed to get node name for rank {}: "
+                      "view_no {}, instance_id {}, totalNodes {}".format(
+                          self, rank, self.viewNo, instance_id,
+                          self.node.totalNodes))
+        return name
 
     def next_primary_replica_name(self, instance_id):
         """
