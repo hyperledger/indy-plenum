@@ -270,7 +270,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def _create_bls_bft(self):
         try:
-            return create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
+            bls_bft = create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
+            bls_bft.bls_key_register.load_latest_keys(self.node.poolLedger)
+            return bls_bft
         except LoadBLSKeyError as ex:
             # TODO: for now we allow that BLS is optional, so that we don't require it
             logger.warning(
@@ -1308,10 +1310,14 @@ class Replica(HasActionQueue, MessageProcessor):
                          format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
             return False
-        elif self.commits.hasCommitFrom(commit, sender):
+
+        if self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
-        else:
-            return True
+
+        if self._bls_bft:
+            self._bls_bft.validate_commit(commit, sender, ppReq.stateRootHash)
+
+        return True
 
     def addToCommits(self, commit: Commit, sender: str):
         """
