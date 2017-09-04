@@ -1736,7 +1736,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 if not self.isProcessingReq(*request.key):
                     self.startedProcessingReq(*request.key, frm)
-                    self.recordAndPropagate(request, frm)
+                self.recordAndPropagate(request, frm)
                 self.send_ack_to_client(request.key, frm)
 
     # noinspection PyUnusedLocal
