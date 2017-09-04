@@ -26,7 +26,7 @@ class BlsBftPlenum(BlsBft):
 
     def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
         if self._validate_sig_commit(commit, sender, state_root):
-            if not key_3PC in self._commits:
+            if key_3PC not in self._commits:
                 self._commits[key_3PC] = []
             self._commits[key_3PC].append(commit)
 
@@ -34,7 +34,7 @@ class BlsBftPlenum(BlsBft):
         return self.bls_crypto.sign(state_root)
 
     def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> str:
-        if not key_3PC in self._commits:
+        if key_3PC not in self._commits:
             return None
 
         bls_signatures = []
@@ -67,7 +67,7 @@ class BlsBftPlenum(BlsBft):
         :param multi_sig:
         :return:
         '''
-        if not f.BLS_MULTI_SIG.nm in pre_prepare:
+        if f.BLS_MULTI_SIG.nm not in pre_prepare:
             return
         multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]
         state_root = pre_prepare.stateRootHash
@@ -86,7 +86,7 @@ class BlsBftPlenum(BlsBft):
             self._commits.pop(key, None)
 
     def _validate_multi_sig_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        if not f.BLS_MULTI_SIG.nm in pre_prepare:
+        if f.BLS_MULTI_SIG.nm not in pre_prepare:
             # TODO: It's optional for now
             return
         multi_sig = pre_prepare.blsMultiSig
@@ -106,18 +106,21 @@ class BlsBftPlenum(BlsBft):
                 sender, Suspicions.PPR_BLS_MULTISIG_WRONG, pre_prepare)
 
     def _validate_sig_commit(self, commit: Commit, sender, state_root):
-        if not f.BLS_SIG.nm in commit:
+        if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             return False
-
-        pk = self.bls_key_register.get_latest_key(sender)
+        pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
         if not pk:
             # TODO: It's optional for now
             return False
-
         sig = commit.blsSig
         if not self.bls_crypto.verify_sig(sig, state_root, pk):
             raise SuspiciousNode(
                 sender, Suspicions.CM_BLS_SIG_WRONG, commit)
-
         return True
+
+    @staticmethod
+    def get_node_name(replicaName: str):
+        # TODO: there is the same method in Replica
+        # It should be moved to some util class
+        return replicaName.split(":")[0]
