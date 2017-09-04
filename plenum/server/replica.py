@@ -686,8 +686,7 @@ class Replica(HasActionQueue, MessageProcessor):
         rejects = []
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
-            key = self.requestQueues[ledger_id].pop(
-                0)  # Remove the first element
+            key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
                 self.processReqDuringBatch(
@@ -911,6 +910,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} received COMMIT{} from {}".
                      format(self, (commit.viewNo, commit.ppSeqNo), sender))
+
         if self.isPpSeqNoStable(commit.ppSeqNo):
             self.discard(commit,
                          "achieved stable checkpoint for Commit",
@@ -970,9 +970,22 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} Sending COMMIT{} at {}".
                      format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
-        commit = Commit(self.instId,
-                        p.viewNo,
-                        p.ppSeqNo)
+
+        params = [self.instId, p.viewNo, p.ppSeqNo]
+        if self._bls_bft:
+            # TODO: can following be done simpler?
+            preprepare = self.getPrePrepare(p.viewNo, p.ppSeqNo)
+            first_request_idr = preprepare.reqIdr[0]
+            req_state = self.requests[first_request_idr]
+            request = self.requests[first_request_idr].request
+            ledger_id = self.node.ledgerIdForRequest(req_state.finalised)
+
+            state_root = self.stateRootHash(ledger_id)
+            if state_root is not None:
+                bls_signature = self._bls_bft.sign_state(state_root)
+                params.append(bls_signature)
+
+        commit = Commit(*params)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 
