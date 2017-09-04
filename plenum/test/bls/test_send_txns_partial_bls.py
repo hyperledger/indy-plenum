@@ -8,5 +8,10 @@ nodes_wth_bls = 2
 
 def test_send_txns_partial_bls(tconf, looper, txnPoolNodeSet,
                           client1, client1Connected, wallet1):
-    reqs = sendRandomRequests(wallet1, client1, 10)
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+    number_of_requests = 2  # at least two because first request could have no
+    # signature since state can be clear
+
+    # Using loop to avoid 3pc batching
+    for i in range(number_of_requests):
+        reqs = sendRandomRequests(wallet1, client1, 1)
+        waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
