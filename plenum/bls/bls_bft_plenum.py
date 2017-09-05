@@ -24,7 +24,9 @@ class BlsBftPlenum(BlsBft):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
-            raise BlsValidationError("No signature found")
+            # TODO: It's optional for now
+            # raise BlsValidationError("No signature found")
+            return None
         multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]
         participants = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_NODES.nm]
         state_root = pre_prepare.stateRootHash
@@ -36,7 +38,9 @@ class BlsBftPlenum(BlsBft):
 
     def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
         if f.BLS_SIG.nm not in commit:
-            raise BlsValidationError("No signature found")
+            # TODO: It's optional for now
+            # raise BlsValidationError("No signature found")
+            return None
         pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
         if not pk:
             raise BlsValidationError("No key for {} found".format(sender))
