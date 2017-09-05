@@ -108,8 +108,6 @@ class BlsBftPlenum(BlsBft):
                                                 state_root,
                                                 public_keys):
             raise BlsValidationError("Validation failed")
-            # TODO: move it on top
-            # raise SuspiciousNode(sender, Suspicions.PPR_BLS_MULTISIG_WRONG, pre_prepare)
 
     @staticmethod
     def get_node_name(replica_name: str):

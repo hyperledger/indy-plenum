@@ -992,11 +992,10 @@ class Replica(HasActionQueue, MessageProcessor):
             key = (commit.viewNo, commit.ppSeqNo)
             preprepare = self.getPrePrepare(*key)
             # This should be moved to validateCommit
-            rh = preprepare.stateRootHash
             self._bls_bft.validate_commit(key,
                                           commit,
                                           self.name,
-                                          rh)
+                                          preprepare.stateRootHash)
 
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
@@ -1065,8 +1064,12 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
         if self._bls_bft:
-            self._bls_bft.validate_pre_prepare(pp, sender)
-
+            try:
+                self._bls_bft.validate_pre_prepare(pp, sender)
+            except:
+                raise SuspiciousNode(sender,
+                                     Suspicions.PPR_BLS_MULTISIG_WRONG,
+                                     pp)
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -1257,7 +1260,12 @@ class Replica(HasActionQueue, MessageProcessor):
                                  prepare)
 
         if self._bls_bft:
-            self._bls_bft.validate_prepare(prepare, sender)
+            try:
+                self._bls_bft.validate_prepare(prepare, sender)
+            except:
+                raise SuspiciousNode(sender,
+                                     Suspicions.PR_BLS_SIG_WRONG,
+                                     prepare)
 
         return True
 
@@ -1347,7 +1355,13 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
         if self._bls_bft:
-            self._bls_bft.validate_commit(key, commit, sender, ppReq.stateRootHash)
+            try:
+                self._bls_bft.validate_commit(key, commit,
+                                              sender, ppReq.stateRootHash)
+            except:
+                raise SuspiciousNode(sender,
+                                     Suspicions.CM_BLS_SIG_WRONG,
+                                     commit)
 
         return True
 
