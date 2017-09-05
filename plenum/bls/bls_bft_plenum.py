@@ -14,22 +14,39 @@ logger = getlogger()
 
 
 class BlsBftPlenum(BlsBft):
-    def __init__(self, bls_crypto: BlsCrypto, bls_key_register: BlsKeyRegister, node_id):
+    def __init__(self,
+                 bls_crypto: BlsCrypto,
+                 bls_key_register: BlsKeyRegister,
+                 node_id):
         super().__init__(bls_crypto, bls_key_register, node_id)
+        # TODO: commits should be moved out of here
         self._commits = {}
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        self._validate_multi_sig_pre_prepare(pre_prepare, sender)
+        if f.BLS_MULTI_SIG.nm not in pre_prepare:
+            raise BlsValidationError("No signature found")
+        multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]
+        participants = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_NODES.nm]
+        state_root = pre_prepare.stateRootHash
+        self.validate_multi_sig(multi_sig, participants, state_root)
 
     def validate_prepare(self, prepare: Prepare, sender):
         # not needed now
         pass
 
     def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
-        if self._validate_sig_commit(commit, sender, state_root):
-            if key_3PC not in self._commits:
-                self._commits[key_3PC] = []
-            self._commits[key_3PC].append(commit)
+        if f.BLS_SIG.nm not in commit:
+            raise BlsValidationError("No signature found")
+        pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
+        if not pk:
+            raise BlsValidationError("No key for {} found".format(sender))
+        sig = commit.blsSig
+        if not self.bls_crypto.verify_sig(sig, state_root, pk):
+            raise SuspiciousNode(sender, Suspicions.CM_BLS_SIG_WRONG, commit)
+
+        if key_3PC not in self._commits:
+            self._commits[key_3PC] = []
+        self._commits[key_3PC].append(commit)
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
@@ -76,38 +93,22 @@ class BlsBftPlenum(BlsBft):
         for key in keys_to_remove:
             self._commits.pop(key, None)
 
-    def _validate_multi_sig_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        if f.BLS_MULTI_SIG.nm not in pre_prepare:
-            # TODO: It's optional for now
-            return
-        multi_sig = pre_prepare.blsMultiSig
-
+    def validate_multi_sig(self, multi_sig: str, participants, state_root):
         public_keys = []
-        for node_id in multi_sig[f.BLS_MULTI_SIG_NODES.nm]:
+        for node_id in participants:
             bls_key = self.bls_key_register.get_latest_key(node_id)
             # TODO: It's optional for now
             if bls_key:
                 public_keys.append(bls_key)
-
-        multi_sig = multi_sig[f.BLS_MULTI_SIG_VALUE.nm]
-        msg = pre_prepare.stateRootHash
-
-        if not self.bls_crypto.verify_multi_sig(multi_sig, msg, public_keys):
-            raise SuspiciousNode(
-                sender, Suspicions.PPR_BLS_MULTISIG_WRONG, pre_prepare)
-
-    def _validate_sig_commit(self, commit: Commit, sender, state_root):
-        if f.BLS_SIG.nm not in commit:
-            raise BlsValidationError("No signature found")
-        pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
-        if not pk:
-            raise BlsValidationError("No key for {} found".format(sender))
-        sig = commit.blsSig
-        if not self.bls_crypto.verify_sig(sig, state_root, pk):
-            raise SuspiciousNode(sender, Suspicions.CM_BLS_SIG_WRONG, commit)
+        if not self.bls_crypto.verify_multi_sig(multi_sig,
+                                                state_root,
+                                                public_keys):
+            raise BlsValidationError("Validation failed")
+            # TODO: move it on top
+            # raise SuspiciousNode(sender, Suspicions.PPR_BLS_MULTISIG_WRONG, pre_prepare)
 
     @staticmethod
-    def get_node_name(replicaName: str):
+    def get_node_name(replica_name: str):
         # TODO: there is the same method in Replica
         # It should be moved to some util class
-        return replicaName.split(":")[0]
+        return replica_name.split(":")[0]
