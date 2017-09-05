@@ -5,6 +5,7 @@ from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.quorums import Quorums
+from typing import Optional
 
 
 class BlsBft(metaclass=ABCMeta):
@@ -30,7 +31,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> str:
+    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> Optional[str]:
         pass
 
     @abstractmethod

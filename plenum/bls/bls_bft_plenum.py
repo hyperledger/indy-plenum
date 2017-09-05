@@ -8,6 +8,7 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.quorums import Quorums
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
+from typing import Optional
 
 logger = getlogger()
 
@@ -33,7 +34,7 @@ class BlsBftPlenum(BlsBft):
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
 
-    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> str:
+    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> Optional[str]:
         if key_3PC not in self._commits:
             return None
 
@@ -44,11 +45,11 @@ class BlsBftPlenum(BlsBft):
 
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
-                'Can not create bls signature for batch {}: COMMITs have only {} signatures, while {} required'.
-                    format(key_3PC,
-                           len(
-                               bls_signatures),
-                           quorums.bls_signatures.value))
+                'Can not create bls signature for batch {}: '
+                'COMMITs have only {} signatures, while {} required'
+                .format(key_3PC,
+                        len(bls_signatures),
+                        quorums.bls_signatures.value))
             return None
 
         return self.bls_crypto.create_multi_sig(bls_signatures)
