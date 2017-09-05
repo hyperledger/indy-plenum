@@ -61,3 +61,9 @@ class BlsBft(metaclass=ABCMeta):
         :param key_3PC:
         """
         pass
+
+
+class BlsValidationError(Exception):
+    """
+    BLS signature validation error
+    """
