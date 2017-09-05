@@ -1,4 +1,4 @@
-from crypto.bls.bls_bft import BlsBft
+from crypto.bls.bls_bft import BlsBft, BlsValidationError
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.exceptions import SuspiciousNode
@@ -55,7 +55,7 @@ class BlsBftPlenum(BlsBft):
         return self.bls_crypto.create_multi_sig(bls_signatures)
 
     def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
-        pass
+        logger.info("SAVING MULTISIG!!! {}".format(multi_sig))
 
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
 
@@ -66,7 +66,6 @@ class BlsBftPlenum(BlsBft):
 
         # TODO: store
         # TODO: support multiple multi-sigs for multiple previous batches
-
 
     def gc(self, key_3PC):
         keys_to_remove = []
@@ -99,17 +98,13 @@ class BlsBftPlenum(BlsBft):
 
     def _validate_sig_commit(self, commit: Commit, sender, state_root):
         if f.BLS_SIG.nm not in commit:
-            # TODO: It's optional for now
-            return False
+            raise BlsValidationError("No signature found")
         pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
         if not pk:
-            # TODO: It's optional for now
-            return False
+            raise BlsValidationError("No key for {} found".format(sender))
         sig = commit.blsSig
         if not self.bls_crypto.verify_sig(sig, state_root, pk):
-            raise SuspiciousNode(
-                sender, Suspicions.CM_BLS_SIG_WRONG, commit)
-        return True
+            raise SuspiciousNode(sender, Suspicions.CM_BLS_SIG_WRONG, commit)
 
     @staticmethod
     def get_node_name(replicaName: str):
