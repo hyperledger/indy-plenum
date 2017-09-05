@@ -3,6 +3,7 @@ import os
 import base58
 import pytest
 from plenum.bls.bls import BlsFactoryCharm
+from crypto.bls.bls_bft import BlsValidationError
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, BlsMultiSignature, Commit
@@ -142,9 +143,9 @@ def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, quorums)
         pre_prepare = create_pre_prepare_bls_multisig(
             bls_multi_sig=changed_multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bfts:
-            with pytest.raises(SuspiciousNode) as ex_info:
+            with pytest.raises(BlsValidationError) as ex_info:
                 verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
-            ex_info.match(Suspicions.PPR_BLS_MULTISIG_WRONG.reason)
+            ex_info.match("Validation failed")
 
 
 def test_validate_commit_no_sigs(bls_bfts, state_root):
