@@ -55,19 +55,10 @@ class BlsBftPlenum(BlsBft):
         return self.bls_crypto.create_multi_sig(bls_signatures)
 
     def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
-        '''
-        Save multi-sig as calculated by the node independently
-        :param multi_sig:
-        :return:
-        '''
         pass
 
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
-        '''
-        Save multi-sig as received from the Primary
-        :param multi_sig:
-        :return:
-        '''
+
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
             return
         multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]

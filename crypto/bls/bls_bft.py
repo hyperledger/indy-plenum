@@ -9,7 +9,10 @@ from typing import Optional
 
 
 class BlsBft(metaclass=ABCMeta):
-    def __init__(self, bls_crypto: BlsCrypto, bls_key_register: BlsKeyRegister, node_id):
+    def __init__(self,
+                 bls_crypto: BlsCrypto,
+                 bls_key_register: BlsKeyRegister,
+                 node_id):
         self.bls_crypto = bls_crypto
         self.bls_key_register = bls_key_register
         self.node_id = node_id
@@ -36,12 +39,25 @@ class BlsBft(metaclass=ABCMeta):
 
     @abstractmethod
     def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
-        pass
+        """
+        Save multi-sig as calculated by the node independently
+
+        :param multi_sig:
+        """
 
     @abstractmethod
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
-        pass
+        """
+        Save multi-sig as received from the Primary
+
+        :param multi_sig:
+        """
 
     @abstractmethod
     def gc(self, key_3PC):
+        """
+        Do some cleaning if needed
+
+        :param key_3PC:
+        """
         pass
