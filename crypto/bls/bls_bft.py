@@ -38,6 +38,10 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def validate_multi_sig(self, multi_sig: str, participants, state_root):
+        pass
+
+    @abstractmethod
     def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
         """
         Save multi-sig as calculated by the node independently
