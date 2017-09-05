@@ -988,6 +988,16 @@ class Replica(HasActionQueue, MessageProcessor):
         commit = Commit(*params)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
+        if self._bls_bft:
+            key = (commit.viewNo, commit.ppSeqNo)
+            preprepare = self.getPrePrepare(*key)
+            # This should be moved to validateCommit
+            rh = preprepare.stateRootHash
+            self._bls_bft.validate_commit(key,
+                                          commit,
+                                          self.name,
+                                          rh)
+
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
         """
