@@ -121,8 +121,7 @@ def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, quorums):
         state_root=state_root
     )
     multi_sig_nodes_ids = [bls_bft.node_id for bls_bft in bls_bfts]
-    multi_sig = {f.BLS_MULTI_SIG_NODES.nm: multi_sig_nodes_ids,
-                 f.BLS_MULTI_SIG_VALUE.nm: multi_sig_value}
+    multi_sig = (multi_sig_nodes_ids, multi_sig_value)
 
     for sender_bls_bft in bls_bfts:
         pre_prepare = create_pre_prepare_bls_multisig(
@@ -139,8 +138,7 @@ def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, quorums)
         state_root=generate_state_root()
     )
     multi_sig_nodes_ids = [bls_bft.node_id for bls_bft in bls_bfts]
-    changed_multi_sig = {f.BLS_MULTI_SIG_NODES.nm: multi_sig_nodes_ids,
-                         f.BLS_MULTI_SIG_VALUE.nm: changed_multi_sig_value}
+    changed_multi_sig = (multi_sig_nodes_ids, changed_multi_sig_value)
 
     for sender_bls_bft in bls_bfts:
         pre_prepare = create_pre_prepare_bls_multisig(

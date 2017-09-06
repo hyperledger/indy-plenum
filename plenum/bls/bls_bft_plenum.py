@@ -25,8 +25,7 @@ class BlsBftPlenum(BlsBft):
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
             return None
-        multi_sig = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_VALUE.nm]
-        participants = pre_prepare.blsMultiSig[f.BLS_MULTI_SIG_NODES.nm]
+        participants, multi_sig = pre_prepare.blsMultiSig
         state_root = pre_prepare.stateRootHash
         self.validate_multi_sig(multi_sig, participants, state_root)
 
