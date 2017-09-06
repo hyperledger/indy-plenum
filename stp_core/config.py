@@ -44,6 +44,4 @@ ZMQ_INTERNAL_QUEUE_SIZE = 0  # messages (0 - no limit)
 
 
 # All messages exceeding the limit will be rejected without processing
-# TODO: need to think about a lower value; currently low value leads to
-# problems with batching on transport level
-MSG_LEN_LIMIT = 128 * 1024 * 1024
+MSG_LEN_LIMIT = 128 * 1024
