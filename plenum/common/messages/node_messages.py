@@ -7,7 +7,7 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKL
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonEmptyStringField, NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
-    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField
+    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, BlsMultiSignatureField
 from plenum.common.messages.message_base import MessageBase, MessageValidator
 from plenum.common.types import f
 
@@ -122,12 +122,13 @@ class Propagate(MessageBase):
     )
 
 
+# TODO: this message can be used for propagation of multi sig on timeout
 class BlsMultiSignature(MessageValidator):
+    typename = None
     schema = (
         (f.BLS_MULTI_SIG_NODES.nm, IterableField(NonEmptyStringField())),
         (f.BLS_MULTI_SIG_VALUE.nm, NonEmptyStringField()),
     )
-    optional = True
 
 
 class PrePrepare(MessageBase):
@@ -144,7 +145,7 @@ class PrePrepare(MessageBase):
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
-        (f.BLS_MULTI_SIG.nm, BlsMultiSignature()),
+        (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True)),
     )
 
 

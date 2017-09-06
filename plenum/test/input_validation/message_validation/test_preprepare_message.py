@@ -2,8 +2,8 @@ from collections import OrderedDict
 
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, IterableField, NonEmptyStringField, \
-    TimestampField, MerkleRootField
-from plenum.common.messages.node_messages import PrePrepare, BlsMultiSignature
+    TimestampField, MerkleRootField, BlsMultiSignatureField
+from plenum.common.messages.node_messages import PrePrepare
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
@@ -16,7 +16,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
-    ("blsMultiSig", BlsMultiSignature),
+    ("blsMultiSig", BlsMultiSignatureField),
 ])
 
 
