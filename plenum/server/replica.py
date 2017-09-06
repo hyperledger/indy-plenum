@@ -268,6 +268,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft = self._create_bls_bft()
+        self._bls_latest_multi_sig = None
 
     def _create_bls_bft(self):
         try:
@@ -698,17 +699,25 @@ class Replica(HasActionQueue, MessageProcessor):
 
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
-        pre_prepare = PrePrepare(self.instId,
-                                 self.viewNo,
-                                 ppSeqNo,
-                                 tm,
-                                 [(req.identifier, req.reqId) for req in reqs],
-                                 len(validReqs),
-                                 digest,
-                                 ledger_id,
-                                 self.stateRootHash(ledger_id),
-                                 self.txnRootHash(ledger_id)
-                                 )
+
+        params = [
+            self.instId,
+            self.viewNo,
+            ppSeqNo,
+            tm,
+            [(req.identifier, req.reqId) for req in reqs],
+            len(validReqs),
+            digest,
+            ledger_id,
+            self.stateRootHash(ledger_id),
+            self.txnRootHash(ledger_id)
+        ]
+
+        if self._bls_bft:
+            params.append(self._bls_latest_multi_sig)
+            self._bls_latest_multi_sig = None
+
+        pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
@@ -1520,6 +1529,7 @@ class Replica(HasActionQueue, MessageProcessor):
             bls_multi_sig = self._bls_bft.calculate_multi_sig(key, self.quorums)
             state_root = pp.stateRootHash
             self._bls_bft.save_multi_sig_local(bls_multi_sig, state_root, key)
+            self._bls_latest_multi_sig = bls_multi_sig
 
         return True
 
