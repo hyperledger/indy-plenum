@@ -5,7 +5,6 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.quorums import Quorums
-from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 from typing import Optional
 
@@ -73,7 +72,7 @@ class BlsBftPlenum(BlsBft):
         return self.bls_crypto.create_multi_sig(bls_signatures)
 
     def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
-        logger.info("SAVING MULTISIG!!! {}".format(multi_sig))
+        pass
 
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
 
