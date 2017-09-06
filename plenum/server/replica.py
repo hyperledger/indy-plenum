@@ -951,14 +951,20 @@ class Replica(HasActionQueue, MessageProcessor):
     def doPrepare(self, pp: PrePrepare):
         logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
-        prepare = Prepare(self.instId,
-                          pp.viewNo,
-                          pp.ppSeqNo,
-                          pp.ppTime,
-                          pp.digest,
-                          pp.stateRootHash,
-                          pp.txnRootHash
-                          )
+        params = [self.instId,
+                  pp.viewNo,
+                  pp.ppSeqNo,
+                  pp.ppTime,
+                  pp.digest,
+                  pp.stateRootHash,
+                  pp.txnRootHash]
+        if self._bls_bft:
+            # TODO: should we validate pp.stateRootHash somehow?
+            state_root = pp.stateRootHash
+            if state_root is not None:
+                bls_signature = self._bls_bft.sign_state(state_root)
+                params.append(bls_signature)
+        prepare = Prepare(*params)
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
@@ -970,33 +976,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} Sending COMMIT{} at {}".
                      format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
-
-        params = [self.instId, p.viewNo, p.ppSeqNo]
-        if self._bls_bft:
-            # TODO: can following be done simpler?
-            preprepare = self.getPrePrepare(p.viewNo, p.ppSeqNo)
-            first_request_idr = preprepare.reqIdr[0]
-            req_state = self.requests[first_request_idr]
-            request = self.requests[first_request_idr].request
-            ledger_id = self.node.ledgerIdForRequest(req_state.finalised)
-
-            state_root = self.stateRootHash(ledger_id)
-            if state_root is not None:
-                bls_signature = self._bls_bft.sign_state(state_root)
-                params.append(bls_signature)
-
-        commit = Commit(*params)
+        commit = Commit(self.instId, p.viewNo, p.ppSeqNo)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
-        if self._bls_bft:
-            key = (commit.viewNo, commit.ppSeqNo)
-            preprepare = self.getPrePrepare(*key)
-            # This should be moved to validateCommit
-            self._bls_bft.validate_commit(key,
-                                          commit,
-                                          self.name,
-                                          preprepare.stateRootHash)
-
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
         """
@@ -1356,8 +1338,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if self._bls_bft:
             try:
-                self._bls_bft.validate_commit(key, commit,
-                                              sender, ppReq.stateRootHash)
+                self._bls_bft.validate_commit(commit, sender)
             except:
                 raise SuspiciousNode(sender,
                                      Suspicions.CM_BLS_SIG_WRONG,

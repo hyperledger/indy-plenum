@@ -158,6 +158,7 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.BLS_SIG.nm, NonEmptyStringField(optional=True))
     )
 
 
@@ -166,8 +167,7 @@ class Commit(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-        (f.BLS_SIG.nm, NonEmptyStringField(optional=True)),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField())
     )
 
 

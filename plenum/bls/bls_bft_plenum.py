@@ -1,7 +1,6 @@
 from crypto.bls.bls_bft import BlsBft, BlsValidationError
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
-from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
@@ -19,8 +18,8 @@ class BlsBftPlenum(BlsBft):
                  bls_key_register: BlsKeyRegister,
                  node_id):
         super().__init__(bls_crypto, bls_key_register, node_id)
-        # TODO: commits should be moved out of here
-        self._commits = {}
+        # TODO: move it out of here
+        self._signatures = {}
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
@@ -33,41 +32,39 @@ class BlsBftPlenum(BlsBft):
         self.validate_multi_sig(multi_sig, participants, state_root)
 
     def validate_prepare(self, prepare: Prepare, sender):
-        # not needed now
-        pass
-
-    def validate_commit(self, key_3PC, commit: Commit, sender, state_root):
-        if f.BLS_SIG.nm not in commit:
+        if f.BLS_SIG.nm not in prepare:
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
             return None
+
+        key_3PC = (prepare.viewNo, prepare.ppSeqNo)
+        state_root = prepare.stateRootHash
+
         pk = self.bls_key_register.get_latest_key(self.get_node_name(sender))
         if not pk:
             raise BlsValidationError("No key for {} found".format(sender))
-        sig = commit.blsSig
+        sig = prepare.blsSig
         if not self.bls_crypto.verify_sig(sig, state_root, pk):
-            raise SuspiciousNode(sender, Suspicions.CM_BLS_SIG_WRONG, commit)
+            raise BlsValidationError("Validation failed")
+        if key_3PC not in self._signatures:
+            self._signatures[key_3PC] = []
+        self._signatures[key_3PC].append(sig)
 
-        if key_3PC not in self._commits:
-            self._commits[key_3PC] = []
-        self._commits[key_3PC].append(commit)
+    def validate_commit(self, commit: Commit, sender):
+        # not required as of now
+        pass
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
 
     def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> Optional[str]:
-        if key_3PC not in self._commits:
+        if key_3PC not in self._signatures:
             return None
-
-        bls_signatures = []
-        for commit in self._commits[key_3PC]:
-            if f.BLS_SIG.nm in commit:
-                bls_signatures.append(commit.blsSig)
-
+        bls_signatures = self._signatures[key_3PC]
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
                 'Can not create bls signature for batch {}: '
-                'COMMITs have only {} signatures, while {} required'
+                'There are only {} signatures, while {} required'
                 .format(key_3PC,
                         len(bls_signatures),
                         quorums.bls_signatures.value))
@@ -90,12 +87,11 @@ class BlsBftPlenum(BlsBft):
 
     def gc(self, key_3PC):
         keys_to_remove = []
-        for key in self._commits.keys():
+        for key in self._signatures.keys():
             if compare_3PC_keys(key, key_3PC) >= 0:
                 keys_to_remove.append(key)
-
         for key in keys_to_remove:
-            self._commits.pop(key, None)
+            self._signatures.pop(key, None)
 
     def validate_multi_sig(self, multi_sig: str, participants, state_root):
         public_keys = []
@@ -107,7 +103,7 @@ class BlsBftPlenum(BlsBft):
         if not self.bls_crypto.verify_multi_sig(multi_sig,
                                                 state_root,
                                                 public_keys):
-            raise BlsValidationError("Validation failed")
+            raise BlsValidationError("Multi-sig validation failed")
 
     @staticmethod
     def get_node_name(replica_name: str):
