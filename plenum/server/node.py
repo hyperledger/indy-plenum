@@ -473,7 +473,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                            ledger_size)
         v, p = three_pc_key if three_pc_key else (None, None)
         logger.debug('pp seq nos are {} and {}'.format(p, self.master_replica.lastPrePrepareSeqNo))
-        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash)
+        return LedgerStatus(ledger_id, ledger.size, v, self.master_replica.lastPrePrepareSeqNo, ledger.root_hash)
 
     @property
     def poolLedgerStatus(self):
