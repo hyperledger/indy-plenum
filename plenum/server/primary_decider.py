@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 from collections import deque
 
 from plenum.common.constants import VIEW_CHANGE_PREFIX
@@ -23,7 +23,6 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         self.f = node.f
         self.replicas = node.replicas
         self.viewNo = node.viewNo
-        self.rank = node.rank
         self.nodeNames = node.allNodeNames
         self.nodeCount = 0
         self.inBox = deque()
@@ -39,6 +38,10 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
 
     def __repr__(self):
         return "{}".format(self.name)
+
+    @property
+    def rank(self) -> Optional[int]:
+        return self.node.rank
 
     @property
     def was_master_primary_in_prev_view(self):

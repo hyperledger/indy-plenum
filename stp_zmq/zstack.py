@@ -1,7 +1,7 @@
 import inspect
 
 from stp_core.common.config.util import getConfig
-from stp_core.common.constants import CONNECTION_PREFIX
+from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
 try:
     import ujson as json
@@ -348,7 +348,9 @@ class ZStack(NetworkInterface):
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_length(self.listener, self.config)
         self.listener.bind(
-            'tcp://*:{}'.format(self.ha[1]))
+            '{protocol}://*:{port}'.format(
+                port=self.ha[1], protocol=ZMQ_NETWORK_PROTOCOL)
+        )
 
     def close(self):
         self.listener.unbind(self.listener.LAST_ENDPOINT)
