@@ -989,6 +989,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def __last_pp_3pc(self):
+        logger.debug('debug123123')
         last_pp = self.lastPrePrepare
         if not last_pp:
             return self.last_ordered_3pc
