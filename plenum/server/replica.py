@@ -994,7 +994,7 @@ class Replica(HasActionQueue, MessageProcessor):
             return self.last_ordered_3pc
 
         last_3pc = (last_pp.viewNo, last_pp.ppSeqNo)
-        if compare_3PC_keys(self.last_ordered_3pc, last_3pc) > 0:
+        if compare_3PC_keys(last_3pc, self.last_ordered_3pc) > 0:
             return last_3pc
 
         return self.last_ordered_3pc
