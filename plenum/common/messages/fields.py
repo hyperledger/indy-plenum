@@ -492,3 +492,19 @@ class LedgerInfoField(FieldBase):
             err = validator(value)
             if err:
                 return err
+
+
+class BlsMultiSignatureField(FieldBase):
+
+    _base_types = (list, tuple)
+
+    def _specific_validation(self, val):
+        participants, sig = val
+        err = NonEmptyStringField().validate(sig)
+        if err:
+            return err
+        err = IterableField(NonEmptyStringField()).validate(participants)
+        if err:
+            return err
+        if len(participants) == 0:
+            return "multi-signature participants list is empty"
