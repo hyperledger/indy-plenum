@@ -969,10 +969,8 @@ class Replica(HasActionQueue, MessageProcessor):
                   pp.stateRootHash,
                   pp.txnRootHash]
         if self._bls_bft:
-            # TODO: should we validate pp.stateRootHash somehow?
-            state_root = pp.stateRootHash
-            if state_root is not None:
-                bls_signature = self._bls_bft.sign_state(state_root)
+            if pp.stateRootHash is not None:
+                bls_signature = self._bls_bft.sign_state(pp.stateRootHash)
                 params.append(bls_signature)
         prepare = Prepare(*params)
         self.send(prepare, TPCStat.PrepareSent)
@@ -986,7 +984,14 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} Sending COMMIT{} at {}".
                      format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
-        commit = Commit(self.instId, p.viewNo, p.ppSeqNo)
+        params = [self.instId, p.viewNo, p.ppSeqNo]
+        if self._bls_bft:
+            if p.stateRootHash is not None:
+                bls_signature = self._bls_bft.sign_state(p.stateRootHash)
+                params.append(bls_signature)
+        commit = Commit(*params)
+        if self._bls_bft:
+            self.validateCommit(commit, self.name)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 
@@ -1349,7 +1354,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if self._bls_bft:
             try:
-                self._bls_bft.validate_commit(commit, sender)
+                pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
+                self._bls_bft.validate_commit(commit, sender, pp.stateRootHash)
             except:
                 raise SuspiciousNode(sender,
                                      Suspicions.CM_BLS_SIG_WRONG,

@@ -17,12 +17,11 @@ class BlsBftPlenum(BlsBft):
                  bls_key_register: BlsKeyRegister,
                  node_id):
         super().__init__(bls_crypto, bls_key_register, node_id)
-        # TODO: move it out of here
         self._signatures = {}
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
-            # TODO: It's optional for now
+            # TODO:  It's optional for now
             # raise BlsValidationError("No signature found")
             return None
         if stable_state_root is None:
@@ -35,24 +34,30 @@ class BlsBftPlenum(BlsBft):
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
             return None
-
-        key_3PC = (prepare.viewNo, prepare.ppSeqNo)
-        state_root = prepare.stateRootHash
-
         sender_node = self.get_node_name(sender)
         pk = self.bls_key_register.get_latest_key(sender_node)
         if not pk:
             raise BlsValidationError("No key for {} found".format(sender_node))
         sig = prepare.blsSig
+        if not self.bls_crypto.verify_sig(sig, prepare.stateRootHash, pk):
+            raise BlsValidationError("Validation failed")
+
+    def validate_commit(self, commit: Commit, sender, state_root):
+        if f.BLS_SIG.nm not in commit:
+            # TODO: It's optional for now
+            # raise BlsValidationError("No signature found")
+            return None
+        key_3PC = (commit.viewNo, commit.ppSeqNo)
+        sender_node = self.get_node_name(sender)
+        pk = self.bls_key_register.get_latest_key(sender_node)
+        if not pk:
+            raise BlsValidationError("No key for {} found".format(sender_node))
+        sig = commit.blsSig
         if not self.bls_crypto.verify_sig(sig, state_root, pk):
             raise BlsValidationError("Validation failed")
         if key_3PC not in self._signatures:
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][sender_node] = sig
-
-    def validate_commit(self, commit: Commit, sender):
-        # not required as of now
-        pass
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)

@@ -26,7 +26,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender):
+    def validate_commit(self, commit: Commit, sender, state_root):
         pass
 
     @abstractmethod
