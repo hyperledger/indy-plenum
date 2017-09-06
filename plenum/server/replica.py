@@ -309,12 +309,13 @@ class Replica(HasActionQueue, MessageProcessor):
             root = ledger.hashToStr(root)
         return root
 
-    def stateRootHash(self, ledger_id, to_str=True):
+    def stateRootHash(self, ledger_id, to_str=True, committed=False):
         if not self.isMaster:
             return None
-        root = self.node.getState(ledger_id).headHash
+        state = self.node.getState(ledger_id)
+        root = state.committedHeadHash if committed else state.headHash
         if to_str:
-            root = base58.b58encode(root)
+            root = base58.b58encode(bytes(root))
         return root
 
     @property
@@ -713,7 +714,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.txnRootHash(ledger_id)
         ]
 
-        if self._bls_bft:
+        if self._bls_bft and self._bls_latest_multi_sig is not None:
             params.append(self._bls_latest_multi_sig)
             self._bls_latest_multi_sig = None
 
@@ -1056,8 +1057,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if self._bls_bft:
             try:
-                self._bls_bft.validate_pre_prepare(pp, sender)
-            except:
+                stable_state_root = self.stateRootHash(pp.ledgerId, committed=True)
+                self._bls_bft.validate_pre_prepare(pp, sender, stable_state_root)
+            except Exception as ex:
                 raise SuspiciousNode(sender,
                                      Suspicions.PPR_BLS_MULTISIG_WRONG,
                                      pp)
@@ -1527,9 +1529,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if self._bls_bft:
             bls_multi_sig = self._bls_bft.calculate_multi_sig(key, self.quorums)
-            state_root = pp.stateRootHash
-            self._bls_bft.save_multi_sig_local(bls_multi_sig, state_root, key)
-            self._bls_latest_multi_sig = bls_multi_sig
+            if bls_multi_sig is not None:
+                participants, sig = bls_multi_sig
+                state_root = pp.stateRootHash
+                self._bls_bft.save_multi_sig_local(sig, participants, state_root, key)
+                self._bls_latest_multi_sig = bls_multi_sig
 
         return True
 

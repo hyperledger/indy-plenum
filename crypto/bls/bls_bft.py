@@ -18,7 +18,7 @@ class BlsBft(metaclass=ABCMeta):
         self.node_id = node_id
 
     @abstractmethod
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
         pass
 
     @abstractmethod
@@ -34,7 +34,17 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def calculate_multi_sig(self, key_3PC, quorums: Quorums) -> Optional[str]:
+    def calculate_multi_sig(self,
+                            key_3PC,
+                            quorums: Quorums) -> Optional[tuple]:
+        """
+        Creates multi-signature
+
+        :param key_3PC:
+        :param quorums:
+        :return: tuple of participants and signature itself
+        """
+        # TODO: replace tuple by class for signature
         pass
 
     @abstractmethod
@@ -42,7 +52,11 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def save_multi_sig_local(self, multi_sig: str, state_root, key_3PC):
+    def save_multi_sig_local(self,
+                             multi_sig: str,
+                             participants: list,
+                             state_root,
+                             key_3PC):
         """
         Save multi-sig as calculated by the node independently
 
