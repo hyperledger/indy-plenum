@@ -17,11 +17,12 @@ logFormatStyle = '{'
 logLevel = logging.NOTSET
 enableStdOutLogging = True
 
-
 RETRY_TIMEOUT_NOT_RESTRICTED = 6
 RETRY_TIMEOUT_RESTRICTED = 15
 MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 1
 
+# Enables/disables debug mode for Looper class
+LOOPER_DEBUG = False
 
 # RAET Configuration
 RAETLogLevel = "terse"
