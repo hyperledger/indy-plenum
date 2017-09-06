@@ -1517,6 +1517,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
+        logger.debug('allLedgersCaughtUp compare {} and {}'.format(self.master_last_ordered_3PC, last_caught_up_3PC))
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
