@@ -22,6 +22,7 @@ import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
+from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
