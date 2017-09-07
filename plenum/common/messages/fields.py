@@ -124,12 +124,6 @@ class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
 
-    def __init__(self, max_length: int, **kwargs):
-        super().__init__(max_length=max_length, **kwargs)
-
-    def _specific_validation(self, val):
-        return
-
 
 class RoleField(FieldBase):
     _base_types = (str, type(None))
@@ -403,11 +397,11 @@ class TimestampField(FieldBase):
 class JsonField(LimitedLengthStringField):
     _base_types = (str,)
 
-    def __init__(self, max_length: int, **kwargs):
-        super().__init__(max_length=max_length, **kwargs)
-
     def _specific_validation(self, val):
         # TODO: Need a mechanism to ensure a non-empty JSON if needed
+        lim_str_err = super()._specific_validation(val)
+        if lim_str_err:
+            return lim_str_err
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
