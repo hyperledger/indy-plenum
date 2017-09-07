@@ -1958,10 +1958,15 @@ class Replica(HasActionQueue, MessageProcessor):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_pre_prepare(self, three_pc_key, recipients=None) -> bool:
+    def _request_pre_prepare(self, three_pc_key, recipients=None, stash_data=(None, None, None)) -> bool:
         """
         Request PP
         """
+        if three_pc_key in self.requested_pre_prepares:
+            logger.debug('{} not requesting a PRE-PREPARE since already '
+                         'requested for {}'.format(self, three_pc_key))
+            return False
+
         # TODO: Using a timer to retry would be a better thing to do
         logger.debug('{} requesting PRE-PREPARE({}) from {}'.
                      format(self, three_pc_key, recipients))
@@ -1973,6 +1978,8 @@ class Replica(HasActionQueue, MessageProcessor):
                                            f.PP_SEQ_NO.nm: three_pc_key[1]},
                                            recipients)
 
+        self.requested_pre_prepares[three_pc_key] = stash_data
+
     def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
         """
         Check if has an acceptable PRE_PREPARE already stashed, if not then
@@ -1980,10 +1987,6 @@ class Replica(HasActionQueue, MessageProcessor):
         store the acceptable PREPARE state (digest, roots) for verification of
         the received PRE-PREPARE
         """
-        if three_pc_key in self.requested_pre_prepares:
-            logger.debug('{} not requesting a PRE-PREPARE since already '
-                         'requested for {}'.format(self, three_pc_key))
-            return False
 
         if three_pc_key in self.prePreparesPendingPrevPP:
             logger.debug('{} not requesting a PRE-PREPARE since already found '
@@ -2011,8 +2014,9 @@ class Replica(HasActionQueue, MessageProcessor):
                              'found stashed for {}'.format(self, three_pc_key))
                 return False
 
-        self._request_pre_prepare(three_pc_key, [self.getNodeName(s) for s in prepare_senders])
-        self.requested_pre_prepares[three_pc_key] = digest, state_root, txn_root
+        self._request_pre_prepare(three_pc_key,
+                                  recipients=[self.getNodeName(s) for s in prepare_senders],
+                                  stash_data=(digest, state_root, txn_root))
         return True
 
     def get_acceptable_stashed_prepare_state(self, three_pc_key):
@@ -2046,8 +2050,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # There still might be stashed PRE-PREPARE but not checking that
         # it is expensive, also reception of PRE-PREPAREs is idempotent
         digest, state_root, txn_root = self.requested_pre_prepares[key]
-        if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                digest, state_root, txn_root):
+        if ((pp.digest, pp.stateRootHash, pp.txnRootHash) == (
+                digest, state_root, txn_root)) or (digest is None and state_root is None and txn_root is None):
             self.processThreePhaseMsg(pp, sender)
         else:
             self.discard(pp, reason='{}does not have expected state({} {} {})'.
