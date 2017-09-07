@@ -981,8 +981,10 @@ class Replica(HasActionQueue, MessageProcessor):
         if pp_seq_no - last_pp_seq_no != 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
-            # TODO: think of a better way, urgently
-            self._setup_for_non_master()
+            # Requesting missing PP
+            for i in range(pp_seq_no - last_pp_seq_no - 1):
+                self._request_pre_prepare((last_pp_view_no, last_pp_seq_no + i))
+
             return False
 
         return True
@@ -1871,7 +1873,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
         if key not in self.pre_prepares_stashed_for_incorrect_time:
-            self._request_pre_prepare_if_possible(key)
+            self._request_pre_prepare_for_prepare(key)
         else:
             self._process_stashed_pre_prepare_for_time_if_possible(key)
 
@@ -1955,21 +1957,28 @@ class Replica(HasActionQueue, MessageProcessor):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_pre_prepare_if_possible(self, three_pc_key) -> bool:
+    def _request_pre_prepare(self, three_pc_key, recipients=None) -> bool:
+        """
+        Request PP
+        """
+        # TODO: Using a timer to retry would be a better thing to do
+        logger.debug('{} requesting PRE-PREPARE({}) from {}'.
+                     format(self, three_pc_key, recipients))
+        # An optimisation can be to request PRE-PREPARE from f+1 or
+        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
+        # PRE-PREPARE is needed.
+        self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
+                                           f.VIEW_NO.nm: three_pc_key[0],
+                                           f.PP_SEQ_NO.nm: three_pc_key[1]},
+                                           recipients)
+
+    def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
         """
         Check if has an acceptable PRE_PREPARE already stashed, if not then
         check count of PREPAREs, make sure >f consistent PREPAREs are found,
         store the acceptable PREPARE state (digest, roots) for verification of
         the received PRE-PREPARE
         """
-        if len(
-                self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
-            logger.debug(
-                '{} not requesting a PRE-PREPARE because does not have'
-                ' sufficient PREPAREs for {}'.format(
-                    self, three_pc_key))
-            return False
-
         if three_pc_key in self.requested_pre_prepares:
             logger.debug('{} not requesting a PRE-PREPARE since already '
                          'requested for {}'.format(self, three_pc_key))
@@ -1978,6 +1987,14 @@ class Replica(HasActionQueue, MessageProcessor):
         if three_pc_key in self.prePreparesPendingPrevPP:
             logger.debug('{} not requesting a PRE-PREPARE since already found '
                          'stashed for {}'.format(self, three_pc_key))
+            return False
+
+        if len(
+                self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
+            logger.debug(
+                '{} not requesting a PRE-PREPARE because does not have'
+                ' sufficient PREPAREs for {}'.format(
+                    self, three_pc_key))
             return False
 
         digest, state_root, txn_root, prepare_senders = \
@@ -1993,16 +2010,7 @@ class Replica(HasActionQueue, MessageProcessor):
                              'found stashed for {}'.format(self, three_pc_key))
                 return False
 
-        # TODO: Using a timer to retry would be a better thing to do
-        logger.debug('{} requesting PRE-PREPARE({}) from {}'.
-                     format(self, three_pc_key, prepare_senders))
-        # An optimisation can be to request PRE-PREPARE from f+1 or
-        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
-        # PRE-PREPARE is needed.
-        self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
-                                           f.VIEW_NO.nm: three_pc_key[0],
-                                           f.PP_SEQ_NO.nm: three_pc_key[1]},
-                              [self.getNodeName(s) for s in prepare_senders])
+        self._request_pre_prepare(three_pc_key, [self.getNodeName(s) for s in prepare_senders])
         self.requested_pre_prepares[three_pc_key] = digest, state_root, txn_root
         return True
 
