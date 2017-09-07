@@ -14,7 +14,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from orderedset import OrderedSet
 from plenum.bls.bls import create_default_bls_factory
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
@@ -30,6 +30,7 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
+
 
 logger = getlogger()
 
@@ -714,9 +715,10 @@ class Replica(HasActionQueue, MessageProcessor):
             self.txnRootHash(ledger_id)
         ]
 
-        if self._bls_bft and self._bls_latest_multi_sig is not None:
-            params.append(self._bls_latest_multi_sig)
-            self._bls_latest_multi_sig = None
+        if self._bls_bft and ledger_id == DOMAIN_LEDGER_ID:
+            if self._bls_latest_multi_sig is not None:
+                params.append(self._bls_latest_multi_sig)
+                self._bls_latest_multi_sig = None
 
         pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -861,6 +863,8 @@ class Replica(HasActionQueue, MessageProcessor):
                                              self.stateRootHash(pp.ledgerId,
                                                                 to_str=False))
                     if self._bls_bft:
+                        # does not matter which ledger id is current PPR for
+                        # mult-sig is for domain ledger anyway
                         self._bls_bft.save_multi_sig_shared(pp, key)
                         logger.debug("{} saved shared multi signature for root"
                                      .format(self, oldStateRoot))
@@ -970,7 +974,7 @@ class Replica(HasActionQueue, MessageProcessor):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
-        if self._bls_bft:
+        if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:
             if pp.stateRootHash is not None:
                 bls_signature = self._bls_bft.sign_state(pp.stateRootHash)
                 params.append(bls_signature)
@@ -984,16 +988,22 @@ class Replica(HasActionQueue, MessageProcessor):
         commit phase
         :param p: the prepare message
         """
+        key_3pc = (p.viewNo, p.ppSeqNo)
         logger.debug("{} Sending COMMIT{} at {}".
-                     format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
-        params = [self.instId, p.viewNo, p.ppSeqNo]
-        if self._bls_bft:
-            if p.stateRootHash is not None:
+                     format(self, key_3pc, time.perf_counter()))
+
+        commit = None
+        if self._bls_bft and p.stateRootHash is not None:
+            pp = self.getPrePrepare(*key_3pc)
+            if pp.ledgerId == DOMAIN_LEDGER_ID:
                 bls_signature = self._bls_bft.sign_state(p.stateRootHash)
-                params.append(bls_signature)
-        commit = Commit(*params)
-        if self._bls_bft:
-            self.validateCommit(commit, self.name)
+                commit = Commit(self.instId, p.viewNo, p.ppSeqNo, bls_signature)
+                # because bls_bft maintains a list of signatures
+                self.validateCommit(commit, self.name)
+
+        if commit is None:
+            commit = Commit(self.instId, p.viewNo, p.ppSeqNo)
+
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 
@@ -1535,12 +1545,16 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} ordered request {}".format(self, key))
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
-        if self._bls_bft:
-            bls_multi_sig = self._bls_bft.calculate_multi_sig(key, self.quorums)
+        if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:
+            bls_multi_sig = self._bls_bft.calculate_multi_sig(key,
+                                                              self.quorums)
             if bls_multi_sig is not None:
                 participants, sig = bls_multi_sig
                 state_root = pp.stateRootHash
-                self._bls_bft.save_multi_sig_local(sig, participants, state_root, key)
+                self._bls_bft.save_multi_sig_local(sig,
+                                                   participants,
+                                                   state_root,
+                                                   key)
                 logger.debug("{} saved multi signature for root"
                              .format(self, state_root))
                 self._bls_latest_multi_sig = bls_multi_sig
