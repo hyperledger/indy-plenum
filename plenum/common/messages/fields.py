@@ -342,7 +342,6 @@ class TieAmongField(FieldBase):
         super().__init__(**kwargs)
         self._max_length = max_length
 
-
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
