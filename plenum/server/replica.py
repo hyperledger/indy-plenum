@@ -955,6 +955,7 @@ class Replica(HasActionQueue, MessageProcessor):
                         p.viewNo,
                         p.ppSeqNo)
         self.send(commit, TPCStat.CommitSent)
+        logger.debug('Adding to commits my commit {}'.format(commit))
         self.addToCommits(commit, self.name)
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
@@ -1330,6 +1331,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         quorum = self.quorums.commit.value
         if not self.commits.hasQuorum(commit, quorum):
+            key = self.commits.getKey(commit)
+            voters = self[key].voters
+            logger.debug('Currently have {} votes from {}'.format(len(voters), voters))
             return False, "no quorum ({}): {} commits where f is {}".\
                           format(quorum, commit, self.f)
 
