@@ -14,7 +14,7 @@ from plenum.common.ledger_manager import LedgerManager
 whitelist = ['but majority declared']
 
 
-class FakeLedger():
+class FakeLedger:
     def __init__(self, ledger_id, size):
         self._size = size
         self.root_hash = base58.b58encode(str(ledger_id).encode() * 32)
@@ -25,10 +25,11 @@ class FakeLedger():
 
 
 # Question: Why doesn't this subclass Node.
-class FakeNode():
+class FakeNode:
     ledger_ids = [0]
 
-    def __init__(self):
+    def __init__(self, tmpdir):
+        self.basedirpath = tmpdir
         self.name = 'Node1'
         self.f = 1
         self.replicas = []
@@ -78,7 +79,7 @@ class FakeNode():
         return self.mode >= Mode.synced
 
 
-def test_has_view_change_quorum_number():
+def test_has_view_change_quorum_number(tmpdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have n-f ViewChangeDone
@@ -92,7 +93,7 @@ def test_has_view_change_quorum_number():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     node.view_change_in_progress = True
     node.propagate_primary = False
     selector = PrimarySelector(node)
@@ -117,7 +118,7 @@ def test_has_view_change_quorum_number():
     assert selector._hasViewChangeQuorum
 
 
-def test_has_view_change_quorum_must_contain_primary():
+def test_has_view_change_quorum_must_contain_primary(tmpdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have n-f ViewChangeDone including a VCD from the next Primary
@@ -131,7 +132,7 @@ def test_has_view_change_quorum_must_contain_primary():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     node.view_change_in_progress = True
     node.propagate_primary = False
     selector = PrimarySelector(node)
@@ -161,7 +162,7 @@ def test_has_view_change_quorum_must_contain_primary():
     assert selector.has_view_change_from_primary
 
 
-def test_has_view_change_quorum_number_propagate_primary():
+def test_has_view_change_quorum_number_propagate_primary(tmpdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have f+1 ViewChangeDone in the case of PrimaryPropagation
@@ -175,7 +176,7 @@ def test_has_view_change_quorum_number_propagate_primary():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     node.view_change_in_progress = True
     node.propagate_primary = True
     selector = PrimarySelector(node)
@@ -197,7 +198,7 @@ def test_has_view_change_quorum_number_propagate_primary():
     assert selector.has_view_change_from_primary
 
 
-def test_has_view_change_quorum_number_must_contain_primary_propagate_primary():
+def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tmpdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have f+1 ViewChangeDone and contain a VCD from the next Primary in the case of PrimaryPropagation
@@ -211,7 +212,7 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     node.view_change_in_progress = True
     node.propagate_primary = True
     selector = PrimarySelector(node)
@@ -237,7 +238,7 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary():
     assert selector._hasViewChangeQuorum
 
 
-def test_process_view_change_done():
+def test_process_view_change_done(tmpdir):
     ledgerInfo = (
         # ledger id, ledger length, merkle root
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
@@ -246,7 +247,7 @@ def test_process_view_change_done():
     msg = ViewChangeDone(viewNo=0,
                          name='Node2',
                          ledgerInfo=ledgerInfo)
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     selector = PrimarySelector(node)
     quorum = selector.quorum
     for i in range(quorum):
@@ -268,7 +269,7 @@ def test_process_view_change_done():
     assert not selector._view_change_done
 
 
-def test_get_msgs_for_lagged_nodes():
+def test_get_msgs_for_lagged_nodes(tmpdir):
     ledgerInfo = (
         #  ledger id, ledger length, merkle root
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
@@ -285,7 +286,7 @@ def test_get_msgs_for_lagged_nodes():
             name='Node3',
             ledgerInfo=ledgerInfo),
          'Node2')]
-    node = FakeNode()
+    node = FakeNode(str(tmpdir))
     selector = PrimarySelector(node)
     for message in messages:
         selector._processViewChangeDoneMessage(*message)
@@ -295,8 +296,8 @@ def test_get_msgs_for_lagged_nodes():
         m[0] for m in messages if m[1] == node.name}
 
 
-def test_send_view_change_done_message():
-    node = FakeNode()
+def test_send_view_change_done_message(tmpdir):
+    node = FakeNode(str(tmpdir))
     selector = PrimarySelector(node)
     instance_id = 0
     view_no = selector.viewNo
