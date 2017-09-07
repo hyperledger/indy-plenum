@@ -120,9 +120,12 @@ class LimitedLengthStringField(FieldBase):
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
-class SignatureField(FieldBase):
+class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
+
+    def __init__(self, max_length: int, **kwargs):
+        super().__init__(max_length=max_length, **kwargs)
 
     def _specific_validation(self, val):
         return
@@ -335,10 +338,15 @@ class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
 
+    def __init__(self, max_length: int, **kwargs):
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
+
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = NonEmptyStringField().validate(val[0])
+        idr_error = LimitedLengthStringField(max_length=self._max_length).validate(val[0])
         if idr_error:
             return idr_error
         ts_error = NonNegativeNumberField().validate(val[1])
@@ -393,8 +401,11 @@ class TimestampField(FieldBase):
                 format(self._oldest_time, val)
 
 
-class JsonField(FieldBase):
+class JsonField(LimitedLengthStringField):
     _base_types = (str,)
+
+    def __init__(self, max_length: int, **kwargs):
+        super().__init__(max_length=max_length, **kwargs)
 
     def _specific_validation(self, val):
         # TODO: Need a mechanism to ensure a non-empty JSON if needed
