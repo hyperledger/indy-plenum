@@ -6,8 +6,8 @@ nodeCount = 4
 nodes_wth_bls = 4
 
 
-def test_send_txns_partial_bls(tconf, looper, txnPoolNodeSet,
-                          client1, client1Connected, wallet1):
+def test_send_txns_full_bls(tconf, looper, txnPoolNodeSet,
+                            client1, client1Connected, wallet1):
     number_of_requests = 2  # at least two because first request could have no
     # signature since state can be clear
 
