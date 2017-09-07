@@ -982,7 +982,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
             # Requesting missing PP
-            for i in range(1, pp_seq_no - last_pp_seq_no - 1):
+            for i in range(1, pp_seq_no - last_pp_seq_no):
                 logger.debug('Requesting PP for {}'.format(last_pp_seq_no + i))
                 self._request_pre_prepare((last_pp_view_no, last_pp_seq_no + i))
 
