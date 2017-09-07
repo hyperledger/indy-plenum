@@ -268,7 +268,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft = self._create_bls_bft()
-        self._bls_latest_multi_sig = None
+        self._bls_latest_multi_sig = None  # (participants, sig)
 
     def _create_bls_bft(self):
         try:
@@ -862,6 +862,8 @@ class Replica(HasActionQueue, MessageProcessor):
                                                                 to_str=False))
                     if self._bls_bft:
                         self._bls_bft.save_multi_sig_shared(pp, key)
+                        logger.debug("{} saved shared multi signature for root"
+                                     .format(self, oldStateRoot))
 
                 self.trackBatches(pp, oldStateRoot)
                 logger.debug("{} processed incoming PRE-PREPARE{}".format(self,
@@ -1539,6 +1541,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 participants, sig = bls_multi_sig
                 state_root = pp.stateRootHash
                 self._bls_bft.save_multi_sig_local(sig, participants, state_root, key)
+                logger.debug("{} saved multi signature for root"
+                             .format(self, state_root))
                 self._bls_latest_multi_sig = bls_multi_sig
 
         return True
