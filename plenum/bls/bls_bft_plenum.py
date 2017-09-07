@@ -19,19 +19,23 @@ class BlsBftPlenum(BlsBft):
         super().__init__(bls_crypto, bls_key_register, node_id)
         self._signatures = {}
 
+    def _validate_signature(self, sender, bls_sig, state_root_hash):
+        sender_node = self.get_node_name(sender)
+        pk = self.bls_key_register.get_latest_key(sender_node)
+        if not pk:
+            raise BlsValidationError("No key for {} found"
+                                     .format(sender_node))
+        if not self.bls_crypto.verify_sig(bls_sig,
+                                          state_root_hash,
+                                          pk):
+            raise BlsValidationError("Validation failed")
+
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
         if f.BLS_SIG.nm in pre_prepare:
             # TODO:  It's optional for now
-            sender_node = self.get_node_name(sender)
-            pk = self.bls_key_register.get_latest_key(sender_node)
-            if not pk:
-                raise BlsValidationError("No key for {} found"
-                                         .format(sender_node))
-            sig = pre_prepare.blsSig
-            if not self.bls_crypto.verify_sig(sig,
-                                              pre_prepare.stateRootHash,
-                                              pk):
-                raise BlsValidationError("Validation failed")
+            self._validate_signature(sender,
+                                     pre_prepare.blsSig,
+                                     pre_prepare.stateRootHash)
 
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
             pre_prepare.blsMultiSig is None:
@@ -48,30 +52,18 @@ class BlsBftPlenum(BlsBft):
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
             return None
-        sender_node = self.get_node_name(sender)
-        pk = self.bls_key_register.get_latest_key(sender_node)
-        if not pk:
-            raise BlsValidationError("No key for {} found".format(sender_node))
-        sig = prepare.blsSig
-        if not self.bls_crypto.verify_sig(sig, prepare.stateRootHash, pk):
-            raise BlsValidationError("Validation failed")
+        self._validate_signature(sender, prepare.blsSig, prepare.stateRootHash)
 
     def validate_commit(self, commit: Commit, sender, state_root):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
             return None
+        self._validate_signature(sender, commit.blsSig, state_root)
         key_3PC = (commit.viewNo, commit.ppSeqNo)
-        sender_node = self.get_node_name(sender)
-        pk = self.bls_key_register.get_latest_key(sender_node)
-        if not pk:
-            raise BlsValidationError("No key for {} found".format(sender_node))
-        sig = commit.blsSig
-        if not self.bls_crypto.verify_sig(sig, state_root, pk):
-            raise BlsValidationError("Validation failed")
         if key_3PC not in self._signatures:
             self._signatures[key_3PC] = {}
-        self._signatures[key_3PC][sender_node] = sig
+        self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
     def sign_state(self, state_root) -> str:
         return self.bls_crypto.sign(state_root)
