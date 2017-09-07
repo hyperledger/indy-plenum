@@ -702,6 +702,7 @@ class Replica(HasActionQueue, MessageProcessor):
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
 
+        state_root_hash = self.stateRootHash(ledger_id)
         params = [
             self.instId,
             self.viewNo,
@@ -711,14 +712,16 @@ class Replica(HasActionQueue, MessageProcessor):
             len(validReqs),
             digest,
             ledger_id,
-            self.stateRootHash(ledger_id),
+            state_root_hash,
             self.txnRootHash(ledger_id)
         ]
 
         if self._bls_bft and ledger_id == DOMAIN_LEDGER_ID:
-            if self._bls_latest_multi_sig is not None:
-                params.append(self._bls_latest_multi_sig)
-                self._bls_latest_multi_sig = None
+            params.append(self._bls_latest_multi_sig)
+            self._bls_latest_multi_sig = None
+            if state_root_hash is not None:
+                bls_signature = self._bls_bft.sign_state(state_root_hash)
+                params.append(bls_signature)
 
         pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'

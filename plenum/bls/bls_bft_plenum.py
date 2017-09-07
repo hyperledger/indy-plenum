@@ -20,7 +20,21 @@ class BlsBftPlenum(BlsBft):
         self._signatures = {}
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
-        if f.BLS_MULTI_SIG.nm not in pre_prepare:
+        if f.BLS_SIG.nm in pre_prepare:
+            # TODO:  It's optional for now
+            sender_node = self.get_node_name(sender)
+            pk = self.bls_key_register.get_latest_key(sender_node)
+            if not pk:
+                raise BlsValidationError("No key for {} found"
+                                         .format(sender_node))
+            sig = pre_prepare.blsSig
+            if not self.bls_crypto.verify_sig(sig,
+                                              pre_prepare.stateRootHash,
+                                              pk):
+                raise BlsValidationError("Validation failed")
+
+        if f.BLS_MULTI_SIG.nm not in pre_prepare or \
+            pre_prepare.blsMultiSig is None:
             # TODO:  It's optional for now
             # raise BlsValidationError("No signature found")
             return None
@@ -95,6 +109,8 @@ class BlsBftPlenum(BlsBft):
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
             return
         multi_sig = pre_prepare.blsMultiSig
+        if multi_sig is None:
+            return
         state_root = pre_prepare.stateRootHash
 
         # TODO: store
