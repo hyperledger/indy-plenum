@@ -2267,8 +2267,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param reqs: list of client REQUESTs
         """
         try:
-            committedTxns = self.requestExecuter[ledger_id](pp_time, reqs,
-                                                        state_root, txn_root)
+            committedTxns = self.requestExecuter[ledger_id](
+                pp_time, reqs, state_root, txn_root)
         except Exception as exc:
             logger.warning(
                 "{} commit failed for batch request, error {}, view no {}, "

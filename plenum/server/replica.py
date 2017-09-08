@@ -1476,7 +1476,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 pp.reqIdr[pp.discarded:])
         )
 
-
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
         return True
 

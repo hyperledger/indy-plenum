@@ -5,6 +5,7 @@ import logging
 
 from stp_core.common.logging.handlers import TestingHandler
 
+
 @pytest.fixture(scope="function")
 def logsearch(request):
     logHandlers = []
@@ -30,8 +31,7 @@ def logsearch(request):
 
     request.addfinalizer(cleanup)
 
-    def wrapper(levels=None, files=None,
-            funcs=None, msgs=None):
+    def wrapper(levels=None, files=None, funcs=None, msgs=None):
         found = []
 
         reMsgs = None if msgs is None else re.compile('|'.join(msgs))
@@ -45,7 +45,7 @@ def logsearch(request):
                         record.filename in files) and
                     (funcs is None or
                         record.funcName in funcs) and
-                    (reMsgs is None or 
+                    (reMsgs is None or
                         reMsgs.search(record.getMessage()) is not None)
                 )
 
@@ -59,6 +59,5 @@ def logsearch(request):
         add(hdlr)
 
         return found, functools.partial(cleanup, hdlr)
-
 
     return wrapper
