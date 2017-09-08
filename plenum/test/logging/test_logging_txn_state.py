@@ -99,16 +99,19 @@ def testLoggingTxnStateWhenCommitFails(
     class SomeError(Exception):
         pass
 
-    def commitPatched(*args, **kwargs):
+    def commitPatched(node, commitOrig, *args, **kwargs):
+        node.reqHandler.commit = commitOrig
         raise SomeError(ERORR_MSG)
 
     excCounter = 0
-    def executeBatchPatched(executeBatchOrig, *args, **kwargs):
+
+    def executeBatchPatched(node, executeBatchOrig, *args, **kwargs):
         nonlocal excCounter
         try:
             executeBatchOrig(*args, **kwargs)
         except SomeError:
             excCounter += 1
+            node.executeBatch = executeBatchOrig
             pass
 
     def checkSufficientExceptionsHappend():
@@ -116,9 +119,12 @@ def testLoggingTxnStateWhenCommitFails(
         return
 
     for node in txnPoolNodeSet:
-        node.reqHandler.commit = commitPatched
+        node.reqHandler.commit = functools.partial(
+            commitPatched, node, node.reqHandler.commit
+        )
         node.executeBatch = functools.partial(
-            executeBatchPatched, node.executeBatch)
+            executeBatchPatched, node, node.executeBatch
+        )
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(
