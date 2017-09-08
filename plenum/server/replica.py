@@ -1272,6 +1272,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param prepare: the PREPARE
         """
+        key = self.commits.getKey(prepare)
+        voters = self[key].voters
+        logger.debug('Currently have {} prepare votes from {}'.format(len(voters), voters))
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(
                 prepare)
@@ -1337,7 +1340,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.commits.hasQuorum(commit, quorum):
             key = self.commits.getKey(commit)
             voters = self[key].voters
-            logger.debug('Currently have {} votes from {}'.format(len(voters), voters))
+            logger.debug('Currently have {} commit votes from {}'.format(len(voters), voters))
             return False, "no quorum ({}): {} commits where f is {}".\
                           format(quorum, commit, self.f)
 
