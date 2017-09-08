@@ -754,6 +754,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
+        logger.debug('sending msg {}'.format(msg))
         if self.isPpSeqNoStable(msg.ppSeqNo):
             self.discard(msg,
                          "achieved stable checkpoint for 3 phase message",
@@ -790,6 +791,7 @@ class Replica(HasActionQueue, MessageProcessor):
             COMMIT
         :param sender: name of the node that sent this message
         """
+        logger.debug('processThreePhaseMsg with {} and {}'.format(msg, sender))
         if self.isPrimary is None:
             if not self.can_process_since_view_change_in_progress(msg):
                 self.postElectionMsgs.append((msg, sender))
@@ -861,7 +863,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
-        logger.debug("{} received PREPARE{} from {}".
+        logger.debug("{} received PREPARE {} from {}".
                      format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
