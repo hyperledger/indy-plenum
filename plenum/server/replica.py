@@ -972,6 +972,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
 
+        logger.debug('new message is {}:{}, old one is {}:{}'.format(view_no, pp_seq_no, last_pp_view_no, last_pp_seq_no))
+
         if last_pp_view_no > view_no:
             return False
 
@@ -1111,6 +1113,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # as possible
         non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
         if non_fin_reqs:
+            logger.debug('Fails by nonFinalisedReqs')
             self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs if some
             # PROPAGATEs are present or a client request is present and
@@ -1122,6 +1125,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
         if non_next_pp:
+            logger.debug('Fails by non_next_pp')
             self.enqueue_pre_prepare(pp, sender)
             return False
 
