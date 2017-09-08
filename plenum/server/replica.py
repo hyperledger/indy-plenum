@@ -252,6 +252,11 @@ class Replica(HasActionQueue, MessageProcessor):
         # type: Dict[Tuple[int, int], Tuple[str, str, str]]
         self.requested_pre_prepares = {}
 
+        # Tracks for which keys PREPAREs have been requested.
+        # Cleared in `gc`
+        # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        self.requested_prepares = {}
+
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
         # reverted even if the PRE-PREPAREs are not ordered. This implies that
@@ -987,10 +992,12 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
             
-            # Requesting missing PP
+            # Requesting missing PP and Prepare
             for i in range(1, pp_seq_no - last_pp_seq_no):
                 logger.debug('Requesting PP for {}'.format(last_pp_seq_no + i))
-                self._request_pre_prepare((last_pp_view_no, last_pp_seq_no + i))
+                request_data = (last_pp_view_no, last_pp_seq_no + i)
+                self._request_pre_prepare(request_data)
+                self._request_prepare(request_data)
 
             self._setup_for_non_master()
             return False
@@ -1241,6 +1248,11 @@ class Replica(HasActionQueue, MessageProcessor):
         key = (viewNo, ppSeqNo)
         if key in self.sentPrePrepares:
             return self.sentPrePrepares[key]
+        # TODO: Why we need this?
+        return self.getPrepare(viewNo, ppSeqNo)
+
+    def getPrepare(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
         if key in self.prePrepares:
             return self.prePrepares[key]
 
@@ -1722,6 +1734,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.commits,
             self.batches,
             self.requested_pre_prepares,
+            self.requested_prepares,
             self.pre_prepares_stashed_for_incorrect_time,
         )
         for k in tpcKeys:
@@ -1997,6 +2010,25 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.requested_pre_prepares[three_pc_key] = stash_data
 
+    def _request_prepare(self, three_pc_key, recipients=None, stash_data=(None, None, None)) -> bool:
+        """
+        Request PP
+        """
+        if three_pc_key in self.requested_prepares:
+            logger.debug('{} not requesting a PREPARE since already '
+                         'requested for {}'.format(self, three_pc_key))
+            return False
+
+        # TODO: Using a timer to retry would be a better thing to do
+        logger.debug('{} requesting PREPARE({}) from {}'.
+                     format(self, three_pc_key, recipients))
+        self.node.request_msg(PREPARE, {f.INST_ID.nm: self.instId,
+                                        f.VIEW_NO.nm: three_pc_key[0],
+                                        f.PP_SEQ_NO.nm: three_pc_key[1]},
+                                        recipients)
+
+        self.requested_prepares[three_pc_key] = stash_data
+
     def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
         """
         Check if has an acceptable PRE_PREPARE already stashed, if not then
@@ -2074,6 +2106,32 @@ class Replica(HasActionQueue, MessageProcessor):
             self.discard(pp, reason='{}does not have expected state({} {} {})'.
                          format(THREE_PC_PREFIX, digest, state_root, txn_root),
                          logMethod=logger.warning)
+
+    def process_requested_prepare(self, prepare: Prepare, sender: str):
+        if prepare is None:
+            logger.debug('{} received null PREPARE from {}'.
+                         format(self, sender))
+            return
+        key = (prepare.viewNo, prepare.ppSeqNo)
+        logger.debug('{} received requested PREPARE({}) from {}'.
+                     format(self, key, sender))
+
+        if key not in self.requested_prepares:
+            logger.debug('{} had either not requested a PREPARE or already '
+                         'received a PREPARE for {}'.format(self, key))
+            return
+        if self.has_already_ordered(*key):
+            logger.debug(
+                '{} has already ordered PREPARE({})'.format(self, key))
+            return
+        if self.getPrepare(*key):
+            logger.debug(
+                '{} has already received PREPARE({})'.format(self, key))
+            return
+
+        digest, state_root, txn_root = self.requested_prepares[key]
+        # Add expected state check in the future
+        self.processThreePhaseMsg(prepare, sender)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """

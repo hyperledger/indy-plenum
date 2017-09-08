@@ -2,10 +2,10 @@ from typing import Dict
 from typing import List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, THREE_PC_PREFIX
+    PROPAGATE, THREE_PC_PREFIX, PREPARE
 from plenum.common.messages.fields import RequestIdentifierField
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
-    LedgerStatus, PrePrepare, ConsistencyProof, Propagate
+    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger
@@ -21,6 +21,7 @@ class MessageReqProcessor:
             LEDGER_STATUS: self._validate_requested_ledger_status,
             CONSISTENCY_PROOF: self._validate_requested_cons_proof,
             PREPREPARE: self._validate_requested_preprepare,
+            PREPARE: self._validate_requested_prepare,
             PROPAGATE: self._validate_requested_propagate
         }
 
@@ -28,6 +29,7 @@ class MessageReqProcessor:
             LEDGER_STATUS: self._serve_ledger_status_request,
             CONSISTENCY_PROOF: self._serve_cons_proof_request,
             PREPREPARE: self._serve_preprepare_request,
+            PREPARE: self._serve_prepare_request,
             PROPAGATE: self._serve_propagate_request
         }
 
@@ -35,6 +37,7 @@ class MessageReqProcessor:
             LEDGER_STATUS: self._process_requested_ledger_status,
             CONSISTENCY_PROOF: self._process_requested_cons_proof,
             PREPREPARE: self._process_requested_preprepare,
+            PREPARE: self._process_requested_prepare,
             PROPAGATE: self._process_requested_propagate
         }
 
@@ -188,6 +191,42 @@ class MessageReqProcessor:
             else:
                 return True
 
+    def _validate_requested_prepare(self, **kwargs):
+        if kwargs['inst_id'] in range(len(self.replicas)) and \
+                kwargs['view_no'] == self.viewNo and \
+                isinstance(kwargs['pp_seq_no'], int) and \
+                kwargs['pp_seq_no'] > 0:
+            if 'prepare' in kwargs:
+                try:
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
+                    prepare = Prepare(**kwargs['prepare'])
+                    if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
+                        logger.warning(
+                            '{}{} found PREPARE {} not satisfying query criteria' .format(
+                                THREE_PC_PREFIX, self, *kwargs['prepare']))
+                        return
+                    return prepare
+                except TypeError as ex:
+                    logger.warning(
+                        '{}{} could not create PREPARE out of {}'.
+                        format(THREE_PC_PREFIX, self, **kwargs['pp']))
+            else:
+                return True
+
+    def _serve_prepare_request(self, msg):
+        params = msg.params
+        inst_id = params.get(f.INST_ID.nm)
+        view_no = params.get(f.VIEW_NO.nm)
+        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
+        if self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
+                                    view_no=view_no, pp_seq_no=pp_seq_no):
+            return self.replicas[inst_id].getPrepare(view_no, pp_seq_no)
+        else:
+            self.discard(msg, 'cannot serve request',
+                         logMethod=logger.debug)
+            return False
+
     def _serve_preprepare_request(self, msg):
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
@@ -214,6 +253,24 @@ class MessageReqProcessor:
             frm = replica.Replica.generateName(frm, inst_id)
             self.replicas[inst_id].process_requested_pre_prepare(pp,
                                                                  sender=frm)
+            return
+        self.discard(msg,
+                     'cannot process requested message response',
+                     logMethod=logger.debug)
+
+    def _process_requested_prepare(self, msg, frm):
+        params = msg.params
+        inst_id = params.get(f.INST_ID.nm)
+        view_no = params.get(f.VIEW_NO.nm)
+        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
+        prepare = msg.msg
+        prepare = self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
+                                           view_no=view_no, pp_seq_no=pp_seq_no,
+                                           prepare=prepare)
+        if prepare:
+            frm = replica.Replica.generateName(frm, inst_id)
+            self.replicas[inst_id].process_requested_prepare(prepare,
+                                                             sender=frm)
             return
         self.discard(msg,
                      'cannot process requested message response',
