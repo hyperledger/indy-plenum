@@ -1,11 +1,11 @@
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    IterableField, NonEmptyStringField
+    IterableField, LimitedLengthStringField
 from plenum.common.messages.node_messages import ViewChangeDone
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("viewNo", NonNegativeNumberField),
-    ("name", NonEmptyStringField),
+    ("name", LimitedLengthStringField),
     ("ledgerInfo", IterableField)
 ])
 

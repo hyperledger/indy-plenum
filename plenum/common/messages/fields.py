@@ -5,7 +5,7 @@ import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
-
+from plenum.config import BLS_MULTI_SIG_LIMIT
 
 class FieldValidator(metaclass=ABCMeta):
     """"
@@ -120,11 +120,13 @@ class LimitedLengthStringField(FieldBase):
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
-class SignatureField(FieldBase):
+class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
 
     def _specific_validation(self, val):
+        if val and len(val) > 0:
+            return super()._specific_validation(val)
         return
 
 
@@ -335,10 +337,14 @@ class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
 
+    def __init__(self, max_length: int, **kwargs):
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = NonEmptyStringField().validate(val[0])
+        idr_error = LimitedLengthStringField(max_length=self._max_length).validate(val[0])
         if idr_error:
             return idr_error
         ts_error = NonNegativeNumberField().validate(val[1])
@@ -393,11 +399,14 @@ class TimestampField(FieldBase):
                 format(self._oldest_time, val)
 
 
-class JsonField(FieldBase):
+class JsonField(LimitedLengthStringField):
     _base_types = (str,)
 
     def _specific_validation(self, val):
         # TODO: Need a mechanism to ensure a non-empty JSON if needed
+        lim_str_err = super()._specific_validation(val)
+        if lim_str_err:
+            return lim_str_err
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
@@ -500,7 +509,7 @@ class BlsMultiSignatureField(FieldBase):
 
     def _specific_validation(self, val):
         participants, sig = val
-        err = NonEmptyStringField().validate(sig)
+        err = LimitedLengthStringField(max_length=BLS_MULTI_SIG_LIMIT).validate(sig)
         if err:
             return err
         err = IterableField(NonEmptyStringField()).validate(participants)

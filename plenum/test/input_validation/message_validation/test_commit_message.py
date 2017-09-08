@@ -1,13 +1,13 @@
 import pytest
 from plenum.common.messages.node_messages import Commit
 from collections import OrderedDict
-from plenum.common.messages.fields import NonNegativeNumberField, NonEmptyStringField
+from plenum.common.messages.fields import NonNegativeNumberField, LimitedLengthStringField
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
-    ("blsSig", NonEmptyStringField),
+    ("blsSig", LimitedLengthStringField),
 ])
 
 
