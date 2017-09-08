@@ -1397,7 +1397,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # can
         logger.debug('{} trying to order from out of order commits. {} {}'. format(
             self, self.ordered, self.stashed_out_of_order_commits))
-        logger.debug('last_ordered_3pc is {}'.fromat(self.last_ordered_3pc))
+        logger.debug('last_ordered_3pc is {}'.format(self.last_ordered_3pc))
         if self.last_ordered_3pc:
             lastOrdered = self.last_ordered_3pc
             vToRemove = set()
