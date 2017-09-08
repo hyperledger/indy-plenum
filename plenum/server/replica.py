@@ -1410,6 +1410,7 @@ class Replica(HasActionQueue, MessageProcessor):
                             self, self.stashed_out_of_order_commits[v], v, lastOrdered))
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
+                    logger.debug('stashed commit is p{}:v{}:{}'.format(p, v, commit))
                     if (v, p) in self.ordered:
                         pToRemove.add(p)
                         continue
