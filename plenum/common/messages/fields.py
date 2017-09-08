@@ -124,6 +124,11 @@ class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
 
+    def _specific_validation(self, val):
+        if val and len(val) > 0:
+            return super()._specific_validation(val)
+        return
+
 
 class RoleField(FieldBase):
     _base_types = (str, type(None))
