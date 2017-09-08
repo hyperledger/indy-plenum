@@ -984,11 +984,13 @@ class Replica(HasActionQueue, MessageProcessor):
         if pp_seq_no - last_pp_seq_no != 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
+            
             # Requesting missing PP
             for i in range(1, pp_seq_no - last_pp_seq_no):
                 logger.debug('Requesting PP for {}'.format(last_pp_seq_no + i))
                 self._request_pre_prepare((last_pp_view_no, last_pp_seq_no + i))
 
+            self._setup_for_non_master()
             return False
 
         return True
@@ -1395,6 +1397,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # can
         logger.debug('{} trying to order from out of order commits. {} {}'. format(
             self, self.ordered, self.stashed_out_of_order_commits))
+        logger.debug('last_ordered_3pc is {}'.fromat(self.last_ordered_3pc))
         if self.last_ordered_3pc:
             lastOrdered = self.last_ordered_3pc
             vToRemove = set()
