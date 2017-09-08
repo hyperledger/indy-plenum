@@ -15,7 +15,7 @@ class Quorums:
     def __init__(self, n):
         f = getMaxFailures(n)
         self.f = f
-        self.propagate = Quorum(f + 1)
+        self.propagate = Quorum(n - f - 1)
         self.prepare = Quorum(n - f - 1)
         self.commit = Quorum(n - f)
         self.reply = Quorum(f + 1)
