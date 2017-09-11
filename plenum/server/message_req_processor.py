@@ -198,11 +198,14 @@ class MessageReqProcessor:
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
                 kwargs['pp_seq_no'] > 0:
+            logger.debug('_validate_requested_prepare first if'
             if 'prepare' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
+                    logger.debug('_validate_requested_prepare create Prepare'
                     prepare = Prepare(**kwargs['prepare'])
+                    logger.debug('_validate_requested_prepare created {}'.format(prepare))
                     if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
                         logger.warning(
                             '{}{} found PREPARE {} not satisfying query criteria' .format(
