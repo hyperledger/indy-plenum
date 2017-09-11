@@ -981,7 +981,7 @@ class Replica(HasActionQueue, MessageProcessor):
             assert view_no == self.viewNo
             last_pp_seq_no = 0
 
-        if pp_seq_no - last_pp_seq_no != 1:
+        if pp_seq_no - last_pp_seq_no > 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
 
