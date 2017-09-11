@@ -38,7 +38,7 @@ if __name__ == "__main__":
         Logger().setupRaet(RAETVerbosity, RAETLogFile)
         print("You can find logs in {}".format(logFileName))
 
-        with Looper(debug=True) as looper:
+        with Looper(debug=config.LOOPER_DEBUG) as looper:
             node = Node(selfName, nodeRegistry=None, basedirpath=keepDir, ha=ha,
                         cliha=cliha)
             looper.add(node)
