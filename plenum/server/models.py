@@ -5,7 +5,6 @@ from typing import NamedTuple, Set, Optional
 
 from plenum.common.messages.node_messages import Prepare, Commit
 
-
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str])])
 
@@ -15,9 +14,10 @@ InsChgVotes = NamedTuple("InsChg", [
     ("voters", Set[str])])
 
 
-PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes',
-                                    ThreePhaseVotes._fields +
-                                    ('msg', Optional[Prepare]))
+PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes', [
+                                    ("voters", Set[str]),
+                                    ('msg', Optional[Prepare])
+                                    ])
 
 
 class TrackedMsgs(dict):
