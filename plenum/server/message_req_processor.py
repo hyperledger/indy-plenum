@@ -219,7 +219,7 @@ class MessageReqProcessor:
                 return True
 
     def _serve_request(self, msg, res_creator:
-                       Callable[[MessageReqProcessor, Dict[str, Any]], None],
+                       Callable[[object, Dict[str, Any]], None],
                        fields: Dict[str, str]) -> Any:
         params = {}
 
@@ -232,7 +232,7 @@ class MessageReqProcessor:
         self.discard(msg, 'cannot serve request', logMethod=logger.debug)
 
     def _process_requested(self, msg, processor:
-                           Callable[[MessageReqProcessor, Dict, Dict[str, Any]], None],
+                           Callable[[object, Dict, Dict[str, Any]], None],
                            fields: Dict[str, str]) -> Any:
         params = {}
 
