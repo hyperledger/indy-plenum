@@ -177,17 +177,17 @@ class MessageReqProcessor:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
-                    pp = PrePrepare(**kwargs['pp'])
+                    pp = PrePrepare(**kwargs['msg'])
                     if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
                         logger.warning(
                             '{}{} found PREPREPARE {} not satisfying query criteria' .format(
-                                THREE_PC_PREFIX, self, *kwargs['pp']))
+                                THREE_PC_PREFIX, self, *kwargs['msg']))
                         return
                     return pp
                 except TypeError as ex:
                     logger.warning(
                         '{}{} could not create PREPREPARE out of {}'.
-                        format(THREE_PC_PREFIX, self, **kwargs['pp']))
+                        format(THREE_PC_PREFIX, self, kwargs))
             else:
                 return True
 
@@ -203,7 +203,7 @@ class MessageReqProcessor:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
                     logger.debug('_validate_requested_prepare create Prepare')
-                    prepare = Prepare(**kwargs['prepare'])
+                    prepare = Prepare(**kwargs['msg'])
                     logger.debug('_validate_requested_prepare created {}'.format(prepare))
                     if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
                         logger.warning(
