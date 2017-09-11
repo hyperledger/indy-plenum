@@ -173,7 +173,7 @@ class MessageReqProcessor:
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
                 kwargs['pp_seq_no'] > 0:
-            if 'pp' in kwargs:
+            if 'msg' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
@@ -198,7 +198,7 @@ class MessageReqProcessor:
                 isinstance(kwargs['pp_seq_no'], int) and \
                 kwargs['pp_seq_no'] > 0:
             logger.debug('_validate_requested_prepare first if')
-            if 'prepare' in kwargs:
+            if 'msg' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
@@ -226,8 +226,6 @@ class MessageReqProcessor:
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        logger.debug(params)
-
         if self.valid_requested_msg(msg.msg_type, **params):
             return res_creator(self, params)
 
@@ -241,11 +239,9 @@ class MessageReqProcessor:
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        logger.debug(params)
-
-        validated_msg = self.valid_requested_msg(msg.msg_type, **params)
-        if validated_msg:
-            return processor(self, validated_msg, params)
+        valid_msg = self.valid_requested_msg(msg.msg_type, **params, msg=msg.msg)
+        if valid_msg:
+            return processor(self, valid_msg, params)
 
         self.discard(msg, 'cannot process requested message response',
                      logMethod=logger.debug)
