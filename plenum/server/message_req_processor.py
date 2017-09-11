@@ -215,7 +215,7 @@ class MessageReqProcessor:
                 except TypeError as ex:
                     logger.warning(
                         '{}{} could not create PREPARE out of {}'.
-                        format(THREE_PC_PREFIX, self, **kwargs['pp']))
+                        format(THREE_PC_PREFIX, self, **kwargs['prepare']))
             else:
                 return True
 
