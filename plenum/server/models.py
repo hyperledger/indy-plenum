@@ -6,18 +6,13 @@ from typing import NamedTuple, Set, Optional
 from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
-    ("voters", Set[str])])
+    ("voters", Set[str]),
+    ('msg', Optional[Prepare])])
 
 
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
     ("voters", Set[str])])
-
-
-PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes', [
-                                    ("voters", Set[str]),
-                                    ('msg', Optional[Prepare])
-                                    ])
 
 
 class TrackedMsgs(dict):
@@ -57,7 +52,7 @@ class Prepares(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return PrepareThreePhaseVotes(voters=set(), msg=msg)
+        return ThreePhaseVotes(voters=set(), msg=msg)
 
     def getKey(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
