@@ -1,13 +1,12 @@
-from typing import Dict, List, Callable, Any
+from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, THREE_PC_PREFIX, PREPARE
-from plenum.common.messages.fields import RequestIdentifierField
-from plenum.common.messages.node_messages import MessageReq, MessageRep, \
-    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare
+    PROPAGATE, PREPARE
+from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.types import f
-from plenum.server import replica
 from stp_core.common.log import getlogger
+from plenum.server.message_handlers import LedgerStatusHandler, \
+    ConsistencyProofHandler, PreprepareHandler, PrepareHandler, PropagateHandler
 
 
 logger = getlogger()
@@ -16,36 +15,12 @@ logger = getlogger()
 class MessageReqProcessor:
     # This is a mixin, it's mixed with node.
     def __init__(self):
-        self.validation_handlers = {
-            LEDGER_STATUS: self._validate_ledger_status,
-            CONSISTENCY_PROOF: self._validate_cons_proof,
-            PREPREPARE: self._validate_preprepare,
-            PREPARE: self._validate_prepare,
-            PROPAGATE: self._validate_propagate
-        }
-
-        self.creation_handlers = {
-            LEDGER_STATUS: self._create_ledger_status,
-            CONSISTENCY_PROOF: self._create_cons_proof,
-            PREPREPARE: self._create_preprepare,
-            PREPARE: self._create_prepare,
-            PROPAGATE: self._create_propagate
-        }
-
-        self.req_handlers = {
-            LEDGER_STATUS: self._serve_ledger_status_request,
-            CONSISTENCY_PROOF: self._serve_cons_proof_request,
-            PREPREPARE: self._serve_preprepare_request,
-            PREPARE: self._serve_prepare_request,
-            PROPAGATE: self._serve_propagate_request
-        }
-
-        self.rep_handlers = {
-            LEDGER_STATUS: self._process_requested_ledger_status,
-            CONSISTENCY_PROOF: self._process_requested_cons_proof,
-            PREPREPARE: self._process_requested_preprepare,
-            PREPARE: self._process_requested_prepare,
-            PROPAGATE: self._process_requested_propagate
+        self.handlers = {
+            LEDGER_STATUS: LedgerStatusHandler,
+            CONSISTENCY_PROOF: ConsistencyProofHandler,
+            PREPREPARE: PreprepareHandler,
+            PREPARE: PrepareHandler,
+            PROPAGATE: PropagateHandler
         }
 
     def process_message_req(self, msg: MessageReq, frm):
@@ -53,9 +28,10 @@ class MessageReqProcessor:
         # RPC architecture, use deques to communicate the message and node will
         # maintain a unique internal message id to correlate responses.
         msg_type = msg.msg_type
-        resp = self.req_handlers[msg_type](msg)
+        handler = self.handlers[msg_type](self)
+        resp = handler.serve(msg)
 
-        if resp is False:
+        if not resp:
             return
 
         self.sendToNodes(MessageRep(**{
@@ -70,234 +46,11 @@ class MessageReqProcessor:
             logger.debug('{} got null response for requested {} from {}'.
                          format(self, msg_type, frm))
             return
-        return self.rep_handlers[msg_type](msg, frm)
-
-    def validate_msg(self, msg_type, **kwargs):
-        return self.validation_handlers[msg_type](**kwargs)
-
-    def create_msg(self, msg_type, **kwargs):
-        try:
-            return self.creation_handlers[msg_type](**kwargs)
-        except TypeError as ex:
-            logger.warning('{} could not create {} out of {}'.
-                           format(self, msg_type, kwargs))
+        handler = self.handlers[msg_type](self)
+        return handler.process(msg, frm)
 
     def request_msg(self, typ, params: Dict, frm: List[str]=None):
         self.sendToNodes(MessageReq(**{
             f.MSG_TYPE.nm: typ,
             f.PARAMS.nm: params
         }), names=frm)
-
-    def _serve_request(self, msg, res_creator:
-                       Callable[[object, Dict[str, Any]], None],
-                       fields: Dict[str, str]) -> Any:
-        params = {}
-
-        for field_name, type_name in fields.items():
-            params[field_name] = msg.params.get(type_name)
-
-        if self.validate_msg(msg.msg_type, **params):
-            return res_creator(self, params)
-
-        self.discard(msg, 'cannot serve request', logMethod=logger.debug)
-
-    def _process_requested(self, msg, processor:
-                           Callable[[object, Dict, Dict[str, Any]], None],
-                           fields: Dict[str, str]) -> Any:
-        params = {}
-
-        for field_name, type_name in fields.items():
-            params[field_name] = msg.params.get(type_name)
-
-        if self.validate_msg(msg.msg_type, **params):
-            valid_msg = self.create_msg(msg.msg_type, **params, msg=msg.msg)
-            return processor(self, valid_msg, params)
-
-        self.discard(msg, 'cannot process requested message response',
-                     logMethod=logger.debug)
-
-    # TODO: move this validation into MessageBase validation.
-    def _validate_ledger_status(self, **kwargs):
-        return kwargs['ledger_id'] in self.ledger_ids
-
-    def _validate_cons_proof(self, **kwargs):
-        return kwargs['ledger_id'] in self.ledger_ids and \
-            (isinstance(kwargs['seq_no_start'], int) and kwargs[
-             'seq_no_start'] > 0) and \
-            (isinstance(kwargs['seq_no_end'], int) and kwargs[
-             'seq_no_end'] > 0)
-
-    def _validate_preprepare(self, **kwargs):
-        return kwargs['inst_id'] in range(len(self.replicas)) and \
-            kwargs['view_no'] == self.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
-
-    def _validate_prepare(self, **kwargs):
-        return kwargs['inst_id'] in range(len(self.replicas)) and \
-            kwargs['view_no'] == self.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
-
-    def _validate_propagate(self, **kwargs):
-        return not (RequestIdentifierField().validate((kwargs['identifier'],
-                    kwargs['req_id'])))
-
-    def _create_ledger_status(self, **kwargs):
-        return LedgerStatus(**kwargs['msg'])
-
-    def _create_cons_proof(self, **kwargs):
-        return ConsistencyProof(**kwargs['msg'])
-
-    def _create_preprepare(self, **kwargs):
-        pp = PrePrepare(**kwargs['msg'])
-        if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-            logger.warning(
-                '{}{} found PREPREPARE {} not satisfying query criteria' .format(
-                    THREE_PC_PREFIX, self, kwargs))
-            return
-        return pp
-
-    def _create_prepare(self, **kwargs):
-        prepare = Prepare(**kwargs['msg'])
-        if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
-            logger.warning(
-                '{}{} found PREPARE {} not satisfying query criteria' .format(
-                    THREE_PC_PREFIX, self, prepare))
-            return
-        return prepare
-
-    def _create_propagate(self, **kwargs):
-        ppg = Propagate(**kwargs['msg'])
-        if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-            logger.debug(
-                '{} found PROPAGATE {} not '
-                'satisfying query criteria'.format(
-                    self, kwargs))
-            return
-        return ppg
-
-    def _serve_ledger_status_request(self, msg):
-
-        def res_creator(self, params):
-            return self.getLedgerStatus(params['ledger_id'])
-
-        return self._serve_request(msg, res_creator, {
-            'ledger_id': f.LEDGER_ID.nm
-        })
-
-    def _serve_cons_proof_request(self, msg):
-
-        def res_creator(self, params):
-            return self.ledgerManager._buildConsistencyProof(
-                params['ledger_id'],
-                params['seq_no_start'],
-                params['seq_no_end'])
-
-        return self._serve_request(msg, res_creator, {
-            'ledger_id': f.LEDGER_ID.nm,
-            'seq_no_start': f.SEQ_NO_START.nm,
-            'seq_no_end': f.SEQ_NO_END.nm
-        })
-
-    def _serve_prepare_request(self, msg):
-
-        def res_creator(self, params):
-            return self.replicas[params['inst_id']].get_prepare(
-                params['view_no'], params['pp_seq_no'])
-
-        return self._serve_request(msg, res_creator, {
-            'inst_id': f.INST_ID.nm,
-            'view_no': f.VIEW_NO.nm,
-            'pp_seq_no': f.PP_SEQ_NO.nm
-        })
-
-    def _serve_preprepare_request(self, msg):
-
-        def res_creator(self, params):
-            return self.replicas[params['inst_id']].getPrePrepare(
-                params['view_no'], params['pp_seq_no'])
-
-        return self._serve_request(msg, res_creator, {
-            'inst_id': f.INST_ID.nm,
-            'view_no': f.VIEW_NO.nm,
-            'pp_seq_no': f.PP_SEQ_NO.nm
-        })
-
-    def _serve_propagate_request(self, msg):
-
-        def res_creator(self, params):
-            req_key = (params['identifier'], params['req_id'])
-            if req_key in self.requests and self.requests[req_key].finalised:
-                sender_client = self.requestSender.get(req_key)
-                req = self.requests[req_key].finalised
-                return self.createPropagate(req, sender_client)
-
-        return self._serve_request(msg, res_creator, {
-            'identifier': f.IDENTIFIER.nm,
-            'req_id': f.REQ_ID.nm
-        })
-
-    def _process_requested_ledger_status(self, msg, frm):
-
-        def processor(self, validated_msg, params):
-            nonlocal frm
-            self.ledgerManager.processLedgerStatus(validated_msg, frm=frm)
-
-        return self._process_requested(msg, processor, {
-            'ledger_id': f.LEDGER_ID.nm
-        })
-
-    def _process_requested_cons_proof(self, msg, frm):
-
-        def processor(self, validated_msg, params):
-            nonlocal frm
-            self.ledgerManager.processConsistencyProof(validated_msg, frm=frm)
-
-        return self._process_requested(msg, processor, {
-            'ledger_id': f.LEDGER_ID.nm,
-            'seq_no_start': f.SEQ_NO_START.nm,
-            'seq_no_end': f.SEQ_NO_END.nm
-        })
-
-    def _process_requested_preprepare(self, msg, frm):
-
-        def processor(self, validated_msg, params):
-            nonlocal frm
-            inst_id = params['inst_id']
-            frm = replica.Replica.generateName(frm, inst_id)
-            self.replicas[inst_id].process_requested_pre_prepare(validated_msg,
-                                                                 sender=frm)
-
-        return self._process_requested(msg, processor, {
-            'inst_id': f.INST_ID.nm,
-            'view_no': f.VIEW_NO.nm,
-            'pp_seq_no': f.PP_SEQ_NO.nm
-        })
-
-    def _process_requested_prepare(self, msg, frm):
-
-        def processor(self, validated_msg, params):
-            nonlocal frm
-            inst_id = params['inst_id']
-            frm = replica.Replica.generateName(frm, inst_id)
-            self.replicas[inst_id].process_requested_prepare(validated_msg,
-                                                             sender=frm)
-
-        return self._process_requested(msg, processor, {
-            'inst_id': f.INST_ID.nm,
-            'view_no': f.VIEW_NO.nm,
-            'pp_seq_no': f.PP_SEQ_NO.nm
-        })
-
-    def _process_requested_propagate(self, msg, frm):
-
-        def processor(self, validated_msg, params):
-            nonlocal frm
-            self.processPropagate(validated_msg, frm)
-
-        return self._process_requested(msg, processor, {
-            'identifier': f.IDENTIFIER.nm,
-            'req_id': f.REQ_ID.nm
-        })
