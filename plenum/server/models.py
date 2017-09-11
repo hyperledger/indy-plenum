@@ -7,21 +7,16 @@ from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str]),
-    ('msg', Optional[Any])])
-
-
-InsChgVotes = NamedTuple("InsChg", [
-    ("viewNo", int),
-    ("voters", Set[str])])
+    ("msg", Optional[Any])])
 
 
 class TrackedMsgs(dict):
 
-    def newVoteMsg(self, msg):
-        raise NotImplementedError
-
     def getKey(self, msg):
         raise NotImplementedError
+
+    def newVoteMsg(self, msg):
+        return ThreePhaseVotes(voters=set(), msg=msg)
 
     def addMsg(self, msg, voter: str):
         key = self.getKey(msg)
@@ -50,9 +45,6 @@ class Prepares(TrackedMsgs):
     replica names in case of multiple protocol instances)
     (viewNo, seqNo) -> (digest, {senders})
     """
-
-    def newVoteMsg(self, msg):
-        return ThreePhaseVotes(voters=set(), msg=msg)
 
     def getKey(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
@@ -87,9 +79,6 @@ class Commits(TrackedMsgs):
     tuple containing request digest and set of sender node names(sender
     replica names in case of multiple protocol instances)
     """
-
-    def newVoteMsg(self, msg):
-        return ThreePhaseVotes(set())
 
     def getKey(self, commit):
         return commit.viewNo, commit.ppSeqNo
@@ -126,9 +115,6 @@ class InstanceChanges(TrackedMsgs):
     different suspicions on different nodes, its ok to consider all suspicions
     that can trigger a view change as equal
     """
-
-    def newVoteMsg(self, msg):
-        return InsChgVotes(msg.viewNo, set())
 
     def getKey(self, msg):
         return msg if isinstance(msg, int) else msg.viewNo
