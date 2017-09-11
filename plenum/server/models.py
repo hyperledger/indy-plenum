@@ -16,7 +16,7 @@ InsChgVotes = NamedTuple("InsChg", [
 
 PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes',
                                     ThreePhaseVotes._fields + [
-                                        ('msg', Optional(Prepare))
+                                        ('msg', Optional[Prepare])
                                     ])
 
 
