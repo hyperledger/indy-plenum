@@ -73,9 +73,37 @@ class MessageReqProcessor:
             f.PARAMS.nm: params
         }), names=frm)
 
+    def _serve_request(self, msg, res_creator:
+                       Callable[[object, Dict[str, Any]], None],
+                       fields: Dict[str, str]) -> Any:
+        params = {}
+
+        for field_name, type_name in fields.items():
+            params[field_name] = msg.params.get(type_name)
+
+        if self.valid_requested_msg(msg.msg_type, **params):
+            return res_creator(self, params)
+
+        self.discard(msg, 'cannot serve request', logMethod=logger.debug)
+
+    def _process_requested(self, msg, processor:
+                           Callable[[object, Dict, Dict[str, Any]], None],
+                           fields: Dict[str, str]) -> Any:
+        params = {}
+
+        for field_name, type_name in fields.items():
+            params[field_name] = msg.params.get(type_name)
+
+        valid_msg = self.valid_requested_msg(msg.msg_type, **params, msg=msg.msg)
+        if valid_msg:
+            return processor(self, valid_msg, params)
+
+        self.discard(msg, 'cannot process requested message response',
+                     logMethod=logger.debug)
+
     def _validate_requested_ledger_status(self, **kwargs):
         if kwargs['ledger_id'] in self.ledger_ids:
-            if 'ledger_status' in kwargs:
+            if 'msg' in kwargs:
                 try:
                     # TODO: move this validation into MessageBase validation.
                     # TODO: avoid duplication of code here: create an instance of requested class in a one place (a factory?)
@@ -83,37 +111,13 @@ class MessageReqProcessor:
 
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
-                    return LedgerStatus(**kwargs['ledger_status'])
+                    return LedgerStatus(**kwargs['msg'])
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create LEDGER_STATUS out of {}'.
-                        format(self, **kwargs['ledger_status']))
+                        format(self, kwargs))
             else:
                 return True
-
-    def _serve_ledger_status_request(self, msg):
-        params = msg.params
-        ledger_id = params.get(f.LEDGER_ID.nm)
-        if self.valid_requested_msg(msg.msg_type, ledger_id=ledger_id):
-            return self.getLedgerStatus(ledger_id)
-        else:
-            self.discard(msg, 'cannot serve request',
-                         logMethod=logger.debug)
-            return False
-
-    def _process_requested_ledger_status(self, msg, frm):
-        params = msg.params
-        ledger_id = params.get(f.LEDGER_ID.nm)
-        ledger_status = msg.msg
-        ledger_status = self.valid_requested_msg(msg.msg_type,
-                                                 ledger_id=ledger_id,
-                                                 ledger_status=ledger_status)
-        if ledger_status:
-            self.ledgerManager.processLedgerStatus(ledger_status, frm=frm)
-            return
-        self.discard(msg,
-                     'cannot process requested message response',
-                     logMethod=logger.debug)
 
     def _validate_requested_cons_proof(self, **kwargs):
         if kwargs['ledger_id'] in self.ledger_ids and \
@@ -121,51 +125,17 @@ class MessageReqProcessor:
                     'seq_no_start'] > 0) and \
                 (isinstance(kwargs['seq_no_end'], int) and kwargs[
                     'seq_no_end'] > 0):
-            if 'cons_proof' in kwargs:
+            if 'msg' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
-                    return ConsistencyProof(**kwargs['cons_proof'])
+                    return ConsistencyProof(**kwargs['msg'])
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create CONSISTENCY_PROOF out of {}'.
-                        format(self, **kwargs['cons_proof']))
+                        format(self, kwargs))
             else:
                 return True
-
-    def _serve_cons_proof_request(self, msg):
-        params = msg.params
-        ledger_id = params.get(f.LEDGER_ID.nm)
-        seq_no_start = params.get(f.SEQ_NO_START.nm)
-        seq_no_end = params.get(f.SEQ_NO_END.nm)
-        if self.valid_requested_msg(msg.msg_type, ledger_id=ledger_id,
-                                    seq_no_start=seq_no_start,
-                                    seq_no_end=seq_no_end):
-            return self.ledgerManager._buildConsistencyProof(ledger_id,
-                                                             seq_no_start,
-                                                             seq_no_end)
-        else:
-            self.discard(msg, 'cannot serve request',
-                         logMethod=logger.debug)
-            return False
-
-    def _process_requested_cons_proof(self, msg, frm):
-        params = msg.params
-        ledger_id = params.get(f.LEDGER_ID.nm)
-        seq_no_start = params.get(f.SEQ_NO_START.nm)
-        seq_no_end = params.get(f.SEQ_NO_END.nm)
-        cons_proof = msg.msg
-        cons_proof = self.valid_requested_msg(msg.msg_type,
-                                              ledger_id=ledger_id,
-                                              seq_no_start=seq_no_start,
-                                              seq_no_end=seq_no_end,
-                                              cons_proof=cons_proof)
-        if cons_proof:
-            self.ledgerManager.processConsistencyProof(cons_proof, frm=frm)
-            return
-        self.discard(msg,
-                     'cannot process requested message response',
-                     logMethod=logger.debug)
 
     def _validate_requested_preprepare(self, **kwargs):
         if kwargs['inst_id'] in range(len(self.replicas)) and \
@@ -213,33 +183,51 @@ class MessageReqProcessor:
             else:
                 return True
 
-    def _serve_request(self, msg, res_creator:
-                       Callable[[object, Dict[str, Any]], None],
-                       fields: Dict[str, str]) -> Any:
-        params = {}
+    def _validate_requested_propagate(self, **kwargs):
+        if not (RequestIdentifierField().validate((kwargs['identifier'],
+                                                   kwargs['req_id']))):
+            if 'msg' in kwargs:
+                try:
+                    # the input is expected as a dict (serialization with
+                    # ujson==1.33)
+                    ppg = Propagate(**kwargs['msg'])
+                    if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
+                            ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+                        logger.debug(
+                            '{} found PROPAGATE {} not '
+                            'satisfying query criteria'.format(
+                                self, kwargs))
+                        return
+                    return ppg
+                except TypeError as ex:
+                    logger.warning(
+                        '{} could not create PROPAGATE out of {}'.
+                        format(self, kwargs))
+            else:
+                return True
 
-        for field_name, type_name in fields.items():
-            params[field_name] = msg.params.get(type_name)
+    def _serve_ledger_status_request(self, msg):
 
-        if self.valid_requested_msg(msg.msg_type, **params):
-            return res_creator(self, params)
+        def res_creator(self, params):
+            return self.getLedgerStatus(params['ledger_id'])
 
-        self.discard(msg, 'cannot serve request', logMethod=logger.debug)
+        return self._serve_request(msg, res_creator, {
+            'ledger_id': f.LEDGER_ID.nm
+        })
 
-    def _process_requested(self, msg, processor:
-                           Callable[[object, Dict, Dict[str, Any]], None],
-                           fields: Dict[str, str]) -> Any:
-        params = {}
+    def _serve_cons_proof_request(self, msg):
 
-        for field_name, type_name in fields.items():
-            params[field_name] = msg.params.get(type_name)
+        def res_creator(self, params):
+            return self.ledgerManager._buildConsistencyProof(
+                params['ledger_id'],
+                params['seq_no_start'],
+                params['seq_no_end'])
 
-        valid_msg = self.valid_requested_msg(msg.msg_type, **params, msg=msg.msg)
-        if valid_msg:
-            return processor(self, valid_msg, params)
-
-        self.discard(msg, 'cannot process requested message response',
-                     logMethod=logger.debug)
+        return self._serve_request(msg, res_creator, {
+            'ledger_id': f.LEDGER_ID.nm,
+            'seq_no_start': f.SEQ_NO_START.nm,
+            'seq_no_end': f.SEQ_NO_END.nm
+        })
 
     def _serve_prepare_request(self, msg):
 
@@ -263,6 +251,42 @@ class MessageReqProcessor:
             'inst_id': f.INST_ID.nm,
             'view_no': f.VIEW_NO.nm,
             'pp_seq_no': f.PP_SEQ_NO.nm
+        })
+
+    def _serve_propagate_request(self, msg):
+
+        def res_creator(self, params):
+            req_key = (params['identifier'], params['req_id'])
+            if req_key in self.requests and self.requests[req_key].finalised:
+                sender_client = self.requestSender.get(req_key)
+                req = self.requests[req_key].finalised
+                return self.createPropagate(req, sender_client)
+
+        return self._serve_request(msg, res_creator, {
+            'identifier': f.IDENTIFIER.nm,
+            'req_id': f.REQ_ID.nm
+        })
+
+    def _process_requested_ledger_status(self, msg, frm):
+
+        def processor(self, validated_msg, params):
+            nonlocal frm
+            self.ledgerManager.processLedgerStatus(validated_msg, frm=frm)
+
+        return self._process_requested(msg, processor, {
+            'ledger_id': f.LEDGER_ID.nm
+        })
+
+    def _process_requested_cons_proof(self, msg, frm):
+
+        def processor(self, validated_msg, params):
+            nonlocal frm
+            self.ledgerManager.processConsistencyProof(validated_msg, frm=frm)
+
+        return self._process_requested(msg, processor, {
+            'ledger_id': f.LEDGER_ID.nm,
+            'seq_no_start': f.SEQ_NO_START.nm,
+            'seq_no_end': f.SEQ_NO_END.nm
         })
 
     def _process_requested_preprepare(self, msg, frm):
@@ -295,55 +319,13 @@ class MessageReqProcessor:
             'pp_seq_no': f.PP_SEQ_NO.nm
         })
 
-    def _validate_requested_propagate(self, **kwargs):
-        if not (RequestIdentifierField().validate((kwargs['identifier'],
-                                                   kwargs['req_id']))):
-            if 'propagate' in kwargs:
-                try:
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    ppg = Propagate(**kwargs['propagate'])
-                    if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                            ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-                        logger.debug(
-                            '{} found PROPAGATE {} not '
-                            'satisfying query criteria'.format(
-                                self, *kwargs['ppg']))
-                        return
-                    return ppg
-                except TypeError as ex:
-                    logger.warning(
-                        '{} could not create PROPAGATE out of {}'.
-                        format(self, **kwargs['propagate']))
-            else:
-                return True
-
-    def _serve_propagate_request(self, msg):
-        params = msg.params
-        identifier = params.get(f.IDENTIFIER.nm)
-        req_id = params.get(f.REQ_ID.nm)
-        if self.valid_requested_msg(msg.msg_type, identifier=identifier,
-                                    req_id=req_id):
-            req_key = (identifier, req_id)
-            if req_key in self.requests and self.requests[req_key].finalised:
-                sender_client = self.requestSender.get(req_key)
-                req = self.requests[req_key].finalised
-                return self.createPropagate(req, sender_client)
-        else:
-            self.discard(msg, 'cannot serve request',
-                         logMethod=logger.debug)
-            return False
-
     def _process_requested_propagate(self, msg, frm):
-        params = msg.params
-        identifier = params.get(f.IDENTIFIER.nm)
-        req_id = params.get(f.REQ_ID.nm)
-        ppg = msg.msg
-        ppg = self.valid_requested_msg(msg.msg_type, identifier=identifier,
-                                       req_id=req_id, propagate=ppg)
-        if ppg:
-            self.processPropagate(ppg, frm)
-        else:
-            self.discard(msg,
-                         'cannot process requested message response',
-                         logMethod=logger.debug)
+
+        def processor(self, validated_msg, params):
+            nonlocal frm
+            self.processPropagate(validated_msg, frm)
+
+        return self._process_requested(msg, processor, {
+            'identifier': f.IDENTIFIER.nm,
+            'req_id': f.REQ_ID.nm
+        })
