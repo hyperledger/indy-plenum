@@ -5,6 +5,7 @@ from typing import NamedTuple, Set, Optional
 
 from plenum.common.messages.node_messages import Prepare, Commit
 
+
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str])])
 
