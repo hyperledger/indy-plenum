@@ -33,7 +33,6 @@ class TrackedMsgs(dict):
         if key not in self:
             self[key] = self.newVoteMsg(msg)
         self[key].voters.add(voter)
-        return self[key]
 
     def hasMsg(self, msg) -> bool:
         key = self.getKey(msg)
@@ -58,7 +57,7 @@ class Prepares(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return PrepareThreePhaseVotes(voters=set(), msg=None)
+        return PrepareThreePhaseVotes(voters=set(), msg=msg)
 
     def getKey(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
@@ -73,11 +72,6 @@ class Prepares(TrackedMsgs):
         :param voter: the name of the node who sent the PREPARE
         """
         self.addMsg(prepare, voter)
-
-    def addMsg(self, msg, voter: str):
-        el = super().addMsg(msg, voter)
-        if not el.msg:
-            el.msg = msg
 
     # noinspection PyMethodMayBeStatic
     def hasPrepare(self, prepare: Prepare) -> bool:
