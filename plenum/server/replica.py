@@ -1411,7 +1411,7 @@ class Replica(HasActionQueue, MessageProcessor):
                     if (v, p) in self.ordered:
                         pToRemove.add(p)
                         continue
-                    if (v == lastOrdered[0] and lastOrdered[1] < p) or \
+                    if (v == lastOrdered[0] and lastOrdered == (v, p - 1)) or \
                             (v > lastOrdered[0] and self.isLowestCommitInView(commit)):
                         logger.debug("{} ordering stashed commit {}".
                                      format(self, commit))
