@@ -14,7 +14,7 @@ from sortedcontainers import SortedList
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
