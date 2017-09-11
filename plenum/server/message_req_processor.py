@@ -17,11 +17,19 @@ class MessageReqProcessor:
     # This is a mixin, it's mixed with node.
     def __init__(self):
         self.validation_handlers = {
-            LEDGER_STATUS: self._validate_requested_ledger_status,
-            CONSISTENCY_PROOF: self._validate_requested_cons_proof,
-            PREPREPARE: self._validate_requested_preprepare,
-            PREPARE: self._validate_requested_prepare,
-            PROPAGATE: self._validate_requested_propagate
+            LEDGER_STATUS: self._validate_ledger_status,
+            CONSISTENCY_PROOF: self._validate_cons_proof,
+            PREPREPARE: self._validate_preprepare,
+            PREPARE: self._validate_prepare,
+            PROPAGATE: self._validate_propagate
+        }
+
+        self.creation_handlers = {
+            LEDGER_STATUS: self._create_ledger_status,
+            CONSISTENCY_PROOF: self._create_cons_proof,
+            PREPREPARE: self._create_preprepare,
+            PREPARE: self._create_prepare,
+            PROPAGATE: self._create_propagate
         }
 
         self.req_handlers = {
@@ -64,8 +72,15 @@ class MessageReqProcessor:
             return
         return self.rep_handlers[msg_type](msg, frm)
 
-    def valid_requested_msg(self, msg_type, **kwargs):
+    def validate_msg(self, msg_type, **kwargs):
         return self.validation_handlers[msg_type](**kwargs)
+
+    def create_msg(self, msg_type, **kwargs):
+        try:
+            return self.creation_handlers[msg_type](**kwargs)
+        except TypeError as ex:
+            logger.warning('{} could not create {} out of {}'.
+                           format(self, msg_type, kwargs))
 
     def request_msg(self, typ, params: Dict, frm: List[str]=None):
         self.sendToNodes(MessageReq(**{
@@ -81,7 +96,7 @@ class MessageReqProcessor:
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        if self.valid_requested_msg(msg.msg_type, **params):
+        if self.validate_msg(msg.msg_type, **params):
             return res_creator(self, params)
 
         self.discard(msg, 'cannot serve request', logMethod=logger.debug)
@@ -94,117 +109,74 @@ class MessageReqProcessor:
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        valid_msg = self.valid_requested_msg(msg.msg_type, **params, msg=msg.msg)
-        if valid_msg:
+        if self.validate_msg(msg.msg_type, **params):
+            valid_msg = self.create_msg(msg.msg_type, **params, msg=msg.msg)
             return processor(self, valid_msg, params)
 
         self.discard(msg, 'cannot process requested message response',
                      logMethod=logger.debug)
 
-    def _validate_requested_ledger_status(self, **kwargs):
-        if kwargs['ledger_id'] in self.ledger_ids:
-            if 'msg' in kwargs:
-                try:
-                    # TODO: move this validation into MessageBase validation.
-                    # TODO: avoid duplication of code here: create an instance of requested class in a one place (a factory?)
-                    # depending on the msg_type
+    # TODO: move this validation into MessageBase validation.
+    def _validate_ledger_status(self, **kwargs):
+        return kwargs['ledger_id'] in self.ledger_ids
 
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    return LedgerStatus(**kwargs['msg'])
-                except TypeError as ex:
-                    logger.warning(
-                        '{} could not create LEDGER_STATUS out of {}'.
-                        format(self, kwargs))
-            else:
-                return True
+    def _validate_cons_proof(self, **kwargs):
+        return kwargs['ledger_id'] in self.ledger_ids and \
+            (isinstance(kwargs['seq_no_start'], int) and kwargs[
+             'seq_no_start'] > 0) and \
+            (isinstance(kwargs['seq_no_end'], int) and kwargs[
+             'seq_no_end'] > 0)
 
-    def _validate_requested_cons_proof(self, **kwargs):
-        if kwargs['ledger_id'] in self.ledger_ids and \
-                (isinstance(kwargs['seq_no_start'], int) and kwargs[
-                    'seq_no_start'] > 0) and \
-                (isinstance(kwargs['seq_no_end'], int) and kwargs[
-                    'seq_no_end'] > 0):
-            if 'msg' in kwargs:
-                try:
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    return ConsistencyProof(**kwargs['msg'])
-                except TypeError as ex:
-                    logger.warning(
-                        '{} could not create CONSISTENCY_PROOF out of {}'.
-                        format(self, kwargs))
-            else:
-                return True
+    def _validate_preprepare(self, **kwargs):
+        return kwargs['inst_id'] in range(len(self.replicas)) and \
+            kwargs['view_no'] == self.viewNo and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+            kwargs['pp_seq_no'] > 0
 
-    def _validate_requested_preprepare(self, **kwargs):
-        if kwargs['inst_id'] in range(len(self.replicas)) and \
-                kwargs['view_no'] == self.viewNo and \
-                isinstance(kwargs['pp_seq_no'], int) and \
-                kwargs['pp_seq_no'] > 0:
-            if 'msg' in kwargs:
-                try:
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    pp = PrePrepare(**kwargs['msg'])
-                    if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-                        logger.warning(
-                            '{}{} found PREPREPARE {} not satisfying query criteria' .format(
-                                THREE_PC_PREFIX, self, *kwargs['msg']))
-                        return
-                    return pp
-                except TypeError as ex:
-                    logger.warning(
-                        '{}{} could not create PREPREPARE out of {}'.
-                        format(THREE_PC_PREFIX, self, kwargs))
-            else:
-                return True
+    def _validate_prepare(self, **kwargs):
+        return kwargs['inst_id'] in range(len(self.replicas)) and \
+            kwargs['view_no'] == self.viewNo and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+            kwargs['pp_seq_no'] > 0
 
-    def _validate_requested_prepare(self, **kwargs):
-        if kwargs['inst_id'] in range(len(self.replicas)) and \
-                kwargs['view_no'] == self.viewNo and \
-                isinstance(kwargs['pp_seq_no'], int) and \
-                kwargs['pp_seq_no'] > 0:
-            if 'msg' in kwargs:
-                try:
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    prepare = Prepare(**kwargs['msg'])
-                    if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
-                        logger.warning(
-                            '{}{} found PREPARE {} not satisfying query criteria' .format(
-                                THREE_PC_PREFIX, self, prepare))
-                        return
-                    return prepare
-                except TypeError as ex:
-                    logger.warning(
-                        '{}{} could not create PREPARE out of {}'.
-                        format(THREE_PC_PREFIX, self, kwargs))
-            else:
-                return True
+    def _validate_propagate(self, **kwargs):
+        return not (RequestIdentifierField().validate((kwargs['identifier'],
+                    kwargs['req_id'])))
 
-    def _validate_requested_propagate(self, **kwargs):
-        if not (RequestIdentifierField().validate((kwargs['identifier'],
-                                                   kwargs['req_id']))):
-            if 'msg' in kwargs:
-                try:
-                    # the input is expected as a dict (serialization with
-                    # ujson==1.33)
-                    ppg = Propagate(**kwargs['msg'])
-                    if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                            ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
-                        logger.debug(
-                            '{} found PROPAGATE {} not '
-                            'satisfying query criteria'.format(
-                                self, kwargs))
-                        return
-                    return ppg
-                except TypeError as ex:
-                    logger.warning(
-                        '{} could not create PROPAGATE out of {}'.
-                        format(self, kwargs))
-            else:
-                return True
+    def _create_ledger_status(self, **kwargs):
+        return LedgerStatus(**kwargs['msg'])
+
+    def _create_cons_proof(self, **kwargs):
+        return ConsistencyProof(**kwargs['msg'])
+
+    def _create_preprepare(self, **kwargs):
+        pp = PrePrepare(**kwargs['msg'])
+        if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
+            logger.warning(
+                '{}{} found PREPREPARE {} not satisfying query criteria' .format(
+                    THREE_PC_PREFIX, self, kwargs))
+            return
+        return pp
+
+    def _create_prepare(self, **kwargs):
+        prepare = Prepare(**kwargs['msg'])
+        if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
+            logger.warning(
+                '{}{} found PREPARE {} not satisfying query criteria' .format(
+                    THREE_PC_PREFIX, self, prepare))
+            return
+        return prepare
+
+    def _create_propagate(self, **kwargs):
+        ppg = Propagate(**kwargs['msg'])
+        if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
+                ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+            logger.debug(
+                '{} found PROPAGATE {} not '
+                'satisfying query criteria'.format(
+                    self, kwargs))
+            return
+        return ppg
 
     def _serve_ledger_status_request(self, msg):
 
