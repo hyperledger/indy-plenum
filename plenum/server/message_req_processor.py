@@ -217,7 +217,7 @@ class MessageReqProcessor:
                 return True
 
     def _serve_prepare_request(self, msg):
-        logger.debug('_serve_prepare_request {} {}'.format(msg))
+        logger.debug('_serve_prepare_request {}'.format(msg))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
