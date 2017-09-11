@@ -1998,7 +1998,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
                                            f.VIEW_NO.nm: three_pc_key[0],
                                            f.PP_SEQ_NO.nm: three_pc_key[1]},
-                                           recipients)
+                              recipients)
 
         self.requested_pre_prepares[three_pc_key] = stash_data
 
@@ -2017,7 +2017,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.node.request_msg(PREPARE, {f.INST_ID.nm: self.instId,
                                         f.VIEW_NO.nm: three_pc_key[0],
                                         f.PP_SEQ_NO.nm: three_pc_key[1]},
-                                        recipients)
+                              recipients)
 
         self.requested_prepares[three_pc_key] = stash_data
 
