@@ -12,7 +12,7 @@ from plenum.test.pool_transactions.helper import \
 logger = getlogger()
 
 
-def test_node_requests_missing_three_phase_messages(tconf, txnPoolNodeSet, looper, wallet, client):
+def test_node_requests_missing_three_phase_messages(tconf, txnPoolNodeSet, looper, wallet1, client1Connected):
     """
     2 of 4 nodes go down, so pool can not process any more incoming requests.
     A new request comes in. After a while those 2 nodes come back alive.
@@ -26,13 +26,13 @@ def test_node_requests_missing_three_phase_messages(tconf, txnPoolNodeSet, loope
     disconnected_nodes = txnPoolNodeSet[2:]
     alive_nodes = txnPoolNodeSet[:2]
 
-    send_reqs_to_nodes_and_verify_all_replies(wallet, client, INIT_REQS_CNT)
+    send_reqs_to_nodes_and_verify_all_replies(wallet1, client1Connected, INIT_REQS_CNT)
     waitNodeDataEquality(looper, disconnected_nodes[0], *txnPoolNodeSet[:-1])
 
     for node in disconnected_nodes:
         disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node)
 
-    sendRandomRequests(wallet, client, MISSING_REQS_CNT)
+    sendRandomRequests(wallet1, client1Connected, MISSING_REQS_CNT)
 
     def check_pp_out_of_sync(alive_nodes, disconnected_nodes):
 
@@ -58,7 +58,7 @@ def test_node_requests_missing_three_phase_messages(tconf, txnPoolNodeSet, loope
     for node in disconnected_nodes:
         reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
 
-    send_reqs_to_nodes_and_verify_all_replies(wallet, client, REQS_AFTER_RECONNECT_CNT)
+    send_reqs_to_nodes_and_verify_all_replies(wallet1, client1Connected, REQS_AFTER_RECONNECT_CNT)
     waitNodeDataEquality(looper, disconnected_nodes[0], *txnPoolNodeSet[:-1])
 
     for node in txnPoolNodeSet:
