@@ -226,6 +226,8 @@ class MessageReqProcessor:
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
 
+        logger.debug(params)
+
         if self.valid_requested_msg(msg.msg_type, **params):
             return res_creator(self, params)
 
@@ -238,6 +240,8 @@ class MessageReqProcessor:
 
         for field_name, type_name in fields.items():
             params[field_name] = msg.params.get(type_name)
+
+        logger.debug(params)
 
         validated_msg = self.valid_requested_msg(msg.msg_type, **params)
         if validated_msg:
