@@ -1,5 +1,4 @@
-from typing import Dict
-from typing import List
+from typing import Dict, List, Callable, Any
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, THREE_PC_PREFIX, PREPARE
@@ -219,71 +218,87 @@ class MessageReqProcessor:
             else:
                 return True
 
+    def _serve_request(self, msg, res_creator:
+                       Callable[[MessageReqProcessor, Dict[str, Any]], None],
+                       fields: Dict[str, str]) -> Any:
+        params = {}
+
+        for field_name, type_name in fields.items():
+            params[field_name] = msg.params.get(type_name)
+
+        if self.valid_requested_msg(msg.msg_type, **params):
+            return res_creator(self, params)
+
+        self.discard(msg, 'cannot serve request', logMethod=logger.debug)
+
+    def _process_requested(self, msg, processor:
+                           Callable[[MessageReqProcessor, Dict, Dict[str, Any]], None],
+                           fields: Dict[str, str]) -> Any:
+        params = {}
+
+        for field_name, type_name in fields.items():
+            params[field_name] = msg.params.get(type_name)
+
+        validated_msg = self.valid_requested_msg(msg.msg_type, **params)
+        if validated_msg:
+            return processor(self, validated_msg, params)
+
+        self.discard(msg, 'cannot process requested message response',
+                     logMethod=logger.debug)
+
     def _serve_prepare_request(self, msg):
-        logger.debug('_serve_prepare_request {}'.format(msg))
-        params = msg.params
-        inst_id = params.get(f.INST_ID.nm)
-        view_no = params.get(f.VIEW_NO.nm)
-        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
-        if self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
-                                    view_no=view_no, pp_seq_no=pp_seq_no):
-            return self.replicas[inst_id].get_prepare(view_no, pp_seq_no)
-        else:
-            self.discard(msg, 'cannot serve request',
-                         logMethod=logger.debug)
-            return False
+
+        def res_creator(self, params):
+            return self.replicas[params['inst_id']].get_prepare(
+                params['view_no'], params['pp_seq_no'])
+
+        return self._serve_request(msg, res_creator, {
+            'inst_id': f.INST_ID.nm,
+            'view_no': f.VIEW_NO.nm,
+            'pp_seq_no': f.PP_SEQ_NO.nm
+        })
 
     def _serve_preprepare_request(self, msg):
-        logger.debug('_serve_preprepare_request {}'.format(msg))
-        params = msg.params
-        inst_id = params.get(f.INST_ID.nm)
-        view_no = params.get(f.VIEW_NO.nm)
-        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
-        if self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
-                                    view_no=view_no, pp_seq_no=pp_seq_no):
-            return self.replicas[inst_id].getPrePrepare(view_no, pp_seq_no)
-        else:
-            self.discard(msg, 'cannot serve request',
-                         logMethod=logger.debug)
-            return False
+
+        def res_creator(self, params):
+            return self.replicas[params['inst_id']].getPrePrepare(
+                params['view_no'], params['pp_seq_no'])
+
+        return self._serve_request(msg, res_creator, {
+            'inst_id': f.INST_ID.nm,
+            'view_no': f.VIEW_NO.nm,
+            'pp_seq_no': f.PP_SEQ_NO.nm
+        })
 
     def _process_requested_preprepare(self, msg, frm):
-        logger.debug('_process_requested_preprepare {} {}'.format(msg, frm))
-        params = msg.params
-        inst_id = params.get(f.INST_ID.nm)
-        view_no = params.get(f.VIEW_NO.nm)
-        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
-        pp = msg.msg
-        pp = self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
-                                      view_no=view_no, pp_seq_no=pp_seq_no,
-                                      pp=pp)
-        if pp:
+
+        def processor(self, validated_msg, params):
+            nonlocal frm
+            inst_id = params['inst_id']
             frm = replica.Replica.generateName(frm, inst_id)
-            self.replicas[inst_id].process_requested_pre_prepare(pp,
+            self.replicas[inst_id].process_requested_pre_prepare(validated_msg,
                                                                  sender=frm)
-            return
-        self.discard(msg,
-                     'cannot process requested message response',
-                     logMethod=logger.debug)
+
+        return self._process_requested(msg, processor, {
+            'inst_id': f.INST_ID.nm,
+            'view_no': f.VIEW_NO.nm,
+            'pp_seq_no': f.PP_SEQ_NO.nm
+        })
 
     def _process_requested_prepare(self, msg, frm):
-        logger.debug('_process_requested_prepare {} {}'.format(msg, frm))
-        params = msg.params
-        inst_id = params.get(f.INST_ID.nm)
-        view_no = params.get(f.VIEW_NO.nm)
-        pp_seq_no = params.get(f.PP_SEQ_NO.nm)
-        prepare = msg.msg
-        prepare = self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
-                                           view_no=view_no, pp_seq_no=pp_seq_no,
-                                           prepare=prepare)
-        if prepare:
+
+        def processor(self, validated_msg, params):
+            nonlocal frm
+            inst_id = params['inst_id']
             frm = replica.Replica.generateName(frm, inst_id)
-            self.replicas[inst_id].process_requested_prepare(prepare,
+            self.replicas[inst_id].process_requested_prepare(validated_msg,
                                                              sender=frm)
-            return
-        self.discard(msg,
-                     'cannot process requested message response',
-                     logMethod=logger.debug)
+
+        return self._process_requested(msg, processor, {
+            'inst_id': f.INST_ID.nm,
+            'view_no': f.VIEW_NO.nm,
+            'pp_seq_no': f.PP_SEQ_NO.nm
+        })
 
     def _validate_requested_propagate(self, **kwargs):
         if not (RequestIdentifierField().validate((kwargs['identifier'],
