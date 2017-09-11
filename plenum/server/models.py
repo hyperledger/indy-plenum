@@ -16,9 +16,8 @@ InsChgVotes = NamedTuple("InsChg", [
 
 
 PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes',
-                                    ThreePhaseVotes._fields + [
-                                        ('msg', Optional[Prepare])
-                                    ])
+                                    ThreePhaseVotes._fields +
+                                    ('msg', Optional[Prepare]))
 
 
 class TrackedMsgs(dict):
