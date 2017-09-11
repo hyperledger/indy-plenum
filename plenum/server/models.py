@@ -1,13 +1,13 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Optional
+from typing import NamedTuple, Set, Optional, Any
 
 from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str]),
-    ('msg', Optional[Prepare])])
+    ('msg', Optional[Any])])
 
 
 InsChgVotes = NamedTuple("InsChg", [
