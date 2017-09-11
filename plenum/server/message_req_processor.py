@@ -231,7 +231,7 @@ class MessageReqProcessor:
             return False
 
     def _serve_preprepare_request(self, msg):
-        logger.debug('_process_requested_preprepare {} {}'.format(msg))
+        logger.debug('_serve_preprepare_request {}'.format(msg))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
