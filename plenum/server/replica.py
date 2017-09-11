@@ -1251,12 +1251,14 @@ class Replica(HasActionQueue, MessageProcessor):
             return self.sentPrePrepares[key]
         if key in self.prePrepares:
             return self.prePrepares[key]
+        return None
 
     def get_prepare(self, viewNo, ppSeqNo):
         logger.debug('get_prepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.prepares:
-            return self.prepares[key]
+            return self.prepares[key].msg
+        return None
 
     @property
     def lastPrePrepare(self):

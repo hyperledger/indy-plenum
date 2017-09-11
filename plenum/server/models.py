@@ -1,7 +1,7 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set
+from typing import NamedTuple, Set, Optional
 
 from plenum.common.messages.node_messages import Prepare, Commit
 
@@ -12,6 +12,12 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
     ("voters", Set[str])])
+
+
+PrepareThreePhaseVotes = NamedTuple('PrepareThreePhaseVotes',
+                                    ThreePhaseVotes._fields + [
+                                        ('msg', Optional(Prepare))
+                                    ])
 
 
 class TrackedMsgs(dict):
@@ -27,6 +33,7 @@ class TrackedMsgs(dict):
         if key not in self:
             self[key] = self.newVoteMsg(msg)
         self[key].voters.add(voter)
+        return self[key]
 
     def hasMsg(self, msg) -> bool:
         key = self.getKey(msg)
@@ -51,7 +58,7 @@ class Prepares(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return ThreePhaseVotes(set())
+        return PrepareThreePhaseVotes(voters=set(), msg=None)
 
     def getKey(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
@@ -65,7 +72,12 @@ class Prepares(TrackedMsgs):
         :param prepare: the PREPARE to add to the list
         :param voter: the name of the node who sent the PREPARE
         """
-        super().addMsg(prepare, voter)
+        self.addMsg(prepare, voter)
+
+    def addMsg(self, msg, voter: str):
+        el = super().addMsg(msg, voter)
+        if not el.msg:
+            el.msg = msg
 
     # noinspection PyMethodMayBeStatic
     def hasPrepare(self, prepare: Prepare) -> bool:
