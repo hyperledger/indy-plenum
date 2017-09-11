@@ -1245,6 +1245,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.tryCommit(prepare)
 
     def getPrePrepare(self, viewNo, ppSeqNo):
+        logger.debug('getPrePrepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.sentPrePrepares:
             return self.sentPrePrepares[key]
@@ -1252,6 +1253,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return self.getPrepare(viewNo, ppSeqNo)
 
     def getPrepare(self, viewNo, ppSeqNo):
+        logger.debug('getPrepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.prePrepares:
             return self.prePrepares[key]
@@ -2076,6 +2078,7 @@ class Replica(HasActionQueue, MessageProcessor):
                               if state == acceptable})
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
+        logger.debug('process_requested_pre_prepare {} {}'.format(pp, sender))
         if pp is None:
             logger.debug('{} received null PRE-PREPARE from {}'.
                          format(self, sender))
@@ -2108,6 +2111,7 @@ class Replica(HasActionQueue, MessageProcessor):
                          logMethod=logger.warning)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
+        logger.debug('process_requested_prepare {} {}'.format(prepare, sender))
         if prepare is None:
             logger.debug('{} received null PREPARE from {}'.
                          format(self, sender))

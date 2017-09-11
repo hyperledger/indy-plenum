@@ -169,6 +169,7 @@ class MessageReqProcessor:
                      logMethod=logger.debug)
 
     def _validate_requested_preprepare(self, **kwargs):
+        logger.debug('_validate_requested_preprepare {}'.format(kwargs))
         if kwargs['inst_id'] in range(len(self.replicas)) and \
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
@@ -192,6 +193,7 @@ class MessageReqProcessor:
                 return True
 
     def _validate_requested_prepare(self, **kwargs):
+        logger.debug('_validate_requested_prepare {}'.format(kwargs))
         if kwargs['inst_id'] in range(len(self.replicas)) and \
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
@@ -215,6 +217,7 @@ class MessageReqProcessor:
                 return True
 
     def _serve_prepare_request(self, msg):
+        logger.debug('_serve_prepare_request {} {}'.format(msg))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
@@ -228,6 +231,7 @@ class MessageReqProcessor:
             return False
 
     def _serve_preprepare_request(self, msg):
+        logger.debug('_process_requested_preprepare {} {}'.format(msg))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
@@ -241,6 +245,7 @@ class MessageReqProcessor:
             return False
 
     def _process_requested_preprepare(self, msg, frm):
+        logger.debug('_process_requested_preprepare {} {}'.format(msg, frm))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
@@ -259,6 +264,7 @@ class MessageReqProcessor:
                      logMethod=logger.debug)
 
     def _process_requested_prepare(self, msg, frm):
+        logger.debug('_process_requested_prepare {} {}'.format(msg, frm))
         params = msg.params
         inst_id = params.get(f.INST_ID.nm)
         view_no = params.get(f.VIEW_NO.nm)
