@@ -1,6 +1,6 @@
 import types
 
-from plenum.waits import expectedPoolGetReadyTimeout
+from plenum.test.waits import expectedPoolGetReadyTimeout
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, sendRandomRequests
@@ -12,7 +12,7 @@ from plenum.test.pool_transactions.helper import \
 logger = getlogger()
 
 
-def testNodeRequestingMissingThreePhaseMessages(tconf, txnPoolNodeSet, looper, wallet, client):
+def test_node_requests_missing_three_phase_messages(tconf, txnPoolNodeSet, looper, wallet, client):
     """
     2 of 4 nodes go down, so pool can not process any more incoming requests.
     A new request comes in. After a while those 2 nodes come back alive.
