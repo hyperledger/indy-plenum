@@ -472,7 +472,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            ledger_size)
         v, p = three_pc_key if three_pc_key else (None, None)
-        logger.debug('pp seq nos are {} and {}'.format(p, self.master_replica.lastPrePrepareSeqNo))
         return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash)
 
     @property
@@ -862,7 +861,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
         # if self.mode in (Mode.discovered, Mode.participating):
-        logger.debug('Node mode is {}'.format(self.mode))
         if Mode.is_done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
@@ -1519,7 +1517,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
-        logger.debug('allLedgersCaughtUp compare {} and {}'.format(self.master_last_ordered_3PC, last_caught_up_3PC))
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             self.master_replica.caught_up_till_3pc(last_caught_up_3PC)

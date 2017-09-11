@@ -759,7 +759,6 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
-        logger.debug('sending msg {}'.format(msg))
         if self.isPpSeqNoStable(msg.ppSeqNo):
             self.discard(msg,
                          "achieved stable checkpoint for 3 phase message",
@@ -796,7 +795,6 @@ class Replica(HasActionQueue, MessageProcessor):
             COMMIT
         :param sender: name of the node that sent this message
         """
-        logger.debug('processThreePhaseMsg with {} and {}'.format(msg, sender))
         if self.isPrimary is None:
             if not self.can_process_since_view_change_in_progress(msg):
                 self.postElectionMsgs.append((msg, sender))
@@ -868,8 +866,6 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
-        logger.debug("{} received PREPARE {} from {}".
-                     format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
                          "achieved stable checkpoint for Preapre",
@@ -962,7 +958,6 @@ class Replica(HasActionQueue, MessageProcessor):
                         p.viewNo,
                         p.ppSeqNo)
         self.send(commit, TPCStat.CommitSent)
-        logger.debug('Adding to commits my commit {}'.format(commit))
         self.addToCommits(commit, self.name)
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
@@ -979,8 +974,6 @@ class Replica(HasActionQueue, MessageProcessor):
 
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
 
-        logger.debug('new message is {}:{}, old one is {}:{}'.format(view_no, pp_seq_no, last_pp_view_no, last_pp_seq_no))
-
         if last_pp_view_no > view_no:
             return False
 
@@ -991,10 +984,9 @@ class Replica(HasActionQueue, MessageProcessor):
         if pp_seq_no - last_pp_seq_no != 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
-            
+
             # Requesting missing PP and Prepare
             for i in range(1, pp_seq_no - last_pp_seq_no):
-                logger.debug('Requesting PP for {}'.format(last_pp_seq_no + i))
                 request_data = (last_pp_view_no, last_pp_seq_no + i)
                 self._request_pre_prepare(request_data)
                 self._request_prepare(request_data)
@@ -1006,7 +998,6 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def __last_pp_3pc(self):
-        logger.debug('debug123123')
         last_pp = self.lastPrePrepare
         if not last_pp:
             return self.last_ordered_3pc
@@ -1124,7 +1115,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # as possible
         non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
         if non_fin_reqs:
-            logger.debug('Fails by nonFinalisedReqs')
             self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs if some
             # PROPAGATEs are present or a client request is present and
@@ -1136,7 +1126,6 @@ class Replica(HasActionQueue, MessageProcessor):
 
         non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
         if non_next_pp:
-            logger.debug('Fails by non_next_pp')
             self.enqueue_pre_prepare(pp, sender)
             return False
 
@@ -1245,7 +1234,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.tryCommit(prepare)
 
     def getPrePrepare(self, viewNo, ppSeqNo):
-        logger.debug('getPrePrepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.sentPrePrepares:
             return self.sentPrePrepares[key]
@@ -1254,7 +1242,6 @@ class Replica(HasActionQueue, MessageProcessor):
         return None
 
     def get_prepare(self, viewNo, ppSeqNo):
-        logger.debug('get_prepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.prepares:
             return self.prepares[key].msg
@@ -1292,9 +1279,6 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param prepare: the PREPARE
         """
-        key = self.prepares.getKey(prepare)
-        voters = self.prepares[key].voters
-        logger.debug('Currently have {} prepare votes from {}'.format(len(voters), voters))
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(
                 prepare)
@@ -1358,9 +1342,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         quorum = self.quorums.commit.value
         if not self.commits.hasQuorum(commit, quorum):
-            key = self.commits.getKey(commit)
-            voters = self.commits[key].voters
-            logger.debug('Currently have {} commit votes from {}'.format(len(voters), voters))
             return False, "no quorum ({}): {} commits where f is {}".\
                           format(quorum, commit, self.f)
 
@@ -1415,7 +1396,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # can
         logger.debug('{} trying to order from out of order commits. {} {}'. format(
             self, self.ordered, self.stashed_out_of_order_commits))
-        logger.debug('last_ordered_3pc is {}'.format(self.last_ordered_3pc))
         if self.last_ordered_3pc:
             lastOrdered = self.last_ordered_3pc
             vToRemove = set()
@@ -1428,7 +1408,6 @@ class Replica(HasActionQueue, MessageProcessor):
                             self, self.stashed_out_of_order_commits[v], v, lastOrdered))
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
-                    logger.debug('stashed commit is p{}:v{}:{}'.format(p, v, commit))
                     if (v, p) in self.ordered:
                         pToRemove.add(p)
                         continue
@@ -2080,7 +2059,6 @@ class Replica(HasActionQueue, MessageProcessor):
                               if state == acceptable})
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        logger.debug('process_requested_pre_prepare {} {}'.format(pp, sender))
         if pp is None:
             logger.debug('{} received null PRE-PREPARE from {}'.
                          format(self, sender))
@@ -2113,7 +2091,6 @@ class Replica(HasActionQueue, MessageProcessor):
                          logMethod=logger.warning)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
-        logger.debug('process_requested_prepare {} {}'.format(prepare, sender))
         if prepare is None:
             logger.debug('{} received null PREPARE from {}'.
                          format(self, sender))

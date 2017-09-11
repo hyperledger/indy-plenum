@@ -168,7 +168,6 @@ class MessageReqProcessor:
                      logMethod=logger.debug)
 
     def _validate_requested_preprepare(self, **kwargs):
-        logger.debug('_validate_requested_preprepare {}'.format(kwargs))
         if kwargs['inst_id'] in range(len(self.replicas)) and \
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
@@ -192,19 +191,15 @@ class MessageReqProcessor:
                 return True
 
     def _validate_requested_prepare(self, **kwargs):
-        logger.debug('_validate_requested_prepare {}'.format(kwargs))
         if kwargs['inst_id'] in range(len(self.replicas)) and \
                 kwargs['view_no'] == self.viewNo and \
                 isinstance(kwargs['pp_seq_no'], int) and \
                 kwargs['pp_seq_no'] > 0:
-            logger.debug('_validate_requested_prepare first if')
             if 'msg' in kwargs:
                 try:
                     # the input is expected as a dict (serialization with
                     # ujson==1.33)
-                    logger.debug('_validate_requested_prepare create Prepare')
                     prepare = Prepare(**kwargs['msg'])
-                    logger.debug('_validate_requested_prepare created {}'.format(prepare))
                     if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
                         logger.warning(
                             '{}{} found PREPARE {} not satisfying query criteria' .format(
