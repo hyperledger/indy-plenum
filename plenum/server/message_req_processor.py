@@ -209,13 +209,13 @@ class MessageReqProcessor:
                     if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
                         logger.warning(
                             '{}{} found PREPARE {} not satisfying query criteria' .format(
-                                THREE_PC_PREFIX, self, *kwargs['prepare']))
+                                THREE_PC_PREFIX, self, prepare))
                         return
                     return prepare
                 except TypeError as ex:
                     logger.warning(
                         '{}{} could not create PREPARE out of {}'.
-                        format(THREE_PC_PREFIX, self, **kwargs['prepare']))
+                        format(THREE_PC_PREFIX, self, kwargs))
             else:
                 return True
 
