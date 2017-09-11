@@ -1252,8 +1252,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if key in self.prePrepares:
             return self.prePrepares[key]
 
-    def getPrepare(self, viewNo, ppSeqNo):
-        logger.debug('getPrepare {} {}'.format(viewNo, ppSeqNo))
+    def get_prepare(self, viewNo, ppSeqNo):
+        logger.debug('get_prepare {} {}'.format(viewNo, ppSeqNo))
         key = (viewNo, ppSeqNo)
         if key in self.prepares:
             return self.prepares[key]
@@ -2128,7 +2128,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug(
                 '{} has already ordered PREPARE({})'.format(self, key))
             return
-        if self.getPrepare(*key):
+        if self.get_prepare(*key):
             logger.debug(
                 '{} has already received PREPARE({})'.format(self, key))
             return

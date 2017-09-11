@@ -227,7 +227,7 @@ class MessageReqProcessor:
         pp_seq_no = params.get(f.PP_SEQ_NO.nm)
         if self.valid_requested_msg(msg.msg_type, inst_id=inst_id,
                                     view_no=view_no, pp_seq_no=pp_seq_no):
-            return self.replicas[inst_id].getPrepare(view_no, pp_seq_no)
+            return self.replicas[inst_id].get_prepare(view_no, pp_seq_no)
         else:
             self.discard(msg, 'cannot serve request',
                          logMethod=logger.debug)
