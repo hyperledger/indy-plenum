@@ -11,7 +11,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from orderedset import OrderedSet
 from plenum.bls.bls import create_default_bls_factory
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, DOMAIN_LEDGER_ID
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
