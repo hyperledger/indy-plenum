@@ -1519,6 +1519,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
+        # TODO seems not enough for production where optimization happens
         assert pp
         self.addToOrdered(*key)
         ordered = Ordered(self.instId,
@@ -1546,7 +1547,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self._discard_ordered_req_keys(pp)
 
         self.send(ordered, TPCStat.OrderSent)
-        logger.debug("{} ordered request {}".format(self, key))
+        logger.info(
+            "{} ordered batch request, view no {}, ppSeqNo {}, "
+            "ledger {}, state root {}, txn root {}, requests ordered {}, "
+            "discarded {}".format(
+                self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
+                pp.reqIdr[pp.discarded:])
+        )
+
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
         if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:

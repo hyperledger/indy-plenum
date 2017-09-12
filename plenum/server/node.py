@@ -2271,8 +2271,31 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param pp_time: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
-        committedTxns = self.requestExecuter[ledger_id](pp_time, reqs,
-                                                        state_root, txn_root)
+        try:
+            committedTxns = self.requestExecuter[ledger_id](
+                pp_time, reqs, state_root, txn_root)
+        except Exception as exc:
+            logger.warning(
+                "{} commit failed for batch request, error {}, view no {}, "
+                "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
+                "requests: {}".format(
+                    self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
+                    txn_root, [(req.identifier, req.reqId) for req in reqs]
+                )
+            )
+            raise
+        else:
+            if committedTxns:
+                # TODO is it possible to get len(committedTxns) != len(reqs)
+                # someday
+                logger.info(
+                    "{} committed batch request, view no {}, ppSeqNo {}, "
+                    "ledger {}, state root {}, txn root {}, requests: {}".format(
+                        self, view_no, pp_seq_no, ledger_id, state_root, txn_root,
+                        [(req.identifier, req.reqId) for req in reqs]
+                    )
+                )
+
         if committedTxns:
             first_txn_seq_no = committedTxns[0][F.seqNo.name]
             last_txn_seq_no = committedTxns[-1][F.seqNo.name]
