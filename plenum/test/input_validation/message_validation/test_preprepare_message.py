@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, IterableField, NonEmptyStringField, \
+    LedgerIdField, IterableField, LimitedLengthStringField, \
     TimestampField, MerkleRootField
 from plenum.common.messages.node_messages import PrePrepare
 
@@ -11,7 +11,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ppTime", TimestampField),
     ("reqIdr", IterableField),
     ("discarded", NonNegativeNumberField),
-    ("digest", NonEmptyStringField),
+    ("digest", LimitedLengthStringField),
     ("ledgerId", LedgerIdField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),

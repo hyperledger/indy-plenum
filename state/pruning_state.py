@@ -8,6 +8,7 @@ from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, \
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string, isHex
+from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
 
 
@@ -85,6 +86,15 @@ class PruningState(State):
         else:
             head = BLANK_NODE
         self._trie.replace_root_hash(self._trie.root_node, head)
+
+    # Proofs are always generated over committed state
+    def generate_state_proof(self, key: bytes, root=None, serialize=False):
+        return self._trie.generate_state_proof(key, root, serialize)
+
+    @staticmethod
+    def verify_state_proof(root, key, value, proof_nodes, serialized=False):
+        return Trie.verify_spv_proof(root, key, rlp_encode([value]),
+                                     proof_nodes, serialized)
 
     @property
     def as_dict(self):
