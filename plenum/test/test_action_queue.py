@@ -25,7 +25,7 @@ def testActionQueue():
                 self.results['meth1'] = []
             self.results['meth1'].append((x, time.perf_counter()))
 
-    with Looper(debug=True) as looper:
+    with Looper() as looper:
         q1 = Q1('q1')
         looper.add(q1)
         q1._schedule(partial(q1.meth1, 1), 2)
