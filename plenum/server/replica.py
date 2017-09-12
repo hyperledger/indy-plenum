@@ -1559,17 +1559,17 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
         if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:
-            bls_multi_sig = self._bls_bft.calculate_multi_sig(key,
-                                                              self.quorums)
+            # calculate signature always to keep master and non-master in sync
+            # but save on master only
+            bls_multi_sig = self._bls_bft.calculate_multi_sig(key, self.quorums)
             if bls_multi_sig is not None:
                 participants, sig = bls_multi_sig
-                state_root = pp.stateRootHash
-                self._bls_bft.save_multi_sig_local(sig,
-                                                   participants,
-                                                   state_root,
-                                                   key)
-                logger.debug("{} saved multi signature for root"
-                             .format(self, state_root))
+
+                if self.isMaster:
+                    state_root = pp.stateRootHash
+                    self._bls_bft.save_multi_sig_local(sig, participants, state_root, key)
+                    logger.debug("{} saved multi signature for root".format(self, state_root))
+
                 self._bls_latest_multi_sig = bls_multi_sig
 
         return True
