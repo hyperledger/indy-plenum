@@ -43,7 +43,7 @@ class BaseHandler(metaclass=ABCMeta):
             params[field_name] = msg.params.get(type_name)
 
         if not self.validate(**params):
-            self.node.discard(msg, 'cannot serve request', logMethod=logger.debug)
+            return self.node.discard(msg, 'cannot serve request', logMethod=logger.debug)
 
         return self.requestor(params)
 
@@ -54,8 +54,8 @@ class BaseHandler(metaclass=ABCMeta):
             params[field_name] = msg.params.get(type_name)
 
         if not self.validate(**params):
-            self.node.discard(msg, 'cannot process requested message response',
-                              logMethod=logger.debug)
+            return self.node.discard(msg, 'cannot process requested message response',
+                                     logMethod=logger.debug)
 
         valid_msg = self.create(msg.msg, **params)
         return self.processor(valid_msg, params, frm)
