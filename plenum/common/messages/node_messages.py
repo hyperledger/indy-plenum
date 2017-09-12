@@ -6,17 +6,20 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKL
     MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.messages.fields import NonEmptyStringField, NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
-    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField
+    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
+    LimitedLengthStringField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.types import f
 from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT,\
+    SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT
 
 
 class Nomination(MessageBase):
     typename = NOMINATE
 
     schema = (
-        (f.NAME.nm, NonEmptyStringField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
@@ -29,7 +32,7 @@ class Batch(MessageBase):
 
     schema = (
         (f.MSGS.nm, IterableField(SerializedValueField())),
-        (f.SIG.nm, SignatureField()),
+        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT)),
     )
 
 
@@ -39,7 +42,7 @@ class Reelection(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.ROUND.nm, NonNegativeNumberField()),
-        (f.TIE_AMONG.nm, IterableField(TieAmongField())),
+        (f.TIE_AMONG.nm, IterableField(TieAmongField(max_length=TIE_IDR_FIELD_LIMIT))),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
     )
 
@@ -48,7 +51,7 @@ class Primary(MessageBase):
     typename = PRIMARY
 
     schema = (
-        (f.NAME.nm, NonEmptyStringField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
@@ -119,7 +122,7 @@ class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
         (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
-        (f.SENDER_CLIENT.nm, NonEmptyStringField(nullable=True)),
+        (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT, nullable=True)),
     )
 
 
@@ -132,7 +135,7 @@ class PrePrepare(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
         (f.DISCARDED.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
@@ -146,7 +149,7 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
@@ -168,7 +171,7 @@ class Checkpoint(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 
@@ -236,7 +239,7 @@ class ConsistencyProof(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
-        (f.HASHES.nm, IterableField(NonEmptyStringField())),
+        (f.HASHES.nm, IterableField(LimitedLengthStringField(max_length=HASH_FIELD_LIMIT))),
     )
 
 
@@ -274,7 +277,7 @@ class ViewChangeDone(MessageBase):
         # name is nullable because this message can be sent when
         # there were no view changes and instance has no primary yet
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.NAME.nm, NonEmptyStringField(nullable=True)),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT, nullable=True)),
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
     )
 
