@@ -16,11 +16,11 @@ class MessageReqProcessor:
     # This is a mixin, it's mixed with node.
     def __init__(self):
         self.handlers = {
-            LEDGER_STATUS: LedgerStatusHandler,
-            CONSISTENCY_PROOF: ConsistencyProofHandler,
-            PREPREPARE: PreprepareHandler,
-            PREPARE: PrepareHandler,
-            PROPAGATE: PropagateHandler
+            LEDGER_STATUS: LedgerStatusHandler(self),
+            CONSISTENCY_PROOF: ConsistencyProofHandler(self),
+            PREPREPARE: PreprepareHandler(self),
+            PREPARE: PrepareHandler(self),
+            PROPAGATE: PropagateHandler(self)
         }
 
     def process_message_req(self, msg: MessageReq, frm):
@@ -28,7 +28,7 @@ class MessageReqProcessor:
         # RPC architecture, use deques to communicate the message and node will
         # maintain a unique internal message id to correlate responses.
         msg_type = msg.msg_type
-        handler = self.handlers[msg_type](self)
+        handler = self.handlers[msg_type]
         resp = handler.serve(msg)
 
         if not resp:
@@ -46,7 +46,7 @@ class MessageReqProcessor:
             logger.debug('{} got null response for requested {} from {}'.
                          format(self, msg_type, frm))
             return
-        handler = self.handlers[msg_type](self)
+        handler = self.handlers[msg_type]
         return handler.process(msg, frm)
 
     def request_msg(self, typ, params: Dict, frm: List[str]=None):
