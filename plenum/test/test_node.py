@@ -120,8 +120,8 @@ class TestNodeCore(StackedTester):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
 
-    def create_replicas(self):
-        return TestReplicas(self, self.monitor)
+    def create_replicas(self, bls_store):
+        return TestReplicas(self, self.monitor, bls_store)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -236,7 +236,8 @@ class TestNodeCore(StackedTester):
     def getDomainReqHandler(self):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
-                                        self.reqProcessors)
+                                        self.reqProcessors,
+                                        self.bls_store)
 
 
 node_spyables = [Node.handleOneNodeMsg,
@@ -374,8 +375,8 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
-    def _new_replica(self, instance_id: int, is_master: bool):
-        return TestReplica(self._node, instance_id, is_master)
+    def _new_replica(self, instance_id: int, is_master: bool, bls_store=None):
+        return TestReplica(self._node, instance_id, is_master, bls_store)
 
 
 class TestNodeSet(ExitStack):
