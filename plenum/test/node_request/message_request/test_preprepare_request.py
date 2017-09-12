@@ -12,14 +12,14 @@ from stp_core.loop.eventually import eventually
 def count_requested_preprepare_resp(node):
     # Returns the number of times PRE-PREPARE was requested
     sr = node.master_replica
-    return len(getAllReturnVals(sr, sr._request_pre_prepare_if_possible,
+    return len(getAllReturnVals(sr, sr._request_pre_prepare_for_prepare,
                                 compare_val_to=True))
 
 
 def count_requested_preprepare_req(node):
     # Returns the number of times an attempt was made to request PRE-PREPARE
     sr = node.master_replica
-    return get_count(sr, sr._request_pre_prepare_if_possible)
+    return get_count(sr, sr._request_pre_prepare_for_prepare)
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet, client1,
