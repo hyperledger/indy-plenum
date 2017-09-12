@@ -84,6 +84,7 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
+from plenum.bls.bls_store import BlsStore
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -224,7 +225,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = self.create_replicas()
+        self.bls_store = BlsStore(self.config.stateSignatureStorage, self.dataLocation, self.config.stateSignatureDbName)
+
+        self.replicas = self.create_replicas(self.bls_store)
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
@@ -375,8 +378,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
 
-    def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor)
+    def create_replicas(self, bls_store: BlsStore = None) -> Replicas:
+        return Replicas(self, self.monitor, bls_store)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -711,6 +714,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.bls_store:
+            self.bls_store.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})

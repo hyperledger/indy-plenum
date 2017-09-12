@@ -30,6 +30,7 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
+from plenum.bls.bls_store import BlsStore
 
 
 logger = getlogger()
@@ -77,7 +78,7 @@ class Replica(HasActionQueue, MessageProcessor):
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
-                 isMaster: bool = False):
+                 isMaster: bool = False, bls_store: BlsStore = None):
         """
         Create a new replica.
 
@@ -268,12 +269,12 @@ class Replica(HasActionQueue, MessageProcessor):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
-        self._bls_bft = self._create_bls_bft()
+        self._bls_bft = self._create_bls_bft(bls_store)
         self._bls_latest_multi_sig = None  # (participants, sig)
 
-    def _create_bls_bft(self):
+    def _create_bls_bft(self, bls_store: BlsStore = None):
         try:
-            bls_bft = create_default_bls_factory(self.node.basedirpath, self.node.name).create_bls_bft()
+            bls_bft = create_default_bls_factory(self.node.basedirpath, self.node.name, bls_store).create_bls_bft()
             bls_bft.bls_key_register.load_latest_keys(self.node.poolLedger)
             return bls_bft
         except LoadBLSKeyError as ex:
