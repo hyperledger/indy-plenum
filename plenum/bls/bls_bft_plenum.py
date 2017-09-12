@@ -110,6 +110,8 @@ class BlsBftPlenum(BlsBft):
 
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
             return
+        if pre_prepare.blsMultiSig is None:
+            return
         participants, multi_sig = pre_prepare.blsMultiSig
         if multi_sig is None:
             return
