@@ -7,6 +7,7 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 from typing import Optional
+from plenum.bls.bls_store import BlsStore
 
 logger = getlogger()
 
@@ -15,9 +16,18 @@ class BlsBftPlenum(BlsBft):
     def __init__(self,
                  bls_crypto: BlsCrypto,
                  bls_key_register: BlsKeyRegister,
-                 node_id):
+                 node_id,
+                 bls_store: BlsStore = None):
         super().__init__(bls_crypto, bls_key_register, node_id)
         self._signatures = {}
+        self._bls_store = bls_store
+        self._bls_store_add = self.__bls_save_empty if bls_store is None else self.__bls_save
+
+    def __bls_save(self, root_hash, sign, participants):
+        self._bls_store.put(root_hash, sign, participants)
+
+    def __bls_save_empty(self, root_hash, sign, participants):
+        pass
 
     def _validate_signature(self, sender, bls_sig, state_root_hash):
         sender_node = self.get_node_name(sender)
@@ -94,18 +104,18 @@ class BlsBftPlenum(BlsBft):
                              participants: list,
                              state_root,
                              key_3PC):
-        pass
+        self._bls_store_add(state_root, multi_sig, participants)
 
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
 
         if f.BLS_MULTI_SIG.nm not in pre_prepare:
             return
-        multi_sig = pre_prepare.blsMultiSig
+        participants, multi_sig = pre_prepare.blsMultiSig
         if multi_sig is None:
             return
         state_root = pre_prepare.stateRootHash
 
-        # TODO: store
+        self._bls_store_add(state_root, multi_sig, participants)
         # TODO: support multiple multi-sigs for multiple previous batches
 
     def gc(self, key_3PC):

@@ -11,7 +11,7 @@ from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
 
-def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
+def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
                                     wallet1, client1Connected, teardown):
     """
     Make a node send PREPREPARE again after the slow node has ordered
@@ -20,7 +20,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
         split_nodes(txnPoolNodeSet)
     # This node will send PRE-PREPARE again
     confused_node = other_non_primary_nodes[0]
-    orig_method = confused_node._serve_preprepare_request
+    orig_method = confused_node.handlers[PREPREPARE].serve
 
     last_pp = None
 
@@ -29,13 +29,12 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
         last_pp = orig_method(msg)
         return last_pp
 
-    confused_node.req_handlers[PREPREPARE] = types.MethodType(patched_method,
-                                                              confused_node)
+    confused_node.handlers[PREPREPARE].serve = types.MethodType(patched_method, confused_node.handlers[PREPREPARE])
 
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 10, 5)
+    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1Connected, 10, 5)
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     slow_master_replica = slow_node.master_replica
