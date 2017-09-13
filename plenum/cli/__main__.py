@@ -14,7 +14,7 @@ def main(logfile: str=None, debug=None, cliClass=None):
     if not cliClass:
         cliClass = Cli
 
-    with Looper(debug=False) as looper:
+    with Looper(debug=config.LOOPER_DEBUG) as looper:
         cli = cliClass(looper=looper,
                        basedirpath=basedirpath,
                        nodeReg=nodeReg,
