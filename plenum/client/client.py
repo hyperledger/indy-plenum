@@ -43,6 +43,8 @@ from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
+from plenum.common.constants import STATE_PROOF
+
 
 logger = getlogger()
 
@@ -398,6 +400,13 @@ class Client(Motor,
             resultsList = list(onlyResults.values())
             # if all the elements in the resultList are equal - consensus
             # is reached.
+
+            # excluding state proofs from check since they can be different
+            def without_state_proof(result):
+                if STATE_PROOF in result:
+                    result.pop('state_proof')
+
+            resultsList = [without_state_proof(result) for result in resultsList]
             if all(result == resultsList[0] for result in resultsList):
                 return resultsList[0]  # CONFIRMED
             else:
