@@ -2,10 +2,7 @@ import time
 from collections import deque, OrderedDict
 from enum import unique, IntEnum
 from hashlib import sha256
-from typing import List, Union
-from typing import Optional, Any
-from typing import Set
-from typing import Tuple
+from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 
 import base58
 from orderedset import OrderedSet
@@ -14,7 +11,7 @@ from sortedcontainers import SortedList
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
@@ -251,6 +248,11 @@ class Replica(HasActionQueue, MessageProcessor):
         # Cleared in `gc`
         # type: Dict[Tuple[int, int], Tuple[str, str, str]]
         self.requested_pre_prepares = {}
+
+        # Tracks for which keys PREPAREs have been requested.
+        # Cleared in `gc`
+        # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        self.requested_prepares = {}
 
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
@@ -861,8 +863,6 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
-        logger.debug("{} received PREPARE{} from {}".
-                     format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
                          "achieved stable checkpoint for Preapre",
@@ -978,10 +978,10 @@ class Replica(HasActionQueue, MessageProcessor):
             assert view_no == self.viewNo
             last_pp_seq_no = 0
 
-        if pp_seq_no - last_pp_seq_no != 1:
+        if pp_seq_no - last_pp_seq_no > 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
-            # TODO: think of a better way, urgently
+            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no, last_pp_view_no)
             self._setup_for_non_master()
             return False
 
@@ -1230,6 +1230,13 @@ class Replica(HasActionQueue, MessageProcessor):
             return self.sentPrePrepares[key]
         if key in self.prePrepares:
             return self.prePrepares[key]
+        return None
+
+    def get_prepare(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
+        if key in self.prepares:
+            return self.prepares[key].msg
+        return None
 
     @property
     def lastPrePrepare(self):
@@ -1439,6 +1446,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
+        # TODO seems not enough for production where optimization happens
         assert pp
         self.addToOrdered(*key)
         ordered = Ordered(self.instId,
@@ -1466,7 +1474,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self._discard_ordered_req_keys(pp)
 
         self.send(ordered, TPCStat.OrderSent)
-        logger.debug("{} ordered request {}".format(self, key))
+        logger.info(
+            "{} ordered batch request, view no {}, ppSeqNo {}, "
+            "ledger {}, state root {}, txn root {}, requests ordered {}, "
+            "discarded {}".format(
+                self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
+                pp.reqIdr[pp.discarded:])
+        )
+
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
         return True
 
@@ -1701,6 +1717,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.commits,
             self.batches,
             self.requested_pre_prepares,
+            self.requested_prepares,
             self.pre_prepares_stashed_for_incorrect_time,
         )
         for k in tpcKeys:
@@ -1870,7 +1887,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
         if key not in self.pre_prepares_stashed_for_incorrect_time:
-            self._request_pre_prepare_if_possible(key)
+            self._request_pre_prepare_for_prepare(key)
         else:
             self._process_stashed_pre_prepare_for_time_if_possible(key)
 
@@ -1954,29 +1971,71 @@ class Replica(HasActionQueue, MessageProcessor):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_pre_prepare_if_possible(self, three_pc_key) -> bool:
+    def _request_missing_three_phase_messages(self, frm: int, to: int, view_no: int) -> None:
+        for i in range(1, to - frm):
+                request_data = (view_no, frm + i)
+                self._request_pre_prepare(request_data)
+                self._request_prepare(request_data)
+
+    def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
+                                 stash: Dict[int, int],
+                                 msg_type: str,
+                                 recipients: List[str]=None,
+                                 stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
+        if three_pc_key in stash:
+            logger.debug('{} not requesting {} since already '
+                         'requested for {}'.format(self, msg_type, three_pc_key))
+            return False
+
+        # TODO: Using a timer to retry would be a better thing to do
+        logger.debug('{} requesting {} for {} from {}'.
+                     format(self, msg_type, three_pc_key, recipients))
+        # An optimisation can be to request PRE-PREPARE from f+1 or
+        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
+        # PRE-PREPARE is needed.
+        self.node.request_msg(msg_type, {f.INST_ID.nm: self.instId,
+                                         f.VIEW_NO.nm: three_pc_key[0],
+                                         f.PP_SEQ_NO.nm: three_pc_key[1]},
+                              recipients)
+
+        stash[three_pc_key] = stash_data
+        return True
+
+    def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
+                             recipients: List[str]=None,
+                             stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
+        """
+        Request preprepare
+        """
+        return self._request_three_phase_msg(three_pc_key, self.requested_pre_prepares, PREPREPARE, recipients, stash_data)
+
+    def _request_prepare(self, three_pc_key: Tuple[int, int],
+                         recipients: List[str]=None,
+                         stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
+        """
+        Request preprepare
+        """
+        return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
+
+    def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
         """
         Check if has an acceptable PRE_PREPARE already stashed, if not then
         check count of PREPAREs, make sure >f consistent PREPAREs are found,
         store the acceptable PREPARE state (digest, roots) for verification of
         the received PRE-PREPARE
         """
+
+        if three_pc_key in self.prePreparesPendingPrevPP:
+            logger.debug('{} not requesting a PRE-PREPARE since already found '
+                         'stashed for {}'.format(self, three_pc_key))
+            return False
+
         if len(
                 self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
             logger.debug(
                 '{} not requesting a PRE-PREPARE because does not have'
                 ' sufficient PREPAREs for {}'.format(
                     self, three_pc_key))
-            return False
-
-        if three_pc_key in self.requested_pre_prepares:
-            logger.debug('{} not requesting a PRE-PREPARE since already '
-                         'requested for {}'.format(self, three_pc_key))
-            return False
-
-        if three_pc_key in self.prePreparesPendingPrevPP:
-            logger.debug('{} not requesting a PRE-PREPARE since already found '
-                         'stashed for {}'.format(self, three_pc_key))
             return False
 
         digest, state_root, txn_root, prepare_senders = \
@@ -1992,17 +2051,9 @@ class Replica(HasActionQueue, MessageProcessor):
                              'found stashed for {}'.format(self, three_pc_key))
                 return False
 
-        # TODO: Using a timer to retry would be a better thing to do
-        logger.debug('{} requesting PRE-PREPARE({}) from {}'.
-                     format(self, three_pc_key, prepare_senders))
-        # An optimisation can be to request PRE-PREPARE from f+1 or
-        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
-        # PRE-PREPARE is needed.
-        self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
-                                           f.VIEW_NO.nm: three_pc_key[0],
-                                           f.PP_SEQ_NO.nm: three_pc_key[1]},
-                              [self.getNodeName(s) for s in prepare_senders])
-        self.requested_pre_prepares[three_pc_key] = digest, state_root, txn_root
+        self._request_pre_prepare(three_pc_key,
+                                  recipients=[self.getNodeName(s) for s in prepare_senders],
+                                  stash_data=(digest, state_root, txn_root))
         return True
 
     def get_acceptable_stashed_prepare_state(self, three_pc_key):
@@ -2012,37 +2063,46 @@ class Replica(HasActionQueue, MessageProcessor):
         return (*acceptable, {s for s, state in prepares.items()
                               if state == acceptable})
 
-    def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        if pp is None:
-            logger.debug('{} received null PRE-PREPARE from {}'.
+    def _process_requested_three_phase_msg(self, msg: object,
+                                           stash: Dict[int, int],
+                                           get_saved: Callable[[int, int], None],
+                                           sender: List[str]=None):
+        if msg is None:
+            logger.debug('{} received null from {}'.
                          format(self, sender))
             return
-        key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug('{} received requested PRE-PREPARE({}) from {}'.
+        key = (msg.viewNo, msg.ppSeqNo)
+        logger.debug('{} received requested msg ({}) from {}'.
                      format(self, key, sender))
 
-        if key not in self.requested_pre_prepares:
-            logger.debug('{} had either not requested a PRE-PREPARE or already '
-                         'received a PRE-PREPARE for {}'.format(self, key))
+        if key not in stash:
+            logger.debug('{} had either not requested this msg or already '
+                         'received the msg for {}'.format(self, key))
             return
         if self.has_already_ordered(*key):
             logger.debug(
-                '{} has already ordered PRE-PREPARE({})'.format(self, key))
+                '{} has already ordered msg ({})'.format(self, key))
             return
-        if self.getPrePrepare(*key):
+        if get_saved(*key):
             logger.debug(
-                '{} has already received PRE-PREPARE({})'.format(self, key))
+                '{} has already received msg ({})'.format(self, key))
             return
-        # There still might be stashed PRE-PREPARE but not checking that
-        # it is expensive, also reception of PRE-PREPAREs is idempotent
-        digest, state_root, txn_root = self.requested_pre_prepares[key]
-        if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                digest, state_root, txn_root):
-            self.processThreePhaseMsg(pp, sender)
-        else:
-            self.discard(pp, reason='{}does not have expected state({} {} {})'.
-                         format(THREE_PC_PREFIX, digest, state_root, txn_root),
-                         logMethod=logger.warning)
+        # There still might be stashed msg but not checking that
+        # it is expensive, also reception of msgs is idempotent
+        stashed_data = stash[key]
+        curr_data = (msg.digest, msg.stateRootHash, msg.txnRootHash)
+        if (curr_data == stashed_data) or (stashed_data is None):
+            return self.processThreePhaseMsg(msg, sender)
+
+        self.discard(msg, reason='{} does not have expected state {}'.
+                     format(THREE_PC_PREFIX, stashed_data),
+                     logMethod=logger.warning)
+
+    def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
+        return self._process_requested_three_phase_msg(pp, self.requested_pre_prepares, self.getPrePrepare, sender)
+
+    def process_requested_prepare(self, prepare: Prepare, sender: str):
+        return self._process_requested_three_phase_msg(prepare, self.requested_prepares, self.get_prepare, sender)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """

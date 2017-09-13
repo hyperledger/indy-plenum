@@ -2,6 +2,7 @@ from collections import deque
 from typing import Any, Iterable
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
+from plenum.common.prepare_batch import split_messages_on_batches
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
 from stp_core.common.log import getlogger
@@ -63,7 +64,7 @@ class Batched(MessageProcessor):
         # Signing (if required) and serializing before enqueueing otherwise
         # each call to `_enqueue` will have to sign it and `transmit` will try
         # to serialize it which is waste of resources
-        serializedPayload, err_msg = self.signAndSerialize(msg, signer)
+        serializedPayload, err_msg = self.signSerializeAndCheckLen(msg, signer)
         if serializedPayload is None:
             return False, err_msg
 
@@ -98,23 +99,24 @@ class Batched(MessageProcessor):
                         "{} batching {} msgs to {} into one transmission".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
-                    batch = Batch(list(msgs), None)
+                    batches = split_messages_on_batches(list(msgs),
+                                                        self._make_batch,
+                                                        self._test_batch_len,
+                                                        )
                     msgs.clear()
-                    # don't need to sign the batch, when the composed msgs are
-                    # signed
-                    payload, err_msg = self.signAndSerialize(batch)
-                    if payload is not None:
-                        logger.trace("{} sending payload to {}: {}".format(
-                            self, dest, payload))
-                        # Setting timeout to never expire
-                        self.transmit(
-                            payload,
-                            rid,
-                            timeout=self.messageTimeout,
-                            serialized=True)
+                    if batches:
+                        for batch in batches:
+                            logger.trace("{} sending payload to {}: {}".format(
+                                self, dest, batch))
+                            # Setting timeout to never expire
+                            self.transmit(
+                                batch,
+                                rid,
+                                timeout=self.messageTimeout,
+                                serialized=True)
                     else:
-                        logger.warning("{} error {}. tried to {}: {}".format(
-                            self, err_msg, dest, payload))
+                        logger.warning("Cannot create batch(es) for {}".format(
+                            self, dest))
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),
@@ -126,6 +128,14 @@ class Batched(MessageProcessor):
                              .format(CONNECTION_PREFIX, rid),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
+
+    def _make_batch(self, msgs):
+        batch = Batch(msgs, None)
+        serialized_batch = self.sign_and_serialize(batch)
+        return serialized_batch
+
+    def _test_batch_len(self, batch_len):
+        return self.msg_len_val.is_len_less_than_limit(batch_len)
 
     def doProcessReceived(self, msg, frm, ident):
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
@@ -142,9 +152,8 @@ class Batched(MessageProcessor):
                 msg[f.MSGS.nm] = relevantMsgs
         return msg
 
-    def signAndSerialize(self, msg, signer=None):
-        payload = self.prepForSending(msg, signer)
-        msg_bytes = self.serializeMsg(payload)
+    def signSerializeAndCheckLen(self, msg, signer=None):
+        msg_bytes = self.sign_and_serialize(msg, signer)
         err_msg = None
         try:
             self.msg_len_val.validate(msg_bytes)
@@ -153,3 +162,8 @@ class Batched(MessageProcessor):
             logger.warning(err_msg)
             msg_bytes = None
         return msg_bytes, err_msg
+
+    def sign_and_serialize(self, msg, signer=None):
+        payload = self.prepForSending(msg, signer)
+        msg_bytes = self.serializeMsg(payload)
+        return msg_bytes
