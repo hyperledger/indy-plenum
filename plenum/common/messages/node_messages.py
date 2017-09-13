@@ -309,7 +309,7 @@ class MessageReq(MessageBase):
     Purpose: ask node for any message
     """
     allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE,
-                     PROPAGATE}
+                     PROPAGATE, PREPARE}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
