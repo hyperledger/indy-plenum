@@ -1,34 +1,13 @@
-import json
-import os
-from random import randint
-
 import base58
-import pytest
 import re
 
-import time
-
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE
-from plenum.common.request import Request
-from plenum.common.util import getTimeBasedId
+from plenum.common.constants import TXN_TYPE, GET_TXN, NODE
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.test import waits
-from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, checkSufficientRepliesReceived, \
-    sendRandomRequest
-# noinspection PyUnresolvedReferences
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.conftest import steward1, stewardWallet, client1Connected  # noqa
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
-from stp_core.loop.eventually import eventually
 
 
-TEST_NODE_NAME = 'Alpha'
-INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
-PERIOD_SEC = 1
 nodeCount = 5
-
 
 def test_validator_info_file_schema_is_valid(info):
     assert isinstance(info, dict)
@@ -57,6 +36,10 @@ def test_validator_info_file_schema_is_valid(info):
     assert 'ledger' in info['metrics']['transaction-count']
     assert 'pool' in info['metrics']['transaction-count']
     assert 'uptime' in info['metrics']
+
+    assert 'ledgers' in info
+    assert 'ledger' in info['ledgers']
+    assert 'pool' in info['ledgers']
 
     assert 'pool' in info
     assert 'reachable' in info['pool']
@@ -182,96 +165,3 @@ def test_validator_info_file_handle_fails(info,
     assert latest_info['pool']['unreachable']['count'] is None
     assert latest_info['pool']['unreachable']['list'] is None
     assert latest_info['pool']['total-count'] is None
-
-
-@pytest.fixture(scope='module')
-def info(info_path):
-    return load_info(info_path)
-
-
-def load_info(path):
-    with open(path) as fd:
-        info = json.load(fd)
-    return info
-
-
-@pytest.fixture(scope='module')
-def info_path(tdirWithPoolTxns, patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet):
-    path = os.path.join(tdirWithPoolTxns, INFO_FILENAME)
-    txnPoolNodesLooper.runFor(patched_dump_info_period)
-    assert os.path.exists(path), '{} exists'.format(path)
-    return path
-
-
-@pytest.fixture(scope='module')
-def patched_dump_info_period(tconf):
-    old_period = tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
-    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = PERIOD_SEC
-    yield tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
-    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = old_period
-
-
-@pytest.fixture(scope='module')
-def node(txnPoolNodeSet):
-    for n in txnPoolNodeSet:
-        if n.name == TEST_NODE_NAME:
-            return n
-    assert False, 'Pool does not have "{}" node'.format(TEST_NODE_NAME)
-
-
-@pytest.fixture
-def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
-                                 client_and_wallet, info_path):
-    client, wallet = client_and_wallet
-
-    def read_wrapped(txn_type):
-        op = {
-            TXN_TYPE: txn_type,
-            DATA: 1
-        }
-        req = Request(identifier=wallet.defaultId,
-                      operation=op, reqId=getTimeBasedId())
-        client.submitReqs(req)
-
-        timeout = waits.expectedTransactionExecutionTime(
-            len(client.inBox))
-        txnPoolNodesLooper.run(
-            eventually(checkSufficientRepliesReceived, client.inBox,
-                       req.reqId, 1,
-                       retryWait=1, timeout=timeout))
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
-        return load_info(info_path)
-    return read_wrapped
-
-
-@pytest.fixture
-def write_txn_and_get_latest_info(txnPoolNodesLooper,
-                                  client_and_wallet,
-                                  patched_dump_info_period,
-                                  info_path):
-    client, wallet = client_and_wallet
-
-    def write_wrapped():
-        req = sendRandomRequest(wallet, client)
-        waitForSufficientRepliesForRequests(txnPoolNodesLooper, client, requests=[req])
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
-        return load_info(info_path)
-    return write_wrapped
-
-
-@pytest.fixture(scope="function")
-def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
-    def wrapped():
-        txnPoolNodesLooper.runFor(patched_dump_info_period + 1)
-        return load_info(info_path)
-    return wrapped
-
-
-@pytest.fixture
-def client_and_wallet(txnPoolNodesLooper, tdirWithPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
-                                   name='reader', usePoolLedger=True)
-    txnPoolNodesLooper.add(client)
-    ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
-                                                  *txnPoolNodeSet)
-    return client, wallet
