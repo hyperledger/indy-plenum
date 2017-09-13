@@ -405,6 +405,7 @@ class Client(Motor,
             def without_state_proof(result):
                 if STATE_PROOF in result:
                     result.pop('state_proof')
+                return result
 
             resultsList = [without_state_proof(result) for result in resultsList]
             if all(result == resultsList[0] for result in resultsList):
