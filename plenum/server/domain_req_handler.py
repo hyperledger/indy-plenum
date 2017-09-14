@@ -17,9 +17,10 @@ logger = getlogger()
 class DomainRequestHandler(RequestHandler):
     stateSerializer = domain_state_serializer
 
-    def __init__(self, ledger, state, reqProcessors):
+    def __init__(self, ledger, state, reqProcessors, bls_store):
         super().__init__(ledger, state)
         self.reqProcessors = reqProcessors
+        self.bls_store = bls_store
 
     def validate(self, req: Request, config=None):
         if req.operation.get(TXN_TYPE) == NYM:

@@ -148,6 +148,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
+        self.bls_store = BlsStore(self.config.stateSignatureStorage,
+                                  self.dataLocation,
+                                  self.config.stateSignatureDbName)
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
         self.reqHandler = self.getDomainReqHandler()
@@ -224,8 +227,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                notifierEventTriggeringConfig=self.
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
-
-        self.bls_store = BlsStore(self.config.stateSignatureStorage, self.dataLocation, self.config.stateSignatureDbName)
 
         self.replicas = self.create_replicas(self.bls_store)
 
@@ -439,7 +440,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getDomainReqHandler(self):
         return DomainRequestHandler(self.domainLedger,
                                     self.states[DOMAIN_LEDGER_ID],
-                                    self.reqProcessors)
+                                    self.reqProcessors,
+                                    self.bls_store)
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(

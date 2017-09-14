@@ -2,6 +2,7 @@ from plenum.persistence.storage import KeyValueStorage, initKeyValueStorage
 from common.serializers.compact_serializer import CompactSerializer
 from collections import OrderedDict
 
+
 class BlsStore:
     def __init__(self, keyValueType, dataLocation, keyValueStorageName):
         self._kvs = initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName)
