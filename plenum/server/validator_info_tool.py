@@ -186,6 +186,7 @@ class ValidatorNodeInfoTool:
     def dump_json_file(self):
         file_name = self.FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
         path = os.path.join(self.__base_path, file_name)
-        logger.debug("HERE, file: {}, data: {}".format(path, self.info))
+        logger.trace("{} dumping validator info into file: {}, "
+                "data: {}".format(self._node, path, self.info))
         with open(path, 'w') as fd:
             json.dump(self.info, fd)
