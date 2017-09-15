@@ -12,7 +12,7 @@ from plenum.test.helper import waitForSufficientRepliesForRequests, checkSuffici
     sendRandomRequest
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.conftest import steward1, stewardWallet, \
+from plenum.test.pool_transactions.conftest import looper, steward1, stewardWallet, \
         stewardAndWallet1 # noqa
 from plenum.test.test_client import genTestClient
 from stp_core.loop.eventually import eventually

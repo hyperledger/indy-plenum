@@ -32,9 +32,13 @@ TEST_NODE_NAME = "NewNode"
 
 
 @pytest.fixture(scope="module")
-def test_ledgers(request):
-    return getValueFromModule(request, "TEST_LEDGERS",
-            [(POOL_LEDGER_ID, 'pool'), (DOMAIN_LEDGER_ID, 'ledger')])
+def test_ledgers():
+    return [(POOL_LEDGER_ID, 'pool'), (DOMAIN_LEDGER_ID, 'ledger')]
+
+
+@pytest.fixture
+def steward_client_and_wallet(steward1, stewardWallet):
+    return steward1, stewardWallet
 
 
 # TODO more cases for states
@@ -42,7 +46,9 @@ def test_ledgers(request):
 def check_ledgers_state_fields(
         test_ledgers,
         latest_info_wait_time, load_latest_info, looper, txnPoolNodeSet,
-        tconf, tdir, steward1, stewardWallet):
+        tconf, tdir, steward_client_and_wallet):
+
+    steward, stewardWallet = steward_client_and_wallet
 
     assert test_ledgers
 
@@ -51,7 +57,7 @@ def check_ledgers_state_fields(
 
     logger.debug("Creating new steward {}".format(newStewardName))
     newSteward, newStewardWallet = addNewSteward(
-            looper, tdir, steward1, stewardWallet, newStewardName)
+            looper, tdir, steward, stewardWallet, newStewardName)
 
     logger.debug("Adding new node {} to the pool".format(newNodeName))
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
