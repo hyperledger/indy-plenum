@@ -12,7 +12,7 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
 from plenum.common.constants import LedgerState, CONSISTENCY_PROOF, \
-        CATCHUP_REP, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    CATCHUP_REP, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 
 from plenum.test import waits
 from plenum.test.conftest import getValueFromModule
@@ -20,11 +20,10 @@ from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.delayers import cpDelay, cr_delay
 from plenum.test.test_node import TestNode, checkNodesConnected
 from plenum.test.node_catchup.helper import check_ledger_state, \
-        ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import looper, steward1, \
-    stewardWallet, stewardAndWallet1 # noqa
+    ensure_all_nodes_have_same_data
+from plenum.test.pool_transactions.conftest import looper, steward1, stewardWallet, stewardAndWallet1  # noqa
 from plenum.test.pool_transactions.helper import addNewSteward, \
-        sendAddNewNode, start_newly_added_node
+    sendAddNewNode, start_newly_added_node
 from plenum.test.validator_info.helper import load_info
 
 logger = getlogger()
@@ -38,7 +37,7 @@ def test_ledgers():
     return [(POOL_LEDGER_ID, 'pool'), (DOMAIN_LEDGER_ID, 'ledger')]
 
 
-@pytest.fixture
+@pytest.fixture  # noqa
 def steward_client_and_wallet(steward1, stewardWallet):
     return steward1, stewardWallet
 
@@ -51,13 +50,13 @@ def check_ledgers_state(test_ledgers, states, loader):
 
 
 # TODO more cases for states
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function")  # noqa
 def check_ledgers_state_fields(
         test_ledgers, info_path,
         latest_info_wait_time, load_latest_info, looper, txnPoolNodeSet,
         tconf, tdir, steward_client_and_wallet):
 
-    steward, stewardWallet = steward_client_and_wallet
+    steward, stewardWallet = steward_client_and_wallet  # noqa
 
     assert test_ledgers
 
@@ -66,7 +65,7 @@ def check_ledgers_state_fields(
 
     logger.debug("Creating new steward {}".format(newStewardName))
     newSteward, newStewardWallet = addNewSteward(
-            looper, tdir, steward, stewardWallet, newStewardName)
+        looper, tdir, steward, stewardWallet, newStewardName)
 
     logger.debug("Adding new node {} to the pool".format(newNodeName))
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
@@ -75,9 +74,11 @@ def check_ledgers_state_fields(
                                         requests=[req], fVal=1)
 
     logger.debug("Creating and starting node {}".format(newNodeName))
-    newNode = start_newly_added_node(looper, newNodeName, tdir, sigseed,
-                                  (nodeIp, nodePort), (clientIp, clientPort),
-                                  tconf, True, None, TestNode)
+    newNode = start_newly_added_node(
+        looper, newNodeName, tdir, sigseed,
+        (nodeIp, nodePort), (clientIp, clientPort),
+        tconf, True, None, TestNode
+    )
 
     # TODO taking into account all nodes
     # (including already connected and synced ones)
@@ -97,7 +98,7 @@ def check_ledgers_state_fields(
     )
 
     check_ledgers_state(
-            test_ledgers, (LedgerState.not_synced,), load_latest_info)
+        test_ledgers, (LedgerState.not_synced,), load_latest_info)
 
     txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -122,23 +123,21 @@ def check_ledgers_state_fields(
     # it's unlikely to do that using catch-up delay because ledgers are
     # synced one by one)
 
-    
     # logger.debug(
     #    "Delay catchup reply processing for node {} ".format(newNodeName)
     # )
     # newNode.nodeIbStasher.delay(cr_delay(waits_catch_up))
 
-    #logger.debug(
-    #    "Reset catchup reply delays and ensure "
-    #    "that all ledgers are synced"
-    #)
-    #newNode.nodeIbStasher.reset_delays_and_process_delayeds(CATCHUP_REP)
-    #ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    # logger.debug(
+    #     "Reset catchup reply delays and ensure "
+    #     "that all ledgers are synced"
+    # )
+    # newNode.nodeIbStasher.reset_delays_and_process_delayeds(CATCHUP_REP)
+    # ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
-    #latest_info = load_latest_info()
-    #check_ledgers_state(test_ledgers, (LedgerState.synced,),
-    #        functools.partial(load_info, info_path))
-
+    # latest_info = load_latest_info()
+    # check_ledgers_state(test_ledgers, (LedgerState.synced,),
+    #         functools.partial(load_info, info_path))
 
 
 def test_validator_info_file_ledgers_pool_domain_state_fields_valid(

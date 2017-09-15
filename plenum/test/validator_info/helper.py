@@ -8,15 +8,15 @@ from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 from plenum.test import waits
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import waitForSufficientRepliesForRequests, checkSufficientRepliesReceived, \
-    sendRandomRequest
+from plenum.test.helper import waitForSufficientRepliesForRequests, \
+    checkSufficientRepliesReceived, sendRandomRequest
 # noinspection PyUnresolvedReferences
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.conftest import looper, steward1, stewardWallet, \
-        stewardAndWallet1 # noqa
+from plenum.test.node_catchup.helper import \
+    ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.pool_transactions.conftest import looper, \
+    steward1, stewardWallet, stewardAndWallet1  # noqa
 from plenum.test.test_client import genTestClient
 from stp_core.loop.eventually import eventually
-
 
 
 def load_info(path):
@@ -38,8 +38,8 @@ def info_filename(test_node_name):
 @pytest.fixture(scope='module')
 def patched_dump_info_period(request, tconf):
     old_period = tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
-    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = \
-            getValueFromModule(request, "PERIOD_SEC", 1)
+    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = getValueFromModule(
+        request, "PERIOD_SEC", 1)
     yield tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
     tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = old_period
 
@@ -70,7 +70,6 @@ def load_latest_info(txnPoolNodesLooper, latest_info_wait_time, info_path):
 @pytest.fixture(scope='module')
 def info(info_path):
     return load_info(info_path)
-
 
 
 @pytest.fixture(scope='module')
@@ -115,7 +114,8 @@ def write_txn_and_get_latest_info(txnPoolNodesLooper,
 
     def write_wrapped():
         req = sendRandomRequest(wallet, client)
-        waitForSufficientRepliesForRequests(txnPoolNodesLooper, client, requests=[req])
+        waitForSufficientRepliesForRequests(
+            txnPoolNodesLooper, client, requests=[req])
         txnPoolNodesLooper.runFor(patched_dump_info_period)
         return load_info(info_path)
     return write_wrapped
@@ -123,10 +123,11 @@ def write_txn_and_get_latest_info(txnPoolNodesLooper,
 
 @pytest.fixture
 def client_and_wallet(txnPoolNodesLooper, tdirWithPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
-                                   name='reader', usePoolLedger=True)
+    client, wallet = genTestClient(
+        tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
+        name='reader', usePoolLedger=True
+    )
     txnPoolNodesLooper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
                                                   *txnPoolNodeSet)
     return client, wallet
-
