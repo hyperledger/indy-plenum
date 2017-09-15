@@ -260,9 +260,9 @@ def assertLength(collection: Iterable[Any], expectedLength: int):
         format(len(collection), expectedLength)
 
 
-def assertEquality(observed: Any, expected: Any):
+def assertEquality(observed: Any, expected: Any, details=None):
     assert observed == expected, "Observed value was {} but expected value " \
-                                 "was {}".format(observed, expected)
+                                 "was {}, details: {}".format(observed, expected, details)
 
 
 def setupNodesAndClient(
