@@ -1840,7 +1840,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                         byMaster=False)
             return False
 
-        logger.trace("{} got ordered requests from master replica")
+        logger.trace("{} got ordered requests from master replica"
+                     .format(self))
         requests = [self.requests[request_id].finalised
                     for request_id in ordered.reqIdr
                     if request_id in self.requests and
