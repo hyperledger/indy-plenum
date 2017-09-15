@@ -757,8 +757,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the sum of messages successfully processed
         """
-        outbox_processed = self.service_replicas_outbox(limit)
         inbox_processed = self.replicas.service_inboxes(limit)
+        outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
 
     async def serviceNodeMsgs(self, limit: int) -> int:
@@ -2274,10 +2274,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param pp_time: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
-        committedTxns = self.requestExecuter[ledger_id](pp_time, reqs,
-                                                        state_root, txn_root)
-        for request in reqs:
-            self.requests.mark_as_executed(request)
+        try:
+            committedTxns = self.requestExecuter[ledger_id](
+                pp_time, reqs, state_root, txn_root)
+        except Exception as exc:
+            logger.warning(
+                "{} commit failed for batch request, error {}, view no {}, "
+                "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
+                "requests: {}".format(
+                    self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
+                    txn_root, [(req.identifier, req.reqId) for req in reqs]
+                )
+            )
+            raise
+        else:
+            if committedTxns:
+                # TODO is it possible to get len(committedTxns) != len(reqs)
+                # someday
+                for request in reqs:
+                    self.requests.mark_as_executed(request)
+                logger.info(
+                    "{} committed batch request, view no {}, ppSeqNo {}, "
+                    "ledger {}, state root {}, txn root {}, requests: {}".format(
+                        self, view_no, pp_seq_no, ledger_id, state_root, txn_root,
+                        [(req.identifier, req.reqId) for req in reqs]
+                    )
+                )
 
         if committedTxns:
             first_txn_seq_no = committedTxns[0][F.seqNo.name]
@@ -2606,7 +2628,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seq_no = seq_no if seq_no else self.seqNoDB.get(request.identifier, request.reqId)
+        seq_no = seq_no if seq_no else \
+            self.seqNoDB.get(request.identifier, request.reqId)
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
