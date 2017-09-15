@@ -72,14 +72,14 @@ class Requests(OrderedDict):
         """
         return self[req.key].forwarded
 
-    def flagAsForwarded(self, req: Request, to: int):
+    def mark_as_forwarded(self, req: Request, to: int):
         """
         Set the given request's forwarded attribute to True
         """
         self[req.key].forwarded = True
         self[req.key].forwardedTo = to
 
-    def addPropagate(self, req: Request, sender: str):
+    def add_propagate(self, req: Request, sender: str):
         """
         Add the specified request to the list of received
         PROPAGATEs.
@@ -112,13 +112,13 @@ class Requests(OrderedDict):
         state = self[req.key]
         state.executed = True
 
-    def hasPropagated(self, req: Request, sender: str) -> bool:
+    def has_propagated(self, req: Request, sender: str) -> bool:
         """
         Check whether the request specified has already been propagated.
         """
         return req.key in self and sender in self[req.key].propagates
 
-    def isFinalised(self, reqKey: Tuple[str, int]) -> bool:
+    def is_finalised(self, reqKey: Tuple[str, int]) -> bool:
         return reqKey in self and self[reqKey].finalised
 
     def digest(self, reqKey: Tuple) -> str:
@@ -142,10 +142,10 @@ class Propagator:
 
         :param request: the REQUEST to propagate
         """
-        if self.requests.hasPropagated(request, self.name):
+        if self.requests.has_propagated(request, self.name):
             logger.trace("{} already propagated {}".format(self, request))
         else:
-            self.requests.addPropagate(request, self.name)
+            self.requests.add_propagate(request, self.name)
             propagate = self.createPropagate(request, clientName)
             logger.info(
                 "{} propagating request {} from client {}".
@@ -220,7 +220,7 @@ class Propagator:
 
         self.replicas.pass_message(ReqKey(*key))
         self.monitor.requestUnOrdered(*key)
-        self.requests.flagAsForwarded(request, self.replicas.num_replicas)
+        self.requests.mark_as_forwarded(request, self.replicas.num_replicas)
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):

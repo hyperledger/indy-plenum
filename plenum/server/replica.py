@@ -962,7 +962,7 @@ class Replica(HasActionQueue, MessageProcessor):
         Check if there are any requests which are not finalised, i.e for
         which there are not enough PROPAGATEs
         """
-        return {key for key in reqKeys if not self.requests.isFinalised(key)}
+        return {key for key in reqKeys if not self.requests.is_finalised(key)}
 
     def __is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
         if view_no == self.viewNo and pp_seq_no == 1:
@@ -1859,7 +1859,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.prePreparesPendingFinReqs):
             finalised = set()
             for r in reqIds:
-                if self.requests.isFinalised(r):
+                if self.requests.is_finalised(r):
                     finalised.add(r)
             diff = reqIds.difference(finalised)
             # All requests become finalised

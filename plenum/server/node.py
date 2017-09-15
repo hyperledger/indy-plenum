@@ -1765,7 +1765,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Since some propagates might not include the client name
             self.set_sender_for_req(*request.key, clientName)
 
-        self.requests.addPropagate(request, frm)
+        self.requests.add_propagate(request, frm)
 
         self.propagate(request, clientName)
         self.tryForwarding(request)
