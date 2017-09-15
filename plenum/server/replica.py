@@ -1726,7 +1726,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
         for request_key in reqKeys:
             request = self.requests.get(request_key)
-            if request is None or not request.executed:
+            if request is None:
+                continue
+            if not request.executed:
+                logger.debug("{} excluding not executed request from gc: {}"
+                             .format(self, request_key))
                 continue
             request.forwardedTo -= 1
             if request.forwardedTo == 0:
