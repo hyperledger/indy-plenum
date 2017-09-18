@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 from importlib import import_module
 from importlib.util import module_from_spec, spec_from_file_location
 from stp_core.common.config.util import getConfig as STPConfig
@@ -17,17 +18,26 @@ def getInstalledConfig(installDir, configFile):
     :return: the configuration as a python object
     """
     configPath = os.path.join(installDir, configFile)
-    if os.path.exists(configPath):
-        spec = spec_from_file_location(configFile, configPath)
-        config = module_from_spec(spec)
-        spec.loader.exec_module(config)
-        return config
-    else:
+    if not os.path.exists(configPath):
         raise FileNotFoundError("No file found at location {}".
                                 format(configPath))
+    spec = spec_from_file_location(configFile, configPath)
+    config = module_from_spec(spec)
+    spec.loader.exec_module(config)
+    return config
 
 
-def getConfig(homeDir=None):
+def extend_with_external_config(extendee: object, extender: Tuple[str, str], required: bool = False) -> object:
+    try:
+        config = getInstalledConfig(*extender)
+        extendee.__dict__.update(config.__dict__)
+    except FileNotFoundError as err:
+        if required:
+            raise err
+    return extendee
+
+
+def getConfig(user_config_dir=None):
     """
     Reads a file called config.py in the project directory
 
@@ -36,26 +46,37 @@ def getConfig(homeDir=None):
     """
     global CONFIG
     if not CONFIG:
-        stp_config = STPConfig(homeDir)
+        stp_config = STPConfig(user_config_dir)
         plenum_config = import_module("plenum.config")
-        refConfig = stp_config
-        refConfig.__dict__.update(plenum_config.__dict__)
-        try:
-            homeDir = os.path.expanduser(homeDir or "~")
+        config = stp_config
+        config.__dict__.update(plenum_config.__dict__)
+        extend_with_external_config(config,
+                                    (config.GENERAL_CONFIG_DIR,
+                                     config.GENERAL_CONFIG_FILE),
+                                    required=True)
 
-            configDir = os.path.join(homeDir, ".plenum")
-            config = getInstalledConfig(configDir, "plenum_config.py")
+        # fail if network is not set
+        if not config.NETWORK_NAME:
+            raise Exception('NETWORK_NAME must be set')
 
-            refConfig.__dict__.update(config.__dict__)
-        except FileNotFoundError:
-            pass
-        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
+        network_config_dir = os.path.join(config.GENERAL_CONFIG_DIR,
+                                          config.NETWORK_NAME)
+        extend_with_external_config(config,
+                                    (network_config_dir,
+                                     config.NETWORK_CONFIG_FILE))
+
+        if not user_config_dir:
+            user_config_dir = os.path.join(config.baseDir, config.NETWORK_NAME)
+        user_config_dir = os.path.expanduser(user_config_dir)
+        extend_with_external_config(config,
+                                    (user_config_dir,
+                                     config.USER_CONFIG_FILE))
 
         # "unsafe" is a set of attributes that can set certain behaviors that
         # are not safe, for example, 'disable_view_change' disables view changes
         # from happening. This might be useful in testing scenarios, but never
         # in a live network.
-        if not hasattr(refConfig, 'unsafe'):
-            setattr(refConfig, 'unsafe', set())
-        CONFIG = refConfig
+        if not hasattr(config, 'unsafe'):
+            setattr(config, 'unsafe', set())
+        CONFIG = config
     return CONFIG
