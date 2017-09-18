@@ -9,7 +9,6 @@ def set_checkpoint_faking(replica):
     old = replica.send
 
     def send(msg, stat=None):
-        print("FFF sending", msg)
         if isinstance(msg, Checkpoint):
             replica.inBox.append((msg, "Self1"))
             replica.inBox.append((msg, "Self2"))
