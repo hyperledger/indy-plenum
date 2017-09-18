@@ -116,12 +116,6 @@ def expectedPoolGetReadyTimeout(nodeCount):
         expectedPoolCatchupTime(nodeCount)
 
 
-def expectedPoolLedgerCheck(nodeCount):
-    # TODO this is a legacy for sovrin-node
-    # remove it and replace in the sovrin-node
-    return 5 * nodeCount
-
-
 def expectedPoolLedgerRepliedMsgPersisted(nodeCount):
     """
     From: a message is replied to client
