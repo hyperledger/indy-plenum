@@ -113,7 +113,7 @@ class Requests(OrderedDict):
 
     def mark_as_executed(self, req: Request):
         """
-        This works together with 'mark_as_forwarded' and 'free' methods.
+        Works together with 'mark_as_forwarded' and 'free' methods.
 
         It makes request to be removed if all replicas request was
         forwarded to freed it.
@@ -124,7 +124,7 @@ class Requests(OrderedDict):
 
     def free(self, request_key):
         """
-        This works together with 'mark_as_forwarded' and
+        Works together with 'mark_as_forwarded' and
         'mark_as_executed' methods.
 
         It makes request to be removed if all replicas request was
@@ -134,10 +134,7 @@ class Requests(OrderedDict):
         if not state:
             return
         state.forwardedTo -= 1
-        if state.forwardedTo > 0:
-            return
-        if state.executed:
-            self.pop(request_key, None)
+        self._clean(state)
 
     def _clean(self, state):
         if state.executed and state.forwardedTo <= 0:
