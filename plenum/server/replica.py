@@ -1725,19 +1725,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 coll.pop(request_key, None)
 
         for request_key in reqKeys:
-            request = self.requests.get(request_key)
-            if request is None:
-                continue
-            if not request.executed:
-                logger.debug("{} excluding not executed request from gc: {}"
-                             .format(self, request_key))
-                continue
-            request.forwardedTo -= 1
-            if request.forwardedTo == 0:
-                logger.debug(
-                    '{} clearing request {} from previous checkpoints'
-                    .format(self, request_key))
-                self.requests.pop(request_key)
+            self.requests.free(request_key)
+            # logger.debug('{} clearing request {} from previous checkpoints'
+            #              .format(self, request_key))
 
         self.compact_ordered()
 

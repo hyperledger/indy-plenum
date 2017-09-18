@@ -1,5 +1,4 @@
 from collections import OrderedDict, defaultdict
-from itertools import groupby
 
 from typing import Tuple, Union
 
@@ -23,7 +22,7 @@ class ReqState:
         self.request = request
         self.forwarded = False
         # forwardedTo helps in finding to how many replicas has this request
-        # been forwarded to, helps in garbage collection, see `gc` of `Replica`
+        # been forwarded to, helps in garbage collection
         self.forwardedTo = 0
         self.propagates = {}
         self.finalised = None
@@ -74,7 +73,11 @@ class Requests(OrderedDict):
 
     def mark_as_forwarded(self, req: Request, to: int):
         """
-        Set the given request's forwarded attribute to True
+        Works together with 'mark_as_executed' and 'free' methods.
+
+        It marks request as forwarded to 'to' replicas.
+        To let request be removed, it should be marked as executed and each of
+        'to' replicas should call 'free'.
         """
         self[req.key].forwarded = True
         self[req.key].forwardedTo = to
@@ -109,8 +112,36 @@ class Requests(OrderedDict):
         state.set_finalised(req)
 
     def mark_as_executed(self, req: Request):
+        """
+        This works together with 'mark_as_forwarded' and 'free' methods.
+
+        It makes request to be removed if all replicas request was
+        forwarded to freed it.
+        """
         state = self[req.key]
         state.executed = True
+        self._clean(state)
+
+    def free(self, request_key):
+        """
+        This works together with 'mark_as_forwarded' and
+        'mark_as_executed' methods.
+
+        It makes request to be removed if all replicas request was
+        forwarded to freed it and if request executor marked it as executed.
+        """
+        state = self.get(request_key)
+        if not state:
+            return
+        state.forwardedTo -= 1
+        if state.forwardedTo > 0:
+            return
+        if state.executed:
+            self.pop(request_key, None)
+
+    def _clean(self, state):
+        if state.executed and state.forwardedTo <= 0:
+            self.pop(state.request.key, None)
 
     def has_propagated(self, req: Request, sender: str) -> bool:
         """
@@ -124,8 +155,6 @@ class Requests(OrderedDict):
     def digest(self, reqKey: Tuple) -> str:
         if reqKey in self and self[reqKey].finalised:
             return self[reqKey].finalised.digest
-        else:
-            return None
 
 
 class Propagator:
