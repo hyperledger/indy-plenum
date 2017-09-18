@@ -1,7 +1,7 @@
 #!groovy
 
 // TODO remove after shared libs refactoring
-@Library('SovrinHelpersNonIndyBrands') _
+@Library('SovrinHelpers') _
 
 def name = 'indy-plenum'
 
