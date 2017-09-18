@@ -168,7 +168,7 @@ useWalletCmd = Command(
     usage="use wallet <name|absolute-wallet-file-path>",
     examples=[
         "use wallet mywallet",
-        "use wallet /home/ubuntu/.sovrin/wallets/test/mywallet.wallet"])
+        "use wallet /home/ubuntu/.indy/wallets/test/mywallet.wallet"])
 
 saveWalletCmd = Command(
     id="save wallet",

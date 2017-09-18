@@ -24,9 +24,9 @@ filter_log -i Node1.log -p MONITORING
 
 filter_log -i Node1.log -o filtered.log -l INFO
 
-filter_log -i /home/user/.sovrin/Node1.log -o /home/user/filtered.log -l DEBUG -p "VIEW CHANGE"
+filter_log -i /home/user/.indy/Node1.log -o /home/user/filtered.log -l DEBUG -p "VIEW CHANGE"
 
-filter_log --input /home/user/.sovrin/Node1.log --output /home/user/filtered.log --level DEBUG --prefix "VIEW CHANGE"
+filter_log --input /home/user/.indy/Node1.log --output /home/user/filtered.log --level DEBUG --prefix "VIEW CHANGE"
 """
 
 import argparse
