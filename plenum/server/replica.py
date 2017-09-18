@@ -1726,8 +1726,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         for request_key in reqKeys:
             self.requests.free(request_key)
-            # logger.debug('{} clearing request {} from previous checkpoints'
-            #              .format(self, request_key))
+            logger.debug('{} freed request {} from previous checkpoints'
+                         .format(self, request_key))
 
         self.compact_ordered()
 
