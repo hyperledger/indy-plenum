@@ -1736,8 +1736,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 if not self.isProcessingReq(*request.key):
                     self.startedProcessingReq(*request.key, frm)
-                # If not already got the propagate request(PROPAGATE) for the
-                # corresponding client request(REQUEST)
                 self.recordAndPropagate(request, frm)
                 self.send_ack_to_client(request.key, frm)
 
@@ -1767,7 +1765,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Since some propagates might not include the client name
             self.set_sender_for_req(*request.key, clientName)
 
-        self.requests.addPropagate(request, frm)
+        self.requests.add_propagate(request, frm)
 
         self.propagate(request, clientName)
         self.tryForwarding(request)
@@ -1822,47 +1820,58 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def processOrdered(self, ordered: Ordered):
         """
-        Process and orderedRequest.
+        Execute ordered request
 
-        Execute client request with retries if client request hasn't yet reached
-        this node but corresponding PROPAGATE, PRE-PREPARE, PREPARE and
-        COMMIT request did
-
-        :param ordered: an orderedRequest
-        :param retryNo: the retry number used in recursion
-        :return: True if successful, None otherwise
+        :param ordered: an ordered request
+        :return: whether executed
         """
 
-        inst_id, view_no, req_idrs, pp_seq_no, pp_time, ledger_id, \
-            state_root, txn_root = tuple(ordered)
+        if ordered.instId >= self.instances.count:
+            logger.warning('{} got ordered request for instance {} which '
+                           'does not exist'.format(self, ordered.instId))
+            return False
 
-        # Only the request ordered by master protocol instance are executed by
-        # the client
-        if inst_id == self.instances.masterId:
-            reqs = [self.requests[i, r].finalised for (i, r) in req_idrs if (
-                i, r) in self.requests and self.requests[i, r].finalised]
-            if len(reqs) == len(req_idrs):
-                logger.debug(
-                    "{} executing Ordered batch {} {} of {} requests". format(
-                        self.name, view_no, pp_seq_no, len(req_idrs)))
-                self.executeBatch(view_no, pp_seq_no, pp_time, reqs, ledger_id,
-                                  state_root, txn_root)
-                r = True
-            else:
-                logger.info('{} did not find {} finalized requests, but '
-                            'still ordered'.format(self,
-                                                   len(req_idrs) - len(reqs)))
-                return None
-        else:
-            logger.trace("{} got ordered requests from backup replica {}".
-                         format(self, inst_id))
-            r = False
-        if inst_id < self.instances.count:
-            self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
-        else:
-            logger.debug('{} got ordered request for instance {} which '
-                         'does not exist'.format(self, inst_id))
-        return r
+        if ordered.instId != self.instances.masterId:
+            # Requests from backup replicas are not executed
+            logger.trace("{} got ordered requests from backup replica {}"
+                         .format(self, ordered.instId))
+            self.monitor.requestOrdered(ordered.reqIdr,
+                                        ordered.instId,
+                                        byMaster=False)
+            return False
+
+        logger.trace("{} got ordered requests from master replica"
+                     .format(self))
+        requests = [self.requests[request_id].finalised
+                    for request_id in ordered.reqIdr
+                    if request_id in self.requests and
+                    self.requests[request_id].finalised]
+
+        if len(requests) != len(ordered.reqIdr):
+            logger.warning('{} did not find {} finalized '
+                           'requests, but still ordered'
+                           .format(self, len(ordered.reqIdr) - len(requests)))
+            return False
+
+        logger.debug("{} executing Ordered batch {} {} of {} requests"
+                     .format(self.name,
+                             ordered.viewNo,
+                             ordered.ppSeqNo,
+                             len(ordered.reqIdr)))
+
+        self.executeBatch(ordered.viewNo,
+                          ordered.ppSeqNo,
+                          ordered.ppTime,
+                          requests,
+                          ordered.ledgerId,
+                          ordered.stateRootHash,
+                          ordered.txnRootHash)
+
+        self.monitor.requestOrdered(ordered.reqIdr,
+                                    ordered.instId,
+                                    byMaster=True)
+
+        return True
 
     def force_process_ordered(self):
         """
@@ -2283,6 +2292,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if committedTxns:
                 # TODO is it possible to get len(committedTxns) != len(reqs)
                 # someday
+                for request in reqs:
+                    self.requests.mark_as_executed(request)
                 logger.info(
                     "{} committed batch request, view no {}, ppSeqNo {}, "
                     "ledger {}, state root {}, txn root {}, requests: {}".format(
@@ -2618,8 +2629,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seq_no = seq_no if seq_no else self.seqNoDB.get(
-            request.identifier, request.reqId)
+        seq_no = seq_no if seq_no else \
+            self.seqNoDB.get(request.identifier, request.reqId)
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
