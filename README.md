@@ -24,7 +24,7 @@ Plenum.
 pip install indy-plenum
 ```
 
-From here, you can play with the command-line interface (see the [tutorial](wiki))...
+From here, you can play with the command-line interface (see the [tutorial](https://github.com/hyperledger/indy-plenum/wiki))...
 
 Note: For Windows, we recommended using either [cmder](http://cmder.net/) or [conemu](https://conemu.github.io/).
 
@@ -40,7 +40,7 @@ cd indy-plenum
 python -m plenum.test
 ```
 
-**Details about the protocol, including a great tutorial, can be found on the [wiki](wiki).**
+**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).**
 
 ### Installing python 3.5 and libsodium:
 
