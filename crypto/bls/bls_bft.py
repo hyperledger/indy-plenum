@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from typing import Sequence
 
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
@@ -13,13 +12,15 @@ class BlsBft(metaclass=ABCMeta):
     def __init__(self,
                  bls_crypto: BlsCrypto,
                  bls_key_register: BlsKeyRegister,
-                 node_id):
+                 node_id,
+                 quorums=Quorums):
         self.bls_crypto = bls_crypto
         self.bls_key_register = bls_key_register
         self.node_id = node_id
+        self.quorums = quorums
 
     @abstractmethod
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         pass
 
     @abstractmethod
@@ -27,7 +28,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender, state_root):
+    def validate_commit(self, commit: Commit, sender):
         pass
 
     @abstractmethod
@@ -35,9 +36,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def calculate_multi_sig(self,
-                            key_3PC,
-                            quorums: Quorums) -> Optional[MultiSignature]:
+    def calculate_multi_sig(self, key_3PC) -> Optional[MultiSignature]:
         """
         Creates multi-signature
 
@@ -45,7 +44,6 @@ class BlsBft(metaclass=ABCMeta):
         :param quorums:
         :return: tuple of participants and signature itself
         """
-        # TODO: replace tuple by class for signature
         pass
 
     @abstractmethod
