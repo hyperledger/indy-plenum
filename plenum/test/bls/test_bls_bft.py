@@ -2,7 +2,7 @@ import os
 
 import base58
 import pytest
-from plenum.bls.bls import BlsFactoryCharm
+from plenum.bls.bls import BlsFactoryIndyCrypto
 from crypto.bls.bls_bft import BlsValidationError
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, BlsMultiSignature, Commit
@@ -14,7 +14,7 @@ from plenum.server.quorums import Quorums
 def bls_bfts(txnPoolNodeSet):
     bls_bfts = []
     for node in txnPoolNodeSet:
-        factory = BlsFactoryCharm(node.basedirpath, node.name)
+        factory = BlsFactoryIndyCrypto(node.basedirpath, node.name)
         bls_bft = factory.create_bls_bft()
         bls_bft.bls_key_register.load_latest_keys(node.poolLedger)
         bls_bfts.append(bls_bft)

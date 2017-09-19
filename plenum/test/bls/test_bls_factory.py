@@ -4,19 +4,19 @@ import pytest
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_manager import LoadBLSKeyError
-from plenum.bls.bls import BlsFactoryCharm
+from plenum.bls.bls import BlsFactoryIndyCrypto
 
 
 @pytest.fixture()
 def bls_factory(tempdir):
     os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsFactoryCharm(tempdir, 'Node1')
+    return BlsFactoryIndyCrypto(tempdir, 'Node1')
 
 
 @pytest.fixture()
 def bls_factory2(tempdir):
     os.mkdir(os.path.join(tempdir, 'Node2'))
-    return BlsFactoryCharm(tempdir, 'Node2')
+    return BlsFactoryIndyCrypto(tempdir, 'Node2')
 
 
 def test_create_and_store_bls_keys(bls_factory):

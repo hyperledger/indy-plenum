@@ -575,6 +575,7 @@ def poolTxnData(request):
         steward_name = 'Steward' + str(i)
         data['seeds'][steward_name] = steward_name + \
             '0' * (32 - len(steward_name))
+        data['seeds'][node_name + "_bls"] = node_name + '0' * (48 - len(node_name))
 
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
         s_idr = SimpleSigner(
@@ -602,7 +603,7 @@ def poolTxnData(request):
 
         if i <= nodes_with_bls:
             _, bls_key = create_default_bls_factory().generate_bls_keys(
-                seed=data['seeds'][node_name])
+                seed=data['seeds'][node_name + "_bls"])
             node_txn[DATA][BLS_KEY] = bls_key
             data['nodesWithBls'][node_name] = True
 
@@ -674,9 +675,10 @@ def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
+        seed_bls = seeds[nName + "_bls"]
         initNodeKeysForBothStacks(nName, tdir, seed, override=True)
         if nName in poolTxnData['nodesWithBls']:
-            init_bls_keys(tdir, nName, seed)
+            init_bls_keys(tdir, nName, seed_bls)
 
 
 @pytest.fixture(scope="module")
