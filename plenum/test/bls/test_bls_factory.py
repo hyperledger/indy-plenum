@@ -5,6 +5,7 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls import BlsFactoryIndyCrypto
+from plenum.bls.bls_store import BlsStore
 from plenum.common.config_util import getConfig
 
 config = getConfig()
@@ -113,13 +114,21 @@ def test_bls_crypto_works(bls_factory, bls_factory2):
     assert bls_crypto2.verify_multi_sig(multi_sig2, msg, pks)
 
 
+def test_create_bls_store(bls_factory):
+    bls_store = bls_factory.create_bls_store()
+    assert bls_store
+    assert isinstance(bls_store, BlsStore)
+
+
 def test_create_bls_bft(bls_factory):
     bls_factory.generate_and_store_bls_keys()
-    bls_bft = bls_factory.create_bls_bft(is_master=True)
+    bls_store = bls_factory.create_bls_store()
+    bls_bft = bls_factory.create_bls_bft(is_master=True, bls_store=bls_store)
     assert bls_bft
     assert isinstance(bls_bft, BlsBft)
 
 
 def test_create_bls_bft_crypto_no_keys(bls_factory):
     with pytest.raises(LoadBLSKeyError):
-        bls_factory.create_bls_bft(is_master=False)
+        bls_store = bls_factory.create_bls_store()
+        bls_factory.create_bls_bft(is_master=False, bls_store=bls_store)

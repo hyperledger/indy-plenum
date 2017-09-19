@@ -120,8 +120,8 @@ class TestNodeCore(StackedTester):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
 
-    def create_replicas(self, bls_store):
-        return TestReplicas(self, self.monitor, bls_store)
+    def create_replicas(self):
+        return TestReplicas(self, self.monitor)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()

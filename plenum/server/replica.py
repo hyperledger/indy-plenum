@@ -7,9 +7,8 @@ from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 import base58
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing
-from crypto.bls.bls_key_manager import LoadBLSKeyError
+from crypto.bls.bls_bft import BlsBft
 from orderedset import OrderedSet
-from plenum.bls.bls import create_default_bls_factory
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
 from plenum.common.exceptions import SuspiciousNode, \
@@ -73,7 +72,8 @@ class Replica(HasActionQueue, MessageProcessor):
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
-                 isMaster: bool = False):
+                 isMaster: bool = False,
+                 bls_bft: BlsBft = None):
         """
         Create a new replica.
 
@@ -269,24 +269,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
-        self._bls_bft = self._create_bls_bft()
-
-    def _create_bls_bft(self):
-        try:
-            bls_factory = create_default_bls_factory(self.node.basedirpath,
-                                                     self.node.name,
-                                                     self.node.dataDir,
-                                                     self.config)
-            bls_bft = bls_factory.create_bls_bft(self.isMaster)
-            bls_bft.bls_key_register.load_latest_keys(self.node.poolLedger)
-            return bls_bft
-        except LoadBLSKeyError as ex:
-            # TODO: for now we allow that BLS is optional, so that we don't require it
-            logger.warning(
-                'BLS Signatures will not be used for the node, since BLS keys were not found. '
-                'Please make sure that a script to init keys was called,'
-                ' and NODE txn was sent with BLS public keys. Error: '.format(ex))
-            return None
+        self._bls_bft = bls_bft
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,

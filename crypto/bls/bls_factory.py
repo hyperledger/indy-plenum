@@ -28,11 +28,14 @@ class BlsFactory(metaclass=ABCMeta):
         sk, pk = bls_key_manager.load_keys()
         return self._create_bls_crypto(sk, pk, group_params)
 
-    def create_bls_bft(self, is_master) -> BlsBft:
+    def create_bls_bft(self, is_master, bls_store) -> BlsBft:
         bls_crypto = self.create_bls_crypto_from_saved_keys()
         bls_key_register = self._create_bls_key_register()
-        bls_store = self._create_bls_store()
         return self._create_bls_bft(bls_crypto, bls_key_register, bls_store, is_master)
+
+    @abstractmethod
+    def create_bls_store(self) -> BlsStore:
+        pass
 
     def _load_group_params(self):
         return self._create_group_params_loader().load_group_params()
@@ -55,10 +58,6 @@ class BlsFactory(metaclass=ABCMeta):
 
     @abstractmethod
     def _create_bls_key_register(self) -> BlsKeyRegister:
-        pass
-
-    @abstractmethod
-    def _create_bls_store(self) -> BlsStore:
         pass
 
     @abstractmethod

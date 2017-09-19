@@ -4,17 +4,16 @@ import time
 from binascii import unhexlify
 from collections import deque, defaultdict
 from contextlib import closing
-from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 
 from intervaltree import IntervalTree
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.hash_stores.hash_store import HashStore
 from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
+from plenum.bls.bls import create_default_bls_factory
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
@@ -34,8 +33,8 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
-    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
+    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -62,7 +61,6 @@ from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
-from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
@@ -75,6 +73,7 @@ from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from state.pruning_state import PruningState
 from state.state import State
 from stp_core.common.log import getlogger
@@ -84,7 +83,6 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
-from plenum.bls.bls_store import BlsStore
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -105,15 +103,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA]=None,
-                 clientAuthNr: ClientAuthNr=None,
-                 ha: HA=None,
-                 cliname: str=None,
-                 cliha: HA=None,
-                 basedirpath: str=None,
+                 nodeRegistry: Dict[str, HA] = None,
+                 clientAuthNr: ClientAuthNr = None,
+                 ha: HA = None,
+                 cliname: str = None,
+                 cliha: HA = None,
+                 basedirpath: str = None,
                  primaryDecider: PrimaryDecider = None,
-                 pluginPaths: Iterable[str]=None,
-                 storage: Storage=None,
+                 pluginPaths: Iterable[str] = None,
+                 storage: Storage = None,
                  config=None,
                  seed=None):
         """
@@ -148,6 +146,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
+        self.bls_store = self._create_bls_state()
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
         self.reqHandler = self.getDomainReqHandler()
@@ -237,7 +236,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.instanceChanges = InstanceChanges()
 
-        self.viewNo = 0                             # type: int
+        self.viewNo = 0  # type: int
 
         # Requests that are to be given to the elector by the node
         self.msgsToElector = deque()
@@ -291,7 +290,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        self.requestSender = {}     # Dict[Tuple[str, int], str]
+        self.requestSender = {}  # Dict[Tuple[str, int], str]
 
         # CurrentState
         self.nodeMsgRouter = Router(
@@ -590,6 +589,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.domainStateDbName)
         )
 
+    def _create_bls_state(self):
+        bls_factory = create_default_bls_factory(self.basedirpath,
+                                                 self.name,
+                                                 self.dataLocation,
+                                                 self.config)
+        return bls_factory.create_bls_store()
+
     @classmethod
     def ledgerIdForRequest(cls, request: Request):
         assert request.operation[TXN_TYPE]
@@ -620,7 +626,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # if first time running this node
             if not self.nodestack.remotes:
                 logger.info("{} first time running..." "".format(self), extra={
-                            "cli": "LOW_STATUS", "tags": ["node-key-sharing"]})
+                    "cli": "LOW_STATUS", "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections(force=True)
 
@@ -730,7 +736,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.actionQueue.clear()
         self.elector = None
 
-    async def prod(self, limit: int=None) -> int:
+    async def prod(self, limit: int = None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.
@@ -1021,13 +1027,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("view change to view {} is not completed in time, "
                     "starting view change for view {}"
                     .format(self.viewNo, next_view_no))
-        logger.info("{}{} initiating a view change to {} from {}". format(
+        logger.info("{}{} initiating a view change to {} from {}".format(
             VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
 
-    def service_replicas_outbox(self, limit: int=None) -> int:
+    def service_replicas_outbox(self, limit: int = None) -> int:
         """
         Process `limit` number of replica messages
         """
@@ -1056,7 +1062,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def serviceElectorOutBox(self, limit: int=None) -> int:
+    def serviceElectorOutBox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the elector's outBox.
 
@@ -1077,7 +1083,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(msg))
         return msgCount
 
-    async def serviceElectorInbox(self, limit: int=None) -> int:
+    async def serviceElectorInbox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the elector's outBox.
 
@@ -1130,7 +1136,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @staticmethod
     def is_valid_view_or_inst(n):
-        return not(n is None or not isinstance(n, int) or n < 0)
+        return not (n is None or not isinstance(n, int) or n < 0)
 
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
@@ -1597,8 +1603,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_catch_up_limit(self):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
         if (self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and (
-                ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
-            logger.debug('{} has completed {} catchup rounds for {} seconds'. format(
+                    ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+            logger.debug('{} has completed {} catchup rounds for {} seconds'.format(
                 self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
             # No more 3PC messages will be processed since maximum catchup
             # rounds have been done
@@ -1805,7 +1811,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                           seq_no=seq_no)
         except KeyError:
             logger.debug(
-                "{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}". format(
+                "{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}".format(
                     self, str(seq_no)))
             txn = None
 
@@ -1976,7 +1982,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.quorums.propagate_primary.is_reached(ind_count):
             logger.info(
                 '{}{} starting view change for {} after {} view change '
-                'indications from other nodes'. format(
+                'indications from other nodes'.format(
                     VIEW_CHANGE_PREFIX, self, view_no, ind_count))
             self.propagate_primary = True
             self.startViewChange(view_no)
@@ -2054,7 +2060,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if canSendInsChange:
             logger.info(
                 "{}{} sending an instance change with view_no {}"
-                " since {}" . format(
+                " since {}".format(
                     VIEW_CHANGE_PREFIX,
                     self,
                     view_no,
@@ -2067,7 +2073,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._record_inst_change_msg(msg, self.name)
         else:
             logger.debug(
-                "{} cannot send instance change sooner then {} seconds" .format(
+                "{} cannot send instance change sooner then {} seconds".format(
                     self, cooldown))
 
     # noinspection PyAttributeOutsideInit
@@ -2112,7 +2118,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         disconnected_time = time.perf_counter() - self.lost_primary_at
         disconnected_long_enough = disconnected_time >= \
-            self.config.ToleratePrimaryDisconnection
+                                   self.config.ToleratePrimaryDisconnection
         if disconnected_long_enough:
             view_no = self.viewNo + 1
             self.sendInstanceChange(view_no,
@@ -2314,7 +2320,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # adding one to end of range since its exclusive
             intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
             intrv_tree[first_txn_seq_no:last_txn_seq_no +
-                       1] = (view_no, pp_seq_no)
+                                        1] = (view_no, pp_seq_no)
             logger.debug('{} storing 3PC key {} for ledger {} range {}'.
                          format(self, (view_no, pp_seq_no), ledger_id,
                                 (first_txn_seq_no, last_txn_seq_no)))
@@ -2459,12 +2465,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg = self.stashedOrderedReqs.popleft()
             if msg.instId == 0:
                 if compare_3PC_keys(
-                    (msg.viewNo,
-                     msg.ppSeqNo),
+                        (msg.viewNo,
+                         msg.ppSeqNo),
                         self.ledgerManager.last_caught_up_3PC) >= 0:
                     logger.debug(
                         '{} ignoring stashed ordered msg {} since ledger '
-                        'manager has last_caught_up_3PC as {}'. format(
+                        'manager has last_caught_up_3PC as {}'.format(
                             self, msg, self.ledgerManager.last_caught_up_3PC))
                     continue
                 logger.debug(
@@ -2511,7 +2517,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def reportSuspiciousNode(self,
                              nodeName: str,
                              reason=None,
-                             code: int=None,
+                             code: int = None,
                              offendingMsg=None):
         """
         Report suspicion on a node and add it to this node's blacklist.
@@ -2570,7 +2576,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientBlacklister.isBlacklisted(clientName)
 
     def blacklistClient(self, clientName: str,
-                        reason: str=None, code: int=None):
+                        reason: str = None, code: int = None):
         """
         Add the client specified by `clientName` to this node's blacklist
         """
@@ -2589,7 +2595,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return self.nodeBlacklister.isBlacklisted(nodeName)
 
-    def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
+    def blacklistNode(self, nodeName: str, reason: str = None, code: int = None):
         """
         Add the node specified by `nodeName` to this node's blacklist
         """
@@ -2623,7 +2629,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    def sendToNodes(self, msg: Any, names: Iterable[str]=None):
+    def sendToNodes(self, msg: Any, names: Iterable[str] = None):
         # TODO: This method exists in `Client` too, refactor to avoid
         # duplication
         rids = [rid for rid, r in self.nodestack.remotes.items(

@@ -13,11 +13,17 @@ from plenum.bls.bls_store import BlsStore
 
 
 class BlsFactoryPlenum(BlsFactory):
-    def __init__(self, basedir=None, datadir=None, node_name=None, config=None):
+    def __init__(self, basedir=None, data_location=None, node_name=None, config=None):
         self.basedir = basedir
-        self.datadir = datadir
+        self.data_location = data_location
         self.node_name = node_name
         self.config = config
+
+    def create_bls_store(self):
+        return BlsStore(key_value_type=self.config.stateSignatureStorage,
+                        data_location=self.data_location,
+                        key_value_storage_name=self.config.stateSignatureDbName,
+                        serializer=multi_sig_store_serializer)
 
     def _create_key_manager(self, group_params) -> BlsKeyManager:
         assert self.basedir
@@ -27,19 +33,13 @@ class BlsFactoryPlenum(BlsFactory):
     def _create_bls_key_register(self) -> BlsKeyRegister:
         return BlsKeyRegisterPoolLedger()
 
-    def _create_bls_store(self):
-        return BlsStore(key_value_type=self.config.stateSignatureStorage,
-                        data_location=self.datadir,
-                        key_value_storage_name=self.config.stateSignatureDbName,
-                        serializer=multi_sig_store_serializer)
-
     def _create_bls_bft(self, bls_crypto, bls_crypto_registry, bls_store, is_master) -> BlsBft:
         return BlsBftPlenum(bls_crypto, bls_crypto_registry, self.node_name, bls_store, is_master)
 
 
 class BlsFactoryCharm(BlsFactoryPlenum):
-    def __init__(self, basedir=None, datadir=None, node_name=None, config=None):
-        super().__init__(basedir, datadir, node_name, config)
+    def __init__(self, basedir=None, data_location=None, node_name=None, config=None):
+        super().__init__(basedir, data_location, node_name, config)
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
         return BlsGroupParamsLoaderCharmHardcoded()
@@ -52,8 +52,8 @@ class BlsFactoryCharm(BlsFactoryPlenum):
 
 
 class BlsFactoryIndyCrypto(BlsFactoryPlenum):
-    def __init__(self, basedir=None, datadir=None, node_name=None, config=None):
-        super().__init__(basedir, datadir, node_name, config)
+    def __init__(self, basedir=None, data_location=None, node_name=None, config=None):
+        super().__init__(basedir, data_location, node_name, config)
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
         return BlsGroupParamsLoaderIndyCrypto()
@@ -65,7 +65,7 @@ class BlsFactoryIndyCrypto(BlsFactoryPlenum):
         return BlsCryptoIndyCrypto(sk=sk, pk=pk, params=group_params)
 
 
-def create_default_bls_factory(basedir=None, node_name=None, datadir=None, config=None):
+def create_default_bls_factory(basedir=None, node_name=None, data_location=None, config=None):
     '''
     Creates a default BLS factory to instantiate BLS-related classes.
 
@@ -73,4 +73,4 @@ def create_default_bls_factory(basedir=None, node_name=None, datadir=None, confi
     :param node_name: [optional] node's name; needed to save/load bls keys
     :return: BLS factory instance
     '''
-    return BlsFactoryIndyCrypto(basedir, datadir, node_name, config)
+    return BlsFactoryIndyCrypto(basedir, data_location, node_name, config)
