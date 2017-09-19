@@ -250,7 +250,7 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=stewardSigner)
 
-    # prepare client to submit change ha request to sovrin
+    # prepare client to submit change ha request
     _, randomClientPort = genHa()
     client = Client(stewardName,
                     ha=('0.0.0.0', randomClientPort), config=config)

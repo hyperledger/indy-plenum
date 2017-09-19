@@ -45,8 +45,9 @@ def testUnrestricted2ZStackCommunication(tdir, looper, tconf):
 
 
 def testZStackSendMethodReturnsFalseIfDestinationIsUnknown(tdir, looper, tconf):
-    """
-    Checks: https://evernym.atlassian.net/browse/SOV-971
+    """Case: stp fails on send if a remote close the socket
+
+    Checks:
     1. Connect two stacks
     2. Disconnect a remote from one side
     3. Send a message from disconnected remote

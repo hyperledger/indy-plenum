@@ -1030,7 +1030,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if pp_seq_no - last_pp_seq_no > 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no, last_pp_view_no)
+            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no,
+                                                       last_pp_view_no, view_no)
             self._setup_for_non_master()
             return False
 
@@ -2060,9 +2061,10 @@ class Replica(HasActionQueue, MessageProcessor):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_missing_three_phase_messages(self, frm: int, to: int, view_no: int) -> None:
-        for i in range(1, to - frm):
-                request_data = (view_no, frm + i)
+    def _request_missing_three_phase_messages(self, seq_frm: int, seq_to: int, view_frm: int, view_to: int) -> None:
+        for pp_seq_no in range(seq_frm + 1, seq_to + 1):
+            for view_no in range(view_frm, view_to + 1):
+                request_data = (view_no, pp_seq_no)
                 self._request_pre_prepare(request_data)
                 self._request_prepare(request_data)
 

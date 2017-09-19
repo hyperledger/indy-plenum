@@ -64,7 +64,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'python3-indy-crypto==0.1.2'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
@@ -85,7 +85,7 @@ if not os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'w') as f:
         msg = "# Here you can create config entries according to your " \
               "needs.\n " \
-              "# For help, refer config.py in the sovrin package.\n " \
+              "# For help, refer config.py in the plenum module.\n " \
               "# Any entry you add here would override that from config " \
               "example\n"
         f.write(msg)
