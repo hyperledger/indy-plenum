@@ -112,10 +112,9 @@ class BlsBftPlenum(BlsBft):
             return
         if pre_prepare.blsMultiSig is None:
             return
-        participants, multi_sig = pre_prepare.blsMultiSig
+        state_root, participants, multi_sig = pre_prepare.blsMultiSig
         if multi_sig is None:
             return
-        state_root = pre_prepare.stateRootHash
 
         self._bls_store_add(state_root, multi_sig, participants)
         # TODO: support multiple multi-sigs for multiple previous batches
