@@ -39,8 +39,12 @@ if __name__ == "__main__":
     keepDir = os.path.join(config.baseDir, config.NETWORK_NAME)
     print("You can find data in {}".format(keepDir))
 
+    node_data_dir = os.path.join(config.NODE_BASE_DATA_DIR, config.NETWORK_NAME)
+
     with Looper(debug=config.LOOPER_DEBUG) as looper:
-        node = Node(selfName, nodeRegistry=None, basedirpath=keepDir, ha=ha,
+        node = Node(selfName, nodeRegistry=None, basedirpath=keepDir,
+                    base_data_dir=node_data_dir,
+                    ha=ha,
                     cliha=cliha)
         looper.add(node)
         looper.run()
