@@ -1,6 +1,5 @@
 import pytest
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, BlsGroupParamsLoaderIndyCrypto
-from indy_crypto.bls import Generator
 
 
 @pytest.fixture()
@@ -44,7 +43,7 @@ def test_generate_keys_no_seed(default_params):
     assert sk != pk
 
 
-def test_generate_keys_str_seed(default_params):
+def test_generate_keys_str_seed_48bit(default_params):
     seed = 'Seed' + '0' * (48 - len('Seed'))
     sk, pk = BlsCryptoIndyCrypto.generate_keys(default_params, seed)
     assert sk
@@ -54,8 +53,29 @@ def test_generate_keys_str_seed(default_params):
     assert sk != pk
 
 
-def test_generate_keys_bytes_seed(default_params):
+def test_generate_keys_str_seed_32bit(default_params):
+    seed = 'Seed' + '0' * (32 - len('Seed'))
+    sk, pk = BlsCryptoIndyCrypto.generate_keys(default_params, seed)
+    assert sk
+    assert isinstance(sk, str)
+    assert pk
+    assert isinstance(pk, str)
+    assert sk != pk
+
+
+def test_generate_keys_bytes_seed_48bit(default_params):
     seed = 'Seed' + '0' * (48 - len('Seed'))
+    seed = seed.encode()
+    sk, pk = BlsCryptoIndyCrypto.generate_keys(default_params, seed)
+    assert sk
+    assert isinstance(sk, str)
+    assert pk
+    assert isinstance(pk, str)
+    assert sk != pk
+
+
+def test_generate_keys_bytes_seed_32bit(default_params):
+    seed = 'Seed' + '0' * (32 - len('Seed'))
     seed = seed.encode()
     sk, pk = BlsCryptoIndyCrypto.generate_keys(default_params, seed)
     assert sk
@@ -67,7 +87,7 @@ def test_generate_keys_bytes_seed(default_params):
 
 def test_generate_different_keys(default_params):
     seed2 = 'Seed' + '0' * (48 - len('Seed'))
-    seed3 = 'seeeed'  + '0' * (48 - len('seeeed'))
+    seed3 = 'seeeed' + '0' * (48 - len('seeeed'))
 
     sk1, pk1 = BlsCryptoIndyCrypto.generate_keys(default_params)
     sk3, pk3 = BlsCryptoIndyCrypto.generate_keys(default_params, seed2)

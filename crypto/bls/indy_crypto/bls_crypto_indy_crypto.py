@@ -1,8 +1,8 @@
 from typing import Sequence
 
+import base58
 from crypto.bls.bls_crypto import BlsCrypto, GroupParams, BlsGroupParamsLoader
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
-import base58
 
 
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
@@ -13,6 +13,8 @@ class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
 
 
 class BlsCryptoIndyCrypto(BlsCrypto):
+    SEED_LEN = 48
+
     def __init__(self, sk: str, pk: str, params: GroupParams):
         super().__init__(sk, pk, params)
         self._generator = BlsCryptoIndyCrypto._bls_from_str(params.g, Generator)
@@ -34,8 +36,9 @@ class BlsCryptoIndyCrypto(BlsCrypto):
 
     @staticmethod
     def generate_keys(params: GroupParams, seed=None) -> (str, str):
+        seed = BlsCryptoIndyCrypto._prepare_seed(seed)
         gen = BlsCryptoIndyCrypto._bls_from_str(params.g, Generator)
-        sk = SignKey.new(BlsCryptoIndyCrypto._prepare_seed(seed))
+        sk = SignKey.new(seed)
         vk = VerKey.new(gen, sk)
         sk_str = BlsCryptoIndyCrypto._bls_to_str(sk)
         vk_str = BlsCryptoIndyCrypto._bls_to_str(vk)
@@ -43,13 +46,19 @@ class BlsCryptoIndyCrypto(BlsCrypto):
 
     @staticmethod
     def _prepare_seed(seed):
+        seed_bytes = None
         if isinstance(seed, str):
-            return seed.encode()
-        if isinstance(seed, bytes):
-            return seed
-        if isinstance(seed, bytearray):
-            return seed
-        return None
+            seed_bytes = seed.encode()
+        if isinstance(seed, (bytes, bytearray)):
+            seed_bytes = seed
+
+        # TODO: FIXME: indy-crupto supports 48-bit seeds only
+        if seed_bytes:
+            if len(seed_bytes) < BlsCryptoIndyCrypto.SEED_LEN:
+                seed_bytes += b'0' * (BlsCryptoIndyCrypto.SEED_LEN - len(seed_bytes))
+            assert (len(seed_bytes) == BlsCryptoIndyCrypto.SEED_LEN)
+
+        return seed_bytes
 
     def sign(self, message: str) -> str:
         bts = BlsCryptoIndyCrypto._msg_to_bls_bytes(message)
