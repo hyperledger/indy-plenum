@@ -9,6 +9,7 @@ from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List, Optional
 
+from crypto.bls.bls_bft import BlsBft
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.server.domain_req_handler import DomainRequestHandler
 from stp_core.crypto.util import randomSeed
@@ -375,8 +376,8 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
-    def _new_replica(self, instance_id: int, is_master: bool, bls_store=None):
-        return TestReplica(self._node, instance_id, is_master, bls_store)
+    def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
+        return TestReplica(self._node, instance_id, is_master, bls_bft)
 
 
 class TestNodeSet(ExitStack):

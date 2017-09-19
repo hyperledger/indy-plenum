@@ -1,4 +1,3 @@
-
 class MultiSignature:
     """
     Data class for storing multi signature and

@@ -3,6 +3,7 @@ import os
 import base58
 import pytest
 from crypto.bls.bls_bft import BlsValidationError
+from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls import BlsFactoryIndyCrypto
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Commit
@@ -33,67 +34,71 @@ def quorums(txnPoolNodeSet):
 def state_root():
     return generate_state_root()
 
+@pytest.fixture()
+def pool_state_root():
+    return generate_state_root()
 
 def generate_state_root():
     return base58.b58encode(os.urandom(32))
 
 
-def test_create_multi_sig_from_all(bls_bfts, quorums, state_root):
+def test_create_multi_sig_from_all(bls_bfts, quorums, state_root, pool_state_root):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=state_root
+        state_root=state_root,
+        pool_state_root=pool_state_root
     )
     assert multi_sig
-    assert isinstance(multi_sig, tuple)
-    assert isinstance(multi_sig[0], list)
-    assert isinstance(multi_sig[1], str)
+    assert isinstance(multi_sig, MultiSignature)
 
 
-def test_create_multi_sig_quorum(bls_bfts, quorums, state_root):
+def test_create_multi_sig_quorum(bls_bfts, quorums, state_root, pool_state_root):
     # success on n-f=3
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts[1:],
         quorums=quorums,
-        state_root=state_root
+        state_root=state_root,
+        pool_state_root=pool_state_root
     )
     assert multi_sig
-    assert isinstance(multi_sig, tuple)
-    assert isinstance(multi_sig[0], list)
-    assert isinstance(multi_sig[1], str)
+    assert isinstance(multi_sig, MultiSignature)
 
 
-def test_create_multi_sig_no_quorum(bls_bfts, quorums, state_root):
+def test_create_multi_sig_no_quorum(bls_bfts, quorums, state_root, pool_state_root):
     # not success on 2
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts[2:],
         quorums=quorums,
-        state_root=state_root
+        state_root=state_root,
+        pool_state_root=pool_state_root
     )
     assert not multi_sig
 
 
-def test_create_multi_sig_no_quorum_empty(bls_bfts, quorums, state_root):
+def test_create_multi_sig_no_quorum_empty(bls_bfts, quorums, state_root, pool_state_root):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=[],
         quorums=quorums,
-        state_root=state_root
+        state_root=state_root,
+        pool_state_root=pool_state_root
     )
     assert not multi_sig
 
 
-def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root):
+def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root, pool_state_root):
     multi_sigs = set()
     for creator in bls_bfts:
         multi_sig = calculate_multi_sig(
             creator=creator,
             bls_bft_with_commits=bls_bfts,
             quorums=quorums,
-            state_root=state_root
+            state_root=state_root,
+            pool_state_root=pool_state_root
         )
         multi_sigs.add(multi_sig[1])
 
@@ -259,16 +264,17 @@ def validate_commits_for_key(key, state_root, bls_bfts):
                                              state_root)
 
 
-def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root):
+def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root, pool_state_root):
     key = (0, 0)
     for bls_bft_with_commit in bls_bft_with_commits:
         commit = create_commit_bls_sig(
+            bls_bft_with_commit,
             key,
-            bls_bft_with_commit.sign_state(state_root)
+            state_root
         )
-        creator.validate_commit(commit, bls_bft_with_commit.node_id, state_root)
+        creator.process_commit(commit, bls_bft_with_commit.node_id)
 
-    return creator.calculate_multi_sig(key, quorums)
+    return creator._calculate_multi_sig(key, quorums, pool_state_root)
 
 
 def create_pre_prepare_no_bls_multisig(state_root):
@@ -286,7 +292,7 @@ def create_pre_prepare_no_bls_multisig(state_root):
     )
 
 
-def create_pre_prepare_bls_multisig(bls_multi_sig: BlsMultiSignature, state_root):
+def create_pre_prepare_bls_multisig(bls_multi_sig, state_root):
     return PrePrepare(
         0,
         0,
@@ -307,6 +313,8 @@ def create_commit_no_bls_sig(req_key):
     return Commit(0, view_no, pp_seq_no)
 
 
-def create_commit_bls_sig(req_key, bls_sig):
+def create_commit_bls_sig(bls_bft, req_key, state_root_hash):
     view_no, pp_seq_no = req_key
-    return Commit(0, view_no, pp_seq_no, bls_sig)
+    params = [0, view_no, pp_seq_no]
+    params = bls_bft.update_commit(params, state_root_hash, DOMAIN_LEDGER_ID)
+    return Commit(*params)

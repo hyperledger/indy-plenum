@@ -42,7 +42,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def process_order(self, key, state_root, pool_state_root, quorums, ledgerId):
+    def process_order(self, key, state_root, pool_state_root, quorums, ledger_id):
         pass
 
     @abstractmethod

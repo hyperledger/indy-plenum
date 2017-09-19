@@ -5,7 +5,6 @@ from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_store import BlsStore
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
@@ -28,6 +27,10 @@ class BlsBftPlenum(BlsBft):
         self._bls_store = bls_store
         self._bls_latest_multi_sig = None  # (pool_state_root, participants, sig)
         self._bls_latest_signed_root = None  # (pool_state_root, participants, sig)
+
+    def _can_process_ledger(self, ledger_id):
+        # return ledger_id == DOMAIN_LEDGER_ID
+        return True
 
     # ----VALIDATE----
 
@@ -72,22 +75,30 @@ class BlsBftPlenum(BlsBft):
             # TODO: It's optional for now
             if bls_key:
                 public_keys.append(bls_key)
-        return self.bls_crypto.verify_multi_sig(multi_sig,
+        return self.bls_crypto.verify_multi_sig(multi_sig.signature,
                                                 state_root,
                                                 public_keys)
 
     # ----CREATE/UPDATE----
 
     def update_pre_prepare(self, pre_prepare_params, ledger_id):
-        if ledger_id == DOMAIN_LEDGER_ID:
-            pre_prepare_params.append(
-                (self._bls_latest_multi_sig.signature, self._bls_latest_multi_sig.participants,
-                 self._bls_latest_multi_sig.pool_state_root)
-            )
-            pre_prepare_params.append(self._bls_latest_signed_root)
-            self._bls_latest_multi_sig = None
-            self._bls_latest_signed_root = None
-            # Send signature in COMMITs only
+        if not self._can_process_ledger(ledger_id):
+            return pre_prepare_params
+
+        if not self._bls_latest_multi_sig:
+            return pre_prepare_params
+        if not self._bls_latest_signed_root:
+            return pre_prepare_params
+
+        pre_prepare_params.append(
+            (self._bls_latest_multi_sig.signature, self._bls_latest_multi_sig.participants,
+             self._bls_latest_multi_sig.pool_state_root)
+        )
+        pre_prepare_params.append(self._bls_latest_signed_root)
+        self._bls_latest_multi_sig = None
+        self._bls_latest_signed_root = None
+        # Send signature in COMMITs only
+
         return pre_prepare_params
 
     def update_prepare(self, prepare_params, ledger_id):
@@ -95,9 +106,11 @@ class BlsBftPlenum(BlsBft):
         return prepare_params
 
     def update_commit(self, commit_params, state_root_hash, ledger_id):
-        if ledger_id == DOMAIN_LEDGER_ID:
-            bls_signature = self.bls_crypto.sign(state_root_hash)
-            commit_params.upddat(bls_signature)
+        if not self._can_process_ledger(ledger_id):
+            return commit_params
+
+        bls_signature = self.bls_crypto.sign(state_root_hash)
+        commit_params.append(bls_signature)
         return commit_params
 
     # ----PROCESS----
@@ -111,18 +124,23 @@ class BlsBftPlenum(BlsBft):
         pass
 
     def process_commit(self, commit: Commit, sender):
+        if f.BLS_SIG.nm not in commit:
+            return
+        if commit.blsSig is None:
+            return
+
         key_3PC = (commit.viewNo, commit.ppSeqNo)
         if key_3PC not in self._signatures:
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
-    def process_order(self, key, state_root, pool_state_root, quorums, ledgerId):
-        if ledgerId != DOMAIN_LEDGER_ID:
+    def process_order(self, key, state_root, pool_state_root, quorums, ledger_id):
+        if not self._can_process_ledger(ledger_id):
             return
 
         # calculate signature always to keep master and non-master in sync
         # but save on master only
-        bls_multi_sig = self._calculate_multi_sig(key, quorums)
+        bls_multi_sig = self._calculate_multi_sig(key, quorums, pool_state_root)
         if bls_multi_sig is None:
             return
 

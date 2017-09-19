@@ -25,7 +25,8 @@ class Replicas:
         instance_id = self.num_replicas
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
-        replica = self._new_replica(instance_id, is_master)
+        bls_bft = self._create_bls_bft(is_master)
+        replica = self._new_replica(instance_id, is_master, bls_bft)
         self._replicas.append(replica)
         self._messages_to_replicas.append(deque())
         self._monitor.addInstance()
@@ -101,11 +102,10 @@ class Replicas:
         for replica in self._replicas:
             yield replica.instId, replica._remove_ordered_from_queue()
 
-    def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft = None) -> Replica:
+    def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft) -> Replica:
         """
         Create a new replica with the specified parameters.
         """
-        bls_bft = self._create_bls_bft(is_master)
         return Replica(self._node, instance_id, is_master, bls_bft)
 
     def _create_bls_bft(self, is_master):
