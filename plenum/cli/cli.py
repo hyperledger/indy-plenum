@@ -106,7 +106,6 @@ class Cli:
     name = 'plenum'
     properName = 'Plenum'
     fullName = 'Plenum protocol'
-    githubUrl = 'https://github.com/evernym/plenum'
 
     NodeClass = Node
     ClientClass = Client
@@ -901,11 +900,11 @@ class Cli:
         if not self.withNode:
             self.print("This command is only available if you start "
                        "this cli with command line argument --with-node "
-                       "(and it assumes you have installed sovrin-node "
+                       "(and it assumes you have installed indy-node "
                        "dependency)")
             return False
         if not self.NodeClass:
-            self.print("This command requires sovrin-node dependency, "
+            self.print("This command requires indy-node dependency, "
                        "please install it and then resume.")
             return False
 
