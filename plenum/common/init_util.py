@@ -13,6 +13,6 @@ def initialize_node_environment(name, base_dir, sigseed=None,
 
     _, vk = initNodeKeysForBothStacks(name=name, baseDir=base_dir,
                                       sigseed=sigseed, override=override_keep)
-    init_bls_keys(baseDir=base_dir, node_name=name, seed=sigseed)
+    bls_key = init_bls_keys(baseDir=base_dir, node_name=name, seed=sigseed)
 
-    return vk
+    return vk, bls_key
