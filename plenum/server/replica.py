@@ -722,9 +722,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self._bls_bft and ledger_id == DOMAIN_LEDGER_ID:
             params.append(self._bls_latest_multi_sig)
             self._bls_latest_multi_sig = None
-            if state_root_hash is not None:
-                bls_signature = self._bls_bft.sign_state(state_root_hash)
-                params.append(bls_signature)
+            # Send signature in COMMITs only
 
         pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -978,10 +976,7 @@ class Replica(HasActionQueue, MessageProcessor):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
-        if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:
-            if pp.stateRootHash is not None:
-                bls_signature = self._bls_bft.sign_state(pp.stateRootHash)
-                params.append(bls_signature)
+        # Send BLS signature in COMMITs only
         prepare = Prepare(*params)
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
@@ -1016,7 +1011,7 @@ class Replica(HasActionQueue, MessageProcessor):
         Check if there are any requests which are not finalised, i.e for
         which there are not enough PROPAGATEs
         """
-        return {key for key in reqKeys if not self.requests.isFinalised(key)}
+        return {key for key in reqKeys if not self.requests.is_finalised(key)}
 
     def __is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
         if view_no == self.viewNo and pp_seq_no == 1:
@@ -1815,18 +1810,14 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requested_prepares,
             self.pre_prepares_stashed_for_incorrect_time,
         )
-        for k in tpcKeys:
+        for request_key in tpcKeys:
             for coll in to_clean_up:
-                coll.pop(k, None)
+                coll.pop(request_key, None)
 
-        for k in reqKeys:
-            if k in self.requests:
-                self.requests[k].forwardedTo -= 1
-                if self.requests[k].forwardedTo == 0:
-                    logger.debug(
-                        '{} clearing request {} from previous checkpoints'.format(
-                            self, k))
-                    self.requests.pop(k)
+        for request_key in reqKeys:
+            self.requests.free(request_key)
+            logger.debug('{} freed request {} from previous checkpoints'
+                         .format(self, request_key))
 
         self.compact_ordered()
 
@@ -1951,7 +1942,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.prePreparesPendingFinReqs):
             finalised = set()
             for r in reqIds:
-                if self.requests.isFinalised(r):
+                if self.requests.is_finalised(r):
                     finalised.add(r)
             diff = reqIds.difference(finalised)
             # All requests become finalised
