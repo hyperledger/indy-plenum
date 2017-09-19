@@ -18,54 +18,36 @@ class BlsBftPlenum(BlsBft):
                  bls_crypto: BlsCrypto,
                  bls_key_register: BlsKeyRegister,
                  node_id,
-                 bls_store: BlsStore = None):
-        super().__init__(bls_crypto, bls_key_register, node_id)
+                 bls_store: BlsStore=None,
+                 quorums=Quorums):
+        super().__init__(bls_crypto, bls_key_register, node_id, quorums)
         self._signatures = {}
         self._bls_store = bls_store
-        self._bls_store_add = self.__bls_save_empty if bls_store is None else self.__bls_save
+        self._bls_store_add = self.__bls_save_empty \
+            if bls_store is None else self.__bls_save
 
     def __bls_save(self, root_hash, multi_sig: MultiSignature):
         self._bls_store.put(root_hash, multi_sig)
 
-    def __bls_save_empty(self, root_hash, sign):
+    def __bls_save_empty(self, root_hash, multi_sig: MultiSignature):
         pass
 
     def _validate_signature(self, sender, bls_sig, state_root_hash):
         sender_node = self.get_node_name(sender)
         pk = self.bls_key_register.get_latest_key(sender_node)
         if not pk:
-            raise BlsValidationError("No key for {} found"
-                                     .format(sender_node))
-        if not self.bls_crypto.verify_sig(bls_sig,
-                                          state_root_hash,
-                                          pk):
+            raise BlsValidationError("No key for {} found".format(sender_node))
+        if not self.bls_crypto.verify_sig(bls_sig, state_root_hash, pk):
             raise BlsValidationError("Validation failed")
 
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender, stable_state_root):
-        if f.BLS_SIG.nm in pre_prepare:
-            # TODO:  It's optional for now
-            self._validate_signature(sender,
-                                     pre_prepare.blsSig,
-                                     pre_prepare.stateRootHash)
-
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-            pre_prepare.blsMultiSig is None:
-            # TODO:  It's optional for now
-            # raise BlsValidationError("No signature found")
-            return None
-        if stable_state_root is None:
+           pre_prepare.blsMultiSig is None:
             return None
         multi_sig = pre_prepare.blsMultiSig
         self.validate_multi_sig(multi_sig, stable_state_root)
 
-    def validate_prepare(self, prepare: Prepare, sender):
-        if f.BLS_SIG.nm not in prepare:
-            # TODO: It's optional for now
-            # raise BlsValidationError("No signature found")
-            return None
-        self._validate_signature(sender, prepare.blsSig, prepare.stateRootHash)
-
-    def validate_commit(self, commit: Commit, sender, state_root):
+    def validate_commit(self, commit: Commit, sender):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
@@ -80,25 +62,24 @@ class BlsBftPlenum(BlsBft):
         return self.bls_crypto.sign(state_root)
 
     def calculate_multi_sig(self,
-                            key_3PC,
-                            quorums: Quorums) -> Optional[tuple]:
+                            key_3PC) -> Optional[MultiSignature]:
         if key_3PC not in self._signatures:
             return None
         sigs_for_request = self._signatures[key_3PC]
         bls_signatures = list(sigs_for_request.values())
         participants = list(sigs_for_request.keys())
 
-        if not quorums.bls_signatures.is_reached(len(bls_signatures)):
+        if not self.quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
                 'Can not create bls signature for batch {}: '
                 'There are only {} signatures, while {} required'
                 .format(key_3PC,
                         len(bls_signatures),
-                        quorums.bls_signatures.value))
+                        self.quorums.bls_signatures.value))
             return None
 
-        multi_sig = self.bls_crypto.create_multi_sig(bls_signatures)
-        return participants, multi_sig
+        sig = self.bls_crypto.create_multi_sig(bls_signatures)
+        return MultiSignature(sig, participants, pool_state_root)
 
     def save_multi_sig_local(self,
                              multi_sig: MultiSignature,
