@@ -8,6 +8,7 @@ from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 from typing import Optional
 from plenum.bls.bls_store import BlsStore
+from crypto.bls.bls_multi_signature import MultiSignature
 
 logger = getlogger()
 
@@ -23,10 +24,10 @@ class BlsBftPlenum(BlsBft):
         self._bls_store = bls_store
         self._bls_store_add = self.__bls_save_empty if bls_store is None else self.__bls_save
 
-    def __bls_save(self, root_hash, sign, participants):
-        self._bls_store.put(root_hash, sign, participants)
+    def __bls_save(self, root_hash, multi_sig: MultiSignature):
+        self._bls_store.put(root_hash, multi_sig)
 
-    def __bls_save_empty(self, root_hash, sign, participants):
+    def __bls_save_empty(self, root_hash, sign):
         pass
 
     def _validate_signature(self, sender, bls_sig, state_root_hash):
@@ -54,8 +55,8 @@ class BlsBftPlenum(BlsBft):
             return None
         if stable_state_root is None:
             return None
-        participants, multi_sig = pre_prepare.blsMultiSig
-        self.validate_multi_sig(multi_sig, participants, stable_state_root)
+        multi_sig = pre_prepare.blsMultiSig
+        self.validate_multi_sig(multi_sig, stable_state_root)
 
     def validate_prepare(self, prepare: Prepare, sender):
         if f.BLS_SIG.nm not in prepare:
@@ -100,11 +101,10 @@ class BlsBftPlenum(BlsBft):
         return participants, multi_sig
 
     def save_multi_sig_local(self,
-                             multi_sig: str,
-                             participants: list,
+                             multi_sig: MultiSignature,
                              state_root,
                              key_3PC):
-        self._bls_store_add(state_root, multi_sig, participants)
+        self._bls_store_add(state_root, multi_sig)
 
     def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
 
@@ -116,7 +116,7 @@ class BlsBftPlenum(BlsBft):
         if multi_sig is None:
             return
 
-        self._bls_store_add(state_root, multi_sig, participants)
+        self._bls_store_add(state_root, multi_sig)
         # TODO: support multiple multi-sigs for multiple previous batches
 
     def gc(self, key_3PC):
@@ -127,9 +127,9 @@ class BlsBftPlenum(BlsBft):
         for key in keys_to_remove:
             self._signatures.pop(key, None)
 
-    def validate_multi_sig(self, multi_sig: str, participants, state_root):
+    def validate_multi_sig(self, multi_sig: MultiSignature, state_root):
         public_keys = []
-        for node_id in participants:
+        for node_id in multi_sig.participants:
             bls_key = self.bls_key_register.get_latest_key(node_id)
             # TODO: It's optional for now
             if bls_key:
