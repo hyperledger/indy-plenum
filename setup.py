@@ -31,9 +31,23 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
+BASE_DATA_DIR = '/var/plenum'
+LOG_DIR = '/var/log/plenum'
+GENERAL_CONFIG_DIR = '/etc/plenum'
+CONFIG_FILE = os.path.join(GENERAL_CONFIG_DIR, "plenum_config.py")
 
-if not os.path.exists(BASE_DIR):
-    os.makedirs(BASE_DIR)
+for path in [BASE_DIR, BASE_DATA_DIR, LOG_DIR, GENERAL_CONFIG_DIR]:
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+if not os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'w') as f:
+        msg = "# Here you can create config entries according to your " \
+              "needs.\n " \
+              "# For help, refer config.py in the plenum package.\n " \
+              "# Any entry you add here would override that from config " \
+              "example\n"
+        f.write(msg)
 
 setup(
     name='indy-plenum-dev',
@@ -53,9 +67,6 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
-    data_files=[(
-        (BASE_DIR, ['data/pool_transactions_sandbox_genesis', ])
-    )],
     install_requires=['jsonpickle', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments',
                       'rlp', 'sha3', 'leveldb',
@@ -108,3 +119,6 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
+changeOwnerAndGrpToLoggedInUser(BASE_DATA_DIR)
+changeOwnerAndGrpToLoggedInUser(LOG_DIR)
+changeOwnerAndGrpToLoggedInUser(GENERAL_CONFIG_DIR)
