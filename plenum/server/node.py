@@ -146,7 +146,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
-        self.bls_store = self._create_bls_state()
+        self.bls_store = self._create_bls_store()
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
         self.reqHandler = self.getDomainReqHandler()
@@ -589,7 +589,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.domainStateDbName)
         )
 
-    def _create_bls_state(self):
+    def _create_bls_store(self):
         bls_factory = create_default_bls_factory(self.basedirpath,
                                                  self.name,
                                                  self.dataLocation,

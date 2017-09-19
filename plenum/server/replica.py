@@ -10,7 +10,7 @@ from common.serializers.serialization import serialize_msg_for_signing
 from crypto.bls.bls_bft import BlsBft
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, POOL_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
@@ -1532,7 +1532,11 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
         if self._bls_bft:
-            self._bls_bft.process_order(key, pp.stateRootHash, self.quorums, pp.ledgerId)
+            self._bls_bft.process_order(key,
+                                        pp.stateRootHash,
+                                        self.node.getState(POOL_LEDGER_ID).committedHeadHash,
+                                        self.quorums,
+                                        pp.ledgerId)
 
         return True
 

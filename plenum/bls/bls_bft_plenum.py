@@ -116,7 +116,7 @@ class BlsBftPlenum(BlsBft):
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
-    def process_order(self, key, state_root, quorums, ledgerId):
+    def process_order(self, key, state_root, pool_state_root, quorums, ledgerId):
         if ledgerId != DOMAIN_LEDGER_ID:
             return
 
@@ -137,7 +137,9 @@ class BlsBftPlenum(BlsBft):
         self._bls_latest_signed_root = state_root
 
     def _calculate_multi_sig(self,
-                             key_3PC, quorums) -> Optional[MultiSignature]:
+                             key_3PC,
+                             quorums,
+                             pool_state_root) -> Optional[MultiSignature]:
         if key_3PC not in self._signatures:
             return None
         sigs_for_request = self._signatures[key_3PC]

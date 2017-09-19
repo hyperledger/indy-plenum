@@ -2,10 +2,10 @@ import os
 
 import base58
 import pytest
-from plenum.bls.bls import BlsFactoryIndyCrypto
 from crypto.bls.bls_bft import BlsValidationError
+from plenum.bls.bls import BlsFactoryIndyCrypto
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import PrePrepare, BlsMultiSignature, Commit
+from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
 
@@ -14,8 +14,11 @@ from plenum.server.quorums import Quorums
 def bls_bfts(txnPoolNodeSet):
     bls_bfts = []
     for node in txnPoolNodeSet:
-        factory = BlsFactoryIndyCrypto(node.basedirpath, node.name)
-        bls_bft = factory.create_bls_bft()
+        factory = BlsFactoryIndyCrypto(basedir=node.basedirpath,
+                                       node_name=node.name,
+                                       data_location=node.dataLocation,
+                                       config=node.config)
+        bls_bft = factory.create_bls_bft(is_master=True, bls_store=node.bls_store)
         bls_bft.bls_key_register.load_latest_keys(node.poolLedger)
         bls_bfts.append(bls_bft)
     return bls_bfts
@@ -33,13 +36,6 @@ def state_root():
 
 def generate_state_root():
     return base58.b58encode(os.urandom(32))
-
-
-def test_sign(bls_bfts, state_root):
-    for bls_bft in bls_bfts:
-        bls_sig = bls_bft.sign_state(state_root)
-        assert bls_sig
-        assert isinstance(bls_sig, str)
 
 
 def test_create_multi_sig_from_all(bls_bfts, quorums, state_root):
