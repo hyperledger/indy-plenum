@@ -22,4 +22,11 @@ class MultiSignature:
         assert pool_state_root is not None
         self.signature = signature
         self.participants = participants
-        self.state_root = pool_state_root
+        self.pool_state_root = pool_state_root
+
+    def as_dict(self):
+        return self.__dict__
+
+    def __eq__(self, other):
+        return isinstance(other, MultiSignature) and \
+               self.as_dict() == other.as_dict()
