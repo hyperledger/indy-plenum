@@ -110,6 +110,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  cliname: str=None,
                  cliha: HA=None,
                  basedirpath: str=None,
+                 base_data_dir: str=None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str]=None,
                  storage: Storage=None,
@@ -128,12 +129,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.created = time.time()
         self.name = name
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or config.baseDir
+        self.basedirpath = basedirpath or os.path.join(config.baseDir, config.NETWORK_NAME)
         self.dataDir = self.config.nodeDataDir or "data/nodes"
+        self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
+                                                           config.NETWORK_NAME)
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
-        HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
+        HasFileStorage.__init__(self, name, baseDir=self.base_data_dir,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,

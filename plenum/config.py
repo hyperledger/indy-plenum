@@ -24,8 +24,9 @@ cliNodeReg = OrderedDict([
     ('DeltaC', ('127.0.0.1', 9708))
 ])
 
-baseDir = '~/.plenum/networks/'
+baseDir = '~/.plenum/'
 walletsDir = 'wallets'
+NODE_BASE_DATA_DIR = '/var/plenum'
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
 LOG_DIR = '/var/log/plenum/'
