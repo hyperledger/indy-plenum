@@ -722,9 +722,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self._bls_bft and ledger_id == DOMAIN_LEDGER_ID:
             params.append(self._bls_latest_multi_sig)
             self._bls_latest_multi_sig = None
-            if state_root_hash is not None:
-                bls_signature = self._bls_bft.sign_state(state_root_hash)
-                params.append(bls_signature)
+            # Send signature in COMMITs only
 
         pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -978,10 +976,7 @@ class Replica(HasActionQueue, MessageProcessor):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
-        if self._bls_bft and pp.ledgerId == DOMAIN_LEDGER_ID:
-            if pp.stateRootHash is not None:
-                bls_signature = self._bls_bft.sign_state(pp.stateRootHash)
-                params.append(bls_signature)
+        # Send BLS signature in COMMITs only
         prepare = Prepare(*params)
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
