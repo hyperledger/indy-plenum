@@ -7,7 +7,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR
-from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
@@ -110,6 +110,7 @@ def start_newly_added_node(
         plugin_path,
         nodeClass):
     initNodeKeysForBothStacks(node_name, tdir, sigseed, override=True)
+    init_bls_keys(baseDir=tdir, node_name=node_name, seed=sigseed)
     node = nodeClass(node_name, basedirpath=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
