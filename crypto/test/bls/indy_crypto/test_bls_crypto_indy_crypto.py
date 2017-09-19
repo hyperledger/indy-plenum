@@ -1,9 +1,7 @@
 import pytest
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, BlsGroupParamsLoaderIndyCrypto
+from indy_crypto.bls import Generator
 
-
-import logging
-logging.basicConfig(level=logging.DEBUG)
 
 @pytest.fixture()
 def default_params():
@@ -34,7 +32,7 @@ def bls2(keys2, default_params):
 def test_default_params(default_params):
     group_name, g = default_params
     assert group_name == 'generator'
-    assert isinstance(g, bytes)
+    assert isinstance(g, Generator)
 
 
 def test_generate_keys_no_seed(default_params):
@@ -117,22 +115,9 @@ def test_verify_multi_signature(bls1, bls2):
     sigs.append(bls2.sign(msg))
 
     multi_sig11 = bls1.create_multi_sig(sigs)
-    multi_sig12 = bls1.create_multi_sig(sigs)
-    multi_sig13 = bls1.create_multi_sig(sigs)
+    multi_sig12 = bls2.create_multi_sig(sigs)
 
-    # multi_sig21 = bls2.create_multi_sig(sigs)
-    # multi_sig22 = bls2.create_multi_sig(sigs)
-    # multi_sig23 = bls2.create_multi_sig(sigs)
-
-    res = bls1.verify_multi_sig(multi_sig11, msg, pks)
-
-    assert res
-
-
-    # try:
-        # assert bls1.verify_multi_sig(multi_sig1, msg, pks)
-        # assert bls1.verify_multi_sig(multi_sig2, msg, pks)
-        # assert bls2.verify_multi_sig(multi_sig1, msg, pks)
-        # assert bls2.verify_multi_sig(multi_sig2, msg, pks)
-    # except:
-    #     print("asdf")
+    assert bls1.verify_multi_sig(multi_sig11, msg, pks)
+    assert bls1.verify_multi_sig(multi_sig12, msg, pks)
+    assert bls2.verify_multi_sig(multi_sig11, msg, pks)
+    assert bls2.verify_multi_sig(multi_sig12, msg, pks)

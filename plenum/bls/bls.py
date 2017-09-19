@@ -74,5 +74,4 @@ def create_default_bls_factory(basedir=None, node_name=None, bls_store: BlsStore
     :param node_name: [optional] node's name; needed to save/load bls keys
     :return: BLS factory instance
     '''
-    # return BlsFactoryCharm(basedir, node_name, bls_store)
     return BlsFactoryIndyCrypto(basedir, node_name, bls_store)

@@ -2,6 +2,7 @@ from typing import Sequence
 
 from crypto.bls.bls_crypto import BlsCrypto, GroupParams, BlsGroupParamsLoader
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
+import base58
 
 
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
@@ -20,20 +21,12 @@ class BlsCryptoIndyCrypto(BlsCrypto):
 
     @staticmethod
     def _bls_to_str(v: BlsEntity) -> str:
-        return v.as_bytes().hex()
+        return base58.b58encode(v.as_bytes())
 
     @staticmethod
     def _bls_from_str(v: str, cls) -> BlsEntity:
-        bts = bytes.fromhex(v)
-        return BlsEntity.from_bytes(cls, bts)
-
-    @staticmethod
-    def _msg_to_str(msg: bytes) -> str:
-        return msg.hex()
-
-    @staticmethod
-    def _msg_from_str(msg: str) -> bytes:
-        return bytes.fromhex(msg)
+        bts = base58.b58decode(v)
+        return cls.from_bytes(bts)
 
     @staticmethod
     def _msg_to_bls_bytes(msg: str) -> bytes:
@@ -63,7 +56,7 @@ class BlsCryptoIndyCrypto(BlsCrypto):
         return BlsCryptoIndyCrypto._bls_to_str(sign)
 
     def create_multi_sig(self, signatures: Sequence[str]) -> str:
-        sigs = [BlsCryptoIndyCrypto._bls_to_str(s) for s in signatures]
+        sigs = [BlsCryptoIndyCrypto._bls_from_str(s, Signature) for s in signatures]
         bts = MultiSignature.new(sigs)
         return BlsCryptoIndyCrypto._bls_to_str(bts)
 
@@ -74,7 +67,7 @@ class BlsCryptoIndyCrypto(BlsCrypto):
                           self._generator)
 
     def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
-        epks = [BlsCryptoIndyCrypto._bls_to_str(s) for s in pks]
+        epks = [BlsCryptoIndyCrypto._bls_from_str(p, VerKey) for p in pks]
         return Bls.verify_multi_sig(BlsCryptoIndyCrypto._bls_from_str(signature, MultiSignature),
                                     BlsCryptoIndyCrypto._msg_to_bls_bytes(message),
                                     epks,
