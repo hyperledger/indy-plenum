@@ -35,9 +35,9 @@ GENERAL_CONFIG_DIR = '/etc/plenum/'
 # it should be filled from baseConfig 
 NETWORK_NAME = ''
 
-GENERAL_CONFIG_FILE = 'indy_config.py'
-NETWORK_CONFIG_FILE = 'indy_config.py'
-USER_CONFIG_FILE = 'indy_config.py'
+GENERAL_CONFIG_FILE = 'plenum_config.py'
+NETWORK_CONFIG_FILE = 'plenum_config.py'
+USER_CONFIG_FILE = 'plenum_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
