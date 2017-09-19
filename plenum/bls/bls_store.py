@@ -6,13 +6,13 @@ from typing import Optional
 class BlsStore:
 
     def __init__(self,
-                 keyValueType,
-                 dataLocation,
-                 keyValueStorageName,
+                 key_value_type,
+                 data_location,
+                 key_value_storage_name,
                  serializer):
-        self._kvs = initKeyValueStorage(keyValueType,
-                                        dataLocation,
-                                        keyValueStorageName)
+        self._kvs = initKeyValueStorage(key_value_type,
+                                        data_location,
+                                        key_value_storage_name)
         self._serializer = serializer
 
     def put(self, root_hash: str, sign: MultiSignature):

@@ -51,6 +51,7 @@ class f:  # provides a namespace for reusable field constants
     BLS_MULTI_SIG = Field("blsMultiSig", str)
     BLS_MULTI_SIG_NODES = Field("blsMultiSigNodes", List[str])
     BLS_MULTI_SIG_VALUE = Field("blsMultiSigValue", str)
+    BLS_MULTI_SIG_STATE_ROOT = Field("blsMultiSigStateRoot", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)

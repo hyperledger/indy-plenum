@@ -4,8 +4,6 @@ from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.quorums import Quorums
-from typing import Optional
-from crypto.bls.bls_multi_signature import MultiSignature
 
 
 class BlsBft(metaclass=ABCMeta):
@@ -13,11 +11,11 @@ class BlsBft(metaclass=ABCMeta):
                  bls_crypto: BlsCrypto,
                  bls_key_register: BlsKeyRegister,
                  node_id,
-                 quorums=Quorums):
+                 is_master):
         self.bls_crypto = bls_crypto
         self.bls_key_register = bls_key_register
         self.node_id = node_id
-        self.quorums = quorums
+        self.is_master = is_master
 
     @abstractmethod
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
@@ -28,46 +26,36 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender):
+    def validate_commit(self, commit: Commit, sender, state_root_hash):
         pass
 
     @abstractmethod
-    def sign_state(self, state_root: str) -> str:
+    def process_pre_prepare(self, pre_prepare: PrePrepare, sender):
         pass
 
     @abstractmethod
-    def calculate_multi_sig(self, key_3PC) -> Optional[MultiSignature]:
-        """
-        Creates multi-signature
-
-        :param key_3PC:
-        :param quorums:
-        :return: tuple of participants and signature itself
-        """
+    def process_prepare(self, prepare: Prepare, sender):
         pass
 
     @abstractmethod
-    def validate_multi_sig(self, multi_sig: MultiSignature, state_root):
+    def process_commit(self, commit: Commit, sender):
         pass
 
     @abstractmethod
-    def save_multi_sig_local(self,
-                             multi_sig: MultiSignature,
-                             state_root,
-                             key_3PC):
-        """
-        Save multi-sig as calculated by the node independently
-
-        :param multi_sig:
-        """
+    def process_order(self, key, state_root, quorums, ledgerId):
+        pass
 
     @abstractmethod
-    def save_multi_sig_shared(self, pre_prepare: PrePrepare, key_3PC):
-        """
-        Save multi-sig as received from the Primary
+    def update_pre_prepare(self, pre_prepare_params, ledger_id):
+        pass
 
-        :param multi_sig:
-        """
+    @abstractmethod
+    def update_prepare(self, prepare_params, ledger_id):
+        pass
+
+    @abstractmethod
+    def update_commit(self, commit_params, state_root_hash, ledger_id):
+        pass
 
     @abstractmethod
     def gc(self, key_3PC):

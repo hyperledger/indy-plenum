@@ -148,9 +148,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
-        self.bls_store = BlsStore(self.config.stateSignatureStorage,
-                                  self.dataLocation,
-                                  self.config.stateSignatureDbName)
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
         self.reqHandler = self.getDomainReqHandler()
@@ -228,7 +225,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
-        self.replicas = self.create_replicas(self.bls_store)
+        self.replicas = self.create_replicas()
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
@@ -379,8 +376,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
 
-    def create_replicas(self, bls_store: BlsStore = None) -> Replicas:
-        return Replicas(self, self.monitor, bls_store)
+    def create_replicas(self) -> Replicas:
+        return Replicas(self, self.monitor)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)

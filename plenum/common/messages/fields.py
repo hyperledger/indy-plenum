@@ -512,8 +512,8 @@ class BlsMultiSignatureField(FieldBase):
         LimitedLengthStringField(max_length=BLS_MULTI_SIG_LIMIT)
 
     def _specific_validation(self, val):
-        root_hash, participants, sig = val
-        err = self._root_hash_validator.validate(root_hash)
+        sig, participants, pool_state_root = val
+        err = self._root_hash_validator.validate(pool_state_root)
         if err:
             return err
         err = self._multisig_validator.validate(sig)

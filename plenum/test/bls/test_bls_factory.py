@@ -5,18 +5,25 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls import BlsFactoryIndyCrypto
+from plenum.common.config_util import getConfig
+
+config = getConfig()
 
 
 @pytest.fixture()
 def bls_factory(tempdir):
     os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsFactoryIndyCrypto(tempdir, 'Node1')
+    data_dir = os.path.join(tempdir, 'data', 'nodes', 'Node1')
+    os.makedirs(data_dir)
+    return BlsFactoryIndyCrypto(tempdir, data_dir, 'Node1', config)
 
 
 @pytest.fixture()
 def bls_factory2(tempdir):
     os.mkdir(os.path.join(tempdir, 'Node2'))
-    return BlsFactoryIndyCrypto(tempdir, 'Node2')
+    data_dir = os.path.join(tempdir, 'data', 'nodes', 'Node2')
+    os.mkdir(data_dir)
+    return BlsFactoryIndyCrypto(tempdir, data_dir, 'Node2', config)
 
 
 def test_create_and_store_bls_keys(bls_factory):
@@ -108,11 +115,11 @@ def test_bls_crypto_works(bls_factory, bls_factory2):
 
 def test_create_bls_bft(bls_factory):
     bls_factory.generate_and_store_bls_keys()
-    bls_bft = bls_factory.create_bls_bft()
+    bls_bft = bls_factory.create_bls_bft(is_master=True)
     assert bls_bft
     assert isinstance(bls_bft, BlsBft)
 
 
 def test_create_bls_bft_crypto_no_keys(bls_factory):
     with pytest.raises(LoadBLSKeyError):
-        bls_factory.create_bls_bft()
+        bls_factory.create_bls_bft(is_master=False)

@@ -13,19 +13,18 @@ MASTER_REPLICA_INDEX = 0
 
 class Replicas:
 
-    def __init__(self, node, monitor: Monitor, bls_store: BlsStore = None):
+    def __init__(self, node, monitor: Monitor):
         # passing full node because Replica requires it
         self._node = node
         self._monitor = monitor
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
-        self._bls_store = bls_store
 
     def grow(self) -> int:
         instance_id = self.num_replicas
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
-        replica = self._new_replica(instance_id, is_master, self._bls_store)
+        replica = self._new_replica(instance_id, is_master)
         self._replicas.append(replica)
         self._messages_to_replicas.append(deque())
         self._monitor.addInstance()
@@ -101,11 +100,11 @@ class Replicas:
         for replica in self._replicas:
             yield replica.instId, replica._remove_ordered_from_queue()
 
-    def _new_replica(self, instance_id: int, is_master: bool, bls_store: BlsStore = None) -> Replica:
+    def _new_replica(self, instance_id: int, is_master: bool) -> Replica:
         """
         Create a new replica with the specified parameters.
         """
-        return Replica(self._node, instance_id, is_master, bls_store)
+        return Replica(self._node, instance_id, is_master)
 
     @property
     def num_replicas(self):
