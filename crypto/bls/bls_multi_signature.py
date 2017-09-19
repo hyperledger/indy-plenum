@@ -17,7 +17,9 @@ class MultiSignature:
             It is required to let signature be validated even if node keys
             or pool structure changed.
         """
-
+        assert signature is not None
+        assert participants
+        assert pool_state_root is not None
         self.signature = signature
         self.participants = participants
         self.state_root = pool_state_root
