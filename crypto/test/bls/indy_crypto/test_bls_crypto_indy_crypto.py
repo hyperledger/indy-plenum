@@ -32,7 +32,7 @@ def bls2(keys2, default_params):
 def test_default_params(default_params):
     group_name, g = default_params
     assert group_name == 'generator'
-    assert isinstance(g, Generator)
+    assert isinstance(g, str)
 
 
 def test_generate_keys_no_seed(default_params):
