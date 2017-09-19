@@ -11,7 +11,6 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("digest", LimitedLengthStringField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
-    ("blsSig", LimitedLengthStringField),
 ])
 
 
