@@ -2,13 +2,14 @@ import os
 
 import base58
 import pytest
-from crypto.bls.bls_bft import BlsValidationError
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls import BlsFactoryIndyCrypto
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
+from plenum.server.suspicion_codes import Suspicions
 
 
 @pytest.fixture()
@@ -34,9 +35,11 @@ def quorums(txnPoolNodeSet):
 def state_root():
     return generate_state_root()
 
+
 @pytest.fixture()
 def pool_state_root():
     return generate_state_root()
+
 
 def generate_state_root():
     return base58.b58encode(os.urandom(32))
@@ -91,7 +94,7 @@ def test_create_multi_sig_no_quorum_empty(bls_bfts, quorums, state_root, pool_st
 
 
 def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root, pool_state_root):
-    multi_sigs = set()
+    multi_sigs = []
     for creator in bls_bfts:
         multi_sig = calculate_multi_sig(
             creator=creator,
@@ -100,48 +103,51 @@ def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root, pool_state_ro
             state_root=state_root,
             pool_state_root=pool_state_root
         )
-        multi_sigs.add(multi_sig[1])
+        multi_sigs.append(multi_sig)
 
-    assert len(multi_sigs) == 1
+    assert all(x == multi_sigs[0] for x in multi_sigs)
 
 
 def test_validate_pre_prepare_no_sigs(bls_bfts, state_root):
     pre_prepare = create_pre_prepare_no_bls_multisig(state_root)
     for sender_bls_bft in bls_bfts:
         for verifier_bls_bft in bls_bfts:
-            verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id, state_root)
+            verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
 
 
-def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, quorums):
+def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, pool_state_root, quorums):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=state_root
+        state_root=state_root,
+        pool_state_root=pool_state_root
     )
 
     for sender_bls_bft in bls_bfts:
         pre_prepare = create_pre_prepare_bls_multisig(
             bls_multi_sig=multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bfts:
-            verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id, state_root)
+            verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
 
 
-def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, quorums):
+def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, pool_state_root, quorums):
+    changed_root = generate_state_root()
     changed_multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=generate_state_root()
+        state_root=changed_root,
+        pool_state_root=pool_state_root
     )
 
     for sender_bls_bft in bls_bfts:
         pre_prepare = create_pre_prepare_bls_multisig(
             bls_multi_sig=changed_multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bfts:
-            with pytest.raises(BlsValidationError) as ex_info:
-                verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id, state_root)
-            ex_info.match("Multi-sig validation failed")
+            with pytest.raises(SuspiciousNode) as ex_info:
+                verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
+            ex_info.match(Suspicions.PPR_BLS_MULTISIG_WRONG.reason)
 
 
 def test_validate_commit_no_sigs(bls_bfts, state_root):
@@ -157,8 +163,7 @@ def test_validate_commit_no_sigs(bls_bfts, state_root):
 def test_validate_commit_correct_sig(bls_bfts, state_root):
     key = (0, 0)
     for sender_bls_bft in bls_bfts:
-        bls_sig = sender_bls_bft.sign_state(state_root)
-        commit = create_commit_bls_sig(key, bls_sig)
+        commit = create_commit_bls_sig(sender_bls_bft, key, state_root)
         for verifier_bls_bft in bls_bfts:
             verifier_bls_bft.validate_commit(commit,
                                              sender_bls_bft.node_id,
@@ -168,40 +173,39 @@ def test_validate_commit_correct_sig(bls_bfts, state_root):
 def test_validate_commit_incorrect_sig(bls_bfts, state_root):
     key = (0, 0)
     for sender_bls_bft in bls_bfts:
-        bls_sig_changed = sender_bls_bft.sign_state(generate_state_root())
-        commit = create_commit_bls_sig(key, bls_sig_changed)
+        commit = create_commit_bls_sig(sender_bls_bft, key, generate_state_root())
         for verifier_bls_bft in bls_bfts:
-            with pytest.raises(BlsValidationError) as ex_info:
+            with pytest.raises(SuspiciousNode) as ex_info:
                 verifier_bls_bft.validate_commit(commit,
                                                  sender_bls_bft.node_id,
                                                  state_root)
-            ex_info.match("Validation failed")
+            ex_info.match(Suspicions.CM_BLS_SIG_WRONG.reason)
 
 
-def test_commits_saved(bls_bfts):
+def test_signatures_saved(bls_bfts):
     key1 = (0, 0)
     state1 = generate_state_root()
-    validate_commits_for_key(key1, state1, bls_bfts)
+    process_commits_for_key(key1, state1, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 1
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
 
     state2 = generate_state_root()
-    validate_commits_for_key(key1, state2, bls_bfts)
+    process_commits_for_key(key1, state2, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 1
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
 
     key2 = (0, 1)
     state1 = generate_state_root()
-    validate_commits_for_key(key2, state1, bls_bfts)
+    process_commits_for_key(key2, state1, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 2
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
         assert len(bls_bft._signatures[key2]) == len(bls_bfts)
 
     state2 = generate_state_root()
-    validate_commits_for_key(key2, state2, bls_bfts)
+    process_commits_for_key(key2, state2, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 2
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
@@ -209,14 +213,14 @@ def test_commits_saved(bls_bfts):
 
     key3 = (1, 0)
     state1 = generate_state_root()
-    validate_commits_for_key(key3, state1, bls_bfts)
+    process_commits_for_key(key3, state1, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 3
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
         assert len(bls_bft._signatures[key2]) == len(bls_bfts)
         assert len(bls_bft._signatures[key3]) == len(bls_bfts)
     state2 = generate_state_root()
-    validate_commits_for_key(key3, state2, bls_bfts)
+    process_commits_for_key(key3, state2, bls_bfts)
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 3
         assert len(bls_bft._signatures[key1]) == len(bls_bfts)
@@ -227,15 +231,15 @@ def test_commits_saved(bls_bfts):
 def test_commits_gc(bls_bfts):
     key1 = (0, 0)
     state1 = generate_state_root()
-    validate_commits_for_key(key1, state1, bls_bfts)
+    process_commits_for_key(key1, state1, bls_bfts)
 
     key2 = (0, 1)
     state1 = generate_state_root()
-    validate_commits_for_key(key2, state1, bls_bfts)
+    process_commits_for_key(key2, state1, bls_bfts)
 
     key3 = (1, 0)
     state1 = generate_state_root()
-    validate_commits_for_key(key3, state1, bls_bfts)
+    process_commits_for_key(key3, state1, bls_bfts)
 
     for bls_bft in bls_bfts:
         assert len(bls_bft._signatures) == 3
@@ -253,15 +257,15 @@ def test_commits_gc(bls_bfts):
         assert len(bls_bft._signatures[key3]) == len(bls_bfts)
 
 
-def validate_commits_for_key(key, state_root, bls_bfts):
+def process_commits_for_key(key, state_root, bls_bfts):
     for sender_bls_bft in bls_bfts:
         commit = create_commit_bls_sig(
+            sender_bls_bft,
             key,
-            sender_bls_bft.sign_state(state_root))
+            state_root)
         for verifier_bls_bft in bls_bfts:
-            verifier_bls_bft.validate_commit(commit,
-                                             sender_bls_bft.node_id,
-                                             state_root)
+            verifier_bls_bft.process_commit(commit,
+                                            sender_bls_bft.node_id)
 
 
 def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root, pool_state_root):
@@ -304,7 +308,8 @@ def create_pre_prepare_bls_multisig(bls_multi_sig, state_root):
         DOMAIN_LEDGER_ID,
         state_root,
         '1' * 32,
-        bls_multi_sig
+        (bls_multi_sig.signature, bls_multi_sig.participants, bls_multi_sig.pool_state_root),
+        state_root
     )
 
 
