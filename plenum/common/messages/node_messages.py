@@ -127,6 +127,7 @@ class Propagate(MessageBase):
 
 
 # TODO: this message can be used for propagation of multi sig on timeout
+# TODO: but update it first
 class BlsMultiSignature(MessageValidator):
     typename = None
     schema = (
