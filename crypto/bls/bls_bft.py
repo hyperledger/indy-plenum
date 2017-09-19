@@ -6,6 +6,7 @@ from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.quorums import Quorums
 from typing import Optional
+from crypto.bls.bls_multi_signature import MultiSignature
 
 
 class BlsBft(metaclass=ABCMeta):
@@ -36,7 +37,7 @@ class BlsBft(metaclass=ABCMeta):
     @abstractmethod
     def calculate_multi_sig(self,
                             key_3PC,
-                            quorums: Quorums) -> Optional[tuple]:
+                            quorums: Quorums) -> Optional[MultiSignature]:
         """
         Creates multi-signature
 
@@ -48,13 +49,12 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_multi_sig(self, multi_sig: str, participants, state_root):
+    def validate_multi_sig(self, multi_sig: MultiSignature, state_root):
         pass
 
     @abstractmethod
     def save_multi_sig_local(self,
-                             multi_sig: str,
-                             participants: list,
+                             multi_sig: MultiSignature,
                              state_root,
                              key_3PC):
         """
