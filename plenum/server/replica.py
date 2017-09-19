@@ -272,7 +272,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft = self._create_bls_bft(bls_store)
-        self._bls_latest_multi_sig = None  # (participants, sig)
+        self._bls_latest_multi_sig = None  # (state_root, participants, sig)
 
     def _create_bls_bft(self, bls_store: BlsStore = None):
         try:
@@ -1571,9 +1571,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 if self.isMaster:
                     state_root = pp.stateRootHash
                     self._bls_bft.save_multi_sig_local(sig, participants, state_root, key)
-                    logger.debug("{} saved multi signature for root".format(self, state_root))
-
-                self._bls_latest_multi_sig = bls_multi_sig
+                    logger.debug("{} saved multi signature for root"
+                                 .format(self, state_root))
+                    self._bls_latest_multi_sig = state_root, participants, sig
 
         return True
 

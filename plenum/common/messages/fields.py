@@ -506,13 +506,20 @@ class LedgerInfoField(FieldBase):
 class BlsMultiSignatureField(FieldBase):
 
     _base_types = (list, tuple)
+    _root_hash_validator = MerkleRootField()
+    _participants_validator = IterableField(NonEmptyStringField())
+    _multisig_validator = \
+        LimitedLengthStringField(max_length=BLS_MULTI_SIG_LIMIT)
 
     def _specific_validation(self, val):
-        participants, sig = val
-        err = LimitedLengthStringField(max_length=BLS_MULTI_SIG_LIMIT).validate(sig)
+        root_hash, participants, sig = val
+        err = self._root_hash_validator.validate(root_hash)
         if err:
             return err
-        err = IterableField(NonEmptyStringField()).validate(participants)
+        err = self._multisig_validator.validate(sig)
+        if err:
+            return err
+        err = self._participants_validator.validate(participants)
         if err:
             return err
         if len(participants) == 0:

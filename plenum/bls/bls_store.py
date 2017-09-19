@@ -1,30 +1,34 @@
-from plenum.persistence.storage import KeyValueStorage, initKeyValueStorage
-from common.serializers.compact_serializer import CompactSerializer
-from collections import OrderedDict
+from plenum.persistence.storage import initKeyValueStorage
+from crypto.bls.bls_multi_signature import MultiSignature
+from typing import Optional
 
 
 class BlsStore:
-    def __init__(self, keyValueType, dataLocation, keyValueStorageName):
-        self._kvs = initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName)
-        self._serializer = CompactSerializer(OrderedDict([("s", (str, str)),("p", (str, str))]))
 
-    def put(self, root_hash: str, sign: str, participants: list):
+    def __init__(self,
+                 keyValueType,
+                 dataLocation,
+                 keyValueStorageName,
+                 serializer):
+        self._kvs = initKeyValueStorage(keyValueType,
+                                        dataLocation,
+                                        keyValueStorageName)
+        self._serializer = serializer
+
+    def put(self, root_hash: str, sign: MultiSignature):
         assert root_hash is not None
         assert sign is not None
-        assert participants is not None and participants
+        serialized_multi_sign = self._serializer.serialize(sign.as_dict())
+        self._kvs.put(root_hash, serialized_multi_sign)
 
-        data = {"s": sign, "p": '\t'.join(participants)}
-        ser_data = self._serializer.serialize(data)
-        self._kvs.put(root_hash, ser_data)
-
-    def get(self, root_hash: str):
+    def get(self, root_hash: str) -> Optional[MultiSignature]:
         try:
             ser_data = self._kvs.get(root_hash)
         except KeyError:
-            return None, None
-
+            return None
         data = self._serializer.deserialize(ser_data)
-        return data.get("s", None), list(data.get("p", ).split('\t'))
+        multi_sig = MultiSignature(**data)
+        return multi_sig
 
     def close(self):
         self._kvs.close()

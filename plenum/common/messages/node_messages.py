@@ -127,6 +127,7 @@ class Propagate(MessageBase):
 
 
 # TODO: this message can be used for propagation of multi sig on timeout
+# TODO: but update it first
 class BlsMultiSignature(MessageValidator):
     typename = None
     schema = (
@@ -150,9 +151,7 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
-                                                    nullable=True)),
-        (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
-                                                optional=True)),
+                                                    nullable=True))
     )
 
 
@@ -166,8 +165,6 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
-        (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
-                                                optional=True))
     )
 
 
@@ -177,8 +174,9 @@ class Commit(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
-                                                optional=True))
+                                                optional=True)),
     )
 
 
