@@ -37,6 +37,30 @@ def extend_with_external_config(extendee: object, extender: Tuple[str, str], req
     return extendee
 
 
+def extend_with_default_external_config(extendee: object, user_config_dir: str = None) -> object:
+    extend_with_external_config(extendee,
+                                (extendee.GENERAL_CONFIG_DIR,
+                                 extendee.GENERAL_CONFIG_FILE),
+                                required=True)
+
+    # fail if network is not set
+    if not extendee.NETWORK_NAME:
+        raise Exception('NETWORK_NAME must be set')
+
+    network_config_dir = os.path.join(extendee.GENERAL_CONFIG_DIR,
+                                      extendee.NETWORK_NAME)
+    extend_with_external_config(extendee,
+                                (network_config_dir,
+                                 extendee.NETWORK_CONFIG_FILE))
+
+    if not user_config_dir:
+        user_config_dir = os.path.join(extendee.baseDir, extendee.NETWORK_NAME)
+    user_config_dir = os.path.expanduser(user_config_dir)
+    extend_with_external_config(extendee,
+                                (user_config_dir,
+                                 extendee.USER_CONFIG_FILE))
+
+
 def getConfig(user_config_dir=None):
     """
     Reads a file called config.py in the project directory
@@ -50,27 +74,8 @@ def getConfig(user_config_dir=None):
         plenum_config = import_module("plenum.config")
         config = stp_config
         config.__dict__.update(plenum_config.__dict__)
-        extend_with_external_config(config,
-                                    (config.GENERAL_CONFIG_DIR,
-                                     config.GENERAL_CONFIG_FILE),
-                                    required=True)
 
-        # fail if network is not set
-        if not config.NETWORK_NAME:
-            raise Exception('NETWORK_NAME must be set')
-
-        network_config_dir = os.path.join(config.GENERAL_CONFIG_DIR,
-                                          config.NETWORK_NAME)
-        extend_with_external_config(config,
-                                    (network_config_dir,
-                                     config.NETWORK_CONFIG_FILE))
-
-        if not user_config_dir:
-            user_config_dir = os.path.join(config.baseDir, config.NETWORK_NAME)
-        user_config_dir = os.path.expanduser(user_config_dir)
-        extend_with_external_config(config,
-                                    (user_config_dir,
-                                     config.USER_CONFIG_FILE))
+        extend_with_default_external_config(config, user_config_dir)
 
         # "unsafe" is a set of attributes that can set certain behaviors that
         # are not safe, for example, 'disable_view_change' disables view changes
