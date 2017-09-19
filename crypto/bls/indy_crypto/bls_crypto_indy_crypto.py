@@ -8,14 +8,14 @@ import base58
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
     def load_group_params(self) -> GroupParams:
         group_name = 'generator'
-        g = Generator.new()
+        g = "7BRrJUcxuAomyoBC7YkvRD9TpFrcGoYAT9BQhhxuNB4FFjNPffimLywJViQRJAPnP97PQxCHTiEBTu6KuYV7trC4Ez3eRz7QSnKUwd5KqG9PxQaFaNaJyFv8uAXQgm3Q7nkEqjjKrCKdWmj89ZmAG848Ucn2v6bqhNmShEH9ARQqxhozXbmBy68oa6eh1vxs3DYenGgeWnjCCueBbR7vrMB9ATJBpCuPg25KWXjyh6KqnLsZfcRdst4NzuAmS8NzBPSvW6"
         return GroupParams(group_name, g)
 
 
 class BlsCryptoIndyCrypto(BlsCrypto):
     def __init__(self, sk: str, pk: str, params: GroupParams):
         super().__init__(sk, pk, params)
-        self._generator = params.g
+        self._generator = BlsCryptoIndyCrypto._bls_from_str(params.g, Generator)
         self._sk_bls = BlsCryptoIndyCrypto._bls_from_str(sk, SignKey)
         self._pk_bls = BlsCryptoIndyCrypto._bls_from_str(pk, VerKey)
 
@@ -34,8 +34,9 @@ class BlsCryptoIndyCrypto(BlsCrypto):
 
     @staticmethod
     def generate_keys(params: GroupParams, seed=None) -> (str, str):
+        gen = BlsCryptoIndyCrypto._bls_from_str(params.g, Generator)
         sk = SignKey.new(BlsCryptoIndyCrypto._prepare_seed(seed))
-        vk = VerKey.new(params.g, sk)
+        vk = VerKey.new(gen, sk)
         sk_str = BlsCryptoIndyCrypto._bls_to_str(sk)
         vk_str = BlsCryptoIndyCrypto._bls_to_str(vk)
         return sk_str, vk_str
