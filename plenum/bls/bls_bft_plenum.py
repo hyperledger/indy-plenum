@@ -37,9 +37,9 @@ class BlsBftPlenum(BlsBft):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if (f.BLS_MULTI_SIG.nm not in pre_prepare or
-                pre_prepare.blsMultiSig is None or
+                    pre_prepare.blsMultiSig is None or
                     f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or
-                        pre_prepare.blsMultiSigStateRoot is None):
+                    pre_prepare.blsMultiSigStateRoot is None):
             return None
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         state_root = pre_prepare.blsMultiSigStateRoot
