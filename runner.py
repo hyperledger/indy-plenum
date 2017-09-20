@@ -9,9 +9,9 @@ import time
 def get_first_level_path(path):
     dir_name = os.path.dirname(path)
     parts = dir_name.split('/')
-    if len(parts) == 2: # <package-name>/test
+    if len(parts) == 2:  # <package-name>/test
         return path  # first level *.py
-    return "/".join(parts[:3]) #  <package-name>/test/<dir>
+    return "/".join(parts[:3])  # <package-name>/test/<dir>
 
 
 def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
@@ -108,7 +108,7 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
             log('\tIn {}, {} passed, {} failed, {} errors, {} skipped, {:.1f}s time '
                 '({}/{} progress)'.
                 format(tests, passed, errors, failed, skipped,
-                       testExecutionTime, i+1, len(test_list_sliced)))
+                       testExecutionTime, i + 1, len(test_list_sliced)))
             if failed:
                 logError("Failed tests: {}".format(', '.join(failedNames)))
                 for nm in failedNames:
@@ -172,9 +172,11 @@ def logError(msg):
 def logSuccess(msg):
     return print('\x1b[6;30;42m' + msg + '\x1b[0m')
 
+
 def parse_test_slice(x):
     inc, step = x.split('/')[:2]
     return int(inc), int(step)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
