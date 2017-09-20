@@ -121,11 +121,12 @@ class BlsBftPlenum(BlsBft):
         if not self._can_process_ledger(ledger_id):
             return
 
+        if not self._can_calculate_multi_sig(key, quorums):
+            return
+
         # calculate signature always to keep master and non-master in sync
         # but save on master only
-        bls_multi_sig = self._calculate_multi_sig(key, quorums)
-        if bls_multi_sig is None:
-            return
+        bls_multi_sig = self._calculate_multi_sig(key)
 
         if not self._is_master:
             return
@@ -169,7 +170,7 @@ class BlsBftPlenum(BlsBft):
             if bls_key:
                 public_keys.append(bls_key)
         message = self._create_multi_sig_value(state_root,
-                                               self._get_pool_root_hash_committed())
+                                               multi_sig.pool_state_root)
         return self._bls_crypto.verify_multi_sig(multi_sig.signature,
                                                  message,
                                                  public_keys)
@@ -179,22 +180,28 @@ class BlsBftPlenum(BlsBft):
                                                self._get_pool_root_hash_committed())
         return self._bls_crypto.sign(message)
 
-    def _calculate_multi_sig(self,
-                             key_3PC,
-                             quorums) -> Optional[MultiSignature]:
+    def _can_calculate_multi_sig(self,
+                                 key_3PC,
+                                 quorums) -> Optional[MultiSignature]:
         if key_3PC not in self._signatures:
-            return None
+            return False
+
         sigs_for_request = self._signatures[key_3PC]
         bls_signatures = list(sigs_for_request.values())
-        participants = list(sigs_for_request.keys())
-
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
-            logger.debug(
+            logger.trace(
                 'Can not create bls signature for batch {}: '
                 'There are only {} signatures, while {} required'.format(key_3PC,
                                                                          len(bls_signatures),
                                                                          quorums.bls_signatures.value))
-            return None
+            return False
+
+        return True
+
+    def _calculate_multi_sig(self, key_3PC) -> Optional[MultiSignature]:
+        sigs_for_request = self._signatures[key_3PC]
+        bls_signatures = list(sigs_for_request.values())
+        participants = list(sigs_for_request.keys())
 
         sig = self._bls_crypto.create_multi_sig(bls_signatures)
         return MultiSignature(sig, participants, self._get_pool_root_hash_committed())
