@@ -36,10 +36,10 @@ class BlsBftPlenum(BlsBft):
     # ----VALIDATE----
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
-        if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSig is None or \
-                        f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSigStateRoot is None:
+        if (f.BLS_MULTI_SIG.nm not in pre_prepare or
+                    pre_prepare.blsMultiSig is None or
+                    f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or
+                    pre_prepare.blsMultiSigStateRoot is None):
             return None
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         state_root = pre_prepare.blsMultiSigStateRoot
@@ -169,10 +169,9 @@ class BlsBftPlenum(BlsBft):
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
                 'Can not create bls signature for batch {}: '
-                'There are only {} signatures, while {} required'
-                    .format(key_3PC,
-                            len(bls_signatures),
-                            quorums.bls_signatures.value))
+                'There are only {} signatures, while {} required'.format(key_3PC,
+                                                                         len(bls_signatures),
+                                                                         quorums.bls_signatures.value))
             return None
 
         sig = self._bls_crypto.create_multi_sig(bls_signatures)

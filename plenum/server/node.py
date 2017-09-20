@@ -1603,8 +1603,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_catch_up_limit(self):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if (self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and (
-                    ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+        if ((self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and
+                (ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE)):
             logger.debug('{} has completed {} catchup rounds for {} seconds'.format(
                 self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
             # No more 3PC messages will be processed since maximum catchup
@@ -2118,8 +2118,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          'so view change will not be proposed')
             return
         disconnected_time = time.perf_counter() - self.lost_primary_at
-        disconnected_long_enough = disconnected_time >= \
-                                   self.config.ToleratePrimaryDisconnection
+        disconnected_long_enough = \
+            disconnected_time >= self.config.ToleratePrimaryDisconnection
         if disconnected_long_enough:
             view_no = self.viewNo + 1
             self.sendInstanceChange(view_no,
@@ -2320,8 +2320,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
             # adding one to end of range since its exclusive
             intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-            intrv_tree[first_txn_seq_no:last_txn_seq_no +
-                                        1] = (view_no, pp_seq_no)
+            intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
             logger.debug('{} storing 3PC key {} for ledger {} range {}'.
                          format(self, (view_no, pp_seq_no), ledger_id,
                                 (first_txn_seq_no, last_txn_seq_no)))

@@ -448,8 +448,8 @@ class Replica(HasActionQueue, MessageProcessor):
         Replica should only participating in the consensus process and the
         replica did not stash any of this request's 3-phase request
         """
-        return self.node.isParticipating and (viewNo, ppSeqNo) \
-                                             not in self.stashingWhileCatchingUp
+        return (self.node.isParticipating and
+                ((viewNo, ppSeqNo) not in self.stashingWhileCatchingUp))
 
     def on_view_change_start(self):
         assert self.isMaster
@@ -623,10 +623,9 @@ class Replica(HasActionQueue, MessageProcessor):
         r = 0
         for lid, q in self.requestQueues.items():
             # TODO: make the condition more apparent
-            if len(q) >= self.config.Max3PCBatchSize or (
-                                self.lastBatchCreated +
-                                self.config.Max3PCBatchWait <
-                            time.perf_counter() and len(q) > 0):
+            if (len(q) >= self.config.Max3PCBatchSize or
+                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter()
+                        and len(q) > 0)):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
@@ -1334,8 +1333,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
-        if (key not in self.prepares and key not in self.sentPrePrepares) and \
-                        key not in self.preparesWaitingForPrePrepare:
+        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+                (key not in self.preparesWaitingForPrePrepare)):
             logger.warning("{} rejecting COMMIT{} due to lack of prepares".
                            format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
@@ -2166,9 +2165,9 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        return (self.last_accepted_pre_prepare_time is None or
-                pp.ppTime >= self.last_accepted_pre_prepare_time) and \
-               abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+        return ((self.last_accepted_pre_prepare_time is None or
+                    pp.ppTime >= self.last_accepted_pre_prepare_time) and
+                        (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
