@@ -1,17 +1,21 @@
 #!groovy
 
-def name = 'indy-plenum'
+name = 'indy-plenum'
+file='ci/ubuntu.dockerfile ci'
 
 
 def withEnv(body) {
+    echo "$name"
     if (isUnix()) {
         echo 'Ubuntu Test: Build docker image'
         def uid = sh(returnStdout: true, script: 'id -u').trim()
         docker.build("$name-test", "--build-arg uid=$uid -f $file").inside('--network host') {
-            body.call(python: 'python', pip: 'pip')
+            body.call('python', 'pip')
         }
     } else { // windows expected
         echo 'Ubuntu Test: Build virtualenv'
+        def virtualEnvDir = "venv"
+        sh "virtualenv --system-site-packages $virtualEnvDir"
         body.call("$virtualEnvDir/Scripts/python", "$virtualEnvDir/Scripts/pip")
     }
 }
@@ -24,7 +28,6 @@ def install(options=[deps: [], pip: 'pip', isVEnv: false]) {
     sh "$options.pip install " + (options.isVEnv ? "--ignore-installed" : "") + " pytest"
     sh "$options.pip install ."
 }
-
 
 
 def test(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
@@ -56,7 +59,7 @@ def plenumTestUbuntu = { offset, increment ->
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
 
-        withEnv() { python, pip, isVenv ->
+        withEnv { python, pip, isVenv ->
             echo 'Ubuntu Test: Install dependencies'
             install(pip: pip, isVenv: isVenv)
 
@@ -76,17 +79,6 @@ def plenumTestUbuntu = { offset, increment ->
     }
 }
 
-def plenumTestUbuntuPart1 = {
-    plenumTestUbuntu(1, 3)
-}
-
-def plenumTestUbuntuPart2 = {
-    plenumTestUbuntu(2, 3)
-}
-
-def plenumTestUbuntuPart3 = {
-    plenumTestUbuntu(3, 3)
-}
 
 def ledgerTestUbuntu = {
     try {
@@ -111,6 +103,7 @@ def ledgerTestUbuntu = {
     }
 }
 
+
 def stpTestUbuntu = {
     try {
         echo 'Ubuntu Test: Checkout csm'
@@ -131,21 +124,6 @@ def stpTestUbuntu = {
     }
 }
 
-def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
-    def volumeName = "$name-deb-u1604"
-    sh "docker volume rm -f $volumeName"
-    dir('build-scripts/ubuntu-1604') {
-        sh "./build-$name-docker.sh $sourcePath $releaseVersion"
-        sh "./build-3rd-parties-docker.sh"
-    }
-    return "$volumeName"
-}
-
-//def options = new TestAndPublishOptions()
-//testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
-//ledger: ledgerTestUbuntu,
-//stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
-
 
 def failFast = false
 
@@ -153,9 +131,15 @@ labels = ['ubuntu']
 tests = [
     stp: stpTestUbuntu,
     ledger: ledgerTestUbuntu,
-    plenum1: plenumTestUbuntuPart1,
-    plenum2: plenumTestUbuntuPart2,
-    plenum3: plenumTestUbuntuPart3,
+    plenum1: {
+        plenumTestUbuntu(1, 3)
+    },
+    plenum2: {
+        plenumTestUbuntu(1, 3)
+    },
+    plenum3: {
+        plenumTestUbuntu(1, 3)
+    }
 ].collect {k, v -> [k, v]}
 
 builds = [
