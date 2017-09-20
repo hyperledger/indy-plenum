@@ -33,7 +33,7 @@ def install(options=[deps: [], pip: 'pip', isVEnv: false]) {
 def test(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
     try {
         if (options.useRunner) {
-            sh "PYTHONASYNCIODEBUG='0' $options.python ci/runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
+            sh "PYTHONASYNCIODEBUG='0' $options.python runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
         } else {
             sh "$options.python -m pytest --junitxml=$options.resFile $options.testDir"
         }
