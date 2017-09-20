@@ -68,8 +68,8 @@ def main():
 
     if pr is None:
         print("PR not found in '{}'. Criterias: state='closed', branch='{}', "
-              "merge_commit_sha='{}', updated: within {} days.".format(
-                repo.full_name, args.branch, args.sha, args.updated),
+              "merge_commit_sha='{}', updated: within {} days."
+              "".format(repo.full_name, args.branch, args.sha, args.updated),
               file=sys.stderr)
         return 0
 
@@ -94,8 +94,8 @@ def main():
         if (args.context is None or st.context in args.context):
             if (st.state != 'success'):
                 print("Context '{}' for commit '{}' has not passed status. "
-                      "id: '{}', status source: '{}', url: '{}'".format(
-                        st.context, ci.sha, st.id, st.target_url, cst.url),
+                      "id: '{}', status source: '{}', url: '{}'"
+                      "".format(st.context, ci.sha, st.id, st.target_url, cst.url),
                       file=sys.stderr)
                 return 0
             else:

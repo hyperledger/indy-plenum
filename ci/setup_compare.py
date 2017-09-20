@@ -160,5 +160,6 @@ def main(file1, file2):
 
     return compare(src1, src2, args.dump)
 
+
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1], sys.argv[2]))

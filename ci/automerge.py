@@ -59,11 +59,11 @@ def main():
     )
 
     status_group.add_argument(
-            '--status-state',
-            metavar='status',
-            choices=["pending", "success", "error", "failure"],
-            default="success",
-            help='Action to perform on PR'
+        '--status-state',
+        metavar='status',
+        choices=["pending", "success", "error", "failure"],
+        default="success",
+        help='Action to perform on PR'
     )
 
     status_group.add_argument(
@@ -108,11 +108,13 @@ def main():
             print("AUTOMERGE: approved")
 
             if args.status_update:
-                res = pr.create_status(pr_head_sha,
-                                       args.status_state,
-                                       args.status_url,
-                                       args.status_descr,
-                                       args.status_context)
+                pr.create_status(
+                    pr_head_sha,
+                    args.status_state,
+                    args.status_url,
+                    args.status_descr,
+                    args.status_context
+                )
                 print("AUTOMERGE: created commit status")
 
             pr.merge(args.message)
@@ -128,6 +130,7 @@ def main():
               "cancel automerge".format(diff_files))
 
     return 1
+
 
 if __name__ == '__main__':
     sys.exit(main())

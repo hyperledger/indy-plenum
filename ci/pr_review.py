@@ -19,8 +19,8 @@ class PR:
         self.pr = self.repo.get_pull(pr_number)
 
         self.merge_url = (
-            "https://api.github.com/repos/{}/{}/pulls/{}/reviews".format(
-             owner, repo, pr_number)
+            "https://api.github.com/repos/{}/{}/pulls/{}/reviews"
+            "".format(owner, repo, pr_number)
         )
 
         self.merge_headers = {
@@ -47,7 +47,7 @@ class PR:
         if context is None:
             context = GithubObject.NotSet
         self.repo.get_commit(commit_sha).create_status(
-                state, target_url, description, context)
+            state, target_url, description, context)
 
     def base_sha(self):
         return self.pr.base.sha
@@ -133,6 +133,7 @@ def main():
         return pr.merge(args.message)
     else:
         return pr.review(args.event, args.body)
+
 
 if __name__ == '__main__':
     sys.exit(main())
