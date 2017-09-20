@@ -1,24 +1,73 @@
 #!groovy
 
-// TODO remove after shared libs refactoring
-@Library('SovrinHelpers') _
-
 def name = 'indy-plenum'
+
+
+def withEnv(body) {
+    if (isUnix()) {
+        echo 'Ubuntu Test: Build docker image'
+        def uid = sh(returnStdout: true, script: 'id -u').trim()
+        docker.build("$name-test", "--build-arg uid=$uid -f $file").inside('--network host') {
+            body.call(python: 'python', pip: 'pip')
+        }
+    } else { // windows expected
+        echo 'Ubuntu Test: Build virtualenv'
+        body.call("$virtualEnvDir/Scripts/python", "$virtualEnvDir/Scripts/pip")
+    }
+}
+
+
+def install(options=[deps: [], pip: 'pip', isVEnv: false]) {
+    for (def dep : options.deps) {
+        sh "$options.pip install " + (options.isVEnv ? "-U" : "") + " $dep"
+    }
+    sh "$options.pip install " + (options.isVEnv ? "--ignore-installed" : "") + " pytest"
+    sh "$options.pip install ."
+}
+
+
+
+def run(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
+    try {
+        if (options.useRunner) {
+            sh "PYTHONASYNCIODEBUG='0' $options.python ci/runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
+        } else {
+            sh "$options.python -m pytest --junitxml=$options.resFile $options.testDir"
+        }
+    }
+    finally {
+        try {
+            sh "ls -la $options.resFile"
+        } catch (Exception ex) {
+            // pass
+        }
+
+        if (options.useRunner) {
+            archiveArtifacts allowEmptyArchive: true, artifacts: "$options.resFile"
+        } else {
+            junit "$options.resFile"
+        }
+    }
+}
+
 
 def plenumTestUbuntu = { offset, increment ->
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
 
-        echo 'Ubuntu Test: Build docker image'
-        def testEnv = dockerHelpers.build(name)
-
-        testEnv.inside('--network host') {
+        withEnv() { python, pip, isVenv ->
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
+            install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result-plenum-$offset.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: "$offset/$increment"])
+            run([
+                resFile: "test-result-plenum-$offset.${NODE_NAME}.txt",
+                testDir: 'plenum',
+                python: python,
+                useRunner: true,
+                testOnlySlice: "$offset/$increment"]
+            )
         }
     }
     finally {
@@ -44,18 +93,15 @@ def ledgerTestUbuntu = {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
 
-        echo 'Ubuntu Test: Build docker image'
-        def testEnv = dockerHelpers.build(name)
-
-        testEnv.inside {
+        withEnv() { python, pip, isVenv ->
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
+            install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml"])
-            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml"])
-            testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
-            testHelpers.testJUnit([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml"])
+            run([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
+            run([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
+            run([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
+            run([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
         }
 
     }
@@ -70,133 +116,17 @@ def stpTestUbuntu = {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
 
-        echo 'Ubuntu Test: Build docker image'
-        def testEnv = dockerHelpers.build(name)
-
-        testEnv.inside {
+        withEnv() { python, pip, isVenv ->
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
+            install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml"])
-            testHelpers.testJUnit([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml"])
+            run([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
+            run([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
         }
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def plenumTestWindows = {
-    echo 'TODO: Implement me'
-
-    /* win2016 for now (03-23-2017) is not supported by Docker for Windows
-     * (Hyper-V version), so we can't use linux containers
-     * https://github.com/docker/for-win/issues/448#issuecomment-276328342
-     *
-     * possible solutions:
-     *  - use host-installed OrientDB (trying this one)
-     *  - wait until Docker support will be provided for win2016
-     */
-
-    //try {
-    //    echo 'Windows Test: Checkout csm'
-    //    checkout scm
-
-    //    echo 'Windows Test: Build docker image'
-    //    dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + ["cd C:\\test && python -m pytest -k orientdb --junit-xml=C:\\testOrig\\$testFile"] /*testHelpers.testJunitWindowsCommands()*/)
-    //    junit 'test-result.xml'
-    //}
-    //finally {
-    //    echo 'Windows Test: Cleanup'
-    //    step([$class: 'WsCleanup'])
-    //}
-}
-
-def ledgerTestWindows = {
-    try {
-        echo 'Windows Test: Checkout csm'
-        checkout scm
-
-        echo 'Windows Test: Build docker image'
-        dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + testHelpers.testJunitWindowsCommands())
-        junit 'test-result.xml'
-    }
-    finally {
-        echo 'Windows Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def stateTestWindows = {
-    try {
-        echo 'Windows Test: Checkout csm'
-        checkout scm
-
-        echo 'Windows Test: Build docker image'
-        dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + testHelpers.testJunitWindowsCommands())
-        junit 'test-result.xml'
-    }
-    finally {
-        echo 'Windows Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def plenumTestWindowsNoDocker = {
-    try {
-        echo 'Windows No Docker Test: Checkout csm'
-        checkout scm
-
-        testHelpers.createVirtualEnvAndExecute({ python, pip ->
-            echo 'Windows No Docker Test: Install dependencies'
-            testHelpers.install(python: python, pip: pip, isVEnv: true)
-            
-            echo 'Windows No Docker Test: Test'
-            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt", python: python)
-        })
-    }
-    finally {
-        echo 'Windows No Docker Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def ledgerTestWindowsNoDocker = {
-    try {
-        echo 'Windows No Docker Test: Checkout csm'
-        checkout scm   
-
-        testHelpers.createVirtualEnvAndExecute({ python, pip ->
-            echo 'Windows No Docker Test: Install dependencies'
-            testHelpers.installDepsBat(python, pip)
-            
-            echo 'Windows No Docker Test: Test'
-            testHelpers.testJunitBat(python, pip)
-        })
-    }
-    finally {
-        echo 'Windows No Docker Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def stateTestWindowsNoDocker = {
-    try {
-        echo 'Windows No Docker Test: Checkout csm'
-        checkout scm   
-
-        testHelpers.createVirtualEnvAndExecute({ python, pip ->
-            echo 'Windows No Docker Test: Install dependencies'
-            testHelpers.installDepsBat(python, pip)
-            
-            echo 'Windows No Docker Test: Test'
-            testHelpers.testJunitBat(python, pip)
-        })
-    }
-    finally {
-        echo 'Windows No Docker Test: Cleanup'
         step([$class: 'WsCleanup'])
     }
 }
@@ -211,7 +141,7 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
     return "$volumeName"
 }
 
-def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
-ledger: ledgerTestUbuntu,
-stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
+//def options = new TestAndPublishOptions()
+//testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
+//ledger: ledgerTestUbuntu,
+//stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
