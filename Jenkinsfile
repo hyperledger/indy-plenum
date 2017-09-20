@@ -126,9 +126,8 @@ def stpTestUbuntu = {
 
 
 def failFast = false
-
-labels = ['ubuntu']
-tests = [
+def labels = ['ubuntu']
+def tests = [
     stp: stpTestUbuntu,
     ledger: ledgerTestUbuntu,
     plenum1: {
@@ -142,15 +141,8 @@ tests = [
     }
 ].collect {k, v -> [k, v]}
 
-builds = [
-    ledgerTestUbuntu,
-    stpTestUbuntu,
-    plenumTestUbuntuPart1,
-    plenumTestUbuntuPart2,
-    plenumTestUbuntuPart3
-]
-
 def builds = [:]
+
 for (i = 0; i < labels.size(); i++) {
     def label = labels[i]
     def descr = "${label}Test"
