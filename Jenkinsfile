@@ -16,7 +16,7 @@ def getRepoDetails(githubUrl) {
     def matcher = (githubUrl =~ pattern)
     try {
         return [owner: matcher[0][1], repo: matcher[0][2]]
-    } catch {
+    } catch (Exception ex) {
         return  null
     }
 }
