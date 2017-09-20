@@ -22,6 +22,8 @@ RUN virtualenv -p python3.5 /home/$user/test
 USER root
 RUN ln -sf /home/$user/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/$user/test/bin/pip /usr/local/bin/pip
+RUN wget https://repo.evernym.com/libindy_crypto/ubuntu/stable/0.1.2/libindy-crypto_0.1.2_amd64.deb
+RUN dpkg -i ./libindy-crypto_0.1.2_amd64.deb
 USER $user
 # TODO: Automate dependency collection
 RUN pip install jsonpickle \
@@ -45,5 +47,6 @@ RUN pip install jsonpickle \
 	ioflo==1.5.4 \
 	psutil \
 	intervaltree \
-	pytest-xdist
+	pytest-xdist \
+	python3-indy-crypto==0.1.2
 WORKDIR /home/$user
