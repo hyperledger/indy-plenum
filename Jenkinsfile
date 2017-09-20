@@ -218,7 +218,7 @@ def testSTP = {
 }
 
 
-def automergePR(owner, reponame, pr_number,
+def tryAutomergePR(owner, reponame, pr_number,
         approveMessage="Approved",
         status_state="success",
         status_url="$RUN_DISPLAY_URL",
@@ -226,11 +226,14 @@ def automergePR(owner, reponame, pr_number,
         status_context="continuous-integration/jenkins/pr-merge") {
 
     try {
-        echo 'Automerge: approving'
+        echo 'Automerge PR: Checkout csm'
+        checkout scm
+
+        echo 'Automerge PR: approving'
         withCredentials([string(credentialsId: 'evernym-github-machine-user-token', variable: 'token')]) {
             buildDocker('pr-automerge', 'ci/pr.dockerfile ci').inside {
                 sh """
-                    python3 automerge.py $owner $reponame $pr_number $token --body \"$approveMessage\" \
+                    python3 ci/automerge.py $owner $reponame $pr_number $token --body \"$approveMessage\" \
                         --status-update \
                         --status-state \"$status_state\" \
                         --status-url \"$status_url\" \
@@ -242,7 +245,7 @@ def automergePR(owner, reponame, pr_number,
         }
     }
     finally {
-        echo 'Automerge: Cleanup'
+        echo 'Automerge PR: Cleanup'
         step([$class: 'WsCleanup'])
     }
 }
@@ -321,7 +324,15 @@ if (istested) {
 if (env.CHANGE_ID != null) {
     def repoDetails = getRepoDetails(env.CHANGE_URL)
     if (repoDetails != null) {
-        automergePR(repoDetails["owner"], repoDetails["repo"], env.CHANGE_ID)
+        try {
+            stage("Automerge PR") {
+                node('ubuntu') {
+                    tryAutomergePR(repoDetails["owner"], repoDetails["repo"], env.CHANGE_ID)
+                }
+            }
+        } catch (Exception ex) {
+            echo "$ex (automerge scope, ignored)"
+        }
+
     }
 }
-
