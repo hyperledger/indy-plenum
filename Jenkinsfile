@@ -27,7 +27,7 @@ def install(options=[deps: [], pip: 'pip', isVEnv: false]) {
 
 
 
-def run(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
+def test(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
     try {
         if (options.useRunner) {
             sh "PYTHONASYNCIODEBUG='0' $options.python ci/runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
@@ -61,7 +61,7 @@ def plenumTestUbuntu = { offset, increment ->
             install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            run([
+            test([
                 resFile: "test-result-plenum-$offset.${NODE_NAME}.txt",
                 testDir: 'plenum',
                 python: python,
@@ -98,10 +98,10 @@ def ledgerTestUbuntu = {
             install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            run([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
-            run([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
-            run([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
-            run([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
+            test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
+            test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
+            test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
+            test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
         }
 
     }
@@ -121,8 +121,8 @@ def stpTestUbuntu = {
             install(pip: pip, isVenv: isVenv)
 
             echo 'Ubuntu Test: Test'
-            run([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
-            run([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
+            test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
+            test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
         }
     }
     finally {
@@ -145,3 +145,45 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 //testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
 //ledger: ledgerTestUbuntu,
 //stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
+
+
+def failFast = false
+
+labels = ['ubuntu']
+tests = [
+    stp: stpTestUbuntu,
+    ledger: ledgerTestUbuntu,
+    plenum1: plenumTestUbuntuPart1,
+    plenum2: plenumTestUbuntuPart2,
+    plenum3: plenumTestUbuntuPart3,
+].collect {k, v -> [k, v]}
+
+builds = [
+    ledgerTestUbuntu,
+    stpTestUbuntu,
+    plenumTestUbuntuPart1,
+    plenumTestUbuntuPart2,
+    plenumTestUbuntuPart3
+]
+
+def builds = [:]
+for (i = 0; i < labels.size(); i++) {
+    def label = labels[i]
+    def descr = "${label}Test"
+
+    for(j = 0; j < tests.size(); j++) {
+        def part = tests[j][0]
+        def testFn = tests[j][1]
+        def currDescr = "${descr}-${part}"
+        builds[(currDescr)] = {
+            node(label) {
+                stage(currDescr) {
+                    testFn()
+                }
+            }
+        }
+    }
+}
+
+builds.failFast = failFast
+parallel builds
