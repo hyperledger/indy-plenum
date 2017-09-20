@@ -4,6 +4,7 @@ from typing import Generator
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls import create_default_bls_factory
+from plenum.common.constants import POOL_LEDGER_ID
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -114,7 +115,9 @@ class Replicas:
                                                      self._node.name,
                                                      self._node.dataLocation,
                                                      self._node.config)
-            bls_bft = bls_factory.create_bls_bft(is_master, self._node.bls_store)
+            bls_bft = bls_factory.create_bls_bft(is_master,
+                                                 self._node.getState(POOL_LEDGER_ID),
+                                                 self._node.bls_store)
             bls_bft.bls_key_register.load_latest_keys(self._node.poolLedger)
             return bls_bft
         except LoadBLSKeyError as ex:

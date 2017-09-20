@@ -33,8 +33,8 @@ class BlsFactoryPlenum(BlsFactory):
     def _create_bls_key_register(self) -> BlsKeyRegister:
         return BlsKeyRegisterPoolLedger()
 
-    def _create_bls_bft(self, bls_crypto, bls_crypto_registry, bls_store, is_master) -> BlsBft:
-        return BlsBftPlenum(bls_crypto, bls_crypto_registry, self.node_name, is_master, bls_store)
+    def _create_bls_bft(self, bls_crypto, bls_crypto_registry, pool_state, bls_store, is_master) -> BlsBft:
+        return BlsBftPlenum(bls_crypto, bls_crypto_registry, self.node_name, is_master, pool_state, bls_store)
 
 
 class BlsFactoryCharm(BlsFactoryPlenum):

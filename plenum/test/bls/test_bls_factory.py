@@ -7,8 +7,15 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls import BlsFactoryIndyCrypto
 from plenum.bls.bls_store import BlsStore
 from plenum.common.config_util import getConfig
+from state.pruning_state import PruningState
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 config = getConfig()
+
+
+@pytest.fixture()
+def pool_state():
+    return PruningState(KeyValueStorageInMemory())
 
 
 @pytest.fixture()
@@ -120,15 +127,19 @@ def test_create_bls_store(bls_factory):
     assert isinstance(bls_store, BlsStore)
 
 
-def test_create_bls_bft(bls_factory):
+def test_create_bls_bft(bls_factory, pool_state):
     bls_factory.generate_and_store_bls_keys()
     bls_store = bls_factory.create_bls_store()
-    bls_bft = bls_factory.create_bls_bft(is_master=True, bls_store=bls_store)
+    bls_bft = bls_factory.create_bls_bft(is_master=True,
+                                         pool_state=pool_state,
+                                         bls_store=bls_store)
     assert bls_bft
     assert isinstance(bls_bft, BlsBft)
 
 
-def test_create_bls_bft_crypto_no_keys(bls_factory):
+def test_create_bls_bft_crypto_no_keys(bls_factory, pool_state):
     with pytest.raises(LoadBLSKeyError):
         bls_store = bls_factory.create_bls_store()
-        bls_factory.create_bls_bft(is_master=False, bls_store=bls_store)
+        bls_factory.create_bls_bft(is_master=False,
+                                   pool_state=pool_state,
+                                   bls_store=bls_store)

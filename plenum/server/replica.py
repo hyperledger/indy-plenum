@@ -1534,7 +1534,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if self._bls_bft:
             self._bls_bft.process_order(key,
                                         pp.stateRootHash,
-                                        self.stateRootHash(ledger_id=POOL_LEDGER_ID, to_str=True, committed=True),
                                         self.quorums,
                                         pp.ledgerId)
 

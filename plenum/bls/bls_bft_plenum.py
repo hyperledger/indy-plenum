@@ -10,6 +10,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.suspicion_codes import Suspicions
+from state.state import State
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -21,10 +22,10 @@ class BlsBftPlenum(BlsBft):
                  bls_key_register: BlsKeyRegister,
                  node_id,
                  is_master,
+                 pool_state: State,
                  bls_store: BlsStore = None):
-        super().__init__(bls_crypto, bls_key_register, node_id, is_master)
+        super().__init__(bls_crypto, bls_key_register, node_id, is_master, pool_state, bls_store)
         self._signatures = {}
-        self._bls_store = bls_store
         self._bls_latest_multi_sig = None  # (pool_state_root, participants, sig)
         self._bls_latest_signed_root = None  # (pool_state_root, participants, sig)
 
@@ -66,7 +67,7 @@ class BlsBftPlenum(BlsBft):
         pk = self.bls_key_register.get_latest_key(sender_node)
         if not pk:
             return False
-        return self.bls_crypto.verify_sig(bls_sig, state_root_hash, pk)
+        return self._bls_crypto.verify_sig(bls_sig, state_root_hash, pk)
 
     def _validate_multi_sig(self, multi_sig: MultiSignature, state_root):
         public_keys = []
@@ -75,9 +76,9 @@ class BlsBftPlenum(BlsBft):
             # TODO: It's optional for now
             if bls_key:
                 public_keys.append(bls_key)
-        return self.bls_crypto.verify_multi_sig(multi_sig.signature,
-                                                state_root,
-                                                public_keys)
+        return self._bls_crypto.verify_multi_sig(multi_sig.signature,
+                                                 state_root,
+                                                 public_keys)
 
     # ----CREATE/UPDATE----
 
@@ -109,7 +110,7 @@ class BlsBftPlenum(BlsBft):
         if not self._can_process_ledger(ledger_id):
             return commit_params
 
-        bls_signature = self.bls_crypto.sign(state_root_hash)
+        bls_signature = self._bls_crypto.sign(state_root_hash)
         commit_params.append(bls_signature)
         return commit_params
 
@@ -134,17 +135,18 @@ class BlsBftPlenum(BlsBft):
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
-    def process_order(self, key, state_root, pool_state_root, quorums, ledger_id):
+    def process_order(self, key, state_root, quorums, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return
 
         # calculate signature always to keep master and non-master in sync
         # but save on master only
-        bls_multi_sig = self._calculate_multi_sig(key, quorums, pool_state_root)
+        bls_multi_sig = self._calculate_multi_sig(
+            key, quorums, self._get_pool_root_hash_committed())
         if bls_multi_sig is None:
             return
 
-        if not self.is_master:
+        if not self._is_master:
             return
 
         self._save_multi_sig_local(bls_multi_sig, state_root)
@@ -173,7 +175,7 @@ class BlsBftPlenum(BlsBft):
                             quorums.bls_signatures.value))
             return None
 
-        sig = self.bls_crypto.create_multi_sig(bls_signatures)
+        sig = self._bls_crypto.create_multi_sig(bls_signatures)
         return MultiSignature(sig, participants, pool_state_root)
 
     def _save_multi_sig_local(self,

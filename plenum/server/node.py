@@ -232,8 +232,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # are not aware of it. Key is instance id and value is a deque
         self.msgsForFutureReplicas = {}
 
-        self.adjustReplicas()
-
         self.instanceChanges = InstanceChanges()
 
         self.viewNo = 0  # type: int
@@ -245,6 +243,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.init_ledger_manager()
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
+
+        # do it after all states and BLS stores are created
+        self.adjustReplicas()
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {

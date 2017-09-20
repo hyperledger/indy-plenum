@@ -4,7 +4,7 @@ import base58
 import pytest
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls import BlsFactoryIndyCrypto
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.common.util import get_utc_epoch
@@ -20,7 +20,9 @@ def bls_bfts(txnPoolNodeSet):
                                        node_name=node.name,
                                        data_location=node.dataLocation,
                                        config=node.config)
-        bls_bft = factory.create_bls_bft(is_master=True, bls_store=node.bls_store)
+        bls_bft = factory.create_bls_bft(is_master=True,
+                                         pool_state=node.getState(POOL_LEDGER_ID),
+                                         bls_store=node.bls_store)
         bls_bft.bls_key_register.load_latest_keys(node.poolLedger)
         bls_bfts.append(bls_bft)
     return bls_bfts
