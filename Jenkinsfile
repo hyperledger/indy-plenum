@@ -248,11 +248,12 @@ def automergePR(owner, reponame, pr_number,
 // PIPELINE
 
 // 1. CHECK IF NOT PR AND ALREADY TESTED AS PR
+def istested = false
 if (env.CHANGE_ID == null) {
     try {
         stage("Is Tested") {
             node('ubuntu') {
-                res = isTested()
+                istested = isTested()
             }
         }
     } catch (Exception ex) {
@@ -261,7 +262,7 @@ if (env.CHANGE_ID == null) {
 }
 
 
-if (isTested) {
+if (istested) {
     echo "${env.BRANCH_NAME}: skip code validation and testing as we are on previously tested merge commit"
 } else {
     // 2. STATIC CODE VALIDATION
@@ -288,7 +289,6 @@ if (isTested) {
     ].collect {k, v -> [k, v]}
 
     def failFast = false
-    def isTested = false
     def builds = [:]
 
     for (i = 0; i < labels.size(); i++) {
