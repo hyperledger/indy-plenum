@@ -10,6 +10,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.suspicion_codes import Suspicions
+from state.state import State
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -21,10 +22,10 @@ class BlsBftPlenum(BlsBft):
                  bls_key_register: BlsKeyRegister,
                  node_id,
                  is_master,
+                 pool_state: State,
                  bls_store: BlsStore = None):
-        super().__init__(bls_crypto, bls_key_register, node_id, is_master)
+        super().__init__(bls_crypto, bls_key_register, node_id, is_master, pool_state, bls_store)
         self._signatures = {}
-        self._bls_store = bls_store
         self._bls_latest_multi_sig = None  # (pool_state_root, participants, sig)
         self._bls_latest_signed_root = None  # (pool_state_root, participants, sig)
 
@@ -36,9 +37,9 @@ class BlsBftPlenum(BlsBft):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSig is None or \
-                        f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSigStateRoot is None:
+                pre_prepare.blsMultiSig is None or \
+                f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
+                pre_prepare.blsMultiSigStateRoot is None:
             return None
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         state_root = pre_prepare.blsMultiSigStateRoot
@@ -60,24 +61,6 @@ class BlsBftPlenum(BlsBft):
             raise SuspiciousNode(sender,
                                  Suspicions.CM_BLS_SIG_WRONG,
                                  commit)
-
-    def _validate_signature(self, sender, bls_sig, state_root_hash):
-        sender_node = self.get_node_name(sender)
-        pk = self.bls_key_register.get_latest_key(sender_node)
-        if not pk:
-            return False
-        return self.bls_crypto.verify_sig(bls_sig, state_root_hash, pk)
-
-    def _validate_multi_sig(self, multi_sig: MultiSignature, state_root):
-        public_keys = []
-        for node_id in multi_sig.participants:
-            bls_key = self.bls_key_register.get_latest_key(node_id)
-            # TODO: It's optional for now
-            if bls_key:
-                public_keys.append(bls_key)
-        return self.bls_crypto.verify_multi_sig(multi_sig.signature,
-                                                state_root,
-                                                public_keys)
 
     # ----CREATE/UPDATE----
 
@@ -109,7 +92,7 @@ class BlsBftPlenum(BlsBft):
         if not self._can_process_ledger(ledger_id):
             return commit_params
 
-        bls_signature = self.bls_crypto.sign(state_root_hash)
+        bls_signature = self._sign_state(state_root_hash)
         commit_params.append(bls_signature)
         return commit_params
 
@@ -134,17 +117,17 @@ class BlsBftPlenum(BlsBft):
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
-    def process_order(self, key, state_root, pool_state_root, quorums, ledger_id):
+    def process_order(self, key, state_root, quorums, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return
 
         # calculate signature always to keep master and non-master in sync
         # but save on master only
-        bls_multi_sig = self._calculate_multi_sig(key, quorums, pool_state_root)
+        bls_multi_sig = self._calculate_multi_sig(key, quorums)
         if bls_multi_sig is None:
             return
 
-        if not self.is_master:
+        if not self._is_master:
             return
 
         self._save_multi_sig_local(bls_multi_sig, state_root)
@@ -154,10 +137,51 @@ class BlsBftPlenum(BlsBft):
         self._bls_latest_multi_sig = bls_multi_sig
         self._bls_latest_signed_root = state_root
 
+    # ----GC----
+
+    def gc(self, key_3PC):
+        keys_to_remove = []
+        for key in self._signatures.keys():
+            if compare_3PC_keys(key, key_3PC) >= 0:
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            self._signatures.pop(key, None)
+
+    # ----MULT_SIG----
+
+    def _create_multi_sig_value(self, state_root_hash, pool_state_root_hash):
+        return state_root_hash + pool_state_root_hash
+
+    def _validate_signature(self, sender, bls_sig, state_root_hash):
+        sender_node = self.get_node_name(sender)
+        pk = self.bls_key_register.get_latest_key(sender_node)
+        if not pk:
+            return False
+        message = self._create_multi_sig_value(state_root_hash,
+                                               self._get_pool_root_hash_committed())
+        return self._bls_crypto.verify_sig(bls_sig, message, pk)
+
+    def _validate_multi_sig(self, multi_sig: MultiSignature, state_root):
+        public_keys = []
+        for node_id in multi_sig.participants:
+            bls_key = self.bls_key_register.get_latest_key(node_id)
+            # TODO: It's optional for now
+            if bls_key:
+                public_keys.append(bls_key)
+        message = self._create_multi_sig_value(state_root,
+                                               self._get_pool_root_hash_committed())
+        return self._bls_crypto.verify_multi_sig(multi_sig.signature,
+                                                 message,
+                                                 public_keys)
+
+    def _sign_state(self, state_root_hash):
+        message = self._create_multi_sig_value(state_root_hash,
+                                               self._get_pool_root_hash_committed())
+        return self._bls_crypto.sign(message)
+
     def _calculate_multi_sig(self,
                              key_3PC,
-                             quorums,
-                             pool_state_root) -> Optional[MultiSignature]:
+                             quorums) -> Optional[MultiSignature]:
         if key_3PC not in self._signatures:
             return None
         sigs_for_request = self._signatures[key_3PC]
@@ -167,14 +191,13 @@ class BlsBftPlenum(BlsBft):
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
                 'Can not create bls signature for batch {}: '
-                'There are only {} signatures, while {} required'
-                    .format(key_3PC,
-                            len(bls_signatures),
-                            quorums.bls_signatures.value))
+                'There are only {} signatures, while {} required'.format(key_3PC,
+                                                                         len(bls_signatures),
+                                                                         quorums.bls_signatures.value))
             return None
 
-        sig = self.bls_crypto.create_multi_sig(bls_signatures)
-        return MultiSignature(sig, participants, pool_state_root)
+        sig = self._bls_crypto.create_multi_sig(bls_signatures)
+        return MultiSignature(sig, participants, self._get_pool_root_hash_committed())
 
     def _save_multi_sig_local(self,
                               multi_sig: MultiSignature,
@@ -203,16 +226,6 @@ class BlsBftPlenum(BlsBft):
     def _bls_store_add(self, root_hash, multi_sig: MultiSignature):
         if self._bls_store:
             self._bls_store.put(root_hash, multi_sig)
-
-    # ----GC----
-
-    def gc(self, key_3PC):
-        keys_to_remove = []
-        for key in self._signatures.keys():
-            if compare_3PC_keys(key, key_3PC) >= 0:
-                keys_to_remove.append(key)
-        for key in keys_to_remove:
-            self._signatures.pop(key, None)
 
     @staticmethod
     def get_node_name(replica_name: str):

@@ -4,7 +4,7 @@ import base58
 import pytest
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls import BlsFactoryIndyCrypto
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.common.util import get_utc_epoch
@@ -20,7 +20,9 @@ def bls_bfts(txnPoolNodeSet):
                                        node_name=node.name,
                                        data_location=node.dataLocation,
                                        config=node.config)
-        bls_bft = factory.create_bls_bft(is_master=True, bls_store=node.bls_store)
+        bls_bft = factory.create_bls_bft(is_master=True,
+                                         pool_state=node.getState(POOL_LEDGER_ID),
+                                         bls_store=node.bls_store)
         bls_bft.bls_key_register.load_latest_keys(node.poolLedger)
         bls_bfts.append(bls_bft)
     return bls_bfts
@@ -45,63 +47,58 @@ def generate_state_root():
     return base58.b58encode(os.urandom(32))
 
 
-def test_create_multi_sig_from_all(bls_bfts, quorums, state_root, pool_state_root):
+def test_create_multi_sig_from_all(bls_bfts, quorums, state_root):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=state_root,
-        pool_state_root=pool_state_root
+        state_root=state_root
     )
     assert multi_sig
     assert isinstance(multi_sig, MultiSignature)
 
 
-def test_create_multi_sig_quorum(bls_bfts, quorums, state_root, pool_state_root):
+def test_create_multi_sig_quorum(bls_bfts, quorums, state_root):
     # success on n-f=3
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts[1:],
         quorums=quorums,
-        state_root=state_root,
-        pool_state_root=pool_state_root
+        state_root=state_root
     )
     assert multi_sig
     assert isinstance(multi_sig, MultiSignature)
 
 
-def test_create_multi_sig_no_quorum(bls_bfts, quorums, state_root, pool_state_root):
+def test_create_multi_sig_no_quorum(bls_bfts, quorums, state_root):
     # not success on 2
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts[2:],
         quorums=quorums,
         state_root=state_root,
-        pool_state_root=pool_state_root
     )
     assert not multi_sig
 
 
-def test_create_multi_sig_no_quorum_empty(bls_bfts, quorums, state_root, pool_state_root):
+def test_create_multi_sig_no_quorum_empty(bls_bfts, quorums, state_root):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=[],
         quorums=quorums,
-        state_root=state_root,
-        pool_state_root=pool_state_root
+        state_root=state_root
     )
     assert not multi_sig
 
 
-def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root, pool_state_root):
+def test_create_multi_sig_are_equal(bls_bfts, quorums, state_root):
     multi_sigs = []
     for creator in bls_bfts:
         multi_sig = calculate_multi_sig(
             creator=creator,
             bls_bft_with_commits=bls_bfts,
             quorums=quorums,
-            state_root=state_root,
-            pool_state_root=pool_state_root
+            state_root=state_root
         )
         multi_sigs.append(multi_sig)
 
@@ -115,13 +112,12 @@ def test_validate_pre_prepare_no_sigs(bls_bfts, state_root):
             verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
 
 
-def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, pool_state_root, quorums):
+def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, quorums):
     multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=state_root,
-        pool_state_root=pool_state_root
+        state_root=state_root
     )
 
     for sender_bls_bft in bls_bfts:
@@ -131,14 +127,13 @@ def test_validate_pre_prepare_correct_multi_sig(bls_bfts, state_root, pool_state
             verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
 
 
-def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, pool_state_root, quorums):
+def test_validate_pre_prepare_incorrect_multi_sig(bls_bfts, state_root, quorums):
     changed_root = generate_state_root()
     changed_multi_sig = calculate_multi_sig(
         creator=bls_bfts[0],
         bls_bft_with_commits=bls_bfts,
         quorums=quorums,
-        state_root=changed_root,
-        pool_state_root=pool_state_root
+        state_root=changed_root
     )
 
     for sender_bls_bft in bls_bfts:
@@ -268,7 +263,7 @@ def process_commits_for_key(key, state_root, bls_bfts):
                                             sender_bls_bft.node_id)
 
 
-def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root, pool_state_root):
+def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root):
     key = (0, 0)
     for bls_bft_with_commit in bls_bft_with_commits:
         commit = create_commit_bls_sig(
@@ -278,7 +273,7 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root, pool
         )
         creator.process_commit(commit, bls_bft_with_commit.node_id)
 
-    return creator._calculate_multi_sig(key, quorums, pool_state_root)
+    return creator._calculate_multi_sig(key, quorums)
 
 
 def create_pre_prepare_no_bls_multisig(state_root):

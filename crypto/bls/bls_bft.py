@@ -1,9 +1,9 @@
 from abc import ABCMeta, abstractmethod
 
+import base58
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
-from plenum.server.quorums import Quorums
 
 
 class BlsBft(metaclass=ABCMeta):
@@ -11,11 +11,20 @@ class BlsBft(metaclass=ABCMeta):
                  bls_crypto: BlsCrypto,
                  bls_key_register: BlsKeyRegister,
                  node_id,
-                 is_master):
-        self.bls_crypto = bls_crypto
+                 is_master,
+                 pool_state,
+                 bls_store):
         self.bls_key_register = bls_key_register
         self.node_id = node_id
-        self.is_master = is_master
+
+        self._bls_crypto = bls_crypto
+        self._is_master = is_master
+        self._pool_state = pool_state
+        self._bls_store = bls_store
+
+    def _get_pool_root_hash_committed(self):
+        root = self._pool_state.committedHeadHash
+        return base58.b58encode(bytes(root))
 
     @abstractmethod
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
@@ -42,7 +51,7 @@ class BlsBft(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def process_order(self, key, state_root, pool_state_root, quorums, ledger_id):
+    def process_order(self, key, state_root, quorums, ledger_id):
         pass
 
     @abstractmethod

@@ -82,8 +82,7 @@ class MessageBase(Mapping, MessageValidator):
         argsLen = len(args or kwargs)
         assert argsLen <= len(self.schema), \
             "number of parameters should be less or " \
-            "equal than a number of fields in schema, but it was {}" \
-                .format(argsLen)
+            "equal than a number of fields in schema, but it was {}".format(argsLen)
 
         input_as_dict = kwargs if kwargs else self._join_with_schema(args)
 

@@ -12,9 +12,9 @@ class BlsKeyRegisterPoolLedger(BlsKeyRegister):
         for _, txn in pool_ledger.getAllTxn():
             if txn[TYPE] != NODE:
                 continue
-            if not DATA in txn:
+            if DATA not in txn:
                 continue
-            if not BLS_KEY in txn[DATA]:
+            if BLS_KEY not in txn[DATA]:
                 continue
 
             node_id = txn[DATA][ALIAS]

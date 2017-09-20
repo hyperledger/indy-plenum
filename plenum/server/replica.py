@@ -10,7 +10,7 @@ from common.serializers.serialization import serialize_msg_for_signing
 from crypto.bls.bls_bft import BlsBft
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, POOL_LEDGER_ID
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.message_processor import MessageProcessor
@@ -448,8 +448,8 @@ class Replica(HasActionQueue, MessageProcessor):
         Replica should only participating in the consensus process and the
         replica did not stash any of this request's 3-phase request
         """
-        return self.node.isParticipating and (viewNo, ppSeqNo) \
-                                             not in self.stashingWhileCatchingUp
+        return (self.node.isParticipating and
+                ((viewNo, ppSeqNo) not in self.stashingWhileCatchingUp))
 
     def on_view_change_start(self):
         assert self.isMaster
@@ -623,10 +623,9 @@ class Replica(HasActionQueue, MessageProcessor):
         r = 0
         for lid, q in self.requestQueues.items():
             # TODO: make the condition more apparent
-            if len(q) >= self.config.Max3PCBatchSize or (
-                                self.lastBatchCreated +
-                                self.config.Max3PCBatchWait <
-                            time.perf_counter() and len(q) > 0):
+            if len(q) >= self.config.Max3PCBatchSize or \
+                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter() and
+                     len(q) > 0):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
@@ -1334,8 +1333,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
-        if (key not in self.prepares and key not in self.sentPrePrepares) and \
-                        key not in self.preparesWaitingForPrePrepare:
+        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+                (key not in self.preparesWaitingForPrePrepare)):
             logger.warning("{} rejecting COMMIT{} due to lack of prepares".
                            format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
@@ -1534,7 +1533,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if self._bls_bft:
             self._bls_bft.process_order(key,
                                         pp.stateRootHash,
-                                        self.stateRootHash(ledger_id=POOL_LEDGER_ID, to_str=True, committed=True),
                                         self.quorums,
                                         pp.ledgerId)
 
@@ -2167,9 +2165,9 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        return (self.last_accepted_pre_prepare_time is None or
-                pp.ppTime >= self.last_accepted_pre_prepare_time) and \
-               abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+        return ((self.last_accepted_pre_prepare_time is None or
+                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
+                (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2304,10 +2302,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         to_remove = []
         for i, msg in enumerate(self.outBox):
-            if isinstance(msg, Ordered) and (not last_caught_up_3PC or
-                                                     compare_3PC_keys(
-                                                         (msg.viewNo, msg.ppSeqNo),
-                                                         last_caught_up_3PC) >= 0):
+            if isinstance(msg, Ordered) and \
+                    (not last_caught_up_3PC or
+                     compare_3PC_keys((msg.viewNo, msg.ppSeqNo), last_caught_up_3PC) >= 0):
                 to_remove.append(i)
 
         logger.debug('{} going to remove {} Ordered messages from outbox'.

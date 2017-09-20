@@ -27,5 +27,4 @@ class MultiSignature:
         return self.__dict__
 
     def __eq__(self, other):
-        return isinstance(other, MultiSignature) and \
-               self.as_dict() == other.as_dict()
+        return isinstance(other, MultiSignature) and self.as_dict() == other.as_dict()

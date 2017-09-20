@@ -4,7 +4,6 @@ from crypto.bls.bls_crypto import BlsGroupParamsLoader
 from crypto.bls.bls_factory import BlsFactory
 from crypto.bls.bls_key_manager import BlsKeyManager
 from crypto.bls.bls_key_register import BlsKeyRegister
-from crypto.bls.charm.bls_crypto_charm import BlsGroupParamsLoaderCharmHardcoded, BlsCryptoCharm
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, BlsGroupParamsLoaderIndyCrypto
 from plenum.bls.bls_bft_plenum import BlsBftPlenum
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
@@ -33,22 +32,22 @@ class BlsFactoryPlenum(BlsFactory):
     def _create_bls_key_register(self) -> BlsKeyRegister:
         return BlsKeyRegisterPoolLedger()
 
-    def _create_bls_bft(self, bls_crypto, bls_crypto_registry, bls_store, is_master) -> BlsBft:
-        return BlsBftPlenum(bls_crypto, bls_crypto_registry, self.node_name, is_master, bls_store)
+    def _create_bls_bft(self, bls_crypto, bls_crypto_registry, pool_state, bls_store, is_master) -> BlsBft:
+        return BlsBftPlenum(bls_crypto, bls_crypto_registry, self.node_name, is_master, pool_state, bls_store)
 
 
-class BlsFactoryCharm(BlsFactoryPlenum):
-    def __init__(self, basedir=None, data_location=None, node_name=None, config=None):
-        super().__init__(basedir, data_location, node_name, config)
-
-    def _create_group_params_loader(self) -> BlsGroupParamsLoader:
-        return BlsGroupParamsLoaderCharmHardcoded()
-
-    def _get_bls_crypto_class(self):
-        return BlsCryptoCharm
-
-    def _create_bls_crypto(self, sk, pk, group_params):
-        return BlsCryptoCharm(sk=sk, pk=pk, params=group_params)
+# class BlsFactoryCharm(BlsFactoryPlenum):
+#     def __init__(self, basedir=None, data_location=None, node_name=None, config=None):
+#         super().__init__(basedir, data_location, node_name, config)
+#
+#     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
+#         return BlsGroupParamsLoaderCharmHardcoded()
+#
+#     def _get_bls_crypto_class(self):
+#         return BlsCryptoCharm
+#
+#     def _create_bls_crypto(self, sk, pk, group_params):
+#         return BlsCryptoCharm(sk=sk, pk=pk, params=group_params)
 
 
 class BlsFactoryIndyCrypto(BlsFactoryPlenum):
