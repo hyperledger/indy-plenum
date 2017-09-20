@@ -624,8 +624,8 @@ class Replica(HasActionQueue, MessageProcessor):
         for lid, q in self.requestQueues.items():
             # TODO: make the condition more apparent
             if (len(q) >= self.config.Max3PCBatchSize or
-                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter()
-                        and len(q) > 0)):
+                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter() and
+                        len(q) > 0)):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
@@ -2166,8 +2166,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :return:
         """
         return ((self.last_accepted_pre_prepare_time is None or
-                    pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                        (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
+                    (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2302,10 +2302,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         to_remove = []
         for i, msg in enumerate(self.outBox):
-            if isinstance(msg, Ordered) and (not last_caught_up_3PC or
-                                                     compare_3PC_keys(
-                                                         (msg.viewNo, msg.ppSeqNo),
-                                                         last_caught_up_3PC) >= 0):
+            if (isinstance(msg, Ordered) and
+                    (not last_caught_up_3PC or
+                        compare_3PC_keys((msg.viewNo, msg.ppSeqNo), last_caught_up_3PC) >= 0)):
                 to_remove.append(i)
 
         logger.debug('{} going to remove {} Ordered messages from outbox'.
