@@ -14,7 +14,11 @@ name = 'indy-plenum'
 def getRepoDetails(githubUrl) {
     def pattern = /github.com\/([^\/]+)\/([^\/]+)(\/|\.git)/
     def matcher = (githubUrl =~ pattern)
-    return matcher.asBoolean() ? ["owner": matcher[0][1], "repo": matcher[0][2]] : null
+    try {
+        return [owner: matcher[0][1], repo: matcher[0][2]]
+    } catch {
+        return  null
+    }
 }
 
 
