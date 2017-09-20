@@ -273,7 +273,10 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root):
         )
         creator.process_commit(commit, bls_bft_with_commit.node_id)
 
-    return creator._calculate_multi_sig(key, quorums)
+    if not creator._can_calculate_multi_sig(key, quorums):
+        return None
+
+    return creator._calculate_multi_sig(key)
 
 
 def create_pre_prepare_no_bls_multisig(state_root):
