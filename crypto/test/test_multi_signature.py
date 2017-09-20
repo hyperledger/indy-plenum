@@ -18,9 +18,11 @@ def test_invalid_participants():
     with pytest.raises(AssertionError):
         MultiSignature(signature=signature, participants=None, pool_state_root=root_hash)
 
+
 def test_invalid_signature():
     with pytest.raises(AssertionError):
         MultiSignature(signature=None, participants=participants, pool_state_root=root_hash)
+
 
 def test_invalid_root():
     with pytest.raises(AssertionError):
