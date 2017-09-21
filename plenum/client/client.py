@@ -412,19 +412,45 @@ class Client(Motor,
         """
         Returns one reply with valid state proof
         """
-        for reply in replies.values():
+        for sender, reply in replies.items():
             result = reply['result']
             if STATE_PROOF not in result:
+                logger.debug("There is no state proof in reply from {}".format(sender))
                 continue
-            proof = result[STATE_PROOF]
-            state_root = result["rootHash"]
-            pool_state_root = proof["pool_state_root"]
-            full_root = state_root + pool_state_root
-            proof_nodes = proof["proof_nodese"]
-            key = self.make_state_key(result)
-            value = self.make_state_value(result)
-            if PruningState.verify_state_proof(full_root, key, value, proof_nodes, serialized=True):
-                return reply
+            if not self.validate_multi_signature(result):
+                logger.warning("{} got reply with bad multi signature from {}"
+                               .format(self.name, sender))
+                # TODO: do something with this node
+                continue
+            if not self.validate_proof(result):
+                logger.warning("{} got reply with invalid state proof from {}"
+                               .format(self.name, sender))
+                # TODO: do something with this node
+                continue
+
+    def validate_multi_signature(self, result):
+        """
+        Validates multi signature
+        """
+        multi_signature = result[STATE_PROOF]['multi_signature']
+        state_root_hash = result[STATE_PROOF]['root_hash']
+        pool_state_root = multi_signature['pool_state_root']
+        full_root = state_root_hash + pool_state_root
+        participants = multi_signature['participants']
+        signature = multi_signature['signature']
+        # TODO: make validation here!
+        return True
+
+    def validate_proof(self, result):
+        """
+        Validates state proof
+        """
+        state_root_hash = result[STATE_PROOF]['root_hash']
+        proof_nodes = result[STATE_PROOF]['proof_nodes']
+        key = self.make_state_key(result)
+        value = self.make_state_value(result)
+        return PruningState.verify_state_proof(state_root_hash, key, value, proof_nodes, serialized=True)
+
 
     def make_state_key(self, request):
         # For the sake of simplicity uses methods from node
