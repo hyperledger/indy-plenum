@@ -26,9 +26,19 @@ cliNodeReg = OrderedDict([
 
 baseDir = '~/.plenum/'
 walletsDir = 'wallets'
+NODE_BASE_DATA_DIR = '/var/plenum'
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
+LOG_DIR = '/var/log/plenum/'
+GENERAL_CONFIG_DIR = '/etc/plenum/'
 # walletDir = 'wallet'
+
+# it should be filled from baseConfig 
+NETWORK_NAME = ''
+
+GENERAL_CONFIG_FILE = 'plenum_config.py'
+NETWORK_CONFIG_FILE = 'plenum_config.py'
+USER_CONFIG_FILE = 'plenum_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'

@@ -14,32 +14,37 @@ from stp_core.common.log import Logger, getRAETLogLevelFromConfig, \
     getRAETLogFilePath
 
 config = getConfig()
-keepDir = config.baseDir
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Provide name and 2 port numbers for running the node "
+        raise Exception("Provide name and 2 port numbers for running the node "
               "and client stacks")
-        exit()
-    else:
-        selfName = sys.argv[1]
-        ha = HA("0.0.0.0", int(sys.argv[2]))
-        cliha = HA("0.0.0.0", int(sys.argv[3]))
 
-        logFileName = os.path.join(config.baseDir, selfName + ".log")
+    selfName = sys.argv[1]
+    ha = HA("0.0.0.0", int(sys.argv[2]))
+    cliha = HA("0.0.0.0", int(sys.argv[3]))
 
-        RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-                                                  Console.Wordage.mute,
-                                                  config)
-        RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", config)
+    logFileName = os.path.join(config.LOG_DIR, config.NETWORK_NAME, selfName + ".log")
 
-        Logger().enableFileLogging(logFileName)
-        Logger().setupRaet(RAETVerbosity, RAETLogFile)
-        print("You can find logs in {}".format(logFileName))
+    RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
+                                                Console.Wordage.mute,
+                                                config)
+    RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", config)
 
-        with Looper(debug=config.LOOPER_DEBUG) as looper:
-            node = Node(selfName, nodeRegistry=None, basedirpath=keepDir, ha=ha,
-                        cliha=cliha)
-            looper.add(node)
-            looper.run()
+    Logger().enableFileLogging(logFileName)
+    Logger().setupRaet(RAETVerbosity, RAETLogFile)
+    print("You can find logs in {}".format(logFileName))
+
+    keepDir = os.path.join(config.baseDir, config.NETWORK_NAME)
+    print("You can find data in {}".format(keepDir))
+
+    node_data_dir = os.path.join(config.NODE_BASE_DATA_DIR, config.NETWORK_NAME)
+
+    with Looper(debug=config.LOOPER_DEBUG) as looper:
+        node = Node(selfName, nodeRegistry=None, basedirpath=keepDir,
+                    base_data_dir=node_data_dir,
+                    ha=ha,
+                    cliha=cliha)
+        looper.add(node)
+        looper.run()
