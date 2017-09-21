@@ -10,7 +10,7 @@ from stp_core.crypto.nacl_wrappers import Signer
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
-from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.common.constants import STEWARD, TRUSTEE
 from plenum.common.util import hexToFriendly
 from plenum.common.signer_did import DidSigner
@@ -115,7 +115,7 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = None
+                blskey = init_bls_keys(baseDir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
