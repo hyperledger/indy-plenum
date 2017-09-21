@@ -5,6 +5,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
+nodes_wth_bls = 0
 
 def ensure_pool_functional(looper, nodes, wallet, client, num_reqs=10,
                            num_batches=2):

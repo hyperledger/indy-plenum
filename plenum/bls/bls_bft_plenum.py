@@ -5,6 +5,7 @@ from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_store import BlsStore
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
@@ -28,8 +29,7 @@ class BlsBftPlenum(BlsBft):
         self._bls_latest_signed_root = None  # (pool_state_root, participants, sig)
 
     def _can_process_ledger(self, ledger_id):
-        # return ledger_id == DOMAIN_LEDGER_ID
-        return True
+        return ledger_id == DOMAIN_LEDGER_ID
 
     # ----VALIDATE----
 
