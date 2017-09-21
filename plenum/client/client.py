@@ -391,31 +391,29 @@ class Client(Motor,
         :param reqId: Request ID
         """
         replies = self.getRepliesFromAllNodes(identifier, reqId)
+        full_req_id = '{}{}'.format(identifier, reqId)
         if not replies:
-            raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
-        # Check if at least f+1 replies are received or not.
-        if self.quorums.reply.is_reached(len(replies)):
-            onlyResults = {frm: reply["result"] for frm, reply in
-                           replies.items()}
-            resultsList = list(onlyResults.values())
-            # if all the elements in the resultList are equal - consensus
-            # is reached.
+            raise KeyError(full_req_id)
 
-            # excluding state proofs from check since they can be different
-            def without_state_proof(result):
-                if STATE_PROOF in result:
-                    result.pop('state_proof')
-                return result
+        proved_reply = self.take_one_proved(replies)
+        if proved_reply:
+            logger.debug("Found proved reply for {}".format(full_req_id))
+            return proved_reply
+        elif self.quorums.reply.is_reached(len(replies)):
+            results = [reply["result"] for reply in replies.values()]
+            if all(result == results[0] for result in results):
+                logger.debug("Reply quorum for {} achieved".format(full_req_id))
+                return results[0]
+            logger.error("Received a different result from at least one node for {}".format(full_req_id))
+            return checkIfMoreThanFSameItems(results, self.f)
 
-            resultsList = [without_state_proof(result) for result in resultsList]
-            if all(result == resultsList[0] for result in resultsList):
-                return resultsList[0]  # CONFIRMED
-            else:
-                logger.error(
-                    "Received a different result from at least one of the nodes..")
-                return checkIfMoreThanFSameItems(resultsList, self.f)
-        else:
-            return False  # UNCONFIRMED
+    def take_one_proved(self, replies):
+      """
+      Returns one reply with valid state proof
+      """
+      for reply in replies:
+          if valid(reply):
+              return reply
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
