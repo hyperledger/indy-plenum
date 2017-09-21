@@ -17,8 +17,21 @@
 
 name = 'indy-plenum'
 
-env.INDY_AGENT_LINUX_LABEL = env.INDY_AGENT_LINUX_LABEL || 'linux'
 
+def config = [
+    codeValidation: true,
+    runTests: true,
+    failFast: false,
+    emailNotif: true
+]
+
+
+env.INDY_AGENT_LINUX_LABEL = env.INDY_AGENT_LINUX_LABEL || 'linux'
+def labels = [env.INDY_AGENT_LINUX_LABEL] // TODO enable windows
+
+if (env.INDY_AGENT_WINDOWS_LABEL) {
+    labels += env.INDY_AGENT_WINDOWS_LABEL
+}
 
 def buildDocker(imageName, dockerfile) {
     def uid = sh(returnStdout: true, script: 'id -u').trim()
@@ -61,6 +74,7 @@ def test(options=[
         python: 'python',
         useRunner: false,
         testOnlySlice: '1/1']) {
+
     try {
         if (options.useRunner) {
             sh "PYTHONASYNCIODEBUG='0' $options.python runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
@@ -99,13 +113,6 @@ def staticCodeValidation() {
     }
 }
 
-
-def failFast = false
-def labels = [env.INDY_AGENT_LINUX_LABEL] // TODO enable windows
-
-if (env.INDY_AGENT_WINDOWS_LABEL) {
-    labels += env.INDY_AGENT_WINDOWS_LABEL
-}
 
 def tests = [
     stp: { python ->
@@ -158,8 +165,8 @@ for (i = 0; i < labels.size(); i++) {
         def testFn = tests[j][1]
         def currDescr = "${descr}-${part}"
         builds[(currDescr)] = {
-            node(label) {
-                stage(currDescr) {
+            stage(currDescr) {
+                node(label) {
                     try {
                         withTestEnv() { python ->
                             echo 'Test'
@@ -177,31 +184,28 @@ for (i = 0; i < labels.size(); i++) {
 }
 
 
-def emailNotif(success) {
-    def emailMessage = [
-        subject: success ? "New ${branch} build ${name}" : '$DEFAULT_SUBJECT',
-        recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']]
-    ]
-
-    emailext emailMessage
-}
-
-
 try {
-    // 1. STATIC CODE VALIDATION
     stage('Static code validation') {
-        node(env.INDY_AGENT_LINUX_LABEL) {
-            staticCodeValidation()
+        if (config.codeValidation) {
+            node(env.INDY_AGENT_LINUX_LABEL) {
+                staticCodeValidation()
+            }
         }
     }
-
-
-    // 2. TESTING
-    builds.failFast = failFast
-    parallel builds
-} catch(ex) {
-    emailNotif(false)
-    throw ex
+    stage('Build / test') {
+        if (config.runTests) {
+            builds.failFast = failFast
+            parallel builds
+        }
+    }
+} finally {
+    stage('Build result notification') {
+        if (config.sendNotif) {
+            def emailMessage = [
+                subject: currentBuild.result == 'SUCCESS' ? "New ${branch} build ${name}" : '$DEFAULT_SUBJECT',
+                recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']]
+            ]
+            emailext emailMessage
+        }
+    }
 }
-
-emailNotif(true)
