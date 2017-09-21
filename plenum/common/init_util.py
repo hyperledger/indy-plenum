@@ -12,5 +12,5 @@ def initialize_node_environment(name, base_dir, sigseed=None,
     cleanup_environment(name, base_dir)
 
     _, vk, bls_key = initNodeKeysForBothStacks(name=name, baseDir=base_dir,
-                                      sigseed=sigseed, override=override_keep)
+                                               sigseed=sigseed, override=override_keep)
     return vk, bls_key

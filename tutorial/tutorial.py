@@ -33,7 +33,7 @@ with SafeTemporaryDirectory() as tmpdir:
         The nodes need to have the their keys initialized
         """
         initLocalKeys('Alpha', tmpdir, randomString(32), use_bls=True, override=True)
-        initLocalKeys('AlphaC', tmpdir, randomString(32), use_bls=True,  override=True)
+        initLocalKeys('AlphaC', tmpdir, randomString(32), use_bls=True, override=True)
         initLocalKeys('Beta', tmpdir, randomString(32), use_bls=True, override=True)
         initLocalKeys('BetaC', tmpdir, randomString(32), use_bls=True, override=True)
         initLocalKeys('Gamma', tmpdir, randomString(32), use_bls=True, override=True)
