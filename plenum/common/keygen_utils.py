@@ -4,11 +4,15 @@ from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.util import randomSeed
 
 
-def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
-    pubkey, verkey = nodeStackClass.initLocalKeys(name, baseDir, sigseed,
-                                                  override=override)
+def initLocalKeys(name, baseDir, sigseed, *, use_bls, override=False):
+    # * forces usage of names for args on the right hand side
+    pubkey, verkey = nodeStackClass.initLocalKeys(name, baseDir, sigseed, override=override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
+    if use_bls:
+        init_bls_keys(baseDir, name, sigseed)
+        print("BLS key created")
+
     return pubkey, verkey
 
 
@@ -28,12 +32,17 @@ def init_bls_keys(baseDir, node_name, seed=None):
 def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
     # `sigseed` is initialised to keep the seed same for both stacks.
     # Both node and client stacks need to have same keys
-    sigseed = sigseed or randomSeed()
+    if not sigseed:
+        sigseed = sigseed or randomSeed()
+        print("Generating keys for random seed", sigseed)
+    else:
+        print("Generating keys for provided seed", sigseed)
 
-    nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
-                                 override=override)
-    return nodeStackClass.initLocalKeys(name, baseDir, sigseed,
-                                        override=override)
+    node_stack_name = name
+    client_stack_name = node_stack_name + CLIENT_STACK_SUFFIX
+    initLocalKeys(client_stack_name, baseDir, sigseed, use_bls=False, override=override)
+    keys = initLocalKeys(node_stack_name, baseDir, sigseed, use_bls=True, override=override)
+    return keys
 
 
 def areKeysSetup(name, baseDir, config=None):
