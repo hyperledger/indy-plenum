@@ -3,7 +3,7 @@ from random import shuffle, randint
 import pytest
 from ioflo.aid import getConsole
 
-from plenum.common.keygen_utils import initNodeKeysForBothStacks, tellKeysToOthers, init_bls_keys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, tellKeysToOthers
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -36,7 +36,6 @@ def initLocalKeys(tdir, nodeReg):
     for nName in nodeReg.keys():
         sigseed = randomString(32).encode()
         initNodeKeysForBothStacks(nName, tdir, sigseed, override=True)
-        init_bls_keys(baseDir=tdir, node_name=nName, seed=sigseed)
         logger.debug('Created keys for {}'.format(nName))
 
 
