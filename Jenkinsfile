@@ -193,20 +193,22 @@ try {
             }
         }
     }
-    stage('Build / test') {
+    stage('Build / Test') {
         if (config.runTests) {
             builds.failFast = config.failFast
             parallel builds
         }
     }
-    currentBuild.result == 'SUCCESS'
+    currentBuild.result = 'SUCCESS'
 } catch (Exception err) {
-    currentBuild.result == 'FAILURE'
+    currentBuild.result = 'FAILURE'
 } finally {
     stage('Build result notification') {
         if (config.sendNotif) {
             def emailMessage = [
-                subject: currentBuild.result == 'SUCCESS' ? "New ${branch} build ${name}" : '$DEFAULT_SUBJECT',
+                body: '$DEFAULT_CONTENT',
+                replyTo: '$DEFAULT_REPLYTO',
+                subject: '$DEFAULT_SUBJECT',
                 recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']]
             ]
             emailext emailMessage
