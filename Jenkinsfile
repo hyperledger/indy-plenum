@@ -5,8 +5,8 @@
  *
  * Environment requirements:
  *  - environment variable:
- *      - INDY_LINUX_AGENT_LABEL: label for linux agent
- *      - (optional) INDY_WINDOWS_AGENT_LABEL: label for windows agent
+ *      - INDY_AGENT_LINUX_LABEL: label for linux agent
+ *      - (optional) INDY_AGENT_WINDOWS_LABEL: label for windows agent
  *  - agents:
  *      - linux:
  *          - docker
@@ -17,7 +17,8 @@
 
 name = 'indy-plenum'
 
-env.INDY_LINUX_AGENT_LABEL = env.INDY_LINUX_AGENT_LABEL || 'linux'
+env.INDY_AGENT_LINUX_LABEL = env.INDY_AGENT_LINUX_LABEL || 'linux'
+
 
 def buildDocker(imageName, dockerfile) {
     def uid = sh(returnStdout: true, script: 'id -u').trim()
@@ -99,21 +100,11 @@ def staticCodeValidation() {
 }
 
 
-// PIPELINE
-
-// 1. STATIC CODE VALIDATION
-stage('Static code validation') {
-    node(env.INDY_LINUX_AGENT_LABEL) {
-        staticCodeValidation()
-    }
-}
-
-// 2. TESTING
 def failFast = false
-def labels = [env.INDY_LINUX_AGENT_LABEL] // TODO enable windows
+def labels = [env.INDY_AGENT_LINUX_LABEL] // TODO enable windows
 
-if (env.INDY_WINDOWS_AGENT_LABEL) {
-    labels += env.INDY_WINDOWS_AGENT_LABEL
+if (env.INDY_AGENT_WINDOWS_LABEL) {
+    labels += env.INDY_AGENT_WINDOWS_LABEL
 }
 
 def tests = [
@@ -185,5 +176,32 @@ for (i = 0; i < labels.size(); i++) {
     }
 }
 
-builds.failFast = failFast
-parallel builds
+
+def emailNotif(success) {
+    def emailMessage = [
+        subject: success ? "New ${branch} build ${name}" : '$DEFAULT_SUBJECT',
+        recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']]
+    ]
+
+    emailext emailMessage
+}
+
+
+try {
+    // 1. STATIC CODE VALIDATION
+    stage('Static code validation') {
+        node(env.INDY_AGENT_LINUX_LABEL) {
+            staticCodeValidation()
+        }
+    }
+
+
+    // 2. TESTING
+    builds.failFast = failFast
+    parallel builds
+} catch(ex) {
+    emailNotif(false)
+    throw ex
+}
+
+emailNotif(true)
