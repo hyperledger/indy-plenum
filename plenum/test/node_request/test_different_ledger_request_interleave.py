@@ -15,7 +15,6 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 from plenum.test.primary_selection.conftest import one_node_added
 from plenum.test.batching_3pc.conftest import tconf
 
-nodes_wth_bls = 0
 
 def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
                                              client1, wallet1, one_node_added,
@@ -57,7 +56,7 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     # Send another pool ledger request (NODE) but don't wait for completion of
     # request
     next_node_name = 'next_node'
-    r = sendAddNewNode(next_node_name, new_steward, new_steward_wallet)
+    r = sendAddNewNode(tdirWithPoolTxns, next_node_name, new_steward, new_steward_wallet)
     node_req = r[0]
 
     # Send more domain ledger requests but don't wait for replies
