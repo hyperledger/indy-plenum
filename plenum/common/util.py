@@ -34,7 +34,7 @@ from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
-# Do not remove the next import until imports in sovrin are fixed
+# TODO Do not remove the next import until imports in indy are fixed
 from stp_core.common.util import adict
 
 
