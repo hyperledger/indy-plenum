@@ -5,14 +5,18 @@
  *
  * Environment requirements:
  *  - environment variable:
- *      - INDY_LINUX_AGENT_LANBEL: label for linux agent
+ *      - INDY_LINUX_AGENT_LABEL: label for linux agent
  *  - agents:
- *      - linux: docker
- *      - windows: cygwin
+ *      - linux:
+ *          - docker
+ *      - windows:
+ *          - python3.5 + virtualenv
+ *          - cygwin
  */
 
 name = 'indy-plenum'
 
+env.INDY_LINUX_AGENT_LABEL = env.INDY_LINUX_AGENT_LABEL || 'linux'
 
 def buildDocker(imageName, dockerfile) {
     def uid = sh(returnStdout: true, script: 'id -u').trim()
@@ -32,7 +36,7 @@ def withTestEnv(body) {
 
     if (isUnix()) {
         echo 'Test: Build docker image'
-        buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside('--network host') {
+        buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside {
             echo 'Test: Install dependencies'
             install(pip: 'pip')
             body.call('python')
@@ -98,14 +102,14 @@ def staticCodeValidation() {
 
 // 1. STATIC CODE VALIDATION
 stage('Static code validation') {
-    node('ubuntu') {
+    node(env.INDY_LINUX_AGENT_LABEL) {
         staticCodeValidation()
     }
 }
 
 // 2. TESTING
 def failFast = false
-def labels = [env.INDY_LINUX_AGENT_LANBEL] // TODO enable windows
+def labels = [env.INDY_LINUX_AGENT_LABEL] // TODO enable windows
 
 def tests = [
     stp: { python ->
