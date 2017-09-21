@@ -91,6 +91,8 @@ class BlsBftPlenum(BlsBft):
             return commit_params
 
         bls_signature = self._sign_state(state_root_hash)
+        logger.debug("BLS: {} signed COMMIT {} for state {} with sig {}"
+                     .format(self, commit_params, state_root_hash, bls_signature))
         commit_params.append(bls_signature)
         return commit_params
 
@@ -130,8 +132,8 @@ class BlsBftPlenum(BlsBft):
             return
 
         self._save_multi_sig_local(bls_multi_sig, state_root)
-        logger.debug("{} saved multi signature for root"
-                     .format(self, state_root))
+        logger.debug("BLS: {} saved multi signature {} for root {}"
+                     .format(self, bls_multi_sig, state_root))
 
         self._bls_latest_multi_sig = bls_multi_sig
         self._bls_latest_signed_root = state_root
@@ -193,8 +195,8 @@ class BlsBftPlenum(BlsBft):
         sigs_for_request = self._signatures[key_3PC]
         bls_signatures = list(sigs_for_request.values())
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
-            logger.trace(
-                'Can not create bls signature for batch {}: '
+            logger.debug(
+                'BLS: Can not create bls signature for batch {}: '
                 'There are only {} signatures, while {} required'.format(key_3PC,
                                                                          len(bls_signatures),
                                                                          quorums.bls_signatures.value))
@@ -235,9 +237,6 @@ class BlsBftPlenum(BlsBft):
         self._bls_store_add(state_root, multi_sig)
         # TODO: support multiple multi-sigs for multiple previous batches
 
-        logger.debug("{} saved shared multi signature for root"
-                     .format(self, state_root))
-
     def _bls_store_add(self, root_hash, multi_sig: MultiSignature):
         if self._bls_store:
             self._bls_store.put(root_hash, multi_sig)
@@ -247,3 +246,6 @@ class BlsBftPlenum(BlsBft):
         # TODO: there is the same method in Replica
         # It should be moved to some util class
         return replica_name.split(":")[0]
+
+    def __str__(self, *args, **kwargs):
+        return self.node_id
