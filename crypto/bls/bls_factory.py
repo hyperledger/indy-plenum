@@ -7,7 +7,7 @@ from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.bls.bls_store import BlsStore
 
 
-class BlsFactory(metaclass=ABCMeta):
+class BlsFactoryCrypto(metaclass=ABCMeta):
     def generate_bls_keys(self, seed=None) -> str:
         return self._get_bls_crypto_class().generate_keys(
             self._load_group_params(),
@@ -28,15 +28,6 @@ class BlsFactory(metaclass=ABCMeta):
         sk, pk = bls_key_manager.load_keys()
         return self._create_bls_crypto(sk, pk, group_params)
 
-    def create_bls_bft(self, is_master, pool_state, bls_store) -> BlsBft:
-        bls_crypto = self.create_bls_crypto_from_saved_keys()
-        bls_key_register = self._create_bls_key_register()
-        return self._create_bls_bft(bls_crypto, bls_key_register, pool_state, bls_store, is_master)
-
-    @abstractmethod
-    def create_bls_store(self) -> BlsStore:
-        pass
-
     def _load_group_params(self):
         return self._create_group_params_loader().load_group_params()
 
@@ -56,10 +47,25 @@ class BlsFactory(metaclass=ABCMeta):
     def _create_bls_crypto(self, sk, pk, group_params):
         pass
 
+
+class BlsFactoryBft(metaclass=ABCMeta):
+
+    def __init__(self, bls_factory_crypto: BlsFactoryCrypto):
+        self._bls_factory_crypto = bls_factory_crypto
+
+    def create_bls_bft(self, is_master) -> BlsBft:
+        bls_crypto = self._bls_factory_crypto.create_bls_crypto_from_saved_keys()
+        bls_key_register = self._create_bls_key_register()
+        return self._create_bls_bft(bls_crypto, bls_key_register, is_master)
+
+    @abstractmethod
+    def create_bls_store(self) -> BlsStore:
+        pass
+
     @abstractmethod
     def _create_bls_key_register(self) -> BlsKeyRegister:
         pass
 
     @abstractmethod
-    def _create_bls_bft(self, bls_crypto, bls_key_register, pool_state, bls_store, is_master) -> BlsBft:
+    def _create_bls_bft(self, bls_crypto, bls_key_register, is_master) -> BlsBft:
         pass

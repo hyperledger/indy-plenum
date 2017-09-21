@@ -1,4 +1,4 @@
-from plenum.bls.bls import create_default_bls_factory
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.util import randomSeed
@@ -20,13 +20,13 @@ def initRemoteKeys(name, remote_name, baseDir, verkey, override=False):
 
 def init_bls_keys(baseDir, node_name, seed=None):
     # TODO: do we need keys based on transport keys?
-    bls_factory = create_default_bls_factory(basedir=baseDir, node_name=node_name)
+    bls_factory = create_default_bls_crypto_factory(basedir=baseDir, node_name=node_name)
     stored_pk = bls_factory.generate_and_store_bls_keys(seed)
     print("BLS Public key is", stored_pk)
     return stored_pk
 
 
-def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
+def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, use_bls=True):
     # `sigseed` is initialised to keep the seed same for both stacks.
     # Both node and client stacks need to have same keys
     if not sigseed:
@@ -38,7 +38,7 @@ def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
     node_stack_name = name
     client_stack_name = node_stack_name + CLIENT_STACK_SUFFIX
     initLocalKeys(client_stack_name, baseDir, sigseed, use_bls=False, override=override)
-    keys = initLocalKeys(node_stack_name, baseDir, sigseed, use_bls=True, override=override)
+    keys = initLocalKeys(node_stack_name, baseDir, sigseed, use_bls=use_bls, override=override)
     return keys
 
 

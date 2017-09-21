@@ -12,7 +12,7 @@ class MultiSignature:
         :param signature: Multi signature itself
         :param participants: List of signers
         :param pool_state_root:
-            State root of pool ledger.
+            State root of pool ledger (serialized to str)
             It is required to let signature be validated even if node keys
             or pool structure changed.
         """

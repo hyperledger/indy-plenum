@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-import base58
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
@@ -12,19 +12,14 @@ class BlsBft(metaclass=ABCMeta):
                  bls_key_register: BlsKeyRegister,
                  node_id,
                  is_master,
-                 pool_state,
                  bls_store):
         self.bls_key_register = bls_key_register
         self.node_id = node_id
 
         self._bls_crypto = bls_crypto
         self._is_master = is_master
-        self._pool_state = pool_state
         self._bls_store = bls_store
-
-    def _get_pool_root_hash_committed(self):
-        root = self._pool_state.committedHeadHash
-        return base58.b58encode(bytes(root))
+        self._state_root_serializer = state_roots_serializer
 
     @abstractmethod
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):

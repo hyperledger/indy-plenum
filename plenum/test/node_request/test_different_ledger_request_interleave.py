@@ -15,6 +15,7 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 from plenum.test.primary_selection.conftest import one_node_added
 from plenum.test.batching_3pc.conftest import tconf
 
+nodes_wth_bls = 0
 
 def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
                                              client1, wallet1, one_node_added,
