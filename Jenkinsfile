@@ -22,7 +22,7 @@ def config = [
     codeValidation: true,
     runTests: true,
     failFast: false,
-    emailNotif: true
+    sendNotif: true
 ]
 
 
@@ -183,6 +183,7 @@ for (i = 0; i < labels.size(); i++) {
     }
 }
 
+// PIPELINE
 
 try {
     stage('Static code validation') {
@@ -194,10 +195,13 @@ try {
     }
     stage('Build / test') {
         if (config.runTests) {
-            builds.failFast = failFast
+            builds.failFast = config.failFast
             parallel builds
         }
     }
+    currentBuild.result == 'SUCCESS'
+} catch (Exception err) {
+    currentBuild.result == 'FAILURE'
 } finally {
     stage('Build result notification') {
         if (config.sendNotif) {
