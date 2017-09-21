@@ -1,3 +1,4 @@
+from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
@@ -17,11 +18,15 @@ def test_send_txns_full_bls(tconf, looper, txnPoolNodeSet,
     # signature since state can be clear
 
     # Using loop to avoid 3pc batching
+    state_roots = []
     for i in range(number_of_requests):
         reqs = sendRandomRequests(wallet1, client1, 1)
         waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+        state_roots.append(
+            state_roots_serializer.serialize(
+                bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
 
-    # for node in txnPoolNodeSet:
-    #     state_root_hash = node.getState(DOMAIN_LEDGER_ID).committedHeadHash
-    #     assert node.bls_store.get(state_root_hash)
+    for node in txnPoolNodeSet:
+        for state_root in state_roots:
+            assert node.bls_store.get(state_root)
 
