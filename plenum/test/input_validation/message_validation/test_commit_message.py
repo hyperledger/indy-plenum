@@ -7,7 +7,6 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
-    ("stateRootHash", MerkleRootField),
     ("blsSig", LimitedLengthStringField),
 ])
 
