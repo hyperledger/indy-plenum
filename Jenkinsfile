@@ -28,32 +28,41 @@ def buildDocker(imageName, dockerfile) {
 }
 
 
-def withTestEnv(body) {
-    echo "$name"
-    if (isUnix()) {
-        echo 'Ubuntu Test: Build docker image'
-        buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside('--network host') {
-            body.call('python', 'pip')
-        }
-    } else { // windows expected
-        echo 'Ubuntu Test: Build virtualenv'
-        def virtualEnvDir = "venv"
-        sh "virtualenv --system-site-packages $virtualEnvDir"
-        body.call("$virtualEnvDir/Scripts/python", "$virtualEnvDir/Scripts/pip")
-    }
-}
-
-
-def install(options=[deps: [], pip: 'pip', isVEnv: false]) {
-    for (def dep : options.deps) {
-        sh "$options.pip install " + (options.isVEnv ? "-U" : "") + " $dep"
-    }
+def install(options=[pip: 'pip', isVEnv: false]) {
     sh "$options.pip install " + (options.isVEnv ? "--ignore-installed" : "") + " pytest"
     sh "$options.pip install ."
 }
 
 
-def test(options=[resFile: 'test-result.txt', testDir: '.', python: 'python', useRunner: false, testOnlySlice: '1/1']) {
+def withTestEnv(body) {
+    echo 'Test: Checkout csm'
+    checkout scm
+
+    if (isUnix()) {
+        echo 'Test: Build docker image'
+        buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside('--network host') {
+            echo 'Test: Install dependencies'
+            install(pip: pip)
+            body.call('python')
+        }
+    } else { // windows expected
+        echo 'Test: Build virtualenv'
+        def virtualEnvDir = ".venv"
+        sh "virtualenv --system-site-packages $virtualEnvDir"
+
+        echo 'Test: Install dependencies'
+        install(pip: "$virtualEnvDir/Scripts/pip", isVenv: true)
+        body.call("$virtualEnvDir/Scripts/python")
+    }
+}
+
+
+def test(options=[
+        resFile: 'test-result.txt',
+        testDir: '.',
+        python: 'python',
+        useRunner: false,
+        testOnlySlice: '1/1']) {
     try {
         if (options.useRunner) {
             sh "PYTHONASYNCIODEBUG='0' $options.python runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
@@ -147,77 +156,6 @@ def isTested(branch="$BRANCH_NAME",
 }
 
 
-def testPlenum = { offset, increment ->
-    try {
-        echo 'Ubuntu Test: Checkout csm'
-        checkout scm
-
-        withTestEnv { python, pip, isVenv ->
-            echo 'Ubuntu Test: Install dependencies'
-            install(pip: pip, isVenv: isVenv)
-
-            echo 'Ubuntu Test: Test'
-            test([
-                resFile: "test-result-plenum-$offset.${NODE_NAME}.txt",
-                testDir: 'plenum',
-                python: python,
-                useRunner: true,
-                testOnlySlice: "$offset/$increment"]
-            )
-        }
-    }
-    finally {
-        echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-
-def testStateStorageLedger = {
-    try {
-        echo 'Ubuntu Test: Checkout csm'
-        checkout scm
-
-        withTestEnv() { python, pip, isVenv ->
-            echo 'Ubuntu Test: Install dependencies'
-            install(pip: pip, isVenv: isVenv)
-
-            echo 'Ubuntu Test: Test'
-            test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
-            test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
-            test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
-            test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
-        }
-
-    }
-    finally {
-        echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-
-def testSTP = {
-    try {
-        echo 'Ubuntu Test: Checkout csm'
-        checkout scm
-
-        withTestEnv() { python, pip, isVenv ->
-            echo 'Ubuntu Test: Install dependencies'
-            install(pip: pip, isVenv: isVenv)
-
-            echo 'Ubuntu Test: Test'
-            test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
-            test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
-        }
-    }
-    finally {
-        echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-
 def tryAutomergePR(owner, reponame, pr_number,
         approveMessage="Approved",
         status_state="success",
@@ -282,16 +220,42 @@ if (istested) {
     // 3. TESTING
     def labels = ['ubuntu']
     def tests = [
-        stp: testSTP,
-        ledger: testStateStorageLedger,
+        stp: { python ->
+            test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
+            test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
+        },
+        ledger: {
+            test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
+            test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
+            test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
+            test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
+        },
         plenum1: {
-            testPlenum(1, 3)
+            test([
+                resFile: "test-result-plenum-1.${NODE_NAME}.txt",
+                testDir: 'plenum',
+                python: python,
+                useRunner: true,
+                testOnlySlice: "1/3"]
+            )
         },
         plenum2: {
-            testPlenum(1, 3)
+            test([
+                resFile: "test-result-plenum-2.${NODE_NAME}.txt",
+                testDir: 'plenum',
+                python: python,
+                useRunner: true,
+                testOnlySlice: "2/3"]
+            )
         },
         plenum3: {
-            testPlenum(1, 3)
+            test([
+                resFile: "test-result-plenum-3.${NODE_NAME}.txt",
+                testDir: 'plenum',
+                python: python,
+                useRunner: true,
+                testOnlySlice: "3/3"]
+            )
         }
     ].collect {k, v -> [k, v]}
 
@@ -309,7 +273,16 @@ if (istested) {
             builds[(currDescr)] = {
                 node(label) {
                     stage(currDescr) {
-                        testFn()
+                        try {
+                            withTestEnv() { python ->
+                                echo 'Test'
+                                testFn(python)
+                            }
+                        }
+                        finally {
+                            echo 'Cleanup'
+                            step([$class: 'WsCleanup'])
+                        }
                     }
                 }
             }
