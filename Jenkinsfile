@@ -224,13 +224,13 @@ if (istested) {
             test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
             test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
         },
-        ledger: {
+        ledger: { python ->
             test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
             test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
             test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
             test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
         },
-        plenum1: {
+        plenum1: { python ->
             test([
                 resFile: "test-result-plenum-1.${NODE_NAME}.txt",
                 testDir: 'plenum',
@@ -239,7 +239,7 @@ if (istested) {
                 testOnlySlice: "1/3"]
             )
         },
-        plenum2: {
+        plenum2: { python ->
             test([
                 resFile: "test-result-plenum-2.${NODE_NAME}.txt",
                 testDir: 'plenum',
@@ -248,7 +248,7 @@ if (istested) {
                 testOnlySlice: "2/3"]
             )
         },
-        plenum3: {
+        plenum3: { python ->
             test([
                 resFile: "test-result-plenum-3.${NODE_NAME}.txt",
                 testDir: 'plenum',
