@@ -42,7 +42,7 @@ def withTestEnv(body) {
         echo 'Test: Build docker image'
         buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside('--network host') {
             echo 'Test: Install dependencies'
-            install(pip: pip)
+            install(pip: 'pip')
             body.call('python')
         }
     } else { // windows expected
