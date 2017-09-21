@@ -12,8 +12,10 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
 from common.serializers.serialization import ledger_txn_serializer
+from crypto.bls.bls_bft import BlsBft
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
+from plenum.bls.bls_bft_plenum import BlsBftPlenum
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
 from plenum.common.has_file_storage import HasFileStorage
@@ -45,6 +47,7 @@ from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
+from crypto.bls.bls_multi_signature import MultiSignature
 
 
 logger = getlogger()
@@ -182,6 +185,9 @@ class Client(Motor,
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
+
+        # TODO: this should be replaced by more simple thing
+        self.bls_bft = self.create_bls_bft()  # type: BlsBftPlenum
 
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
@@ -435,11 +441,14 @@ class Client(Motor,
         multi_signature = result[STATE_PROOF]['multi_signature']
         state_root_hash = result[STATE_PROOF]['root_hash']
         pool_state_root = multi_signature['pool_state_root']
-        full_root = state_root_hash + pool_state_root
         participants = multi_signature['participants']
         signature = multi_signature['signature']
-        # TODO: make validation here!
-        return True
+
+        # TODO: reimplement it in a better way!
+        # Using bls bft because need to get keys from somewhere
+        # This should be refactored!
+        sig = MultiSignature(signature, participants, pool_state_root)
+        return self.bls_bft._validate_multi_sig(sig, state_root_hash)
 
     def validate_proof(self, result):
         """
@@ -451,13 +460,32 @@ class Client(Motor,
         value = self.make_state_value(result)
         return PruningState.verify_state_proof(state_root_hash, key, value, proof_nodes, serialized=True)
 
+    def create_bls_bft(self):
+        from crypto.bls.bls_key_manager import LoadBLSKeyError
+        from plenum.bls.bls import BlsFactoryIndyCrypto
+        try:
+            bls_factory = BlsFactoryIndyCrypto(self.basedirpath,
+                                               self.dataLocation,
+                                               self.name,
+                                               self.config)
+            from plenum.bls.bls_store import BlsStore
+            bls_store = BlsStore(None, self.basedirpath, None, None)
+            bls_bft = bls_factory.create_bls_bft(False,
+                                                 None,
+                                                 bls_store)
+            pool_ledger = None
+            bls_bft.bls_key_register.load_latest_keys(pool_ledger)
+            return bls_bft
+        except LoadBLSKeyError as ex:
+            logger.warning("Client {} failed to load bls keys!".format(self.name))
+            return None
 
     def make_state_key(self, request):
-        # For the sake of simplicity uses methods from node
+        # TODO: this should be overridden
         pass
 
     def make_state_value(self, request):
-        # For the sake of simplicity uses methods from node
+        # TODO: this should be overridden
         pass
 
     def showReplyDetails(self, identifier: str, reqId: int):
