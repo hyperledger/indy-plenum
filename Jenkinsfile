@@ -6,6 +6,7 @@
  * Environment requirements:
  *  - environment variable:
  *      - INDY_LINUX_AGENT_LABEL: label for linux agent
+ *      - (optional) INDY_WINDOWS_AGENT_LABEL: label for windows agent
  *  - agents:
  *      - linux:
  *          - docker
@@ -110,6 +111,10 @@ stage('Static code validation') {
 // 2. TESTING
 def failFast = false
 def labels = [env.INDY_LINUX_AGENT_LABEL] // TODO enable windows
+
+if (env.INDY_WINDOWS_AGENT_LABEL) {
+    labels += env.INDY_WINDOWS_AGENT_LABEL
+}
 
 def tests = [
     stp: { python ->
