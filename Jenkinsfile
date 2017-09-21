@@ -1,217 +1,216 @@
-#!/usr/bin/env groovy
+#!groovy
 
-/*
- * This Jenkinsfile is intended to run on https://ci.evernym.com and may fail anywhere else.
- *
- * Environment requirements:
- *  - environment variable:
- *      - INDY_AGENT_LINUX_LABEL: label for linux agent
- *      - (optional) INDY_AGENT_WINDOWS_LABEL: label for windows agent
- *  - agents:
- *      - linux:
- *          - docker
- *      - windows:
- *          - python3.5 + virtualenv
- *          - cygwin
- */
+@Library('SovrinHelpers') _
 
-name = 'indy-plenum'
+def name = 'indy-plenum'
 
-
-def config = [
-    codeValidation: true,
-    runTests: true,
-    failFast: false,
-    sendNotif: true
-]
-
-
-env.INDY_AGENT_LINUX_LABEL = env.INDY_AGENT_LINUX_LABEL || 'linux'
-def labels = [env.INDY_AGENT_LINUX_LABEL] // TODO enable windows
-
-if (env.INDY_AGENT_WINDOWS_LABEL) {
-    labels += env.INDY_AGENT_WINDOWS_LABEL
-}
-
-def buildDocker(imageName, dockerfile) {
-    def uid = sh(returnStdout: true, script: 'id -u').trim()
-    return docker.build("$imageName", "--build-arg uid=$uid -f $dockerfile")
-}
-
-
-def install(options=[pip: 'pip', isVEnv: false]) {
-    sh "$options.pip install " + (options.isVEnv ? "--ignore-installed" : "") + " pytest"
-    sh "$options.pip install ."
-}
-
-
-def withTestEnv(body) {
-    echo 'Test: Checkout csm'
-    checkout scm
-
-    if (isUnix()) {
-        echo 'Test: Build docker image'
-        buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside {
-            echo 'Test: Install dependencies'
-            install(pip: 'pip')
-            body.call('python')
-        }
-    } else { // windows expected
-        echo 'Test: Build virtualenv'
-        def virtualEnvDir = ".venv"
-        sh "virtualenv --system-site-packages $virtualEnvDir"
-
-        echo 'Test: Install dependencies'
-        install(pip: "$virtualEnvDir/Scripts/pip", isVenv: true)
-        body.call("$virtualEnvDir/Scripts/python")
-    }
-}
-
-
-def test(options=[
-        resFile: 'test-result.txt',
-        testDir: '.',
-        python: 'python',
-        useRunner: false,
-        testOnlySlice: '1/1']) {
-
+def plenumTestUbuntu = { offset, increment ->
     try {
-        if (options.useRunner) {
-            sh "PYTHONASYNCIODEBUG='0' $options.python runner.py --pytest \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
-        } else {
-            sh "$options.python -m pytest --junitxml=$options.resFile $options.testDir"
-        }
-    }
-    finally {
-        try {
-            sh "ls -la $options.resFile"
-        } catch (Exception ex) {
-            // pass
-        }
-
-        if (options.useRunner) {
-            archiveArtifacts allowEmptyArchive: true, artifacts: "$options.resFile"
-        } else {
-            junit "$options.resFile"
-        }
-    }
-}
-
-
-def staticCodeValidation() {
-    try {
-        echo 'Static code validation'
+        echo 'Ubuntu Test: Checkout csm'
         checkout scm
 
-        buildDocker('code-validation', 'ci/code-validation.dockerfile ci').inside {
-            sh "python3 -m flake8"
+        echo 'Ubuntu Test: Build docker image'
+        def testEnv = dockerHelpers.build(name)
+
+        testEnv.inside('--network host') {
+            echo 'Ubuntu Test: Install dependencies'
+            testHelpers.install()
+
+            echo 'Ubuntu Test: Test'
+            testHelpers.testRunner([resFile: "test-result-plenum-$offset.${NODE_NAME}.txt", testDir: 'plenum', testOnlySlice: "$offset/$increment"])
         }
     }
     finally {
-        echo 'Static code validation: Cleanup'
+        echo 'Ubuntu Test: Cleanup'
         step([$class: 'WsCleanup'])
     }
 }
 
+def plenumTestUbuntuPart1 = {
+    plenumTestUbuntu(1, 3)
+}
 
-def tests = [
-    stp: { python ->
-        test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
-        test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
-    },
-    ledger: { python ->
-        test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
-        test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
-        test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
-        test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
-    },
-    plenum1: { python ->
-        test([
-            resFile: "test-result-plenum-1.${NODE_NAME}.txt",
-            testDir: 'plenum',
-            python: python,
-            useRunner: true,
-            testOnlySlice: "1/3"]
-        )
-    },
-    plenum2: { python ->
-        test([
-            resFile: "test-result-plenum-2.${NODE_NAME}.txt",
-            testDir: 'plenum',
-            python: python,
-            useRunner: true,
-            testOnlySlice: "2/3"]
-        )
-    },
-    plenum3: { python ->
-        test([
-            resFile: "test-result-plenum-3.${NODE_NAME}.txt",
-            testDir: 'plenum',
-            python: python,
-            useRunner: true,
-            testOnlySlice: "3/3"]
-        )
-    }
-].collect {k, v -> [k, v]}
+def plenumTestUbuntuPart2 = {
+    plenumTestUbuntu(2, 3)
+}
 
+def plenumTestUbuntuPart3 = {
+    plenumTestUbuntu(3, 3)
+}
 
-def builds = [:]
-for (i = 0; i < labels.size(); i++) {
-    def label = labels[i]
-    def descr = "${label}Test"
+def ledgerTestUbuntu = {
+    try {
+        echo 'Ubuntu Test: Checkout csm'
+        checkout scm
 
-    for(j = 0; j < tests.size(); j++) {
-        def part = tests[j][0]
-        def testFn = tests[j][1]
-        def currDescr = "${descr}-${part}"
-        builds[(currDescr)] = {
-            stage(currDescr) {
-                node(label) {
-                    try {
-                        withTestEnv() { python ->
-                            echo 'Test'
-                            testFn(python)
-                        }
-                    }
-                    finally {
-                        echo 'Cleanup'
-                        step([$class: 'WsCleanup'])
-                    }
-                }
-            }
+        echo 'Ubuntu Test: Build docker image'
+        def testEnv = dockerHelpers.build(name)
+
+        testEnv.inside {
+            echo 'Ubuntu Test: Install dependencies'
+            testHelpers.install()
+
+            echo 'Ubuntu Test: Test'
+            testHelpers.testJUnit([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml"])
         }
+
+    }
+    finally {
+        echo 'Ubuntu Test: Cleanup'
+        step([$class: 'WsCleanup'])
     }
 }
 
-// PIPELINE
+def stpTestUbuntu = {
+    try {
+        echo 'Ubuntu Test: Checkout csm'
+        checkout scm
 
-try {
-    stage('Static code validation') {
-        if (config.codeValidation) {
-            node(env.INDY_AGENT_LINUX_LABEL) {
-                staticCodeValidation()
-            }
+        echo 'Ubuntu Test: Build docker image'
+        def testEnv = dockerHelpers.build(name)
+
+        testEnv.inside {
+            echo 'Ubuntu Test: Install dependencies'
+            testHelpers.install()
+
+            echo 'Ubuntu Test: Test'
+            testHelpers.testJUnit([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml"])
         }
     }
-    stage('Build / Test') {
-        if (config.runTests) {
-            builds.failFast = config.failFast
-            parallel builds
-        }
-    }
-    currentBuild.result = 'SUCCESS'
-} catch (Exception err) {
-    currentBuild.result = 'FAILURE'
-} finally {
-    stage('Build result notification') {
-        if (config.sendNotif) {
-            def emailMessage = [
-                body: '$DEFAULT_CONTENT',
-                replyTo: '$DEFAULT_REPLYTO',
-                subject: '$DEFAULT_SUBJECT',
-                recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']]
-            ]
-            emailext emailMessage
-        }
+    finally {
+        echo 'Ubuntu Test: Cleanup'
+        step([$class: 'WsCleanup'])
     }
 }
+
+def plenumTestWindows = {
+    echo 'TODO: Implement me'
+
+    /* win2016 for now (03-23-2017) is not supported by Docker for Windows
+     * (Hyper-V version), so we can't use linux containers
+     * https://github.com/docker/for-win/issues/448#issuecomment-276328342
+     *
+     * possible solutions:
+     *  - use host-installed OrientDB (trying this one)
+     *  - wait until Docker support will be provided for win2016
+     */
+
+    //try {
+    //    echo 'Windows Test: Checkout csm'
+    //    checkout scm
+
+    //    echo 'Windows Test: Build docker image'
+    //    dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + ["cd C:\\test && python -m pytest -k orientdb --junit-xml=C:\\testOrig\\$testFile"] /*testHelpers.testJunitWindowsCommands()*/)
+    //    junit 'test-result.xml'
+    //}
+    //finally {
+    //    echo 'Windows Test: Cleanup'
+    //    step([$class: 'WsCleanup'])
+    //}
+}
+
+def ledgerTestWindows = {
+    try {
+        echo 'Windows Test: Checkout csm'
+        checkout scm
+
+        echo 'Windows Test: Build docker image'
+        dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + testHelpers.testJunitWindowsCommands())
+        junit 'test-result.xml'
+    }
+    finally {
+        echo 'Windows Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def stateTestWindows = {
+    try {
+        echo 'Windows Test: Checkout csm'
+        checkout scm
+
+        echo 'Windows Test: Build docker image'
+        dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + testHelpers.testJunitWindowsCommands())
+        junit 'test-result.xml'
+    }
+    finally {
+        echo 'Windows Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def plenumTestWindowsNoDocker = {
+    try {
+        echo 'Windows No Docker Test: Checkout csm'
+        checkout scm
+
+        testHelpers.createVirtualEnvAndExecute({ python, pip ->
+            echo 'Windows No Docker Test: Install dependencies'
+            testHelpers.install(python: python, pip: pip, isVEnv: true)
+            
+            echo 'Windows No Docker Test: Test'
+            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt", python: python)
+        })
+    }
+    finally {
+        echo 'Windows No Docker Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def ledgerTestWindowsNoDocker = {
+    try {
+        echo 'Windows No Docker Test: Checkout csm'
+        checkout scm   
+
+        testHelpers.createVirtualEnvAndExecute({ python, pip ->
+            echo 'Windows No Docker Test: Install dependencies'
+            testHelpers.installDepsBat(python, pip)
+            
+            echo 'Windows No Docker Test: Test'
+            testHelpers.testJunitBat(python, pip)
+        })
+    }
+    finally {
+        echo 'Windows No Docker Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def stateTestWindowsNoDocker = {
+    try {
+        echo 'Windows No Docker Test: Checkout csm'
+        checkout scm   
+
+        testHelpers.createVirtualEnvAndExecute({ python, pip ->
+            echo 'Windows No Docker Test: Install dependencies'
+            testHelpers.installDepsBat(python, pip)
+            
+            echo 'Windows No Docker Test: Test'
+            testHelpers.testJunitBat(python, pip)
+        })
+    }
+    finally {
+        echo 'Windows No Docker Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
+    def volumeName = "$name-deb-u1604"
+    sh "docker volume rm -f $volumeName"
+    dir('build-scripts/ubuntu-1604') {
+        sh "./build-$name-docker.sh $sourcePath $releaseVersion"
+        sh "./build-3rd-parties-docker.sh"
+    }
+    return "$volumeName"
+}
+
+def options = new TestAndPublishOptions()
+testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
+ledger: ledgerTestUbuntu,
+stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
