@@ -36,6 +36,7 @@ from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
+from state.pruning_state import PruningState
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 from stp_core.crypto.nacl_wrappers import Signer
@@ -408,12 +409,30 @@ class Client(Motor,
             return checkIfMoreThanFSameItems(results, self.f)
 
     def take_one_proved(self, replies):
-      """
-      Returns one reply with valid state proof
-      """
-      for reply in replies:
-          if valid(reply):
-              return reply
+        """
+        Returns one reply with valid state proof
+        """
+        for reply in replies.values():
+            result = reply['result']
+            if STATE_PROOF not in result:
+                continue
+            proof = result[STATE_PROOF]
+            state_root = result["rootHash"]
+            pool_state_root = proof["pool_state_root"]
+            full_root = state_root + pool_state_root
+            proof_nodes = proof["proof_nodese"]
+            key = self.make_state_key(result)
+            value = self.make_state_value(result)
+            if PruningState.verify_state_proof(full_root, key, value, proof_nodes, serialized=True):
+                return reply
+
+    def make_state_key(self, request):
+        # For the sake of simplicity uses methods from node
+        pass
+
+    def make_state_value(self, request):
+        # For the sake of simplicity uses methods from node
+        pass
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
