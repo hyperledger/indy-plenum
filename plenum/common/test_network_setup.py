@@ -115,6 +115,7 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
+                blskey = None
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
