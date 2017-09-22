@@ -531,11 +531,11 @@ class Client(Motor,
             logger.warning("Client {} failed to load bls keys!".format(self.name))
             return None
 
-    def make_state_key(self, request):
+    def make_state_key(self, reply):
         # TODO: this should be overridden
         pass
 
-    def make_state_value(self, request):
+    def make_state_value(self, reply):
         # TODO: this should be overridden
         pass
 
