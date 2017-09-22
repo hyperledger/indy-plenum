@@ -26,10 +26,10 @@ cliNodeReg = OrderedDict([
 
 baseDir = '~/.plenum/'
 walletsDir = 'wallets'
-NODE_BASE_DATA_DIR = '/var/plenum'
+NODE_BASE_DATA_DIR = baseDir
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
-LOG_DIR = '/var/log/plenum/'
+LOG_DIR = os.path.join(baseDir, "log")
 GENERAL_CONFIG_DIR = '/etc/plenum/'
 # walletDir = 'wallet'
 

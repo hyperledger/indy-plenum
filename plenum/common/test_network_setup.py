@@ -166,7 +166,7 @@ class TestNetworkSetup:
 
     @classmethod
     def setup_base_dir(cls, config):
-        baseDir = config.baseDir
+        baseDir = os.path.join(config.baseDir, config.NETWORK_NAME)
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
         return baseDir

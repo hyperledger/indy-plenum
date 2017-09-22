@@ -31,12 +31,10 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
-BASE_DATA_DIR = '/var/plenum'
-LOG_DIR = '/var/log/plenum'
-GENERAL_CONFIG_DIR = '/etc/plenum'
-CONFIG_FILE = os.path.join(GENERAL_CONFIG_DIR, "plenum_config.py")
+LOG_DIR = os.path.join(BASE_DIR, "log")
+CONFIG_FILE = os.path.join(BASE_DIR, "plenum_config.py")
 
-for path in [BASE_DIR, BASE_DATA_DIR, LOG_DIR, GENERAL_CONFIG_DIR]:
+for path in [BASE_DIR, LOG_DIR]:
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -119,6 +117,4 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
-changeOwnerAndGrpToLoggedInUser(BASE_DATA_DIR)
 changeOwnerAndGrpToLoggedInUser(LOG_DIR)
-changeOwnerAndGrpToLoggedInUser(GENERAL_CONFIG_DIR)
