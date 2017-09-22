@@ -32,7 +32,8 @@ from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
-    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, TXN_TYPE, NODE, DATA, BLS_KEY, \
+    ALIAS
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
@@ -48,7 +49,6 @@ from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
-from crypto.bls.bls_multi_signature import MultiSignature
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
             BlsCryptoIndyCrypto
 
@@ -191,10 +191,21 @@ class Client(Motor,
 
         # TODO: make it configurable
         self._bls_crypto = BlsCryptoIndyCrypto  # type: BlsCrypto
-        self._bls_node_public_keys = {}  # node_name -> bls_key
+        self._bls_node_public_keys = None  # node_name -> bls_key
+        # TODO: temporary hack to init it
+        _ = self.bls_node_public_keys
 
     @property
     def bls_node_public_keys(self):
+        if self._bls_node_public_keys is not None:
+            return self._bls_node_public_keys
+        self._bls_node_public_keys = {}
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE:
+                data = txn[DATA]
+                alias = data[ALIAS]
+                blskey = data.get(BLS_KEY)
+                self._bls_node_public_keys[alias] = blskey
         return self._bls_node_public_keys
 
     def getReqRepStore(self):
