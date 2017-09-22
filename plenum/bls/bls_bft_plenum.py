@@ -5,7 +5,7 @@ from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_store import BlsStore
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
@@ -35,10 +35,16 @@ class BlsBftPlenum(BlsBft):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                pre_prepare.blsMultiSig is None or \
-                f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
+                pre_prepare.blsMultiSig is None:
+            return
+
+        # if we have multi-sig, then we must have the corresponded state root as well
+        if f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
                 pre_prepare.blsMultiSigStateRoot is None:
-            return None
+            raise SuspiciousNode(sender,
+                                 Suspicions.PPR_NO_BLS_MULTISIG_STATE,
+                                 pre_prepare)
+
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         state_root = pre_prepare.blsMultiSigStateRoot
         if not self._validate_multi_sig(multi_sig, state_root):
@@ -53,7 +59,7 @@ class BlsBftPlenum(BlsBft):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             # raise BlsValidationError("No signature found")
-            return None
+            return
 
         if not self._validate_signature(sender, commit.blsSig, state_root_hash):
             raise SuspiciousNode(sender,
@@ -91,8 +97,8 @@ class BlsBftPlenum(BlsBft):
             return commit_params
 
         bls_signature = self._sign_state(state_root_hash)
-        logger.debug("BLS: {} signed COMMIT {} for state {} with sig {}"
-                     .format(self, commit_params, state_root_hash, bls_signature))
+        logger.debug("{}{} signed COMMIT {} for state {} with sig {}"
+                     .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
         commit_params.append(bls_signature)
         return commit_params
 
@@ -132,8 +138,6 @@ class BlsBftPlenum(BlsBft):
             return
 
         self._save_multi_sig_local(bls_multi_sig, state_root)
-        logger.debug("BLS: {} saved multi signature {} for root {}"
-                     .format(self, bls_multi_sig, state_root))
 
         self._bls_latest_multi_sig = bls_multi_sig
         self._bls_latest_signed_root = state_root
@@ -196,8 +200,9 @@ class BlsBftPlenum(BlsBft):
         bls_signatures = list(sigs_for_request.values())
         if not quorums.bls_signatures.is_reached(len(bls_signatures)):
             logger.debug(
-                'BLS: Can not create bls signature for batch {}: '
-                'There are only {} signatures, while {} required'.format(key_3PC,
+                '{}Can not create bls signature for batch {}: '
+                'There are only {} signatures, while {} required'.format(BLS_PREFIX,
+                                                                         key_3PC,
                                                                          len(bls_signatures),
                                                                          quorums.bls_signatures.value))
             return False
@@ -220,6 +225,8 @@ class BlsBftPlenum(BlsBft):
                               multi_sig: MultiSignature,
                               state_root):
         self._bls_store_add(state_root, multi_sig)
+        logger.debug("{}{} saved multi signature {} for root {} (locally calculated)"
+                     .format(BLS_PREFIX, self, multi_sig, state_root))
 
     def _save_multi_sig_shared(self, pre_prepare: PrePrepare):
 
@@ -235,6 +242,8 @@ class BlsBftPlenum(BlsBft):
         state_root = pre_prepare.blsMultiSigStateRoot
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         self._bls_store_add(state_root, multi_sig)
+        logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
+                     .format(BLS_PREFIX, self, multi_sig, state_root))
         # TODO: support multiple multi-sigs for multiple previous batches
 
     def _bls_store_add(self, root_hash, multi_sig: MultiSignature):

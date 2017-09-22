@@ -4,7 +4,7 @@ from typing import Generator
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.common.constants import POOL_LEDGER_ID
+from plenum.common.constants import BLS_PREFIX
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -113,13 +113,14 @@ class Replicas:
         try:
             bls_factory = create_default_bls_bft_factory(self._node)
             bls_bft = bls_factory.create_bls_bft(is_master)
+            logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self._node.name))
             return bls_bft
         except LoadBLSKeyError as ex:
             # TODO: for now we allow that BLS is optional, so that we don't require it
             logger.warning(
-                'BLS Signatures will not be used for the node, since BLS keys were not found. '
+                '{}BLS Signatures will not be used for the node, since BLS keys were not found. '
                 'Please make sure that a script to init keys was called,'
-                ' and NODE txn was sent with BLS public keys. Error: '.format(ex))
+                ' and NODE txn was sent with BLS public keys. Error: '.format(BLS_PREFIX, ex))
             return None
 
     @property
