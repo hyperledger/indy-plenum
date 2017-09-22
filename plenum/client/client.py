@@ -364,7 +364,7 @@ class Client(Motor,
                 self.hashStore.close()
         self.txnLog.close()
 
-    def getReply(self, identifier: str, reqId: int) -> Optional[(Reply, str)]:
+    def getReply(self, identifier: str, reqId: int) -> Optional:
         """
         Accepts reply message from node if the reply is matching
 
