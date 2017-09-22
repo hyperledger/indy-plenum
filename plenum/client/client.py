@@ -418,6 +418,7 @@ class Client(Motor,
         """
         Returns one reply with valid state proof
         """
+
         for sender, reply in replies.items():
             result = reply['result']
             if STATE_PROOF not in result:
@@ -462,12 +463,12 @@ class Client(Motor,
 
     def create_bls_bft(self):
         from crypto.bls.bls_key_manager import LoadBLSKeyError
-        from plenum.bls.bls import BlsFactoryIndyCrypto
+        from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
         try:
+            # self.dataLocation,
+            # self.config
             bls_factory = BlsFactoryIndyCrypto(self.basedirpath,
-                                               self.dataLocation,
-                                               self.name,
-                                               self.config)
+                                               self.name)
             from plenum.bls.bls_store import BlsStore
             bls_store = BlsStore(None, self.basedirpath, None, None)
             bls_bft = bls_factory.create_bls_bft(False,
