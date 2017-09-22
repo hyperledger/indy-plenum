@@ -72,8 +72,8 @@ class BlsBftPlenum(BlsBft):
             return pre_prepare_params
 
         pre_prepare_params.append(
-            (self._bls_latest_multi_sig.signature, self._bls_latest_multi_sig.participants,
-             self._bls_latest_multi_sig.pool_state_root)
+            [self._bls_latest_multi_sig.signature, self._bls_latest_multi_sig.participants,
+             self._bls_latest_multi_sig.pool_state_root]
         )
         pre_prepare_params.append(self._bls_latest_signed_root)
         self._bls_latest_multi_sig = None
