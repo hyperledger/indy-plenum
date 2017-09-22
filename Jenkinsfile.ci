@@ -39,7 +39,15 @@ def buildDocker(imageName, dockerfile) {
 }
 
 
-def install(options=[pip: 'pip', isVEnv: false]) {
+def install(options=[:]) {
+   options.pip = options.pip ?: 'pip'
+   options.isVEnv = options.isVEnv ?: false
+   options.deps = options.deps ?: []
+
+   for (def dep : options.deps) {
+        sh "$options.pip install " + (options.isVEnv ? "-U" : "") + " $dep"
+    }
+
     sh "$options.pip install " + (options.isVEnv ? "--ignore-installed" : "") + " pytest"
     sh "$options.pip install ."
 }
@@ -53,7 +61,7 @@ def withTestEnv(body) {
         echo 'Test: Build docker image'
         buildDocker("$name-test", "ci/ubuntu.dockerfile ci").inside {
             echo 'Test: Install dependencies'
-            install(pip: 'pip')
+            install()
             body.call('python')
         }
     } else { // windows expected
@@ -68,12 +76,12 @@ def withTestEnv(body) {
 }
 
 
-def test(options=[
-        resFile: 'test-result.txt',
-        testDir: '.',
-        python: 'python',
-        useRunner: false,
-        testOnlySlice: '1/1']) {
+def test(options=[:]) {
+    options.resFile = options.resFile ?: 'test-result.txt'
+    options.testDir = options.testDir ?: '.'
+    options.python = options.python ?: 'python'
+    options.useRunner = options.useRunner ?: false
+    options.testOnlySlice = options.testOnlySlice ?: '1/1'
 
     try {
         if (options.useRunner) {
@@ -116,40 +124,40 @@ def staticCodeValidation() {
 
 def tests = [
     stp: { python ->
-        test([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python])
-        test([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python])
+        test(testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python)
+        test(testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python)
     },
     ledger: { python ->
-        test([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python])
-        test([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python])
-        test([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python])
-        test([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python])
+        test(testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml", python: python)
+        test(testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml", python: python)
+        test(testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml", python: python)
+        test(testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml", python: python)
     },
     plenum1: { python ->
-        test([
+        test(
             resFile: "test-result-plenum-1.${NODE_NAME}.txt",
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "1/3"]
+            testOnlySlice: "1/3"
         )
     },
     plenum2: { python ->
-        test([
+        test(
             resFile: "test-result-plenum-2.${NODE_NAME}.txt",
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "2/3"]
+            testOnlySlice: "2/3"
         )
     },
     plenum3: { python ->
-        test([
+        test(
             resFile: "test-result-plenum-3.${NODE_NAME}.txt",
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "3/3"]
+            testOnlySlice: "3/3"
         )
     }
 ].collect {k, v -> [k, v]}
