@@ -13,6 +13,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from common.serializers.serialization import ledger_txn_serializer
 from crypto.bls.bls_bft import BlsBft
+from crypto.bls.bls_crypto import BlsCrypto
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
 from plenum.bls.bls_bft_plenum import BlsBftPlenum
@@ -48,6 +49,8 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
 from crypto.bls.bls_multi_signature import MultiSignature
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
+            BlsCryptoIndyCrypto
 
 
 logger = getlogger()
@@ -186,8 +189,13 @@ class Client(Motor,
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
 
-        # TODO: this should be replaced by more simple thing
-        self.bls_bft = self.create_bls_bft()  # type: BlsBftPlenum
+        # TODO: make it configurable
+        self._bls_crypto = BlsCryptoIndyCrypto  # type: BlsCrypto
+        self._bls_node_public_keys = {}  # node_name -> bls_key
+
+    @property
+    def bls_node_public_keys(self):
+        return self._bls_node_public_keys
 
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
@@ -453,15 +461,21 @@ class Client(Motor,
         """
         multi_signature = result[STATE_PROOF]['multi_signature']
         state_root_hash = result[STATE_PROOF]['root_hash']
-        pool_state_root = multi_signature['pool_state_root']
+        pool_state_root_hash = multi_signature['pool_state_root']
         participants = multi_signature['participants']
         signature = multi_signature['signature']
-
-        # TODO: reimplement it in a better way!
-        # Using bls bft because need to get keys from somewhere
-        # This should be refactored!
-        sig = MultiSignature(signature, participants, pool_state_root)
-        return self.bls_bft._validate_multi_sig(sig, state_root_hash)
+        full_state_root = state_root_hash + pool_state_root_hash
+        public_keys = []
+        for node_name in participants:
+            key = self.bls_node_public_keys.get(node_name)
+            if key is None:
+                logger.warning("There is no bls key for node {}"
+                               .format(node_name))
+                return False
+            public_keys.append(key)
+        return self._bls_crypto.verify_multi_sig(signature,
+                                                 full_state_root,
+                                                 public_keys)
 
     def validate_proof(self, result):
         """
