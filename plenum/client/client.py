@@ -356,7 +356,7 @@ class Client(Motor,
                 self.hashStore.close()
         self.txnLog.close()
 
-    def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
+    def getReply(self, identifier: str, reqId: int) -> Optional[(Reply, str)]:
         """
         Accepts reply message from node if the reply is matching
 
@@ -389,32 +389,39 @@ class Client(Motor,
                 msg[f.RESULT.nm][f.REQ_ID.nm] == reqId and
                 msg[f.RESULT.nm][f.IDENTIFIER.nm] == identifier}
 
-    def hasConsensus(self, identifier: str, reqId: int) -> Optional[str]:
+    def hasConsensus(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
-        Accepts a request ID and returns True if consensus was reached
-        for the request or else False
+        Accepts a request ID and returns reply for it if quorum achieved or
+        there is a state proof for it.
 
         :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         """
-        replies = self.getRepliesFromAllNodes(identifier, reqId)
         full_req_id = '{}{}'.format(identifier, reqId)
+        replies = self.getRepliesFromAllNodes(identifier, reqId)
         if not replies:
             raise KeyError(full_req_id)
-
-        proved_reply = self.take_one_proved(replies)
+        proved_reply = self.take_one_proved(replies, full_req_id)
         if proved_reply:
             logger.debug("Found proved reply for {}".format(full_req_id))
             return proved_reply
-        elif self.quorums.reply.is_reached(len(replies)):
-            results = [reply["result"] for reply in replies.values()]
-            if all(result == results[0] for result in results):
-                logger.debug("Reply quorum for {} achieved".format(full_req_id))
-                return results[0]
-            logger.error("Received a different result from at least one node for {}".format(full_req_id))
-            return checkIfMoreThanFSameItems(results, self.f)
+        quorumed_reply = self.take_one_quorumed(replies, full_req_id)
+        if quorumed_reply:
+            logger.debug("Reply quorum for {} achieved"
+                         .format(full_req_id))
+            return quorumed_reply
 
-    def take_one_proved(self, replies):
+    def take_one_quorumed(self, replies, full_req_id):
+        results = [reply["result"] for reply in replies.values()]
+        first = results[0]
+        if any(result == first for result in results):
+            return first
+        logger.error("Received a different result from "
+                     "at least one node for {}"
+                     .format(full_req_id))
+        return checkIfMoreThanFSameItems(results, self.f)
+
+    def take_one_proved(self, replies, full_req_id):
         """
         Returns one reply with valid state proof
         """
@@ -422,18 +429,23 @@ class Client(Motor,
         for sender, reply in replies.items():
             result = reply['result']
             if STATE_PROOF not in result:
-                logger.debug("There is no state proof in reply from {}".format(sender))
+                logger.debug("There is no state proof in "
+                             "reply for {} from {}"
+                             .format(full_req_id, sender))
                 continue
             if not self.validate_multi_signature(result):
-                logger.warning("{} got reply with bad multi signature from {}"
-                               .format(self.name, sender))
+                logger.warning("{} got reply for {} with bad "
+                               "multi signature from {}"
+                               .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             if not self.validate_proof(result):
-                logger.warning("{} got reply with invalid state proof from {}"
-                               .format(self.name, sender))
+                logger.warning("{} got reply for {} with invalid "
+                               "state proof from {}"
+                               .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
+            return reply
 
     def validate_multi_signature(self, result):
         """
@@ -459,7 +471,11 @@ class Client(Motor,
         proof_nodes = result[STATE_PROOF]['proof_nodes']
         key = self.make_state_key(result)
         value = self.make_state_value(result)
-        return PruningState.verify_state_proof(state_root_hash, key, value, proof_nodes, serialized=True)
+        return PruningState.verify_state_proof(state_root_hash,
+                                               key,
+                                               value,
+                                               proof_nodes,
+                                               serialized=True)
 
     def create_bls_bft(self):
         from crypto.bls.bls_key_manager import LoadBLSKeyError
