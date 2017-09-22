@@ -2,7 +2,8 @@ from hashlib import sha256
 
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
+    VERKEY, TXN_TIME
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
@@ -17,9 +18,10 @@ logger = getlogger()
 class DomainRequestHandler(RequestHandler):
     stateSerializer = domain_state_serializer
 
-    def __init__(self, ledger, state, reqProcessors):
+    def __init__(self, ledger, state, reqProcessors, bls_store):
         super().__init__(ledger, state)
         self.reqProcessors = reqProcessors
+        self.bls_store = bls_store
 
     def validate(self, req: Request, config=None):
         if req.operation.get(TXN_TYPE) == NYM:
@@ -109,6 +111,7 @@ class DomainRequestHandler(RequestHandler):
         if VERKEY in txn:
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
+        newData[TXN_TIME] = txn.get(TXN_TIME)
         existingData.update(newData)
         val = self.stateSerializer.serialize(existingData)
         key = self.nym_to_state_key(nym)
