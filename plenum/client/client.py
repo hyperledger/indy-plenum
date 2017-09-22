@@ -503,8 +503,7 @@ class Client(Motor,
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
         proof_nodes = result[STATE_PROOF]['proof_nodes']
-        key = self.make_state_key(result)
-        value = self.make_state_value(result)
+        key, value = self.prepare_for_state(result)
         return PruningState.verify_state_proof(state_root_hash,
                                                key,
                                                value,
@@ -531,11 +530,7 @@ class Client(Motor,
             logger.warning("Client {} failed to load bls keys!".format(self.name))
             return None
 
-    def make_state_key(self, reply):
-        # TODO: this should be overridden
-        pass
-
-    def make_state_value(self, reply):
+    def prepare_for_state(self, result) -> tuple:
         # TODO: this should be overridden
         pass
 
