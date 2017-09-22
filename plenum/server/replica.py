@@ -4,9 +4,8 @@ from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 
-import base58
 import plenum.server.node
-from common.serializers.serialization import serialize_msg_for_signing
+from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
@@ -270,6 +269,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft = bls_bft
+        self._state_root_serializer = state_roots_serializer
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -303,7 +303,7 @@ class Replica(HasActionQueue, MessageProcessor):
         state = self.node.getState(ledger_id)
         root = state.committedHeadHash if committed else state.headHash
         if to_str:
-            root = base58.b58encode(bytes(root))
+            root = self._state_root_serializer.serialize(bytes(root))
         return root
 
     @property

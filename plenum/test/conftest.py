@@ -13,7 +13,7 @@ import time
 from typing import Dict, Any
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
-from plenum.bls.bls import create_default_bls_factory
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
@@ -601,7 +601,7 @@ def poolTxnData(request):
         }
 
         if i <= nodes_with_bls:
-            _, bls_key = create_default_bls_factory().generate_bls_keys(
+            _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             node_txn[DATA][BLS_KEY] = bls_key
             data['nodesWithBls'][node_name] = True

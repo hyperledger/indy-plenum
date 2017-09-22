@@ -256,3 +256,22 @@ def test_get_for_old_root(state):
     assert state.get_for_root_hash(head_hash2, b'k1') == b'v111'
     assert state.get_for_root_hash(head_hash2, b'k2') == b'v2'
     assert state.get_for_root_hash(head_hash2, b'k3') == b'v3'
+
+
+def test_get_for_old_root_committed(state):
+    state.set(b'k1', b'v1')
+    state.set(b'k2', b'v2')
+    state.commit()
+    head_hash1 = state.committedHeadHash
+    state.set(b'k1', b'v111')
+    state.set(b'k3', b'v3')
+    state.commit()
+    head_hash2 = state.committedHeadHash
+
+    assert state.get_for_root_hash(head_hash1, b'k1') == b'v1'
+    assert state.get_for_root_hash(head_hash1, b'k2') == b'v2'
+    assert not state.get_for_root_hash(head_hash1, b'k3')
+
+    assert state.get_for_root_hash(head_hash2, b'k1') == b'v111'
+    assert state.get_for_root_hash(head_hash2, b'k2') == b'v2'
+    assert state.get_for_root_hash(head_hash2, b'k3') == b'v3'

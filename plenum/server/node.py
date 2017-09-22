@@ -13,7 +13,7 @@ from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.hash_stores.hash_store import HashStore
 from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
-from plenum.bls.bls import create_default_bls_factory
+from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
@@ -591,10 +591,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     def _create_bls_store(self):
-        bls_factory = create_default_bls_factory(self.basedirpath,
-                                                 self.name,
-                                                 self.dataLocation,
-                                                 self.config)
+        bls_factory = create_default_bls_bft_factory(self)
         return bls_factory.create_bls_store()
 
     @classmethod
