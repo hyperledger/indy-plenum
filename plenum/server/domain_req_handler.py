@@ -1,9 +1,12 @@
+import base64
 from hashlib import sha256
+
+import base58
 
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
-    VERKEY, TXN_TIME
+    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
@@ -151,3 +154,15 @@ class DomainRequestHandler(RequestHandler):
     @staticmethod
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
+
+    def make_proof(self, path):
+        proof = self.state.generate_state_proof(path, serialize=True)
+        root_hash = self.state.committedHeadHash
+        encoded_proof = base64.b64encode(proof)
+        encoded_root_hash = base58.b58encode(bytes(root_hash))
+        multi_sig = self.bls_store.get(encoded_root_hash)
+        return {
+            ROOT_HASH: encoded_root_hash,
+            MULTI_SIGNATURE: multi_sig,  # [["participants"], ["signatures"]]
+            PROOF_NODES: encoded_proof
+        }
