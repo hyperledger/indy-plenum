@@ -420,7 +420,16 @@ class Client(Motor,
             return quorumed_reply
 
     def take_one_quorumed(self, replies, full_req_id):
-        results = [reply["result"] for reply in replies.values()]
+
+        # excluding state proofs from check since they can be different
+        def without_state_proof(result):
+            if STATE_PROOF in result:
+                result.pop('state_proof')
+            return result
+
+        results = [without_state_proof(reply["result"])
+                   for reply in replies.values()]
+
         first = results[0]
         if any(result == first for result in results):
             return first
