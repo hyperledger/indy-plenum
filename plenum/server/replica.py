@@ -962,7 +962,7 @@ class Replica(HasActionQueue, MessageProcessor):
         Check if there are any requests which are not finalised, i.e for
         which there are not enough PROPAGATEs
         """
-        return {key for key in reqKeys if not self.requests.isFinalised(key)}
+        return {key for key in reqKeys if not self.requests.is_finalised(key)}
 
     def __is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
         if view_no == self.viewNo and pp_seq_no == 1:
@@ -981,7 +981,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if pp_seq_no - last_pp_seq_no > 1:
             logger.warning('{} missing PRE-PREPAREs between {} and {}'.
                            format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no, last_pp_view_no)
+            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no,
+                                                       last_pp_view_no, view_no)
             self._setup_for_non_master()
             return False
 
@@ -1720,18 +1721,14 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requested_prepares,
             self.pre_prepares_stashed_for_incorrect_time,
         )
-        for k in tpcKeys:
+        for request_key in tpcKeys:
             for coll in to_clean_up:
-                coll.pop(k, None)
+                coll.pop(request_key, None)
 
-        for k in reqKeys:
-            if k in self.requests:
-                self.requests[k].forwardedTo -= 1
-                if self.requests[k].forwardedTo == 0:
-                    logger.debug(
-                        '{} clearing request {} from previous checkpoints'. format(
-                            self, k))
-                    self.requests.pop(k)
+        for request_key in reqKeys:
+            self.requests.free(request_key)
+            logger.debug('{} freed request {} from previous checkpoints'
+                         .format(self, request_key))
 
         self.compact_ordered()
 
@@ -1853,7 +1850,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.prePreparesPendingFinReqs):
             finalised = set()
             for r in reqIds:
-                if self.requests.isFinalised(r):
+                if self.requests.is_finalised(r):
                     finalised.add(r)
             diff = reqIds.difference(finalised)
             # All requests become finalised
@@ -1971,9 +1968,10 @@ class Replica(HasActionQueue, MessageProcessor):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_missing_three_phase_messages(self, frm: int, to: int, view_no: int) -> None:
-        for i in range(1, to - frm):
-                request_data = (view_no, frm + i)
+    def _request_missing_three_phase_messages(self, seq_frm: int, seq_to: int, view_frm: int, view_to: int) -> None:
+        for pp_seq_no in range(seq_frm + 1, seq_to + 1):
+            for view_no in range(view_frm, view_to + 1):
+                request_data = (view_no, pp_seq_no)
                 self._request_pre_prepare(request_data)
                 self._request_prepare(request_data)
 
