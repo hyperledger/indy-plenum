@@ -3,7 +3,7 @@ from common.serializers.mapping_serializer import MappingSerializer
 
 
 class Base58Serializer(MappingSerializer):
-    def serialize(self, data, fields=None, toBytes=True):
+    def serialize(self, data, fields=None, toBytes=False):
         return base58.b58encode(data)
 
     def deserialize(self, data, fields=None):

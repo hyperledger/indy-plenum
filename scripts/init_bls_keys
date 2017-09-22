@@ -4,19 +4,9 @@ import argparse
 
 from plenum.common.config_util import getConfig
 from plenum.common.keygen_utils import init_bls_keys
-from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
-    buildKeepDirIfNotExists
+from plenum.common.script_helper import buildKeepDirIfNotExists
 
 config = getConfig()
-
-
-def printGenesisTrans(type, name, verkey, stewardverkey, nodeip, nodeport):
-    if type == 'steward':
-        print('\n' + getOldAddNewGenStewardCommand(name, verkey))
-    elif type == 'node':
-        print('\n' + getOldAddNewGenNodeCommand(name, verkey,
-                                                stewardverkey, nodeip, nodeport,
-                                                None, None))
 
 
 def parse_args():

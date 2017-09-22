@@ -51,8 +51,7 @@ class PruningState(State):
     def _hash_to_node(self, node_hash):
         if node_hash == BLANK_ROOT:
             return BLANK_NODE
-        else:
-            return self._trie._decode_to_node(node_hash)
+        return self._trie._decode_to_node(node_hash)
 
     def set(self, key: bytes, value: bytes):
         self._trie.update(key, rlp_encode([value]))
