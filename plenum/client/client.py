@@ -3,6 +3,8 @@ A client in an RBFT system.
 Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
+import base58
+import base64
 import copy
 import os
 import time
@@ -10,15 +12,11 @@ from collections import deque, OrderedDict
 from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
-
 from indy_crypto.bls import Generator
 
 from common.serializers.serialization import ledger_txn_serializer
-from crypto.bls.bls_bft import BlsBft
-from crypto.bls.bls_crypto import BlsCrypto
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
-from plenum.bls.bls_bft_plenum import BlsBftPlenum
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
 from plenum.common.has_file_storage import HasFileStorage
@@ -52,8 +50,9 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
-    BlsCryptoIndyCrypto, IndyCryptoMultiSigVerifier, \
-    BlsGroupParamsLoaderIndyCrypto, IndyCryptoBlsUtils
+    IndyCryptoMultiSigVerifier, \
+    BlsGroupParamsLoaderIndyCrypto, \
+    IndyCryptoBlsUtils
 
 logger = getlogger()
 
@@ -458,29 +457,26 @@ class Client(Motor,
         """
         Returns one reply with valid state proof
         """
-        try:
-            for sender, reply in replies.items():
-                result = reply['result']
-                if STATE_PROOF not in result:
-                    logger.debug("There is no state proof in "
-                                 "reply for {} from {}"
-                                 .format(full_req_id, sender))
-                    continue
-                if not self.validate_multi_signature(result):
-                    logger.warning("{} got reply for {} with bad "
-                                   "multi signature from {}"
-                                   .format(self.name, full_req_id, sender))
-                    # TODO: do something with this node
-                    continue
-                if not self.validate_proof(result):
-                    logger.warning("{} got reply for {} with invalid "
-                                   "state proof from {}"
-                                   .format(self.name, full_req_id, sender))
-                    # TODO: do something with this node
-                    continue
-                return reply
-        except Exception as ex:
-            print(ex)
+        for sender, reply in replies.items():
+            result = reply['result']
+            if STATE_PROOF not in result:
+                logger.debug("There is no state proof in "
+                             "reply for {} from {}"
+                             .format(full_req_id, sender))
+                continue
+            if not self.validate_multi_signature(result):
+                logger.warning("{} got reply for {} with bad "
+                               "multi signature from {}"
+                               .format(self.name, full_req_id, sender))
+                # TODO: do something with this node
+                continue
+            if not self.validate_proof(result):
+                logger.warning("{} got reply for {} with invalid "
+                               "state proof from {}"
+                               .format(self.name, full_req_id, sender))
+                # TODO: do something with this node
+                continue
+            return reply
 
     def validate_multi_signature(self, result):
         """
@@ -509,13 +505,16 @@ class Client(Motor,
         Validates state proof
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
-        proof_nodes = result[STATE_PROOF]['proof_nodes']
+        state_root_hash = base58.b58decode(state_root_hash)
+        proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
+        proof_nodes = base64.b64decode(proof_nodes)
         key, value = self.prepare_for_state(result)
-        return PruningState.verify_state_proof(state_root_hash,
-                                               key,
-                                               value,
-                                               proof_nodes,
-                                               serialized=True)
+        valid = PruningState.verify_state_proof(state_root_hash,
+                                                key,
+                                                value,
+                                                proof_nodes,
+                                                serialized=True)
+        return valid
 
     def create_bls_bft(self):
         from crypto.bls.bls_key_manager import LoadBLSKeyError
