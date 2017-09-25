@@ -11,6 +11,8 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
+from indy_crypto.bls import Generator
+
 from common.serializers.serialization import ledger_txn_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
@@ -50,8 +52,8 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
-            BlsCryptoIndyCrypto
-
+    BlsCryptoIndyCrypto, IndyCryptoMultiSigVerifier, \
+    BlsGroupParamsLoaderIndyCrypto, IndyCryptoBlsUtils
 
 logger = getlogger()
 
@@ -189,9 +191,13 @@ class Client(Motor,
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
 
-        # TODO: make it configurable
-        self._bls_crypto = BlsCryptoIndyCrypto  # type: BlsCrypto
+        self._multi_sig_verifier = self._create_multi_sig_verifier()
         self._bls_node_public_keys = None  # node_name -> bls_key
+
+    def _create_multi_sig_verifier(self):
+        group_params = BlsGroupParamsLoaderIndyCrypto().load_group_params()
+        generator = IndyCryptoBlsUtils.bls_from_str(group_params.g, Generator)
+        return IndyCryptoMultiSigVerifier(generator)
 
     @property
     def bls_node_public_keys(self):
@@ -414,6 +420,7 @@ class Client(Motor,
         :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         """
+        # exit(-1)
         full_req_id = '{}{}'.format(identifier, reqId)
         replies = self.getRepliesFromAllNodes(identifier, reqId)
         if not replies:
@@ -451,27 +458,29 @@ class Client(Motor,
         """
         Returns one reply with valid state proof
         """
-
-        for sender, reply in replies.items():
-            result = reply['result']
-            if STATE_PROOF not in result:
-                logger.debug("There is no state proof in "
-                             "reply for {} from {}"
-                             .format(full_req_id, sender))
-                continue
-            if not self.validate_multi_signature(result):
-                logger.warning("{} got reply for {} with bad "
-                               "multi signature from {}"
-                               .format(self.name, full_req_id, sender))
-                # TODO: do something with this node
-                continue
-            if not self.validate_proof(result):
-                logger.warning("{} got reply for {} with invalid "
-                               "state proof from {}"
-                               .format(self.name, full_req_id, sender))
-                # TODO: do something with this node
-                continue
-            return reply
+        try:
+            for sender, reply in replies.items():
+                result = reply['result']
+                if STATE_PROOF not in result:
+                    logger.debug("There is no state proof in "
+                                 "reply for {} from {}"
+                                 .format(full_req_id, sender))
+                    continue
+                if not self.validate_multi_signature(result):
+                    logger.warning("{} got reply for {} with bad "
+                                   "multi signature from {}"
+                                   .format(self.name, full_req_id, sender))
+                    # TODO: do something with this node
+                    continue
+                if not self.validate_proof(result):
+                    logger.warning("{} got reply for {} with invalid "
+                                   "state proof from {}"
+                                   .format(self.name, full_req_id, sender))
+                    # TODO: do something with this node
+                    continue
+                return reply
+        except Exception as ex:
+            print(ex)
 
     def validate_multi_signature(self, result):
         """
@@ -491,9 +500,9 @@ class Client(Motor,
                                .format(node_name))
                 return False
             public_keys.append(key)
-        return self._bls_crypto.verify_multi_sig(signature,
-                                                 full_state_root,
-                                                 public_keys)
+        return self._multi_sig_verifier.verify(signature,
+                                               full_state_root,
+                                               public_keys)
 
     def validate_proof(self, result):
         """
@@ -529,7 +538,7 @@ class Client(Motor,
             return None
 
     def prepare_for_state(self, result) -> tuple:
-        # TODO: this should be overridden
+        # this should be overridden
         pass
 
     def showReplyDetails(self, identifier: str, reqId: int):
