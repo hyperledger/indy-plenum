@@ -192,8 +192,6 @@ class Client(Motor,
         # TODO: make it configurable
         self._bls_crypto = BlsCryptoIndyCrypto  # type: BlsCrypto
         self._bls_node_public_keys = None  # node_name -> bls_key
-        # TODO: temporary hack to init it
-        _ = self.bls_node_public_keys
 
     @property
     def bls_node_public_keys(self):
