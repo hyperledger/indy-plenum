@@ -442,7 +442,7 @@ class Client(Motor,
                    for reply in replies.values()]
 
         first = results[0]
-        if any(result == first for result in results):
+        if all(result == first for result in results):
             return first
         logger.error("Received a different result from "
                      "at least one node for {}"
