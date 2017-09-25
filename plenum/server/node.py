@@ -531,7 +531,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
             # and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.config.baseDir, self.config.domainTransactionsFile)
+                self.basedirpath, self.config.domainTransactionsFile)
             return Ledger(
                 CompactMerkleTree(
                     hashStore=self.getHashStore('domain')),
@@ -2724,6 +2724,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.nodeInfo['data'] = self.collectNodeInfo()
 
-        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
+        with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))

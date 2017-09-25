@@ -943,6 +943,7 @@ class Cli:
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
+                                      base_data_dir=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:
@@ -1874,7 +1875,7 @@ class Cli:
             os.path.join(self.getWalletsBaseDir(), NO_ENV))
 
     def getWalletsBaseDir(self):
-        return os.path.expanduser(os.path.join(self.config.baseDir,
+        return os.path.expanduser(os.path.join(self.basedirpath,
                                                self.config.walletsDir))
 
     def getContextBasedWalletsBaseDir(self):
@@ -2041,7 +2042,7 @@ class Cli:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        dataPath = os.path.join(self.config.baseDir, "data")
+        dataPath = os.path.join(self.basedirpath, "data")
         try:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:
