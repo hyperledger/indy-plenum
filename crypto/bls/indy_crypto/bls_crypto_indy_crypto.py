@@ -37,8 +37,7 @@ class IndyCryptoBlsUtils:
         # TODO: FIXME: indy-crupto supports 48-bit seeds only
         if seed_bytes:
             if len(seed_bytes) < BlsCryptoIndyCrypto.SEED_LEN:
-                seed_bytes += b'0' * (
-                BlsCryptoIndyCrypto.SEED_LEN - len(seed_bytes))
+                seed_bytes += b'0' * (BlsCryptoIndyCrypto.SEED_LEN - len(seed_bytes))
             assert (len(seed_bytes) == BlsCryptoIndyCrypto.SEED_LEN)
 
         return seed_bytes
