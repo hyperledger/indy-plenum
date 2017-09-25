@@ -55,28 +55,21 @@ logger = getlogger()
 class TestDomainRequestHandler(DomainRequestHandler):
 
     @staticmethod
-    def greeting_to_state(txn):
+    def prepare_buy_for_state(txn):
         from common.serializers.serialization import domain_state_serializer
-        hello = txn["Hello"]
-        idr = txn.get(f.IDENTIFIER.nm)
-        key = "{}:HELLO".format(idr)
-        value = domain_state_serializer.serialize(hello)
-        key = sha256(key.encode()).digest()
+        identifier = txn.get(f.IDENTIFIER.nm)
+        request_id = txn.get(f.REQ_ID.nm)
+        value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
+        key = sha256('{}:{}'.format(identifier, request_id).encode()).digest()
         return key, value
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
         if typ == 'buy':
-            idr = txn.get(f.IDENTIFIER.nm)
-            rId = txn.get(f.REQ_ID.nm)
-            key = '{}:{}'.format(idr, rId).encode()
-            val = self.stateSerializer.serialize({TXN_TYPE: typ})
-            self.state.set(key, val)
+            key, value = self.prepare_buy_for_state(txn)
+            self.state.set(key, value)
             logger.trace('{} after adding to state, headhash is {}'.
                          format(self, self.state.headHash))
-        elif typ == 'greeting':
-            key, value = self.greeting_to_state(txn)
-            self.state.set(key, value)
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
@@ -327,8 +320,8 @@ class TestNode(TestNodeCore, Node):
             preCatchupClbk=self.preLedgerCatchUp)
 
     def update_txn_with_extra_data(self, txn):
-        if txn[TXN_TYPE] == "greeting":
-            key, value = self.reqHandler.greeting_to_state(txn)
+        if txn[TXN_TYPE] == "buy":
+            key, value = self.reqHandler.prepare_buy_for_state(txn)
             proof = self.reqHandler.make_proof(key)
             txn[STATE_PROOF] = proof
         return txn

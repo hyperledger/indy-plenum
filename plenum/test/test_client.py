@@ -38,10 +38,10 @@ class TestClient(Client, StackedTester):
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
     def prepare_for_state(self, result):
-        from plenum.test.test_node import TestDomainRequestHandler
-        key, value = TestDomainRequestHandler.greeting_to_state(result)
-        return key, value
-
+        if result[TXN_TYPE] == "buy":
+            from plenum.test.test_node import TestDomainRequestHandler
+            key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+            return key, value
 
 def genTestClient(nodes=None,
                   nodeReg=None,
