@@ -51,6 +51,8 @@ domainTransactionsFile = domain_transactions_file_base
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 
+stateSignatureDbName = 'state_signature'
+
 # There is only one seqNoDB as it maintain the mapping of
 # request id to sequence numbers
 seqNoDbName = 'seq_no_db'
@@ -66,6 +68,8 @@ primaryStorage = None
 domainStateStorage = KeyValueStorageType.Leveldb
 poolStateStorage = KeyValueStorageType.Leveldb
 reqIdToTxnStorage = KeyValueStorageType.Leveldb
+
+stateSignatureStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -230,3 +234,6 @@ ORIGIN_FIELD_LIMIT = 128
 ENC_FIELD_LIMIT = 16
 RAW_FIELD_LIMIT = 5 * 1024
 SIGNATURE_TYPE_FIELD_LIMIT = 16
+BLS_KEY_LIMIT = 512
+BLS_SIG_LIMIT = 512
+BLS_MULTI_SIG_LIMIT = 512

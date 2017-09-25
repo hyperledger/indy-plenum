@@ -10,8 +10,8 @@ from stp_core.crypto.nacl_wrappers import Signer
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
-from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
+from plenum.common.constants import STEWARD, TRUSTEE
 from plenum.common.util import hexToFriendly
 from plenum.common.signer_did import DidSigner
 from stp_core.common.util import adict
@@ -99,10 +99,7 @@ class TestNetworkSetup:
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey = initLocalKeys(nd.name, baseDir,
-                                          nd.sigseed, True, config=config)
-                _, verkey = initLocalKeys(
-                    nd.name + CLIENT_STACK_SUFFIX, baseDir, nd.sigseed, True, config=config)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, baseDir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
@@ -118,10 +115,11 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
+                blskey = init_bls_keys(baseDir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
-                                        nd.ip, nd.port, nd.client_port)
+                                        nd.ip, nd.port, nd.client_port, blskey=blskey)
             poolLedger.add(node_txn)
 
         for cd in client_defs:

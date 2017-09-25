@@ -413,6 +413,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         else:
             return self._ordered_node_ids[nym]
 
+    def get_nym_by_name(self, node_name) -> Optional[str]:
+        for nym, name in self._ordered_node_ids.items():
+            if name == node_name:
+                return nym
+        return None
+
 
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and

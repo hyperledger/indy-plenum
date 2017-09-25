@@ -1,6 +1,10 @@
 from collections import deque
 from typing import Generator
 
+from crypto.bls.bls_bft import BlsBft
+from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
+from plenum.common.constants import BLS_PREFIX
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -11,7 +15,6 @@ MASTER_REPLICA_INDEX = 0
 
 
 class Replicas:
-
     def __init__(self, node, monitor: Monitor):
         # passing full node because Replica requires it
         self._node = node
@@ -23,7 +26,8 @@ class Replicas:
         instance_id = self.num_replicas
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
-        replica = self._new_replica(instance_id, is_master)
+        bls_bft = self._create_bls_bft(is_master)
+        replica = self._new_replica(instance_id, is_master, bls_bft)
         self._replicas.append(replica)
         self._messages_to_replicas.append(deque())
         self._monitor.addInstance()
@@ -61,7 +65,7 @@ class Replicas:
     def _master_replica(self):
         return self._replicas[MASTER_REPLICA_INDEX]
 
-    def service_inboxes(self, limit: int=None):
+    def service_inboxes(self, limit: int = None):
         number_of_processed_messages = \
             sum(replica.serviceQueues(limit) for replica in self._replicas)
         return number_of_processed_messages
@@ -73,7 +77,7 @@ class Replicas:
         for replica in replicas:
             replica.inBox.append(message)
 
-    def get_output(self, limit: int=None) -> Generator:
+    def get_output(self, limit: int = None) -> Generator:
         if limit is None:
             per_replica = None
         else:
@@ -99,11 +103,25 @@ class Replicas:
         for replica in self._replicas:
             yield replica.instId, replica._remove_ordered_from_queue()
 
-    def _new_replica(self, instance_id: int, is_master: bool) -> Replica:
+    def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft) -> Replica:
         """
         Create a new replica with the specified parameters.
         """
-        return Replica(self._node, instance_id, is_master)
+        return Replica(self._node, instance_id, is_master, bls_bft)
+
+    def _create_bls_bft(self, is_master):
+        try:
+            bls_factory = create_default_bls_bft_factory(self._node)
+            bls_bft = bls_factory.create_bls_bft(is_master)
+            logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self._node.name))
+            return bls_bft
+        except LoadBLSKeyError as ex:
+            # TODO: for now we allow that BLS is optional, so that we don't require it
+            logger.warning(
+                '{}BLS Signatures will not be used for the node, since BLS keys were not found. '
+                'Please make sure that a script to init keys was called,'
+                ' and NODE txn was sent with BLS public keys. Error: '.format(BLS_PREFIX, ex))
+            return None
 
     @property
     def num_replicas(self):

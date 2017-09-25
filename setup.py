@@ -71,7 +71,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'python3-indy-crypto==0.1.2'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
@@ -84,7 +84,8 @@ setup(
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
-             'scripts/log_stats']
+             'scripts/log_stats',
+             'scripts/init_bls_keys']
 )
 
 if not os.path.exists(CONFIG_FILE):
