@@ -17,6 +17,8 @@ from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
+from plenum.bls.bls_key_register_pool_ledger import \
+    BlsKeyRegisterPoolLedger
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
 from plenum.common.has_file_storage import HasFileStorage
@@ -54,6 +56,7 @@ from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
     IndyCryptoMultiSigVerifier, \
     BlsGroupParamsLoaderIndyCrypto, \
     IndyCryptoBlsUtils
+from plenum.common.tools import lazy_field
 
 logger = getlogger()
 
@@ -192,25 +195,15 @@ class Client(Motor,
         logger.debug("total plugins loaded in client: {}".format(tp))
 
         self._multi_sig_verifier = self._create_multi_sig_verifier()
-        self._bls_node_public_keys = None  # node_name -> bls_key
+
+    @lazy_field
+    def _bls_register(self):
+        return BlsKeyRegisterPoolLedger(self._ledger)
 
     def _create_multi_sig_verifier(self):
         group_params = BlsGroupParamsLoaderIndyCrypto().load_group_params()
         generator = IndyCryptoBlsUtils.bls_from_str(group_params.g, Generator)
         return IndyCryptoMultiSigVerifier(generator)
-
-    @property
-    def bls_node_public_keys(self):
-        if self._bls_node_public_keys is not None:
-            return self._bls_node_public_keys
-        self._bls_node_public_keys = {}
-        for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE:
-                data = txn[DATA]
-                alias = data[ALIAS]
-                blskey = data.get(BLS_KEY)
-                self._bls_node_public_keys[alias] = blskey
-        return self._bls_node_public_keys
 
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
@@ -515,7 +508,7 @@ class Client(Motor,
             return False
 
         for node_name in participants:
-            key = self.bls_node_public_keys.get(node_name)
+            key = self._bls_register.get_key_by_name(node_name)
             if key is None:
                 logger.warning("There is no bls key for node {}"
                                .format(node_name))
