@@ -516,26 +516,6 @@ class Client(Motor,
                                                 serialized=True)
         return valid
 
-    def create_bls_bft(self):
-        from crypto.bls.bls_key_manager import LoadBLSKeyError
-        from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
-        try:
-            # self.dataLocation,
-            # self.config
-            bls_factory = BlsFactoryIndyCrypto(self.basedirpath,
-                                               self.name)
-            from plenum.bls.bls_store import BlsStore
-            bls_store = BlsStore(None, self.basedirpath, None, None)
-            bls_bft = bls_factory.create_bls_bft(False,
-                                                 None,
-                                                 bls_store)
-            pool_ledger = None
-            bls_bft.bls_key_register.load_latest_keys(pool_ledger)
-            return bls_bft
-        except LoadBLSKeyError as ex:
-            logger.warning("Client {} failed to load bls keys!".format(self.name))
-            return None
-
     def prepare_for_state(self, result) -> tuple:
         # this should be overridden
         pass
