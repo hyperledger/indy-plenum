@@ -106,7 +106,6 @@ class Cli:
     name = 'plenum'
     properName = 'Plenum'
     fullName = 'Plenum protocol'
-    githubUrl = 'https://github.com/evernym/plenum'
 
     NodeClass = Node
     ClientClass = Client
@@ -901,11 +900,11 @@ class Cli:
         if not self.withNode:
             self.print("This command is only available if you start "
                        "this cli with command line argument --with-node "
-                       "(and it assumes you have installed sovrin-node "
+                       "(and it assumes you have installed indy-node "
                        "dependency)")
             return False
         if not self.NodeClass:
-            self.print("This command requires sovrin-node dependency, "
+            self.print("This command requires indy-node dependency, "
                        "please install it and then resume.")
             return False
 
@@ -944,6 +943,7 @@ class Cli:
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
+                                      base_data_dir=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:
@@ -1875,7 +1875,7 @@ class Cli:
             os.path.join(self.getWalletsBaseDir(), NO_ENV))
 
     def getWalletsBaseDir(self):
-        return os.path.expanduser(os.path.join(self.config.baseDir,
+        return os.path.expanduser(os.path.join(self.basedirpath,
                                                self.config.walletsDir))
 
     def getContextBasedWalletsBaseDir(self):
@@ -2042,7 +2042,7 @@ class Cli:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        dataPath = os.path.join(self.config.baseDir, "data")
+        dataPath = os.path.join(self.basedirpath, "data")
         try:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:

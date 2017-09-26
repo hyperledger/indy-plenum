@@ -31,12 +31,10 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
-BASE_DATA_DIR = '/var/plenum'
-LOG_DIR = '/var/log/plenum'
-GENERAL_CONFIG_DIR = '/etc/plenum'
-CONFIG_FILE = os.path.join(GENERAL_CONFIG_DIR, "plenum_config.py")
+LOG_DIR = os.path.join(BASE_DIR, "log")
+CONFIG_FILE = os.path.join(BASE_DIR, "plenum_config.py")
 
-for path in [BASE_DIR, BASE_DATA_DIR, LOG_DIR, GENERAL_CONFIG_DIR]:
+for path in [BASE_DIR, LOG_DIR]:
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -73,7 +71,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'python3-indy-crypto==0.1.2'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
@@ -86,8 +84,18 @@ setup(
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
-             'scripts/log_stats']
+             'scripts/log_stats',
+             'scripts/init_bls_keys']
 )
+
+if not os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'w') as f:
+        msg = "# Here you can create config entries according to your " \
+              "needs.\n " \
+              "# For help, refer config.py in the plenum module.\n " \
+              "# Any entry you add here would override that from config " \
+              "example\n"
+        f.write(msg)
 
 
 # TODO: This code should not be copied here.
@@ -119,6 +127,4 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
-changeOwnerAndGrpToLoggedInUser(BASE_DATA_DIR)
 changeOwnerAndGrpToLoggedInUser(LOG_DIR)
-changeOwnerAndGrpToLoggedInUser(GENERAL_CONFIG_DIR)

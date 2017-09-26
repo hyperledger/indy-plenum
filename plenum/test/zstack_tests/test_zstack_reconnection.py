@@ -50,6 +50,7 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     node = TestNode(
         nodeToCrash.name,
         basedirpath=tdirWithPoolTxns,
+        base_data_dir=tdirWithPoolTxns,
         config=tconf,
         ha=nodeToCrash.nodestack.ha,
         cliha=nodeToCrash.clientstack.ha)

@@ -6,7 +6,7 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR
+    VALIDATOR, BLS_KEY
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString, hexToFriendly
@@ -47,12 +47,12 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     return wallet
 
 
-def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
+def sendAddNewNode(tdir, newNodeName, stewardClient, stewardWallet,
                    transformOpFunc=None):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-
+    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
     op = {
         TXN_TYPE: NODE,
         TARGET_NYM: nodeSigner.identifier,
@@ -62,7 +62,8 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
             CLIENT_IP: clientIp,
             CLIENT_PORT: clientPort,
             ALIAS: newNodeName,
-            SERVICES: [VALIDATOR, ]
+            SERVICES: [VALIDATOR, ],
+            BLS_KEY: bls_key
         }
     }
     if transformOpFunc is not None:
@@ -81,7 +82,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                transformOpFunc=None):
     nodeClass = nodeClass or TestNode
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
-        = sendAddNewNode(newNodeName, stewardClient, stewardWallet,
+        = sendAddNewNode(tdir, newNodeName, stewardClient, stewardWallet,
                          transformOpFunc)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
@@ -109,8 +110,7 @@ def start_newly_added_node(
         auto_start,
         plugin_path,
         nodeClass):
-    initNodeKeysForBothStacks(node_name, tdir, sigseed, override=True)
-    node = nodeClass(node_name, basedirpath=tdir, config=conf,
+    node = nodeClass(node_name, basedirpath=tdir, base_data_dir=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
     if auto_start:
@@ -192,7 +192,7 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
     client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))

@@ -35,7 +35,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
                                         stewardWallet, tdirWithPoolTxns, tconf,
                                         allPluginsPath):
     newNodeName = "Epsilon"
-    sendAddNewNode(newNodeName, steward1, stewardWallet)
+    sendAddNewNode(tdirWithPoolTxns, newNodeName, steward1, stewardWallet)
 
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, steward1,
@@ -47,7 +47,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tdirWithPoolTxns,
                                 tconf, allPluginsPath):
     newNodeName = "Epsilon"
-    sendAddNewNode(newNodeName, client1, wallet1)
+    sendAddNewNode(tdirWithPoolTxns, newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
         waitRejectWithReason(
             looper, client1, 'is not a steward so cannot add a '
@@ -129,7 +129,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
         op[DATA].update({NODE_PORT + ' ': op[DATA][NODE_PORT]})
         del op[DATA][NODE_PORT]
 
-    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+    sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_renameNodePortField)
     waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
                                   "unknown field")
@@ -137,7 +137,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         def _tnf(op): del op[DATA][fn]
 
-        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+        sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
@@ -192,7 +192,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
         op[TARGET_NYM] = hexVerKey
         return op
 
-    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+    sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_setHexVerkey)
     waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
                                   'should not contain the following chars')
@@ -226,7 +226,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
         # create a transform function for each test
         def _tnf(op): op[DATA].update({field: value})
 
-        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+        sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases

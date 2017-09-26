@@ -56,7 +56,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.removeProdable(subjectedNode)
 
     # start node with new HA
-    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)

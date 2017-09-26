@@ -21,10 +21,10 @@ Plenum.
 ### Installing Plenum
 
 ```
-pip install plenum
+pip install indy-plenum
 ```
 
-From here, you can play with the command-line interface (see the [tutorial](https://github.com/evernym/plenum/wiki))...
+From here, you can play with the command-line interface (see the [tutorial](https://github.com/hyperledger/indy-plenum/wiki))...
 
 Note: For Windows, we recommended using either [cmder](http://cmder.net/) or [conemu](https://conemu.github.io/).
 
@@ -35,12 +35,12 @@ plenum
 ...or run the tests.
 
 ```
-git clone https://github.com/evernym/plenum.git
-cd plenum
+git clone https://github.com/hyperledger/indy-plenum.git
+cd indy-plenum
 python -m plenum.test
 ```
 
-**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
+**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).**
 
 ### Installing python 3.5 and libsodium:
 
