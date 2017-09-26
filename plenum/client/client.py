@@ -509,7 +509,7 @@ class Client(Motor,
         full_state_root = state_root_hash + pool_state_root_hash
         public_keys = []
 
-        if not self.quorums.reply.is_reached(len(participants)):
+        if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.warning("There is not enough participants of "
                            "multi-signature")
             return False
