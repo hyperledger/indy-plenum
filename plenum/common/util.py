@@ -72,7 +72,7 @@ def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]) -> T:
+def mostCommonElement(elements: Iterable[T]):
     """
     Find the most frequent element of a collection.
 
