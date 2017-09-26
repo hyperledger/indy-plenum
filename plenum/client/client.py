@@ -488,6 +488,11 @@ class Client(Motor,
         signature = multi_signature['signature']
         full_state_root = state_root_hash + pool_state_root_hash
         public_keys = []
+        if len(participants) < self.f:
+            logger.warning("There is not enough participants of "
+                           "multi-signature")
+            return False
+
         for node_name in participants:
             key = self.bls_node_public_keys.get(node_name)
             if key is None:
