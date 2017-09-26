@@ -463,7 +463,7 @@ class Client(Motor,
         first = results[0]
         if all(result == first for result in results):
             return first
-        logger.error("Received a different result from "
+        logger.warning("Received a different result from "
                      "at least one node for {}"
                      .format(full_req_id))
 
