@@ -1,9 +1,7 @@
-import base64
 from hashlib import sha256
 
-import base58
-
-from common.serializers.serialization import domain_state_serializer
+from common.serializers.serialization import domain_state_serializer, \
+    proof_nodes_serializer, state_roots_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
     VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
@@ -158,8 +156,8 @@ class DomainRequestHandler(RequestHandler):
     def make_proof(self, path):
         proof = self.state.generate_state_proof(path, serialize=True)
         root_hash = self.state.committedHeadHash
-        encoded_proof = base64.b64encode(proof)
-        encoded_root_hash = base58.b58encode(bytes(root_hash))
+        encoded_proof = proof_nodes_serializer.serialize(proof)
+        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
         multi_sig = self.bls_store.get(encoded_root_hash)
         return {
             ROOT_HASH: encoded_root_hash,
