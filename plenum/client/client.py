@@ -523,7 +523,7 @@ class Client(Motor,
         Validates state proof
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
-        state_roots_serializer.deserialize(state_root_hash)
+        state_root_hash = state_roots_serializer.deserialize(state_root_hash)
         proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
         proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
         key, value = self.prepare_for_state(result)
