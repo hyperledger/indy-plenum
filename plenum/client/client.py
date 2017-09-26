@@ -3,8 +3,7 @@ A client in an RBFT system.
 Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
-import base58
-import base64
+
 import copy
 import os
 import time
@@ -14,7 +13,8 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 from indy_crypto.bls import Generator
 
-from common.serializers.serialization import ledger_txn_serializer
+from common.serializers.serialization import ledger_txn_serializer, \
+    state_roots_serializer, proof_nodes_serializer
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
@@ -505,9 +505,9 @@ class Client(Motor,
         Validates state proof
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
-        state_root_hash = base58.b58decode(state_root_hash)
+        state_roots_serializer.deserialize(state_root_hash)
         proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
-        proof_nodes = base64.b64decode(proof_nodes)
+        proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
         key, value = self.prepare_for_state(result)
         valid = PruningState.verify_state_proof(state_root_hash,
                                                 key,
