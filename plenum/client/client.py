@@ -36,7 +36,7 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     ALIAS
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
-    rawToFriendly, mostCommonElementWithFreq
+    rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
@@ -467,7 +467,7 @@ class Client(Motor,
                      "at least one node for {}"
                      .format(full_req_id))
 
-        result, freq = mostCommonElementWithFreq(results)
+        result, freq = mostCommonElement(results)
         if not self.quorums.reply.is_reached(freq):
             return None
         return result

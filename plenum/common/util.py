@@ -72,26 +72,15 @@ def randomSeed(size=32):
     return randomString(size)
 
 
-# TODO: this can be replaced by mostCommonElementWithFreq
 def mostCommonElement(elements: Iterable[T]) -> T:
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
-    :return: element of type T which is most frequent in the collection
+    :return: element which is the most frequent in the collection and
+        the number of its occurrences
     """
-    return mostCommonElementWithFreq(elements)[0]
-
-
-def mostCommonElementWithFreq(elements: Iterable[T]) -> T:
-    """
-    Find the most frequent element of a collection.
-
-    :param elements: An iterable of elements
-    :return: element of type T which is most frequent in the collection and
-        number of occurrences
-    """
-    return Counter(elements).most_common(1)[0]
+    return Counter(elements).most_common(n=1)[0]
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
