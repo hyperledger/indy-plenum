@@ -89,8 +89,11 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
-), logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any,
+                     toFrom: Dict[Any, Any],
+                     checked: Set[Any]=set(),
+                     logMsg: str = None,
+                     deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
