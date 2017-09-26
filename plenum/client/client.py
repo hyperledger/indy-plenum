@@ -35,7 +35,8 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, TXN_TYPE, NODE, DATA, BLS_KEY, \
     ALIAS
 from plenum.common.types import f
-from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
+    rawToFriendly, mostCommonElementWithFreq
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
@@ -434,7 +435,19 @@ class Client(Motor,
             return quorumed_reply
 
     def take_one_quorumed(self, replies, full_req_id):
+        """
+        Checks whether there is sufficint number of equal replies from
+        different nodes. It uses following logic:
 
+        1. Check that there are sufficient replies received at all.
+           If not - return None.
+        2. Check that all these replies are equal.
+           If yes - return one of them.
+        3. Check that there is a group of equal replies which is large enough.
+           If yes - return one reply from this group.
+        4. Return None
+
+        """
         if not self.quorums.reply.is_reached(len(replies)):
             return None
 
@@ -453,7 +466,11 @@ class Client(Motor,
         logger.error("Received a different result from "
                      "at least one node for {}"
                      .format(full_req_id))
-        return checkIfMoreThanFSameItems(results, self.f)
+
+        result, freq = mostCommonElementWithFreq(results)
+        if not self.quorums.reply.is_reached(freq):
+            return None
+        return result
 
     def take_one_proved(self, replies, full_req_id):
         """
