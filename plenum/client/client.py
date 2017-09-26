@@ -435,6 +435,9 @@ class Client(Motor,
 
     def take_one_quorumed(self, replies, full_req_id):
 
+        if not self.quorums.reply.is_reached(len(replies)):
+            return None
+
         # excluding state proofs from check since they can be different
         def without_state_proof(result):
             if STATE_PROOF in result:
@@ -488,7 +491,8 @@ class Client(Motor,
         signature = multi_signature['signature']
         full_state_root = state_root_hash + pool_state_root_hash
         public_keys = []
-        if len(participants) < self.f:
+
+        if not self.quorums.reply.is_reached(len(participants)):
             logger.warning("There is not enough participants of "
                            "multi-signature")
             return False
