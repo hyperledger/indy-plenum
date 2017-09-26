@@ -2,7 +2,7 @@ from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.constants import BLS_KEY, TXN_TYPE, NODE, ALIAS, DATA
 
 
-class BlsKeyRegisterPoolManagerLedger(BlsKeyRegister):
+class BlsKeyRegisterPoolLedger(BlsKeyRegister):
     """
     Ledger-based implementation of  BlsKeyRegister
     """
