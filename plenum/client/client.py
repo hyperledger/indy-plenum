@@ -464,8 +464,8 @@ class Client(Motor,
         if all(result == first for result in results):
             return first
         logger.warning("Received a different result from "
-                     "at least one node for {}"
-                     .format(full_req_id))
+                       "at least one node for {}"
+                       .format(full_req_id))
 
         result, freq = mostCommonElement(results)
         if not self.quorums.reply.is_reached(freq):
