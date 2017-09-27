@@ -18,6 +18,7 @@ from common.serializers.serialization import ledger_txn_serializer, \
 from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
+from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
 from plenum.client.pool_manager import HasPoolManager
@@ -202,8 +203,8 @@ class Client(Motor,
         return BlsKeyRegisterPoolLedger(self._ledger)
 
     def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
-        group_params = BlsGroupParamsLoaderIndyCrypto().load_group_params()
-        return IndyCryptoMultiSigVerifier(group_params)
+        verifier = BlsFactoryIndyCrypto().create_multi_signature_verifier()
+        return verifier
 
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
