@@ -33,7 +33,7 @@ LOG_DIR = os.path.join(baseDir, "log")
 GENERAL_CONFIG_DIR = '/etc/plenum/'
 # walletDir = 'wallet'
 
-# it should be filled from baseConfig 
+# it should be filled from baseConfig
 NETWORK_NAME = ''
 
 GENERAL_CONFIG_FILE = 'plenum_config.py'
