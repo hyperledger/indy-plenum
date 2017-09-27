@@ -202,8 +202,7 @@ class Client(Motor,
 
     def _create_multi_sig_verifier(self):
         group_params = BlsGroupParamsLoaderIndyCrypto().load_group_params()
-        generator = IndyCryptoBlsUtils.bls_from_str(group_params.g, Generator)
-        return IndyCryptoMultiSigVerifier(generator)
+        return IndyCryptoMultiSigVerifier(group_params)
 
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
