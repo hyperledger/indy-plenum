@@ -15,6 +15,7 @@ from indy_crypto.bls import Generator
 
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
+from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
 from plenum.bls.bls_key_register_pool_ledger import \
@@ -200,7 +201,7 @@ class Client(Motor,
     def _bls_register(self):
         return BlsKeyRegisterPoolLedger(self._ledger)
 
-    def _create_multi_sig_verifier(self):
+    def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
         group_params = BlsGroupParamsLoaderIndyCrypto().load_group_params()
         return IndyCryptoMultiSigVerifier(group_params)
 

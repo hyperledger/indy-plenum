@@ -4,6 +4,8 @@ import base58
 from crypto.bls.bls_crypto import BlsCrypto, GroupParams, BlsGroupParamsLoader
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
 
+from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
+
 
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
     def load_group_params(self) -> GroupParams:
@@ -43,7 +45,7 @@ class IndyCryptoBlsUtils:
         return seed_bytes
 
 
-class IndyCryptoMultiSigVerifier:
+class IndyCryptoMultiSigVerifier(MultiSignatureVerifier):
 
     def __init__(self, params: GroupParams):
         self._generator = \
@@ -72,7 +74,7 @@ class BlsCryptoIndyCrypto(BlsCrypto):
         self._generator = \
             IndyCryptoBlsUtils\
             .bls_from_str(params.g, Generator)  # type: Generator
-        self._multi_sig_verifier = IndyCryptoMultiSigVerifier(self._generator)
+        self._multi_sig_verifier = IndyCryptoMultiSigVerifier(params)
 
     @staticmethod
     def generate_keys(params: GroupParams, seed=None) -> (str, str):
