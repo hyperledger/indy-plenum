@@ -18,6 +18,7 @@ from common.serializers.serialization import ledger_txn_serializer, \
 from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
+from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
@@ -496,18 +497,17 @@ class Client(Motor,
         Validates multi signature
         """
         multi_signature = result[STATE_PROOF]['multi_signature']
-        state_root_hash = result[STATE_PROOF]['root_hash']
-        pool_state_root_hash = multi_signature['pool_state_root']
         participants = multi_signature['participants']
         signature = multi_signature['signature']
-        full_state_root = state_root_hash + pool_state_root_hash
-        public_keys = []
-
+        full_state_root = create_full_root_hash(
+            root_hash=result[STATE_PROOF]['root_hash'],
+            pool_root_hash=multi_signature['pool_state_root']
+        )
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.warning("There is not enough participants of "
                            "multi-signature")
             return False
-
+        public_keys = []
         for node_name in participants:
             key = self._bls_register.get_key_by_name(node_name)
             if key is None:
