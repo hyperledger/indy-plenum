@@ -515,6 +515,11 @@ class LedgerManager(HasActionQueue):
         if catchUpReplies:
             seqNo = catchUpReplies[0][0]
             if seqNo - ledger.seqNo == 1:
+                for reply_id, reply in catchUpReplies:
+                    try:
+                        reply.pop('state_proof')
+                    except Exception as ex:
+                        print(ex)
                 result, nodeName, toBeProcessed = self.hasValidCatchupReplies(
                     ledgerId, ledger, seqNo, catchUpReplies)
                 if result:
@@ -594,8 +599,13 @@ class LedgerManager(HasActionQueue):
                                 tempTree.root_hash, Ledger.strToHash(finalMTH),
                                 [Ledger.strToHash(p) for p in proof]))
             verified = verifier.verify_tree_consistency(
-                tempTree.tree_size, finalSize, tempTree.root_hash, Ledger.strToHash(finalMTH), [
-                    Ledger.strToHash(p) for p in proof])
+                tempTree.tree_size,
+                finalSize,
+                tempTree.root_hash,
+                Ledger.strToHash(finalMTH),
+                [Ledger.strToHash(p) for p in proof]
+            )
+
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
                         format(self, catchupReply, ex))
