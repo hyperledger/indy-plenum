@@ -101,6 +101,7 @@ def test_generate_keys_str_seed_32bit_for_nodes(default_params):
 
     assert len(pks) == nodes_count
 
+
 def test_generate_different_keys(default_params):
     seed2 = 'Seed' + '0' * (48 - len('Seed'))
     seed3 = 'seeeed' + '0' * (48 - len('seeeed'))
