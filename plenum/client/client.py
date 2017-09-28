@@ -415,7 +415,7 @@ class Client(Motor,
         :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         """
-        full_req_id = '{}{}'.format(identifier, reqId)
+        full_req_id = '({}:{})'.format(identifier, reqId)
         replies = self.getRepliesFromAllNodes(identifier, reqId)
         if not replies:
             raise KeyError(full_req_id)
