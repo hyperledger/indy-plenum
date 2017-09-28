@@ -149,14 +149,10 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         wallet: Wallet,
                                         client: TestClient,
                                         numReqs: int,
-                                        fVal: int=None,
                                         customTimeoutPerReq: float=None,
                                         add_delay_to_timeout: float=0,
                                         override_timeout_limit=False,
                                         total_timeout=None):
-    if fVal is not None:
-        print("f should not be used!!!!")
-        exit()
     requests = sendRandomRequests(wallet, client, numReqs)
     waitForSufficientRepliesForRequests(
         looper,
