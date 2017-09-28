@@ -224,7 +224,7 @@ options.skip([
     StagesEnum.PYPI_RELEASE,
     StagesEnum.GITHUB_RELEASE
 ])
-options.setReleaseVersion("0.0.2")
+options.setReleaseVersion("0.0.3")
 testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
 ledger: ledgerTestUbuntu,
 stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
