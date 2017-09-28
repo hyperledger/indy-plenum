@@ -85,6 +85,22 @@ def test_generate_keys_bytes_seed_32bit(default_params):
     assert sk != pk
 
 
+def test_generate_keys_str_seed_32bit_for_nodes(default_params):
+    seeds = []
+    nodes_count = 4
+    for i in range(1, nodes_count + 1):
+        name = "Node" + str(i)
+        seed = ('0' * (32 - len(name)) + name)
+        seeds.append(seed)
+
+    pks = set()
+    for i in range(nodes_count):
+        sk, pk = BlsCryptoIndyCrypto.generate_keys(default_params, seeds[i])
+        pks.add(pk)
+        print(pk)
+
+    assert len(pks) == nodes_count
+
 def test_generate_different_keys(default_params):
     seed2 = 'Seed' + '0' * (48 - len('Seed'))
     seed3 = 'seeeed' + '0' * (48 - len('seeeed'))
