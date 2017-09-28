@@ -27,6 +27,7 @@ from pygments.token import Token
 from functools import partial
 from plenum.test import waits
 from plenum.common import util
+from plenum.common.request import Request
 
 logger = getlogger()
 
@@ -273,8 +274,11 @@ def checkRequest(cli, operation):
     # Ensure client gets back the replies
     lastReqId = wallet._getIdData().lastReqId
 
+    request = Request(identifier=wallet.defaultId,
+                      reqId=lastReqId)
+
     waitForSufficientRepliesForRequests(cli.looper, client,
-                                        requestIds=[lastReqId])
+                                        requests=[request])
 
     txn, status = client.getReply(wallet.defaultId, lastReqId)
 
