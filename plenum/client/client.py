@@ -497,6 +497,10 @@ class Client(Motor,
         Validates multi signature
         """
         multi_signature = result[STATE_PROOF]['multi_signature']
+        if not multi_signature:
+            logger.warning("There is a state proof, but no multi signature")
+            return False
+
         participants = multi_signature['participants']
         signature = multi_signature['signature']
         full_state_root = create_full_root_hash(
