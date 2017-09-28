@@ -515,11 +515,6 @@ class LedgerManager(HasActionQueue):
         if catchUpReplies:
             seqNo = catchUpReplies[0][0]
             if seqNo - ledger.seqNo == 1:
-                for reply_id, reply in catchUpReplies:
-                    try:
-                        reply.pop('state_proof')
-                    except Exception as ex:
-                        print(ex)
                 result, nodeName, toBeProcessed = self.hasValidCatchupReplies(
                     ledgerId, ledger, seqNo, catchUpReplies)
                 if result:
