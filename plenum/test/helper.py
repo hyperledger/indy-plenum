@@ -51,6 +51,28 @@ def ordinal(n):
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
+def check_sufficient_replies_received(client: Client,
+                                      identifier,
+                                      request_id):
+    reply, _ = client.getReply(identifier, request_id)
+    full_request_id = "({}:{})".format(identifier, request_id)
+    if reply is not None:
+        logger.debug("got confirmed reply for {}: {}"
+                     .format(full_request_id, reply))
+        return reply
+    all_replies = getRepliesFromClientInbox(client.inBox, request_id)
+    logger.debug("there are {} replies for request {}, "
+                 "but expected at-least {}, "
+                 "or one with valid proof: "
+                 .format(len(all_replies),
+                         full_request_id,
+                         client.quorums.reply.value,
+                         all_replies))
+    raise AssertionError("There is no proved reply and no "
+                         "quorum achieved for request {}"
+                         .format(full_request_id))
+
+
 def checkSufficientRepliesReceived(receivedMsgs: Iterable,
                                    reqId: int,
                                    fValue: int):
