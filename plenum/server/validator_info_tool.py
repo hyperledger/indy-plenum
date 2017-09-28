@@ -7,6 +7,7 @@ import base58
 
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 
 logger = getlogger()
 
@@ -17,8 +18,9 @@ def none_on_fail(func):
         try:
             return func(*args, **kwargs)
         except Exception as ex:
-            logger.debug('Validator info tool fails to '
-                         'execute {} because {}'.format(func.__name__, repr(ex)))
+            logger.debug(
+                "Validator info tool fails to "
+                "execute {} because {}".format(func.__name__, repr(ex)))
             return None
     return wrap
 
@@ -66,6 +68,10 @@ class ValidatorNodeInfoTool:
                     'pool': self.__pool_ledger_size,
                 },
                 'uptime': self.__uptime,
+            },
+            'ledgers': {
+                'ledger': self.__domain_ledger_state,
+                'pool': self.__pool_ledger_state
             },
             'pool': {
                 'reachable': {
@@ -118,12 +124,14 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __avg_read(self):
-        return self._node.total_read_request_number / (time.time() - self._node.created)
+        return (self._node.total_read_request_number /
+                (time.time() - self._node.created))
 
     @property
     @none_on_fail
     def __avg_write(self):
-        return self._node.monitor.totalRequests / (time.time() - self._node.created)
+        return (self._node.monitor.totalRequests /
+                (time.time() - self._node.created))
 
     @property
     @none_on_fail
@@ -134,6 +142,19 @@ class ValidatorNodeInfoTool:
     @none_on_fail
     def __pool_ledger_size(self):
         return self._node.poolLedger.size if self._node.poolLedger else 0
+
+    def _ledger_state(self, ledger_id):
+        return self._node.ledgerManager.getLedgerInfoByType(ledger_id).state
+
+    @property
+    @none_on_fail
+    def __domain_ledger_state(self):
+        return self._ledger_state(DOMAIN_LEDGER_ID).name
+
+    @property
+    @none_on_fail
+    def __pool_ledger_state(self):
+        return self._ledger_state(POOL_LEDGER_ID).name
 
     @property
     @none_on_fail
@@ -153,12 +174,14 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __unreachable_count(self):
-        return len(self._node.nodestack.remotes) - len(self._node.nodestack.conns)
+        return (len(self._node.nodestack.remotes) -
+                len(self._node.nodestack.conns))
 
     @property
     @none_on_fail
     def __unreachable_list(self):
-        return list(set(self._node.nodestack.remotes.keys()) - self._node.nodestack.conns)
+        return list(set(self._node.nodestack.remotes.keys()) -
+                    self._node.nodestack.conns)
 
     @property
     @none_on_fail
@@ -166,7 +189,13 @@ class ValidatorNodeInfoTool:
         return len(self._node.nodestack.remotes) + 1
 
     def dump_json_file(self):
-        file_name = self.FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+        file_name = self.FILE_NAME_TEMPLATE.format(
+            node_name=self.__name.lower()
+        )
         path = os.path.join(self.__base_path, file_name)
+        logger.trace(
+            "{} dumping validator info into file: {}, "
+            "data: {}".format(self._node, path, self.info)
+        )
         with open(path, 'w') as fd:
             json.dump(self.info, fd)
