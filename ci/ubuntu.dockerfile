@@ -20,7 +20,7 @@ RUN pip3 install -U \
 	virtualenv
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 68DB5E88
 RUN echo "deb https://repo.sovrin.org/deb xenial master" >> /etc/apt/sources.list
-RUN apt-get update -y && apt-get install -y "libindy-crypto ( >= 0.1.6 )"
+RUN apt-get update -y && apt-get install -y libindy-crypto=0.1.6
 RUN useradd -ms /bin/bash -u $uid $user
 USER $user
 RUN virtualenv -p python3.5 /home/$user/test
