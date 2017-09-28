@@ -114,13 +114,14 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
+    def __init__(self, looper, basedirpath: str, ledger_base_dir: str, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
                  override_tags=None):
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
+        self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
         Logger().enableCliLogging(self.out,
@@ -265,6 +266,10 @@ class Cli:
 
         self.checkIfCmdHandlerAndCmdMappingExists()
 
+    @property
+    def pool_ledger_dir(self):
+        return self.ledger_base_dir
+
     def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
         self.nodeRegLoadedFromFile = False
         if not (useNodeReg and nodeReg and len(nodeReg) and
@@ -282,12 +287,10 @@ class Cli:
 
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
-        update_genesis_txn_file_name_if_outdated(
-            self.basedirpath, self.config.poolTransactionsFile)
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-            self.basedirpath, self.config.poolTransactionsFile)
+            self.pool_ledger_dir, self.config.poolTransactionsFile)
         ledger = Ledger(CompactMerkleTree(),
-                        dataDir=self.basedirpath,
+                        dataDir=self.pool_ledger_dir,
                         fileName=self.config.poolTransactionsFile,
                         genesis_txn_initiator=genesis_txn_initiator,
                         transactionLogStore=KeyValueStorageInMemory())
@@ -501,7 +504,7 @@ class Cli:
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
             ledger = create_genesis_txn_init_ledger(
-                self.basedirpath, self.config.poolTransactionsFile)
+                self.pool_ledger_dir, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
@@ -1068,7 +1071,7 @@ class Cli:
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=nodeReg,
-                                      basedirpath=self.basedirpath,
+                                      basedirpath=self.pool_ledger_dir,
                                       config=config)
             self.activeClient = client
             self.looper.add(client)

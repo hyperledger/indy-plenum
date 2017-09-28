@@ -150,17 +150,11 @@ class TestNetworkSetup:
 
     @classmethod
     def pool_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].poolLedger
-        else:
-            return config.poolTransactionsFile
+        return config.poolTransactionsFile
 
     @classmethod
     def domain_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].domainLedger
-        else:
-            return config.domainTransactionsFile
+        return config.domainTransactionsFile
 
     @classmethod
     def setup_base_dir(cls, config):
