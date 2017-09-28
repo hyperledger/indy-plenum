@@ -50,6 +50,5 @@ RUN pip install jsonpickle \
 	ioflo==1.5.4 \
 	psutil \
 	intervaltree \
-	pytest-xdist \
-	indy-crypto==0.1.6
+	pytest-xdist
 WORKDIR /home/$user
