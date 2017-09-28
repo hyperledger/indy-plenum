@@ -319,12 +319,13 @@ class TestNode(TestNodeCore, Node):
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp)
 
-    def update_txn_with_extra_data(self, txn):
-        if txn[TXN_TYPE] == "buy":
-            key, value = self.reqHandler.prepare_buy_for_state(txn)
-            proof = self.reqHandler.make_proof(key)
-            txn[STATE_PROOF] = proof
-        return txn
+    def sendRepliesToClients(self, committedTxns, ppTime):
+        for txn in committedTxns:
+            if txn[TXN_TYPE] == "buy":
+                key, value = self.reqHandler.prepare_buy_for_state(txn)
+                proof = self.reqHandler.make_proof(key)
+                txn[STATE_PROOF] = proof
+        super().sendRepliesToClients(committedTxns, ppTime)
 
 elector_spyables = [
     PrimaryElector.discard,
