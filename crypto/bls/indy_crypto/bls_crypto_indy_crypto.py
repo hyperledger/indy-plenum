@@ -8,7 +8,7 @@ from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signatur
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
     def load_group_params(self) -> GroupParams:
         group_name = 'generator'
-        g = "7BRrJUcxuAomyoBC7YkvRD9TpFrcGoYAT9BQhhxuNB4FFjNPffimLywJViQRJAPnP97PQxCHTiEBTu6KuYV7trC4Ez3eRz7QSnKUwd5KqG9PxQaFaNaJyFv8uAXQgm3Q7nkEqjjKrCKdWmj89ZmAG848Ucn2v6bqhNmShEH9ARQqxhozXbmBy68oa6eh1vxs3DYenGgeWnjCCueBbR7vrMB9ATJBpCuPg25KWXjyh6KqnLsZfcRdst4NzuAmS8NzBPSvW6"
+        g = "3LHpUjiyFC2q2hD7MnwwNmVXiuaFbQx2XkAFJWzswCjgN1utjsCeLzHsKk1nJvFEaS4fcrUmVAkdhtPCYbrVyATZcmzwJReTcJqwqBCPTmTQ9uWPwz6rEncKb2pYYYFcdHa8N17HzVyTqKfgPi4X9pMetfT3A5xCHq54R2pDNYWVLDX"
         return GroupParams(group_name, g)
 
 
