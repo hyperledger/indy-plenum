@@ -72,7 +72,7 @@ class TestNetworkSetup:
             raise RuntimeError(
                 'nodeNum must be an int or set of ints') from exc
 
-        baseDir = cls.setup_base_dir(config)
+        baseDir = cls.setup_base_dir(config, envName)
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
                                           envName)
@@ -157,8 +157,8 @@ class TestNetworkSetup:
         return config.domainTransactionsFile
 
     @classmethod
-    def setup_base_dir(cls, config):
-        baseDir = os.path.join(config.baseDir, config.NETWORK_NAME)
+    def setup_base_dir(cls, config, network_name):
+        baseDir = os.path.join(config.baseDir, network_name)
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
         return baseDir
@@ -187,11 +187,10 @@ class TestNetworkSetup:
                                  'IP, i.e 127.0.0.1',
                             type=cls._bootstrapArgsTypeIps)
 
-        parser.add_argument('--envName',
-                            help='Environment name (test or live)',
+        parser.add_argument('--network',
+                            help='Network name (default sandbox)',
                             type=str,
-                            choices=('test', 'live'),
-                            default="test",
+                            default="sandbox",
                             required=False)
 
         parser.add_argument(
@@ -210,7 +209,7 @@ class TestNetworkSetup:
             args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
-        cls.bootstrapTestNodesCore(config, args.envName, args.appendToLedgers,
+        cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers,
                                    domainTxnFieldOrder, trustee_def,
                                    steward_defs, node_defs, client_defs,
                                    args.nodeNum, nodeParamsFileName)
