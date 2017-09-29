@@ -490,7 +490,7 @@ class Client(Motor,
                                .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
-            return reply
+            return result
 
     def validate_multi_signature(self, result):
         """
