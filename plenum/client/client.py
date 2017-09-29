@@ -11,7 +11,6 @@ from collections import deque, OrderedDict
 from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
-from indy_crypto.bls import Generator
 
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
@@ -19,7 +18,7 @@ from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
 from plenum.bls.bls_bft_utils import create_full_root_hash
-from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
 from plenum.client.pool_manager import HasPoolManager
@@ -37,8 +36,7 @@ from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
-    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, TXN_TYPE, NODE, DATA, BLS_KEY, \
-    ALIAS
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
     rawToFriendly, mostCommonElement
@@ -55,10 +53,6 @@ from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
-    IndyCryptoMultiSigVerifier, \
-    BlsGroupParamsLoaderIndyCrypto, \
-    IndyCryptoBlsUtils
 from plenum.common.tools import lazy_field
 
 logger = getlogger()
@@ -204,7 +198,8 @@ class Client(Motor,
         return BlsKeyRegisterPoolLedger(self._ledger)
 
     def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
-        verifier = BlsFactoryIndyCrypto().create_multi_signature_verifier()
+        verifier = create_default_bls_crypto_factory()\
+            .create_multi_signature_verifier()
         return verifier
 
     def getReqRepStore(self):
