@@ -51,6 +51,28 @@ def ordinal(n):
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
+def check_sufficient_replies_received(client: Client,
+                                      identifier,
+                                      request_id):
+    reply, _ = client.getReply(identifier, request_id)
+    full_request_id = "({}:{})".format(identifier, request_id)
+    if reply is not None:
+        logger.debug("got confirmed reply for {}: {}"
+                     .format(full_request_id, reply))
+        return reply
+    all_replies = getRepliesFromClientInbox(client.inBox, request_id)
+    logger.debug("there are {} replies for request {}, "
+                 "but expected at-least {}, "
+                 "or one with valid proof: "
+                 .format(len(all_replies),
+                         full_request_id,
+                         client.quorums.reply.value,
+                         all_replies))
+    raise AssertionError("There is no proved reply and no "
+                         "quorum achieved for request {}"
+                         .format(full_request_id))
+
+
 def checkSufficientRepliesReceived(receivedMsgs: Iterable,
                                    reqId: int,
                                    fValue: int):
@@ -87,9 +109,7 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
-                                        requests=None,
-                                        requestIds=None,
-                                        fVal=None,
+                                        requests,
                                         customTimeoutPerReq=None,
                                         add_delay_to_timeout: float = 0,
                                         override_timeout_limit=False,
@@ -102,60 +122,42 @@ def waitForSufficientRepliesForRequests(looper,
     :requestIds:  list of request ids; mutually exclusive with 'requests'
     :returns: nothing
     """
-
-    if requests is not None and requestIds is not None:
-        raise ValueError("Args 'requests' and 'requestIds' are "
-                         "mutually exclusive")
-    requestIds = requestIds or [request.reqId for request in requests]
-
-    nodeCount = len(client.nodeReg)
-    fVal = fVal or getMaxFailures(nodeCount)
-
+    node_count = len(client.nodeReg)
     if not total_timeout:
-        timeoutPerRequest = customTimeoutPerReq or \
-            waits.expectedTransactionExecutionTime(nodeCount)
-        timeoutPerRequest += add_delay_to_timeout
+        timeout_per_request = customTimeoutPerReq or \
+            waits.expectedTransactionExecutionTime(node_count)
+        timeout_per_request += add_delay_to_timeout
         # here we try to take into account what timeout for execution
         # N request - total_timeout should be in
-        # timeoutPerRequest < total_timeout < timeoutPerRequest * N
-        # we cannot just take (timeoutPerRequest * N) because it is so huge.
-        # (for timeoutPerRequest=5 and N=10, total_timeout=50sec)
+        # timeout_per_request < total_timeout < timeout_per_request * N
+        # we cannot just take (timeout_per_request * N) because it is so huge.
+        # (for timeout_per_request=5 and N=10, total_timeout=50sec)
         # lets start with some simple formula:
-        total_timeout = (1 + len(requestIds) / 10) * timeoutPerRequest
-
-    coros = []
-    for requestId in requestIds:
-        coros.append(partial(checkSufficientRepliesReceived,
-                             client.inBox,
-                             requestId,
-                             fVal))
-
-    chk_all_funcs(looper, coros, retry_wait=1, timeout=total_timeout,
+        total_timeout = (1 + len(requests) / 10) * timeout_per_request
+    coros = [partial(check_sufficient_replies_received,
+                     client,
+                     request.identifier,
+                     request.reqId)
+             for request in requests]
+    chk_all_funcs(looper, coros,
+                  retry_wait=1,
+                  timeout=total_timeout,
                   override_eventually_timeout=override_timeout_limit)
-
-    # looper.run(eventuallyAll(*coros,
-    #                          retryWait=1,
-    #                          totalTimeout=total_timeout,
-    #                          override_timeout_limit=override_timeout_limit))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         wallet: Wallet,
                                         client: TestClient,
                                         numReqs: int,
-                                        fVal: int=None,
                                         customTimeoutPerReq: float=None,
                                         add_delay_to_timeout: float=0,
                                         override_timeout_limit=False,
                                         total_timeout=None):
-    nodeCount = len(client.nodeReg)
-    fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
     waitForSufficientRepliesForRequests(
         looper,
         client,
         requests=requests,
-        fVal=fVal,
         customTimeoutPerReq=customTimeoutPerReq,
         add_delay_to_timeout=add_delay_to_timeout,
         override_timeout_limit=override_timeout_limit,
@@ -179,7 +181,6 @@ def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
         looper,
         client,
         requests=requests,
-        fVal=nodeCount - 1,
         customTimeoutPerReq=customTimeoutPerReq,
         add_delay_to_timeout=add_delay_to_timeout,
         override_timeout_limit=override_timeout_limit,

@@ -56,7 +56,7 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     # Send another pool ledger request (NODE) but don't wait for completion of
     # request
     next_node_name = 'next_node'
-    r = sendAddNewNode(next_node_name, new_steward, new_steward_wallet)
+    r = sendAddNewNode(tdirWithPoolTxns, next_node_name, new_steward, new_steward_wallet)
     node_req = r[0]
 
     # Send more domain ledger requests but don't wait for replies

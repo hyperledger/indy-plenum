@@ -50,6 +50,7 @@ MONITORING_PREFIX = "MONITORING: "
 VIEW_CHANGE_PREFIX = "VIEW CHANGE: "
 CATCH_UP_PREFIX = "CATCH-UP: "
 PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
+BLS_PREFIX = "BLS: "
 
 NAME = "name"
 VERSION = "version"
@@ -70,6 +71,7 @@ HASH = "hash"
 ALIAS = "alias"
 PUBKEY = "pubkey"
 VERKEY = "verkey"
+BLS_KEY = "blskey"
 NYM_KEY = "NYM"
 NODE_IP = "node_ip"
 NODE_PORT = "node_port"
@@ -91,6 +93,12 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+
+# State proof fields
+STATE_PROOF = 'state_proof'
+ROOT_HASH = "root_hash"
+MULTI_SIGNATURE = "multi_signature"
+PROOF_NODES = "proof_nodes"
 
 # ROLES
 STEWARD = Roles.STEWARD.value

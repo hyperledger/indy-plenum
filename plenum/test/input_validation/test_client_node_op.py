@@ -1,4 +1,5 @@
 import pytest
+from plenum.common.constants import BLS_KEY
 
 from plenum.common.messages.client_request import ClientNodeOperationData, ALIAS, SERVICES, NODE_IP, CLIENT_IP, \
     NODE_PORT, CLIENT_PORT
@@ -48,3 +49,20 @@ def test_update_ha_passes():
         CLIENT_IP: '8.8.8.8',
         CLIENT_PORT: 9701,
     })
+
+
+def test_update_bls_sign():
+    op.validate({
+        ALIAS: 'aNode',
+        BLS_KEY: 'some_key',
+    })
+
+
+def test_empty_bls_fails():
+    with pytest.raises(TypeError) as ex_info:
+        op.validate({
+            BLS_KEY: '',
+            ALIAS: 'aNode'
+        })
+    ex_info.match(
+        'validation error \[ClientNodeOperationData\]: empty string \(blskey=\)')

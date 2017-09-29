@@ -72,14 +72,15 @@ def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]) -> T:
+def mostCommonElement(elements: Iterable[T]):
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
-    :return: element of type T which is most frequent in the collection
+    :return: element which is the most frequent in the collection and
+        the number of its occurrences
     """
-    return Counter(elements).most_common(1)[0][0]
+    return Counter(elements).most_common(n=1)[0]
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
@@ -88,8 +89,11 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
-), logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any,
+                     toFrom: Dict[Any, Any],
+                     checked: Set[Any]=None,
+                     logMsg: str=None,
+                     deepLevel: int=None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -98,6 +102,10 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
     :param checked: set of attributes of the object for recursion. optional. defaults to `set()`
     :param logMsg: a custom log message
     """
+
+    if checked is None:
+        checked = set()
+
     checked.add(id(obj))
     pairs = [(i, getattr(obj, i)) for i in dir(obj) if not i.startswith("__")]
 

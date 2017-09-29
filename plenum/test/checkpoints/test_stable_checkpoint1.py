@@ -19,7 +19,7 @@ def testStableCheckpointWhenOneInstanceSlow(chkFreqPatched, looper,
         n.nodeIbStasher.delay(ppDelay(delay, 1))
 
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet1, client1, reqs_for_checkpoint, 1)
+        looper, wallet1, client1, reqs_for_checkpoint)
     timeout = waits.expectedTransactionExecutionTime(
         len(txnPoolNodeSet)) + delay
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1,
