@@ -31,8 +31,9 @@ def load():
             print('Will wait for {} now'.format(numReqs // splits))
             s = perf_counter()
             reqs = requests[i:i + numReqs // splits + 1]
-            waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                                fVal=2, customTimeoutPerReq=3)
+            waitForSufficientRepliesForRequests(looper, client,
+                                                requests=reqs,
+                                                customTimeoutPerReq=3)
             print('>>> Got replies for {} requests << in {}'.
                   format(numReqs // splits, perf_counter() - s))
         end = perf_counter()

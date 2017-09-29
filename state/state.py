@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Optional
 
 
 class State:
@@ -8,9 +9,19 @@ class State:
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, key: bytes, isCommitted: bool=True):
+    def get(self, key: bytes, isCommitted: bool=True) -> Optional[bytes]:
         # If `isCommitted` is True then get value corresponding to the
         # committed state else get the latest value
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_for_root_hash(self, root_hash, key: bytes) -> Optional[bytes]:
+        '''
+        Gets a value corresponded to the key for a given root_hash
+        :param root_hash: a hash of the root get the value for
+        :param key: a key in the trie corresponded to the root
+        :return: a value (in bytes) or None
+        '''
         raise NotImplementedError
 
     @abstractmethod

@@ -3,7 +3,6 @@ from collections import OrderedDict
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
-from plenum.common.signer_did import DidIdentity
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
