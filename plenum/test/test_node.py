@@ -320,6 +320,7 @@ class TestNode(TestNodeCore, Node):
             preCatchupClbk=self.preLedgerCatchUp)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
+        committedTxns = list(committedTxns)
         for txn in committedTxns:
             if txn[TXN_TYPE] == "buy":
                 key, value = self.reqHandler.prepare_buy_for_state(txn)
