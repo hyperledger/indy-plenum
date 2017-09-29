@@ -9,8 +9,7 @@ def requests(looper, wallet1, client1):
     requests = []
     for i in range(5):
         req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1,
-                                            requests=[req], fVal=1)
+        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
         requests.append(req)
     return requests
 

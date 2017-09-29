@@ -675,8 +675,7 @@ def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
         use_bls = nName in poolTxnData['nodesWithBls']
-        initNodeKeysForBothStacks(nName, tdir, seed, override=True, use_bls=use_bls)
-
+        initNodeKeysForBothStacks(nName, tdir, seed, use_bls=use_bls, override=True)
 
 @pytest.fixture(scope="module")
 def poolTxnClientData(poolTxnClientNames, poolTxnData):

@@ -25,7 +25,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID
+    DOMAIN_LEDGER_ID, NYM, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -47,24 +47,31 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
+from hashlib import sha256
 
 logger = getlogger()
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
+
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        from common.serializers.serialization import domain_state_serializer
+        identifier = txn.get(f.IDENTIFIER.nm)
+        request_id = txn.get(f.REQ_ID.nm)
+        value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
+        key = sha256('{}:{}'.format(identifier, request_id).encode()).digest()
+        return key, value
+
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
         if typ == 'buy':
-            idr = txn.get(f.IDENTIFIER.nm)
-            rId = txn.get(f.REQ_ID.nm)
-            key = '{}:{}'.format(idr, rId).encode()
-            val = self.stateSerializer.serialize({TXN_TYPE: typ})
-            self.state.set(key, val)
+            key, value = self.prepare_buy_for_state(txn)
+            self.state.set(key, value)
             logger.trace('{} after adding to state, headhash is {}'.
                          format(self, self.state.headHash))
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
-
 
 NodeRef = TypeVar('NodeRef', Node, str)
 
@@ -312,6 +319,14 @@ class TestNode(TestNodeCore, Node):
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp)
 
+    def sendRepliesToClients(self, committedTxns, ppTime):
+        committedTxns = list(committedTxns)
+        for txn in committedTxns:
+            if txn[TXN_TYPE] == "buy":
+                key, value = self.reqHandler.prepare_buy_for_state(txn)
+                proof = self.reqHandler.make_proof(key)
+                txn[STATE_PROOF] = proof
+        super().sendRepliesToClients(committedTxns, ppTime)
 
 elector_spyables = [
     PrimaryElector.discard,
