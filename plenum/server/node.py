@@ -129,9 +129,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or os.path.join(self.config.baseDir, self.config.NETWORK_NAME)
+        self.basedirpath = os.path.expanduser(self.basedirpath)
         self.dataDir = self.config.nodeDataDir or "data/nodes"
         self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
                                                            self.config.NETWORK_NAME)
+        self.base_data_dir = os.path.expanduser(self.base_data_dir)
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 

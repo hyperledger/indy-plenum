@@ -2,7 +2,7 @@ import getpass
 import os
 import shutil
 import sys
-
+import errno
 
 def getLoggedInUser():
     if sys.platform == 'wind32':
@@ -23,3 +23,15 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
             raise e
         else:
             pass
+
+
+def copyall(src, dst):
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    try:
+        shutil.copytree(src, dst)
+    except OSError as ex:
+        if ex.errno == errno.ENOTDIR:
+            shutil.copy(src, dst)
+        else:
+            raise

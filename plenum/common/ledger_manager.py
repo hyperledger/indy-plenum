@@ -594,8 +594,13 @@ class LedgerManager(HasActionQueue):
                                 tempTree.root_hash, Ledger.strToHash(finalMTH),
                                 [Ledger.strToHash(p) for p in proof]))
             verified = verifier.verify_tree_consistency(
-                tempTree.tree_size, finalSize, tempTree.root_hash, Ledger.strToHash(finalMTH), [
-                    Ledger.strToHash(p) for p in proof])
+                tempTree.tree_size,
+                finalSize,
+                tempTree.root_hash,
+                Ledger.strToHash(finalMTH),
+                [Ledger.strToHash(p) for p in proof]
+            )
+
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
                         format(self, catchupReply, ex))

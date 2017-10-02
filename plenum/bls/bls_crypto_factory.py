@@ -1,7 +1,8 @@
 from crypto.bls.bls_crypto import BlsGroupParamsLoader
 from crypto.bls.bls_factory import BlsFactoryCrypto
 from crypto.bls.bls_key_manager import BlsKeyManager
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, BlsGroupParamsLoaderIndyCrypto
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, \
+    BlsGroupParamsLoaderIndyCrypto, IndyCryptoMultiSigVerifier
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 
@@ -29,6 +30,9 @@ class BlsFactoryIndyCrypto(BlsFactoryCrypto):
     def __init__(self, basedir=None, node_name=None):
         self._basedir = basedir
         self._node_name = node_name
+
+    def _create_multi_signature_verifier(self, group_params):
+        return IndyCryptoMultiSigVerifier(group_params)
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
         return BlsGroupParamsLoaderIndyCrypto()

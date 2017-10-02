@@ -201,8 +201,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     will be sent again to the client. An acknowledgement will not be sent
     for a repeated request.
     """
-    waitForSufficientRepliesForRequests(looper, client1,
-                                        requests=[sent1], fVal=2)
+    waitForSufficientRepliesForRequests(looper, client1, requests=[sent1])
 
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
