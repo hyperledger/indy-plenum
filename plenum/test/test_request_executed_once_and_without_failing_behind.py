@@ -46,8 +46,7 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
         send_signed_requests(client1, [request])
         waitForSufficientRepliesForRequests(looper,
                                             client1,
-                                            requests=[request],
-                                            fVal=1)
+                                            requests=[request])
 
     expected = [request.reqId for request in requests]
     for node in nodeSet:

@@ -2,6 +2,7 @@ from common.serializers.serialization import multi_sig_store_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_factory import BlsFactoryBft, BlsFactoryCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
+from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from plenum.bls.bls_bft_plenum import BlsBftPlenum
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager

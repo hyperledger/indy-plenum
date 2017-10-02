@@ -4,6 +4,7 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_crypto import BlsCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
 from crypto.bls.bls_multi_signature import MultiSignature
+from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.bls.bls_store import BlsStore
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
 from plenum.common.exceptions import SuspiciousNode
@@ -155,7 +156,7 @@ class BlsBftPlenum(BlsBft):
     # ----MULT_SIG----
 
     def _create_multi_sig_value(self, state_root_hash, pool_state_root_hash):
-        return state_root_hash + pool_state_root_hash
+        return create_full_root_hash(state_root_hash, pool_state_root_hash)
 
     def _validate_signature(self, sender, bls_sig, state_root_hash):
         sender_node = self.get_node_name(sender)
