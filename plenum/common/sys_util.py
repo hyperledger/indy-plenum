@@ -4,6 +4,7 @@ import shutil
 import sys
 import errno
 
+
 def getLoggedInUser():
     if sys.platform == 'wind32':
         return getpass.getuser()
