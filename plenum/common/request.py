@@ -2,7 +2,7 @@ from hashlib import sha256
 from typing import Mapping, NamedTuple
 
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import REQDIGEST, REQKEY, FORCE, TXN_TYPE
+from plenum.common.constants import REQDIGEST, REQKEY, FORCE, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from stp_core.types import Identifier
