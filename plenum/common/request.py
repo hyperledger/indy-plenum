@@ -10,24 +10,32 @@ from stp_core.types import Identifier
 
 class Request:
     def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None):
+                 identifier: Identifier = None,
+                 reqId: int = None,
+                 operation: Mapping = None,
+                 signature: str = None,
+                 protocolVersion: int = None):
         self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
         self.digest = self.getDigest()
         self.signature = signature
+        self.protocolVersion = protocolVersion
 
     @property
     def as_dict(self):
-        return {
+        # TODO: as of now, the keys below must be equal to the class fields name (see SafeRequest)
+        dct = {
             f.IDENTIFIER.nm: self.identifier,
             f.REQ_ID.nm: self.reqId,
-            OPERATION: self.operation,
-            f.SIG.nm: self.signature
+            OPERATION: self.operation
         }
+        if self.signature is not None:
+            dct[f.SIG.nm] = self.signature
+        if self.protocolVersion is not None:
+            dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+
+        return dct
 
     def __eq__(self, other):
         return self.as_dict == other.as_dict
@@ -91,7 +99,6 @@ class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
 
 
 class SafeRequest(Request, ClientMessageValidator):
-
     def __init__(self, **kwargs):
         self.validate(kwargs)
         super().__init__(**kwargs)

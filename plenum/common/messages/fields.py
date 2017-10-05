@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import base58
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT
 
 
@@ -124,12 +125,13 @@ class LimitedLengthStringField(FieldBase):
 class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
 
-    # TODO do nothing because EmptySignature should be raised somehow
-
     def _specific_validation(self, val):
-        if val and len(val) > 0:
-            return super()._specific_validation(val)
-        return
+        if val is None:
+            # TODO do nothing because EmptySignature should be raised somehow
+            return
+        if len(val) == 0:
+            return "signature can not be empty"
+        return super()._specific_validation(val)
 
 
 class RoleField(FieldBase):
@@ -523,3 +525,10 @@ class BlsMultiSignatureField(FieldBase):
             return err
         if len(participants) == 0:
             return "multi-signature participants list is empty"
+
+class ProtocolVersionField(FieldBase):
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        if not PlenumProtocolVersion.has_value(val):
+            return 'Unknown protocol version value {}'.format(val)

@@ -12,6 +12,7 @@ class MessageValidator(FieldValidator):
 
     schema = ()
     optional = False
+    schema_is_strict = True
 
     def __init__(self, schema_is_strict=True):
         self.schema_is_strict = schema_is_strict

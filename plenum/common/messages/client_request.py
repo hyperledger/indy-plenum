@@ -2,7 +2,7 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, 
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
 from plenum.common.messages.fields import NetworkIpAddressField, NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, RoleField, TxnSeqNoField, IdentifierField, \
-    NonNegativeNumberField, SignatureField, LimitedLengthStringField
+    NonNegativeNumberField, SignatureField, LimitedLengthStringField, ProtocolVersionField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
@@ -108,4 +108,5 @@ class ClientMessageValidator(MessageValidator):
         (OPERATION, ClientOperationField()),
         (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT, optional=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT, optional=True)),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
     )
