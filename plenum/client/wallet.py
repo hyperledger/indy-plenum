@@ -424,6 +424,9 @@ class WalletCompatibilityBackend(JSONBackend):
     to the current version.
     """
 
+    def _getUpToDateClassName(self, pickledClassName):
+        return pickledClassName.replace('sovrin_client', 'indy_client')
+
     def decode(self, string):
         raw = super().decode(string)
         # Note that backend.decode may be called not only for the whole object
@@ -434,7 +437,7 @@ class WalletCompatibilityBackend(JSONBackend):
         # a wallet class supporting backward compatibility
         if isinstance(raw, dict) and tags.OBJECT in raw:
             clsName = raw[tags.OBJECT]
-            cls = loadclass(clsName)
+            cls = loadclass(self._getUpToDateClassName(clsName))
             if hasattr(cls, 'makeRawCompatible') \
                     and callable(getattr(cls, 'makeRawCompatible')):
                 cls.makeRawCompatible(raw)
