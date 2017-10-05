@@ -192,6 +192,7 @@ class Client(Motor,
         logger.debug("total plugins loaded in client: {}".format(tp))
 
         self._multi_sig_verifier = self._create_multi_sig_verifier()
+        self._read_only_requests = set()
 
     @lazy_field
     def _bls_register(self):
@@ -276,9 +277,12 @@ class Client(Motor,
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         errs = []
+
         for request in reqs:
-            if (self.mode == Mode.discovered and self.hasSufficientConnections) or (
-                    request.isForced() and self.hasAnyConnections):
+            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
+                    (self.hasAnyConnections and
+                    (request.txn_type in self._read_only_requests or request.isForced())):
+
                 logger.debug(
                     'Client {} sending request {}'.format(self, request))
                 stat, err_msg = self.send(request)
