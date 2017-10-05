@@ -98,7 +98,8 @@ class PruningState(State):
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):
-        return Trie.verify_spv_proof(root, key, rlp_encode([value]),
+        encoded_value = rlp_encode([value]) if value is not None else b''
+        return Trie.verify_spv_proof(root, key, encoded_value,
                                      proof_nodes, serialized)
 
     @property
