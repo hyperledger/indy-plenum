@@ -527,8 +527,10 @@ class BlsMultiSignatureField(FieldBase):
             return "multi-signature participants list is empty"
 
 class ProtocolVersionField(FieldBase):
-    _base_types = (int,)
+    _base_types = (int, type(None))
 
     def _specific_validation(self, val):
+        if val is None:
+            return
         if not PlenumProtocolVersion.has_value(val):
             return 'Unknown protocol version value {}'.format(val)

@@ -1,4 +1,5 @@
 import pytest
+
 from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, \
     VERKEY
 from plenum.common.request import SafeRequest
@@ -42,6 +43,15 @@ def test_with_version_valid(operation):
                        reqId=1,
                        operation=operation,
                        protocolVersion=1)
+
+
+def test_no_version_valid(operation):
+    safeReq = SafeRequest(identifier="1" * 16,
+                       reqId=1,
+                       operation=operation,
+                       protocolVersion=None)
+    assert safeReq
+    assert not safeReq.protocolVersion
 
 
 def test_all_valid(operation):

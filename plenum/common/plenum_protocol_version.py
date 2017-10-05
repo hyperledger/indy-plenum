@@ -3,10 +3,7 @@ from enum import Enum, unique
 
 @unique
 class PlenumProtocolVersion(Enum):
-    #  These numeric constants CANNOT be changed once they have been used,
-    #  because that would break backwards compatibility with the ledger
-    # Also the numeric constants CANNOT collide with roles in dependent
-    # components.
+    #  These numeric constants CANNOT be changed once they have been used
     STATE_PROOF_SUPPORT = 1
 
     def __str__(self):

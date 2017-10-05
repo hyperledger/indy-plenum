@@ -17,6 +17,7 @@ state_roots_serializer = Base58Serializer()
 proof_nodes_serializer = Base64Serializer()
 
 
+# TODO: separate data, metadata and signature, so that we don't need to have topLevelKeysToIgnore
 def serialize_msg_for_signing(msg: Mapping, topLevelKeysToIgnore=None):
     """
     Serialize a message for signing.
