@@ -73,39 +73,6 @@ def check_sufficient_replies_received(client: Client,
                          .format(full_request_id))
 
 
-def checkSufficientRepliesReceived(receivedMsgs: Iterable,
-                                   reqId: int,
-                                   fValue: int):
-    """
-    Checks number of replies for request with specified id in given inbox and
-    if this number is lower than number of malicious nodes (fValue) -
-    raises exception
-
-    If you do not need response ponder on using
-    waitForSufficientRepliesForRequests instead
-
-    :returns: response for request
-    """
-
-    receivedReplies = getRepliesFromClientInbox(inbox=receivedMsgs,
-                                                reqId=reqId)
-    logger.debug("received replies for reqId {}: {}".
-                 format(reqId, receivedReplies))
-    assert len(receivedReplies) > fValue, "Received {} replies but expected " \
-                                          "at-least {} for reqId {}". \
-        format(len(receivedReplies), fValue + 1, reqId)
-    result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
-                                        receivedReplies], fValue)
-    assert result, "reqId {}: found less than in {} same replies".format(
-        reqId, fValue)
-
-    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies]
-               ), "not all replies have got reqId {}".format(reqId)
-
-    return result
-    # TODO add test case for what happens when replies don't have the same data
-
-
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
