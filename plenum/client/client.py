@@ -280,11 +280,11 @@ class Client(Motor,
 
         for request in reqs:
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
-                    (self.hasAnyConnections and
-                    (request.txn_type in self._read_only_requests or request.isForced())):
+               (self.hasAnyConnections and
+               (request.txn_type in self._read_only_requests or request.isForced())):
 
-                logger.debug(
-                    'Client {} sending request {}'.format(self, request))
+                logger.debug('Client {} sending request {}'
+                             .format(self, request))
                 stat, err_msg = self.send(request)
                 if stat:
                     self.expectingFor(request)
@@ -296,7 +296,7 @@ class Client(Motor,
             else:
                 logger.debug(
                     "{} pending request since in mode {} and "
-                    "connected to {} nodes". format(
+                    "connected to {} nodes".format(
                         self, self.mode, self.nodestack.connecteds))
                 self.pendReqsTillConnection(request)
             requests.append(request)
