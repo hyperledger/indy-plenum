@@ -526,6 +526,7 @@ class BlsMultiSignatureField(FieldBase):
         if len(participants) == 0:
             return "multi-signature participants list is empty"
 
+
 class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
