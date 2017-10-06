@@ -1,6 +1,7 @@
 # inter-node communication
 from enum import IntEnum, unique
 
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
 
@@ -154,3 +155,5 @@ HS_LEVELDB = 'leveldb'
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
+
+CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
