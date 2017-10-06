@@ -2,7 +2,7 @@ from hashlib import sha256
 from typing import Mapping, NamedTuple
 
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import REQDIGEST, REQKEY, FORCE
+from plenum.common.constants import REQDIGEST, REQKEY, FORCE, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from stp_core.types import Identifier
@@ -10,24 +10,33 @@ from stp_core.types import Identifier
 
 class Request:
     def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None):
+                 identifier: Identifier = None,
+                 reqId: int = None,
+                 operation: Mapping = None,
+                 signature: str = None,
+                 protocolVersion: int = CURRENT_PROTOCOL_VERSION):
         self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
-        self.digest = self.getDigest()
+        self.protocolVersion = protocolVersion
         self.signature = signature
+        # TODO: getDigest must be called after all initialization above! refactor it
+        self.digest = self.getDigest()
 
     @property
     def as_dict(self):
-        return {
+        # TODO: as of now, the keys below must be equal to the class fields name (see SafeRequest)
+        dct = {
             f.IDENTIFIER.nm: self.identifier,
             f.REQ_ID.nm: self.reqId,
-            OPERATION: self.operation,
-            f.SIG.nm: self.signature
+            OPERATION: self.operation
         }
+        if self.signature is not None:
+            dct[f.SIG.nm] = self.signature
+        if self.protocolVersion is not None:
+            dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+
+        return dct
 
     def __eq__(self, other):
         return self.as_dict == other.as_dict
@@ -51,11 +60,15 @@ class Request:
 
     @property
     def signingState(self):
-        return {
+        # TODO: separate data, metadata and signature, so that we don't need to have this kind of messages
+        dct = {
             f.IDENTIFIER.nm: self.identifier,
             f.REQ_ID.nm: self.reqId,
             OPERATION: self.operation
         }
+        if self.protocolVersion is not None:
+            dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        return dct
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -91,7 +104,6 @@ class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
 
 
 class SafeRequest(Request, ClientMessageValidator):
-
     def __init__(self, **kwargs):
         self.validate(kwargs)
         super().__init__(**kwargs)

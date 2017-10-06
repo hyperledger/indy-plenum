@@ -468,7 +468,7 @@ class Client(Motor,
         """
         for sender, reply in replies.items():
             result = reply['result']
-            if STATE_PROOF not in result:
+            if STATE_PROOF not in result or result[STATE_PROOF] is None:
                 logger.debug("There is no state proof in "
                              "reply for {} from {}"
                              .format(full_req_id, sender))
