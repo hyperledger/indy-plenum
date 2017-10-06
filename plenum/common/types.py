@@ -37,6 +37,7 @@ class f:  # provides a namespace for reusable field constants
     IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
     SIG = Field('signature', Optional[str])
+    PROTOCOL_VERSION = Field('protocolVersion', int)
     SUSP_CODE = Field('suspicionCode', int)
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
