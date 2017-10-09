@@ -116,8 +116,8 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         wallet: Wallet,
                                         client: TestClient,
                                         numReqs: int,
-                                        customTimeoutPerReq: float=None,
-                                        add_delay_to_timeout: float=0,
+                                        customTimeoutPerReq: float = None,
+                                        add_delay_to_timeout: float = 0,
                                         override_timeout_limit=False,
                                         total_timeout=None):
     requests = sendRandomRequests(wallet, client, numReqs)
@@ -136,8 +136,8 @@ def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
                                               wallet: Wallet,
                                               client: TestClient,
                                               numReqs: int,
-                                              customTimeoutPerReq: float=None,
-                                              add_delay_to_timeout: float=0,
+                                              customTimeoutPerReq: float = None,
+                                              add_delay_to_timeout: float = 0,
                                               override_timeout_limit=False,
                                               total_timeout=None):
     requests = sendRandomRequests(wallet, client, numReqs)
@@ -308,13 +308,24 @@ def randomOperation():
 def random_requests(count):
     return [{
         "type": "buy",
-                "amount": random.randint(10, 100)
+        "amount": random.randint(10, 100)
     } for _ in range(count)]
+
+
+def random_request_objects(count, protocol_version):
+    req_dicts = random_requests(count)
+    return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
+
+def sign_request_objects(wallet, reqs: Sequence):
+    return [wallet.signRequest(req) for req in reqs]
+
+def sign_requests(wallet, reqs: Sequence):
+    return [wallet.signOp(req) for req in reqs]
 
 
 def signed_random_requests(wallet, count):
     reqs = random_requests(count)
-    return [wallet.signOp(req) for req in reqs]
+    return sign_requests(wallet, reqs)
 
 
 def send_signed_requests(client: Client, signed_reqs: Sequence):
@@ -347,7 +358,7 @@ async def msgAll(nodes: TestNodeSet):
 def sendMessage(nodes: TestNodeSet,
                 frm: NodeRef,
                 to: NodeRef,
-                msg: Optional[Tuple]=None):
+                msg: Optional[Tuple] = None):
     """
     Sends message from one node to another
 
@@ -398,7 +409,7 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
 
 def sendMessageToAll(nodes: TestNodeSet,
                      frm: NodeRef,
-                     msg: Optional[Tuple]=None):
+                     msg: Optional[Tuple] = None):
     """
     Sends message from one node to all others
 
@@ -414,7 +425,7 @@ def sendMessageToAll(nodes: TestNodeSet,
 
 async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
                                            frm: NodeRef,
-                                           msg: Optional[Tuple]=None,
+                                           msg: Optional[Tuple] = None,
                                            method=None,
                                            customTimeout=None):
     """
@@ -688,11 +699,11 @@ def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):
         if 'reason' in entry.params and (
-            (isinstance(
-                entry.params['reason'],
-                str) and reasonPat in entry.params['reason']),
+                (isinstance(
+                    entry.params['reason'],
+                    str) and reasonPat in entry.params['reason']),
                 (reasonPat in str(
-                entry.params['reason']))):
+                    entry.params['reason']))):
             c += 1
     return c
 
@@ -745,7 +756,7 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
-    assert db1.size == db2.size,\
+    assert db1.size == db2.size, \
         "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}

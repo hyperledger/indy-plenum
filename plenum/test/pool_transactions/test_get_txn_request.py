@@ -1,4 +1,4 @@
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, STEWARD
+from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, STEWARD, CURRENT_PROTOCOL_VERSION
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
@@ -23,7 +23,8 @@ def testSendGetTxnReqForExistsSeqNo(looper, steward1, stewardWallet):
         DATA: 1
     }
     req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=getTimeBasedId())
+                  operation=op, reqId=getTimeBasedId(),
+                  protocolVersion=CURRENT_PROTOCOL_VERSION)
     steward1.submitReqs(req)
 
     timeout = waits.expectedTransactionExecutionTime(
@@ -42,7 +43,8 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
         DATA: randint(100, 1000)
     }
     req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=getTimeBasedId())
+                  operation=op, reqId=getTimeBasedId(),
+                  protocolVersion=CURRENT_PROTOCOL_VERSION)
     steward1.submitReqs(req)
 
     timeout = waits.expectedTransactionExecutionTime(
@@ -69,7 +71,8 @@ def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
         DATA: nym_response['seqNo']
     }
     req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=getTimeBasedId())
+                  operation=op, reqId=getTimeBasedId(),
+                  protocolVersion=CURRENT_PROTOCOL_VERSION)
     steward1.submitReqs(req)
 
     get_txn_response = \
