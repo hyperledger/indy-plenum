@@ -1,12 +1,5 @@
 #!/bin/bash
 
-mkdir -p /etc/plenum
-mkdir -p /var/plenum/
-mkdir -p /var/log/plenum
-
-# disable stdout logging
-echo "NETWORK_NAME=None" >> /etc/plenum/plenum_config.py
-
 # Automatically added from template:
 if which py3compile >/dev/null 2>&1; then
 	py3compile -O -p {package_name} /usr/local/lib/python3.5/dist-packages/
