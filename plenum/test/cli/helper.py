@@ -10,7 +10,7 @@ import time
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, CURRENT_PROTOCOL_VERSION
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
@@ -275,7 +275,8 @@ def checkRequest(cli, operation):
     lastReqId = wallet._getIdData().lastReqId
 
     request = Request(identifier=wallet.defaultId,
-                      reqId=lastReqId)
+                      reqId=lastReqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION)
 
     waitForSufficientRepliesForRequests(cli.looper, client,
                                         requests=[request])

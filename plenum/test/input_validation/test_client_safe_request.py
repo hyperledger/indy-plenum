@@ -31,6 +31,13 @@ def test_minimal_valid(operation):
                        operation=operation)
 
 
+def test_no_version_by_default(operation):
+    req = SafeRequest(identifier="1" * 16,
+                      reqId=1,
+                      operation=operation)
+    assert not req.protocolVersion
+
+
 def test_with_signature_valid(operation):
     assert SafeRequest(identifier="1" * 16,
                        reqId=1,
@@ -47,9 +54,9 @@ def test_with_version_valid(operation):
 
 def test_no_version_valid(operation):
     safeReq = SafeRequest(identifier="1" * 16,
-                       reqId=1,
-                       operation=operation,
-                       protocolVersion=None)
+                          reqId=1,
+                          operation=operation,
+                          protocolVersion=None)
     assert safeReq
     assert not safeReq.protocolVersion
 

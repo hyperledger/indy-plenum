@@ -5,7 +5,7 @@ import base58
 import pytest
 import re
 
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE
+from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
@@ -227,7 +227,8 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
             DATA: 1
         }
         req = Request(identifier=wallet.defaultId,
-                      operation=op, reqId=getTimeBasedId())
+                      operation=op, reqId=getTimeBasedId(),
+                      protocolVersion=CURRENT_PROTOCOL_VERSION)
         client.submitReqs(req)
 
         timeout = waits.expectedTransactionExecutionTime(

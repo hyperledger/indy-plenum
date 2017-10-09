@@ -11,6 +11,7 @@ from jsonpickle.unpickler import loadclass
 from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
@@ -226,7 +227,7 @@ class Wallet:
         :param op: Operation to be signed
         :return: a signed Request object
         """
-        request = Request(operation=op)
+        request = Request(operation=op, protocolVersion=CURRENT_PROTOCOL_VERSION)
         return self.signRequest(request, identifier)
 
     def _signerById(self, idr: Identifier):
