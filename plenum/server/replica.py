@@ -2165,9 +2165,15 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        return ((self.last_accepted_pre_prepare_time is None or
-                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+        current_pp_time_greater_then_previous = \
+            self.last_accepted_pre_prepare_time is None or \
+            (pp.ppTime >= self.last_accepted_pre_prepare_time)
+        if not current_pp_time_greater_then_previous:
+            return False
+        pp_is_fresh_enough = \
+            abs(pp.ppTime - self.utc_epoch) <= \
+            self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+        return pp_is_fresh_enough
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2177,17 +2183,18 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        correct = self.is_pre_prepare_time_correct(pp)
-        if not correct:
-            logger.error(
-                '{} found {} to have incorrect time.'.format(self, pp))
-            key = (pp.viewNo, pp.ppSeqNo)
-            if key in self.pre_prepares_stashed_for_incorrect_time and \
-                    self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                logger.info(
-                    '{} marking time as correct for {}'.format(self, pp))
-                correct = True
-        return correct
+        if not self.is_pre_prepare_time_correct(pp):
+            pp_key = (pp.viewNo, pp.ppSeqNo)
+            pp_data = self.pre_prepares_stashed_for_incorrect_time.get(pp_key)
+            there_are_sufficient_prepares = pp_data and pp_data[-1]
+            if there_are_sufficient_prepares:
+                logger.info('{} found {} to have incorrect time, but '
+                            'there enough received prepares'
+                            .format(self, pp))
+                return True
+        logger.error('{} found {} to have incorrect time.'
+                     .format(self, pp))
+        return False
 
     def _process_stashed_pre_prepare_for_time_if_possible(
             self, key: Tuple[int, int]):
