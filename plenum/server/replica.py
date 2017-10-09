@@ -2183,15 +2183,16 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        if not self.is_pre_prepare_time_correct(pp):
-            pp_key = (pp.viewNo, pp.ppSeqNo)
-            pp_data = self.pre_prepares_stashed_for_incorrect_time.get(pp_key)
-            there_are_sufficient_prepares = pp_data and pp_data[-1]
-            if there_are_sufficient_prepares:
-                logger.info('{} found {} to have incorrect time, but '
-                            'there enough received prepares'
-                            .format(self, pp))
-                return True
+        if self.is_pre_prepare_time_correct(pp):
+            return True
+        pp_key = (pp.viewNo, pp.ppSeqNo)
+        pp_data = self.pre_prepares_stashed_for_incorrect_time.get(pp_key)
+        there_are_sufficient_prepares = pp_data and pp_data[-1]
+        if there_are_sufficient_prepares:
+            logger.info('{} found {} to have incorrect time, but '
+                        'there enough received prepares'
+                        .format(self, pp))
+            return True
         logger.error('{} found {} to have incorrect time.'
                      .format(self, pp))
         return False
