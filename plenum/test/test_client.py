@@ -21,7 +21,10 @@ from plenum.common.constants import OP_FIELD_NAME
 
 logger = getlogger()
 
-client_spyables = [Client.handleOneNodeMsg, Client.resendRequests]
+client_spyables = [Client.handleOneNodeMsg,
+                   Client.resendRequests,
+                   Client.send,
+                   Client.submitReqs]
 
 
 @spyable(methods=client_spyables)

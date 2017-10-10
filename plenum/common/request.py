@@ -2,7 +2,7 @@ from hashlib import sha256
 from typing import Mapping, NamedTuple
 
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import REQDIGEST, REQKEY, FORCE, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import REQDIGEST, REQKEY, FORCE, TXN_TYPE
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from stp_core.types import Identifier
@@ -14,7 +14,7 @@ class Request:
                  reqId: int = None,
                  operation: Mapping = None,
                  signature: str = None,
-                 protocolVersion: int = CURRENT_PROTOCOL_VERSION):
+                 protocolVersion: int = None):
         self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
@@ -86,6 +86,10 @@ class Request:
     def isForced(self):
         force = self.operation.get(FORCE)
         return str(force) == 'True'
+
+    @property
+    def txn_type(self):
+        return self.operation.get(TXN_TYPE)
 
     def __hash__(self):
         return hash(self.serialized())
