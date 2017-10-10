@@ -368,6 +368,8 @@ class Replica(HasActionQueue, MessageProcessor):
         instanceId.
          Ex: Alpha:1
         """
+        if ":" in nodeName:
+            return nodeName
         return "{}:{}".format(nodeName, instId)
 
     @staticmethod
