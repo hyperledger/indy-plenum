@@ -376,7 +376,7 @@ replica_spyables = [
     replica.Replica._request_pre_prepare_for_prepare,
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
-    replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
+    replica.Replica._process_stashed_pre_prepare,
 ]
 
 
