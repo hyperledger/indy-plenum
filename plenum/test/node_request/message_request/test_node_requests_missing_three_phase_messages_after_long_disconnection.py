@@ -6,6 +6,9 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
     reconnect_node_and_ensure_connected
 from plenum.test.waits import expectedPoolGetReadyTimeout
 from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 def test_node_requests_missing_three_phase_messages_after_long_disconnection(looper,
@@ -74,11 +77,12 @@ def test_node_requests_missing_three_phase_messages_after_long_disconnection(loo
 
     preprepare_deviation = 4
     tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS = preprepare_deviation
-    time.sleep(preprepare_deviation + 1)
+    time.sleep(preprepare_deviation * 2)
 
     for node in disconnected_nodes:
         looper.add(node)
         reconnect_node_and_ensure_connected(looper, alive_nodes, node)
+
     send_reqs_to_nodes_and_verify_all_replies(looper,
                                               wallet1,
                                               client1Connected,
