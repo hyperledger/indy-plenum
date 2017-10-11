@@ -76,6 +76,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
+from plenum.server.config_helper import NodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
 from stp_core.common.log import getlogger
@@ -88,7 +89,6 @@ from stp_zmq.zstack import ZStack
 
 pluginManager = PluginManager()
 logger = getlogger()
-
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor):
@@ -110,8 +110,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  ha: HA=None,
                  cliname: str=None,
                  cliha: HA=None,
-                 basedirpath: str=None,
-                 base_data_dir: str=None,
+                 ledger_dir: str = None,
+                 keys_dir: str = None,
+                 genesis_dir: str = None,
+                 plugins_dir: str = None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
@@ -122,26 +124,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param nodeRegistry: names and host addresses of all nodes in the pool
         :param clientAuthNr: client authenticator implementation to be used
-        :param basedirpath: path to the base directory used by `nstack` and
-            `cstack`
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
         self.created = time.time()
         self.name = name
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.baseDir, self.config.NETWORK_NAME)
-        self.basedirpath = os.path.expanduser(self.basedirpath)
-        self.key_path = self.basedirpath
-        self.dataDir = self.config.nodeDataDir or "data/nodes"
-        self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
-                                                           self.config.NETWORK_NAME)
-        self.base_data_dir = os.path.expanduser(self.base_data_dir)
+
+        config_helper = NodeConfigHelper(self.name, self.config)
+
+        self.ledger_dir = ledger_dir or config_helper.ledger_dir
+        self.keys_dir = keys_dir or config_helper.keys_dir
+        self.plugins_dir = plugins_dir or config_helper.plugins_dir
+        self.genesis_dir = genesis_dir or config_helper.genesis_dir
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
-        HasFileStorage.__init__(self, name, baseDir=self.base_data_dir,
-                                dataDir=self.dataDir)
+        HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
@@ -348,7 +347,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # is lost until the primary is connected.
         self.lost_primary_at = time.perf_counter()
 
-        tp = loadPlugins(self.basedirpath)
+        tp = loadPlugins(self.plugins_dir)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
@@ -548,7 +547,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
             # and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.basedirpath, self.config.domainTransactionsFile)
+                self.genesis_dir, self.config.domainTransactionsFile)
             return Ledger(
                 CompactMerkleTree(
                     hashStore=self.getHashStore('domain')),
@@ -2560,9 +2559,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check whether the keys are setup in the local STP keep.
         Raises KeysNotFoundException if not found.
         """
-        name, baseDir = self.name, self.key_path
-        if not areKeysSetup(name, baseDir, self.config):
-            raise REx(REx.reason.format(name) + self.keygenScript)
+        if not areKeysSetup(self.name, self.keys_dir, self.config):
+            raise REx(REx.reason.format(self.name) + self.keygenScript)
 
     @staticmethod
     def reasonForClientFromException(ex: Exception):
@@ -2778,7 +2776,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'rank': self.rank,
             'view': self.viewNo,
             'creationDate': self.created,
-            'baseDir': self.basedirpath,
+            'ledger_dir': self.ledger_dir,
+            'keys_dir': self.keys_dir,
+            'genesis_dir': self.genesis_dir,
+            'plugins_dir': self.plugins_dir,
             'portN': self.nodestack.ha[1],
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
@@ -2791,6 +2792,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.nodeInfo['data'] = self.collectNodeInfo()
 
-        with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
+        with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))

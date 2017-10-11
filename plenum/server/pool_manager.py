@@ -31,7 +31,7 @@ logger = getlogger()
 
 class PoolManager:
     @abstractmethod
-    def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
+    def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         """
         Returns a tuple(nodestack, clientstack, nodeReg)
@@ -103,7 +103,7 @@ class HasPoolManager:
                                               cliha=cliha)
             self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
         else:
-            self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
+            self.poolManager = RegistryPoolManager(self.name, self.keys_dir,
                                                    nodeRegistry, ha, cliname,
                                                    cliha)
 
@@ -113,18 +113,19 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node = node
         self.name = node.name
         self.config = node.config
-        self.basedirpath = node.basedirpath
+        self.genesis_dir = node.genesis_dir
+        self.keys_dir = node.keys_dir
         self._ledger = None
         self._id = None
 
         TxnStackManager.__init__(
-            self, self.name, self.basedirpath, isNode=True)
+            self, self.name, node.genesis_dir, node.keys_dir, isNode=True)
         self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
         self.initPoolState()
         self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
-            self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
+            self.getStackParamsAndNodeReg(self.name, self.keys_dir, ha=ha,
                                           cliname=cliname, cliha=cliha)
 
         self._dataFieldsValidators = (
@@ -164,7 +165,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def ledgerFile(self):
         return self.config.poolTransactionsFile
 
-    def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
+    def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(
             self.ledger)
@@ -190,9 +191,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       auth_mode=AuthMode.ALLOW_ANY.value)
         cliNodeReg[cliname] = HA(*cliha)
 
-        if basedirpath:
-            nstack['basedirpath'] = basedirpath
-            cstack['basedirpath'] = basedirpath
+        if keys_dir:
+            nstack['basedirpath'] = keys_dir
+            cstack['basedirpath'] = keys_dir
 
         return nstack, cstack, nodeReg, cliNodeReg
 
@@ -444,31 +445,31 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and
     # should be deprecated.
-    def __init__(self, name, basedirpath, nodeRegistry, ha, cliname, cliha):
+    def __init__(self, name, keys_dir, nodeRegistry, ha, cliname, cliha):
         self._ordered_node_names = None
 
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
-            self.getStackParamsAndNodeReg(name=name, basedirpath=basedirpath,
+            self.getStackParamsAndNodeReg(name=name, keys_dir=keys_dir,
                                           nodeRegistry=nodeRegistry, ha=ha,
                                           cliname=cliname, cliha=cliha)
 
-    def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
+    def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         nstack, nodeReg, cliNodeReg = self.getNodeStackParams(name,
                                                               nodeRegistry,
                                                               ha,
-                                                              basedirpath)
+                                                              keys_dir)
 
         cstack = self.getClientStackParams(name, nodeRegistry,
                                            cliname=cliname, cliha=cliha,
-                                           basedirpath=basedirpath)
+                                           keys_dir=keys_dir)
 
         return nstack, cstack, nodeReg, cliNodeReg
 
     @staticmethod
     def getNodeStackParams(name, nodeRegistry: Dict[str, HA],
                            ha: HA = None,
-                           basedirpath: str = None) -> Tuple[dict, dict, dict]:
+                           keys_dir: str = None) -> Tuple[dict, dict, dict]:
         """
         Return tuple(nodeStack params, nodeReg)
         """
@@ -490,14 +491,14 @@ class RegistryPoolManager(PoolManager):
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value)
 
-        if basedirpath:
-            nstack['basedirpath'] = basedirpath
+        if keys_dir:
+            nstack['basedirpath'] = keys_dir
 
         return nstack, nodeReg, cliNodeReg
 
     @staticmethod
     def getClientStackParams(name, nodeRegistry: Dict[str, HA], cliname,
-                             cliha, basedirpath) -> dict:
+                             cliha, keys_dir) -> dict:
         """
         Return clientStack params
         """
@@ -521,8 +522,8 @@ class RegistryPoolManager(PoolManager):
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value)
 
-        if basedirpath:
-            cstack['basedirpath'] = basedirpath
+        if keys_dir:
+            cstack['basedirpath'] = keys_dir
 
         return cstack
 

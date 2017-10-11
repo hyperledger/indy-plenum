@@ -33,7 +33,6 @@ def create_default_bls_bft_factory(node):
     :param node: Node instance
     :return: BLS factory instance
     '''
-    bls_crypto_factory = create_default_bls_crypto_factory(node.key_path,
-                                                           node.name)
+    bls_crypto_factory = create_default_bls_crypto_factory(node.keys_dir)
     return BlsFactoryBftPlenum(bls_crypto_factory,
                                node)
