@@ -81,7 +81,8 @@ def test_node_requests_missing_three_phase_messages_after_long_disconnection(loo
 
     for node in disconnected_nodes:
         looper.add(node)
-        reconnect_node_and_ensure_connected(looper, alive_nodes, node)
+    for node in disconnected_nodes:
+        reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
 
     send_reqs_to_nodes_and_verify_all_replies(looper,
                                               wallet1,
