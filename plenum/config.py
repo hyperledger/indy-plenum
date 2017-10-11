@@ -30,7 +30,7 @@ NODE_BASE_DATA_DIR = baseDir
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
 LOG_DIR = os.path.join(baseDir, "log")
-GENERAL_CONFIG_DIR = '/etc/plenum/'
+GENERAL_CONFIG_DIR = '/etc/indy'
 # walletDir = 'wallet'
 
 # it should be filled from baseConfig
