@@ -211,7 +211,7 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
     }
     dir('build-scripts/ubuntu-1604') {
         sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName"
-        sh "./build-3rd-parties-docker.sh"
+        sh "./build-3rd-parties-docker.sh $volumeName"
     }
     return "$volumeName"
 }
