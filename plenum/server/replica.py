@@ -1050,8 +1050,8 @@ class Replica(HasActionQueue, MessageProcessor):
         change, neither the committed state root hash will change)
         """
         if not self.is_pre_prepare_time_acceptable(pp):
-            self._stashed_pre_prepares[pp.viewNo, pp.ppSeqNo] = (
-                pp, sender, False)
+            self._stashed_pre_prepares[pp.viewNo, pp.ppSeqNo] = \
+                (pp, sender, False)
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
         if self._bls_bft:
@@ -1335,6 +1335,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
+
         if ((key not in self.prepares and key not in self.sentPrePrepares) and
                 (key not in self.preparesWaitingForPrePrepare)):
             logger.warning("{} rejecting COMMIT{} due to lack of prepares".
@@ -2195,8 +2196,20 @@ class Replica(HasActionQueue, MessageProcessor):
                         'there enough received prepares'
                         .format(self, pp))
             return True
-        logger.error('{} found {} to have incorrect time.'
-                     .format(self, pp))
+
+        if time.time() - self.node.nodestack.age >= pp.ppTime:
+            stashed_prepares = self.preparesWaitingForPrePrepare.get(pp_key)
+            there_are_sufficient_stashed_prepares = \
+                stashed_prepares is not None and \
+                (len(stashed_prepares) > 0)
+
+            if there_are_sufficient_stashed_prepares:
+                logger.info('{} found {} to have incorrect time, but '
+                            'there enough stashed prepares: {}'
+                            .format(self, pp, there_are_sufficient_prepares))
+                return True
+            logger.error('{} found {} to have incorrect time.'
+                         .format(self, pp))
         return False
 
     def _process_stashed_pre_prepare(self,
