@@ -283,7 +283,11 @@ class Client(Motor,
                (self.hasAnyConnections and
                (request.txn_type in self._read_only_requests or request.isForced())):
 
-                recipients = self.nodestack.conns
+                recipients = \
+                    {r.name
+                     for r in self.nodestack.remotes.values()
+                     if self.nodestack.isRemoteConnected(r)}
+
                 logger.debug('Client {} sending request {}'
                              .format(self, request, recipients))
 
