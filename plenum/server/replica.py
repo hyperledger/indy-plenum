@@ -2059,7 +2059,10 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         Request preprepare
         """
-        return self._request_three_phase_msg(three_pc_key, self.requested_pre_prepares, PREPREPARE, recipients,
+        return self._request_three_phase_msg(three_pc_key,
+                                             self.requested_pre_prepares,
+                                             PREPREPARE,
+                                             recipients,
                                              stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
@@ -2177,11 +2180,14 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
+        key = (pp.viewNo, pp.ppSeqNo)
+        if key in self.requested_pre_prepares:
+            # Special case for requested PrePrepares
+            return True
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
             logger.error(
                 '{} found {} to have incorrect time.'.format(self, pp))
-            key = (pp.viewNo, pp.ppSeqNo)
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
                 logger.info(
