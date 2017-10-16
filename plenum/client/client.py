@@ -283,11 +283,14 @@ class Client(Motor,
                (self.hasAnyConnections and
                (request.txn_type in self._read_only_requests or request.isForced())):
 
+                recipients = self.nodestack.conns
                 logger.debug('Client {} sending request {}'
-                             .format(self, request))
-                stat, err_msg = self.send(request)
+                             .format(self, request, recipients))
+
+                stat, err_msg = self.send(request, *recipients)
+
                 if stat:
-                    self.expectingFor(request)
+                    self.expectingFor(request, recipients)
                 else:
                     errs.append(err_msg)
                     logger.debug(
@@ -571,12 +574,6 @@ class Client(Motor,
         if self._ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
-
-    def replyIfConsensus(self, identifier, reqId: int):
-        replies, errors = self.reqRepStore.getAllReplies(identifier, reqId)
-        r = list(replies.values())[0] if len(replies) > self.f else None
-        e = list(errors.values())[0] if len(errors) > self.f else None
-        return r, e
 
     @property
     def hasSufficientConnections(self):
