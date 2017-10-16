@@ -113,8 +113,6 @@ class Client(Motor,
         # TODO: Find a proper name
         self.alias = name
 
-        self._ledger = None
-
         if not nodeReg:
             self.mode = None
             HasPoolManager.__init__(self)
@@ -196,7 +194,7 @@ class Client(Motor,
 
     @lazy_field
     def _bls_register(self):
-        return BlsKeyRegisterPoolLedger(self._ledger)
+        return BlsKeyRegisterPoolLedger(self.ledger)
 
     def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
         verifier = create_default_bls_crypto_factory()\
@@ -251,7 +249,7 @@ class Client(Motor,
             super().start(loop)
             self.nodestack.start()
             self.nodestack.maintainConnections(force=True)
-            if self._ledger:
+            if self.ledger:
                 self.ledgerManager.setLedgerCanSync(0, True)
                 self.mode = Mode.starting
 
@@ -270,7 +268,7 @@ class Client(Motor,
         s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
         # be reset ever so in `__init__` the `prod` method should be patched.
-        if self._ledger:
+        if self.ledger:
             s += self.ledgerManager._serviceActions()
         return s
 
@@ -327,7 +325,7 @@ class Client(Motor,
                     format(self.name, frm, msg),
                     extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
-            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
+            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self.ledger:
                 cMsg = node_message_factory.get_instance(**msg)
                 if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
                     self.poolTxnReceived(cMsg, frm)
@@ -371,11 +369,11 @@ class Client(Motor,
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
-        if self._ledger:
+        if self.ledger:
             self.ledgerManager.setLedgerState(
                 POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
-            self._ledger.stop()
+            self.ledger.stop()
             if self.hashStore and not self.hashStore.closed:
                 self.hashStore.close()
         self.txnLog.close()
@@ -575,7 +573,7 @@ class Client(Motor,
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
             self.flushMsgsPendingConnection()
-        if self._ledger:
+        if self.ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
 
