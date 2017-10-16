@@ -20,10 +20,13 @@ def test_node_requests_missing_three_phase_messages_after_long_disconnection(loo
                                                                              allPluginsPath):
     """
     2 of 4 nodes go down, so pool can not process any more incoming requests.
-    A new request comes in. After a while those 2 nodes come back alive.
-    Another request comes in. Check that previously disconnected two nodes
-    request missing PREPARES and PREPREPARES and the pool successfully handles
-    both transactions after that.
+    A new request comes in.
+    Test than waits for some time to ensure that PrePrepare was created
+    long enough seconds to be dropped by time checker.
+    Two stopped nodes come back alive.
+    Another request comes in.
+    Check that previously disconnected two nodes request missing PREPARES and
+    PREPREPARES and the pool successfully handles both transactions.
     """
     INIT_REQS_CNT = 10
     MISSING_REQS_CNT = 1
