@@ -266,7 +266,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # This is emptied on view change. With each PRE-PREPARE, a flag is
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
-        self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
+        self._stashed_pre_prepares = OrderedDict()
 
         self._bls_bft = bls_bft
         self._state_root_serializer = state_roots_serializer
@@ -368,6 +368,8 @@ class Replica(HasActionQueue, MessageProcessor):
         instanceId.
          Ex: Alpha:1
         """
+        if ":" in nodeName:
+            return nodeName
         return "{}:{}".format(nodeName, instId)
 
     @staticmethod
@@ -1048,8 +1050,8 @@ class Replica(HasActionQueue, MessageProcessor):
         change, neither the committed state root hash will change)
         """
         if not self.is_pre_prepare_time_acceptable(pp):
-            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (
-                pp, sender, False)
+            self._stashed_pre_prepares[pp.viewNo, pp.ppSeqNo] = \
+                (pp, sender, False)
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
         if self._bls_bft:
@@ -1333,6 +1335,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
+
         if ((key not in self.prepares and key not in self.sentPrePrepares) and
                 (key not in self.preparesWaitingForPrePrepare)):
             logger.warning("{} rejecting COMMIT{} due to lack of prepares".
@@ -1770,7 +1773,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.batches,
             self.requested_pre_prepares,
             self.requested_prepares,
-            self.pre_prepares_stashed_for_incorrect_time,
+            self._stashed_pre_prepares,
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -1937,10 +1940,10 @@ class Replica(HasActionQueue, MessageProcessor):
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
-        if key not in self.pre_prepares_stashed_for_incorrect_time:
+        if key not in self._stashed_pre_prepares:
             self._request_pre_prepare_for_prepare(key)
         else:
-            self._process_stashed_pre_prepare_for_time_if_possible(key)
+            self._process_stashed_pre_prepare(key)
 
     def dequeue_prepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -2165,9 +2168,15 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        return ((self.last_accepted_pre_prepare_time is None or
-                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+        current_pp_time_greater_then_previous = \
+            self.last_accepted_pre_prepare_time is None or \
+            (pp.ppTime >= self.last_accepted_pre_prepare_time)
+        if not current_pp_time_greater_then_previous:
+            return False
+        pp_is_fresh_enough = \
+            abs(pp.ppTime - self.utc_epoch) <= \
+            self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+        return pp_is_fresh_enough
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -2177,46 +2186,58 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
-        correct = self.is_pre_prepare_time_correct(pp)
-        if not correct:
-            logger.error(
-                '{} found {} to have incorrect time.'.format(self, pp))
-            key = (pp.viewNo, pp.ppSeqNo)
-            if key in self.pre_prepares_stashed_for_incorrect_time and \
-                    self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                logger.info(
-                    '{} marking time as correct for {}'.format(self, pp))
-                correct = True
-        return correct
+        if self.is_pre_prepare_time_correct(pp):
+            return True
+        pp_key = (pp.viewNo, pp.ppSeqNo)
+        pp_data = self._stashed_pre_prepares.get(pp_key)
+        there_are_sufficient_prepares = pp_data and pp_data[-1]
+        if there_are_sufficient_prepares:
+            logger.info('{} found {} to have incorrect time, but '
+                        'there enough received prepares'
+                        .format(self, pp))
+            return True
 
-    def _process_stashed_pre_prepare_for_time_if_possible(
-            self, key: Tuple[int, int]):
+        if time.time() - self.node.nodestack.age >= pp.ppTime:
+            stashed_prepares = self.preparesWaitingForPrePrepare.get(pp_key)
+            there_are_sufficient_stashed_prepares = \
+                stashed_prepares is not None and \
+                (len(stashed_prepares) > 0)
+
+            if there_are_sufficient_stashed_prepares:
+                logger.info('{} found {} to have incorrect time, but '
+                            'there enough stashed prepares: {}'
+                            .format(self, pp, there_are_sufficient_prepares))
+                return True
+            logger.error('{} found {} to have incorrect time.'
+                         .format(self, pp))
+        return False
+
+    def _process_stashed_pre_prepare(self,
+                                     key: Tuple[int, int]):
         """
         Check if any PRE-PREPAREs that were stashed since their time was not
         acceptable, can now be accepted since enough PREPAREs are received
         """
         logger.debug('{} going to process stashed PRE-PREPAREs with '
                      'incorrect times'.format(self))
-        q = self.quorums.f
-        if len(self.preparesWaitingForPrePrepare[key]) > q:
-            times = [pr.ppTime for (pr, _) in
-                     self.preparesWaitingForPrePrepare[key]]
-            most_common_time, freq = mostCommonElement(times)
-            if self.quorums.timestamp.is_reached(freq):
-                logger.debug('{} found sufficient PREPAREs for the '
-                             'PRE-PREPARE{}'.format(self, key))
-                stashed_pp = self.pre_prepares_stashed_for_incorrect_time
-                pp, sender, done = stashed_pp[key]
-                if done:
-                    logger.debug(
-                        '{} already processed PRE-PREPARE{}'.format(self, key))
-                    return True
-                # True is set since that will indicate to `is_pre_prepare_time_acceptable`
-                # that sufficient PREPAREs are received
-                stashed_pp[key] = (pp, sender, True)
-                self.processPrePrepare(pp, sender)
-                return True
-        return False
+        pp, sender, done = self._stashed_pre_prepares[key]
+        if done:
+            logger.debug('{} already processed stashed PRE-PREPARE{}'
+                         .format(self, key))
+            return True
+        if len(self.preparesWaitingForPrePrepare[key]) <= self.quorums.f:
+            return False
+        prepare_times = [prepare.ppTime for prepare, sender in
+                         self.preparesWaitingForPrePrepare[key]]
+        most_common_time, freq = mostCommonElement(prepare_times)
+        if not self.quorums.timestamp.is_reached(freq):
+            return False
+        logger.debug('{} found sufficient PREPAREs for '
+                     'the stashed PRE-PREPARE{}'
+                     .format(self, key))
+        self._stashed_pre_prepares[key] = (pp, sender, True)
+        self.processPrePrepare(pp, sender)
+        return True
 
     # @property
     # def threePhaseState(self):
