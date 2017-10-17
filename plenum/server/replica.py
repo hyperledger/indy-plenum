@@ -368,9 +368,15 @@ class Replica(HasActionQueue, MessageProcessor):
         instanceId.
          Ex: Alpha:1
         """
-        if ":" in nodeName:
-            return nodeName
+
+        if isinstance(nodeName, str):
+            # Because sometimes it is bytes (why?)
+            if ":" in nodeName:
+                # Because in some cases (for requested messages) it
+                # already has ':'. This should be fixed.
+                return nodeName
         return "{}:{}".format(nodeName, instId)
+
 
     @staticmethod
     def getNodeName(replicaName: str):
