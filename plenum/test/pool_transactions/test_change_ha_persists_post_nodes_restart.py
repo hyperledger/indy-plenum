@@ -44,14 +44,14 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     # what happens when starting the node with script
     restartedNodes = []
     for node in txnPoolNodeSet[:-1]:
-        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
+        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                                  config=tconf, ha=node.nodestack.ha,
                                  cliha=node.clientstack.ha)
         looper.add(restartedNode)
         restartedNodes.append(restartedNode)
 
     # Starting the node whose HA was changed
-    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
+    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
     restartedNodes.append(node)

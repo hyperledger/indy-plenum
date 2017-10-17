@@ -110,7 +110,7 @@ def start_newly_added_node(
         auto_start,
         plugin_path,
         nodeClass):
-    node = nodeClass(node_name, basedirpath=tdir, config=conf,
+    node = nodeClass(node_name, basedirpath=tdir, base_data_dir=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
     if auto_start:
@@ -192,7 +192,7 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
     client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))

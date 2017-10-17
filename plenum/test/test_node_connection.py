@@ -59,7 +59,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     logger.debug("Node names: {}".format(names))
 
     def create(name):
-        node = TestNode(name, nodeReg, basedirpath=tdir,
+        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
         return node
@@ -97,7 +97,7 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
     initLocalKeys(tdir, nodeReg)
 
     for name in nodeReg:
-        node = TestNode(name, nodeReg, basedirpath=tdir,
+        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -130,7 +130,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     rwaits = [randint(1, 10) for _ in names]
 
     for name in names:
-        node = TestNode(name, nodeReg, basedirpath=tdir,
+        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -172,7 +172,7 @@ def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
     logger.debug(names)
     nodes = []
     for name in names:
-        node = TestNode(name, nrg, basedirpath=tdir,
+        node = TestNode(name, nrg, basedirpath=tdir, base_data_dir=tdir,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -208,7 +208,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
 
     nodes = []
     for name in names:
-        node = TestNode(name, nrg, basedirpath=tdir,
+        node = TestNode(name, nrg, basedirpath=tdir, base_data_dir=tdir,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -222,7 +222,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
 
     initLocalKeys(tdir, {"Gamma": nodeReg["Gamma"]})
     C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
-                 basedirpath=tdir, pluginPaths=allPluginsPath)
+                 basedirpath=tdir, base_data_dir=tdir, pluginPaths=allPluginsPath)
     for node in nodes:
         tellKeysToOthers(node, [C, ])
 

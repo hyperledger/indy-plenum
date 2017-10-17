@@ -78,8 +78,8 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        basedirpath = self.config.baseDir if not basedirpath else basedirpath
-        self.basedirpath = basedirpath
+        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
+                                                       self.config.NETWORK_NAME)
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -93,9 +93,9 @@ class Client(Motor,
 
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, basedirpath):
+        if self.exists(self.stackName, self.basedirpath):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, basedirpath)
+                self.stackName, self.basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".

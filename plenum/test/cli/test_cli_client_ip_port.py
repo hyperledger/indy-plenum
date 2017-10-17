@@ -12,7 +12,7 @@ def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
     tempDir = os.path.join(tdir, "cl1")
     initDirWithGenesisTxns(
         tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    cli = newCLI(cliLooper, tempDir)
+    cli = newCLI(cliLooper, tempDir, tempDir)
     yield cli
     cli.close()
 
@@ -23,7 +23,7 @@ def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
     tempDir = os.path.join(tdir, "cl2")
     initDirWithGenesisTxns(
         tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    cli = newCLI(cliLooper, tempDir)
+    cli = newCLI(cliLooper, tempDir, tempDir)
     yield cli
     cli.close()
 
