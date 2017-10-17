@@ -71,7 +71,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # looper.run(newClient.ensureDisconnectedToNodes(timeout=60))
     txnPoolNodeSet = []
     for nm in poolTxnNodeNames:
-        node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+        node = TestNode(nm, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                         config=tconf, pluginPaths=allPluginsPath)
         looper.add(node)
         txnPoolNodeSet.append(node)

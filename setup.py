@@ -31,11 +31,21 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
+LOG_DIR = os.path.join(BASE_DIR, "log")
 CONFIG_FILE = os.path.join(BASE_DIR, "plenum_config.py")
-POOL_TXN_FILE = os.path.join(BASE_DIR, "pool_transactions_sandbox")
 
-if not os.path.exists(BASE_DIR):
-    os.makedirs(BASE_DIR)
+for path in [BASE_DIR, LOG_DIR]:
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+if not os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'w') as f:
+        msg = "# Here you can create config entries according to your " \
+              "needs.\n " \
+              "# For help, refer config.py in the plenum package.\n " \
+              "# Any entry you add here would override that from config " \
+              "example\n"
+        f.write(msg)
 
 setup(
     name='indy-plenum-dev',
@@ -55,16 +65,13 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
-    data_files=[(
-        (BASE_DIR, ['data/pool_transactions_sandbox_genesis', ])
-    )],
     install_requires=['jsonpickle', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments',
                       'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.1.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
@@ -120,3 +127,4 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
+changeOwnerAndGrpToLoggedInUser(LOG_DIR)

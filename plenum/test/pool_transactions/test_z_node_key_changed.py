@@ -42,7 +42,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                               override=True)
 
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
-    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
+    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(node)
     # The last element of `txnPoolNodeSet` is the node Theta that was just
