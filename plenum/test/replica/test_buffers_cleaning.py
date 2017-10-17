@@ -32,7 +32,7 @@ def test_ordered_cleaning():
 
 def test_primary_names_cleaning():
 
-    node = FakeNode(
+    node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=0,
