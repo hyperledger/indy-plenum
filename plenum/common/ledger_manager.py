@@ -441,14 +441,18 @@ class LedgerManager(HasActionQueue):
                      .format(frm, end - start + 1, start, end))
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
-        consProof = [Ledger.hashToStr(p) for p in
-                     ledger.tree.consistency_proof(end, req.catchupTill)]
-
+        cons_proof = self._make_consistency_proof(ledger, end, req.catchupTill)
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
-                                   consProof), to=frm)
+
+        rep = CatchupRep(getattr(req, f.LEDGER_ID.nm), txns, cons_proof)
+        self.sendTo(msg=rep, to=frm)
+
+    def _make_consistency_proof(self, ledger, end, catchup_till):
+        proof = ledger.tree.consistency_proof(end, catchup_till)
+        string_proof = [Ledger.hashToStr(p) for p in proof]
+        return string_proof
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.debug("{} received catchup reply from {}: {}".
@@ -1091,3 +1095,22 @@ class LedgerManager(HasActionQueue):
     def nodes_to_request_txns_from(self):
         return [nm for nm in self.nodestack.registry
                 if nm not in self.blacklistedNodes and nm != self.nodestack.name]
+
+    def _make_split_for_catchup_rep(self, ledger):
+
+        def _split(message):
+            divider = len(message.txns) // 2
+            left = message.txns[:divider]
+            right = message.txns[divider:]
+            left_cons_proof = self._make_consistency_proof(ledger,
+                                                           left[-1][0],
+                                                           ...)
+            right_cons_proof = self._make_consistency_proof(ledger,
+                                                            right[-1][0],
+                                                            ...)
+            ledger_id = getattr(message, f.LEDGER_ID.nm)
+            left_rep = CatchupRep(ledger_id, left, left_cons_proof)
+            right_rep = CatchupRep(ledger_id, right, right_cons_proof)
+            return left_rep, right_rep
+
+        return _split
