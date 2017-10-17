@@ -169,11 +169,12 @@ class Batched(MessageProcessor):
         while len(large_msg_parts):
             part = large_msg_parts.pop()
             part_bytes = self.sign_and_serialize(part, signer)
-            if self.msg_len_val.is_len_less_than_limit(part_bytes):
+            if self.msg_len_val.is_len_less_than_limit(len(part_bytes)):
                 fine_msg_parts.append(part_bytes)
                 continue
             smaller_parts = message_splitter(part)
             if smaller_parts is None:
+                large_msg_parts.append(part)
                 break
             large_msg_parts.extend(smaller_parts)
 
