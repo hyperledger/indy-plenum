@@ -10,11 +10,12 @@ from stp_core.crypto.nacl_wrappers import Signer
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
-from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
+from plenum.common.constants import STEWARD, TRUSTEE
 from plenum.common.util import hexToFriendly
 from plenum.common.signer_did import DidSigner
 from stp_core.common.util import adict
+from plenum.common.sys_util import copyall
 
 
 class TestNetworkSetup:
@@ -72,7 +73,7 @@ class TestNetworkSetup:
             raise RuntimeError(
                 'nodeNum must be an int or set of ints') from exc
 
-        baseDir = cls.setup_base_dir(config)
+        baseDir = cls.setup_base_dir(config, envName)
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
                                           envName)
@@ -99,10 +100,7 @@ class TestNetworkSetup:
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey = initLocalKeys(nd.name, baseDir,
-                                          nd.sigseed, True, config=config)
-                _, verkey = initLocalKeys(
-                    nd.name + CLIENT_STACK_SUFFIX, baseDir, nd.sigseed, True, config=config)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, baseDir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
@@ -118,10 +116,11 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
+                blskey = init_bls_keys(baseDir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
-                                        nd.ip, nd.port, nd.client_port)
+                                        nd.ip, nd.port, nd.client_port, blskey=blskey)
             poolLedger.add(node_txn)
 
         for cd in client_defs:
@@ -152,24 +151,25 @@ class TestNetworkSetup:
 
     @classmethod
     def pool_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].poolLedger
-        else:
-            return config.poolTransactionsFile
+        return config.poolTransactionsFile
 
     @classmethod
     def domain_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].domainLedger
-        else:
-            return config.domainTransactionsFile
+        return config.domainTransactionsFile
 
     @classmethod
-    def setup_base_dir(cls, config):
-        baseDir = config.baseDir
+    def setup_base_dir(cls, config, network_name):
+        baseDir = os.path.join(os.path.expanduser(config.baseDir), network_name)
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
         return baseDir
+
+    @classmethod
+    def setup_clibase_dir(cls, config, network_name):
+        cli_base_net = os.path.join(os.path.expanduser(config.CLI_NETWORK_DIR), network_name)
+        if not os.path.exists(cli_base_net):
+            os.makedirs(cli_base_net, exist_ok=True)
+        return cli_base_net
 
     @classmethod
     def bootstrapTestNodes(cls, config, startingPort,
@@ -195,11 +195,10 @@ class TestNetworkSetup:
                                  'IP, i.e 127.0.0.1',
                             type=cls._bootstrapArgsTypeIps)
 
-        parser.add_argument('--envName',
-                            help='Environment name (test or live)',
+        parser.add_argument('--network',
+                            help='Network name (default sandbox)',
                             type=str,
-                            choices=('test', 'live'),
-                            default="test",
+                            default="sandbox",
                             required=False)
 
         parser.add_argument(
@@ -218,10 +217,15 @@ class TestNetworkSetup:
             args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
-        cls.bootstrapTestNodesCore(config, args.envName, args.appendToLedgers,
+        cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers,
                                    domainTxnFieldOrder, trustee_def,
                                    steward_defs, node_defs, client_defs,
                                    args.nodeNum, nodeParamsFileName)
+
+        # copy configs to client folder
+        basedir = cls.setup_base_dir(config, args.network)
+        clidir = cls.setup_clibase_dir(config, args.network)
+        copyall(basedir, clidir)
 
     @staticmethod
     def _bootstrapArgsTypeNodeCount(nodesStrArg):

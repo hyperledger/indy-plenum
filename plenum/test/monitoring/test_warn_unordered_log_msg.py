@@ -19,8 +19,7 @@ def test_working_has_no_warn_log_msg(looper, nodeSet,
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
         req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1,
-                                            requests=[req], fVal=1)
+        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
     assert no_any_warn(*nodeSet)
@@ -45,8 +44,7 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
         req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1,
-                                            requests=[req], fVal=1)
+        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
     others = [node for node in nodeSet if node.name != slow_node.name]
@@ -59,8 +57,7 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
     # wait at least windows time
     looper.runFor(monitor.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60)
     req = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1,
-                                        requests=[req], fVal=1)
+    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
     assert no_any_warn(*others), 'others do not have warning'
     assert no_last_warn(slow_node), \
         'the last call of warn_has_lot_unordered_requests returned False ' \

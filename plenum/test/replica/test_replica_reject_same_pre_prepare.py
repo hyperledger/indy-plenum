@@ -1,19 +1,16 @@
 
 import pytest
 
-from plenum.server.replica import TPCStat
 from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures, updateNamedTuple, get_utc_epoch
+from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
-    checkPrepareReqSent
-
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesReceived
+    checkPrepareReqSent, check_sufficient_replies_received, sendRandomRequest
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
@@ -123,8 +120,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                                   timeout=timeout))
 
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + c_delay
-    result1 = looper.run(
-        eventually(checkSufficientRepliesReceived, client1.inBox,
-                   request1.reqId, fValue,
-                   retryWait=1, timeout=timeout))
+    result1 = \
+        looper.run(eventually(check_sufficient_replies_received,
+                              client1, request1.identifier, request1.reqId,
+                              retryWait=1, timeout=timeout))
     logger.debug("request {} gives result {}".format(request1, result1))

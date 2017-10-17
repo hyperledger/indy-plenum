@@ -21,10 +21,10 @@ Plenum.
 ### Installing Plenum
 
 ```
-pip install plenum
+pip install indy-plenum
 ```
 
-From here, you can play with the command-line interface (see the [tutorial](https://github.com/evernym/plenum/wiki))...
+From here, you can play with the command-line interface (see the [tutorial](https://github.com/hyperledger/indy-plenum/wiki))...
 
 Note: For Windows, we recommended using either [cmder](http://cmder.net/) or [conemu](https://conemu.github.io/).
 
@@ -35,12 +35,12 @@ plenum
 ...or run the tests.
 
 ```
-git clone https://github.com/evernym/plenum.git
-cd plenum
+git clone https://github.com/hyperledger/indy-plenum.git
+cd indy-plenum
 python -m plenum.test
 ```
 
-**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
+**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).**
 
 ### Installing python 3.5 and libsodium:
 
@@ -144,7 +144,7 @@ start_plenum_node Alpha
 
 
 ### Updating configuration
-To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum` directory inside your home directory. 
+To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum/YOUR_NETWORK_NAME` directory inside your home directory. 
 eg. To update the node registry to use `127.0.0.1` as host put these in your `plenum_config.py`.
 
 ```python

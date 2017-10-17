@@ -1,3 +1,4 @@
+from _sha256 import sha256
 from functools import partial
 
 from plenum.common.keygen_utils import initRemoteKeys
@@ -10,7 +11,7 @@ from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error
 from stp_core.common.log import getlogger
-from plenum.common.constants import REQACK, REQNACK, REPLY
+from plenum.common.constants import REQACK, REQNACK, REPLY, TXN_TYPE
 from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
@@ -20,7 +21,10 @@ from plenum.common.constants import OP_FIELD_NAME
 
 logger = getlogger()
 
-client_spyables = [Client.handleOneNodeMsg, Client.resendRequests]
+client_spyables = [Client.handleOneNodeMsg,
+                   Client.resendRequests,
+                   Client.send,
+                   Client.submitReqs]
 
 
 @spyable(methods=client_spyables)
@@ -36,6 +40,11 @@ class TestClient(Client, StackedTester):
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
+    def prepare_for_state(self, result):
+        if result[TXN_TYPE] == "buy":
+            from plenum.test.test_node import TestDomainRequestHandler
+            key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+            return key, value
 
 def genTestClient(nodes=None,
                   nodeReg=None,
