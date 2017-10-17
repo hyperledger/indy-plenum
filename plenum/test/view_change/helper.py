@@ -213,7 +213,7 @@ def start_stopped_node(stopped_node, looper, tconf,
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
-    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,
+    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)

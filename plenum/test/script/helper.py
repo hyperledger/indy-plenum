@@ -24,7 +24,7 @@ def looper(txnPoolNodesLooper):
 
 
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary, tdir):
 
     # prepare new ha for node and client stack
     subjectedNode = None
@@ -46,7 +46,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     # change HA
     stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
-                                  nodeStackNewHA, stewardName, stewardsSeed)
+                                  nodeStackNewHA, stewardName, stewardsSeed, basedir=tdir)
 
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
@@ -56,7 +56,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.removeProdable(subjectedNode)
 
     # start node with new HA
-    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)

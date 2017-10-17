@@ -1,6 +1,7 @@
 # inter-node communication
 from enum import IntEnum, unique
 
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
 
@@ -50,6 +51,7 @@ MONITORING_PREFIX = "MONITORING: "
 VIEW_CHANGE_PREFIX = "VIEW CHANGE: "
 CATCH_UP_PREFIX = "CATCH-UP: "
 PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
+BLS_PREFIX = "BLS: "
 
 NAME = "name"
 VERSION = "version"
@@ -70,6 +72,7 @@ HASH = "hash"
 ALIAS = "alias"
 PUBKEY = "pubkey"
 VERKEY = "verkey"
+BLS_KEY = "blskey"
 NYM_KEY = "NYM"
 NODE_IP = "node_ip"
 NODE_PORT = "node_port"
@@ -91,6 +94,12 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+
+# State proof fields
+STATE_PROOF = 'state_proof'
+ROOT_HASH = "root_hash"
+MULTI_SIGNATURE = "multi_signature"
+PROOF_NODES = "proof_nodes"
 
 # ROLES
 STEWARD = Roles.STEWARD.value
@@ -146,3 +155,5 @@ HS_LEVELDB = 'leveldb'
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
+
+CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value

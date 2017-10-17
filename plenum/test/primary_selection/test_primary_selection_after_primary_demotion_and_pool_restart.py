@@ -47,7 +47,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     # what happens when starting the node with script
     restartedNodes = []
     for node in txnPoolNodeSet:
-        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
+        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                                  config=tconf, ha=node.nodestack.ha,
                                  cliha=node.clientstack.ha)
         looper.add(restartedNode)

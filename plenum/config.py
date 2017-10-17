@@ -26,9 +26,19 @@ cliNodeReg = OrderedDict([
 
 baseDir = '~/.plenum/'
 walletsDir = 'wallets'
+NODE_BASE_DATA_DIR = baseDir
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
+LOG_DIR = os.path.join(baseDir, "log")
+GENERAL_CONFIG_DIR = '/etc/indy'
 # walletDir = 'wallet'
+
+# it should be filled from baseConfig
+NETWORK_NAME = ''
+
+GENERAL_CONFIG_FILE = 'plenum_config.py'
+NETWORK_CONFIG_FILE = 'plenum_config.py'
+USER_CONFIG_FILE = 'plenum_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
@@ -40,6 +50,8 @@ domainTransactionsFile = domain_transactions_file_base
 
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
+
+stateSignatureDbName = 'state_signature'
 
 # There is only one seqNoDB as it maintain the mapping of
 # request id to sequence numbers
@@ -56,6 +68,8 @@ primaryStorage = None
 domainStateStorage = KeyValueStorageType.Leveldb
 poolStateStorage = KeyValueStorageType.Leveldb
 reqIdToTxnStorage = KeyValueStorageType.Leveldb
+
+stateSignatureStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -137,7 +151,7 @@ enableStdOutLogging = True
 
 # OPTIONS RELATED TO TESTS
 
-# todo test 60sec after https://evernym.atlassian.net/browse/SOV-995 closed
+# TODO test 60sec
 TestRunningTimeLimitSec = 100
 
 # Expected time for one stack to get connected to another
@@ -220,3 +234,6 @@ ORIGIN_FIELD_LIMIT = 128
 ENC_FIELD_LIMIT = 16
 RAW_FIELD_LIMIT = 5 * 1024
 SIGNATURE_TYPE_FIELD_LIMIT = 16
+BLS_KEY_LIMIT = 512
+BLS_SIG_LIMIT = 512
+BLS_MULTI_SIG_LIMIT = 512

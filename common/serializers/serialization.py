@@ -1,5 +1,7 @@
 from typing import Mapping
 
+from common.serializers.base58_serializer import Base58Serializer
+from common.serializers.base64_serializer import Base64Serializer
 from common.serializers.json_serializer import JsonSerializer
 from common.serializers.msgpack_serializer import MsgPackSerializer
 from common.serializers.signing_serializer import SigningSerializer
@@ -10,8 +12,12 @@ ledger_hash_serializer = MsgPackSerializer()
 domain_state_serializer = JsonSerializer()
 pool_state_serializer = JsonSerializer()
 client_req_rep_store_serializer = JsonSerializer()
+multi_sig_store_serializer = JsonSerializer()
+state_roots_serializer = Base58Serializer()
+proof_nodes_serializer = Base64Serializer()
 
 
+# TODO: separate data, metadata and signature, so that we don't need to have topLevelKeysToIgnore
 def serialize_msg_for_signing(msg: Mapping, topLevelKeysToIgnore=None):
     """
     Serialize a message for signing.

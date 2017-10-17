@@ -1,8 +1,10 @@
 from hashlib import sha256
 
-from common.serializers.serialization import domain_state_serializer
+from common.serializers.serialization import domain_state_serializer, \
+    proof_nodes_serializer, state_roots_serializer
 from ledger.util import F
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
+    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
@@ -17,9 +19,10 @@ logger = getlogger()
 class DomainRequestHandler(RequestHandler):
     stateSerializer = domain_state_serializer
 
-    def __init__(self, ledger, state, reqProcessors):
+    def __init__(self, ledger, state, reqProcessors, bls_store):
         super().__init__(ledger, state)
         self.reqProcessors = reqProcessors
+        self.bls_store = bls_store
 
     def validate(self, req: Request, config=None):
         if req.operation.get(TXN_TYPE) == NYM:
@@ -109,6 +112,7 @@ class DomainRequestHandler(RequestHandler):
         if VERKEY in txn:
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
+        newData[TXN_TIME] = txn.get(TXN_TIME)
         existingData.update(newData)
         val = self.stateSerializer.serialize(existingData)
         key = self.nym_to_state_key(nym)
@@ -148,3 +152,15 @@ class DomainRequestHandler(RequestHandler):
     @staticmethod
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
+
+    def make_proof(self, path):
+        proof = self.state.generate_state_proof(path, serialize=True)
+        root_hash = self.state.committedHeadHash
+        encoded_proof = proof_nodes_serializer.serialize(proof)
+        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+        multi_sig = self.bls_store.get(encoded_root_hash)
+        return {
+            ROOT_HASH: encoded_root_hash,
+            MULTI_SIGNATURE: multi_sig,  # [["participants"], ["signatures"]]
+            PROOF_NODES: encoded_proof
+        }

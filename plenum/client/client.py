@@ -3,6 +3,7 @@ A client in an RBFT system.
 Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
+
 import copy
 import os
 import time
@@ -11,9 +12,15 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from common.serializers.serialization import ledger_txn_serializer
+from common.serializers.serialization import ledger_txn_serializer, \
+    state_roots_serializer, proof_nodes_serializer
+from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
+from plenum.bls.bls_bft_utils import create_full_root_hash
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.bls.bls_key_register_pool_ledger import \
+    BlsKeyRegisterPoolLedger
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
 from plenum.common.has_file_storage import HasFileStorage
@@ -31,11 +38,13 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
 from plenum.common.types import f
-from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
+    rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
+from state.pruning_state import PruningState
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 from stp_core.crypto.nacl_wrappers import Signer
@@ -43,6 +52,8 @@ from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
+from plenum.common.constants import STATE_PROOF
+from plenum.common.tools import lazy_field
 
 logger = getlogger()
 
@@ -67,8 +78,8 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        basedirpath = self.config.baseDir if not basedirpath else basedirpath
-        self.basedirpath = basedirpath
+        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
+                                                       self.config.NETWORK_NAME)
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -82,9 +93,9 @@ class Client(Motor,
 
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, basedirpath):
+        if self.exists(self.stackName, self.basedirpath):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, basedirpath)
+                self.stackName, self.basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -180,6 +191,18 @@ class Client(Motor,
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
 
+        self._multi_sig_verifier = self._create_multi_sig_verifier()
+        self._read_only_requests = set()
+
+    @lazy_field
+    def _bls_register(self):
+        return BlsKeyRegisterPoolLedger(self._ledger)
+
+    def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
+        verifier = create_default_bls_crypto_factory()\
+            .create_multi_signature_verifier()
+        return verifier
+
     def getReqRepStore(self):
         return ClientReqRepStoreFile(self.name, self.basedirpath)
 
@@ -254,14 +277,24 @@ class Client(Motor,
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         errs = []
+
         for request in reqs:
-            if (self.mode == Mode.discovered and self.hasSufficientConnections) or (
-                    request.isForced() and self.hasAnyConnections):
-                logger.debug(
-                    'Client {} sending request {}'.format(self, request))
-                stat, err_msg = self.send(request)
+            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
+               (self.hasAnyConnections and
+               (request.txn_type in self._read_only_requests or request.isForced())):
+
+                recipients = \
+                    {r.name
+                     for r in self.nodestack.remotes.values()
+                     if self.nodestack.isRemoteConnected(r)}
+
+                logger.debug('Client {} sending request {}'
+                             .format(self, request, recipients))
+
+                stat, err_msg = self.send(request, *recipients)
+
                 if stat:
-                    self.expectingFor(request)
+                    self.expectingFor(request, recipients)
                 else:
                     errs.append(err_msg)
                     logger.debug(
@@ -270,7 +303,7 @@ class Client(Motor,
             else:
                 logger.debug(
                     "{} pending request since in mode {} and "
-                    "connected to {} nodes". format(
+                    "connected to {} nodes".format(
                         self, self.mode, self.nodestack.connecteds))
                 self.pendReqsTillConnection(request)
             requests.append(request)
@@ -347,7 +380,7 @@ class Client(Motor,
                 self.hashStore.close()
         self.txnLog.close()
 
-    def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
+    def getReply(self, identifier: str, reqId: int) -> Optional:
         """
         Accepts reply message from node if the reply is matching
 
@@ -380,32 +413,141 @@ class Client(Motor,
                 msg[f.RESULT.nm][f.REQ_ID.nm] == reqId and
                 msg[f.RESULT.nm][f.IDENTIFIER.nm] == identifier}
 
-    def hasConsensus(self, identifier: str, reqId: int) -> Optional[str]:
+    def hasConsensus(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
-        Accepts a request ID and returns True if consensus was reached
-        for the request or else False
+        Accepts a request ID and returns reply for it if quorum achieved or
+        there is a state proof for it.
 
         :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         """
+        full_req_id = '({}:{})'.format(identifier, reqId)
         replies = self.getRepliesFromAllNodes(identifier, reqId)
         if not replies:
-            raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
-        # Check if at least f+1 replies are received or not.
-        if self.quorums.reply.is_reached(len(replies)):
-            onlyResults = {frm: reply["result"] for frm, reply in
-                           replies.items()}
-            resultsList = list(onlyResults.values())
-            # if all the elements in the resultList are equal - consensus
-            # is reached.
-            if all(result == resultsList[0] for result in resultsList):
-                return resultsList[0]  # CONFIRMED
-            else:
-                logger.error(
-                    "Received a different result from at least one of the nodes..")
-                return checkIfMoreThanFSameItems(resultsList, self.f)
-        else:
-            return False  # UNCONFIRMED
+            raise KeyError(full_req_id)
+        proved_reply = self.take_one_proved(replies, full_req_id)
+        if proved_reply:
+            logger.debug("Found proved reply for {}".format(full_req_id))
+            return proved_reply
+        quorumed_reply = self.take_one_quorumed(replies, full_req_id)
+        if quorumed_reply:
+            logger.debug("Reply quorum for {} achieved"
+                         .format(full_req_id))
+            return quorumed_reply
+
+    def take_one_quorumed(self, replies, full_req_id):
+        """
+        Checks whether there is sufficint number of equal replies from
+        different nodes. It uses following logic:
+
+        1. Check that there are sufficient replies received at all.
+           If not - return None.
+        2. Check that all these replies are equal.
+           If yes - return one of them.
+        3. Check that there is a group of equal replies which is large enough.
+           If yes - return one reply from this group.
+        4. Return None
+
+        """
+        if not self.quorums.reply.is_reached(len(replies)):
+            return None
+
+        # excluding state proofs from check since they can be different
+        def without_state_proof(result):
+            if STATE_PROOF in result:
+                result.pop('state_proof')
+            return result
+
+        results = [without_state_proof(reply["result"])
+                   for reply in replies.values()]
+
+        first = results[0]
+        if all(result == first for result in results):
+            return first
+        logger.warning("Received a different result from "
+                       "at least one node for {}"
+                       .format(full_req_id))
+
+        result, freq = mostCommonElement(results)
+        if not self.quorums.reply.is_reached(freq):
+            return None
+        return result
+
+    def take_one_proved(self, replies, full_req_id):
+        """
+        Returns one reply with valid state proof
+        """
+        for sender, reply in replies.items():
+            result = reply['result']
+            if STATE_PROOF not in result or result[STATE_PROOF] is None:
+                logger.debug("There is no state proof in "
+                             "reply for {} from {}"
+                             .format(full_req_id, sender))
+                continue
+            if not self.validate_multi_signature(result):
+                logger.warning("{} got reply for {} with bad "
+                               "multi signature from {}"
+                               .format(self.name, full_req_id, sender))
+                # TODO: do something with this node
+                continue
+            if not self.validate_proof(result):
+                logger.warning("{} got reply for {} with invalid "
+                               "state proof from {}"
+                               .format(self.name, full_req_id, sender))
+                # TODO: do something with this node
+                continue
+            return result
+
+    def validate_multi_signature(self, result):
+        """
+        Validates multi signature
+        """
+        multi_signature = result[STATE_PROOF]['multi_signature']
+        if not multi_signature:
+            logger.warning("There is a state proof, but no multi signature")
+            return False
+
+        participants = multi_signature['participants']
+        signature = multi_signature['signature']
+        full_state_root = create_full_root_hash(
+            root_hash=result[STATE_PROOF]['root_hash'],
+            pool_root_hash=multi_signature['pool_state_root']
+        )
+        if not self.quorums.bls_signatures.is_reached(len(participants)):
+            logger.warning("There is not enough participants of "
+                           "multi-signature")
+            return False
+        public_keys = []
+        for node_name in participants:
+            key = self._bls_register.get_key_by_name(node_name)
+            if key is None:
+                logger.warning("There is no bls key for node {}"
+                               .format(node_name))
+                return False
+            public_keys.append(key)
+        return self._multi_sig_verifier.verify(signature,
+                                               full_state_root,
+                                               public_keys)
+
+    def validate_proof(self, result):
+        """
+        Validates state proof
+        """
+        state_root_hash = result[STATE_PROOF]['root_hash']
+        state_root_hash = state_roots_serializer.deserialize(state_root_hash)
+        proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
+        proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
+        key, value = self.prepare_for_state(result)
+        valid = PruningState.verify_state_proof(state_root_hash,
+                                                key,
+                                                value,
+                                                proof_nodes,
+                                                serialized=True)
+        return valid
+
+    def prepare_for_state(self, result) -> tuple:
+        # this should be overridden
+        pass
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
@@ -436,12 +578,6 @@ class Client(Motor,
         if self._ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
-
-    def replyIfConsensus(self, identifier, reqId: int):
-        replies, errors = self.reqRepStore.getAllReplies(identifier, reqId)
-        r = list(replies.values())[0] if len(replies) > self.f else None
-        e = list(errors.values())[0] if len(errors) > self.f else None
-        return r, e
 
     @property
     def hasSufficientConnections(self):

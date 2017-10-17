@@ -11,6 +11,7 @@ from jsonpickle.unpickler import loadclass
 from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
@@ -226,7 +227,7 @@ class Wallet:
         :param op: Operation to be signed
         :return: a signed Request object
         """
-        request = Request(operation=op)
+        request = Request(operation=op, protocolVersion=CURRENT_PROTOCOL_VERSION)
         return self.signRequest(request, identifier)
 
     def _signerById(self, idr: Identifier):
@@ -424,6 +425,9 @@ class WalletCompatibilityBackend(JSONBackend):
     to the current version.
     """
 
+    def _getUpToDateClassName(self, pickledClassName):
+        return pickledClassName.replace('sovrin_client', 'indy_client')
+
     def decode(self, string):
         raw = super().decode(string)
         # Note that backend.decode may be called not only for the whole object
@@ -434,7 +438,7 @@ class WalletCompatibilityBackend(JSONBackend):
         # a wallet class supporting backward compatibility
         if isinstance(raw, dict) and tags.OBJECT in raw:
             clsName = raw[tags.OBJECT]
-            cls = loadclass(clsName)
+            cls = loadclass(self._getUpToDateClassName(clsName))
             if hasattr(cls, 'makeRawCompatible') \
                     and callable(getattr(cls, 'makeRawCompatible')):
                 cls.makeRawCompatible(raw)
