@@ -34,11 +34,18 @@ def check_all_nodes_the_same_pool_list(nodes):
 
 def test_primary_selection_after_demoted_node_promotion(
         shortViewChangeTimeout, looper, txnPoolNodeSet, nodeThetaAdded,
-        client1, wallet1, client1Connected,
         tconf, tdirWithPoolTxns, allPluginsPath):
     """
-    Demote primary and do multiple view changes forcing primaries rotation.
-    Demoted primary should be skipped without additional view changes.
+    Demote non-primary node
+    Promote it again
+    Restart one node to get the following difference with others:
+        - not restarted - node registry and related pool parameters are kept
+          in memory in some state which is expected as the same as
+          in the pool ledger
+        - restarted one - loaded node registry and pool parameters from
+          the pool ledger at startup
+    Do several view changes and check that all nodes will choose previously
+        demoted / promoted node as a primary for some instanse
     """
 
     nodeThetaSteward, nodeThetaStewardWallet, nodeTheta = nodeThetaAdded
@@ -78,7 +85,6 @@ def test_primary_selection_after_demoted_node_promotion(
                                         nodeThetaSteward, numReqs=3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
-    # TODO don't know who are primaries because of possible view changes
     logger.info("3. Restart one node")
     stopped_node = txnPoolNodeSet[0]
 
@@ -102,7 +108,7 @@ def test_primary_selection_after_demoted_node_promotion(
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
     logger.info("4. Do view changes to check that nodeTheta will be chosen "
-                "as a primary for any instance by all nodes after some rounds")
+                "as a primary for some instance by all nodes after some rounds")
     while txnPoolNodeSet[0].viewNo < 3:
         ensure_view_change_complete(looper, txnPoolNodeSet)
         # ensure pool is working properly
