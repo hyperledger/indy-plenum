@@ -451,8 +451,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
         # TODO should be always called when nodeReg is changed - automate
-        nodeNames = set(self.nodeReg.keys())
-        self.allNodeNames = nodeNames.union({self.name, })
+        self.allNodeNames = set(self.nodeReg.keys())
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
