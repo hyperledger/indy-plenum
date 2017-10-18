@@ -79,10 +79,9 @@ class Batched(MessageProcessor):
             for r in rids:
                 for part in message_parts:
                     self._enqueue(part, r, signer)
-            return None
-
-        for part in message_parts:
-            self._enqueueIntoAllRemotes(part, signer)
+        else:
+            for part in message_parts:
+                self._enqueueIntoAllRemotes(part, signer)
         return True, None
 
     def flushOutBoxes(self) -> None:
