@@ -54,7 +54,7 @@ def test_primary_selection_after_demoted_node_promotion(
                    nodeThetaStewardWallet, nodeTheta, node_data)
     remainingNodes = list(set(txnPoolNodeSet) - {nodeTheta})
 
-    #check_all_nodes_the_same_pool_list(remainingNodes)
+    check_all_nodes_the_same_pool_list(remainingNodes)
     # ensure pool is working properly
     sendReqsToNodesAndVerifySuffReplies(looper, nodeThetaStewardWallet,
                                         nodeThetaSteward, numReqs=3)
@@ -70,7 +70,7 @@ def test_primary_selection_after_demoted_node_promotion(
     updateNodeData(looper, nodeThetaSteward,
                    nodeThetaStewardWallet, nodeTheta, node_data)
 
-    #check_all_nodes_the_same_pool_list(txnPoolNodeSet)
+    check_all_nodes_the_same_pool_list(txnPoolNodeSet)
     # ensure pool is working properly
     sendReqsToNodesAndVerifySuffReplies(looper, nodeThetaStewardWallet,
                                         nodeThetaSteward, numReqs=3)
