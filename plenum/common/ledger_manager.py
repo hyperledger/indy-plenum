@@ -447,9 +447,15 @@ class LedgerManager(HasActionQueue):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
 
         rep = CatchupRep(getattr(req, f.LEDGER_ID.nm), txns, cons_proof)
-        self.sendTo(msg=rep, to=frm)
+        message_splitter = self._make_split_for_catchup_rep(ledger, req.catchupTill)
+        self.sendTo(msg=rep,
+                    to=frm,
+                    message_splitter=message_splitter)
 
     def _make_consistency_proof(self, ledger, end, catchup_till):
+        # TODO: make catchup_till optional
+        # if catchup_till is None:
+        #     catchup_till = ledger.size
         proof = ledger.tree.consistency_proof(end, catchup_till)
         string_proof = [Ledger.hashToStr(p) for p in proof]
         return string_proof
@@ -1053,12 +1059,13 @@ class LedgerManager(HasActionQueue):
         logger.error("{}{} cannot find remote with name {}"
                      .format(CONNECTION_PREFIX, self, remoteName))
 
-    def sendTo(self, msg: Any, to: str):
+    def sendTo(self, msg: Any, to: str, message_splitter=None):
         stack = self.getStack(to)
+
         # If the message is being sent by a node
         if self.ownedByNode:
             if stack == self.nodestack:
-                self.sendToNodes(msg, [to, ])
+                self.sendToNodes(msg, [to, ], message_splitter)
             if stack == self.clientstack:
                 self.owner.transmitToClient(msg, to)
         # If the message is being sent by a client
@@ -1096,7 +1103,7 @@ class LedgerManager(HasActionQueue):
         return [nm for nm in self.nodestack.registry
                 if nm not in self.blacklistedNodes and nm != self.nodestack.name]
 
-    def _make_split_for_catchup_rep(self, ledger):
+    def _make_split_for_catchup_rep(self, ledger, initial_seq_no):
 
         def _split(message):
             divider = len(message.txns) // 2
@@ -1104,10 +1111,10 @@ class LedgerManager(HasActionQueue):
             right = message.txns[divider:]
             left_cons_proof = self._make_consistency_proof(ledger,
                                                            left[-1][0],
-                                                           ...)
+                                                           initial_seq_no)
             right_cons_proof = self._make_consistency_proof(ledger,
                                                             right[-1][0],
-                                                            ...)
+                                                            initial_seq_no)
             ledger_id = getattr(message, f.LEDGER_ID.nm)
             left_rep = CatchupRep(ledger_id, left, left_cons_proof)
             right_rep = CatchupRep(ledger_id, right, right_cons_proof)
