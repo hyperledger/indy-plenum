@@ -253,7 +253,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                          format(self.name))
             return
         self.connectNewRemote(txn, nodeName, self.node)
-        self.node.newNodeJoined(txn)
+        self.node.nodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:

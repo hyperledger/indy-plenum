@@ -133,7 +133,7 @@ class Client(Motor,
 
         HasActionQueue.__init__(self)
 
-        self.setF()
+        self.setPoolParams()
 
         stackargs = dict(name=self.stackName,
                          ha=cha,
@@ -226,7 +226,7 @@ class Client(Motor,
         self.processPoolTxn(txn)
 
     # noinspection PyAttributeOutsideInit
-    def setF(self):
+    def setPoolParams(self):
         nodeCount = len(self.nodeReg)
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1

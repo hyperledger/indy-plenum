@@ -196,7 +196,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        self.setF()
+        self.setPoolParams()
 
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
@@ -449,7 +449,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     # noinspection PyAttributeOutsideInit
-    def setF(self):
+    def setPoolParams(self):
         nodeNames = set(self.nodeReg.keys())
         self.allNodeNames = nodeNames.union({self.name, })
         self.totalNodes = len(self.allNodeNames)
@@ -872,14 +872,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if Mode.is_done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
-    def newNodeJoined(self, txn):
-        self.setF()
+    def nodeJoined(self, txn):
+        self.setPoolParams()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
             self.decidePrimaries()
 
     def nodeLeft(self, txn):
-        self.setF()
+        self.setPoolParams()
         self.adjustReplicas()
 
     def sendPoolInfoToClients(self, txn):
