@@ -314,6 +314,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     # If validator service is enabled
                     self.updateNodeTxns(nodeInfo, txn)
                     self.connectNewRemote(nodeInfo, nodeName, self.node)
+                    self.node.nodeJoined(txn)
 
                 if VALIDATOR in oldServices.difference(newServices):
                     # If validator service is disabled
