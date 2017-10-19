@@ -174,7 +174,7 @@ class Batched(MessageProcessor):
             if message_splitter is not None:
                 smaller_parts = message_splitter(part)
                 if smaller_parts is not None:
-                    large_msg_parts.append(part)
+                    large_msg_parts.extend(smaller_parts)
                     continue
 
             large_msg_parts.append(part)
