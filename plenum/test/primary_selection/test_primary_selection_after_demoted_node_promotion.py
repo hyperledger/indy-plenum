@@ -19,11 +19,6 @@ config = getConfig()
 logger = getlogger()
 
 
-@pytest.fixture
-def shortViewChangeTimeout():
-    config.VIEW_CHANGE_TIMEOUT = 5
-
-
 def check_all_nodes_the_same_pool_list(nodes):
     allNodeNames = sorted([n.name for n in nodes])
     for node in nodes:
@@ -33,7 +28,7 @@ def check_all_nodes_the_same_pool_list(nodes):
 
 
 def test_primary_selection_after_demoted_node_promotion(
-        shortViewChangeTimeout, looper, txnPoolNodeSet, nodeThetaAdded,
+        looper, txnPoolNodeSet, nodeThetaAdded,
         tconf, tdirWithPoolTxns, allPluginsPath):
     """
     Demote non-primary node
