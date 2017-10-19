@@ -1106,18 +1106,21 @@ class LedgerManager(HasActionQueue):
     def _make_split_for_catchup_rep(self, ledger, initial_seq_no):
 
         def _split(message):
+            txns = list(message.txns.items())
             divider = len(message.txns) // 2
-            left = message.txns[:divider]
-            right = message.txns[divider:]
+            left = txns[:divider]
+            left_last_seq_no = left[-1][0]
+            right = txns[divider:]
+            right_last_seq_no = right[-1][0]
             left_cons_proof = self._make_consistency_proof(ledger,
-                                                           left[-1][0],
+                                                           left_last_seq_no,
                                                            initial_seq_no)
             right_cons_proof = self._make_consistency_proof(ledger,
-                                                            right[-1][0],
+                                                            right_last_seq_no,
                                                             initial_seq_no)
             ledger_id = getattr(message, f.LEDGER_ID.nm)
-            left_rep = CatchupRep(ledger_id, left, left_cons_proof)
-            right_rep = CatchupRep(ledger_id, right, right_cons_proof)
+            left_rep = CatchupRep(ledger_id, dict(left), left_cons_proof)
+            right_rep = CatchupRep(ledger_id, dict(right), right_cons_proof)
             return left_rep, right_rep
 
         return _split
