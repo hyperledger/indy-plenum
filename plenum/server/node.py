@@ -2111,8 +2111,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Sends instance change message when primary has been
         # disconnected for long enough
         if not self.lost_primary_at:
-            logger.trace('The primary is already connected '
-                         'so view change will not be proposed')
+            logger.trace('{} The primary is already connected '
+                         'so view change will not be proposed'.format(self))
             return
         disconnected_time = time.perf_counter() - self.lost_primary_at
         disconnected_long_enough = \
