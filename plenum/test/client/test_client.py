@@ -205,9 +205,13 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    serializedPayload, _ = client1.nodestack.signSerializeAndCheckLen(sent1, None)
-    client1.nodestack._enqueueIntoAllRemotes(serializedPayload, None)
 
+    message_parts, err_msg = \
+        client1.nodestack.prepare_for_sending(sent1, None)
+
+    for part in message_parts:
+        client1.nodestack._enqueueIntoAllRemotes(part, None)
+        
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
