@@ -2612,7 +2612,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
+    def send(self,
+             msg: Any,
+             *rids: Iterable[int],
+             signer: Signer = None,
+             message_splitter=None):
+
         if rids:
             remoteNames = [self.nodestack.remotes[rid].name for rid in rids]
             recipientsNum = len(remoteNames)
@@ -2624,14 +2629,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.debug("{} sending message {} to {} recipients: {}"
                      .format(self, msg, recipientsNum, remoteNames))
-        self.nodestack.send(msg, *rids, signer=signer)
+        self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
 
-    def sendToNodes(self, msg: Any, names: Iterable[str] = None):
+    def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):
         # TODO: This method exists in `Client` too, refactor to avoid
         # duplication
         rids = [rid for rid, r in self.nodestack.remotes.items(
         ) if r.name in names] if names else []
-        self.send(msg, *rids)
+        self.send(msg, *rids, message_splitter=message_splitter)
 
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
