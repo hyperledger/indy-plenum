@@ -202,7 +202,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        self.setF()
+        self.setPoolParams()
 
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
@@ -455,14 +455,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     # noinspection PyAttributeOutsideInit
-    def setF(self):
-        nodeNames = set(self.nodeReg.keys())
-        self.allNodeNames = nodeNames.union({self.name, })
+    def setPoolParams(self):
+        # TODO should be always called when nodeReg is changed - automate
+        self.allNodeNames = set(self.nodeReg.keys())
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
         self.quorums = Quorums(self.totalNodes)
+        logger.info(
+            "{} updated its pool parameters: f {}, totalNodes {}, "
+            "allNodeNames {}, requiredNumberOfInstances {}, minimumNodes {}, "
+            "quorums {}".format(
+                self, self.f, self.totalNodes,
+                self.allNodeNames, self.requiredNumberOfInstances,
+                self.minimumNodes, self.quorums))
 
     @property
     def poolLedger(self):
@@ -911,14 +918,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if Mode.is_done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
-    def newNodeJoined(self, txn):
-        self.setF()
+    def nodeJoined(self, txn):
+        logger.info("{} new node joined by txn {}".format(self, txn))
+        self.setPoolParams()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
             self.decidePrimaries()
 
     def nodeLeft(self, txn):
-        self.setF()
+        logger.info("{} node left by txn {}".format(self, txn))
+        self.setPoolParams()
         self.adjustReplicas()
 
     def sendPoolInfoToClients(self, txn):
@@ -960,7 +969,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 self.sendToElector(message, frm)
-        except TypeError as ex:
+        except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
                              PRIMARY_SELECTION_PREFIX),
@@ -2150,8 +2159,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Sends instance change message when primary has been
         # disconnected for long enough
         if not self.lost_primary_at:
-            logger.trace('The primary is already connected '
-                         'so view change will not be proposed')
+            logger.trace('{} The primary is already connected '
+                         'so view change will not be proposed'.format(self))
             return
         disconnected_time = time.perf_counter() - self.lost_primary_at
         disconnected_long_enough = \

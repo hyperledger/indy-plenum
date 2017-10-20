@@ -255,7 +255,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                          format(self.name))
             return
         self.connectNewRemote(txn, nodeName, self.node)
-        self.node.newNodeJoined(txn)
+        self.node.nodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
@@ -316,6 +316,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     # If validator service is enabled
                     self.updateNodeTxns(nodeInfo, txn)
                     self.connectNewRemote(nodeInfo, nodeName, self.node)
+                    self.node.nodeJoined(txn)
 
                 if VALIDATOR in oldServices.difference(newServices):
                     # If validator service is disabled
@@ -397,12 +398,17 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
 
     def _order_node(self, nodeNym, nodeName):
-        assert self._ordered_node_ids.get(nodeNym) in (nodeName, None), (
-            "{} trying to order already ordered node {} ({}) "
-            "with other alias {}".format(
-                self.name, self._ordered_node_ids.get(nodeNym), nodeNym))
+        curName = self._ordered_node_ids.get(nodeNym)
 
-        self._ordered_node_ids[nodeNym] = nodeName
+        if curName is None:
+            logger.info("{} node {} ordered, NYM {}".format(
+                        self.name, nodeName, nodeNym))
+            self._ordered_node_ids[nodeNym] = nodeName
+        elif curName != nodeName:
+            msg = ("{} is trying to order already ordered node {} ({}) "
+                   "with other alias {}".format(self.name, curName, nodeNym, nodeName))
+            logger.warning(msg)
+            assert False, msg
 
     @property
     def node_ids_ordered_by_rank(self) -> List:
