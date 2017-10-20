@@ -16,6 +16,7 @@ def test_each_node_has_bls(txnPoolNodeSet):
 def test_send_txns_bls_consensus(looper, txnPoolNodeSet,
                                  client1, client1Connected, wallet1):
     # make sure that we have commits from all nodes, and have 5 of 7 (n-f) BLS sigs there is enough
+    # otherwise we may have 3 commits, but 1 of them may be without BLS, so we will Order this txn, but without multi-sig
     for node in txnPoolNodeSet:
         node.quorums.commit = Quorum(nodeCount)
     # we expect that although not all nodes can sign with BLS (because not all nodes have BLS keys),

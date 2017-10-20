@@ -1,4 +1,4 @@
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
 from stp_core.types import HA
 from typing import Iterable, Union
 
@@ -279,6 +279,16 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)
     return client, w
+
+
+def new_client(looper, poolTxnClientData, txnPoolNodeSet, tdirWithPoolTxns):
+    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
+                                              tdirWithPoolTxns)
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
+                                                  *txnPoolNodeSet)
+    return client, wallet
 
 
 def disconnectPoolNode(poolNodes: Iterable,

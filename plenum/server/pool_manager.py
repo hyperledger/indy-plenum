@@ -334,7 +334,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self.node_about_to_be_disconnected(nodeName)
 
     def node_blskey_changed(self, txn):
-        pass
+        # if BLS key changes for my Node, then re-init BLS crypto signer with new keys
+        node_nym = txn[TARGET_NYM]
+        node_name = self.getNodeName(node_nym)
+        if node_name == self.name:
+            bls_key = txn[DATA][BLS_KEY]
+            self.node.update_bls_key(bls_key)
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change
