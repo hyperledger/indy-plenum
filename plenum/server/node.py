@@ -20,7 +20,7 @@ from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, 
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP
+    NODE_IP, BLS_PREFIX
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -146,17 +146,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
-        self.bls_store = self._create_bls_store()
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+
+        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+
+        # init BLS after pool manager!
+        # init before domain req handler!
+        self.bls_bft = self._create_bls_bft()
+
         self.reqHandler = self.getDomainReqHandler()
         self.initDomainState()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
         self.addGenesisNyms()
-
-        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
         if isinstance(self.poolManager, RegistryPoolManager):
             self.mode = Mode.discovered
@@ -438,7 +442,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return DomainRequestHandler(self.domainLedger,
                                     self.states[DOMAIN_LEDGER_ID],
                                     self.reqProcessors,
-                                    self.bls_store)
+                                    self.bls_bft.bls_store)
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(
@@ -590,9 +594,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.domainStateDbName)
         )
 
-    def _create_bls_store(self):
+    def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
-        return bls_factory.create_bls_store()
+        bls_bft =  bls_factory.create_bls_bft()
+        if bls_bft.can_sign_bls():
+            logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
+        else:
+            # TODO: for now we allow that BLS is optional, so that we don't require it
+            logger.warning(
+                '{}Transactions will not be BLS signed by this Node, since BLS keys were not found. '
+                'Please make sure that a script to init keys was called,'
+                ' and NODE txn was sent with BLS public keys.'.format(BLS_PREFIX))
+        return bls_bft
 
     @classmethod
     def ledgerIdForRequest(cls, request: Request):
@@ -717,8 +730,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
-        if self.bls_store:
-            self.bls_store.close()
+        if self.bls_bft.bls_store:
+            self.bls_bft.bls_store.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})

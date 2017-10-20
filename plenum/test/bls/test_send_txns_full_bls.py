@@ -7,7 +7,8 @@ nodes_wth_bls = 7
 
 def test_each_node_has_bls(txnPoolNodeSet):
     for node in txnPoolNodeSet:
-        assert node.replicas[0]._bls_bft
+        assert node.bls_bft
+        assert node.replicas[0]._bls_bft_replica
 
 
 def test_send_txns_full_bls(looper, txnPoolNodeSet,

@@ -14,7 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
-from crypto.bls.bls_multi_signature_verifier import MultiSignatureVerifier
+from crypto.bls.bls_crypto import BlsCryptoVerifier
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
 from plenum.bls.bls_bft_utils import create_full_root_hash
@@ -198,9 +198,9 @@ class Client(Motor,
     def _bls_register(self):
         return BlsKeyRegisterPoolLedger(self._ledger)
 
-    def _create_multi_sig_verifier(self) -> MultiSignatureVerifier:
+    def _create_multi_sig_verifier(self) -> BlsCryptoVerifier:
         verifier = create_default_bls_crypto_factory()\
-            .create_multi_signature_verifier()
+            .create_bls_crypto_verifier()
         return verifier
 
     def getReqRepStore(self):
@@ -525,9 +525,9 @@ class Client(Motor,
                                .format(node_name))
                 return False
             public_keys.append(key)
-        return self._multi_sig_verifier.verify(signature,
-                                               full_state_root,
-                                               public_keys)
+        return self._multi_sig_verifier.verify_multi_sig(signature,
+                                                         full_state_root,
+                                                         public_keys)
 
     def validate_proof(self, result):
         """

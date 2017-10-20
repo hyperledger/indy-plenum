@@ -26,7 +26,7 @@ class Replicas:
         instance_id = self.num_replicas
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
-        bls_bft = self._create_bls_bft(is_master)
+        bls_bft = self._create_bls_bft_replica(is_master)
         replica = self._new_replica(instance_id, is_master, bls_bft)
         self._replicas.append(replica)
         self._messages_to_replicas.append(deque())
@@ -109,19 +109,10 @@ class Replicas:
         """
         return Replica(self._node, instance_id, is_master, bls_bft)
 
-    def _create_bls_bft(self, is_master):
-        try:
-            bls_factory = create_default_bls_bft_factory(self._node)
-            bls_bft = bls_factory.create_bls_bft(is_master)
-            logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self._node.name))
-            return bls_bft
-        except LoadBLSKeyError as ex:
-            # TODO: for now we allow that BLS is optional, so that we don't require it
-            logger.warning(
-                '{}BLS Signatures will not be used for the node, since BLS keys were not found. '
-                'Please make sure that a script to init keys was called,'
-                ' and NODE txn was sent with BLS public keys. Error: '.format(BLS_PREFIX, ex))
-            return None
+    def _create_bls_bft_replica(self, is_master):
+        bls_factory = create_default_bls_bft_factory(self._node)
+        bls_bft_replica = bls_factory.create_bls_bft_replica(is_master)
+        return bls_bft_replica
 
     @property
     def num_replicas(self):

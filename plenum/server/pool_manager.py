@@ -10,7 +10,7 @@ from typing import Dict, Tuple, List
 
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
 from plenum.common.exceptions import UnsupportedOperation, \
     InvalidClientRequest
 from plenum.common.request import Request
@@ -226,6 +226,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self.nodeKeysChanged(txn)
                 if SERVICES in txn[DATA]:
                     self.nodeServicesChanged(txn)
+                if BLS_KEY in txn[DATA]:
+                    self.node_blskey_changed(txn)
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
@@ -330,6 +332,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
                     self.node.nodeLeft(txn)
                     self.node_about_to_be_disconnected(nodeName)
+
+    def node_blskey_changed(self, txn):
+        pass
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change

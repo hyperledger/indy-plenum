@@ -27,7 +27,7 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     for state_root in state_roots:
         multi_sigs = []
         for node in txnPoolNodeSet:
-            multi_sig = node.bls_store.get(state_root)
+            multi_sig = node.bls_bft.bls_store.get(state_root)
             if multi_sig:
                 multi_sigs.append(multi_sig)
         multi_sigs_for_batch.append(multi_sigs)
