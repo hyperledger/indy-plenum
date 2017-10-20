@@ -460,9 +460,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info(
             "{} updated its pool parameters: f {}, totalNodes {}, "
             "allNodeNames {}, requiredNumberOfInstances {}, minimumNodes {}, "
-            "quorums {}".format(self, self.f, self.totalNodes,
-            self.allNodeNames, self.requiredNumberOfInstances,
-            self.minimumNodes, self.quorums))
+            "quorums {}".format(
+                self, self.f, self.totalNodes,
+                self.allNodeNames, self.requiredNumberOfInstances,
+                self.minimumNodes, self.quorums))
 
     @property
     def poolLedger(self):
@@ -929,7 +930,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 self.sendToElector(message, frm)
-        except TypeError as ex:
+        except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
                              PRIMARY_SELECTION_PREFIX),

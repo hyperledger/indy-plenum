@@ -396,11 +396,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self._ordered_node_ids[nodeNym] = nodeName
         elif curName != nodeName:
             msg = ("{} is trying to order already ordered node {} ({}) "
-                   "with other alias {}".format(
-                   self.name, curName, nodeNym, nodeName))
+                   "with other alias {}".format(self.name, curName, nodeNym, nodeName))
             logger.warning(msg)
             assert False, msg
-
 
     @property
     def node_ids_ordered_by_rank(self) -> List:

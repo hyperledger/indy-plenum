@@ -234,10 +234,10 @@ class Client(Motor,
         self.quorums = Quorums(nodeCount)
         logger.info(
             "{} updated its pool parameters: f {}, totalNodes {},"
-            "minNodesToConnect {}, quorums {}".format(self.alias,
-            self.f, self.totalNodes,
-            self.minNodesToConnect, self.quorums))
-
+            "minNodesToConnect {}, quorums {}".format(
+                self.alias,
+                self.f, self.totalNodes,
+                self.minNodesToConnect, self.quorums))
 
     @staticmethod
     def exists(name, basedirpath):
