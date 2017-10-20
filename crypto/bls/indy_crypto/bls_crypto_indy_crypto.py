@@ -48,8 +48,7 @@ class IndyCryptoBlsUtils:
 class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
     def __init__(self, params: GroupParams):
         self._generator = \
-            IndyCryptoBlsUtils \
-                .bls_from_str(params.g, Generator)  # type: Generator
+            IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     def verify_sig(self, signature: str, message: str, pk: str) -> bool:
         return Bls.verify(IndyCryptoBlsUtils.bls_from_str(signature, Signature),
@@ -60,8 +59,7 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
     def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
         epks = [IndyCryptoBlsUtils.bls_from_str(p, VerKey) for p in pks]
         multi_signature = \
-            IndyCryptoBlsUtils \
-                .bls_from_str(signature, MultiSignature)  # type: MultiSignature
+            IndyCryptoBlsUtils.bls_from_str(signature, MultiSignature)  # type: MultiSignature
         message_bytes = IndyCryptoBlsUtils.msg_to_bls_bytes(message)
         return Bls.verify_multi_sig(multi_sig=multi_signature,
                                     message=message_bytes,
@@ -80,8 +78,7 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
         self._sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
         self._pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
         self._generator = \
-            IndyCryptoBlsUtils \
-                .bls_from_str(params.g, Generator)  # type: Generator
+            IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     @staticmethod
     def generate_keys(params: GroupParams, seed=None) -> (str, str):

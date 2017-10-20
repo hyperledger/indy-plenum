@@ -598,7 +598,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
-        bls_bft =  bls_factory.create_bls_bft()
+        bls_bft = bls_factory.create_bls_bft()
         if bls_bft.can_sign_bls():
             logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
         else:

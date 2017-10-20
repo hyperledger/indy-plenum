@@ -35,12 +35,12 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSig is None:
+                pre_prepare.blsMultiSig is None:
             return
 
         # if we have multi-sig, then we must have the corresponded state root as well
         if f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSigStateRoot is None:
+                pre_prepare.blsMultiSigStateRoot is None:
             raise SuspiciousNode(sender,
                                  Suspicions.PPR_NO_BLS_MULTISIG_STATE,
                                  pre_prepare)
