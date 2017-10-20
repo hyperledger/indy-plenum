@@ -1,8 +1,11 @@
 from common.serializers.serialization import state_roots_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY
+from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch
+from plenum.common.util import get_utc_epoch, randomString
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
+from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.pool_transactions.helper import updateNodeData, buildPoolClientAndWallet, new_client
 
 
 def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -27,14 +30,15 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     for state_root in state_roots:
         multi_sigs = []
         for node in txnPoolNodeSet:
-            multi_sig = node.bls_store.get(state_root)
+            multi_sig = node.bls_bft.bls_store.get(state_root)
             if multi_sig:
                 multi_sigs.append(multi_sig)
         multi_sigs_for_batch.append(multi_sigs)
 
     # 3. check how many multi-sigs are saved
     for multi_sigs in multi_sigs_for_batch:
-        assert len(multi_sigs) == saved_multi_sigs_count
+        assert len(multi_sigs) == saved_multi_sigs_count,\
+            "{} != {}".format(len(multi_sigs), saved_multi_sigs_count)
 
     # 3. check that bls multi-sig is the same for all nodes we get PrePrepare for (that is for all expect the last one)
     for multi_sigs in multi_sigs_for_batch[:-1]:
@@ -146,3 +150,65 @@ def create_prepare(req_key, state_root):
     view_no, pp_seq_no = req_key
     params = create_prepare_params(view_no, pp_seq_no, state_root)
     return Prepare(*params)
+
+
+def change_bls_key(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                   node,
+                   steward_client, steward_wallet,
+                   add_wrong=False):
+    new_blspk = init_bls_keys(tdirWithPoolTxns, node.name)
+    key_in_txn = new_blspk if not add_wrong else randomString(32)
+    node_data = {
+        ALIAS: node.name,
+        BLS_KEY: key_in_txn
+    }
+
+    updateNodeData(looper, steward_client, steward_wallet, node, node_data)
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
+                                                  *txnPoolNodeSet)
+    return new_blspk
+
+
+def check_bls_key(blskey, node, nodes, add_wrong=False):
+    '''
+    Check that each node has the same and correct blskey for this node
+    '''
+    keys = set()
+    for n in nodes:
+        keys.add(n.bls_bft.bls_key_register.get_key_by_name(node.name))
+    assert len(keys) == 1
+    if not add_wrong:
+        assert blskey == next(iter(keys))
+
+    # check that this node has correct blskey
+    if not add_wrong:
+        assert node.bls_bft.can_sign_bls()
+        assert blskey == node.bls_bft.bls_crypto_signer.pk
+    else:
+        assert not node.bls_bft.can_sign_bls()
+
+
+def check_update_bls_key(node_num, saved_multi_sigs_count,
+                         looper, txnPoolNodeSet, tdirWithPoolTxns,
+                         poolTxnClientData,
+                         stewards_and_wallets,
+                         add_wrong=False):
+    # 1. Change BLS key for a specified NODE
+    node = txnPoolNodeSet[node_num]
+    steward_client, steward_wallet = stewards_and_wallets[node_num]
+    new_blspk = change_bls_key(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                               node,
+                               steward_client, steward_wallet,
+                               add_wrong)
+
+    # 2. Check that all Nodes see the new BLS key value
+    check_bls_key(new_blspk, node, txnPoolNodeSet, add_wrong)
+
+    # 3. Check that we can send new requests and have correct multisigs
+    client, wallet = new_client(looper,
+                                poolTxnClientData,
+                                txnPoolNodeSet, tdirWithPoolTxns)
+    check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
+                                   client, wallet,
+                                   saved_multi_sigs_count=saved_multi_sigs_count)

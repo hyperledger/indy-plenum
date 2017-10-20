@@ -104,7 +104,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     logger.info("4. Do view changes to check that nodeTheta will be chosen "
                 "as a primary for some instance by all nodes after some rounds")
-    while txnPoolNodeSet[0].viewNo < 3:
+    while txnPoolNodeSet[0].viewNo < 4:
         ensure_view_change_complete(looper, txnPoolNodeSet)
         # ensure pool is working properly
         sendReqsToNodesAndVerifySuffReplies(looper, nodeThetaStewardWallet,
