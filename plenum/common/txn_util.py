@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY
+    ALIAS, VERKEY, FORCE
 from plenum.common.types import f, OPERATION
 from plenum.common.request import Request
 from stp_core.common.log import getlogger
@@ -93,3 +93,8 @@ def txnToReq(txn):
         request[field_name] = txn.pop(field_name, None)
     request[OPERATION] = txn
     return request
+
+
+def isTxnForced(txn):
+    force = txn.get(FORCE)
+    return str(force) == 'True'
