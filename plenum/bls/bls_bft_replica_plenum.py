@@ -1,11 +1,10 @@
 from typing import Optional
 
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
-from crypto.bls.bls_crypto import BlsCrypto
-from crypto.bls.bls_key_register import BlsKeyRegister
+from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_bft_utils import create_full_root_hash
-from plenum.bls.bls_store import BlsStore
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
@@ -17,17 +16,17 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-class BlsBftPlenum(BlsBft):
+class BlsBftReplicaPlenum(BlsBftReplica):
     def __init__(self,
-                 bls_crypto: BlsCrypto,
-                 bls_key_register: BlsKeyRegister,
                  node_id,
-                 is_master,
-                 bls_store: BlsStore = None):
-        super().__init__(bls_crypto, bls_key_register, node_id, is_master, bls_store)
+                 bls_bft: BlsBft,
+                 is_master):
+        super().__init__(bls_bft, is_master)
+        self.node_id = node_id
         self._signatures = {}
         self._bls_latest_multi_sig = None  # (pool_state_root, participants, sig)
         self._bls_latest_signed_root = None  # (pool_state_root, participants, sig)
+        self.state_root_serializer = state_roots_serializer
 
     def _can_process_ledger(self, ledger_id):
         return ledger_id == DOMAIN_LEDGER_ID
@@ -97,6 +96,11 @@ class BlsBftPlenum(BlsBft):
         if not self._can_process_ledger(ledger_id):
             return commit_params
 
+        if not self._bls_bft.can_sign_bls():
+            logger.debug("{}{} can not sign COMMIT {} for state {}: No BLS keys"
+                         .format(BLS_PREFIX, self, commit_params, state_root_hash))
+            return commit_params
+
         bls_signature = self._sign_state(state_root_hash)
         logger.debug("{}{} signed COMMIT {} for state {} with sig {}"
                      .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
@@ -160,40 +164,40 @@ class BlsBftPlenum(BlsBft):
 
     def _validate_signature(self, sender, bls_sig, state_root_hash):
         sender_node = self.get_node_name(sender)
-        pk = self.bls_key_register.get_key_by_name(sender_node)
+        pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node)
         if not pk:
             return False
-        pool_state_root_hash_str = self._state_root_serializer.serialize(
-            bytes(self.bls_key_register.get_pool_root_hash_committed()))
+        pool_state_root_hash_str = self.state_root_serializer.serialize(
+            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         message = self._create_multi_sig_value(state_root_hash,
                                                pool_state_root_hash_str)
-        return self._bls_crypto.verify_sig(bls_sig, message, pk)
+        return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
 
     def _validate_multi_sig(self, multi_sig: MultiSignature, state_root):
         public_keys = []
         for node_name in multi_sig.participants:
-            pool_root_hash = self._state_root_serializer.deserialize(multi_sig.pool_state_root)
-            bls_key = self.bls_key_register.get_key_by_name(node_name,
-                                                            pool_root_hash)
+            pool_root_hash = self.state_root_serializer.deserialize(multi_sig.pool_state_root)
+            bls_key = self._bls_bft.bls_key_register.get_key_by_name(node_name,
+                                                                     pool_root_hash)
             # TODO: It's optional for now
             if bls_key:
                 public_keys.append(bls_key)
         message = self._create_multi_sig_value(state_root,
                                                multi_sig.pool_state_root)
-        return self._bls_crypto.verify_multi_sig(multi_sig.signature,
-                                                 message,
-                                                 public_keys)
+        return self._bls_bft.bls_crypto_verifier.verify_multi_sig(multi_sig.signature,
+                                                                  message,
+                                                                  public_keys)
 
     def _sign_state(self, state_root_hash):
-        pool_root_hash_ser = self._state_root_serializer.serialize(
-            bytes(self.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash_ser = self.state_root_serializer.serialize(
+            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         message = self._create_multi_sig_value(state_root_hash,
                                                pool_root_hash_ser)
-        return self._bls_crypto.sign(message)
+        return self._bls_bft.bls_crypto_signer.sign(message)
 
     def _can_calculate_multi_sig(self,
                                  key_3PC,
-                                 quorums) -> Optional[MultiSignature]:
+                                 quorums) -> bool:
         if key_3PC not in self._signatures:
             return False
 
@@ -215,9 +219,9 @@ class BlsBftPlenum(BlsBft):
         bls_signatures = list(sigs_for_request.values())
         participants = list(sigs_for_request.keys())
 
-        sig = self._bls_crypto.create_multi_sig(bls_signatures)
-        pool_root_hash_ser = self._state_root_serializer.serialize(
-            bytes(self.bls_key_register.get_pool_root_hash_committed()))
+        sig = self._bls_bft.bls_crypto_verifier.create_multi_sig(bls_signatures)
+        pool_root_hash_ser = self.state_root_serializer.serialize(
+            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         return MultiSignature(sig,
                               participants,
                               pool_root_hash_ser)
@@ -248,8 +252,8 @@ class BlsBftPlenum(BlsBft):
         # TODO: support multiple multi-sigs for multiple previous batches
 
     def _bls_store_add(self, root_hash, multi_sig: MultiSignature):
-        if self._bls_store:
-            self._bls_store.put(root_hash, multi_sig)
+        if self._bls_bft.bls_store:
+            self._bls_bft.bls_store.put(root_hash, multi_sig)
 
     @staticmethod
     def get_node_name(replica_name: str):

@@ -11,8 +11,11 @@ def test_ordered_cleaning():
         ledger_ids=[0],
         viewNo=global_view_no,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
     total = []
 
     num_requests_per_view = 3
@@ -37,8 +40,11 @@ def test_primary_names_cleaning():
         ledger_ids=[0],
         viewNo=0,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
 
     replica.primaryName = "Node1:0"
     assert list(replica.primaryNames.items()) == \

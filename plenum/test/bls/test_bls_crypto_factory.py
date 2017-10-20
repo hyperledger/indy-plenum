@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from crypto.bls.bls_crypto import BlsCrypto
+from crypto.bls.bls_crypto import BlsCryptoSigner
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
 from plenum.common.config_util import getConfig
@@ -59,57 +59,58 @@ def test_create_bls_keys_multiple(bls_crypto_factory):
 
 def test_create_bls_crypto_no_keys(bls_crypto_factory):
     with pytest.raises(LoadBLSKeyError):
-        bls_crypto_factory.create_bls_crypto_from_saved_keys()
+        bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
 
 
 def test_create_bls_crypto(bls_crypto_factory):
     pk = bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    assert bls_crypto
-    assert isinstance(bls_crypto, BlsCrypto)
-    assert bls_crypto._sk
-    assert bls_crypto.pk
-    assert pk == bls_crypto.pk
+    bls_crypto_signer = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    assert bls_crypto_signer
+    assert isinstance(bls_crypto_signer, BlsCryptoSigner)
+    assert bls_crypto_signer._sk
+    assert bls_crypto_signer.pk
+    assert pk == bls_crypto_signer.pk
 
 
 def test_create_bls_crypto_multiple_times(bls_crypto_factory):
     pk1 = bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto1 = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    assert pk1 == bls_crypto1.pk
+    bls_crypto_signer1 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    assert pk1 == bls_crypto_signer1.pk
 
     pk2 = bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto2 = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    assert pk2 == bls_crypto2.pk
+    bls_crypto_signer2 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    assert pk2 == bls_crypto_signer2.pk
 
     pk3 = bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto3 = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    assert pk3 == bls_crypto3.pk
+    bls_crypto_signer3 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    assert pk3 == bls_crypto_signer3.pk
 
 
 def test_bls_crypto_works(bls_crypto_factory, bls_crypto_factory2):
-    # create bls for Node1
+    # create bls signer for Node1
     bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto1 = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    pk1 = bls_crypto1.pk
+    bls_crypto_signer1 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    pk1 = bls_crypto_signer1.pk
 
-    # create bls for Node2
+    # create bls signer for Node2
     bls_crypto_factory2.generate_and_store_bls_keys()
-    bls_crypto2 = bls_crypto_factory2.create_bls_crypto_from_saved_keys()
-    pk2 = bls_crypto2.pk
+    bls_crypto_signer2 = bls_crypto_factory2.create_bls_crypto_signer_from_saved_keys()
+    pk2 = bls_crypto_signer2.pk
+
+    # create bls verifier
+    bls_crypto_verifier = bls_crypto_factory.create_bls_crypto_verifier()
 
     # each node signs the message
     msg = 'Hello!'
     pks = [pk1, pk2]
     sigs = []
-    sigs.append(bls_crypto1.sign(msg))
-    sigs.append(bls_crypto2.sign(msg))
+    sigs.append(bls_crypto_signer1.sign(msg))
+    sigs.append(bls_crypto_signer2.sign(msg))
 
     # each node creates multi-sig
-    multi_sig1 = bls_crypto1.create_multi_sig(sigs)
-    multi_sig2 = bls_crypto2.create_multi_sig(sigs)
+    multi_sig1 = bls_crypto_verifier.create_multi_sig(sigs)
+    multi_sig2 = bls_crypto_verifier.create_multi_sig(sigs)
 
     # each node verifies multi-sigs
-    assert bls_crypto1.verify_multi_sig(multi_sig1, msg, pks)
-    assert bls_crypto1.verify_multi_sig(multi_sig2, msg, pks)
-    assert bls_crypto2.verify_multi_sig(multi_sig1, msg, pks)
-    assert bls_crypto2.verify_multi_sig(multi_sig2, msg, pks)
+    assert bls_crypto_verifier.verify_multi_sig(multi_sig1, msg, pks)
+    assert bls_crypto_verifier.verify_multi_sig(multi_sig2, msg, pks)
