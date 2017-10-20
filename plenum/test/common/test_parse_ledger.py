@@ -6,8 +6,9 @@ from ledger.ledger import Ledger
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, CLIENT_PORT, NODE_IP
 from plenum.common.stack_manager import TxnStackManager
 
-
-whitelist = ['substring not found']
+errMsg1 = 'Invalid verkey. Rebuild pool transactions.'
+errMsg2 = 'Invalid identifier. Rebuild pool transactions.'
+whitelist = ['substring not found', errMsg1, errMsg2]
 
 
 @pytest.fixture(scope="function")
@@ -55,7 +56,7 @@ def test_parse_verkey_non_base58_txn_type_field_raises_SystemExit_has_descriptiv
     with pytest.raises(SystemExit) as excinfo:
         ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
-    assert excinfo.value.code == 'Invalid verkey. Rebuild pool transactions.'
+    assert excinfo.value.code == errMsg1
     ledger.stop()
 
 
@@ -67,5 +68,5 @@ def test_parse_identifier_non_base58_txn_type_field_raises_SystemExit_has_descri
     with pytest.raises(SystemExit) as excinfo:
         ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
-    assert excinfo.value.code == 'Invalid identifier. Rebuild pool transactions.'
+    assert excinfo.value.code == errMsg2
     ledger.stop()
