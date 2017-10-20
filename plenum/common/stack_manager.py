@@ -74,9 +74,9 @@ class TxnStackManager(metaclass=ABCMeta):
             TxnStackManager._parse_pool_transaction_file(
                 ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
         except ValueError:
-            logger.exception(
-                'Pool transaction file corrupted. Rebuild pool transactions.')
-            exit('Pool transaction file corrupted. Rebuild pool transactions.')
+            errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
+            logger.exception(errMsg)
+            exit(errMsg)
 
         if returnActive:
             allNodes = tuple(nodeReg.keys())
