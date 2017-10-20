@@ -73,10 +73,10 @@ class TxnStackManager(metaclass=ABCMeta):
         try:
             TxnStackManager._parse_pool_transaction_file(
                 ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
-        except ValueError as exc:
-            logger.debug(
-                'Pool transaction file corrupted. Rebuild pool transactions.')
-            exit('Pool transaction file corrupted. Rebuild pool transactions.')
+        except ValueError:
+            errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
+            logger.exception(errMsg)
+            exit(errMsg)
 
         if returnActive:
             allNodes = tuple(nodeReg.keys())
@@ -117,8 +117,8 @@ class TxnStackManager(metaclass=ABCMeta):
                     verkey = cryptonymToHex(txn[TARGET_NYM])
                     key_type = 'identifier'
                     cryptonymToHex(txn[IDENTIFIER])
-                except ValueError as ex:
-                    logger.debug(
+                except ValueError:
+                    logger.exception(
                         'Invalid {}. Rebuild pool transactions.'.format(key_type))
                     exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
@@ -146,9 +146,8 @@ class TxnStackManager(metaclass=ABCMeta):
                 # node tries to connect to it.
                 initRemoteKeys(self.name, remoteName, self.basedirpath,
                                verkey, override=True)
-            except Exception as ex:
-                logger.error("Exception while initializing keep for remote {}".
-                             format(ex))
+            except Exception:
+                logger.exception("Exception while initializing keep for remote")
 
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)

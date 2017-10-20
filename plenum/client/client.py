@@ -133,7 +133,7 @@ class Client(Motor,
 
         HasActionQueue.__init__(self)
 
-        self.setF()
+        self.setPoolParams()
 
         stackargs = dict(name=self.stackName,
                          ha=cha,
@@ -226,12 +226,18 @@ class Client(Motor,
         self.processPoolTxn(txn)
 
     # noinspection PyAttributeOutsideInit
-    def setF(self):
+    def setPoolParams(self):
         nodeCount = len(self.nodeReg)
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
         self.quorums = Quorums(nodeCount)
+        logger.info(
+            "{} updated its pool parameters: f {}, totalNodes {},"
+            "minNodesToConnect {}, quorums {}".format(
+                self.alias,
+                self.f, self.totalNodes,
+                self.minNodesToConnect, self.quorums))
 
     @staticmethod
     def exists(name, basedirpath):
@@ -288,7 +294,7 @@ class Client(Motor,
                      for r in self.nodestack.remotes.values()
                      if self.nodestack.isRemoteConnected(r)}
 
-                logger.debug('Client {} sending request {}'
+                logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
 
                 stat, err_msg = self.send(request, *recipients)
