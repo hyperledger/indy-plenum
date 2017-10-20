@@ -1,5 +1,7 @@
 import random
 
+from stp_core.loop.eventually import eventually
+
 from plenum.test.client.conftest import passThroughReqAcked1
 
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes, waitForSufficientRepliesForRequests, \
@@ -28,12 +30,18 @@ def test_client_sends_get_request_to_one_node(looper,
     nodes_to_stop = list(nodeSet)[1:]
     stopNodes(nodes_to_stop, looper)
 
-    initial_submit_count = client.spylog.count(client.submitReqs)
-    initial_send_count = client.spylog.count(client.send)
-
     def sign_and_send(op):
         signed = wallet.signOp(op)
         send_signed_requests(client, [signed])
+
+    def check_client_disconnected():
+        assert not client.hasSufficientConnections
+
+    # TODO non-default timeout
+    looper.run(eventually(check_client_disconnected, retryWait=1))
+
+    initial_submit_count = client.spylog.count(client.submitReqs)
+    initial_send_count = client.spylog.count(client.send)
 
     buy = {'type': 'buy', 'amount': random.randint(10, 100)}
     sign_and_send(buy)
