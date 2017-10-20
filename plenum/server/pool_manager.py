@@ -388,12 +388,19 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
 
     def _order_node(self, nodeNym, nodeName):
-        assert self._ordered_node_ids.get(nodeNym) in (nodeName, None), (
-            "{} trying to order already ordered node {} ({}) "
-            "with other alias {}".format(
-                self.name, self._ordered_node_ids.get(nodeNym), nodeNym))
+        curName = self._ordered_node_ids.get(nodeNym)
 
-        self._ordered_node_ids[nodeNym] = nodeName
+        if curName is None:
+            logger.info("{} node {} ordered, NYM {}".format(
+                        self.name, nodeName, nodeNym))
+            self._ordered_node_ids[nodeNym] = nodeName
+        elif curName != nodeName:
+            msg = ("{} is trying to order already ordered node {} ({}) "
+                   "with other alias {}".format(
+                   self.name, curName, nodeNym, nodeName))
+            logger.warning(msg)
+            assert False, msg
+
 
     @property
     def node_ids_ordered_by_rank(self) -> List:

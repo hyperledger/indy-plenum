@@ -457,6 +457,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
         self.quorums = Quorums(self.totalNodes)
+        logger.info(
+            "{} updated its pool parameters: f {}, totalNodes {}, "
+            "allNodeNames {}, requiredNumberOfInstances {}, minimumNodes {}, "
+            "quorums {}".format(self, self.f, self.totalNodes,
+            self.allNodeNames, self.requiredNumberOfInstances,
+            self.minimumNodes, self.quorums))
 
     @property
     def poolLedger(self):
@@ -873,12 +879,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendDomainLedgerStatus(node_name)
 
     def nodeJoined(self, txn):
+        logger.info("{} new node joined by txn {}".format(self, txn))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
             self.decidePrimaries()
 
     def nodeLeft(self, txn):
+        logger.info("{} node left by txn {}".format(self, txn))
         self.setPoolParams()
         self.adjustReplicas()
 
