@@ -10,7 +10,7 @@ nodeCount = 7
 nodes_wth_bls = 5
 
 
-def test_send_txns_bls_consensus(tconf, looper, txnPoolNodeSet,
+def test_send_txns_bls_consensus(looper, txnPoolNodeSet,
                           client1, client1Connected, wallet1):
     # make sure that we have commits from all nodes, and have 5 of 7 (n-f) BLS sigs there is enough
     for node in txnPoolNodeSet:
