@@ -288,7 +288,7 @@ class Client(Motor,
                      for r in self.nodestack.remotes.values()
                      if self.nodestack.isRemoteConnected(r)}
 
-                logger.debug('Client {} sending request {}'
+                logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
 
                 stat, err_msg = self.send(request, *recipients)
