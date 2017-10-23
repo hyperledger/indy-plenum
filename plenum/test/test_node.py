@@ -245,7 +245,7 @@ class TestNodeCore(StackedTester):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.reqProcessors,
-                                        self.bls_store)
+                                        self.bls_bft.bls_store)
 
 
 node_spyables = [Node.handleOneNodeMsg,

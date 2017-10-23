@@ -6,7 +6,7 @@ from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
-from crypto.bls.bls_bft import BlsBft
+from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
@@ -72,7 +72,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False,
-                 bls_bft: BlsBft = None):
+                 bls_bft_replica: BlsBftReplica = None):
         """
         Create a new replica.
 
@@ -268,7 +268,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
-        self._bls_bft = bls_bft
+        self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
     def register_ledger(self, ledger_id):
@@ -709,8 +709,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self.txnRootHash(ledger_id)
         ]
 
-        if self._bls_bft:
-            params = self._bls_bft.update_pre_prepare(params, ledger_id)
+        # BLS multi-sig:
+        params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -854,10 +854,10 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.node.onBatchCreated(pp.ledgerId,
                                              self.stateRootHash(pp.ledgerId,
                                                                 to_str=False))
-                    if self._bls_bft:
-                        self._bls_bft.process_pre_prepare(pp, sender)
-                        logger.debug("{} saved shared multi signature for root"
-                                     .format(self, oldStateRoot))
+                    # BLS multi-sig:
+                    self._bls_bft_replica.process_pre_prepare(pp, sender)
+                    logger.debug("{} saved shared multi signature for root"
+                                 .format(self, oldStateRoot))
 
                 self.trackBatches(pp, oldStateRoot)
                 logger.debug("{} processed incoming PRE-PREPARE{}".format(self,
@@ -963,8 +963,8 @@ class Replica(HasActionQueue, MessageProcessor):
                   pp.stateRootHash,
                   pp.txnRootHash]
 
-        if self._bls_bft:
-            params = self._bls_bft.update_prepare(params, pp.ledgerId)
+        # BLS multi-sig:
+        params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
         self.send(prepare, TPCStat.PrepareSent)
@@ -984,9 +984,10 @@ class Replica(HasActionQueue, MessageProcessor):
             self.instId, p.viewNo, p.ppSeqNo
         ]
 
-        if self._bls_bft and p.stateRootHash is not None:
+        # BLS multi-sig:
+        if p.stateRootHash is not None:
             pp = self.getPrePrepare(*key_3pc)
-            params = self._bls_bft.update_commit(params, p.stateRootHash, pp.ledgerId)
+            params = self._bls_bft_replica.update_commit(params, p.stateRootHash, pp.ledgerId)
 
         commit = Commit(*params)
 
@@ -1059,8 +1060,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 pp, sender, False)
             raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
-        if self._bls_bft:
-            self._bls_bft.validate_pre_prepare(pp, sender)
+        # BLS multi-sig:
+        self._bls_bft_replica.validate_pre_prepare(pp, sender)
 
         validReqs = []
         inValidReqs = []
@@ -1251,8 +1252,8 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
                                  prepare)
 
-        if self._bls_bft:
-            self._bls_bft.validate_prepare(prepare, sender)
+        # BLS multi-sig:
+        self._bls_bft_replica.validate_prepare(prepare, sender)
 
         return True
 
@@ -1263,8 +1264,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param prepare: the PREPARE to add to the list
         """
-        if self._bls_bft:
-            self._bls_bft.process_prepare(prepare, sender)
+        # BLS multi-sig:
+        self._bls_bft_replica.process_prepare(prepare, sender)
+
         self.prepares.addVote(prepare, sender)
         self.dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
         self.tryCommit(prepare)
@@ -1350,9 +1352,9 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
-        if self._bls_bft:
-            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            self._bls_bft.validate_commit(commit, sender, pp.stateRootHash)
+        # BLS multi-sig:
+        pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
+        self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
 
         return True
 
@@ -1364,8 +1366,9 @@ class Replica(HasActionQueue, MessageProcessor):
         :param commit: the COMMIT to add to the list
         :param sender: the name of the node that sent the COMMIT
         """
-        if self._bls_bft:
-            self._bls_bft.process_commit(commit, sender)
+        # BLS multi-sig:
+        self._bls_bft_replica.process_commit(commit, sender)
+
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
 
@@ -1537,11 +1540,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
-        if self._bls_bft:
-            self._bls_bft.process_order(key,
-                                        pp.stateRootHash,
-                                        self.quorums,
-                                        pp.ledgerId)
+        # BLS multi-sig:
+        self._bls_bft_replica.process_order(key,
+                                            pp.stateRootHash,
+                                            self.quorums,
+                                            pp.ledgerId)
 
         return True
 
@@ -1790,8 +1793,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.compact_ordered()
 
-        if self._bls_bft:
-            self._bls_bft.gc(till3PCKey)
+        # BLS multi-sig:
+        self._bls_bft_replica.gc(till3PCKey)
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
