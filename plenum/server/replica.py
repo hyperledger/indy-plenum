@@ -65,7 +65,7 @@ class Stats:
     def __repr__(self):
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
-PP_CHECK_CAN_PROCESS = 0
+PP_CHECK_CAN_BE_PROCESSED = 0
 PP_CHECK_NOT_FROM_PRIMARY = 1
 PP_CHECK_TO_PRIMARY = 2
 PP_CHECK_DUPLICATE = 3
@@ -856,56 +856,50 @@ class Replica(HasActionQueue, MessageProcessor):
                      .format(self, key),
                      extra={"tags": ["processing"]})
 
-    def processPrePrepare(self, pp: PrePrepare, sender: str):
+    def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
-        Validate and process the PRE-PREPARE specified.
-        If validation is successful, create a PREPARE and broadcast it.
+        Validate and process provided PRE-PREPARE, create and
+        broadcast PREPARE for it.
 
-        :param pp: a prePrepareRequest
+        :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
-        key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug("{} received PRE-PREPARE{} from {} at {}".
-                     format(self, key, sender, time.perf_counter()))
-        # Converting each req_idrs from list to tuple
-        pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
-                                                    for i, r in pp.reqIdr]})
-        try:
-            can = self._can_process_pre_prepare(pp, sender)
-            if can == PP_CHECK_CAN_PROCESS:
-                self.validate_pre_prepare(pp, sender)
-                return self._process_valid_preprepare(pp, sender)
-            if can == PP_CHECK_NOT_FROM_PRIMARY:
-                raise SuspiciousNode(sender,
-                                     Suspicions.PPR_FRM_NON_PRIMARY,
-                                     pp)
-            if can == PP_CHECK_TO_PRIMARY:
-                raise SuspiciousNode(sender,
-                                     Suspicions.PPR_TO_PRIMARY,
-                                     pp)
-            if can == PP_CHECK_DUPLICATE:
-                raise SuspiciousNode(sender,
-                                     Suspicions.DUPLICATE_PPR_SENT,
-                                     pp)
-            if can == PP_CHECK_OLD:
-                # Ignore old pre-prepare
-                return None
-            if can == PP_CHECK_REQUEST_NOT_FINALIZED:
-                non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
-                self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
-                # TODO: An optimisation might be to not request PROPAGATEs if some
-                # PROPAGATEs are present or a client request is present and
-                # sufficient PREPAREs and PRE-PREPARE are present, then the digest
-                # can be compared but this is expensive as the PREPARE
-                # and PRE-PREPARE contain a combined digest
-                self.node.request_propagates(non_fin_reqs)
-                return None
+        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        logger.debug("{} received PRE-PREPARE{} from {}"
+                     .format(self, key, sender))
 
-            if can == PP_CHECK_NOT_NEXT:
-                self.enqueue_pre_prepare(pp, sender)
-                return None
-        except SuspiciousNode as ex:
+        # TODO: should we still do it?
+        # Converting each req_idrs from list to tuple
+        req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
+        pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
+
+        def report_suspicious(reason):
+            ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
+
+        can = self._can_process_pre_prepare(pre_prepare, sender)
+        if can == PP_CHECK_CAN_BE_PROCESSED:
+            self.validate_pre_prepare(pre_prepare, sender)
+            self._process_valid_preprepare(pre_prepare, sender)
+        elif can == PP_CHECK_NOT_FROM_PRIMARY:
+            report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
+        elif can == PP_CHECK_TO_PRIMARY:
+            report_suspicious(Suspicions.PPR_TO_PRIMARY)
+        elif can == PP_CHECK_DUPLICATE:
+            report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+        elif can == PP_CHECK_OLD:
+            pass
+        elif can == PP_CHECK_REQUEST_NOT_FINALIZED:
+            non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
+            self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
+            # TODO: An optimisation might be to not request PROPAGATEs
+            # if some PROPAGATEs are present or a client request is
+            # present and sufficient PREPAREs and PRE-PREPARE are present,
+            # then the digest can be compared but this is expensive as the
+            # PREPARE and PRE-PREPARE contain a combined digest
+            self.node.request_propagates(non_fin_reqs)
+        elif can == PP_CHECK_NOT_NEXT:
+            self.enqueue_pre_prepare(pre_prepare, sender)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1173,7 +1167,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # TODO: The next processed pre-prepare needs to take consider if
             # the last pre-prepare was stashed or not since stashed requests
             # do not make change to state or ledger
-            return PP_CHECK_CAN_PROCESS
+            return PP_CHECK_CAN_BE_PROCESSED
 
         if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
@@ -1184,7 +1178,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
-        return PP_CHECK_CAN_PROCESS
+        return PP_CHECK_CAN_BE_PROCESSED
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
         """
