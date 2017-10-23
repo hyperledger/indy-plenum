@@ -6,6 +6,7 @@ from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
+from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
@@ -64,6 +65,7 @@ class Stats:
 
     def __repr__(self):
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
+
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
