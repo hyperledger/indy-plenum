@@ -835,6 +835,27 @@ class Replica(HasActionQueue, MessageProcessor):
                          .format(self, msg))
         return r
 
+    def _process_valid_preprepare(self, pre_prepare, sender):
+        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+        self.addToPrePrepares(pre_prepare)
+        if not self.node.isParticipating:
+            self.stashingWhileCatchingUp.add(key)
+            logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
+            return
+        if self.isMaster:
+            # TODO: can old_state_root be used here instead?
+            state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+            self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
+            if self._bls_bft:
+                self._bls_bft.process_pre_prepare(pre_prepare, sender)
+                logger.debug("{} saved shared multi signature for root"
+                             .format(self, old_state_root))
+        self.trackBatches(pre_prepare, old_state_root)
+        logger.debug("{} processed incoming PRE-PREPARE{}"
+                     .format(self, key),
+                     extra={"tags": ["processing"]})
+
     def processPrePrepare(self, pp: PrePrepare, sender: str):
         """
         Validate and process the PRE-PREPARE specified.
@@ -849,27 +870,22 @@ class Replica(HasActionQueue, MessageProcessor):
         # Converting each req_idrs from list to tuple
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
-        oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
         try:
-            if self.canProcessPrePrepare(pp, sender):
-                self.addToPrePrepares(pp)
-                if not self.node.isParticipating:
-                    self.stashingWhileCatchingUp.add(key)
-                    logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
-                    return
-
-                if self.isMaster:
-                    self.node.onBatchCreated(pp.ledgerId,
-                                             self.stateRootHash(pp.ledgerId,
-                                                                to_str=False))
-                    if self._bls_bft:
-                        self._bls_bft.process_pre_prepare(pp, sender)
-                        logger.debug("{} saved shared multi signature for root"
-                                     .format(self, oldStateRoot))
-
-                self.trackBatches(pp, oldStateRoot)
-                logger.debug("{} processed incoming PRE-PREPARE{}".format(self,
-                                                                          key), extra={"tags": ["processing"]})
+            can = self.canProcessPrePrepare(pp, sender)
+            if can == PP_CHECK_CAN_PROCESS:
+                return self._process_valid_preprepare(pp, sender)
+            if can == PP_CHECK_NOT_FROM_PRIMARY:
+                pass
+            if can == PP_CHECK_TO_PRIMARY:
+                pass
+            if can == PP_CHECK_DUPLICATE:
+                pass
+            if can == PP_CHECK_OLD:
+                pass
+            if can == PP_CHECK_REQUEST_NOT_FINALIZED:
+                pass
+            if can == PP_CHECK_NOT_NEXT:
+                pass
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
