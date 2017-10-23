@@ -65,6 +65,14 @@ class Stats:
     def __repr__(self):
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
+PP_CHECK_CAN_PROCESS = 0
+PP_CHECK_NOT_FROM_PRIMARY = 1
+PP_CHECK_TO_PRIMARY = 2
+PP_CHECK_DUPLICATE = 3
+PP_CHECK_OLD = 4
+PP_CHECK_REQUEST_NOT_FINALIZED = 5
+PP_CHECK_NOT_NEXT = 6
+
 
 class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
@@ -1103,7 +1111,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
             self.outBox.extend(rejects)
 
-    def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:
+    def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> int:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE,
         based on the following criteria:
@@ -1121,26 +1129,28 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.isMsgFromPrimary(pp, sender):
             # Since PRE-PREPARE might be requested from others
             if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
-                raise SuspiciousNode(
-                    sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
+                return PP_CHECK_NOT_FROM_PRIMARY
+                # raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pp) is True:
-            raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
+            return PP_CHECK_TO_PRIMARY
+            # raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # Already has a PRE-PREPARE with same 3 phase key
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
-            raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
+            return PP_CHECK_DUPLICATE
+            # raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
             # TODO: The next processed pre-prepare needs to take consider if
             # the last pre-prepare was stashed or not since stashed requests
             # do not make change to state or ledger
-            return True
+            return PP_CHECK_CAN_PROCESS
 
         if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
-            return False  # ignore old pre-prepare
+            return PP_CHECK_OLD  # ignore old pre-prepare
 
         # Do not combine the next if conditions, the idea is to exit as soon
         # as possible
@@ -1153,15 +1163,15 @@ class Replica(HasActionQueue, MessageProcessor):
             # can be compared but this is expensive as the PREPARE
             # and PRE-PREPARE contain a combined digest
             self.node.request_propagates(non_fin_reqs)
-            return False
+            return PP_CHECK_REQUEST_NOT_FINALIZED
 
         non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
         if non_next_pp:
             self.enqueue_pre_prepare(pp, sender)
-            return False
+            return PP_CHECK_NOT_NEXT
 
         self.validate_pre_prepare(pp, sender)
-        return True
+        return PP_CHECK_CAN_PROCESS
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
         """
