@@ -1208,11 +1208,11 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.nonFinalisedReqs(pp.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
-            return PP_CHECK_NOT_NEXT
-
         if not self.is_pre_prepare_time_acceptable(pp):
             return PP_CHECK_WRONG_TIME
+
+        if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
+            return PP_CHECK_NOT_NEXT
 
         if self._bls_bft:
             # TODO: this requires special handling
