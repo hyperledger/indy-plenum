@@ -910,7 +910,9 @@ class Replica(HasActionQueue, MessageProcessor):
         elif can == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
         elif can == PP_CHECK_OLD:
-            pass
+            logger.debug("PRE-PREPARE {} has ppSeqNo lower "
+                         "then the latest one - ignoring it"
+                         .format(key))
         elif can == PP_CHECK_REQUEST_NOT_FINALIZED:
             non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
             self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
@@ -921,6 +923,16 @@ class Replica(HasActionQueue, MessageProcessor):
             # PREPARE and PRE-PREPARE contain a combined digest
             self.node.request_propagates(non_fin_reqs)
         elif can == PP_CHECK_NOT_NEXT:
+            pp_seq_no = pre_prepare.ppSeqNo
+            last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
+            logger.warning("{} missing PRE-PREPAREs between {} and {}, "
+                           "going to request"
+                           .format(self, pp_seq_no, last_pp_seq_no))
+            self._request_missing_three_phase_messages(last_pp_seq_no,
+                                                       pp_seq_no,
+                                                       last_pp_view_no,
+                                                       pre_prepare.viewNo)
+            self._setup_for_non_master()
             self.enqueue_pre_prepare(pre_prepare, sender)
         elif can == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
@@ -1069,24 +1081,15 @@ class Replica(HasActionQueue, MessageProcessor):
         if view_no == self.viewNo and pp_seq_no == 1:
             # First PRE-PREPARE in a new view
             return True
-
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-
         if last_pp_view_no > view_no:
             return False
-
         if last_pp_view_no < view_no:
+            # TODO: assert??
             assert view_no == self.viewNo
             last_pp_seq_no = 0
-
         if pp_seq_no - last_pp_seq_no > 1:
-            logger.warning('{} missing PRE-PREPAREs between {} and {}'.
-                           format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no,
-                                                       last_pp_view_no, view_no)
-            self._setup_for_non_master()
             return False
-
         return True
 
     @property
