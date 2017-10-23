@@ -6,6 +6,7 @@ from collections import deque, defaultdict
 from contextlib import closing
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 
+from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
@@ -14,13 +15,14 @@ from ledger.hash_stores.hash_store import HashStore
 from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP
+    NODE_IP, BLS_PREFIX
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -151,17 +153,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
-        self.bls_store = self._create_bls_store()
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+
+        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+
+        # init BLS after pool manager!
+        # init before domain req handler!
+        self.bls_bft = self._create_bls_bft()
+
         self.reqHandler = self.getDomainReqHandler()
         self.initDomainState()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
         self.addGenesisNyms()
-
-        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
         if isinstance(self.poolManager, RegistryPoolManager):
             self.mode = Mode.discovered
@@ -201,7 +207,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        self.setF()
+        self.setPoolParams()
 
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
@@ -443,7 +449,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return DomainRequestHandler(self.domainLedger,
                                     self.states[DOMAIN_LEDGER_ID],
                                     self.reqProcessors,
-                                    self.bls_store)
+                                    self.bls_bft.bls_store)
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(
@@ -454,14 +460,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     # noinspection PyAttributeOutsideInit
-    def setF(self):
-        nodeNames = set(self.nodeReg.keys())
-        self.allNodeNames = nodeNames.union({self.name, })
+    def setPoolParams(self):
+        # TODO should be always called when nodeReg is changed - automate
+        self.allNodeNames = set(self.nodeReg.keys())
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
         self.quorums = Quorums(self.totalNodes)
+        logger.info(
+            "{} updated its pool parameters: f {}, totalNodes {}, "
+            "allNodeNames {}, requiredNumberOfInstances {}, minimumNodes {}, "
+            "quorums {}".format(
+                self, self.f, self.totalNodes,
+                self.allNodeNames, self.requiredNumberOfInstances,
+                self.minimumNodes, self.quorums))
 
     @property
     def poolLedger(self):
@@ -595,9 +608,42 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.domainStateDbName)
         )
 
-    def _create_bls_store(self):
+    def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
-        return bls_factory.create_bls_store()
+        bls_bft = bls_factory.create_bls_bft()
+        if bls_bft.can_sign_bls():
+            logger.info("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
+        else:
+            # TODO: for now we allow that BLS is optional, so that we don't require it
+            logger.warning(
+                '{}Transactions will not be BLS signed by this Node, since BLS keys were not found. '
+                'Please make sure that a script to init BLS keys was called (init_bls_keys),'
+                ' and NODE txn was sent with BLS public keys.'.format(BLS_PREFIX))
+        return bls_bft
+
+    def update_bls_key(self, new_bls_key):
+        bls_crypto_factory = create_default_bls_crypto_factory(self.basedirpath, self.name)
+        self.bls_bft.bls_crypto_signer = None
+
+        try:
+            bls_crypto_signer = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+        except LoadBLSKeyError:
+            logger.warning("{}Can not enable BLS signer on the Node. BLS keys are not initialized, "
+                           "although NODE txn with blskey={} is sent. Please make sure that a script to init BLS keys (init_bls_keys) "
+                           "was called ".format(BLS_PREFIX, new_bls_key))
+            return
+
+        if bls_crypto_signer.pk != new_bls_key:
+            logger.warning("{}Can not enable BLS signer on the Node. BLS key initialized for the Node ({}), "
+                           "differs from the one sent to the Ledger via NODE txn ({}). "
+                           "Please make sure that a script to init BLS keys (init_bls_keys) is called, "
+                           "and the same key is saved via NODE txn."
+                           .format(BLS_PREFIX, bls_crypto_signer.pk, new_bls_key))
+            return
+
+        self.bls_bft.bls_crypto_signer = bls_crypto_signer
+        logger.info("{}BLS key is rotated/set for Node {}. "
+                    "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     @classmethod
     def ledgerIdForRequest(cls, request: Request):
@@ -722,8 +768,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
-        if self.bls_store:
-            self.bls_store.close()
+        if self.bls_bft.bls_store:
+            self.bls_bft.bls_store.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -877,14 +923,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if Mode.is_done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
-    def newNodeJoined(self, txn):
-        self.setF()
+    def nodeJoined(self, txn):
+        logger.info("{} new node joined by txn {}".format(self, txn))
+        self.setPoolParams()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
             self.decidePrimaries()
 
     def nodeLeft(self, txn):
-        self.setF()
+        logger.info("{} node left by txn {}".format(self, txn))
+        self.setPoolParams()
         self.adjustReplicas()
 
     def sendPoolInfoToClients(self, txn):
@@ -926,7 +974,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 self.sendToElector(message, frm)
-        except TypeError as ex:
+        except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
                              PRIMARY_SELECTION_PREFIX),
@@ -2116,8 +2164,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Sends instance change message when primary has been
         # disconnected for long enough
         if not self.lost_primary_at:
-            logger.trace('The primary is already connected '
-                         'so view change will not be proposed')
+            logger.trace('{} The primary is already connected '
+                         'so view change will not be proposed'.format(self))
             return
         disconnected_time = time.perf_counter() - self.lost_primary_at
         disconnected_long_enough = \

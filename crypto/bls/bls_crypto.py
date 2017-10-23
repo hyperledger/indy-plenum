@@ -12,7 +12,7 @@ class BlsGroupParamsLoader(metaclass=ABCMeta):
         pass
 
 
-class BlsCrypto(metaclass=ABCMeta):
+class BlsCryptoSigner(metaclass=ABCMeta):
     def __init__(self, sk: str, pk: str, params: GroupParams):
         assert sk
         assert pk
@@ -29,6 +29,8 @@ class BlsCrypto(metaclass=ABCMeta):
     def sign(self, message: str) -> str:
         pass
 
+
+class BlsCryptoVerifier(metaclass=ABCMeta):
     @abstractmethod
     def create_multi_sig(self, signatures: Sequence[str]) -> str:
         pass
