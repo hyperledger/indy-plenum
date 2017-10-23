@@ -873,19 +873,37 @@ class Replica(HasActionQueue, MessageProcessor):
         try:
             can = self.canProcessPrePrepare(pp, sender)
             if can == PP_CHECK_CAN_PROCESS:
+                self.validate_pre_prepare(pp, sender)
                 return self._process_valid_preprepare(pp, sender)
             if can == PP_CHECK_NOT_FROM_PRIMARY:
-                pass
+                raise SuspiciousNode(sender,
+                                     Suspicions.PPR_FRM_NON_PRIMARY,
+                                     pp)
             if can == PP_CHECK_TO_PRIMARY:
-                pass
+                raise SuspiciousNode(sender,
+                                     Suspicions.PPR_TO_PRIMARY,
+                                     pp)
             if can == PP_CHECK_DUPLICATE:
-                pass
+                raise SuspiciousNode(sender,
+                                     Suspicions.DUPLICATE_PPR_SENT,
+                                     pp)
             if can == PP_CHECK_OLD:
-                pass
+                # Ignore old pre-prepare
+                return None
             if can == PP_CHECK_REQUEST_NOT_FINALIZED:
-                pass
+                non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
+                self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
+                # TODO: An optimisation might be to not request PROPAGATEs if some
+                # PROPAGATEs are present or a client request is present and
+                # sufficient PREPAREs and PRE-PREPARE are present, then the digest
+                # can be compared but this is expensive as the PREPARE
+                # and PRE-PREPARE contain a combined digest
+                self.node.request_propagates(non_fin_reqs)
+                return None
+
             if can == PP_CHECK_NOT_NEXT:
-                pass
+                self.enqueue_pre_prepare(pp, sender)
+                return None
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
@@ -1129,34 +1147,26 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> int:
         """
-        Decide whether this replica is eligible to process a PRE-PREPARE,
-        based on the following criteria:
-
-        - this replica is non-primary replica
-        - the request isn't in its list of received PRE-PREPAREs
-        - the request is waiting to for PRE-PREPARE and the digest value matches
+        Decide whether this replica is eligible to process a PRE-PREPARE.
 
         :param pp: a PRE-PREPARE msg to process
         :param sender: the name of the node that sent the PRE-PREPARE msg
-        :return: True if processing is allowed, False otherwise
         """
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
+
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pp, sender):
             # Since PRE-PREPARE might be requested from others
             if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
                 return PP_CHECK_NOT_FROM_PRIMARY
-                # raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pp) is True:
             return PP_CHECK_TO_PRIMARY
-            # raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # Already has a PRE-PREPARE with same 3 phase key
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
-            # raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
@@ -1168,25 +1178,12 @@ class Replica(HasActionQueue, MessageProcessor):
         if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
 
-        # Do not combine the next if conditions, the idea is to exit as soon
-        # as possible
-        non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
-        if non_fin_reqs:
-            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
-            # TODO: An optimisation might be to not request PROPAGATEs if some
-            # PROPAGATEs are present or a client request is present and
-            # sufficient PREPAREs and PRE-PREPARE are present, then the digest
-            # can be compared but this is expensive as the PREPARE
-            # and PRE-PREPARE contain a combined digest
-            self.node.request_propagates(non_fin_reqs)
+        if self.nonFinalisedReqs(pp.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
-        if non_next_pp:
-            self.enqueue_pre_prepare(pp, sender)
+        if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
-        self.validate_pre_prepare(pp, sender)
         return PP_CHECK_CAN_PROCESS
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
