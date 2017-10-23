@@ -65,22 +65,18 @@ class Stats:
     def __repr__(self):
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
-PP_CHECK_CAN_BE_PROCESSED = 0
-PP_CHECK_NOT_FROM_PRIMARY = 1
-PP_CHECK_TO_PRIMARY = 2
-PP_CHECK_DUPLICATE = 3
-PP_CHECK_OLD = 4
-PP_CHECK_REQUEST_NOT_FINALIZED = 5
-PP_CHECK_NOT_NEXT = 6
-PP_CHECK_WRONG_TIME = 7
-PP_CHECK_WRONG_BLS = 8
+PP_CHECK_NOT_FROM_PRIMARY = 0
+PP_CHECK_TO_PRIMARY = 1
+PP_CHECK_DUPLICATE = 2
+PP_CHECK_OLD = 3
+PP_CHECK_REQUEST_NOT_FINALIZED = 4
+PP_CHECK_NOT_NEXT = 5
+PP_CHECK_WRONG_TIME = 6
 
-PP_APPLY_APPLIED_WELL = 9
-PP_APPLY_REJECT_WRONG = 10
-PP_APPLY_WRONG_DIGEST = 11
-PP_APPLY_WRONG_STATE = 12
-PP_APPLY_ROOT_HASH_MISMATCH = 13
-
+PP_APPLY_REJECT_WRONG = 7
+PP_APPLY_WRONG_DIGEST = 8
+PP_APPLY_WRONG_STATE = 9
+PP_APPLY_ROOT_HASH_MISMATCH = 10
 
 
 class Replica(HasActionQueue, MessageProcessor):
@@ -846,16 +842,16 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
-        applied = self._apply_pre_prepare(pre_prepare, sender)
-        if applied != PP_APPLY_APPLIED_WELL:
-            return applied
+        why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
+        if why_not_applied is not None:
+            return why_not_applied
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         self.addToPrePrepares(pre_prepare)
         if not self.node.isParticipating:
             self.stashingWhileCatchingUp.add(key)
             logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
-            return
+            return None
         if self.isMaster:
             # TODO: can old_state_root be used here instead?
             state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
@@ -868,8 +864,7 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} processed incoming PRE-PREPARE{}"
                      .format(self, key),
                      extra={"tags": ["processing"]})
-
-        return PP_APPLY_APPLIED_WELL
+        return None
 
     def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
@@ -892,28 +887,30 @@ class Replica(HasActionQueue, MessageProcessor):
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
 
-        can = self._can_process_pre_prepare(pre_prepare, sender)
-        if can == PP_CHECK_CAN_BE_PROCESSED:
-            applied = self._process_valid_preprepare(pre_prepare, sender)
-            if applied == PP_APPLY_REJECT_WRONG:
-                report_suspicious(Suspicions.PPR_REJECT_WRONG)
-            elif applied == PP_APPLY_WRONG_DIGEST:
-                report_suspicious(Suspicions.PPR_DIGEST_WRONG)
-            elif applied == PP_APPLY_WRONG_STATE:
-                report_suspicious(Suspicions.PPR_STATE_WRONG)
-            elif applied == PP_APPLY_ROOT_HASH_MISMATCH:
-                report_suspicious(Suspicions.PPR_TXN_WRONG)
-        elif can == PP_CHECK_NOT_FROM_PRIMARY:
+        why_not = self._can_process_pre_prepare(pre_prepare, sender)
+        if why_not is None:
+            why_not_applied = \
+                self._process_valid_preprepare(pre_prepare, sender)
+            if why_not_applied is not None:
+                if why_not_applied == PP_APPLY_REJECT_WRONG:
+                    report_suspicious(Suspicions.PPR_REJECT_WRONG)
+                elif why_not_applied == PP_APPLY_WRONG_DIGEST:
+                    report_suspicious(Suspicions.PPR_DIGEST_WRONG)
+                elif why_not_applied == PP_APPLY_WRONG_STATE:
+                    report_suspicious(Suspicions.PPR_STATE_WRONG)
+                elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
+                    report_suspicious(Suspicions.PPR_TXN_WRONG)
+        elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
-        elif can == PP_CHECK_TO_PRIMARY:
+        elif why_not == PP_CHECK_TO_PRIMARY:
             report_suspicious(Suspicions.PPR_TO_PRIMARY)
-        elif can == PP_CHECK_DUPLICATE:
+        elif why_not == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
-        elif can == PP_CHECK_OLD:
+        elif why_not == PP_CHECK_OLD:
             logger.debug("PRE-PREPARE {} has ppSeqNo lower "
                          "then the latest one - ignoring it"
                          .format(key))
-        elif can == PP_CHECK_REQUEST_NOT_FINALIZED:
+        elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
             non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
             self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
@@ -922,7 +919,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
             self.node.request_propagates(non_fin_reqs)
-        elif can == PP_CHECK_NOT_NEXT:
+        elif why_not == PP_CHECK_NOT_NEXT:
             pp_seq_no = pre_prepare.ppSeqNo
             last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
             logger.warning("{} missing PRE-PREPAREs between {} and {}, "
@@ -934,13 +931,18 @@ class Replica(HasActionQueue, MessageProcessor):
                                                        pre_prepare.viewNo)
             self._setup_for_non_master()
             self.enqueue_pre_prepare(pre_prepare, sender)
-        elif can == PP_CHECK_WRONG_TIME:
+        elif why_not == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
             item = (pre_prepare, sender, False)
             self.pre_prepares_stashed_for_incorrect_time[key] = item
             report_suspicious(Suspicions.PPR_TIME_WRONG)
-        elif can == PP_CHECK_WRONG_BLS:
-            pass
+        elif why_not == BlsBft.PPR_NO_BLS_MULTISIG_STATE:
+            report_suspicious(Suspicions.PPR_NO_BLS_MULTISIG_STATE)
+        elif why_not == BlsBft.PPR_BLS_MULTISIG_WRONG:
+            report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
+        else:
+            logger.warning("Unknown PRE-PREPARE check status: {}".
+                           format(why_not))
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1218,10 +1220,9 @@ class Replica(HasActionQueue, MessageProcessor):
             return PP_CHECK_NOT_NEXT
 
         if self._bls_bft:
-            # TODO: this requires special handling
-            self._bls_bft.validate_pre_prepare(pp, sender)
-            return PP_CHECK_WRONG_BLS
-
+            status = self._bls_bft.validate_pre_prepare(pp, sender)
+            if status is not None:
+                return status
         return PP_CHECK_CAN_BE_PROCESSED
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
@@ -1413,7 +1414,16 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if self._bls_bft:
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            self._bls_bft.validate_commit(commit, sender, pp.stateRootHash)
+            why_not = \
+                self._bls_bft.validate_commit(commit, sender, pp.stateRootHash)
+
+            if why_not == BlsBft.CM_BLS_SIG_WRONG:
+                raise SuspiciousNode(sender,
+                                     Suspicions.CM_BLS_SIG_WRONG,
+                                     commit)
+            elif why_not is not None:
+                logger.warning("Unknown error code returned for bls commit "
+                               "validation {}".format(why_not))
 
         return True
 
