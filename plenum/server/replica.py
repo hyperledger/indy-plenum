@@ -1118,7 +1118,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
         Applies (but not commits) requests of the PrePrepare
         to the ledger and state
@@ -1175,9 +1175,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
             self.outBox.extend(rejects)
-        return PP_APPLY_APPLIED_WELL
+        return None
 
-    def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> int:
+    def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> Optional[int]:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
 
@@ -1223,7 +1223,7 @@ class Replica(HasActionQueue, MessageProcessor):
             status = self._bls_bft.validate_pre_prepare(pp, sender)
             if status is not None:
                 return status
-        return PP_CHECK_CAN_BE_PROCESSED
+        return None
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
         """
