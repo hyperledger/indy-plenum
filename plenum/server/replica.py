@@ -871,7 +871,7 @@ class Replica(HasActionQueue, MessageProcessor):
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
         try:
-            can = self.canProcessPrePrepare(pp, sender)
+            can = self._can_process_pre_prepare(pp, sender)
             if can == PP_CHECK_CAN_PROCESS:
                 self.validate_pre_prepare(pp, sender)
                 return self._process_valid_preprepare(pp, sender)
@@ -1145,7 +1145,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
             self.outBox.extend(rejects)
 
-    def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> int:
+    def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> int:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
 
