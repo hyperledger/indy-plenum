@@ -73,6 +73,13 @@ PP_CHECK_OLD = 4
 PP_CHECK_REQUEST_NOT_FINALIZED = 5
 PP_CHECK_NOT_NEXT = 6
 
+PP_CHECK_WRONG_TIME = 7
+PP_CHECK_WRONG_BLS = 8
+PP_CHECK_REJECT_WRONG = 9
+PP_CHECK_WRONG_DIGEST = 10
+PP_CHECK_WRONG_STATE = 11
+PP_CHECK_ROOT_HASH_MISMATCH = 12
+
 
 class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
@@ -900,6 +907,21 @@ class Replica(HasActionQueue, MessageProcessor):
             self.node.request_propagates(non_fin_reqs)
         elif can == PP_CHECK_NOT_NEXT:
             self.enqueue_pre_prepare(pre_prepare, sender)
+        elif can == PP_CHECK_WRONG_TIME:
+            key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+            item = (pre_prepare, sender, False)
+            self.pre_prepares_stashed_for_incorrect_time[key] = item
+            report_suspicious(Suspicions.PPR_TIME_WRONG)
+        elif can == PP_CHECK_WRONG_BLS:
+            pass
+        elif can == PP_CHECK_REJECT_WRONG:
+            report_suspicious(Suspicions.PPR_REJECT_WRONG)
+        elif can == PP_CHECK_WRONG_DIGEST:
+            report_suspicious(Suspicions.PPR_DIGEST_WRONG)
+        elif can == PP_CHECK_WRONG_STATE:
+            report_suspicious(Suspicions.PPR_STATE_WRONG)
+        elif can == PP_CHECK_ROOT_HASH_MISMATCH:
+            report_suspicious(Suspicions.PPR_TXN_WRONG)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1084,60 +1106,64 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def validate_pre_prepare(self, pp: PrePrepare, sender: str):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
-        This will apply the requests part of the PrePrepare to the ledger
-        and state. It will not commit though (the ledger on disk will not
-        change, neither the committed state root hash will change)
+        Applies (but not commits) requests of the PrePrepare
+        to the ledger and state
         """
-        if not self.is_pre_prepare_time_acceptable(pp):
-            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (
-                pp, sender, False)
-            raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
-        if self._bls_bft:
-            self._bls_bft.validate_pre_prepare(pp, sender)
-
-        validReqs = []
-        inValidReqs = []
+        valid_reqs = []
+        invalid_reqs = []
         rejects = []
-        if self.isMaster:
-            # If this PRE-PREPARE is not valid then state and ledger should be
-            # reverted
-            oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-            oldTxnRoot = self.txnRootHash(pp.ledgerId)
-            logger.debug('{} state root before processing {} is {}, {}'.
-                         format(self, pp, oldStateRoot, oldTxnRoot))
 
-        for reqKey in pp.reqIdr:
-            req = self.requests[reqKey].finalised
-            self.processReqDuringBatch(req, pp.ppTime, validReqs, inValidReqs,
+        if self.isMaster:
+            old_state_root = \
+                self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+            old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
+            logger.debug('{} state root before processing {} is {}, {}'
+                         .format(self,
+                                 pre_prepare,
+                                 old_state_root,
+                                 old_txn_root))
+
+        for req_key in pre_prepare.reqIdr:
+            req = self.requests[req_key].finalised
+            self.processReqDuringBatch(req,
+                                       pre_prepare.ppTime,
+                                       valid_reqs,
+                                       invalid_reqs,
                                        rejects)
 
-        if len(validReqs) != pp.discarded:
-            if self.isMaster:
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-            raise SuspiciousNode(sender, Suspicions.PPR_REJECT_WRONG, pp)
+        def revert():
+            self.revert(pre_prepare.ledgerId,
+                        old_state_root,
+                        len(valid_reqs))
 
-        reqs = validReqs + inValidReqs
+        if len(valid_reqs) != pre_prepare.discarded:
+            if self.isMaster:
+                revert()
+            return PP_CHECK_REJECT_WRONG
+
+        reqs = valid_reqs + invalid_reqs
         digest = self.batchDigest(reqs)
 
         # A PRE-PREPARE is sent that does not match request digest
-        if digest != pp.digest:
+        if digest != pre_prepare.digest:
             if self.isMaster:
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-            raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
+                revert()
+            return PP_CHECK_WRONG_DIGEST
 
         if self.isMaster:
-            if pp.stateRootHash != self.stateRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_STATE_WRONG, pp)
+            if pre_prepare.stateRootHash != self.stateRootHash(pre_prepare.ledgerId):
+                revert()
+                return PP_CHECK_WRONG_STATE
 
-            if pp.txnRootHash != self.txnRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
+            if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
+                revert()
+                return PP_CHECK_ROOT_HASH_MISMATCH
 
             self.outBox.extend(rejects)
+        return PP_CHECK_CAN_BE_PROCESSED
 
     def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> int:
         """
@@ -1177,6 +1203,16 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
             return PP_CHECK_NOT_NEXT
+
+        if not self.is_pre_prepare_time_acceptable(pp):
+            return PP_CHECK_WRONG_TIME
+
+        if self._bls_bft:
+            # TODO: this requires special handling
+            self._bls_bft.validate_pre_prepare(pp, sender)
+            return PP_CHECK_WRONG_BLS
+
+        self.validate_pre_prepare(pp, sender)
 
         return PP_CHECK_CAN_BE_PROCESSED
 
