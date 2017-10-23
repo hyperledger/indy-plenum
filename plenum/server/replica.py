@@ -72,13 +72,15 @@ PP_CHECK_DUPLICATE = 3
 PP_CHECK_OLD = 4
 PP_CHECK_REQUEST_NOT_FINALIZED = 5
 PP_CHECK_NOT_NEXT = 6
-
 PP_CHECK_WRONG_TIME = 7
 PP_CHECK_WRONG_BLS = 8
-PP_CHECK_REJECT_WRONG = 9
-PP_CHECK_WRONG_DIGEST = 10
-PP_CHECK_WRONG_STATE = 11
-PP_CHECK_ROOT_HASH_MISMATCH = 12
+
+PP_APPLY_APPLIED_WELL = 9
+PP_APPLY_REJECT_WRONG = 10
+PP_APPLY_WRONG_DIGEST = 11
+PP_APPLY_WRONG_STATE = 12
+PP_APPLY_ROOT_HASH_MISMATCH = 13
+
 
 
 class Replica(HasActionQueue, MessageProcessor):
@@ -843,6 +845,10 @@ class Replica(HasActionQueue, MessageProcessor):
         return r
 
     def _process_valid_preprepare(self, pre_prepare, sender):
+        # TODO: rename to apply_pre_prepare
+        applied = self._apply_pre_prepare(pre_prepare, sender)
+        if applied != PP_APPLY_APPLIED_WELL:
+            return applied
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         self.addToPrePrepares(pre_prepare)
@@ -862,6 +868,8 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} processed incoming PRE-PREPARE{}"
                      .format(self, key),
                      extra={"tags": ["processing"]})
+
+        return PP_APPLY_APPLIED_WELL
 
     def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
@@ -886,8 +894,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
         can = self._can_process_pre_prepare(pre_prepare, sender)
         if can == PP_CHECK_CAN_BE_PROCESSED:
-            self.validate_pre_prepare(pre_prepare, sender)
-            self._process_valid_preprepare(pre_prepare, sender)
+            applied = self._process_valid_preprepare(pre_prepare, sender)
+            if applied == PP_APPLY_REJECT_WRONG:
+                report_suspicious(Suspicions.PPR_REJECT_WRONG)
+            elif applied == PP_APPLY_WRONG_DIGEST:
+                report_suspicious(Suspicions.PPR_DIGEST_WRONG)
+            elif applied == PP_APPLY_WRONG_STATE:
+                report_suspicious(Suspicions.PPR_STATE_WRONG)
+            elif applied == PP_APPLY_ROOT_HASH_MISMATCH:
+                report_suspicious(Suspicions.PPR_TXN_WRONG)
         elif can == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif can == PP_CHECK_TO_PRIMARY:
@@ -914,14 +929,6 @@ class Replica(HasActionQueue, MessageProcessor):
             report_suspicious(Suspicions.PPR_TIME_WRONG)
         elif can == PP_CHECK_WRONG_BLS:
             pass
-        elif can == PP_CHECK_REJECT_WRONG:
-            report_suspicious(Suspicions.PPR_REJECT_WRONG)
-        elif can == PP_CHECK_WRONG_DIGEST:
-            report_suspicious(Suspicions.PPR_DIGEST_WRONG)
-        elif can == PP_CHECK_WRONG_STATE:
-            report_suspicious(Suspicions.PPR_STATE_WRONG)
-        elif can == PP_CHECK_ROOT_HASH_MISMATCH:
-            report_suspicious(Suspicions.PPR_TXN_WRONG)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1106,7 +1113,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Applies (but not commits) requests of the PrePrepare
         to the ledger and state
@@ -1128,6 +1135,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
+
             self.processReqDuringBatch(req,
                                        pre_prepare.ppTime,
                                        valid_reqs,
@@ -1142,28 +1150,27 @@ class Replica(HasActionQueue, MessageProcessor):
         if len(valid_reqs) != pre_prepare.discarded:
             if self.isMaster:
                 revert()
-            return PP_CHECK_REJECT_WRONG
+            return PP_APPLY_REJECT_WRONG
 
-        reqs = valid_reqs + invalid_reqs
-        digest = self.batchDigest(reqs)
+        digest = self.batchDigest(valid_reqs + invalid_reqs)
 
         # A PRE-PREPARE is sent that does not match request digest
         if digest != pre_prepare.digest:
             if self.isMaster:
                 revert()
-            return PP_CHECK_WRONG_DIGEST
+            return PP_APPLY_WRONG_DIGEST
 
         if self.isMaster:
             if pre_prepare.stateRootHash != self.stateRootHash(pre_prepare.ledgerId):
                 revert()
-                return PP_CHECK_WRONG_STATE
+                return PP_APPLY_WRONG_STATE
 
             if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
                 revert()
-                return PP_CHECK_ROOT_HASH_MISMATCH
+                return PP_APPLY_ROOT_HASH_MISMATCH
 
             self.outBox.extend(rejects)
-        return PP_CHECK_CAN_BE_PROCESSED
+        return PP_APPLY_APPLIED_WELL
 
     def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> int:
         """
@@ -1211,8 +1218,6 @@ class Replica(HasActionQueue, MessageProcessor):
             # TODO: this requires special handling
             self._bls_bft.validate_pre_prepare(pp, sender)
             return PP_CHECK_WRONG_BLS
-
-        self.validate_pre_prepare(pp, sender)
 
         return PP_CHECK_CAN_BE_PROCESSED
 
