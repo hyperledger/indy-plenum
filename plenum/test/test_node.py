@@ -325,7 +325,8 @@ class TestNode(TestNodeCore, Node):
             if txn[TXN_TYPE] == "buy":
                 key, value = self.reqHandler.prepare_buy_for_state(txn)
                 proof = self.reqHandler.make_proof(key)
-                txn[STATE_PROOF] = proof
+                if proof:
+                    txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
 
 elector_spyables = [

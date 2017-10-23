@@ -154,11 +154,23 @@ class DomainRequestHandler(RequestHandler):
         return sha256(nym.encode()).digest()
 
     def make_proof(self, path):
+        '''
+        Creates a state proof for the given path in state trie.
+        Returns None if there is no BLS multi-signature for the given state (it can
+        be the case for txns added before multi-signature support).
+
+        :param path: the path generate a state proof for
+        :return: a state proof or None
+        '''
         proof = self.state.generate_state_proof(path, serialize=True)
         root_hash = self.state.committedHeadHash
         encoded_proof = proof_nodes_serializer.serialize(proof)
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+
         multi_sig = self.bls_store.get(encoded_root_hash)
+        if not multi_sig:
+            return None
+
         return {
             ROOT_HASH: encoded_root_hash,
             MULTI_SIGNATURE: multi_sig,  # [["participants"], ["signatures"]]
