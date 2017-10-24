@@ -65,11 +65,11 @@ class Client(Motor,
              HasActionQueue):
     def __init__(self,
                  name: str,
-                 nodeReg: Dict[str, HA]=None,
-                 ha: Union[HA, Tuple[str, int]]=None,
-                 basedirpath: str=None,
+                 nodeReg: Dict[str, HA] = None,
+                 ha: Union[HA, Tuple[str, int]] = None,
+                 basedirpath: str = None,
                  config=None,
-                 sighex: str=None):
+                 sighex: str = None):
         """
         Creates a new client.
 
@@ -153,7 +153,7 @@ class Client(Motor,
 
         if self.nodeReg:
             logger.info(
-                "Client {} initialized with the following node registry:" .format(
+                "Client {} initialized with the following node registry:".format(
                     self.alias))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
@@ -199,7 +199,7 @@ class Client(Motor,
         return BlsKeyRegisterPoolLedger(self._ledger)
 
     def _create_multi_sig_verifier(self) -> BlsCryptoVerifier:
-        verifier = create_default_bls_crypto_factory()\
+        verifier = create_default_bls_crypto_factory() \
             .create_bls_crypto_verifier()
         return verifier
 
@@ -471,8 +471,8 @@ class Client(Motor,
         if all(result == first for result in results):
             return first
         logger.debug("Received a different result from "
-                       "at least one node for {}"
-                       .format(full_req_id))
+                     "at least one node for {}"
+                     .format(full_req_id))
 
         result, freq = mostCommonElement(results)
         if not self.quorums.reply.is_reached(freq):
@@ -492,14 +492,14 @@ class Client(Motor,
                 continue
             if not self.validate_multi_signature(result[STATE_PROOF]):
                 logger.debug("{} got reply for {} with bad "
-                               "multi signature from {}"
-                               .format(self.name, full_req_id, sender))
+                             "multi signature from {}"
+                             .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             if not self.validate_proof(result):
                 logger.debug("{} got reply for {} with invalid "
-                               "state proof from {}"
-                               .format(self.name, full_req_id, sender))
+                             "state proof from {}"
+                             .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             return result
@@ -521,14 +521,14 @@ class Client(Motor,
         )
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.debug("There is not enough participants of "
-                           "multi-signature")
+                         "multi-signature")
             return False
         public_keys = []
         for node_name in participants:
             key = self._bls_register.get_key_by_name(node_name)
             if key is None:
                 logger.debug("There is no bls key for node {}"
-                               .format(node_name))
+                             .format(node_name))
                 return False
             public_keys.append(key)
         return self._multi_sig_verifier.verify_multi_sig(signature,
@@ -635,7 +635,7 @@ class Client(Motor,
                     tmp.append((req, signer))
             self.reqsPendingConnection.extend(tmp)
 
-    def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
+    def expectingFor(self, request: Request, nodes: Optional[Set[str]] = None):
         nodes = nodes or {r.name for r in self.nodestack.remotes.values()
                           if self.nodestack.isRemoteConnected(r)}
         now = time.perf_counter()
@@ -647,7 +647,7 @@ class Client(Motor,
     def gotExpected(self, msg, frm):
         if msg[OP_FIELD_NAME] == REQACK:
             container = msg
-            colls = (self.expectingAcksFor, )
+            colls = (self.expectingAcksFor,)
         elif msg[OP_FIELD_NAME] == REPLY:
             container = msg[f.RESULT.nm]
             # If an REQACK sent by node was lost, the request when sent again
