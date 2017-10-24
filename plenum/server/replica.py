@@ -844,11 +844,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
+        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
         if why_not_applied is not None:
             return why_not_applied
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
-        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         self.addToPrePrepares(pre_prepare)
         if not self.node.isParticipating:
             self.stashingWhileCatchingUp.add(key)
