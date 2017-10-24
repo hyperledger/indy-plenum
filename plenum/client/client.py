@@ -470,7 +470,7 @@ class Client(Motor,
         first = results[0]
         if all(result == first for result in results):
             return first
-        logger.warning("Received a different result from "
+        logger.debug("Received a different result from "
                        "at least one node for {}"
                        .format(full_req_id))
 
@@ -491,13 +491,13 @@ class Client(Motor,
                              .format(full_req_id, sender))
                 continue
             if not self.validate_multi_signature(result[STATE_PROOF]):
-                logger.warning("{} got reply for {} with bad "
+                logger.debug("{} got reply for {} with bad "
                                "multi signature from {}"
                                .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             if not self.validate_proof(result):
-                logger.warning("{} got reply for {} with invalid "
+                logger.debug("{} got reply for {} with invalid "
                                "state proof from {}"
                                .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
@@ -510,7 +510,7 @@ class Client(Motor,
         """
         multi_signature = state_proof['multi_signature']
         if not multi_signature:
-            logger.warning("There is a state proof, but no multi signature")
+            logger.debug("There is a state proof, but no multi signature")
             return False
 
         participants = multi_signature['participants']
@@ -520,14 +520,14 @@ class Client(Motor,
             pool_root_hash=multi_signature['pool_state_root']
         )
         if not self.quorums.bls_signatures.is_reached(len(participants)):
-            logger.warning("There is not enough participants of "
+            logger.debug("There is not enough participants of "
                            "multi-signature")
             return False
         public_keys = []
         for node_name in participants:
             key = self._bls_register.get_key_by_name(node_name)
             if key is None:
-                logger.warning("There is no bls key for node {}"
+                logger.debug("There is no bls key for node {}"
                                .format(node_name))
                 return False
             public_keys.append(key)
