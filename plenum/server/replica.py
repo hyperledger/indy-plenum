@@ -1183,27 +1183,28 @@ class Replica(HasActionQueue, MessageProcessor):
             self.outBox.extend(rejects)
         return None
 
-    def _can_process_pre_prepare(self, pp: PrePrepare, sender: str) -> Optional[int]:
+    def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
 
-        :param pp: a PRE-PREPARE msg to process
+        :param pre_prepare: a PRE-PREPARE msg to process
         :param sender: the name of the node that sent the PRE-PREPARE msg
         """
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
 
         # PRE-PREPARE should not be sent from non primary
-        if not self.isMsgFromPrimary(pp, sender):
+        if not self.isMsgFromPrimary(pre_prepare, sender):
             # Since PRE-PREPARE might be requested from others
-            if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
+            if (pre_prepare.viewNo, pre_prepare.ppSeqNo) not \
+                    in self.requested_pre_prepares:
                 return PP_CHECK_NOT_FROM_PRIMARY
 
         # A PRE-PREPARE is being sent to primary
-        if self.isPrimaryForMsg(pp) is True:
+        if self.isPrimaryForMsg(pre_prepare) is True:
             return PP_CHECK_TO_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
-        if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
+        if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
         if not self.node.isParticipating:
@@ -1213,20 +1214,23 @@ class Replica(HasActionQueue, MessageProcessor):
             # do not make change to state or ledger
             return None
 
-        if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
+        if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
+                            self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
 
-        if self.nonFinalisedReqs(pp.reqIdr):
+        if self.nonFinalisedReqs(pre_prepare.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        if not self.is_pre_prepare_time_acceptable(pp):
+        if not self.is_pre_prepare_time_acceptable(pre_prepare):
             return PP_CHECK_WRONG_TIME
 
-        if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
+        if not self.__is_next_pre_prepare(pre_prepare.viewNo,
+                                          pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
         # BLS multi-sig:
-        status = self._bls_bft_replica.validate_pre_prepare(pp, sender)
+        status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
+                                                            sender)
         if status is not None:
             return status
         return None
