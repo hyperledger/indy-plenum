@@ -3,6 +3,8 @@ from copy import copy
 
 import base58
 import pytest
+
+from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
@@ -122,9 +124,9 @@ def test_validate_pre_prepare_multi_sig_no_state(bls_bft_replicas, state_root, q
         pre_prepare = create_pre_prepare_bls_multisig_no_state(
             bls_multi_sig=multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bft_replicas:
-            with pytest.raises(SuspiciousNode) as ex_info:
-                verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
-            ex_info.match(Suspicions.PPR_NO_BLS_MULTISIG_STATE.reason)
+            status = verifier_bls_bft.validate_pre_prepare(pre_prepare,
+                                                           sender_bls_bft.node_id)
+            assert status == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE
 
 
 def test_validate_pre_prepare_incorrect_multi_sig(bls_bft_replicas, state_root, quorums):
@@ -134,9 +136,9 @@ def test_validate_pre_prepare_incorrect_multi_sig(bls_bft_replicas, state_root, 
         pre_prepare = create_pre_prepare_bls_multisig(
             bls_multi_sig=changed_multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bft_replicas:
-            with pytest.raises(SuspiciousNode) as ex_info:
-                verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
-            ex_info.match(Suspicions.PPR_BLS_MULTISIG_WRONG.reason)
+            status = verifier_bls_bft.validate_pre_prepare(pre_prepare,
+                                                           sender_bls_bft.node_id)
+            assert status == BlsBftReplica.PPR_BLS_MULTISIG_WRONG
 
 
 def test_validate_pre_prepare_incorrect_multi_sig_no_state(bls_bft_replicas, state_root, quorums):
@@ -146,9 +148,9 @@ def test_validate_pre_prepare_incorrect_multi_sig_no_state(bls_bft_replicas, sta
         pre_prepare = create_pre_prepare_bls_multisig_no_state(
             bls_multi_sig=changed_multi_sig, state_root=state_root)
         for verifier_bls_bft in bls_bft_replicas:
-            with pytest.raises(SuspiciousNode) as ex_info:
-                verifier_bls_bft.validate_pre_prepare(pre_prepare, sender_bls_bft.node_id)
-            ex_info.match(Suspicions.PPR_NO_BLS_MULTISIG_STATE.reason)
+            status = verifier_bls_bft.validate_pre_prepare(pre_prepare,
+                                                           sender_bls_bft.node_id)
+            assert status == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE
 
 
 def test_validate_prepare(bls_bft_replicas, state_root):
@@ -183,11 +185,10 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, state_root):
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, generate_state_root())
         for verifier_bls_bft in bls_bft_replicas:
-            with pytest.raises(SuspiciousNode) as ex_info:
-                verifier_bls_bft.validate_commit(commit,
-                                                 sender_bls_bft.node_id,
-                                                 state_root)
-            ex_info.match(Suspicions.CM_BLS_SIG_WRONG.reason)
+            status = verifier_bls_bft.validate_commit(commit,
+                                                      sender_bls_bft.node_id,
+                                                      state_root)
+            assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
 # ------ PROCESS 3PC MESSAGES ------
