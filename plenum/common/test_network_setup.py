@@ -97,10 +97,12 @@ class TestNetworkSetup:
                 creator=trustee_def.nym)
             domainLedger.add(nym_txn)
 
+        key_dir = os.path.expanduser(baseDir)
+
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, baseDir, nd.sigseed, override=True)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, key_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
@@ -116,7 +118,7 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(baseDir, nd.name, nd.sigseed)
+                blskey = init_bls_keys(key_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,

@@ -215,7 +215,7 @@ class ZStack(NetworkInterface):
 
     @staticmethod
     def homeDirPath(baseDirPath, name):
-        return os.path.join(baseDirPath, name)
+        return os.path.join(os.path.expanduser(baseDirPath), "keys", name)
 
     @staticmethod
     def publicDirPath(homeDirPath):

@@ -132,6 +132,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.config = config or getConfig()
         self.basedirpath = basedirpath or os.path.join(self.config.baseDir, self.config.NETWORK_NAME)
         self.basedirpath = os.path.expanduser(self.basedirpath)
+        self.key_path = self.basedirpath
         self.dataDir = self.config.nodeDataDir or "data/nodes"
         self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
                                                            self.config.NETWORK_NAME)
@@ -622,8 +623,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return bls_bft
 
     def update_bls_key(self, new_bls_key):
-        key_path = os.path.join(self.basedirpath, "keys")
-        bls_crypto_factory = create_default_bls_crypto_factory(key_path, self.name)
+        bls_crypto_factory = create_default_bls_crypto_factory(self.key_path, self.name)
         self.bls_bft.bls_crypto_signer = None
 
         try:
@@ -2549,8 +2549,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check whether the keys are setup in the local STP keep.
         Raises KeysNotFoundException if not found.
         """
-        key_path = os.path.join(self.basedirpath, "keys")
-        name, baseDir = self.name, key_path
+        name, baseDir = self.name, self.key_path
         if not areKeysSetup(name, baseDir, self.config):
             raise REx(REx.reason.format(name) + self.keygenScript)
 

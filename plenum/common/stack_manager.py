@@ -22,7 +22,7 @@ class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
-        self.key_path = os.path.join(os.path.expanduser(basedirpath), "keys")
+        self.key_path = os.path.expanduser(basedirpath)
         self.isNode = isNode
         self.hashStore = None
 

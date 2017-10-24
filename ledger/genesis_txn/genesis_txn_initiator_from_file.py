@@ -35,6 +35,7 @@ class GenesisTxnInitiatorFromFile(GenesisTxnInitiator):
 
         with open(init_file, 'r') as f:
             for line in store_utils.cleanLines(f):
+                print("@@!!@@ {} line {}".format(init_file, line))
                 txn = self.__serializer.deserialize(line)
                 ledger.add(txn)
 

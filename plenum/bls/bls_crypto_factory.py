@@ -1,3 +1,4 @@
+import os
 from crypto.bls.bls_crypto import BlsGroupParamsLoader
 from crypto.bls.bls_factory import BlsFactoryCrypto
 from crypto.bls.bls_key_manager import BlsKeyManager
@@ -28,7 +29,7 @@ from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 class BlsFactoryIndyCrypto(BlsFactoryCrypto):
     def __init__(self, basedir=None, node_name=None):
-        self._basedir = basedir
+        self._basedir = os.path.join(os.path.expanduser(basedir), "keys")
         self._node_name = node_name
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
