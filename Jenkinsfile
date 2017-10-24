@@ -211,7 +211,20 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
     return "$volumeName"
 }
 
-def options = new TestAndPublishOptions()
+options = new TestAndPublishOptions()
+options.enable([StagesEnum.PACK_RELEASE_DEPS, StagesEnum.PACK_RELEASE_ST_DEPS])
+options.setPublishableBranches(['file-struct']) //REMOVE IT BEFORE MERGE
+options.setPostfixes([master: 'file-struct']) //REMOVE IT BEFORE MERGE
+options.skip([
+    StagesEnum.IS_TESTED,
+    StagesEnum.STATIC_CODE_VALIDATION,
+    StagesEnum.TEST,
+    StagesEnum.AUTOMERGE,
+    StagesEnum.GET_RELEASE_VERSION,
+    StagesEnum.PYPI_RELEASE,
+    StagesEnum.GITHUB_RELEASE
+])
+options.setReleaseVersion("0.0.8")
 testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
 ledger: ledgerTestUbuntu,
 stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])

@@ -45,7 +45,7 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     # In order to save the time the pool connection is not maintaining
     # during the steps, only the final result is checked.
-    restartedNode = TestNode(theta.name, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(theta.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf, ha=correctNodeHa, cliha=clientHa)
     looper.add(restartedNode)
     txnPoolNodeSet[-1] = restartedNode

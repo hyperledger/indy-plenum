@@ -754,6 +754,7 @@ def txnPoolNodeSet(patchPluginManager,
             node = exitStack.enter_context(
                 testNodeClass(nm,
                               basedirpath=tdirWithPoolTxns,
+                              base_data_dir=tdirWithPoolTxns,
                               config=tconf,
                               pluginPaths=allPluginsPath))
             txnPoolNodesLooper.add(node)
@@ -838,7 +839,7 @@ def testNode(pluginManager, tdir):
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
-                    nodeRegistry=copy(nodeReg), basedirpath=tdir,
+                    nodeRegistry=copy(nodeReg), basedirpath=tdir, base_data_dir=tdir,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
     node.start(None)
     yield node

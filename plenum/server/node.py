@@ -105,12 +105,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA] = None,
-                 clientAuthNr: ClientAuthNr = None,
-                 ha: HA = None,
-                 cliname: str = None,
-                 cliha: HA = None,
-                 basedirpath: str = None,
+                 nodeRegistry: Dict[str, HA]=None,
+                 clientAuthNr: ClientAuthNr=None,
+                 ha: HA=None,
+                 cliname: str=None,
+                 cliha: HA=None,
+                 basedirpath: str=None,
+                 base_data_dir: str=None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
@@ -129,12 +130,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.created = time.time()
         self.name = name
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or config.baseDir
+        self.basedirpath = basedirpath or os.path.join(self.config.baseDir, self.config.NETWORK_NAME)
+        self.basedirpath = os.path.expanduser(self.basedirpath)
         self.dataDir = self.config.nodeDataDir or "data/nodes"
+        self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
+                                                           self.config.NETWORK_NAME)
+        self.base_data_dir = os.path.expanduser(self.base_data_dir)
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
-        HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
+        HasFileStorage.__init__(self, name, baseDir=self.base_data_dir,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
@@ -541,7 +546,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
             # and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.config.baseDir, self.config.domainTransactionsFile)
+                self.basedirpath, self.config.domainTransactionsFile)
             return Ledger(
                 CompactMerkleTree(
                     hashStore=self.getHashStore('domain')),
@@ -2774,6 +2779,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.nodeInfo['data'] = self.collectNodeInfo()
 
-        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
+        with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))

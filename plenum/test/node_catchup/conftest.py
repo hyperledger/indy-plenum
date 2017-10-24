@@ -53,6 +53,10 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
         newStewardWallet
 
 
+def test_tt(nodeCreatedAfterSomeTxns):
+    pass
+
+
 @pytest.fixture("module")
 def nodeSetWithNodeAddedAfterSomeTxns(
         txnPoolNodeSet, nodeCreatedAfterSomeTxns):
@@ -115,3 +119,7 @@ def poolAfterSomeTxns(
                                         client,
                                         txnCount)
     yield looper, client, wallet
+
+
+def test_trtr(poolAfterSomeTxns):
+    pass

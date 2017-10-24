@@ -64,6 +64,7 @@ def test_node_catchup_after_restart_with_txns(
     newNode = TestNode(
         newNode.name,
         basedirpath=tdirWithPoolTxns,
+        base_data_dir=tdirWithPoolTxns,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
