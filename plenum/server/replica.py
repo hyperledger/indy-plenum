@@ -938,9 +938,9 @@ class Replica(HasActionQueue, MessageProcessor):
             item = (pre_prepare, sender, False)
             self.pre_prepares_stashed_for_incorrect_time[key] = item
             report_suspicious(Suspicions.PPR_TIME_WRONG)
-        elif why_not == BlsBft.PPR_NO_BLS_MULTISIG_STATE:
+        elif why_not == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE:
             report_suspicious(Suspicions.PPR_NO_BLS_MULTISIG_STATE)
-        elif why_not == BlsBft.PPR_BLS_MULTISIG_WRONG:
+        elif why_not == BlsBftReplica.PPR_BLS_MULTISIG_WRONG:
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
             logger.warning("Unknown PRE-PREPARE check status: {}".
@@ -1423,7 +1423,7 @@ class Replica(HasActionQueue, MessageProcessor):
         pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
         why_not = self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
 
-        if why_not == BlsBft.CM_BLS_SIG_WRONG:
+        if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             raise SuspiciousNode(sender,
                                  Suspicions.CM_BLS_SIG_WRONG,
                                  commit)
