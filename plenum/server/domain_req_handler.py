@@ -4,8 +4,9 @@ from common.serializers.serialization import domain_state_serializer, \
     proof_nodes_serializer, state_roots_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
-    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
+    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, STATE_PROOF
 from plenum.common.exceptions import UnauthorizedClientRequest
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
@@ -173,6 +174,22 @@ class DomainRequestHandler(RequestHandler):
 
         return {
             ROOT_HASH: encoded_root_hash,
-            MULTI_SIGNATURE: multi_sig,  # [["participants"], ["signatures"]]
+            MULTI_SIGNATURE: multi_sig.as_dict(),  # [["participants"], ["signatures"]]
             PROOF_NODES: encoded_proof
         }
+
+    @staticmethod
+    def make_result(request, data, last_seq_no, update_time, proof):
+        result = {**request.operation, **{
+            DATA: data,
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId,
+            f.SEQ_NO.nm: last_seq_no,
+            TXN_TIME: update_time
+        }}
+        if request.protocolVersion and \
+                request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
+            result[STATE_PROOF] = proof
+
+        # Do not inline please, it makes debugging easier
+        return result

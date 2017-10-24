@@ -490,7 +490,7 @@ class Client(Motor,
                              "reply for {} from {}"
                              .format(full_req_id, sender))
                 continue
-            if not self.validate_multi_signature(result):
+            if not self.validate_multi_signature(result[STATE_PROOF]):
                 logger.warning("{} got reply for {} with bad "
                                "multi signature from {}"
                                .format(self.name, full_req_id, sender))
@@ -504,11 +504,11 @@ class Client(Motor,
                 continue
             return result
 
-    def validate_multi_signature(self, result):
+    def validate_multi_signature(self, state_proof):
         """
         Validates multi signature
         """
-        multi_signature = result[STATE_PROOF]['multi_signature']
+        multi_signature = state_proof['multi_signature']
         if not multi_signature:
             logger.warning("There is a state proof, but no multi signature")
             return False
@@ -516,7 +516,7 @@ class Client(Motor,
         participants = multi_signature['participants']
         signature = multi_signature['signature']
         full_state_root = create_full_root_hash(
-            root_hash=result[STATE_PROOF]['root_hash'],
+            root_hash=state_proof['root_hash'],
             pool_root_hash=multi_signature['pool_state_root']
         )
         if not self.quorums.bls_signatures.is_reached(len(participants)):
@@ -541,7 +541,9 @@ class Client(Motor,
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
         state_root_hash = state_roots_serializer.deserialize(state_root_hash)
-        proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
+        proof_nodes = result[STATE_PROOF]['proof_nodes']
+        if isinstance(proof_nodes, str):
+            proof_nodes = proof_nodes.encode()
         proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
         key, value = self.prepare_for_state(result)
         valid = PruningState.verify_state_proof(state_root_hash,

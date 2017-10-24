@@ -60,8 +60,12 @@ class TestDomainRequestHandler(DomainRequestHandler):
         identifier = txn.get(f.IDENTIFIER.nm)
         request_id = txn.get(f.REQ_ID.nm)
         value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
-        key = sha256('{}:{}'.format(identifier, request_id).encode()).digest()
+        key = TestDomainRequestHandler.prepare_buy_key(identifier, request_id)
         return key, value
+
+    @staticmethod
+    def prepare_buy_key(identifier, request_id):
+        return sha256('{}:{}'.format(identifier, request_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
