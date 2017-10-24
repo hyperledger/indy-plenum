@@ -187,7 +187,7 @@ class DomainRequestHandler(RequestHandler):
             f.SEQ_NO.nm: last_seq_no,
             TXN_TIME: update_time
         }}
-        if request.protocolVersion and \
+        if proof and request.protocolVersion and \
                 request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
             result[STATE_PROOF] = proof
 
