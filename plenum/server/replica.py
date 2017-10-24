@@ -1225,11 +1225,10 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
-        if self._bls_bft:
-            # BLS multi-sig:
-            status = self._bls_bft_replica.validate_pre_prepare(pp, sender)
-            if status is not None:
-                return status
+        # BLS multi-sig:
+        status = self._bls_bft_replica.validate_pre_prepare(pp, sender)
+        if status is not None:
+            return status
         return None
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
