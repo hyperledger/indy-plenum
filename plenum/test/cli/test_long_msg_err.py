@@ -10,4 +10,4 @@ def test_error_if_long_message(
     createClientAndConnect(cli, validNodeNames, "Alice")
 
     cli.enterCmd('client {} send {}'.format("Alice", operation))
-    assert "Message will be discarded due to InvalidMessageExceedingSizeException" in cli.lastCmdOutput
+    assert "message is too large and cannot be split" in cli.lastCmdOutput

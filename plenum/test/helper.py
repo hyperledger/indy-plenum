@@ -511,8 +511,8 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica, replica.canProcessPrePrepare)
-        assert expectedRequest.reqIdr in [p['pp'].reqIdr for p in params]
+        params = getAllArgs(replica, replica._can_process_pre_prepare)
+        assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
@@ -656,7 +656,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
         viewNos.add(node.viewNo)
     assert len(viewNos) == 1
     vNo, = viewNos
-    if expectedViewNo:
+    if expectedViewNo is not None:
         assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
             node.name, node.monitor.masterThroughputRatio()) for node in nodes])
     return vNo

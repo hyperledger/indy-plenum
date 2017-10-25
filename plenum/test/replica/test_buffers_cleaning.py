@@ -1,24 +1,21 @@
 from plenum.server.replica import Replica
-
-
-class FakeNode():
-
-    def __init__(self, **kwargs):
-        for name, value in kwargs.items():
-            setattr(self, name, value)
+from plenum.test.testing_utils import FakeSomething
 
 
 def test_ordered_cleaning():
 
     global_view_no = 2
 
-    node = FakeNode(
+    node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=global_view_no,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
     total = []
 
     num_requests_per_view = 3
@@ -38,13 +35,16 @@ def test_ordered_cleaning():
 
 def test_primary_names_cleaning():
 
-    node = FakeNode(
+    node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=0,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
 
     replica.primaryName = "Node1:0"
     assert list(replica.primaryNames.items()) == \

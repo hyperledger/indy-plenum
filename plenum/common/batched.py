@@ -9,7 +9,6 @@ from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Batch
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.exceptions import InvalidMessageExceedingSizeException
 from stp_core.validators.message_length_validator import MessageLenValidator
 from stp_core.common.config.util import getConfig
 
@@ -51,28 +50,38 @@ class Batched(MessageProcessor):
         for rid in self.remotes.keys():
             self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *
-             rids: Iterable[int], signer: Signer = None) -> None:
+    def send(self,
+             msg: Any, *
+             rids: Iterable[int],
+             signer: Signer = None,
+             message_splitter=None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
-         or into the outBoxes of all the remotes if rids is None
+        or into the outBoxes of all the remotes if rids is None
 
         :param msg: the message to enqueue
         :param rids: ids of the remotes to whose outBoxes
-         this message must be enqueued
+            this message must be enqueued
+        :param message_splitter: callable that splits msg on
+            two smaller messages
         """
         # Signing (if required) and serializing before enqueueing otherwise
         # each call to `_enqueue` will have to sign it and `transmit` will try
         # to serialize it which is waste of resources
-        serializedPayload, err_msg = self.signSerializeAndCheckLen(msg, signer)
-        if serializedPayload is None:
+        message_parts, err_msg = \
+            self.prepare_for_sending(msg, signer, message_splitter)
+
+        # TODO: returning breaks contract of super class
+        if err_msg is not None:
             return False, err_msg
 
         if rids:
             for r in rids:
-                self._enqueue(serializedPayload, r, signer)
+                for part in message_parts:
+                    self._enqueue(part, r, signer)
         else:
-            self._enqueueIntoAllRemotes(serializedPayload, signer)
+            for part in message_parts:
+                self._enqueueIntoAllRemotes(part, signer)
         return True, None
 
     def flushOutBoxes(self) -> None:
@@ -152,16 +161,29 @@ class Batched(MessageProcessor):
                 msg[f.MSGS.nm] = relevantMsgs
         return msg
 
-    def signSerializeAndCheckLen(self, msg, signer=None):
-        msg_bytes = self.sign_and_serialize(msg, signer)
-        err_msg = None
-        try:
-            self.msg_len_val.validate(msg_bytes)
-        except InvalidMessageExceedingSizeException as ex:
-            err_msg = 'Message will be discarded due to {}'.format(ex)
-            logger.warning(err_msg)
-            msg_bytes = None
-        return msg_bytes, err_msg
+    def prepare_for_sending(self, msg, signer,
+                            message_splitter=lambda x: None):
+        large_msg_parts = [msg]
+        fine_msg_parts = []
+        while len(large_msg_parts):
+            part = large_msg_parts.pop()
+            part_bytes = self.sign_and_serialize(part, signer)
+            if self.msg_len_val.is_len_less_than_limit(len(part_bytes)):
+                fine_msg_parts.append(part_bytes)
+                continue
+            if message_splitter is not None:
+                smaller_parts = message_splitter(part)
+                if smaller_parts is not None:
+                    large_msg_parts.extend(smaller_parts)
+                    continue
+
+            large_msg_parts.append(part)
+            break
+
+        if len(large_msg_parts):
+            return None, "message is too large and cannot be split"
+
+        return fine_msg_parts, None
 
     def sign_and_serialize(self, msg, signer=None):
         payload = self.prepForSending(msg, signer)

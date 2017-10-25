@@ -81,7 +81,7 @@ class HasPoolManager(TxnStackManager):
                     self.stackKeysChanged(txn, remoteName, self)
                 if SERVICES in txn[DATA]:
                     self.nodeServicesChanged(txn)
-                    self.setF()
+                    self.setPoolParams()
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
@@ -92,7 +92,7 @@ class HasPoolManager(TxnStackManager):
                     # Since only one transaction has been made, this is a new
                     # node transactions
                     self.connectNewRemote(txn, remoteName, self)
-                    self.setF()
+                    self.setPoolParams()
                 else:
                     self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])

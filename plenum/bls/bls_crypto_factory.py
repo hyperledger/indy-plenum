@@ -1,8 +1,8 @@
 from crypto.bls.bls_crypto import BlsGroupParamsLoader
 from crypto.bls.bls_factory import BlsFactoryCrypto
 from crypto.bls.bls_key_manager import BlsKeyManager
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsCryptoIndyCrypto, \
-    BlsGroupParamsLoaderIndyCrypto, IndyCryptoMultiSigVerifier
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, BlsCryptoSignerIndyCrypto, \
+    BlsCryptoVerifierIndyCrypto
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 
@@ -31,17 +31,17 @@ class BlsFactoryIndyCrypto(BlsFactoryCrypto):
         self._basedir = basedir
         self._node_name = node_name
 
-    def _create_multi_signature_verifier(self, group_params):
-        return IndyCryptoMultiSigVerifier(group_params)
-
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
         return BlsGroupParamsLoaderIndyCrypto()
 
-    def _get_bls_crypto_class(self):
-        return BlsCryptoIndyCrypto
+    def _get_bls_crypto_signer_class(self):
+        return BlsCryptoSignerIndyCrypto
 
-    def _create_bls_crypto(self, sk, pk, group_params):
-        return BlsCryptoIndyCrypto(sk=sk, pk=pk, params=group_params)
+    def _create_bls_crypto_signer(self, sk, pk, group_params):
+        return BlsCryptoSignerIndyCrypto(sk=sk, pk=pk, params=group_params)
+
+    def _create_bls_crypto_verifier(self, group_params):
+        return BlsCryptoVerifierIndyCrypto(group_params)
 
     def _create_key_manager(self, group_params) -> BlsKeyManager:
         assert self._basedir
