@@ -1,3 +1,4 @@
+import pytest
 import time
 
 from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, sendRandomRequests
@@ -98,3 +99,10 @@ def test_node_requests_missing_three_phase_messages_after_long_disconnection(loo
         assert node.domainLedger.size == (init_ledger_size +
                                           MISSING_REQS_CNT +
                                           REQS_AFTER_RECONNECT_CNT)
+
+
+@pytest.yield_fixture(autouse=True)
+def teardown(tconf):
+    original_deviation = tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+    yield
+    tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS = original_deviation
