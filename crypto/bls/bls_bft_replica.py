@@ -5,6 +5,11 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 
 
 class BlsBftReplica(metaclass=ABCMeta):
+
+    PPR_NO_BLS_MULTISIG_STATE = 0
+    PPR_BLS_MULTISIG_WRONG = 1
+    CM_BLS_SIG_WRONG = 2
+
     def __init__(self,
                  bls_bft: BlsBft,
                  is_master):
