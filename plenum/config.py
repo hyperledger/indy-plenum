@@ -35,6 +35,7 @@ GENERAL_CONFIG_DIR = '/etc/indy'
 
 # it should be filled from baseConfig
 NETWORK_NAME = ''
+USER_CONFIG_DIR = None
 
 GENERAL_CONFIG_FILE = 'plenum_config.py'
 NETWORK_CONFIG_FILE = 'plenum_config.py'

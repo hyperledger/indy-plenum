@@ -76,7 +76,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.server.config_helper import NodeConfigHelper
+from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
 from stp_core.common.log import getlogger
@@ -131,7 +131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.name = name
         self.config = config or getConfig()
 
-        config_helper = NodeConfigHelper(self.name, self.config)
+        config_helper = PNodeConfigHelper(self.name, self.config)
 
         self.ledger_dir = ledger_dir or config_helper.ledger_dir
         self.keys_dir = keys_dir or config_helper.keys_dir
@@ -347,7 +347,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # is lost until the primary is connected.
         self.lost_primary_at = time.perf_counter()
 
-        tp = loadPlugins(self.plugins_dir)
+        plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
+        tp = loadPlugins(self.plugins_dir, plugins_to_load)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()

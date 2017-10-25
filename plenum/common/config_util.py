@@ -59,7 +59,7 @@ def extend_with_default_external_config(extendee: object, user_config_dir: str =
                                  extendee.USER_CONFIG_FILE))
 
 
-def getConfig(user_config_dir=None):
+def getConfig(user_config_dir: str = None):
     """
     Reads a file called config.py in the project directory
 
@@ -68,12 +68,18 @@ def getConfig(user_config_dir=None):
     """
     global CONFIG
     if not CONFIG:
-        stp_config = STPConfig(user_config_dir)
+        stp_config = STPConfig()
         plenum_config = import_module("plenum.config")
         config = stp_config
         config.__dict__.update(plenum_config.__dict__)
 
-        extend_with_default_external_config(config, user_config_dir)
+        if (user_config_dir):
+            config.USER_CONFIG_DIR = user_config_dir
+
+        if not config.USER_CONFIG_DIR:
+            raise Exception('USER_CONFIG_DIR must be set')
+
+        extend_with_external_config(config, (config.USER_CONFIG_DIR, config.USER_CONFIG_FILE))
 
         # "unsafe" is a set of attributes that can set certain behaviors that
         # are not safe, for example, 'disable_view_change' disables view changes

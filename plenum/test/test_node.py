@@ -47,6 +47,7 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
+from plenum.common.config_helper import PNodeConfigHelper
 from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
 
@@ -478,9 +479,13 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
+        from plenum.common.config_util import getConfig
+        config = getConfig()
+        config_helper = PNodeConfigHelper(name, config, chroot=self.tmpdir)
+
         seed = randomSeed()
         if self.keyshare:
-            learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
+            learnKeysFromOthers(config_helper.keys_dir, name, self.nodes.values())
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
@@ -489,8 +494,10 @@ class TestNodeSet(ExitStack):
                           cliname=cliname,
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
-                          basedirpath=self.tmpdir,
-                          base_data_dir=self.tmpdir,
+                          ledger_dir=config_helper.ledger_dir,
+                          keys_dir=config_helper.keys_dir,
+                          genesis_dir=config_helper.genesis_dir,
+                          plugins_dir=config_helper.plugins_dir,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))

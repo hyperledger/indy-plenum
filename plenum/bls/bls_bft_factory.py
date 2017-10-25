@@ -1,3 +1,4 @@
+import os
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_factory import BlsFactoryBft, BlsFactoryCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
@@ -33,6 +34,7 @@ def create_default_bls_bft_factory(node):
     :param node: Node instance
     :return: BLS factory instance
     '''
-    bls_crypto_factory = create_default_bls_crypto_factory(node.keys_dir)
+    bls_keys_dir = os.path.join(node.keys_dir, node.name)
+    bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
     return BlsFactoryBftPlenum(bls_crypto_factory,
                                node)

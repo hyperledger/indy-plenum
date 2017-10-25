@@ -3,6 +3,7 @@ import inspect
 import itertools
 import logging
 import os
+import shutil
 import re
 import warnings
 from contextlib import ExitStack
@@ -20,6 +21,8 @@ from plenum.test import waits
 import gc
 import pip
 import pytest
+import plenum.config as plenum_config
+import plenum.server.user_config.ubuntu_platform_config as platform_config
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
@@ -53,11 +56,13 @@ from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
+from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
-config = getConfig()
+#config = getConfig()
 
+USER_CONFIG_DIR='etc/indy'
 
 @pytest.mark.firstresult
 def pytest_xdist_make_scheduler(config, log):
@@ -135,12 +140,12 @@ def warncheck(warnfilters):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime(request, tconf):
+def limitTestRunningTime(request):
     st = time.time()
     yield
     runningTime = time.time() - st
     time_limit = getValueFromModule(request, "TestRunningTimeLimitSec",
-                                    tconf.TestRunningTimeLimitSec)
+                                    plenum_config.TestRunningTimeLimitSec)
     if runningTime > time_limit:
         pytest.fail(
             'The running time of each test is limited by {} sec '
@@ -152,7 +157,7 @@ def limitTestRunningTime(request, tconf):
             '\t2. Override the `limitTestRunningTime` fixture '
             'for the test module.\n'
             'Firstly, try to use the option #1.'
-            ''.format(tconf.TestRunningTimeLimitSec, runningTime))
+            ''.format(plenum_config.TestRunningTimeLimitSec, runningTime))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -293,13 +298,10 @@ def logcapture(request, whitelist, concerningLogLevels):
         logging.getLogger().removeHandler(ch)
 
     request.addfinalizer(cleanup)
-    config = getConfig(tdir)
-    for k, v in overriddenConfigValues.items():
-        setattr(config, k, v)
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
+def nodeSet(request, tdir, conf, nodeReg, allPluginsPath, patchPluginManager):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
@@ -307,21 +309,61 @@ def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
         yield ns
 
 
+def _tdir(tdir_fact):
+    return tdir_fact.mktemp('').strpath
+
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory):
-    tempdir = tmpdir_factory.mktemp('').strpath
+    tempdir = _tdir(tmpdir_factory)
     logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 
-another_tdir = tdir
-
-
-@pytest.fixture(scope='function')
-def tdir_for_func(tmpdir_factory):
-    tempdir = tmpdir_factory.mktemp('').strpath
+@pytest.fixture()
+def tdir_func(tmpdir_factory):
+    tempdir = _tdir(tmpdir_factory)
     logging.debug("function-level temporary directory: {}".format(tempdir))
     return tempdir
+
+
+def _user_conf(tmp_dir):
+    user_config_dir = os.path.join(tmp_dir, USER_CONFIG_DIR)
+    logger.debug("module-level user config directory: {}".format(user_config_dir))
+    os.makedirs(user_config_dir)
+    user_config = os.path.join(user_config_dir, plenum_config.USER_CONFIG_FILE)
+    shutil.copy(platform_config.__file__, user_config)
+    return user_config_dir
+
+
+@pytest.fixture(scope='module')
+def user_conf(tdir):
+    user_config_dir = _user_conf(tdir)
+    logger.debug("module-level user config directory: {}".format(user_config_dir))
+    return user_config_dir
+
+
+@pytest.fixture()
+def user_conf_func(tdir_func):
+    user_config_dir = _user_conf(tdir_func)
+    logger.debug("function-level user config directory: {}".format(user_config_dir))
+    return user_config_dir
+
+
+def _conf(user_config):
+    config = getConfig(user_config)
+    for k, v in overriddenConfigValues.items():
+        setattr(config, k, v)
+    return config
+
+
+@pytest.fixture(scope="module")
+def conf(user_conf):
+    return _conf(user_conf)
+
+
+@pytest.fixture()
+def conf_func(user_conf_func):
+    return _conf(user_conf_func)
 
 
 @pytest.fixture(scope="module")
@@ -442,10 +484,9 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def noRetryReq(conf, tdir, request):
+def noRetryReq(conf, request):
     oldRetryAck = conf.CLIENT_MAX_RETRY_ACK
     oldRetryReply = conf.CLIENT_MAX_RETRY_REPLY
-    conf.baseDir = tdir
     conf.CLIENT_MAX_RETRY_ACK = 0
     conf.CLIENT_MAX_RETRY_REPLY = 0
 
@@ -531,6 +572,11 @@ def looperWithoutNodeSet():
         yield looper
 
 
+@pytest.yield_fixture()
+def looper_without_nodeset_func():
+    with Looper() as looper:
+        yield looper
+
 @pytest.fixture(scope="module")
 def poolTxnNodeNames(request, index=""):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
@@ -546,19 +592,6 @@ def poolTxnClientNames():
 def poolTxnStewardNames(request):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
     return ['Steward' + str(i) for i in range(1, nodeCount + 1)]
-
-
-@pytest.fixture(scope="module")
-def conf(tdir):
-    return getConfig(tdir)
-
-
-# TODO: This fixture is probably not needed now, as getConfig takes the
-# `baseDir`. Confirm and remove
-@pytest.fixture(scope="module")
-def tconf(conf, tdir):
-    conf.baseDir = tdir
-    return conf
 
 
 @pytest.fixture(scope="module")
@@ -640,18 +673,19 @@ def poolTxnData(request):
 
 
 @pytest.fixture(scope="module")
-def tdirWithPoolTxns(poolTxnData, tdir, tconf):
+def tdirWithPoolTxns(poolTxnData, tdir, conf):
     import getpass
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
 
-    ledger = create_genesis_txn_init_ledger(tdir, tconf.poolTransactionsFile)
+    config_helper = PConfigHelper(conf, chroot=tdir)
+    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, conf.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
     ledger.stop()
-    return tdir
+    return config_helper.genesis_dir
 
 
 @pytest.fixture(scope="module")
@@ -660,23 +694,25 @@ def domainTxnOrderedFields():
 
 
 @pytest.fixture(scope="module")
-def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    ledger = create_genesis_txn_init_ledger(tdir, tconf.domainTransactionsFile)
+def tdirWithDomainTxns(poolTxnData, tdir, conf, domainTxnOrderedFields):
+    config_helper = PConfigHelper(conf, chroot=tdir)
+    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, conf.domainTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)
     ledger.stop()
-    return tdir
+    return config_helper.genesis_dir
 
 
 @pytest.fixture(scope="module")
-def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
+def tdirWithNodeKeepInited(tdir, conf, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
         use_bls = nName in poolTxnData['nodesWithBls']
-        initNodeKeysForBothStacks(nName, tdir, seed, use_bls=use_bls, override=True)
+        config_helper = PNodeConfigHelper(nName, conf, chroot=tdir)
+        initNodeKeysForBothStacks(nName, config_helper.keys_dir, seed, use_bls=use_bls, override=True)
 
 @pytest.fixture(scope="module")
 def poolTxnClientData(poolTxnClientNames, poolTxnData):
@@ -743,7 +779,8 @@ def txnPoolNodeSet(patchPluginManager,
                    txnPoolNodesLooper,
                    tdirWithPoolTxns,
                    tdirWithDomainTxns,
-                   tconf,
+                   tdir,
+                   conf,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
@@ -751,11 +788,14 @@ def txnPoolNodeSet(patchPluginManager,
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
+            config_helper = PNodeConfigHelper(nm, conf, chroot=tdir)
             node = exitStack.enter_context(
                 testNodeClass(nm,
-                              basedirpath=tdirWithPoolTxns,
-                              base_data_dir=tdirWithPoolTxns,
-                              config=tconf,
+                              ledger_dir=config_helper.ledger_dir,
+                              keys_dir=config_helper.keys_dir,
+                              genesis_dir=config_helper.genesis_dir,
+                              plugins_dir=config_helper.plugins_dir,
+                              config=conf,
                               pluginPaths=allPluginsPath))
             txnPoolNodesLooper.add(node)
             nodes.append(node)
@@ -776,9 +816,8 @@ def txnPoolCliNodeReg(poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def postingStatsEnabled(request):
-    config = getConfig()
-    config.SendMonitorStats = True
+def postingStatsEnabled(request, conf):
+    conf.SendMonitorStats = True
 
     # def reset():
     #    config.SendMonitorStats = False
@@ -834,12 +873,18 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(pluginManager, tdir):
+def testNode(pluginManager, tdir, conf):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
+    config_helper = PNodeConfigHelper(name, conf, chroot=tdir)
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
-                    nodeRegistry=copy(nodeReg), basedirpath=tdir, base_data_dir=tdir,
+                    nodeRegistry=copy(nodeReg),
+                    ledger_dir=config_helper.ledger_dir,
+                    keys_dir=config_helper.keys_dir,
+                    genesis_dir=config_helper.genesis_dir,
+                    plugins_dir=config_helper.plugins_dir,
+                    config=conf,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
     node.start(None)
     yield node

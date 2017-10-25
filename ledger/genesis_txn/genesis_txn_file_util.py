@@ -2,10 +2,9 @@ import os
 
 from plenum.common.config_util import getConfig
 
-config = getConfig()
-
 
 def genesis_txn_file(transaction_file):
+    config = getConfig()
     return transaction_file + config.genesis_file_suffix
 
 
