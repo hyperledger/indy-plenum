@@ -6,6 +6,7 @@ from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
 
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
+from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
@@ -64,6 +65,20 @@ class Stats:
 
     def __repr__(self):
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
+
+
+PP_CHECK_NOT_FROM_PRIMARY = 0
+PP_CHECK_TO_PRIMARY = 1
+PP_CHECK_DUPLICATE = 2
+PP_CHECK_OLD = 3
+PP_CHECK_REQUEST_NOT_FINALIZED = 4
+PP_CHECK_NOT_NEXT = 5
+PP_CHECK_WRONG_TIME = 6
+
+PP_APPLY_REJECT_WRONG = 7
+PP_APPLY_WRONG_DIGEST = 8
+PP_APPLY_WRONG_STATE = 9
+PP_APPLY_ROOT_HASH_MISMATCH = 10
 
 
 class Replica(HasActionQueue, MessageProcessor):
@@ -368,6 +383,13 @@ class Replica(HasActionQueue, MessageProcessor):
         instanceId.
          Ex: Alpha:1
         """
+
+        if isinstance(nodeName, str):
+            # Because sometimes it is bytes (why?)
+            if ":" in nodeName:
+                # Because in some cases (for requested messages) it
+                # already has ':'. This should be fixed.
+                return nodeName
         return "{}:{}".format(nodeName, instId)
 
     @staticmethod
@@ -820,43 +842,109 @@ class Replica(HasActionQueue, MessageProcessor):
                          .format(self, msg))
         return r
 
-    def processPrePrepare(self, pp: PrePrepare, sender: str):
-        """
-        Validate and process the PRE-PREPARE specified.
-        If validation is successful, create a PREPARE and broadcast it.
+    def _process_valid_preprepare(self, pre_prepare, sender):
+        # TODO: rename to apply_pre_prepare
+        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+        why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
+        if why_not_applied is not None:
+            return why_not_applied
+        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        self.addToPrePrepares(pre_prepare)
+        if not self.node.isParticipating:
+            self.stashingWhileCatchingUp.add(key)
+            logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
+            return None
+        if self.isMaster:
+            # TODO: can old_state_root be used here instead?
+            state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+            self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
+            # BLS multi-sig:
+            self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
+            logger.debug("{} saved shared multi signature for root"
+                         .format(self, old_state_root))
+        self.trackBatches(pre_prepare, old_state_root)
+        logger.debug("{} processed incoming PRE-PREPARE{}"
+                     .format(self, key),
+                     extra={"tags": ["processing"]})
+        return None
 
-        :param pp: a prePrepareRequest
+    def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
+        """
+        Validate and process provided PRE-PREPARE, create and
+        broadcast PREPARE for it.
+
+        :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
-        key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug("{} received PRE-PREPARE{} from {} at {}".
-                     format(self, key, sender, time.perf_counter()))
+        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        logger.debug("{} received PRE-PREPARE{} from {}"
+                     .format(self, key, sender))
+
+        # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
-        pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
-                                                    for i, r in pp.reqIdr]})
-        oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-        try:
-            if self.canProcessPrePrepare(pp, sender):
-                self.addToPrePrepares(pp)
-                if not self.node.isParticipating:
-                    self.stashingWhileCatchingUp.add(key)
-                    logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
-                    return
+        req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
+        pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
-                if self.isMaster:
-                    self.node.onBatchCreated(pp.ledgerId,
-                                             self.stateRootHash(pp.ledgerId,
-                                                                to_str=False))
-                    # BLS multi-sig:
-                    self._bls_bft_replica.process_pre_prepare(pp, sender)
-                    logger.debug("{} saved shared multi signature for root"
-                                 .format(self, oldStateRoot))
-
-                self.trackBatches(pp, oldStateRoot)
-                logger.debug("{} processed incoming PRE-PREPARE{}".format(self,
-                                                                          key), extra={"tags": ["processing"]})
-        except SuspiciousNode as ex:
+        def report_suspicious(reason):
+            ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
+
+        why_not = self._can_process_pre_prepare(pre_prepare, sender)
+        if why_not is None:
+            why_not_applied = \
+                self._process_valid_preprepare(pre_prepare, sender)
+            if why_not_applied is not None:
+                if why_not_applied == PP_APPLY_REJECT_WRONG:
+                    report_suspicious(Suspicions.PPR_REJECT_WRONG)
+                elif why_not_applied == PP_APPLY_WRONG_DIGEST:
+                    report_suspicious(Suspicions.PPR_DIGEST_WRONG)
+                elif why_not_applied == PP_APPLY_WRONG_STATE:
+                    report_suspicious(Suspicions.PPR_STATE_WRONG)
+                elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
+                    report_suspicious(Suspicions.PPR_TXN_WRONG)
+        elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
+            report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
+        elif why_not == PP_CHECK_TO_PRIMARY:
+            report_suspicious(Suspicions.PPR_TO_PRIMARY)
+        elif why_not == PP_CHECK_DUPLICATE:
+            report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+        elif why_not == PP_CHECK_OLD:
+            logger.debug("PRE-PREPARE {} has ppSeqNo lower "
+                         "then the latest one - ignoring it"
+                         .format(key))
+        elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
+            non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
+            self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
+            # TODO: An optimisation might be to not request PROPAGATEs
+            # if some PROPAGATEs are present or a client request is
+            # present and sufficient PREPAREs and PRE-PREPARE are present,
+            # then the digest can be compared but this is expensive as the
+            # PREPARE and PRE-PREPARE contain a combined digest
+            self.node.request_propagates(non_fin_reqs)
+        elif why_not == PP_CHECK_NOT_NEXT:
+            pp_seq_no = pre_prepare.ppSeqNo
+            last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
+            logger.warning("{} missing PRE-PREPAREs between {} and {}, "
+                           "going to request"
+                           .format(self, pp_seq_no, last_pp_seq_no))
+            self._request_missing_three_phase_messages(last_pp_seq_no,
+                                                       pp_seq_no,
+                                                       last_pp_view_no,
+                                                       pre_prepare.viewNo)
+            self._setup_for_non_master()
+            self.enqueue_pre_prepare(pre_prepare, sender)
+        elif why_not == PP_CHECK_WRONG_TIME:
+            key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+            item = (pre_prepare, sender, False)
+            self.pre_prepares_stashed_for_incorrect_time[key] = item
+            report_suspicious(Suspicions.PPR_TIME_WRONG)
+        elif why_not == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE:
+            report_suspicious(Suspicions.PPR_NO_BLS_MULTISIG_STATE)
+        elif why_not == BlsBftReplica.PPR_BLS_MULTISIG_WRONG:
+            report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
+        else:
+            logger.warning("Unknown PRE-PREPARE check status: {}".
+                           format(why_not))
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -998,24 +1086,15 @@ class Replica(HasActionQueue, MessageProcessor):
         if view_no == self.viewNo and pp_seq_no == 1:
             # First PRE-PREPARE in a new view
             return True
-
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-
         if last_pp_view_no > view_no:
             return False
-
         if last_pp_view_no < view_no:
+            # TODO: assert??
             assert view_no == self.viewNo
             last_pp_seq_no = 0
-
         if pp_seq_no - last_pp_seq_no > 1:
-            logger.warning('{} missing PRE-PREPAREs between {} and {}'.
-                           format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no, pp_seq_no,
-                                                       last_pp_view_no, view_no)
-            self._setup_for_non_master()
             return False
-
         return True
 
     @property
@@ -1042,120 +1121,116 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def validate_pre_prepare(self, pp: PrePrepare, sender: str):
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
-        This will apply the requests part of the PrePrepare to the ledger
-        and state. It will not commit though (the ledger on disk will not
-        change, neither the committed state root hash will change)
+        Applies (but not commits) requests of the PrePrepare
+        to the ledger and state
         """
-        if not self.is_pre_prepare_time_acceptable(pp):
-            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (
-                pp, sender, False)
-            raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
 
-        # BLS multi-sig:
-        self._bls_bft_replica.validate_pre_prepare(pp, sender)
-
-        validReqs = []
-        inValidReqs = []
+        valid_reqs = []
+        invalid_reqs = []
         rejects = []
-        if self.isMaster:
-            # If this PRE-PREPARE is not valid then state and ledger should be
-            # reverted
-            oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-            oldTxnRoot = self.txnRootHash(pp.ledgerId)
-            logger.debug('{} state root before processing {} is {}, {}'.
-                         format(self, pp, oldStateRoot, oldTxnRoot))
 
-        for reqKey in pp.reqIdr:
-            req = self.requests[reqKey].finalised
-            self.processReqDuringBatch(req, pp.ppTime, validReqs, inValidReqs,
+        if self.isMaster:
+            old_state_root = \
+                self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+            old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
+            logger.debug('{} state root before processing {} is {}, {}'
+                         .format(self,
+                                 pre_prepare,
+                                 old_state_root,
+                                 old_txn_root))
+
+        for req_key in pre_prepare.reqIdr:
+            req = self.requests[req_key].finalised
+
+            self.processReqDuringBatch(req,
+                                       pre_prepare.ppTime,
+                                       valid_reqs,
+                                       invalid_reqs,
                                        rejects)
 
-        if len(validReqs) != pp.discarded:
-            if self.isMaster:
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-            raise SuspiciousNode(sender, Suspicions.PPR_REJECT_WRONG, pp)
+        def revert():
+            self.revert(pre_prepare.ledgerId,
+                        old_state_root,
+                        len(valid_reqs))
 
-        reqs = validReqs + inValidReqs
-        digest = self.batchDigest(reqs)
+        if len(valid_reqs) != pre_prepare.discarded:
+            if self.isMaster:
+                revert()
+            return PP_APPLY_REJECT_WRONG
+
+        digest = self.batchDigest(valid_reqs + invalid_reqs)
 
         # A PRE-PREPARE is sent that does not match request digest
-        if digest != pp.digest:
+        if digest != pre_prepare.digest:
             if self.isMaster:
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-            raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
+                revert()
+            return PP_APPLY_WRONG_DIGEST
 
         if self.isMaster:
-            if pp.stateRootHash != self.stateRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_STATE_WRONG, pp)
+            if pre_prepare.stateRootHash != self.stateRootHash(pre_prepare.ledgerId):
+                revert()
+                return PP_APPLY_WRONG_STATE
 
-            if pp.txnRootHash != self.txnRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
+            if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
+                revert()
+                return PP_APPLY_ROOT_HASH_MISMATCH
 
             self.outBox.extend(rejects)
+        return None
 
-    def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:
+    def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
-        Decide whether this replica is eligible to process a PRE-PREPARE,
-        based on the following criteria:
+        Decide whether this replica is eligible to process a PRE-PREPARE.
 
-        - this replica is non-primary replica
-        - the request isn't in its list of received PRE-PREPAREs
-        - the request is waiting to for PRE-PREPARE and the digest value matches
-
-        :param pp: a PRE-PREPARE msg to process
+        :param pre_prepare: a PRE-PREPARE msg to process
         :param sender: the name of the node that sent the PRE-PREPARE msg
-        :return: True if processing is allowed, False otherwise
         """
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
+
         # PRE-PREPARE should not be sent from non primary
-        if not self.isMsgFromPrimary(pp, sender):
+        if not self.isMsgFromPrimary(pre_prepare, sender):
             # Since PRE-PREPARE might be requested from others
-            if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
-                raise SuspiciousNode(
-                    sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
+            if (pre_prepare.viewNo, pre_prepare.ppSeqNo) not \
+                    in self.requested_pre_prepares:
+                return PP_CHECK_NOT_FROM_PRIMARY
 
         # A PRE-PREPARE is being sent to primary
-        if self.isPrimaryForMsg(pp) is True:
-            raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
+        if self.isPrimaryForMsg(pre_prepare) is True:
+            return PP_CHECK_TO_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
-        if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
-            raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
+        if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
+            return PP_CHECK_DUPLICATE
 
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
             # TODO: The next processed pre-prepare needs to take consider if
             # the last pre-prepare was stashed or not since stashed requests
             # do not make change to state or ledger
-            return True
+            return None
 
-        if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
-            return False  # ignore old pre-prepare
+        if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
+                            self.__last_pp_3pc) > 0:
+            return PP_CHECK_OLD  # ignore old pre-prepare
 
-        # Do not combine the next if conditions, the idea is to exit as soon
-        # as possible
-        non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
-        if non_fin_reqs:
-            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
-            # TODO: An optimisation might be to not request PROPAGATEs if some
-            # PROPAGATEs are present or a client request is present and
-            # sufficient PREPAREs and PRE-PREPARE are present, then the digest
-            # can be compared but this is expensive as the PREPARE
-            # and PRE-PREPARE contain a combined digest
-            self.node.request_propagates(non_fin_reqs)
-            return False
+        if self.nonFinalisedReqs(pre_prepare.reqIdr):
+            return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
-        if non_next_pp:
-            self.enqueue_pre_prepare(pp, sender)
-            return False
+        if not self.is_pre_prepare_time_acceptable(pre_prepare):
+            return PP_CHECK_WRONG_TIME
 
-        self.validate_pre_prepare(pp, sender)
-        return True
+        if not self.__is_next_pre_prepare(pre_prepare.viewNo,
+                                          pre_prepare.ppSeqNo):
+            return PP_CHECK_NOT_NEXT
+
+        # BLS multi-sig:
+        status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
+                                                            sender)
+        if status is not None:
+            return status
+        return None
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
         """
@@ -1347,7 +1422,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
+        why_not = self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
+
+        if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
+            raise SuspiciousNode(sender,
+                                 Suspicions.CM_BLS_SIG_WRONG,
+                                 commit)
+        elif why_not is not None:
+            logger.warning("Unknown error code returned for bls commit "
+                           "validation {}".format(why_not))
 
         return True
 
@@ -2062,7 +2145,10 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         Request preprepare
         """
-        return self._request_three_phase_msg(three_pc_key, self.requested_pre_prepares, PREPREPARE, recipients,
+        return self._request_three_phase_msg(three_pc_key,
+                                             self.requested_pre_prepares,
+                                             PREPREPARE,
+                                             recipients,
                                              stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
@@ -2180,11 +2266,14 @@ class Replica(HasActionQueue, MessageProcessor):
         :param pp:
         :return:
         """
+        key = (pp.viewNo, pp.ppSeqNo)
+        if key in self.requested_pre_prepares:
+            # Special case for requested PrePrepares
+            return True
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
             logger.error(
                 '{} found {} to have incorrect time.'.format(self, pp))
-            key = (pp.viewNo, pp.ppSeqNo)
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
                 logger.info(

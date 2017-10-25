@@ -38,7 +38,7 @@ def test_not_splitting_of_small_messages(batched, message_size_limit):
     assert parts == [message]
 
 
-def test_fail_if_message_can_be_split(batched, message_size_limit):
+def test_fail_if_message_can_not_be_split(batched, message_size_limit):
     """
     Checks that if large message cannot be split by transport on smaller parts
     error message returned

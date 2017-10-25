@@ -363,7 +363,7 @@ class TestPrimarySelector(PrimarySelector):
 
 replica_spyables = [
     replica.Replica.sendPrePrepare,
-    replica.Replica.canProcessPrePrepare,
+    replica.Replica._can_process_pre_prepare,
     replica.Replica.canPrepare,
     replica.Replica.validatePrepare,
     replica.Replica.addToPrePrepares,

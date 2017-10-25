@@ -6,11 +6,9 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
-from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
-from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -41,16 +39,12 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         # if we have multi-sig, then we must have the corresponded state root as well
         if f.BLS_MULTI_SIG_STATE_ROOT.nm not in pre_prepare or \
                 pre_prepare.blsMultiSigStateRoot is None:
-            raise SuspiciousNode(sender,
-                                 Suspicions.PPR_NO_BLS_MULTISIG_STATE,
-                                 pre_prepare)
+            return BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE
 
         multi_sig = MultiSignature(*pre_prepare.blsMultiSig)
         state_root = pre_prepare.blsMultiSigStateRoot
         if not self._validate_multi_sig(multi_sig, state_root):
-            raise SuspiciousNode(sender,
-                                 Suspicions.PPR_BLS_MULTISIG_WRONG,
-                                 pre_prepare)
+            return BlsBftReplica.PPR_BLS_MULTISIG_WRONG
 
     def validate_prepare(self, prepare: Prepare, sender):
         pass
@@ -58,13 +52,10 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def validate_commit(self, commit: Commit, sender, state_root_hash):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
-            # raise BlsValidationError("No signature found")
             return
 
         if not self._validate_signature(sender, commit.blsSig, state_root_hash):
-            raise SuspiciousNode(sender,
-                                 Suspicions.CM_BLS_SIG_WRONG,
-                                 commit)
+            return BlsBftReplica.CM_BLS_SIG_WRONG
 
     # ----CREATE/UPDATE----
 
