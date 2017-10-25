@@ -1127,9 +1127,6 @@ class Replica(HasActionQueue, MessageProcessor):
         to the ledger and state
         """
 
-        # BLS multi-sig:
-        self._bls_bft_replica.validate_pre_prepare(pre_prepare, sender)
-
         valid_reqs = []
         invalid_reqs = []
         rejects = []
