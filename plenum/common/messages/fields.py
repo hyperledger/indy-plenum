@@ -424,7 +424,7 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
-class VersionField(FieldBase):
+class VersionField(LimitedLengthStringField):
     _base_types = (str,)
 
     def __init__(self, components_number=(3,), **kwargs):
@@ -432,6 +432,9 @@ class VersionField(FieldBase):
         self._comp_num = components_number
 
     def _specific_validation(self, val):
+        lim_str_err = super()._specific_validation(val)
+        if lim_str_err:
+            return lim_str_err
         parts = val.split(".")
         if len(parts) not in self._comp_num:
             return "version consists of {} components, but it should contain {}".format(
