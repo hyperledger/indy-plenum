@@ -29,7 +29,8 @@ from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 class BlsFactoryIndyCrypto(BlsFactoryCrypto):
     def __init__(self, basedir=None, node_name=None):
-        self._basedir = os.path.join(os.path.expanduser(basedir), "keys")
+        self._basedir = os.path.expanduser(basedir) if basedir else ''
+        self._basedir = os.path.join(self._basedir, "keys")
         self._node_name = node_name
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
