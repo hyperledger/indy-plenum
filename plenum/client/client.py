@@ -286,16 +286,16 @@ class Client(Motor,
         errs = []
 
         for request in reqs:
+            is_read_only = request.txn_type in self._read_only_requests
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
-               (self.hasAnyConnections and
-               (request.txn_type in self._read_only_requests or request.isForced())):
+               (self.hasAnyConnections and (is_read_only or request.isForced())):
 
                 recipients = \
                     {r.name
                      for r in self.nodestack.remotes.values()
                      if self.nodestack.isRemoteConnected(r)}
 
-                if request.txn_type in self._read_only_requests and len(recipients) > 1:
+                if is_read_only and len(recipients) > 1:
                     recipients = random.sample(list(recipients), 1)
 
                 logger.debug('Client {} sending request {} to recipients {}'
