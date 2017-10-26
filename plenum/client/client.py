@@ -599,21 +599,6 @@ class Client(Motor,
     def hasAnyConnections(self):
         return len(self.nodestack.conns) > 0
 
-    def hasMadeRequest(self, identifier, reqId: int):
-        return self.reqRepStore.hasRequest(identifier, reqId)
-
-    def isRequestSuccessful(self, identifier, reqId):
-        acks = self.reqRepStore.getAcks(identifier, reqId)
-        nacks = self.reqRepStore.getNacks(identifier, reqId)
-        f = getMaxFailures(len(self.nodeReg))
-        if len(acks) > f:
-            return True, "Done"
-        elif len(nacks) > f:
-            # TODO: What if the the nacks were different from each node?
-            return False, list(nacks.values())[0]
-        else:
-            return None
-
     def pendReqsTillConnection(self, request, signer=None):
         """
         Enqueue requests that need to be submitted until the client has
