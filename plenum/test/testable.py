@@ -87,6 +87,7 @@ def spy(func, is_init, should_spy, spy_log=None):
         finally:
             bound = sig.bind(self, *args, **kwargs)
             params = dict(bound.arguments)
+            params.pop('self', None)
             used_log = self.spylog if hasattr(self, 'spylog') else spy_log
             used_log.append(Entry(start,
                                   time.perf_counter(),
