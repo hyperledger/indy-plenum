@@ -6,6 +6,7 @@ and receives result of the request execution from nodes.
 
 import copy
 import os
+import random
 import time
 from collections import deque, OrderedDict
 from functools import partial
@@ -293,6 +294,9 @@ class Client(Motor,
                     {r.name
                      for r in self.nodestack.remotes.values()
                      if self.nodestack.isRemoteConnected(r)}
+
+                if request.txn_type in self._read_only_requests and len(recipients) > 1:
+                    recipients = random.sample(list(recipients), 1)
 
                 logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
