@@ -669,56 +669,57 @@ class Client(Motor,
     def _stop_expecting(self):
         self.stopRepeating(self.retryForExpected, strict=False)
 
-    def _filterExpected(self, now, queue, retryTimeout, maxRetry):
-        deadRequests = []
-        aliveRequests = {}
-        notAnsweredNodes = set()
-        for requestKey, (expectedFrom, lastTried, retries) in queue.items():
-            if now < lastTried + retryTimeout:
+    def _filter_expected(self, now, queue, retry_timeout, max_retry):
+        dead_requests = []
+        alive_requests = {}
+        not_answered_nodes = set()
+        for requestKey, (expected_from, last_tried, retries) in queue.items():
+            if now < last_tried + retry_timeout:
                 continue
-            if retries >= maxRetry:
-                deadRequests.append(requestKey)
+            if retries >= max_retry:
+                dead_requests.append(requestKey)
                 continue
-            if requestKey not in aliveRequests:
-                aliveRequests[requestKey] = set()
-            aliveRequests[requestKey].update(expectedFrom)
-            notAnsweredNodes.update(expectedFrom)
-        return deadRequests, aliveRequests, notAnsweredNodes
+            if requestKey not in alive_requests:
+                alive_requests[requestKey] = set()
+            alive_requests[requestKey].update(expected_from)
+            not_answered_nodes.update(expected_from)
+        return dead_requests, alive_requests, not_answered_nodes
 
-    def retryForExpected(self):
+    def _retry_for_expected(self):
         now = time.perf_counter()
 
-        requestsWithNoAck, aliveRequests, notAckedNodes = \
-            self._filterExpected(now,
-                                 self.expectingAcksFor,
-                                 self.config.CLIENT_REQACK_TIMEOUT,
-                                 self.config.CLIENT_MAX_RETRY_ACK)
+        requests_with_no_ack, alive_requests, not_acked_nodes = \
+            self._filter_expected(now,
+                                  self.expectingAcksFor,
+                                  self.config.CLIENT_REQACK_TIMEOUT,
+                                  self.config.CLIENT_MAX_RETRY_ACK)
 
-        requestsWithNoReply, aliveRequests, notRepliedNodes = \
-            self._filterExpected(now,
-                                 self.expectingRepliesFor,
-                                 self.config.CLIENT_REPLY_TIMEOUT,
-                                 self.config.CLIENT_MAX_RETRY_REPLY)
+        requests_with_no_reply, alive_requests, not_replied_nodes = \
+            self._filter_expected(now,
+                                  self.expectingRepliesFor,
+                                  self.config.CLIENT_REPLY_TIMEOUT,
+                                  self.config.CLIENT_MAX_RETRY_REPLY)
 
-        for requestKey in requestsWithNoAck:
+        for request_key in requests_with_no_ack:
             logger.debug('{} have got no ACKs for {} and will not try again'
-                         .format(self, requestKey))
-            self.expectingAcksFor.pop(requestKey)
+                         .format(self, request_key))
+            self.expectingAcksFor.pop(request_key)
 
-        for requestKey in requestsWithNoReply:
+        for request_key in requests_with_no_reply:
             logger.debug('{} have got no REPLYs for {} and will not try again'
-                         .format(self, requestKey))
-            self.expectingRepliesFor.pop(requestKey)
+                         .format(self, request_key))
+            self.expectingRepliesFor.pop(request_key)
 
-        if notAckedNodes:
+        if not_acked_nodes:
             logger.debug('{} going to retry for {}'
                          .format(self, self.expectingAcksFor.keys()))
-        for nm in notAckedNodes:
+
+        for node_name in not_acked_nodes:
             try:
-                remote = self.nodestack.getRemote(nm)
+                remote = self.nodestack.getRemote(node_name)
             except RemoteNotFound:
                 logger.warning('{}{} could not find remote {}'
-                               .format(CONNECTION_PREFIX, self, nm))
+                               .format(CONNECTION_PREFIX, self, node_name))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
@@ -729,7 +730,7 @@ class Client(Motor,
             # self.nodestack.connect(name=remote.name)
             self.nodestack.maintainConnections(force=True)
 
-        if aliveRequests:
+        if alive_requests:
             # Need a delay in case connection has to be established with some
             # nodes, a better way is not to assume the delay value but only
             # send requests once the connection is established. Also it is
@@ -738,8 +739,8 @@ class Client(Motor,
             # the value in stats of the stack and look for changes in count of
             # `message_reject_rx` but that is not very helpful either since
             # it does not record which node rejected
-            delay = 3 if notAckedNodes else 0
-            self._schedule(partial(self.resendRequests, aliveRequests), delay)
+            delay = 3 if not_acked_nodes else 0
+            self._schedule(partial(self.resendRequests, alive_requests), delay)
 
     def resendRequests(self, keys):
         for key, nodes in keys.items():
