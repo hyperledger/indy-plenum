@@ -16,7 +16,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF, CATCH_UP_PREFIX
-from plenum.common.util import compare_3PC_keys
+from plenum.common.util import compare_3PC_keys, SortedDict
 from plenum.common.config_util import getConfig
 from plenum.server.quorums import Quorums
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -441,14 +441,26 @@ class LedgerManager(HasActionQueue):
                      .format(frm, end - start + 1, start, end))
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
-        consProof = [Ledger.hashToStr(p) for p in
-                     ledger.tree.consistency_proof(end, req.catchupTill)]
-
+        cons_proof = self._make_consistency_proof(ledger, end, req.catchupTill)
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
-                                   consProof), to=frm)
+        sorted_txns = SortedDict(txns)
+        rep = CatchupRep(getattr(req, f.LEDGER_ID.nm),
+                         sorted_txns,
+                         cons_proof)
+        message_splitter = self._make_split_for_catchup_rep(ledger, req.catchupTill)
+        self.sendTo(msg=rep,
+                    to=frm,
+                    message_splitter=message_splitter)
+
+    def _make_consistency_proof(self, ledger, end, catchup_till):
+        # TODO: make catchup_till optional
+        # if catchup_till is None:
+        #     catchup_till = ledger.size
+        proof = ledger.tree.consistency_proof(end, catchup_till)
+        string_proof = [Ledger.hashToStr(p) for p in proof]
+        return string_proof
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.debug("{} received catchup reply from {}: {}".
@@ -1049,12 +1061,13 @@ class LedgerManager(HasActionQueue):
         logger.error("{}{} cannot find remote with name {}"
                      .format(CONNECTION_PREFIX, self, remoteName))
 
-    def sendTo(self, msg: Any, to: str):
+    def sendTo(self, msg: Any, to: str, message_splitter=None):
         stack = self.getStack(to)
+
         # If the message is being sent by a node
         if self.ownedByNode:
             if stack == self.nodestack:
-                self.sendToNodes(msg, [to, ])
+                self.sendToNodes(msg, [to, ], message_splitter)
             if stack == self.clientstack:
                 self.owner.transmitToClient(msg, to)
         # If the message is being sent by a client
@@ -1091,3 +1104,26 @@ class LedgerManager(HasActionQueue):
     def nodes_to_request_txns_from(self):
         return [nm for nm in self.nodestack.registry
                 if nm not in self.blacklistedNodes and nm != self.nodestack.name]
+
+    def _make_split_for_catchup_rep(self, ledger, initial_seq_no):
+
+        def _split(message):
+            txns = list(message.txns.items())
+            divider = len(message.txns) // 2
+            left = txns[:divider]
+            left_last_seq_no = left[-1][0]
+            right = txns[divider:]
+            right_last_seq_no = right[-1][0]
+            left_cons_proof = self._make_consistency_proof(ledger,
+                                                           left_last_seq_no,
+                                                           initial_seq_no)
+            right_cons_proof = self._make_consistency_proof(ledger,
+                                                            right_last_seq_no,
+                                                            initial_seq_no)
+            ledger_id = getattr(message, f.LEDGER_ID.nm)
+
+            left_rep = CatchupRep(ledger_id, SortedDict(left), left_cons_proof)
+            right_rep = CatchupRep(ledger_id, SortedDict(right), right_cons_proof)
+            return left_rep, right_rep
+
+        return _split

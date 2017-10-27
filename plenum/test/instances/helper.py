@@ -3,7 +3,7 @@ from plenum.test.test_node import TestReplica
 
 
 def recvd_pre_prepares(replica: TestReplica):
-    return [arg['pp']
+    return [arg['pre_prepare']
             for arg in getAllArgs(replica, TestReplica.processPrePrepare)]
 
 

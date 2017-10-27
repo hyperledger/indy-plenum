@@ -34,6 +34,7 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, ar
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.signer_did import DidSigner
 from plenum.common.stack_manager import TxnStackManager
+from plenum.common.tools import lazy_field
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from storage.kv_in_memory import KeyValueStorageInMemory
@@ -156,8 +157,6 @@ class Cli:
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
-
-        self._walletSaver = None
 
         '''
         examples:
@@ -360,14 +359,11 @@ class Cli:
             self._config = getConfig()
             return self._config
 
-    @property
+    @lazy_field
     def walletSaver(self):
-        if self._walletSaver is None:
-            self._walletSaver = WalletStorageHelper(
-                self.getWalletsBaseDir(),
-                dmode=self.config.WALLET_DIR_MODE,
-                fmode=self.config.WALLET_FILE_MODE)
-        return self._walletSaver
+        return WalletStorageHelper(self.getWalletsBaseDir(),
+                                   dmode=self.config.WALLET_DIR_MODE,
+                                   fmode=self.config.WALLET_FILE_MODE)
 
     @property
     def allGrams(self):

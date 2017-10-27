@@ -23,6 +23,7 @@ import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
+from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
@@ -689,6 +690,30 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     name = poolTxnStewardNames[0]
     seed = poolTxnData["seeds"][name]
     return name, seed.encode()
+
+
+@pytest.fixture(scope="module")
+def pool_txn_stewards_data(poolTxnStewardNames, poolTxnData):
+    return [(name, poolTxnData["seeds"][name].encode())
+            for name in poolTxnStewardNames]
+
+
+@pytest.fixture(scope="module")
+def stewards_and_wallets(looper, txnPoolNodeSet, pool_txn_stewards_data,
+                      tdirWithPoolTxns):
+    clients_and_wallets = []
+    for pool_txn_steward_data in pool_txn_stewards_data:
+        steward_client, steward_wallet = buildPoolClientAndWallet(pool_txn_steward_data,
+                                              tdirWithPoolTxns)
+        looper.add(steward_client)
+        ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
+                                                      *txnPoolNodeSet)
+        clients_and_wallets.append((steward_client, steward_wallet))
+
+    yield clients_and_wallets
+
+    for (client, wallet) in clients_and_wallets:
+        client.stop()
 
 
 @pytest.fixture(scope="module")

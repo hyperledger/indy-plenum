@@ -8,6 +8,9 @@ class Quorum:
     def is_reached(self, msg_count: int) -> bool:
         return msg_count >= self.value
 
+    def __repr__(self):
+        return "{}({!r})".format(self.__class__.__name__, self.value)
+
 
 class Quorums:
     def __init__(self, n):
@@ -27,3 +30,7 @@ class Quorums:
         self.checkpoint = Quorum(2 * f)
         self.timestamp = Quorum(f + 1)
         self.bls_signatures = Quorum(n - f)
+
+    def __str__(self):
+        # TODO more robust implementation
+        return "{}".format(self.__dict__)

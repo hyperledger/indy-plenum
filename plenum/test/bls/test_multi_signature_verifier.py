@@ -10,26 +10,25 @@ def bls_crypto_factory(tempdir):
     return BlsFactoryIndyCrypto(tempdir, 'Node1')
 
 
-def create_crypto(bls_crypto_factory):
+def create_crypto_signer(bls_crypto_factory):
     bls_crypto_factory.generate_and_store_bls_keys()
-    bls_crypto = bls_crypto_factory.create_bls_crypto_from_saved_keys()
-    return bls_crypto, bls_crypto.pk
+    create_crypto_signer = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
+    return create_crypto_signer, create_crypto_signer.pk
 
 
-def test_multi_signature_verifier(bls_crypto_factory):
+def test_bls_crypto_verifier(bls_crypto_factory):
     bls_crypto_factory =  bls_crypto_factory # type: BlsFactoryIndyCrypto
-    verifier = bls_crypto_factory.create_multi_signature_verifier()
-    assert verifier
+    bls_crypto_verifier = bls_crypto_factory.create_bls_crypto_verifier()
+    assert bls_crypto_verifier
 
     message = "some message"
     sigs = []
     keys = []
     for i in range(3):
-        bls_crypto, public_key = create_crypto(bls_crypto_factory)
+        bls_crypto_signer, public_key = create_crypto_signer(bls_crypto_factory)
         keys.append(public_key)
-        sigs.append(bls_crypto.sign(message))
+        sigs.append(bls_crypto_signer.sign(message))
 
-    bls_crypto, _ = create_crypto(bls_crypto_factory)
-    multi_signature = bls_crypto.create_multi_sig(sigs)
-    assert bls_crypto.verify_multi_sig(multi_signature, message, keys)
+    multi_signature = bls_crypto_verifier.create_multi_sig(sigs)
+    assert bls_crypto_verifier.verify_multi_sig(multi_signature, message, keys)
 
