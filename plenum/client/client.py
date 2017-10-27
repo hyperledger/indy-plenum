@@ -304,7 +304,7 @@ class Client(Motor,
                 stat, err_msg = self.send(request, *recipients)
 
                 if stat:
-                    self.expectingFor(request, recipients)
+                    self._expect_replies(request, recipients)
                 else:
                     errs.append(err_msg)
                     logger.debug(
@@ -624,9 +624,17 @@ class Client(Motor,
                     tmp.append((req, signer))
             self.reqsPendingConnection.extend(tmp)
 
-    def expectingFor(self, request: Request, nodes: Optional[Set[str]] = None):
-        nodes = nodes or {r.name for r in self.nodestack.remotes.values()
-                          if self.nodestack.isRemoteConnected(r)}
+    def _expect_replies(self, request: Request,
+                        nodes: Optional[Set[str]] = None):
+
+        if nodes is None:
+            connected_nodes = {
+                r.name
+                for r in self.nodestack.remotes.values()
+                if self.nodestack.isRemoteConnected(r)
+            }
+            nodes = connected_nodes
+
         now = time.perf_counter()
         self.expectingAcksFor[request.key] = (nodes, now, 0)
         self.expectingRepliesFor[request.key] = (copy.copy(nodes), now, 0)
