@@ -289,12 +289,7 @@ class Client(Motor,
             is_read_only = request.txn_type in self._read_only_requests
             if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
                (self.hasAnyConnections and (is_read_only or request.isForced())):
-
-                recipients = \
-                    {r.name
-                     for r in self.nodestack.remotes.values()
-                     if self.nodestack.isRemoteConnected(r)}
-
+                recipients = self._connected_node_names
                 if is_read_only and len(recipients) > 1:
                     recipients = random.sample(list(recipients), 1)
 
@@ -366,12 +361,17 @@ class Client(Motor,
                 self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
 
     def postReplyRecvd(self, identifier, reqId, frm, result, numReplies):
-        if not self.txnLog.hasTxn(identifier, reqId) and numReplies > self.f:
-            replies = self.reqRepStore.getReplies(identifier, reqId).values()
-            reply = checkIfMoreThanFSameItems(replies, self.f)
+        if not self.txnLog.hasTxn(identifier, reqId):
+            reply, _ = self.getReply(identifier, reqId)
             if reply:
                 self.txnLog.append(identifier, reqId, reply)
                 return reply
+            elif not self.expectingRepliesFor and numReplies == 1:
+                # only one node was asked, but its reply cannot be confirmed,
+                # so ask other nodes
+                self.resendRequests({
+                    (identifier, reqId): self._connected_node_names
+                })
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -626,20 +626,20 @@ class Client(Motor,
 
     def _expect_replies(self, request: Request,
                         nodes: Optional[Set[str]] = None):
-
-        if nodes is None:
-            connected_nodes = {
-                r.name
-                for r in self.nodestack.remotes.values()
-                if self.nodestack.isRemoteConnected(r)
-            }
-            nodes = connected_nodes
-
+        nodes = nodes if nodes else self._connected_node_names
         now = time.perf_counter()
         self.expectingAcksFor[request.key] = (nodes, now, 0)
         self.expectingRepliesFor[request.key] = (copy.copy(nodes), now, 0)
-        self.startRepeating(self.retryForExpected,
+        self.startRepeating(self._retry_for_expected,
                             self.config.CLIENT_REQACK_TIMEOUT)
+
+    @property
+    def _connected_node_names(self):
+        return {
+            remote.name
+            for remote in self.nodestack.remotes.values()
+            if self.nodestack.isRemoteConnected(remote)
+        }
 
     def _got_expected(self, msg, sender):
 
@@ -667,7 +667,7 @@ class Client(Motor,
             self._stop_expecting()
 
     def _stop_expecting(self):
-        self.stopRepeating(self.retryForExpected, strict=False)
+        self.stopRepeating(self._retry_for_expected, strict=False)
 
     def _filter_expected(self, now, queue, retry_timeout, max_retry):
         dead_requests = []
