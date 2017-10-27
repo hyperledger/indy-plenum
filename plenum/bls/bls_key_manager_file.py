@@ -13,7 +13,8 @@ class BlsKeyManagerFile(BlsKeyManager):
     BLS_PK_FILE_MODE = 0o644
 
     def __init__(self, basedir, node_name):
-        self._key_path = os.path.join(basedir, node_name)
+        bdir = os.path.expanduser(basedir) if basedir else ''
+        self._key_path = os.path.join(bdir, "keys", node_name)
         self._init_dirs()
 
     def _init_dirs(self):
