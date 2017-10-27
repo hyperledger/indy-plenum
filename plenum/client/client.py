@@ -653,13 +653,13 @@ class Client(Motor,
                     register.pop(key)
 
         if msg[OP_FIELD_NAME] == REQACK:
-            drop(self.expectingAcksFor, msg)
+            drop(msg, self.expectingAcksFor)
         elif msg[OP_FIELD_NAME] == REPLY:
-            drop(self.expectingAcksFor, msg[f.RESULT.nm])
-            drop(self.expectingRepliesFor, msg[f.RESULT.nm])
+            drop(msg[f.RESULT.nm], self.expectingAcksFor)
+            drop(msg[f.RESULT.nm], self.expectingRepliesFor)
         elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
-            drop(self.expectingAcksFor, msg)
-            drop(self.expectingRepliesFor, msg)
+            drop(msg, self.expectingAcksFor)
+            drop(msg, self.expectingRepliesFor)
         else:
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 
