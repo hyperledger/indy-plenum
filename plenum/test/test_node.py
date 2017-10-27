@@ -60,8 +60,12 @@ class TestDomainRequestHandler(DomainRequestHandler):
         identifier = txn.get(f.IDENTIFIER.nm)
         request_id = txn.get(f.REQ_ID.nm)
         value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
-        key = sha256('{}:{}'.format(identifier, request_id).encode()).digest()
+        key = TestDomainRequestHandler.prepare_buy_key(identifier, request_id)
         return key, value
+
+    @staticmethod
+    def prepare_buy_key(identifier, request_id):
+        return sha256('{}:{}'.format(identifier, request_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
@@ -325,7 +329,8 @@ class TestNode(TestNodeCore, Node):
             if txn[TXN_TYPE] == "buy":
                 key, value = self.reqHandler.prepare_buy_for_state(txn)
                 proof = self.reqHandler.make_proof(key)
-                txn[STATE_PROOF] = proof
+                if proof:
+                    txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
 
 elector_spyables = [
@@ -358,7 +363,7 @@ class TestPrimarySelector(PrimarySelector):
 
 replica_spyables = [
     replica.Replica.sendPrePrepare,
-    replica.Replica.canProcessPrePrepare,
+    replica.Replica._can_process_pre_prepare,
     replica.Replica.canPrepare,
     replica.Replica.validatePrepare,
     replica.Replica.addToPrePrepares,
@@ -451,6 +456,7 @@ class TestNodeSet(ExitStack):
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
                           basedirpath=self.tmpdir,
+                          base_data_dir=self.tmpdir,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))

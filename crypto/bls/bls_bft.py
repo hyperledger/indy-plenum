@@ -5,6 +5,7 @@ from crypto.bls.bls_key_register import BlsKeyRegister
 
 
 class BlsBft(metaclass=ABCMeta):
+
     def __init__(self,
                  bls_crypto_signer: BlsCryptoSigner,
                  bls_crypto_verifier: BlsCryptoVerifier,

@@ -65,11 +65,11 @@ class Client(Motor,
              HasActionQueue):
     def __init__(self,
                  name: str,
-                 nodeReg: Dict[str, HA]=None,
-                 ha: Union[HA, Tuple[str, int]]=None,
-                 basedirpath: str=None,
+                 nodeReg: Dict[str, HA] = None,
+                 ha: Union[HA, Tuple[str, int]] = None,
+                 basedirpath: str = None,
                  config=None,
-                 sighex: str=None):
+                 sighex: str = None):
         """
         Creates a new client.
 
@@ -78,8 +78,8 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        basedirpath = self.config.baseDir if not basedirpath else basedirpath
-        self.basedirpath = basedirpath
+        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
+                                                       self.config.NETWORK_NAME)
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -93,9 +93,9 @@ class Client(Motor,
 
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, basedirpath):
+        if self.exists(self.stackName, self.basedirpath):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, basedirpath)
+                self.stackName, self.basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -112,8 +112,6 @@ class Client(Motor,
 
         # TODO: Find a proper name
         self.alias = name
-
-        self._ledger = None
 
         if not nodeReg:
             self.mode = None
@@ -153,7 +151,7 @@ class Client(Motor,
 
         if self.nodeReg:
             logger.info(
-                "Client {} initialized with the following node registry:" .format(
+                "Client {} initialized with the following node registry:".format(
                     self.alias))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
@@ -196,10 +194,10 @@ class Client(Motor,
 
     @lazy_field
     def _bls_register(self):
-        return BlsKeyRegisterPoolLedger(self._ledger)
+        return BlsKeyRegisterPoolLedger(self.ledger)
 
     def _create_multi_sig_verifier(self) -> BlsCryptoVerifier:
-        verifier = create_default_bls_crypto_factory()\
+        verifier = create_default_bls_crypto_factory() \
             .create_bls_crypto_verifier()
         return verifier
 
@@ -257,7 +255,7 @@ class Client(Motor,
             super().start(loop)
             self.nodestack.start()
             self.nodestack.maintainConnections(force=True)
-            if self._ledger:
+            if self.ledger:
                 self.ledgerManager.setLedgerCanSync(0, True)
                 self.mode = Mode.starting
 
@@ -276,7 +274,7 @@ class Client(Motor,
         s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
         # be reset ever so in `__init__` the `prod` method should be patched.
-        if self._ledger:
+        if self.ledger:
             s += self.ledgerManager._serviceActions()
         return s
 
@@ -333,7 +331,7 @@ class Client(Motor,
                     format(self.name, frm, msg),
                     extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
-            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
+            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self.ledger:
                 cMsg = node_message_factory.get_instance(**msg)
                 if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
                     self.poolTxnReceived(cMsg, frm)
@@ -377,11 +375,11 @@ class Client(Motor,
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
-        if self._ledger:
+        if self.ledger:
             self.ledgerManager.setLedgerState(
                 POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
-            self._ledger.stop()
+            self.ledger.stop()
             if self.hashStore and not self.hashStore.closed:
                 self.hashStore.close()
         self.txnLog.close()
@@ -470,9 +468,9 @@ class Client(Motor,
         first = results[0]
         if all(result == first for result in results):
             return first
-        logger.warning("Received a different result from "
-                       "at least one node for {}"
-                       .format(full_req_id))
+        logger.debug("Received a different result from "
+                     "at least one node for {}"
+                     .format(full_req_id))
 
         result, freq = mostCommonElement(results)
         if not self.quorums.reply.is_reached(freq):
@@ -490,45 +488,45 @@ class Client(Motor,
                              "reply for {} from {}"
                              .format(full_req_id, sender))
                 continue
-            if not self.validate_multi_signature(result):
-                logger.warning("{} got reply for {} with bad "
-                               "multi signature from {}"
-                               .format(self.name, full_req_id, sender))
+            if not self.validate_multi_signature(result[STATE_PROOF]):
+                logger.debug("{} got reply for {} with bad "
+                             "multi signature from {}"
+                             .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             if not self.validate_proof(result):
-                logger.warning("{} got reply for {} with invalid "
-                               "state proof from {}"
-                               .format(self.name, full_req_id, sender))
+                logger.debug("{} got reply for {} with invalid "
+                             "state proof from {}"
+                             .format(self.name, full_req_id, sender))
                 # TODO: do something with this node
                 continue
             return result
 
-    def validate_multi_signature(self, result):
+    def validate_multi_signature(self, state_proof):
         """
         Validates multi signature
         """
-        multi_signature = result[STATE_PROOF]['multi_signature']
+        multi_signature = state_proof['multi_signature']
         if not multi_signature:
-            logger.warning("There is a state proof, but no multi signature")
+            logger.debug("There is a state proof, but no multi signature")
             return False
 
         participants = multi_signature['participants']
         signature = multi_signature['signature']
         full_state_root = create_full_root_hash(
-            root_hash=result[STATE_PROOF]['root_hash'],
+            root_hash=state_proof['root_hash'],
             pool_root_hash=multi_signature['pool_state_root']
         )
         if not self.quorums.bls_signatures.is_reached(len(participants)):
-            logger.warning("There is not enough participants of "
-                           "multi-signature")
+            logger.debug("There is not enough participants of "
+                         "multi-signature")
             return False
         public_keys = []
         for node_name in participants:
             key = self._bls_register.get_key_by_name(node_name)
             if key is None:
-                logger.warning("There is no bls key for node {}"
-                               .format(node_name))
+                logger.debug("There is no bls key for node {}"
+                             .format(node_name))
                 return False
             public_keys.append(key)
         return self._multi_sig_verifier.verify_multi_sig(signature,
@@ -541,7 +539,9 @@ class Client(Motor,
         """
         state_root_hash = result[STATE_PROOF]['root_hash']
         state_root_hash = state_roots_serializer.deserialize(state_root_hash)
-        proof_nodes = result[STATE_PROOF]['proof_nodes'].encode()
+        proof_nodes = result[STATE_PROOF]['proof_nodes']
+        if isinstance(proof_nodes, str):
+            proof_nodes = proof_nodes.encode()
         proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
         key, value = self.prepare_for_state(result)
         valid = PruningState.verify_state_proof(state_root_hash,
@@ -581,7 +581,7 @@ class Client(Motor,
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
             self.flushMsgsPendingConnection()
-        if self._ledger:
+        if self.ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
 
@@ -633,7 +633,7 @@ class Client(Motor,
                     tmp.append((req, signer))
             self.reqsPendingConnection.extend(tmp)
 
-    def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
+    def expectingFor(self, request: Request, nodes: Optional[Set[str]] = None):
         nodes = nodes or {r.name for r in self.nodestack.remotes.values()
                           if self.nodestack.isRemoteConnected(r)}
         now = time.perf_counter()
@@ -645,7 +645,7 @@ class Client(Motor,
     def gotExpected(self, msg, frm):
         if msg[OP_FIELD_NAME] == REQACK:
             container = msg
-            colls = (self.expectingAcksFor, )
+            colls = (self.expectingAcksFor,)
         elif msg[OP_FIELD_NAME] == REPLY:
             container = msg[f.RESULT.nm]
             # If an REQACK sent by node was lost, the request when sent again

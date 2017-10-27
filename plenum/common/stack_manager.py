@@ -1,8 +1,10 @@
 from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
+import os
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
+from plenum.common.tools import lazy_field
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
@@ -21,8 +23,8 @@ class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
+        self.key_path = os.path.expanduser(basedirpath)
         self.isNode = isNode
-        self.hashStore = None
 
     @property
     @abstractmethod
@@ -39,23 +41,25 @@ class TxnStackManager(metaclass=ABCMeta):
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
+    @lazy_field
+    def hashStore(self):
+        return LevelDbHashStore(dataDir=self.ledgerLocation,
+                                fileNamePrefix='pool')
+
     # noinspection PyTypeChecker
-    @property
+    @lazy_field
     def ledger(self):
-        if self._ledger is None:
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.basedirpath, self.ledgerFile)
-            dataDir = self.ledgerLocation
-            self.hashStore = LevelDbHashStore(
-                dataDir=dataDir, fileNamePrefix='pool')
-            self._ledger = Ledger(
-                CompactMerkleTree(
-                    hashStore=self.hashStore),
-                dataDir=dataDir,
-                fileName=self.ledgerFile,
-                ensureDurability=self.config.EnsureLedgerDurability,
-                genesis_txn_initiator=genesis_txn_initiator)
-        return self._ledger
+        data_dir = self.ledgerLocation
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath,
+                                                            self.ledgerFile)
+        tree = CompactMerkleTree(hashStore=self.hashStore)
+        ledger = Ledger(tree,
+                        dataDir=data_dir,
+                        fileName=self.ledgerFile,
+                        ensureDurability=self.config.EnsureLedgerDurability,
+                        genesis_txn_initiator=genesis_txn_initiator)
+
+        return ledger
 
     @staticmethod
     def parseLedgerForHaAndKeys(ledger, returnActive=True):
@@ -144,7 +148,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeys(self.name, remoteName, self.basedirpath,
+                initRemoteKeys(self.name, remoteName, self.key_path,
                                verkey, override=True)
             except Exception:
                 logger.exception("Exception while initializing keep for remote")
@@ -194,8 +198,7 @@ class TxnStackManager(metaclass=ABCMeta):
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
-        initRemoteKeys(self.name, remoteName, self.basedirpath,
-                       verkey, override=True)
+        initRemoteKeys(self.name, remoteName, self.key_path, verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -226,8 +229,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
                 # if self.isNode:
-                initRemoteKeys(self.name, remoteName, self.basedirpath, key,
-                               override=True)
+                initRemoteKeys(self.name, remoteName, self.key_path, key, override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))

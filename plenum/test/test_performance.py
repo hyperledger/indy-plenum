@@ -234,6 +234,7 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
     new_node = TestNode(
         new_node.name,
         basedirpath=tdirWithPoolTxns,
+        base_data_dir=tdirWithPoolTxns,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
@@ -302,7 +303,7 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
                   format(i + 1, txns_per_batch, perf_counter() - s))
 
     nodeHa, nodeCHa = HA(*x.nodestack.ha), HA(*x.clientstack.ha)
-    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, config=tconf,
+    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode
