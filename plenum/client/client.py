@@ -664,10 +664,9 @@ class Client(Motor,
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 
         if not self.expectingAcksFor and not self.expectingRepliesFor:
-            # There is no more requests to expect
-            self.stopRetrying()
+            self._stop_expecting()
 
-    def stopRetrying(self):
+    def _stop_expecting(self):
         self.stopRepeating(self.retryForExpected, strict=False)
 
     def _filterExpected(self, now, queue, retryTimeout, maxRetry):
