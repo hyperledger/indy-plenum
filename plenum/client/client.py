@@ -633,33 +633,30 @@ class Client(Motor,
         self.startRepeating(self.retryForExpected,
                             self.config.CLIENT_REQACK_TIMEOUT)
 
-    def gotExpected(self, msg, frm):
+    def gotExpected(self, msg, sender):
+
+        def drop(req, register):
+            key = (req.get(f.IDENTIFIER.nm), req.get(f.REQ_ID.nm))
+            if key in register:
+                received = register[key][0]
+                if sender in received:
+                    received.remove(sender)
+                if not received:
+                    register.pop(key)
+
         if msg[OP_FIELD_NAME] == REQACK:
-            container = msg
-            colls = (self.expectingAcksFor,)
+            drop(self.expectingAcksFor, msg)
         elif msg[OP_FIELD_NAME] == REPLY:
-            container = msg[f.RESULT.nm]
-            # If an REQACK sent by node was lost, the request when sent again
-            # would fetch the reply or the client might just lose REQACK and not
-            # REPLY so when REPLY received, request does not need to be resent
-            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+            drop(self.expectingAcksFor, msg[f.RESULT.nm])
+            drop(self.expectingRepliesFor, msg[f.RESULT.nm])
         elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
-            container = msg
-            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+            drop(self.expectingAcksFor, msg)
+            drop(self.expectingRepliesFor, msg)
         else:
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 
-        idr = container.get(f.IDENTIFIER.nm)
-        reqId = container.get(f.REQ_ID.nm)
-        key = (idr, reqId)
-        for coll in colls:
-            if key in coll:
-                if frm in coll[key][0]:
-                    coll[key][0].remove(frm)
-                if not coll[key][0]:
-                    coll.pop(key)
-
-        if not (self.expectingAcksFor or self.expectingRepliesFor):
+        if not self.expectingAcksFor and not self.expectingRepliesFor:
+            # There is no more requests to expect
             self.stopRetrying()
 
     def stopRetrying(self):
