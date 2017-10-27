@@ -61,14 +61,25 @@ class PluginManager:
         assert 'cnt' in historicalData
         assert 'minCnt' in config
         assert 'coefficient' in config
+        assert 'minActivityThreshold' in config
+        assert 'enabled' in config
+
+        if not config['enabled']:
+            logger.debug('Feature disabled')
+            return None
 
         coefficient = config['coefficient']
         minCnt = config['minCnt']
+        val_thres = config['minActivityThreshold']
         val = historicalData['value']
         cnt = historicalData['cnt']
         historicalData['value'] = \
             val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
         historicalData['cnt'] += 1
+
+        if val < val_thres:
+            logger.debug('Current activity {} is below threshold level {}'.format(val, val_thres))
+            return None
 
         if cnt < minCnt:
             logger.debug('Not enough data to detect a {} spike'.format(event))

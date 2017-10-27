@@ -89,12 +89,16 @@ notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': False
     },
     'nodeRequestSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': False
     }
 }
 

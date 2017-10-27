@@ -55,11 +55,13 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
     newVal = 10
     config = {
         'coefficient': 2,
-        'minCnt': 10
+        'minCnt': 10,
+        'minActivityThreshold': 0,
+        'enabled': True
     }
     assert pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name)is None
+                                        newVal, config, name) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
@@ -73,7 +75,9 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
     newVal = 15
     config = {
         'coefficient': 2,
-        'minCnt': 10
+        'minCnt': 10,
+        'minActivityThreshold': 0,
+        'enabled': True
     }
     assert pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
@@ -91,7 +95,9 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
     newVal = 25
     config = {
         'coefficient': 2,
-        'minCnt': 10
+        'minCnt': 10,
+        'minActivityThreshold': 0,
+        'enabled': True
     }
     sent, found = pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
@@ -105,7 +111,9 @@ def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     testNode.config.notifierEventTriggeringConfig['nodeRequestSpike'] = {
         'coefficient': 3,
         'minCnt': 1,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 0,
+        'enabled': True
     }
     mockProcessRequest(testNode)
     assert testNode.sendNodeRequestSpike() is None
@@ -121,10 +129,56 @@ def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [1]
 
     testNode.monitor.notifierEventTriggeringConfig['clusterThroughputSpike'] = {
-        'coefficient': 3, 'minCnt': 1, 'freq': 60}
+        'coefficient': 3, 'minCnt': 1, 'freq': 60, 'minActivityThreshold': 0, 'enabled': True}
     assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [2]
     assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [4.6]
     sent, found = testNode.monitor.sendClusterThroughputSpike()
     assert sent == 3
+
+
+def test_suspicious_spike_check_disabled(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    name = randomText(10)
+    hdata = {'value': 10, 'cnt': 10}
+    nval = 25
+    config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
+
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name)
+    assert sent == 3
+
+    config['enabled'] = False
+    hdata['value'] = 10
+    hdata['cnt'] = 10
+    assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name) is None
+
+
+def test_no_message_from_0_to_1(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    name = randomText(10)
+    hdata = {'value': 0, 'cnt': 10}
+    nval = 1
+    config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 0, 'enabled': True}
+
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name)
+    assert sent == 3
+
+    hdata = {'value': 0, 'cnt': 10}
+    config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
+    assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name) is None
+
+
+def test_no_message_from_1_to_0(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    name = randomText(10)
+    hdata = {'value': 1, 'cnt': 10}
+    nval = 0
+    config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 0, 'enabled': True}
+
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name)
+    assert sent == 3
+
+    hdata = {'value': 1, 'cnt': 10}
+    config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
+    assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name) is None
