@@ -56,7 +56,8 @@ class PluginManager:
             historicalData: Dict,
             newVal: float,
             config: Dict,
-            nodeName: str):
+            nodeName: str,
+            enabled: bool):
         assert 'value' in historicalData
         assert 'cnt' in historicalData
         assert 'minCnt' in config
@@ -64,8 +65,8 @@ class PluginManager:
         assert 'minActivityThreshold' in config
         assert 'enabled' in config
 
-        if not config['enabled']:
-            logger.debug('Feature disabled')
+        if not (enabled and config['enabled']):
+            logger.debug('Suspicious Spike check is disabled')
             return None
 
         coefficient = config['coefficient']

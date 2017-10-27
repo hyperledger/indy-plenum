@@ -232,9 +232,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                nodestack=self.nodestack,
                                blacklister=self.nodeBlacklister,
                                nodeInfo=self.nodeInfo,
-                               notifierEventTriggeringConfig=self.
-                               config.notifierEventTriggeringConfig,
-                               pluginPaths=pluginPaths)
+                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
+                               pluginPaths=pluginPaths,
+                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
 
         self.replicas = self.create_replicas()
 
@@ -2083,7 +2083,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeRequestSpikeMonitorData,
             requests,
             self.config.notifierEventTriggeringConfig['nodeRequestSpike'],
-            self.name
+            self.name,
+            self.config.SpikeEventsEnabled
         )
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
