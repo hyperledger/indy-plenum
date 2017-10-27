@@ -349,20 +349,20 @@ class Client(Motor,
                     self.ledgerManager.processCatchupRep(cMsg, frm)
             elif msg[OP_FIELD_NAME] == REQACK:
                 self.reqRepStore.addAck(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REQNACK:
                 self.reqRepStore.addNack(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REJECT:
                 self.reqRepStore.addReject(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
                 identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
                 numReplies = self.reqRepStore.addReply(identifier, reqId, frm,
                                                        result)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
                 self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
 
     def postReplyRecvd(self, identifier, reqId, frm, result, numReplies):
@@ -641,7 +641,7 @@ class Client(Motor,
         self.startRepeating(self.retryForExpected,
                             self.config.CLIENT_REQACK_TIMEOUT)
 
-    def gotExpected(self, msg, sender):
+    def _got_expected(self, msg, sender):
 
         def drop(req, register):
             key = (req.get(f.IDENTIFIER.nm), req.get(f.REQ_ID.nm))
