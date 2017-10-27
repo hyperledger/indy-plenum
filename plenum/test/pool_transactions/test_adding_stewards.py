@@ -6,9 +6,8 @@ from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdir, request):
+def tconf(conf, request):
     oldThreshold = conf.stewardThreshold
-    conf.baseDir = tdir
     conf.stewardThreshold = 5
 
     def reset():

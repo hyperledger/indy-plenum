@@ -320,7 +320,7 @@ def tdir(tmpdir_factory):
 
 
 @pytest.fixture()
-def tdir_func(tmpdir_factory):
+def tdir_for_func(tmpdir_factory):
     tempdir = _tdir(tmpdir_factory)
     logging.debug("function-level temporary directory: {}".format(tempdir))
     return tempdir
@@ -343,8 +343,8 @@ def user_conf(tdir):
 
 
 @pytest.fixture()
-def user_conf_func(tdir_func):
-    user_config_dir = _user_conf(tdir_func)
+def user_conf_for_func(tdir_for_func):
+    user_config_dir = _user_conf(tdir_for_func)
     logger.debug("function-level user config directory: {}".format(user_config_dir))
     return user_config_dir
 
@@ -362,8 +362,8 @@ def conf(user_conf):
 
 
 @pytest.fixture()
-def conf_func(user_conf_func):
-    return _conf(user_conf_func)
+def conf_for_func(user_conf_for_func):
+    return _conf(user_conf_for_func)
 
 
 @pytest.fixture(scope="module")
@@ -573,7 +573,7 @@ def looperWithoutNodeSet():
 
 
 @pytest.yield_fixture()
-def looper_without_nodeset_func():
+def looper_without_nodeset_for_func():
     with Looper() as looper:
         yield looper
 

@@ -20,9 +20,8 @@ TestRunningTimeLimitSec = 150
 
 
 @pytest.fixture(scope="module")
-def reduced_catchup_timeout_conf(conf, tdir, request):
+def reduced_catchup_timeout_conf(conf, request):
     defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
-    conf.baseDir = tdir
     conf.CatchupTransactionsTimeout = 10
 
     def reset():

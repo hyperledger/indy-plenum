@@ -10,8 +10,7 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdir, request):
-    conf.baseDir = tdir
+def tconf(conf, request):
     # Lowering DELTA since some requests will result in validation errors and
     # that will decrease master throughput.
     # TODO: When monitoring metrics are calibrated, these things

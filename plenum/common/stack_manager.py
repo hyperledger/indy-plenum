@@ -231,7 +231,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
                 # if self.isNode:
-                initRemoteKeys(self.keys_dir, remoteName, key,
+                initRemoteKeys(self.name, remoteName, self.keys_dir, key,
                                override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
