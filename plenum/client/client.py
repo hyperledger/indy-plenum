@@ -296,7 +296,7 @@ class Client(Motor,
                 logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
 
-                stat, err_msg = self.send(request, *recipients)
+                stat, err_msg = self.sendToNodes(request, names=recipients)
 
                 if stat:
                     self._expect_replies(request, recipients)
@@ -366,7 +366,8 @@ class Client(Motor,
             if reply:
                 self.txnLog.append(identifier, reqId, reply)
                 return reply
-            elif not self.expectingRepliesFor and numReplies == 1:
+            key = (identifier, reqId)
+            if key not in self.expectingRepliesFor and numReplies == 1:
                 # only one node was asked, but its reply cannot be confirmed,
                 # so ask other nodes
                 self.resendRequests({
@@ -772,7 +773,7 @@ class Client(Motor,
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         rids = [rid for rid, r in self.nodestack.remotes.items()
                 if r.name in names]
-        self.send(msg, *rids)
+        return self.send(msg, *rids)
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:
