@@ -89,31 +89,31 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     if not creator._can_calculate_multi_sig(key, quorums):
         return None
 
-    return creator._calculate_multi_sig(key)
+    return creator._calculate_multi_sig(key, pre_prepare)
 
 
-def create_pre_prepare_params(state_root, ledger_id = DOMAIN_LEDGER_ID):
-    return [0,
+def create_pre_prepare_params(state_root,
+                              ledger_id = DOMAIN_LEDGER_ID,
+                              txn_root=None,
+                              timestamp=None,
+                              bls_multi_sig=None):
+    params= [0,
             0,
             0,
-            get_utc_epoch(),
+            timestamp or get_utc_epoch(),
             [('1' * 16, 1)],
             0,
             "random digest",
             ledger_id,
             state_root,
-            '1' * 32]
+            txn_root or '1' * 32]
+    if bls_multi_sig:
+        params.append(bls_multi_sig.as_list())
+    return params
 
 
-def create_pre_prepare_no_bls_multisig(state_root):
-    params = create_pre_prepare_params(state_root)
-    return PrePrepare(*params)
-
-
-def create_pre_prepare_bls_multisig(bls_multi_sig, ledger_id = DOMAIN_LEDGER_ID):
-    params = create_pre_prepare_params(bls_multi_sig.value.state_root_hash,
-                                       ledger_id)
-    params.append(bls_multi_sig.as_list())
+def create_pre_prepare_no_bls(state_root):
+    params = create_pre_prepare_params(state_root=state_root)
     return PrePrepare(*params)
 
 
