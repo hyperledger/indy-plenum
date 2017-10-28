@@ -1422,7 +1422,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepareppTimevalidate)
+        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             raise SuspiciousNode(sender,
