@@ -1067,8 +1067,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         if p.stateRootHash is not None:
-            pp = self.getPrePrepare(*key_3pc)
-            params = self._bls_bft_replica.update_commit(params, p.stateRootHash, pp.ledgerId)
+            pre_prepare = self.getPrePrepare(*key_3pc)
+            params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
 
@@ -1421,8 +1421,8 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
         # BLS multi-sig:
-        pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
+        pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
+        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepareppTimevalidate)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             raise SuspiciousNode(sender,
@@ -1618,9 +1618,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key,
-                                            pp.stateRootHash,
                                             self.quorums,
-                                            pp.ledgerId)
+                                            pp)
 
         return True
 

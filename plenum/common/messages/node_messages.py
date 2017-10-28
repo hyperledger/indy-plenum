@@ -141,8 +141,7 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
-                                                    nullable=True)),
-        (f.BLS_MULTI_SIG_STATE_ROOT.nm, MerkleRootField(optional=True, nullable=True))
+                                                    nullable=True))
     )
 
 

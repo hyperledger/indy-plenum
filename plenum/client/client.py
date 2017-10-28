@@ -15,9 +15,9 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
 from crypto.bls.bls_crypto import BlsCryptoVerifier
+from crypto.bls.bls_multi_signature import MultiSignatureValue
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
-from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
@@ -513,10 +513,7 @@ class Client(Motor,
 
         participants = multi_signature['participants']
         signature = multi_signature['signature']
-        full_state_root = create_full_root_hash(
-            root_hash=state_proof['root_hash'],
-            pool_root_hash=multi_signature['pool_state_root']
-        )
+        value = MultiSignatureValue(**(multi_signature['value'])).as_single_value()
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.debug("There is not enough participants of "
                          "multi-signature")
@@ -530,7 +527,7 @@ class Client(Motor,
                 return False
             public_keys.append(key)
         return self._multi_sig_verifier.verify_multi_sig(signature,
-                                                         full_state_root,
+                                                         value,
                                                          public_keys)
 
     def validate_proof(self, result):
