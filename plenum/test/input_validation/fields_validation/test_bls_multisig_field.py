@@ -37,6 +37,7 @@ signature = "somefakesignaturesomefakesignaturesomefakesignature"
 
 def test_valid():
     assert not validator.validate((signature, participants, value))
+    assert not validator.validate(('1' * 512, participants, value))
 
 
 def test_invalid_participants():
@@ -49,6 +50,7 @@ def test_invalid_signature():
     assert validator.validate(("", participants, value))
     assert validator.validate((None, participants, value))
     assert validator.validate((123, participants, value))
+    assert validator.validate(('1' * 513, participants, value))
 
 
 def test_invalid_value():

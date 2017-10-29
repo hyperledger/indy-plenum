@@ -5,11 +5,9 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test.client.conftest import passThroughReqAcked1
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes, waitForSufficientRepliesForRequests, \
-    send_signed_requests
+from plenum.test.helper import stopNodes, send_signed_requests
 from plenum.test.malicious_behaviors_client import \
     genDoesntSendRequestToSomeNodes
-from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 logger = getlogger()
 

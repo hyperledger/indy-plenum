@@ -26,6 +26,7 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     for i in range(number_of_requests):
         reqs = sendRandomRequests(wallet, client, 1)
         waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+        waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
         state_roots.append(
             state_roots_serializer.serialize(
                 bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
@@ -67,13 +68,6 @@ def process_ordered(key, bls_bfts, pre_prepare, quorums):
         bls_bft.process_order(key,
                               quorums,
                               pre_prepare)
-
-
-def calculate_multi_sig_for_first(bls_bft_with_commits, quorums, pre_prepare):
-    return calculate_multi_sig(bls_bft_with_commits[0],
-                               bls_bft_with_commits,
-                               quorums,
-                               pre_prepare)
 
 
 def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):

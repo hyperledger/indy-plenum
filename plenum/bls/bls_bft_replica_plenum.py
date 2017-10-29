@@ -31,7 +31,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                        pre_prepare.blsMultiSig is None:
+                pre_prepare.blsMultiSig is None:
             return
 
         multi_sig = MultiSignature.from_list(*pre_prepare.blsMultiSig)

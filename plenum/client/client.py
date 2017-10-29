@@ -36,7 +36,8 @@ from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
-    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
+    MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
     rawToFriendly, mostCommonElement
@@ -459,7 +460,7 @@ class Client(Motor,
         # excluding state proofs from check since they can be different
         def without_state_proof(result):
             if STATE_PROOF in result:
-                result.pop('state_proof')
+                result.pop(STATE_PROOF)
             return result
 
         results = [without_state_proof(reply["result"])
@@ -506,14 +507,16 @@ class Client(Motor,
         """
         Validates multi signature
         """
-        multi_signature = state_proof['multi_signature']
+        multi_signature = state_proof[MULTI_SIGNATURE]
         if not multi_signature:
             logger.debug("There is a state proof, but no multi signature")
             return False
 
-        participants = multi_signature['participants']
-        signature = multi_signature['signature']
-        value = MultiSignatureValue(**(multi_signature['value'])).as_single_value()
+        participants = multi_signature[MULTI_SIGNATURE_PARTICIPANTS]
+        signature = multi_signature[MULTI_SIGNATURE_SIGNATURE]
+        value = MultiSignatureValue(
+            **(multi_signature[MULTI_SIGNATURE_VALUE])
+        ).as_single_value()
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.debug("There is not enough participants of "
                          "multi-signature")

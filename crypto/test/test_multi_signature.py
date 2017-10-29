@@ -55,11 +55,12 @@ def expected_sig_value_list():
 @pytest.fixture()
 def expected_single_sig_value():
     # we expected it always in sorted order by keys
-    return str(ledger_id) + \
-           pool_state_root_hash + \
-           state_root_hash + \
-           str(timestamp) + \
-           txn_root_hash
+    return \
+        str(ledger_id) + \
+        pool_state_root_hash + \
+        state_root_hash + \
+        str(timestamp) + \
+        txn_root_hash
 
 
 @pytest.fixture()
@@ -133,8 +134,7 @@ def test_value_equal(multi_sig_value, multi_sig_value2):
 
 
 def test_single_value_equal(multi_sig_value, multi_sig_value2):
-    assert multi_sig_value.as_single_value() == \
-           multi_sig_value2.as_single_value()
+    assert multi_sig_value.as_single_value() == multi_sig_value2.as_single_value()
 
 
 def test_value_as_list(multi_sig_value, expected_sig_value_list):

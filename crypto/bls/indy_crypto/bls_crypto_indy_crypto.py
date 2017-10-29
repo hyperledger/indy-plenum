@@ -7,6 +7,7 @@ from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signatur
 
 logger = getLogger()
 
+
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
     def load_group_params(self) -> GroupParams:
         group_name = 'generator'
@@ -30,6 +31,11 @@ class IndyCryptoBlsUtils:
             bts = base58.b58decode(v)
         except ValueError:
             logger.error('BLS: value {} can not be decoded to base58'.format(v))
+            return None
+
+        # FIXME: a workaround for crash when short or long values are provided:
+        bts_len = len(bts)
+        if bts_len not in [32, 128]:
             return None
         return cls.from_bytes(bts)
 

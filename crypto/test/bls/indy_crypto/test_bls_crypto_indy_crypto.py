@@ -36,7 +36,6 @@ def bls_verifier(default_params):
     return BlsCryptoVerifierIndyCrypto(default_params)
 
 
-
 def test_default_params(default_params):
     group_name, g = default_params
     assert group_name == 'generator'
@@ -191,7 +190,6 @@ def test_verify_invalid_signature(bls_signer1, bls_verifier):
                                        'Hello!', pk)
 
 
-@pytest.mark.skip
 def test_verify_invalid_pk(bls_signer1, bls_verifier):
     pk = bls_signer1.pk
     sig = bls_signer1.sign('Hello!')
@@ -210,7 +208,6 @@ def test_verify_invalid_pk(bls_signer1, bls_verifier):
                                        'Hello!', base58.b58encode(b'somefakepksomefakepk'))
 
 
-@pytest.mark.skip
 def test_verify_invalid_short_signature(bls_signer1, bls_verifier):
     pk = bls_signer1.pk
     sig = bls_signer1.sign('Hello!')
@@ -229,7 +226,6 @@ def test_verify_invalid_short_signature(bls_signer1, bls_verifier):
                                        'Hello!', pk)
 
 
-@pytest.mark.skip
 def test_verify_invalid_short_pk(bls_signer1, bls_verifier):
     pk = bls_signer1.pk
     sig = bls_signer1.sign('Hello!')
@@ -248,18 +244,16 @@ def test_verify_invalid_short_pk(bls_signer1, bls_verifier):
                                        'Hello!', base58.b58encode(b'1' * 2))
 
 
-@pytest.mark.skip
 def test_verify_invalid_long_signature(bls_signer1, bls_verifier):
     pk = bls_signer1.pk
     assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 500),
                                        'Hello!', pk)
     assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 1000),
                                        'Hello!', pk)
-    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 1000000),
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 10000),
                                        'Hello!', pk)
 
 
-@pytest.mark.skip
 def test_verify_invalid_long_pk(bls_signer1, bls_verifier):
     sig = bls_signer1.sign('Hello!')
     assert not bls_verifier.verify_sig(sig,
@@ -267,7 +261,7 @@ def test_verify_invalid_long_pk(bls_signer1, bls_verifier):
     assert not bls_verifier.verify_sig(sig,
                                        'Hello!', base58.b58encode(b'1' * 1000))
     assert not bls_verifier.verify_sig(sig,
-                                       'Hello!', base58.b58encode(b'1' * 1000000))
+                                       'Hello!', base58.b58encode(b'1' * 10000))
 
 
 def test_verify_multi_signature(bls_signer1, bls_signer2, bls_verifier):
@@ -360,7 +354,6 @@ def test_verify_invalid_multi_signature(bls_signer1, bls_signer2, bls_verifier):
                                              msg, pks)
 
 
-@pytest.mark.skip
 def test_verify_invalid_multi_signature_short(bls_signer1, bls_signer2, bls_verifier):
     pk1 = bls_signer1.pk
     pk2 = bls_signer2.pk
@@ -388,7 +381,6 @@ def test_verify_invalid_multi_signature_short(bls_signer1, bls_signer2, bls_veri
                                              msg, pks)
 
 
-@pytest.mark.skip
 def test_verify_invalid_multi_signature_long(bls_signer1, bls_signer2, bls_verifier):
     pk1 = bls_signer1.pk
     pk2 = bls_signer2.pk
@@ -400,11 +392,10 @@ def test_verify_invalid_multi_signature_long(bls_signer1, bls_signer2, bls_verif
                                              msg, pks)
     assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 1000),
                                              msg, pks)
-    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 1000000),
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 10000),
                                              msg, pks)
 
 
-@pytest.mark.skip
 def test_verify_multi_signature_invalid_pk(bls_signer1, bls_signer2, bls_verifier):
     pk1 = bls_signer1.pk
     pk2 = bls_signer2.pk
@@ -446,7 +437,6 @@ def test_verify_multi_signature_invalid_pk(bls_signer1, bls_signer2, bls_verifie
     assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
 
 
-@pytest.mark.skip
 def test_verify_multi_signature_invalid_short_pk(bls_signer1, bls_signer2, bls_verifier):
     pk1 = bls_signer1.pk
     pk2 = bls_signer2.pk
