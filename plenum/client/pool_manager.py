@@ -13,6 +13,7 @@ from plenum.common.types import f, HA
 from plenum.common.messages.node_messages import PoolLedgerTxns
 from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
+from plenum.common.tools import lazy_field
 
 logger = getlogger()
 t = f.TXN.nm
@@ -22,7 +23,6 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
         self._ledgerFile = None
-        self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
         update_genesis_txn_file_name_if_outdated(self.basedirpath,
@@ -136,19 +136,15 @@ class HasPoolManager(TxnStackManager):
     def hasLedger(self):
         return self.hasFile(self.ledgerFile)
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerLocation(self):
-        if not self._ledgerLocation:
-            self._ledgerLocation = self.dataLocation
-        return self._ledgerLocation
+        # noinspection PyUnresolvedReferences
+        return self.dataLocation
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerFile(self):
-        if not self._ledgerFile:
-            self._ledgerFile = self.config.poolTransactionsFile
-        return self._ledgerFile
+        # noinspection PyUnresolvedReferences
+        return self.config.poolTransactionsFile
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))

@@ -16,7 +16,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF, CATCH_UP_PREFIX
-from plenum.common.util import compare_3PC_keys
+from plenum.common.util import compare_3PC_keys, SortedDict
 from plenum.common.config_util import getConfig
 from plenum.server.quorums import Quorums
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -445,8 +445,10 @@ class LedgerManager(HasActionQueue):
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-
-        rep = CatchupRep(getattr(req, f.LEDGER_ID.nm), txns, cons_proof)
+        sorted_txns = SortedDict(txns)
+        rep = CatchupRep(getattr(req, f.LEDGER_ID.nm),
+                         sorted_txns,
+                         cons_proof)
         message_splitter = self._make_split_for_catchup_rep(ledger, req.catchupTill)
         self.sendTo(msg=rep,
                     to=frm,
@@ -1119,8 +1121,9 @@ class LedgerManager(HasActionQueue):
                                                             right_last_seq_no,
                                                             initial_seq_no)
             ledger_id = getattr(message, f.LEDGER_ID.nm)
-            left_rep = CatchupRep(ledger_id, dict(left), left_cons_proof)
-            right_rep = CatchupRep(ledger_id, dict(right), right_cons_proof)
+
+            left_rep = CatchupRep(ledger_id, SortedDict(left), left_cons_proof)
+            right_rep = CatchupRep(ledger_id, SortedDict(right), right_cons_proof)
             return left_rep, right_rep
 
         return _split

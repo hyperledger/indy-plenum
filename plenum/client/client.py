@@ -16,9 +16,9 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
 from crypto.bls.bls_crypto import BlsCryptoVerifier
+from crypto.bls.bls_multi_signature import MultiSignatureValue
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
-from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
@@ -37,7 +37,8 @@ from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
-    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
+    MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
     rawToFriendly, mostCommonElement
@@ -79,8 +80,8 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        basedirpath = self.config.baseDir if not basedirpath else basedirpath
-        self.basedirpath = basedirpath
+        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
+                                                       self.config.NETWORK_NAME)
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -94,9 +95,9 @@ class Client(Motor,
 
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, basedirpath):
+        if self.exists(self.stackName, self.basedirpath):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, basedirpath)
+                self.stackName, self.basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -113,8 +114,6 @@ class Client(Motor,
 
         # TODO: Find a proper name
         self.alias = name
-
-        self._ledger = None
 
         if not nodeReg:
             self.mode = None
@@ -197,7 +196,7 @@ class Client(Motor,
 
     @lazy_field
     def _bls_register(self):
-        return BlsKeyRegisterPoolLedger(self._ledger)
+        return BlsKeyRegisterPoolLedger(self.ledger)
 
     def _create_multi_sig_verifier(self) -> BlsCryptoVerifier:
         verifier = create_default_bls_crypto_factory() \
@@ -258,7 +257,7 @@ class Client(Motor,
             super().start(loop)
             self.nodestack.start()
             self.nodestack.maintainConnections(force=True)
-            if self._ledger:
+            if self.ledger:
                 self.ledgerManager.setLedgerCanSync(0, True)
                 self.mode = Mode.starting
 
@@ -277,7 +276,7 @@ class Client(Motor,
         s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
         # be reset ever so in `__init__` the `prod` method should be patched.
-        if self._ledger:
+        if self.ledger:
             s += self.ledgerManager._serviceActions()
         return s
 
@@ -332,7 +331,7 @@ class Client(Motor,
                     format(self.name, frm, msg),
                     extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
-            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
+            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self.ledger:
                 cMsg = node_message_factory.get_instance(**msg)
                 if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
                     self.poolTxnReceived(cMsg, frm)
@@ -387,11 +386,11 @@ class Client(Motor,
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
-        if self._ledger:
+        if self.ledger:
             self.ledgerManager.setLedgerState(
                 POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
-            self._ledger.stop()
+            self.ledger.stop()
             if self.hashStore and not self.hashStore.closed:
                 self.hashStore.close()
         self.txnLog.close()
@@ -471,7 +470,7 @@ class Client(Motor,
         # excluding state proofs from check since they can be different
         def without_state_proof(result):
             if STATE_PROOF in result:
-                result.pop('state_proof')
+                result.pop(STATE_PROOF)
             return result
 
         results = [without_state_proof(reply["result"])
@@ -518,17 +517,16 @@ class Client(Motor,
         """
         Validates multi signature
         """
-        multi_signature = state_proof['multi_signature']
+        multi_signature = state_proof[MULTI_SIGNATURE]
         if not multi_signature:
             logger.debug("There is a state proof, but no multi signature")
             return False
 
-        participants = multi_signature['participants']
-        signature = multi_signature['signature']
-        full_state_root = create_full_root_hash(
-            root_hash=state_proof['root_hash'],
-            pool_root_hash=multi_signature['pool_state_root']
-        )
+        participants = multi_signature[MULTI_SIGNATURE_PARTICIPANTS]
+        signature = multi_signature[MULTI_SIGNATURE_SIGNATURE]
+        value = MultiSignatureValue(
+            **(multi_signature[MULTI_SIGNATURE_VALUE])
+        ).as_single_value()
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.debug("There is not enough participants of "
                          "multi-signature")
@@ -542,7 +540,7 @@ class Client(Motor,
                 return False
             public_keys.append(key)
         return self._multi_sig_verifier.verify_multi_sig(signature,
-                                                         full_state_root,
+                                                         value,
                                                          public_keys)
 
     def validate_proof(self, result):
@@ -593,7 +591,7 @@ class Client(Motor,
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
             self.flushMsgsPendingConnection()
-        if self._ledger:
+        if self.ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
 

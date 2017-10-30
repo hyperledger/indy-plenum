@@ -473,6 +473,7 @@ class TestNodeSet(ExitStack):
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
                           basedirpath=self.tmpdir,
+                          base_data_dir=self.tmpdir,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))

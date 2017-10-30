@@ -5,6 +5,8 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.client.conftest import passThroughReqAcked1
 from plenum.test.helper import stopNodes, send_signed_requests
+
+from plenum.test.helper import stopNodes, send_signed_requests
 from plenum.test.malicious_behaviors_client import \
     genDoesntSendRequestToSomeNodes
 
