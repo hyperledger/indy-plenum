@@ -355,8 +355,11 @@ class Client(Motor,
                 result = msg[f.RESULT.nm]
                 identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-                numReplies = self.reqRepStore.addReply(identifier, reqId, frm,
+                numReplies = self.reqRepStore.addReply(identifier,
+                                                       reqId,
+                                                       frm,
                                                        result)
+
                 self._got_expected(msg, frm)
                 self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
 
@@ -366,12 +369,14 @@ class Client(Motor,
             if reply:
                 self.txnLog.append(identifier, reqId, reply)
                 return reply
+            # Reply is not verified
             key = (identifier, reqId)
             if key not in self.expectingRepliesFor and numReplies == 1:
                 # only one node was asked, but its reply cannot be confirmed,
                 # so ask other nodes
+                recipients = self._connected_node_names.difference({frm})
                 self.resendRequests({
-                    (identifier, reqId): self._connected_node_names
+                    (identifier, reqId): recipients
                 })
 
     def _statusChanged(self, old, new):
@@ -753,9 +758,10 @@ class Client(Motor,
             self.sendToNodes(request, nodes)
             now = time.perf_counter()
             for queue in [self.expectingAcksFor, self.expectingRepliesFor]:
+                retries = 0
                 if key in queue:
                     _, _, retries = queue[key]
-                    queue[key] = (nodes, now, retries + 1)
+                queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(
