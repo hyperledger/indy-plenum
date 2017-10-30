@@ -376,7 +376,7 @@ class Client(Motor,
                 recipients = self._connected_node_names.difference({frm})
                 self.resendRequests({
                     (identifier, reqId): recipients
-                })
+                }, force_expect=True)
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -746,7 +746,7 @@ class Client(Motor,
             delay = 3 if not_acked_nodes else 0
             self._schedule(partial(self.resendRequests, alive_requests), delay)
 
-    def resendRequests(self, keys):
+    def resendRequests(self, keys, force_expect=False):
         for key, nodes in keys.items():
             if not nodes:
                 continue
@@ -756,10 +756,13 @@ class Client(Motor,
             self.sendToNodes(request, nodes)
             now = time.perf_counter()
             for queue in [self.expectingAcksFor, self.expectingRepliesFor]:
-                retries = 0
                 if key in queue:
                     _, _, retries = queue[key]
-                queue[key] = (nodes, now, retries + 1)
+                    queue[key] = (nodes, now, retries + 1)
+                elif force_expect:
+                    queue[key] = (nodes, now, 1)
+
+
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(
