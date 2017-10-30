@@ -17,7 +17,7 @@ nodes_wth_bls = 4
 
 def check_result(txnPoolNodeSet, req, client, should_have_proof):
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier, req.reqId)
+        key = node.reqHandler.prepare_buy_key(req.identifier)
         proof = node.reqHandler.make_proof(key)
 
         txn_time = get_utc_epoch()
@@ -47,7 +47,7 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier, req.reqId)
+        key = node.reqHandler.prepare_buy_key(req.identifier)
         proof = node.reqHandler.make_proof(key)
 
         assert proof
