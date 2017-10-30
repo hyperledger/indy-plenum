@@ -1,4 +1,6 @@
+import base58
 import pytest
+
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
     BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
 
@@ -144,6 +146,124 @@ def test_verify_one_signature(bls_signer1, bls_signer2, bls_verifier):
     assert bls_verifier.verify_sig(sig2, 'Hello!', pk2)
 
 
+def test_verify_one_signature_long_message(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!' * 1000000
+    sig1 = bls_signer1.sign(msg)
+    sig2 = bls_signer2.sign(msg)
+
+    assert bls_verifier.verify_sig(sig1, msg, pk1)
+    assert bls_verifier.verify_sig(sig2, msg, pk2)
+
+
+def test_verify_non_base58_signature(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    assert not bls_verifier.verify_sig('Incorrect Signature 1', 'Hello!', pk)
+
+
+def test_verify_non_base58_pk(bls_signer1, bls_verifier):
+    sig = bls_signer1.sign('Hello!')
+    assert not bls_verifier.verify_sig(sig, 'Hello!', 'Incorrect pk 1')
+
+
+def test_verify_non_base58_sig_and_pk(bls_verifier):
+    assert not bls_verifier.verify_sig('Incorrect Signature 1', 'Hello!', 'Incorrect pk 1')
+
+
+def test_verify_invalid_signature(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    sig = bls_signer1.sign('Hello!')
+
+    assert not bls_verifier.verify_sig(sig[:-2],
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig[:-5],
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig + '0',
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig + base58.b58encode(b'0'),
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig + base58.b58encode(b'somefake'),
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(base58.b58encode(b'somefakesignaturesomefakesignature'),
+                                       'Hello!', pk)
+
+
+def test_verify_invalid_pk(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    sig = bls_signer1.sign('Hello!')
+
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk[:-2])
+    assert not bls_verifier.verify_sig(sig,
+                                       'Helo!', pk[:-5])
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk + '0')
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk + base58.b58encode(b'0'))
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk + base58.b58encode(b'somefake'))
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'somefakepksomefakepk'))
+
+
+def test_verify_invalid_short_signature(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    sig = bls_signer1.sign('Hello!')
+
+    assert not bls_verifier.verify_sig(sig[:1],
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig[:2],
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(sig[:5],
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig('',
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 10),
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 2),
+                                       'Hello!', pk)
+
+
+def test_verify_invalid_short_pk(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    sig = bls_signer1.sign('Hello!')
+
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk[:1])
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk[:2])
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', pk[:5])
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', '')
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'1' * 10))
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'1' * 2))
+
+
+def test_verify_invalid_long_signature(bls_signer1, bls_verifier):
+    pk = bls_signer1.pk
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 500),
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 1000),
+                                       'Hello!', pk)
+    assert not bls_verifier.verify_sig(base58.b58encode(b'1' * 10000),
+                                       'Hello!', pk)
+
+
+def test_verify_invalid_long_pk(bls_signer1, bls_verifier):
+    sig = bls_signer1.sign('Hello!')
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'1' * 500))
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'1' * 1000))
+    assert not bls_verifier.verify_sig(sig,
+                                       'Hello!', base58.b58encode(b'1' * 10000))
+
+
 def test_verify_multi_signature(bls_signer1, bls_signer2, bls_verifier):
     pk1 = bls_signer1.pk
     pk2 = bls_signer2.pk
@@ -155,8 +275,218 @@ def test_verify_multi_signature(bls_signer1, bls_signer2, bls_verifier):
     sigs.append(bls_signer1.sign(msg))
     sigs.append(bls_signer2.sign(msg))
 
-    multi_sig11 = bls_verifier.create_multi_sig(sigs)
-    multi_sig12 = bls_verifier.create_multi_sig(sigs)
+    multi_sig1 = bls_verifier.create_multi_sig(sigs)
+    assert bls_verifier.verify_multi_sig(multi_sig1, msg, pks)
 
-    assert bls_verifier.verify_multi_sig(multi_sig11, msg, pks)
-    assert bls_verifier.verify_multi_sig(multi_sig12, msg, pks)
+
+def test_verify_multi_signature_long_message(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!' * 1000000
+    pks = [pk1, pk2]
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+    assert bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+
+def test_verify_non_base_58_multi_signature(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+    pks = [pk1, pk2]
+
+    multi_sig = 'Incorrect multi signature 1'
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+
+def test_verify_non_base_58_pk_multi_signature(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+
+    pks = [pk1, 'Incorrect multi signature 1']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = ['Incorrect multi signature 1', pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = ['Incorrect multi signature 1', 'Incorrect multi signature 2']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+
+def test_verify_invalid_multi_signature(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+    pks = [pk1, pk2]
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+
+    assert not bls_verifier.verify_multi_sig(multi_sig[:-2],
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig[:-5],
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig + '0',
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig + base58.b58encode(b'0'),
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig + base58.b58encode(b'somefake'),
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'somefakesignaturesomefakesignature'),
+                                             msg, pks)
+
+
+def test_verify_invalid_multi_signature_short(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+    pks = [pk1, pk2]
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+
+    assert not bls_verifier.verify_multi_sig(multi_sig[:1],
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig[:2],
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(multi_sig[:5],
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig('',
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 10),
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 2),
+                                             msg, pks)
+
+
+def test_verify_invalid_multi_signature_long(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+    pks = [pk1, pk2]
+
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 500),
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 1000),
+                                             msg, pks)
+    assert not bls_verifier.verify_multi_sig(base58.b58encode(b'1' * 10000),
+                                             msg, pks)
+
+
+def test_verify_multi_signature_invalid_pk(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+
+    pks = [pk1, pk2[:-2]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[:-2], pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[:-2], pk2[:-2]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1[-5], pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2[-5]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[-5], pk2[-5]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1 + '0', pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2 + '0']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1 + '0', pk2 + '0']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1 + base58.b58encode(b'somefake'), pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2 + base58.b58encode(b'somefake')]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1 + base58.b58encode(b'somefake'), pk2 + base58.b58encode(b'somefake')]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+
+def test_verify_multi_signature_invalid_short_pk(bls_signer1, bls_signer2, bls_verifier):
+    pk1 = bls_signer1.pk
+    pk2 = bls_signer2.pk
+
+    msg = 'Hello!'
+
+    sigs = []
+    sigs.append(bls_signer1.sign(msg))
+    sigs.append(bls_signer2.sign(msg))
+
+    multi_sig = bls_verifier.create_multi_sig(sigs)
+
+    pks = [pk1, '']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = ['', pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = ['', '']
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1[:1], pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2[:1]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[:1], pk2[:1]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1[:2], pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2[:2]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[:2], pk2[:2]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [pk1[:5], pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, pk2[:5]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1[:5], pk2[:5]]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [base58.b58encode(b'1' * 10), pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, base58.b58encode(b'1' * 10)]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [base58.b58encode(b'1' * 10), base58.b58encode(b'1' * 10)]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+
+    pks = [base58.b58encode(b'1' * 2), pk2]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [pk1, base58.b58encode(b'1' * 2)]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)
+    pks = [base58.b58encode(b'1' * 2), base58.b58encode(b'1' * 2)]
+    assert not bls_verifier.verify_multi_sig(multi_sig, msg, pks)

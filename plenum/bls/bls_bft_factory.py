@@ -1,4 +1,3 @@
-from common.serializers.serialization import multi_sig_store_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_factory import BlsFactoryBft, BlsFactoryCrypto
 from crypto.bls.bls_key_register import BlsKeyRegister
@@ -16,8 +15,7 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
     def create_bls_store(self):
         return BlsStore(key_value_type=self._node.config.stateSignatureStorage,
                         data_location=self._node.dataLocation,
-                        key_value_storage_name=self._node.config.stateSignatureDbName,
-                        serializer=multi_sig_store_serializer)
+                        key_value_storage_name=self._node.config.stateSignatureDbName)
 
     def create_bls_key_register(self) -> BlsKeyRegister:
         return BlsKeyRegisterPoolManager(self._node.poolManager)

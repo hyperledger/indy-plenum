@@ -26,6 +26,7 @@ COMMIT = "COMMIT"
 CHECKPOINT = "CHECKPOINT"
 CHECKPOINT_STATE = "CHECKPOINT_STATE"
 THREE_PC_STATE = "THREE_PC_STATE"
+UPDATE_BLS_MULTI_SIG = "UPDATE_BLS_MULTI_SIG"
 
 REPLY = "REPLY"
 
@@ -101,6 +102,15 @@ ROOT_HASH = "root_hash"
 MULTI_SIGNATURE = "multi_signature"
 PROOF_NODES = "proof_nodes"
 
+MULTI_SIGNATURE_SIGNATURE = 'signature'
+MULTI_SIGNATURE_PARTICIPANTS = 'participants'
+MULTI_SIGNATURE_VALUE = 'value'
+MULTI_SIGNATURE_VALUE_LEDGER_ID = 'ledger_id'
+MULTI_SIGNATURE_VALUE_STATE_ROOT = 'state_root_hash'
+MULTI_SIGNATURE_VALUE_TXN_ROOT = 'txn_root_hash'
+MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT = 'pool_state_root_hash'
+MULTI_SIGNATURE_VALUE_TIMESTAMP = 'timestamp'
+
 # ROLES
 STEWARD = Roles.STEWARD.value
 TRUSTEE = Roles.TRUSTEE.value
@@ -134,8 +144,8 @@ class KeyValueStorageType(IntEnum):
 @unique
 class LedgerState(IntEnum):
     not_synced = 1  # Still gathering consistency proofs
-    syncing = 2     # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
-    synced = 3      # Got replies for all catchup requests, indicating catchup complete for the ledger
+    syncing = 2  # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
+    synced = 3  # Got replies for all catchup requests, indicating catchup complete for the ledger
 
 
 OP_FIELD_NAME = "op"

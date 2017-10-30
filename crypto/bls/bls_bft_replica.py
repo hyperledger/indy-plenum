@@ -5,8 +5,6 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 
 
 class BlsBftReplica(metaclass=ABCMeta):
-
-    PPR_NO_BLS_MULTISIG_STATE = 0
     PPR_BLS_MULTISIG_WRONG = 1
     CM_BLS_SIG_WRONG = 2
 
@@ -39,13 +37,13 @@ class BlsBftReplica(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender, state_root_hash):
+    def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
         '''
         Validates Commit for correct BLS signatures.
         Raises SuspiciousNode exception if there are errors
         :param commit: commit to be validated
         :param sender: sender's Node name
-        :param state_root_hash: domain state root hash to validate BLS against
+        :param pre_prepare: PrePrepare associated with the Commit
         :return:
         '''
         pass
@@ -82,14 +80,13 @@ class BlsBftReplica(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def process_order(self, key, state_root_hash, quorums, ledger_id):
+    def process_order(self, key, quorums, pre_prepare: PrePrepare):
         '''
         Performs BLS-related logic when Ordering (for example, calculate a temporarily multi-sig by a current Node
           which will be replaced by Primary's multi-sig in  process_prepare).
         :param key: 3PC-key re;ated to the Ordered message
-        :param state_root: domain state root hash to validate BLS against
         :param quorums: quorums
-        :param ledger_id: ledger's ID
+        :param pre_prepare: PrePrepare associated with the ordered messages
         :return:
         '''
         pass
@@ -115,11 +112,11 @@ class BlsBftReplica(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def update_commit(self, commit_params, state_root_hash, ledger_id):
+    def update_commit(self, commit_params, pre_prepare: PrePrepare):
         '''
         Adds BLS-related parameters to be used for creation of a new Commit
         :param commit_params: a list of existing parameters
-        :param ledger_id: ledger's ID
+        :param pre_prepare: PrePrepare associated with the Commit
         :return: pre_prepare_params updated with BLS ones
         '''
         pass

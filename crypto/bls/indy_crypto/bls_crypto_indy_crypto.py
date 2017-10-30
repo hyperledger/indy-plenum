@@ -1,8 +1,11 @@
-from typing import Sequence
+from logging import getLogger
+from typing import Sequence, Optional
 
 import base58
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
+
+logger = getLogger()
 
 
 class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
@@ -17,11 +20,23 @@ class IndyCryptoBlsUtils:
 
     @staticmethod
     def bls_to_str(v: BlsEntity) -> str:
-        return base58.b58encode(v.as_bytes())
+        try:
+            return base58.b58encode(v.as_bytes())
+        except ValueError:
+            logger.error('BLS: BLS Entity can not be encoded as base58')
 
     @staticmethod
-    def bls_from_str(v: str, cls) -> BlsEntity:
-        bts = base58.b58decode(v)
+    def bls_from_str(v: str, cls) -> Optional[BlsEntity]:
+        try:
+            bts = base58.b58decode(v)
+        except ValueError:
+            logger.error('BLS: value {} can not be decoded to base58'.format(v))
+            return None
+
+        # FIXME: a workaround for crash when short or long values are provided:
+        bts_len = len(bts)
+        if bts_len not in [32, 128]:
+            return None
         return cls.from_bytes(bts)
 
     @staticmethod
@@ -51,15 +66,27 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     def verify_sig(self, signature: str, message: str, pk: str) -> bool:
-        return Bls.verify(IndyCryptoBlsUtils.bls_from_str(signature, Signature),
+        bls_signature = IndyCryptoBlsUtils.bls_from_str(signature, Signature)
+        if bls_signature is None:
+            return False
+        bls_pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        if bls_pk is None:
+            return False
+        return Bls.verify(bls_signature,
                           IndyCryptoBlsUtils.msg_to_bls_bytes(message),
-                          IndyCryptoBlsUtils.bls_from_str(pk, VerKey),
+                          bls_pk,
                           self._generator)
 
     def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
         epks = [IndyCryptoBlsUtils.bls_from_str(p, VerKey) for p in pks]
+        if None in epks:
+            return False
+
         multi_signature = \
             IndyCryptoBlsUtils.bls_from_str(signature, MultiSignature)  # type: MultiSignature
+        if multi_signature is None:
+            return False
+
         message_bytes = IndyCryptoBlsUtils.msg_to_bls_bytes(message)
         return Bls.verify_multi_sig(multi_sig=multi_signature,
                                     message=message_bytes,

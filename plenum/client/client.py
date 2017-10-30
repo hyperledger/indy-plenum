@@ -15,9 +15,9 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
 from crypto.bls.bls_crypto import BlsCryptoVerifier
+from crypto.bls.bls_multi_signature import MultiSignatureValue
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
-from plenum.bls.bls_bft_utils import create_full_root_hash
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.bls.bls_key_register_pool_ledger import \
     BlsKeyRegisterPoolLedger
@@ -36,7 +36,8 @@ from plenum.common.stacks import nodeStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
-    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
+    MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
     rawToFriendly, mostCommonElement
@@ -459,7 +460,7 @@ class Client(Motor,
         # excluding state proofs from check since they can be different
         def without_state_proof(result):
             if STATE_PROOF in result:
-                result.pop('state_proof')
+                result.pop(STATE_PROOF)
             return result
 
         results = [without_state_proof(reply["result"])
@@ -506,17 +507,16 @@ class Client(Motor,
         """
         Validates multi signature
         """
-        multi_signature = state_proof['multi_signature']
+        multi_signature = state_proof[MULTI_SIGNATURE]
         if not multi_signature:
             logger.debug("There is a state proof, but no multi signature")
             return False
 
-        participants = multi_signature['participants']
-        signature = multi_signature['signature']
-        full_state_root = create_full_root_hash(
-            root_hash=state_proof['root_hash'],
-            pool_root_hash=multi_signature['pool_state_root']
-        )
+        participants = multi_signature[MULTI_SIGNATURE_PARTICIPANTS]
+        signature = multi_signature[MULTI_SIGNATURE_SIGNATURE]
+        value = MultiSignatureValue(
+            **(multi_signature[MULTI_SIGNATURE_VALUE])
+        ).as_single_value()
         if not self.quorums.bls_signatures.is_reached(len(participants)):
             logger.debug("There is not enough participants of "
                          "multi-signature")
@@ -530,7 +530,7 @@ class Client(Motor,
                 return False
             public_keys.append(key)
         return self._multi_sig_verifier.verify_multi_sig(signature,
-                                                         full_state_root,
+                                                         value,
                                                          public_keys)
 
     def validate_proof(self, result):
