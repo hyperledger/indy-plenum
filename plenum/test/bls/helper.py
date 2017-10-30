@@ -1,3 +1,6 @@
+import base58
+import os
+
 from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY
 from plenum.common.keygen_utils import init_bls_keys
@@ -7,6 +10,8 @@ from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRe
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import updateNodeData, buildPoolClientAndWallet, new_client
 
+def generate_state_root():
+    return base58.b58encode(os.urandom(32))
 
 def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
                                    client, wallet,
@@ -21,6 +26,7 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     for i in range(number_of_requests):
         reqs = sendRandomRequests(wallet, client, 1)
         waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+        waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
         state_roots.append(
             state_roots_serializer.serialize(
                 bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
@@ -46,76 +52,62 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
             assert multi_sigs.count(multi_sigs[0]) == len(multi_sigs)
 
 
-def process_commits_for_key(key, state_root, bls_bfts):
+def process_commits_for_key(key, pre_prepare, bls_bfts):
     for sender_bls_bft in bls_bfts:
         commit = create_commit_bls_sig(
             sender_bls_bft,
             key,
-            state_root)
+            pre_prepare)
         for verifier_bls_bft in bls_bfts:
             verifier_bls_bft.process_commit(commit,
                                             sender_bls_bft.node_id)
 
 
-def process_ordered(key, bls_bfts, state_root, quorums):
+def process_ordered(key, bls_bfts, pre_prepare, quorums):
     for bls_bft in bls_bfts:
         bls_bft.process_order(key,
-                              state_root,
                               quorums,
-                              DOMAIN_LEDGER_ID)
+                              pre_prepare)
 
 
-def calculate_multi_sig_for_first(bls_bft_with_commits, quorums, state_root):
-    return calculate_multi_sig(bls_bft_with_commits[0],
-                               bls_bft_with_commits,
-                               quorums,
-                               state_root)
-
-
-def calculate_multi_sig(creator, bls_bft_with_commits, quorums, state_root):
+def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     key = (0, 0)
     for bls_bft_with_commit in bls_bft_with_commits:
         commit = create_commit_bls_sig(
             bls_bft_with_commit,
             key,
-            state_root
+            pre_prepare
         )
         creator.process_commit(commit, bls_bft_with_commit.node_id)
 
     if not creator._can_calculate_multi_sig(key, quorums):
         return None
 
-    return creator._calculate_multi_sig(key)
+    return creator._calculate_multi_sig(key, pre_prepare)
 
 
-def create_pre_prepare_params(state_root):
-    return [0,
+def create_pre_prepare_params(state_root,
+                              ledger_id = DOMAIN_LEDGER_ID,
+                              txn_root=None,
+                              timestamp=None,
+                              bls_multi_sig=None):
+    params= [0,
             0,
             0,
-            get_utc_epoch(),
+            timestamp or get_utc_epoch(),
             [('1' * 16, 1)],
             0,
             "random digest",
-            DOMAIN_LEDGER_ID,
+            ledger_id,
             state_root,
-            '1' * 32]
+            txn_root or '1' * 32]
+    if bls_multi_sig:
+        params.append(bls_multi_sig.as_list())
+    return params
 
 
-def create_pre_prepare_no_bls_multisig(state_root):
-    params = create_pre_prepare_params(state_root)
-    return PrePrepare(*params)
-
-
-def create_pre_prepare_bls_multisig(bls_multi_sig, state_root):
-    params = create_pre_prepare_params(state_root)
-    params.append([bls_multi_sig.signature, bls_multi_sig.participants, bls_multi_sig.pool_state_root])
-    params.append(state_root)
-    return PrePrepare(*params)
-
-
-def create_pre_prepare_bls_multisig_no_state(bls_multi_sig, state_root):
-    params = create_pre_prepare_params(state_root)
-    params.append([bls_multi_sig.signature, bls_multi_sig.participants, bls_multi_sig.pool_state_root])
+def create_pre_prepare_no_bls(state_root):
+    params = create_pre_prepare_params(state_root=state_root)
     return PrePrepare(*params)
 
 
@@ -128,11 +120,16 @@ def create_commit_no_bls_sig(req_key):
     params = create_commit_params(view_no, pp_seq_no)
     return Commit(*params)
 
-
-def create_commit_bls_sig(bls_bft, req_key, state_root_hash):
+def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
-    params = bls_bft.update_commit(params, state_root_hash, DOMAIN_LEDGER_ID)
+    params.append(bls_sig)
+    return Commit(*params)
+
+def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params = bls_bft.update_commit(params, pre_prepare)
     return Commit(*params)
 
 

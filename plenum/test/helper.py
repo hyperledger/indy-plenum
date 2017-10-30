@@ -21,8 +21,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQA
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.request import Request
 from plenum.common.types import f
-from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
+from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -92,7 +91,7 @@ def waitForSufficientRepliesForRequests(looper,
     node_count = len(client.nodeReg)
     if not total_timeout:
         timeout_per_request = customTimeoutPerReq or \
-            waits.expectedTransactionExecutionTime(node_count)
+                              waits.expectedTransactionExecutionTime(node_count)
         timeout_per_request += add_delay_to_timeout
         # here we try to take into account what timeout for execution
         # N request - total_timeout should be in
@@ -316,8 +315,10 @@ def random_request_objects(count, protocol_version):
     req_dicts = random_requests(count)
     return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
 
+
 def sign_request_objects(wallet, reqs: Sequence):
     return [wallet.signRequest(req) for req in reqs]
+
 
 def sign_requests(wallet, reqs: Sequence):
     return [wallet.signOp(req) for req in reqs]
@@ -569,8 +570,8 @@ def checkReplyCount(client, idr, reqId, count):
     senders = set()
     for msg, sdr in client.inBox:
         if msg[OP_FIELD_NAME] == REPLY and \
-                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
+                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
             senders.add(sdr)
     assertLength(senders, count)
 
@@ -937,3 +938,29 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
         kwargs['override_timeout_limit'] = override_eventually_timeout
 
     looper.run(eventually(chk, **kwargs))
+
+
+def check_request_ordered(node, request: Request):
+    # it's ok to iterate through all txns since this is a test
+    for seq_no, txn in node.domainLedger.getAllTxn():
+        if f.REQ_ID.nm not in txn:
+            continue
+        if f.IDENTIFIER.nm not in txn:
+            continue
+        if txn[f.REQ_ID.nm] != request.reqId:
+            continue
+        if txn[f.IDENTIFIER.nm] != request.identifier:
+            continue
+        return True
+    raise ValueError('{} request not ordered by node {}'.format(request, node.name))
+
+
+def wait_for_requests_ordered(looper, nodes, requests):
+    node_count = len(nodes)
+    timeout_per_request = waits.expectedTransactionExecutionTime(node_count)
+    total_timeout = (1 + len(requests) / 10) * timeout_per_request
+    coros = [partial(check_request_ordered,
+                     node,
+                     request)
+             for (node, request) in list(itertools.product(nodes, requests))]
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=total_timeout))

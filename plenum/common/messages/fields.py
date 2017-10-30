@@ -4,6 +4,8 @@ import re
 from abc import ABCMeta, abstractmethod
 
 import base58
+
+from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT
@@ -508,21 +510,61 @@ class LedgerInfoField(FieldBase):
                 return err
 
 
+class BlsMultiSignatureValueField(FieldBase):
+    _base_types = (list, tuple)
+    _ledger_id_validator = LedgerIdField()
+    _state_root_hash_validator = MerkleRootField()
+    _pool_state_root_hash_validator = MerkleRootField()
+    _txn_root_hash_validator = MerkleRootField()
+    _timestamp_validator = TimestampField()
+
+    def _specific_validation(self, val):
+        multi_sig_value = MultiSignatureValue(*val)
+
+        err = self._ledger_id_validator.validate(
+            multi_sig_value.ledger_id)
+        if err:
+            return err
+
+        err = self._state_root_hash_validator.validate(
+            multi_sig_value.state_root_hash)
+        if err:
+            return err
+
+        err = self._pool_state_root_hash_validator.validate(
+            multi_sig_value.pool_state_root_hash)
+        if err:
+            return err
+
+        err = self._txn_root_hash_validator.validate(
+            multi_sig_value.txn_root_hash)
+        if err:
+            return err
+
+        err = self._timestamp_validator.validate(
+            multi_sig_value.timestamp)
+        if err:
+            return err
+
+
 class BlsMultiSignatureField(FieldBase):
     _base_types = (list, tuple)
-    _root_hash_validator = MerkleRootField()
+    _multisig_value_validator = BlsMultiSignatureValueField()
     _participants_validator = IterableField(NonEmptyStringField())
     _multisig_validator = \
         LimitedLengthStringField(max_length=BLS_MULTI_SIG_LIMIT)
 
     def _specific_validation(self, val):
-        sig, participants, pool_state_root = val
-        err = self._root_hash_validator.validate(pool_state_root)
+        sig, participants, multi_sig_value = val
+
+        err = self._multisig_value_validator.validate(multi_sig_value)
         if err:
             return err
+
         err = self._multisig_validator.validate(sig)
         if err:
             return err
+
         err = self._participants_validator.validate(participants)
         if err:
             return err
