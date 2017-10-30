@@ -762,8 +762,6 @@ class Client(Motor,
                 elif force_expect:
                     queue[key] = (nodes, now, 1)
 
-
-
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(
             POOL_LEDGER_ID,
