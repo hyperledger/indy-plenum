@@ -271,7 +271,7 @@ class TestNodeCore(StackedTester):
 
 node_spyables = [Node.handleOneNodeMsg,
                  Node.handleInvalidClientMsg,
-                 Node.processRequest,
+                 Node.processRequest.__name__,
                  Node.processOrdered,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,
