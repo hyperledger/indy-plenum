@@ -61,7 +61,7 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
     }
     assert pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name, True) is None
+                                        newVal, config, name, enabled=True) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
@@ -81,7 +81,7 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
     }
     assert pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name, True) is None
+                                        newVal, config, name, enabled=True) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpike(
@@ -101,7 +101,7 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
     }
     sent, found = pluginManagerWithImportedModules\
         .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name, True)
+                                        newVal, config, name, enabled=True)
     assert sent == 3
 
 
@@ -146,14 +146,15 @@ def test_suspicious_spike_check_disabled_config(pluginManagerWithImportedModules
     nval = 25
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
 
-    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name, True)
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
+                                                                              config, name, enabled=True)
     assert sent == 3
 
     config['enabled'] = False
     hdata['value'] = 10
     hdata['cnt'] = 10
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
-                                                                           config, name, True) is None
+                                                                           config, name, enabled=True) is None
 
 
 def test_suspicious_spike_check_disabled_func(pluginManagerWithImportedModules):
@@ -163,13 +164,14 @@ def test_suspicious_spike_check_disabled_func(pluginManagerWithImportedModules):
     nval = 25
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
 
-    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name, True)
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
+                                                                              config, name, enabled=True)
     assert sent == 3
 
     hdata['value'] = 10
     hdata['cnt'] = 10
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
-                                                                           config, name, False) is None
+                                                                           config, name, enabled=False) is None
 
 
 def test_no_message_from_0_to_1(pluginManagerWithImportedModules):
@@ -179,13 +181,14 @@ def test_no_message_from_0_to_1(pluginManagerWithImportedModules):
     nval = 1
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 0, 'enabled': True}
 
-    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name, True)
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
+                                                                              config, name, enabled=True)
     assert sent == 3
 
     hdata = {'value': 0, 'cnt': 10}
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
-                                                                           config, name, True) is None
+                                                                           config, name, enabled=True) is None
 
 
 def test_no_message_from_1_to_0(pluginManagerWithImportedModules):
@@ -195,10 +198,11 @@ def test_no_message_from_1_to_0(pluginManagerWithImportedModules):
     nval = 0
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 0, 'enabled': True}
 
-    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval, config, name, True)
+    sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
+                                                                              config, name, enabled=True)
     assert sent == 3
 
     hdata = {'value': 1, 'cnt': 10}
     config = {'coefficient': 2, 'minCnt': 10, 'minActivityThreshold': 2, 'enabled': True}
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
-                                                                           config, name, True) is None
+                                                                           config, name, enabled=True) is None
