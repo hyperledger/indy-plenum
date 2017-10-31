@@ -57,6 +57,7 @@ def randomString(size: int = 20) -> str:
         assert (size > 0), "Expected random string size cannot be less than 1"
         # Approach 1
         rv = randombytes(size // 2).hex()
+
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
@@ -66,6 +67,16 @@ def randomString(size: int = 20) -> str:
         # return rstr[:size]
 
     return randomStr(size)
+
+
+def random_from_alphabet(size, alphabet):
+    """
+    Takes *size* random elements from provided alphabet
+    :param size:
+    :param alphabet:
+    """
+    import random
+    return list(random.choice(alphabet) for _ in range(size))
 
 
 def randomSeed(size=32):
