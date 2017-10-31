@@ -388,6 +388,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
 
+        self._last_performance_check_data = {}
+
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
 
@@ -2052,6 +2054,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # nodes
         if not self.isParticipating:
             return
+
+        last_num_ordered = self._last_performance_check_data.get('num_ordered')
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        nothing_changed = num_ordered == last_num_ordered
+        if nothing_changed:
+            return
+
+        self._last_performance_check_data['num_ordered'] = num_ordered
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
