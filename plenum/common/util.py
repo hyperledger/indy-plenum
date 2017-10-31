@@ -72,7 +72,6 @@ def randomString(size: int = 20) -> str:
 def random_from_alphabet(size, alphabet):
     """
     Takes *size* random elements from provided alphabet
-    
     :param size:
     :param alphabet:
     """
