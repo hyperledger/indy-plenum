@@ -26,7 +26,7 @@ class BlsCryptoSigner(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def sign(self, message: str) -> str:
+    def sign(self, message: bytes) -> str:
         pass
 
 
@@ -36,9 +36,9 @@ class BlsCryptoVerifier(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def verify_sig(self, signature: str, message: str, pk: str) -> bool:
+    def verify_sig(self, signature: str, message: bytes, pk: str) -> bool:
         pass
 
     @abstractmethod
-    def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
+    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[str]) -> bool:
         pass
