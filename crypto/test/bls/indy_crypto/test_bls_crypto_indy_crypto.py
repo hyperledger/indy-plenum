@@ -35,6 +35,7 @@ def bls_signer2(keys2, default_params):
 def bls_verifier(default_params):
     return BlsCryptoVerifierIndyCrypto(default_params)
 
+
 @pytest.fixture()
 def message():
     return 'Hello!'.encode()
