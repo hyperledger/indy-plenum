@@ -81,7 +81,7 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         if self.node.is_synced and self.master_replica.isPrimary is None:
             self._send_view_change_done_message()
-        self._startSelection()
+        self._start_selection()
 
     # Question: Master is always 0, until we change that rule why incur cost
     # of a method call, also name is confusing
@@ -138,7 +138,7 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return False
 
-        self._startSelection()
+        self._start_selection()
 
     def _verify_view_change(self):
         if not self.has_acceptable_view_change_quorum:
@@ -257,7 +257,7 @@ class PrimarySelector(PrimaryDecider):
                 return True
         return False
 
-    def _startSelection(self):
+    def _start_selection(self):
 
         error = self._verify_view_change()
 
