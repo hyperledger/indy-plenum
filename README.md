@@ -58,7 +58,7 @@ Use project name `INDY`.
 ## How to Contribute
 
 - We'd love your help; see these [instructions on how to contribute](http://bit.ly/2ugd0bq).
-- You may also want to read this info about [maintainers](MAINTAINERS.md).
+- You may also want to read this info about [maintainers](https://github.com/hyperledger/indy-node/blob/stable/MAINTAINERS.md).
 
 
 ## How to Start Working with the Code
