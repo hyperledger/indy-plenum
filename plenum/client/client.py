@@ -286,7 +286,7 @@ class Client(Motor,
 
         for request in reqs:
             is_read_only = request.txn_type in self._read_only_requests
-            if self.can_send_read_request(request):
+            if self.can_send_request(request):
                 recipients = self._connected_node_names
                 if is_read_only and len(recipients) > 1:
                     recipients = random.sample(list(recipients), 1)
@@ -616,7 +616,7 @@ class Client(Motor,
             return False
         return True
 
-    def can_send_read_request(self, request):
+    def can_send_request(self, request):
         if self.mode != Mode.discovered:
             return False
         if self.hasSufficientConnections:
@@ -648,7 +648,7 @@ class Client(Motor,
             tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                if self.can_send_read_request(req):
+                if self.can_send_request(req):
                     self.send(req, signer=signer)
                 else:
                     tmp.append((req, signer))
