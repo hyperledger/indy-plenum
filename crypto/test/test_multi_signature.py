@@ -3,6 +3,7 @@ from collections import OrderedDict
 import base58
 import pytest
 
+from common.serializers.serialization import multi_signature_value_serializer
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.util import get_utc_epoch
 
@@ -53,14 +54,9 @@ def expected_sig_value_list():
 
 
 @pytest.fixture()
-def expected_single_sig_value():
+def expected_single_sig_value(expected_sig_value_dict):
     # we expected it always in sorted order by keys
-    return \
-        str(ledger_id) + \
-        pool_state_root_hash + \
-        state_root_hash + \
-        str(timestamp) + \
-        txn_root_hash
+    return multi_signature_value_serializer.serialize(expected_sig_value_dict)
 
 
 @pytest.fixture()

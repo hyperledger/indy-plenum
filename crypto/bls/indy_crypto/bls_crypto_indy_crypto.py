@@ -40,10 +40,6 @@ class IndyCryptoBlsUtils:
         return cls.from_bytes(bts)
 
     @staticmethod
-    def msg_to_bls_bytes(msg: str) -> bytes:
-        return msg.encode()
-
-    @staticmethod
     def prepare_seed(seed):
         seed_bytes = None
         if isinstance(seed, str):
@@ -65,7 +61,7 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         self._generator = \
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
-    def verify_sig(self, signature: str, message: str, pk: str) -> bool:
+    def verify_sig(self, signature: str, message: bytes, pk: str) -> bool:
         bls_signature = IndyCryptoBlsUtils.bls_from_str(signature, Signature)
         if bls_signature is None:
             return False
@@ -73,11 +69,11 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         if bls_pk is None:
             return False
         return Bls.verify(bls_signature,
-                          IndyCryptoBlsUtils.msg_to_bls_bytes(message),
+                          message,
                           bls_pk,
                           self._generator)
 
-    def verify_multi_sig(self, signature: str, message: str, pks: Sequence[str]) -> bool:
+    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[str]) -> bool:
         epks = [IndyCryptoBlsUtils.bls_from_str(p, VerKey) for p in pks]
         if None in epks:
             return False
@@ -87,9 +83,8 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         if multi_signature is None:
             return False
 
-        message_bytes = IndyCryptoBlsUtils.msg_to_bls_bytes(message)
         return Bls.verify_multi_sig(multi_sig=multi_signature,
-                                    message=message_bytes,
+                                    message=message,
                                     ver_keys=epks,
                                     gen=self._generator)
 
@@ -117,7 +112,6 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
         vk_str = IndyCryptoBlsUtils.bls_to_str(vk)
         return sk_str, vk_str
 
-    def sign(self, message: str) -> str:
-        bts = IndyCryptoBlsUtils.msg_to_bls_bytes(message)
-        sign = Bls.sign(bts, self._sk_bls)
+    def sign(self, message: bytes) -> str:
+        sign = Bls.sign(message, self._sk_bls)
         return IndyCryptoBlsUtils.bls_to_str(sign)
