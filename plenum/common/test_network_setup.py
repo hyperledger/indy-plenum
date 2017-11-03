@@ -187,10 +187,10 @@ class TestNetworkSetup:
         args = parser.parse_args()
 
         if isinstance(args.nodeNum, int):
-            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less ore equal to nodeCount"
+            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less or equal to nodeCount"
         elif isinstance(args.nodeNum, list):
             bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
-            assert not bad_idxs, "nodeNum should be less ore equal to nodeCount"
+            assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
 
         steward_defs, node_defs = cls.gen_defs(args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
