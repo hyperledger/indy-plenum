@@ -623,7 +623,7 @@ class Client(Motor,
             return True
         if not self.hasAnyConnections:
             return False
-        if request.isForced:
+        if request.isForced():
             return True
         is_read_only = request.txn_type in self._read_only_requests
         if is_read_only:
