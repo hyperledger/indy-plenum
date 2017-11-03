@@ -81,7 +81,7 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         if self.node.is_synced and self.master_replica.isPrimary is None:
             self._send_view_change_done_message()
-        self._startSelection()
+        self._start_selection()
 
     # Question: Master is always 0, until we change that rule why incur cost
     # of a method call, also name is confusing
@@ -138,20 +138,20 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return False
 
-        self._startSelection()
+        self._start_selection()
 
     def _verify_view_change(self):
         if not self.has_acceptable_view_change_quorum:
-            return False
+            return "has no view change quorum or no message from next primary"
 
         rv = self.has_sufficient_same_view_change_done_messages
         if rv is None:
-            return False
+            return "there are not sufficient same ViewChangeDone messages"
 
         if not self._verify_primary(*rv):
-            return False
+            return "failed to verify primary"
 
-        return True
+        return None
 
     def _verify_primary(self, new_primary, ledger_info):
         """
@@ -257,12 +257,13 @@ class PrimarySelector(PrimaryDecider):
                 return True
         return False
 
-    def _startSelection(self):
+    def _start_selection(self):
 
-        if not self._verify_view_change():
-            logger.debug('{} cannot start primary selection found failure in '
-                         'primary verification. This can happen due to lack '
-                         'of appropriate ViewChangeDone messages'.format(self))
+        error = self._verify_view_change()
+
+        if error:
+            logger.debug('{} cannot start primary selection because {}'
+                         .format(self, error))
             return
 
         if not self.node.is_synced:
