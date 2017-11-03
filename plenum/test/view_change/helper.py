@@ -209,7 +209,8 @@ def view_change_in_between_3pc_random_delays(
 
 
 def start_stopped_node(stopped_node, looper, tconf,
-                       tdirWithPoolTxns, allPluginsPath):
+                       tdirWithPoolTxns, allPluginsPath,
+                       delay_instance_change_msgs=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
@@ -222,5 +223,7 @@ def start_stopped_node(stopped_node, looper, tconf,
     # Even after reconnection INSTANCE_CHANGE messages are received,
     # delay them enough to simulate real disconnection. This needs to fixed
     # soon when simulating a disconnection drains the transport queues
-    restarted_node.nodeIbStasher.delay(icDelay(200))
+    # TODO is it still actual?
+    if delay_instance_change_msgs:
+        restarted_node.nodeIbStasher.delay(icDelay(200))
     return restarted_node
