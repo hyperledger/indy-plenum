@@ -603,21 +603,21 @@ class Client(Motor,
         return len(self.nodestack.conns) > 0
 
     def can_send_write_requests(self):
-        if self.mode != Mode.discovered:
+        if not Mode.is_done_discovering(self.mode):
             return False
         if not self.hasSufficientConnections:
             return False
         return True
 
     def can_send_read_requests(self):
-        if self.mode != Mode.discovered:
+        if not Mode.is_done_discovering(self.mode):
             return False
         if not self.hasAnyConnections:
             return False
         return True
 
     def can_send_request(self, request):
-        if self.mode != Mode.discovered:
+        if not Mode.is_done_discovering(self.mode):
             return False
         if self.hasSufficientConnections:
             return True
