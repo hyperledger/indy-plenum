@@ -15,7 +15,7 @@ def test_make_proof_bls_disabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier, req.reqId)
+        key = node.reqHandler.prepare_buy_key(req.identifier)
         proof = node.reqHandler.make_proof(key)
         assert not proof
 
@@ -27,7 +27,7 @@ def test_make_result_bls_disabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier, req.reqId)
+        key = node.reqHandler.prepare_buy_key(req.identifier)
         proof = node.reqHandler.make_proof(key)
         result = node.reqHandler.make_result(req,
                                              {TXN_TYPE: "buy"},

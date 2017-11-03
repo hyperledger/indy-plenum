@@ -5,26 +5,78 @@ Indy. As such, it provides features somewhat similar in scope to those
 found in Fabric. However, it is special-purposed for use in an identity
 system, whereas Fabric is general purpose.
 
-You can log bugs against Plenum in [Hyperledger's Jira](https://jira.hyperledger.org); use
-project "INDY".
+## Other Documentation
 
-Plenum makes extensive use of coroutines and the async/await keywords in
-Python, and as such, requires Python version 3.5.0 or later. Plenum also
-depends on libsodium, an awesome crypto library. These need to be installed
-separately. Read below to see how.
+- Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).
+- Please have a look at aggregated documentation at [indy-node-documentation](https://github.com/hyperledger/indy-node/blob/master/README.md) which describes workflows and setup scripts common for both projects. 
 
-Plenum has other dependencies, including the impressive
-[RAET](https://github.com/saltstack/raet) for secure reliable communication
-over UDP, but this and other dependencies are installed automatically with
-Plenum.
+## Indy Plenum Repository Structure
 
-### Installing Plenum
+- plenum:
+    - the main codebase for plenum including Byzantine Fault Tolerant Protocol based on [RBFT](https://pakupaku.me/plaublin/rbft/5000a297.pdf)
+- common:
+    - common and utility code
+- crypto:
+    - basic crypto-related code (in particular, [indy-crypto](https://github.com/hyperledger/indy-crypto) wrappers) 
+- ledger:
+    - Provides a simple, python-based, immutable, ordered log of transactions 
+backed by a merkle tree.
+    - This is an efficient way to generate verifiable proofs of presence
+and data consistency.
+    - The scope of concerns here is fairly narrow; it is not a full-blown
+distributed ledger technology like Fabric, but simply the persistence
+mechanism that Plenum needs.
+- state:
+    - state storage using python 3 version of Ethereum's Patricia Trie
+- stp:
+    - secure transport abstraction
+    - it has two implementations: RAET and ZeroMQ
+    - Although RAET implementation is there, it's not supported anymore, and [ZeroMQ](http://zeromq.org/) is the default secure transport in plenum. 
+- storage:
+    - key-value storage abstractions
+    - contains [leveldb](http://leveldb.org/) implementation as the main key-valued storage used in Plenum (for ledger, state, etc.)
+
+## Dependencies
+
+- Plenum makes extensive use of coroutines and the async/await keywords in
+Python, and as such, requires Python version 3.5.0 or later. 
+- Plenum also depends on [libsodium](https://download.libsodium.org/doc/), an awesome crypto library. These need to be installed
+separately. 
+- Plenum uses [ZeroMQ](http://zeromq.org/) as a secure transport
+- [indy-crypto](https://github.com/hyperledger/indy-crypto)
+    - A shared crypto library 
+    - It's based on [AMCL](https://github.com/milagro-crypto/amcl)
+    - In particular, it contains BLS multi-signature crypto needed for state proofs support in Indy.
+
+
+## Contact us
+
+- Bugs, stories, and backlog for this codebase are managed in [Hyperledger's Jira](https://jira.hyperledger.org).
+Use project name `INDY`.
+- Join us on [Jira's Rocket.Chat](https://chat.hyperledger.org/channel/indy) at `#indy` and/or `#indy-node` channels to discuss.
+
+## How to Contribute
+
+- We'd love your help; see these [instructions on how to contribute](http://bit.ly/2ugd0bq).
+- You may also want to read this info about [maintainers](https://github.com/hyperledger/indy-node/blob/stable/MAINTAINERS.md).
+
+
+## How to Start Working with the Code
+
+Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/setup-dev.md) in indy-node repo.
+It contains common setup for both indy-plenum and indy-node.
+
+
+## Installing Plenum
+
+#### Install from pypi
+
 
 ```
 pip install indy-plenum
 ```
 
-From here, you can play with the command-line interface (see the [tutorial](https://github.com/hyperledger/indy-plenum/wiki))...
+From here, you can play with the command-line interface (see the [tutorial](https://github.com/hyperledger/indy-plenum/wiki)).
 
 Note: For Windows, we recommended using either [cmder](http://cmder.net/) or [conemu](https://conemu.github.io/).
 
@@ -40,77 +92,12 @@ cd indy-plenum
 python -m plenum.test
 ```
 
-**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).**
 
-### Installing python 3.5 and libsodium:
-
-**Ubuntu:**
-
-1. Run ```sudo add-apt-repository ppa:fkrull/deadsnakes```
-
-2. Run ```sudo apt-get update```
-
-3. On Ubuntu 14, run ```sudo apt-get install python3.5``` (python3.5 is pre-installed on most Ubuntu 16 systems; if not, do it there as well.)
-
-4. We need to install libsodium with the package manager. This typically requires a package repo that's not active by default. Inspect ```/etc/apt/sources.list``` file with your favorite editor (using sudo). On ubuntu 16, you are looking for a line that says ```deb http://us.archive.ubuntu.com/ubuntu xenial main universe```. On ubuntu 14, look for or add: ```deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` and ```deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main```.
-
-5. Run ```sudo apt-get update```. On ubuntu 14, if you get a GPG error about public key not available, run this command and then, after, retry apt-get update: ```sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B9316A7BC7917B12```
-
-6. Install libsodium; the version depends on your distro version. On Ubuntu 14, run ```sudo apt-get install libsodium13```; on Ubuntu 16, run ```sudo apt-get install libsodium18```
-
-8. If you still get the error ```E: Unable to locate package libsodium13``` then add ```deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` and ```deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` to your ```/etc/apt/sources.list```. 
-Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``` 
-
-**CentOS/Redhat:**
-
-1. Run ```sudo yum install python3.5```
-
-2. Run ```sudo yum install libsodium-devel```
-
-
-**Mac:**
-
-1. Go to [python.org](https://www.python.org) and from the "Downloads" menu, download the Python 3.5.0 package (python-3.5.0-macosx10.6.pkg) or later.
-
-2. Open the downloaded file to install it.
-
-3. If you are a homebrew fan, you can install it using this brew command: ```brew install python3```
-
-4. To install homebrew package manager, see: [brew.sh](http://brew.sh/)
-
-5. Once you have homebrew installed, run ```brew install libsodium``` to install libsodium.
-
-
-**Windows:**
-
-1. Go to https://download.libsodium.org/libsodium/releases/ and download the latest libsodium package (libsodium-1.0.8-mingw.tar.gz is the latest version as of this writing)
-
-2. When you extract the contents of the downloaded tar file, you will see 2 folders with the names libsodium-win32 and libsodium-win64.
-
-3. As the name suggests, use the libsodium-win32 if you are using 32-bit machine or libsodium-win64 if you are using a 64-bit operating system.
-
-4. Copy the libsodium-x.dll from libsodium-win32\bin or libsodium-win64\bin to C:\Windows\System or System32 and rename it to libsodium.dll.
-
-5. Download the latest build (pywin32-220.win-amd64-py3.5.exe is the latest build as of this writing) from  [here](https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/) and run the downloaded executable.
-
-
-### Using a virtual environment (recommended)
-We recommend creating a new Python virtual environment for trying out Plenum.
-a virtual environment is a Python environment which is isolated from the
-system's default Python environment (you can change that) and any other
-virtual environment you create. You can create a new virtual environment by:
-```
-virtualenv -p python3.5 <name of virtual environment>
-```
-
-And activate it by:
-
-```
-source <name of virtual environment>/bin/activate
-```
-
-
-### Initializing Keep
+#### Initializing Keys
+Each Node needs to have keys initialized
+ - ed25519 transport keys (used by ZMQ for Node-to-Node and Node-to-Client communication)
+ - BLS keys for BLS multi-signature and state proofs support
+ 
 ```
 init_plenum_keys --name Alpha --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
 ```
@@ -129,21 +116,21 @@ init_plenum_keys --name Delta --seeds 000000000000000000000000000Delta Delta0000
 Note: Seed can be any randomly chosen 32 byte value. It does not have to be in the format `00..<name of the node>`.
 
 
-### Seeds used for generating clients
+#### Seeds used for generating clients
 1. Seed used for steward Bob's signing key pair ```11111111111111111111111111111111```
 2. Seed used for steward Bob's public private key pair ```33333333333333333333333333333333```
 3. Seed used for client Alice's signing key pair ```22222222222222222222222222222222```
 4. Seed used for client Alice's public private key pair ```44444444444444444444444444444444```
 
 
-### Running Node
+#### Running Node
 
 ```
 start_plenum_node Alpha
 ```
 
 
-### Updating configuration
+#### Updating configuration
 To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum/YOUR_NETWORK_NAME` directory inside your home directory. 
 eg. To update the node registry to use `127.0.0.1` as host put these in your `plenum_config.py`.
 
@@ -164,26 +151,3 @@ cliNodeReg = OrderedDict([
     ('DeltaC', (('127.0.0.1', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
 ])
 ```
-
-# Immutable Ledger used in Plenum. 
-
-This codebase provides a simple, python-based, immutable, ordered log of transactions 
-backed by a merkle tree. This is an efficient way to generate verifiable proofs of presence
-and data consistency.
-
-The scope of concerns here is fairly narrow; it is not a full-blown
-distributed ledger technology like Fabric, but simply the persistence
-mechanism that Plenum needs. The repo is intended to be collapsed into the indy-node codebase
-over time; hence there is no wiki, no documentation, and no intention to
-use github issues to track bugs.
-
-You can log issues against this codebase in [Hyperledger's Jira](https://jira.hyperledger.org).
-
-Join us on [Hyperledger's Rocket.Chat](http://chat.hyperledger.org), on the #indy
-channel, to discuss.
-
-# state
-Plenum's state storage using python 3 version of Ethereum's Patricia Trie
-
-# stp
-Secure Transport Protocol

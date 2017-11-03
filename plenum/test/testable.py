@@ -59,10 +59,6 @@ class SpyLog(list):
 
 def spy(func, is_init, should_spy, spy_log=None):
     sig = inspect.signature(func)
-    paramNames = [k for k in sig.parameters]
-    # TODO Find a better way
-    if paramNames and paramNames[0] == "self":
-        paramNames = paramNames[1:]
 
     # sets up spylog, but doesn't spy on init
     def init_only(self, *args, **kwargs):
@@ -89,19 +85,10 @@ def spy(func, is_init, should_spy, spy_log=None):
             r = ex
             raise
         finally:
-            params = {}
-            if kwargs:
-                for k, v in kwargs.items():
-                    params[k] = v
-            if args:
-                for i, nm in enumerate(paramNames[:len(args)]):
-                    params[nm] = args[i]
-
-            used_log = spy_log
-
-            if hasattr(self, 'spylog'):
-                used_log = self.spylog
-
+            bound = sig.bind(self, *args, **kwargs)
+            params = dict(bound.arguments)
+            params.pop('self', None)
+            used_log = self.spylog if hasattr(self, 'spylog') else spy_log
             used_log.append(Entry(start,
                                   time.perf_counter(),
                                   func.__name__,

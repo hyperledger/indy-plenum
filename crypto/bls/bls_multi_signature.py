@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+from common.serializers.serialization import multi_signature_value_serializer
+
 
 class MultiSignatureValue:
     """
@@ -37,8 +39,7 @@ class MultiSignatureValue:
         self.timestamp = timestamp
 
     def as_single_value(self):
-        values = [str(v) for v in self.as_dict().values()]
-        return "".join(values)
+        return multi_signature_value_serializer.serialize(self.as_dict())
 
     def as_dict(self):
         return OrderedDict(sorted(self.__dict__.items()))
