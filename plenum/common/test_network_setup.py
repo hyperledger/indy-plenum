@@ -213,7 +213,6 @@ class TestNetworkSetup:
             key_dir = os.path.join(key_dir, "keys")
             shutil.rmtree(key_dir, ignore_errors=True)
 
-
     @staticmethod
     def _bootstrapArgsTypeNodeCount(nodesStrArg):
         if not nodesStrArg.isdigit():
