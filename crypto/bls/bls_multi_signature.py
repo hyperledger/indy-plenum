@@ -56,6 +56,9 @@ class MultiSignatureValue:
     def __eq__(self, other):
         return isinstance(other, MultiSignatureValue) and self.as_dict() == other.as_dict()
 
+    def __str__(self) -> str:
+        return str(self.as_dict())
+
 
 class MultiSignature:
     """
@@ -105,3 +108,6 @@ class MultiSignature:
 
     def __eq__(self, other):
         return isinstance(other, MultiSignature) and self.as_dict() == other.as_dict()
+
+    def __str__(self) -> str:
+        return str(self.as_dict())

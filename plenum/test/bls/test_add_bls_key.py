@@ -10,7 +10,7 @@ nodes_wth_bls = 0
 # As we use tests with Module scope, results from previous tests are accumulated, so
 # rotating BLS keys one by one, eventually we will have all keys changed
 
-def test_update_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
                              poolTxnClientData,
                              stewards_and_wallets):
     '''
@@ -24,7 +24,7 @@ def test_update_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_update_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                               poolTxnClientData,
                               stewards_and_wallets):
     '''
@@ -38,7 +38,7 @@ def test_update_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_update_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                 poolTxnClientData,
                                 stewards_and_wallets):
     '''
@@ -56,7 +56,7 @@ def test_update_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_update_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                               poolTxnClientData,
                               stewards_and_wallets):
     '''
