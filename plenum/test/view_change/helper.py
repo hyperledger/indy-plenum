@@ -6,14 +6,37 @@ from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_de
     icDelay
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies, send_reqs_to_nodes_and_verify_all_replies
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode
+    TestNode, checkNodesConnected
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
 
 logger = getlogger()
+
+
+def start_stopped_node(stopped_node, looper, tconf,
+                       tdirWithPoolTxns, allPluginsPath,
+                       delay_instance_change_msgs=True):
+    nodeHa, nodeCHa = HA(*
+                         stopped_node.nodestack.ha), HA(*
+                                                        stopped_node.clientstack.ha)
+    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+                              config=tconf,
+                              ha=nodeHa, cliha=nodeCHa,
+                              pluginPaths=allPluginsPath)
+    looper.add(restarted_node)
+
+    # Even after reconnection INSTANCE_CHANGE messages are received,
+    # delay them enough to simulate real disconnection. This needs to fixed
+    # soon when simulating a disconnection drains the transport queues
+    # TODO is it still actual?
+    if delay_instance_change_msgs:
+        restarted_node.nodeIbStasher.delay(icDelay(200))
+    return restarted_node
 
 
 def provoke_and_check_view_change(nodes, newViewNo, wallet, client):
@@ -100,6 +123,45 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     return old_view_no + 1
 
 
+def ensure_view_change_by_primary_restart(
+        looper, nodes,
+        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None):
+    """
+    This method stops current primary for a while to force a view change
+
+    Returns new set of nodes
+    """
+    old_view_no = checkViewNoForNodes(nodes)
+    primaryNode = [node for node in nodes if node.has_master_primary][0]
+
+    logger.debug("Disconnect current primary node {} from others, "
+                 "current viewNo {}".format(primaryNode, old_view_no))
+
+    disconnect_node_and_ensure_disconnected(looper, nodes,
+                                            primaryNode, stopNode=True)
+    looper.removeProdable(primaryNode)
+    remainingNodes = list(set(nodes) - {primaryNode})
+
+    logger.debug("Waiting for viewNo {} for nodes {}"
+                 "".format(old_view_no + 1, remainingNodes))
+    timeout = customTimeout or waits.expectedPoolViewChangeStartedTimeout(
+        len(remainingNodes)) + nodes[0].config.ToleratePrimaryDisconnection
+    looper.run(eventually(checkViewNoForNodes, remainingNodes, old_view_no + 1,
+                          retryWait=1, timeout=timeout))
+
+    logger.debug("Starting stopped ex-primary {}".format(primaryNode))
+    restartedNode = start_stopped_node(primaryNode, looper, tconf,
+                                       tdirWithPoolTxns, allPluginsPath,
+                                       delay_instance_change_msgs=False)
+    nodes = remainingNodes + [restartedNode]
+    logger.debug("Ensure all nodes are connected")
+    looper.run(checkNodesConnected(nodes))
+    logger.debug("Ensure all nodes have the same data")
+    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+
+    return nodes
+
+
 def check_each_node_reaches_same_end_for_view(nodes, view_no):
     # Check if each node agreed on the same ledger summary and last ordered
     # seq no for same view
@@ -165,6 +227,15 @@ def ensure_view_change_complete(looper, nodes, exclude_from_check=None,
     ensure_all_nodes_have_same_data(looper, nodes, customTimeout)
 
 
+def ensure_view_change_complete_by_primary_restart(
+        looper, nodes, tconf, tdirWithPoolTxns, allPluginsPath):
+    nodes = ensure_view_change_by_primary_restart(
+        looper, nodes, tconf, tdirWithPoolTxns, allPluginsPath)
+    ensureElectionsDone(looper=looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes)
+    return nodes
+
+
 def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
                                slow_delay=1, wait=None):
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
@@ -206,24 +277,3 @@ def view_change_in_between_3pc_random_delays(
     reset_delays_and_process_delayeds(slow_nodes)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
-
-
-def start_stopped_node(stopped_node, looper, tconf,
-                       tdirWithPoolTxns, allPluginsPath,
-                       delay_instance_change_msgs=True):
-    nodeHa, nodeCHa = HA(*
-                         stopped_node.nodestack.ha), HA(*
-                                                        stopped_node.clientstack.ha)
-    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
-                              config=tconf,
-                              ha=nodeHa, cliha=nodeCHa,
-                              pluginPaths=allPluginsPath)
-    looper.add(restarted_node)
-
-    # Even after reconnection INSTANCE_CHANGE messages are received,
-    # delay them enough to simulate real disconnection. This needs to fixed
-    # soon when simulating a disconnection drains the transport queues
-    # TODO is it still actual?
-    if delay_instance_change_msgs:
-        restarted_node.nodeIbStasher.delay(icDelay(200))
-    return restarted_node
