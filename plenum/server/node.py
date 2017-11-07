@@ -2174,6 +2174,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def propose_view_change(self):
         # Sends instance change message when primary has been
         # disconnected for long enough
+        self._cancel(self.propose_view_change)
         if not self.lost_primary_at:
             logger.trace('{} The primary is already connected '
                          'so view change will not be proposed'.format(self))
