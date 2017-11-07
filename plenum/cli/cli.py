@@ -7,8 +7,7 @@ from typing import Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger, \
-    update_genesis_txn_file_name_if_outdated
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
@@ -69,7 +68,7 @@ from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
     getFriendlyIdentifier, \
     normalizedWalletFileName, getWalletFilePath, \
-    getLastSavedWalletFileName, updateWalletsBaseDirNameIfOutdated
+    getLastSavedWalletFileName
 from stp_core.common.log import \
     getlogger, Logger
 from plenum.server.node import Node
@@ -258,8 +257,6 @@ class Cli:
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
-
-        updateWalletsBaseDirNameIfOutdated(self.config)
 
         self.restoreLastActiveWallet()
 

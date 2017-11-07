@@ -8,7 +8,7 @@ from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import updateNodeData, buildPoolClientAndWallet, new_client
+from plenum.test.pool_transactions.helper import updateNodeData, new_client
 
 
 def generate_state_root():
