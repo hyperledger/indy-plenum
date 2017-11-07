@@ -232,9 +232,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                nodestack=self.nodestack,
                                blacklister=self.nodeBlacklister,
                                nodeInfo=self.nodeInfo,
-                               notifierEventTriggeringConfig=self.
-                               config.notifierEventTriggeringConfig,
-                               pluginPaths=pluginPaths)
+                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
+                               pluginPaths=pluginPaths,
+                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
 
         self.replicas = self.create_replicas()
 
@@ -387,6 +387,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Number of read requests the node has processed
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
+
+        self._last_performance_check_data = {}
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
@@ -1581,15 +1583,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
+            for replica in self.replicas:
+                replica.caught_up_till_3pc(last_caught_up_3PC)
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
-
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
-
         if self.is_catchup_needed():
             logger.info('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -2053,6 +2054,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isParticipating:
             return
 
+        last_num_ordered = self._last_performance_check_data.get('num_ordered')
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        nothing_changed = num_ordered == last_num_ordered
+        if nothing_changed:
+            return
+
+        self._last_performance_check_data['num_ordered'] = num_ordered
+
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
@@ -2083,7 +2092,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeRequestSpikeMonitorData,
             requests,
             self.config.notifierEventTriggeringConfig['nodeRequestSpike'],
-            self.name
+            self.name,
+            self.config.SpikeEventsEnabled
         )
 
     def _create_instance_change_msg(self, view_no, suspicion_code):

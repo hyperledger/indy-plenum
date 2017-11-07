@@ -6,9 +6,6 @@ from pathlib import Path
 
 import jsonpickle
 from jsonpickle import JSONBackend
-from jsonpickle import tags
-from jsonpickle.unpickler import loadclass
-from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
@@ -39,17 +36,6 @@ Alias = str
 IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
-
-
-def getClassVersionKey(cls):
-    """
-    Gets the wallet class version key for use in a serialized representation
-    of the wallet.
-
-    :param cls: the wallet class
-    :return: the class version key
-    """
-    return 'classver/{}'.format(importable_name(cls))
 
 
 class Wallet:
@@ -418,6 +404,9 @@ class WalletStorageHelper:
         return wallet
 
 
+WALLET_RAW_MIGRATORS = []
+
+
 class WalletCompatibilityBackend(JSONBackend):
     """
     Jsonpickle backend providing conversion of raw representations
@@ -425,21 +414,11 @@ class WalletCompatibilityBackend(JSONBackend):
     to the current version.
     """
 
-    def _getUpToDateClassName(self, pickledClassName):
-        return pickledClassName.replace('sovrin_client', 'indy_client')
-
     def decode(self, string):
         raw = super().decode(string)
         # Note that backend.decode may be called not only for the whole object
         # representation but also for representations of non-string keys of
         # dictionaries.
-        # Here we assume that if the string represents a class instance and
-        # this class contains makeRawCompatible method then this class is
-        # a wallet class supporting backward compatibility
-        if isinstance(raw, dict) and tags.OBJECT in raw:
-            clsName = raw[tags.OBJECT]
-            cls = loadclass(self._getUpToDateClassName(clsName))
-            if hasattr(cls, 'makeRawCompatible') \
-                    and callable(getattr(cls, 'makeRawCompatible')):
-                cls.makeRawCompatible(raw)
+        for migrator in WALLET_RAW_MIGRATORS:
+            migrator(raw)
         return raw

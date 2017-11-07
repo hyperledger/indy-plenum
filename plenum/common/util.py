@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
@@ -57,6 +58,7 @@ def randomString(size: int = 20) -> str:
         assert (size > 0), "Expected random string size cannot be less than 1"
         # Approach 1
         rv = randombytes(size // 2).hex()
+
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
@@ -66,6 +68,16 @@ def randomString(size: int = 20) -> str:
         # return rstr[:size]
 
     return randomStr(size)
+
+
+def random_from_alphabet(size, alphabet):
+    """
+    Takes *size* random elements from provided alphabet
+    :param size:
+    :param alphabet:
+    """
+    import random
+    return list(random.choice(alphabet) for _ in range(size))
 
 
 def randomSeed(size=32):
@@ -496,6 +508,17 @@ def is_network_ip_address_valid(ip_address):
         return True
 
 
+def is_hostname_valid(hostname):
+    # Taken from https://stackoverflow.com/a/2532344
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]    # strip exactly one dot from the right,
+        # if present
+    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in hostname.split("."))
+
+
 def check_endpoint_valid(endpoint):
     if ':' not in endpoint:
         # TODO: replace with more suitable exception
@@ -535,21 +558,6 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def updateWalletsBaseDirNameIfOutdated(config):
-    """
-    Renames the wallets base directory if it has the outdated name.
-
-    :param config: the application configuration
-    """
-    if config.walletsDir == 'wallets':  # if the parameter is not overridden
-        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'keyrings'))
-        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'wallets'))
-        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
-            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

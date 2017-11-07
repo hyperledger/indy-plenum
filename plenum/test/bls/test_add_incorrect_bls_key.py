@@ -25,7 +25,7 @@ def test_add_incorrect_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          add_wrong=True)
 
 
-def test_update_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_incorrect_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                               poolTxnClientData,
                               stewards_and_wallets):
     '''
@@ -40,7 +40,7 @@ def test_update_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          add_wrong=True)
 
 
-def test_update_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_incorrect_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                 poolTxnClientData,
                                 stewards_and_wallets):
     '''
@@ -59,7 +59,7 @@ def test_update_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                          add_wrong=True)
 
 
-def test_update_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def test_add_incorrect_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                               poolTxnClientData,
                               stewards_and_wallets):
     '''

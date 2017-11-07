@@ -6,6 +6,7 @@ and receives result of the request execution from nodes.
 
 import copy
 import os
+import random
 import time
 from collections import deque, OrderedDict
 from functools import partial
@@ -284,22 +285,19 @@ class Client(Motor,
         errs = []
 
         for request in reqs:
-            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
-               (self.hasAnyConnections and
-               (request.txn_type in self._read_only_requests or request.isForced())):
-
-                recipients = \
-                    {r.name
-                     for r in self.nodestack.remotes.values()
-                     if self.nodestack.isRemoteConnected(r)}
+            is_read_only = request.txn_type in self._read_only_requests
+            if self.can_send_request(request):
+                recipients = self._connected_node_names
+                if is_read_only and len(recipients) > 1:
+                    recipients = random.sample(list(recipients), 1)
 
                 logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
 
-                stat, err_msg = self.send(request, *recipients)
+                stat, err_msg = self.sendToNodes(request, names=recipients)
 
                 if stat:
-                    self.expectingFor(request, recipients)
+                    self._expect_replies(request, recipients)
                 else:
                     errs.append(err_msg)
                     logger.debug(
@@ -344,29 +342,40 @@ class Client(Motor,
                     self.ledgerManager.processCatchupRep(cMsg, frm)
             elif msg[OP_FIELD_NAME] == REQACK:
                 self.reqRepStore.addAck(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REQNACK:
                 self.reqRepStore.addNack(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REJECT:
                 self.reqRepStore.addReject(msg, frm)
-                self.gotExpected(msg, frm)
+                self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
                 identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-                numReplies = self.reqRepStore.addReply(identifier, reqId, frm,
+                numReplies = self.reqRepStore.addReply(identifier,
+                                                       reqId,
+                                                       frm,
                                                        result)
-                self.gotExpected(msg, frm)
+
+                self._got_expected(msg, frm)
                 self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
 
     def postReplyRecvd(self, identifier, reqId, frm, result, numReplies):
-        if not self.txnLog.hasTxn(identifier, reqId) and numReplies > self.f:
-            replies = self.reqRepStore.getReplies(identifier, reqId).values()
-            reply = checkIfMoreThanFSameItems(replies, self.f)
+        if not self.txnLog.hasTxn(identifier, reqId):
+            reply, _ = self.getReply(identifier, reqId)
             if reply:
                 self.txnLog.append(identifier, reqId, reply)
                 return reply
+            # Reply is not verified
+            key = (identifier, reqId)
+            if key not in self.expectingRepliesFor and numReplies == 1:
+                # only one node was asked, but its reply cannot be confirmed,
+                # so ask other nodes
+                recipients = self._connected_node_names.difference({frm})
+                self.resendRequests({
+                    (identifier, reqId): recipients
+                }, force_expect=True)
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -593,20 +602,33 @@ class Client(Motor,
     def hasAnyConnections(self):
         return len(self.nodestack.conns) > 0
 
-    def hasMadeRequest(self, identifier, reqId: int):
-        return self.reqRepStore.hasRequest(identifier, reqId)
+    def can_send_write_requests(self):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if not self.hasSufficientConnections:
+            return False
+        return True
 
-    def isRequestSuccessful(self, identifier, reqId):
-        acks = self.reqRepStore.getAcks(identifier, reqId)
-        nacks = self.reqRepStore.getNacks(identifier, reqId)
-        f = getMaxFailures(len(self.nodeReg))
-        if len(acks) > f:
-            return True, "Done"
-        elif len(nacks) > f:
-            # TODO: What if the the nacks were different from each node?
-            return False, list(nacks.values())[0]
-        else:
-            return None
+    def can_send_read_requests(self):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if not self.hasAnyConnections:
+            return False
+        return True
+
+    def can_send_request(self, request):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if self.hasSufficientConnections:
+            return True
+        if not self.hasAnyConnections:
+            return False
+        if request.isForced():
+            return True
+        is_read_only = request.txn_type in self._read_only_requests
+        if is_read_only:
+            return True
+        return False
 
     def pendReqsTillConnection(self, request, signer=None):
         """
@@ -626,104 +648,108 @@ class Client(Motor,
             tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                if (self.hasSufficientConnections and self.mode == Mode.discovered) or (
-                        req.isForced() and self.hasAnyConnections):
+                if self.can_send_request(req):
                     self.send(req, signer=signer)
                 else:
                     tmp.append((req, signer))
             self.reqsPendingConnection.extend(tmp)
 
-    def expectingFor(self, request: Request, nodes: Optional[Set[str]] = None):
-        nodes = nodes or {r.name for r in self.nodestack.remotes.values()
-                          if self.nodestack.isRemoteConnected(r)}
+    def _expect_replies(self, request: Request,
+                        nodes: Optional[Set[str]] = None):
+        nodes = nodes if nodes else self._connected_node_names
         now = time.perf_counter()
         self.expectingAcksFor[request.key] = (nodes, now, 0)
         self.expectingRepliesFor[request.key] = (copy.copy(nodes), now, 0)
-        self.startRepeating(self.retryForExpected,
+        self.startRepeating(self._retry_for_expected,
                             self.config.CLIENT_REQACK_TIMEOUT)
 
-    def gotExpected(self, msg, frm):
+    @property
+    def _connected_node_names(self):
+        return {
+            remote.name
+            for remote in self.nodestack.remotes.values()
+            if self.nodestack.isRemoteConnected(remote)
+        }
+
+    def _got_expected(self, msg, sender):
+
+        def drop(req, register):
+            key = (req.get(f.IDENTIFIER.nm), req.get(f.REQ_ID.nm))
+            if key in register:
+                received = register[key][0]
+                if sender in received:
+                    received.remove(sender)
+                if not received:
+                    register.pop(key)
+
         if msg[OP_FIELD_NAME] == REQACK:
-            container = msg
-            colls = (self.expectingAcksFor,)
+            drop(msg, self.expectingAcksFor)
         elif msg[OP_FIELD_NAME] == REPLY:
-            container = msg[f.RESULT.nm]
-            # If an REQACK sent by node was lost, the request when sent again
-            # would fetch the reply or the client might just lose REQACK and not
-            # REPLY so when REPLY received, request does not need to be resent
-            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+            drop(msg[f.RESULT.nm], self.expectingAcksFor)
+            drop(msg[f.RESULT.nm], self.expectingRepliesFor)
         elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
-            container = msg
-            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+            drop(msg, self.expectingAcksFor)
+            drop(msg, self.expectingRepliesFor)
         else:
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 
-        idr = container.get(f.IDENTIFIER.nm)
-        reqId = container.get(f.REQ_ID.nm)
-        key = (idr, reqId)
-        for coll in colls:
-            if key in coll:
-                if frm in coll[key][0]:
-                    coll[key][0].remove(frm)
-                if not coll[key][0]:
-                    coll.pop(key)
+        if not self.expectingAcksFor and not self.expectingRepliesFor:
+            self._stop_expecting()
 
-        if not (self.expectingAcksFor or self.expectingRepliesFor):
-            self.stopRetrying()
+    def _stop_expecting(self):
+        self.stopRepeating(self._retry_for_expected, strict=False)
 
-    def stopRetrying(self):
-        self.stopRepeating(self.retryForExpected, strict=False)
-
-    def _filterExpected(self, now, queue, retryTimeout, maxRetry):
-        deadRequests = []
-        aliveRequests = {}
-        notAnsweredNodes = set()
-        for requestKey, (expectedFrom, lastTried, retries) in queue.items():
-            if now < lastTried + retryTimeout:
+    def _filter_expected(self, now, queue, retry_timeout, max_retry):
+        dead_requests = []
+        alive_requests = {}
+        not_answered_nodes = set()
+        for requestKey, (expected_from, last_tried, retries) in queue.items():
+            if now < last_tried + retry_timeout:
                 continue
-            if retries >= maxRetry:
-                deadRequests.append(requestKey)
+            if retries >= max_retry:
+                dead_requests.append(requestKey)
                 continue
-            if requestKey not in aliveRequests:
-                aliveRequests[requestKey] = set()
-            aliveRequests[requestKey].update(expectedFrom)
-            notAnsweredNodes.update(expectedFrom)
-        return deadRequests, aliveRequests, notAnsweredNodes
+            if requestKey not in alive_requests:
+                alive_requests[requestKey] = set()
+            alive_requests[requestKey].update(expected_from)
+            not_answered_nodes.update(expected_from)
+        return dead_requests, alive_requests, not_answered_nodes
 
-    def retryForExpected(self):
+    def _retry_for_expected(self):
         now = time.perf_counter()
 
-        requestsWithNoAck, aliveRequests, notAckedNodes = \
-            self._filterExpected(now,
-                                 self.expectingAcksFor,
-                                 self.config.CLIENT_REQACK_TIMEOUT,
-                                 self.config.CLIENT_MAX_RETRY_ACK)
+        requests_with_no_ack, alive_requests, not_acked_nodes = \
+            self._filter_expected(now,
+                                  self.expectingAcksFor,
+                                  self.config.CLIENT_REQACK_TIMEOUT,
+                                  self.config.CLIENT_MAX_RETRY_ACK)
 
-        requestsWithNoReply, aliveRequests, notRepliedNodes = \
-            self._filterExpected(now,
-                                 self.expectingRepliesFor,
-                                 self.config.CLIENT_REPLY_TIMEOUT,
-                                 self.config.CLIENT_MAX_RETRY_REPLY)
+        requests_with_no_reply, alive_requests, not_replied_nodes = \
+            self._filter_expected(now,
+                                  self.expectingRepliesFor,
+                                  self.config.CLIENT_REPLY_TIMEOUT,
+                                  self.config.CLIENT_MAX_RETRY_REPLY)
 
-        for requestKey in requestsWithNoAck:
+        for request_key in requests_with_no_ack:
             logger.debug('{} have got no ACKs for {} and will not try again'
-                         .format(self, requestKey))
-            self.expectingAcksFor.pop(requestKey)
+                         .format(self, request_key))
+            self.expectingAcksFor.pop(request_key)
 
-        for requestKey in requestsWithNoReply:
+        for request_key in requests_with_no_reply:
             logger.debug('{} have got no REPLYs for {} and will not try again'
-                         .format(self, requestKey))
-            self.expectingRepliesFor.pop(requestKey)
+                         .format(self, request_key))
+            self.expectingRepliesFor.pop(request_key)
 
-        if notAckedNodes:
+        if not_acked_nodes:
             logger.debug('{} going to retry for {}'
                          .format(self, self.expectingAcksFor.keys()))
-        for nm in notAckedNodes:
+
+        for node_name in not_acked_nodes:
             try:
-                remote = self.nodestack.getRemote(nm)
+                remote = self.nodestack.getRemote(node_name)
             except RemoteNotFound:
                 logger.warning('{}{} could not find remote {}'
-                               .format(CONNECTION_PREFIX, self, nm))
+                               .format(CONNECTION_PREFIX, self, node_name))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
@@ -734,7 +760,7 @@ class Client(Motor,
             # self.nodestack.connect(name=remote.name)
             self.nodestack.maintainConnections(force=True)
 
-        if aliveRequests:
+        if alive_requests:
             # Need a delay in case connection has to be established with some
             # nodes, a better way is not to assume the delay value but only
             # send requests once the connection is established. Also it is
@@ -743,10 +769,10 @@ class Client(Motor,
             # the value in stats of the stack and look for changes in count of
             # `message_reject_rx` but that is not very helpful either since
             # it does not record which node rejected
-            delay = 3 if notAckedNodes else 0
-            self._schedule(partial(self.resendRequests, aliveRequests), delay)
+            delay = 3 if not_acked_nodes else 0
+            self._schedule(partial(self.resendRequests, alive_requests), delay)
 
-    def resendRequests(self, keys):
+    def resendRequests(self, keys, force_expect=False):
         for key, nodes in keys.items():
             if not nodes:
                 continue
@@ -759,6 +785,8 @@ class Client(Motor,
                 if key in queue:
                     _, _, retries = queue[key]
                     queue[key] = (nodes, now, retries + 1)
+                elif force_expect:
+                    queue[key] = (nodes, now, 1)
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(
@@ -776,7 +804,7 @@ class Client(Motor,
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         rids = [rid for rid, r in self.nodestack.remotes.items()
                 if r.name in names]
-        self.send(msg, *rids)
+        return self.send(msg, *rids)
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:

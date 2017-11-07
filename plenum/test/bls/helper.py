@@ -5,13 +5,15 @@ from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch, randomString
+from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import updateNodeData, buildPoolClientAndWallet, new_client
+from plenum.test.pool_transactions.helper import updateNodeData, new_client
+
 
 def generate_state_root():
     return base58.b58encode(os.urandom(32))
+
 
 def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
                                    client, wallet,
@@ -154,7 +156,12 @@ def change_bls_key(looper, txnPoolNodeSet, tdirWithPoolTxns,
                    steward_client, steward_wallet,
                    add_wrong=False):
     new_blspk = init_bls_keys(tdirWithPoolTxns, node.name)
-    key_in_txn = new_blspk if not add_wrong else randomString(32)
+
+    key_in_txn = \
+        new_blspk \
+        if not add_wrong \
+        else ''.join(random_from_alphabet(32, base58.alphabet))
+
     node_data = {
         ALIAS: node.name,
         BLS_KEY: key_in_txn

@@ -300,15 +300,12 @@ async def aSetupClient(looper: Looper,
 def randomOperation():
     return {
         "type": "buy",
-        "amount": random.randint(10, 100)
+        "amount": random.randint(10, 100000)
     }
 
 
 def random_requests(count):
-    return [{
-        "type": "buy",
-        "amount": random.randint(10, 100)
-    } for _ in range(count)]
+    return [randomOperation() for _ in range(count)]
 
 
 def random_request_objects(count, protocol_version):
@@ -920,6 +917,7 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
     # TODO: Move this logic to eventuallyAll
     def chk():
         fails = 0
+        last_ex = None
         for func in funcs:
             try:
                 func()
@@ -927,7 +925,8 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                 fails += 1
                 if fails >= acceptable_fails:
                     logger.debug('Too many fails, the last one: {}'.format(repr(ex)))
-        assert fails <= acceptable_fails
+                last_ex = ex
+        assert fails <= acceptable_fails, str(last_ex)
 
     kwargs = {}
     if retry_wait:

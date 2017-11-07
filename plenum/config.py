@@ -99,14 +99,20 @@ notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     },
     'nodeRequestSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     }
 }
+
+SpikeEventsEnabled = False
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'

@@ -48,6 +48,7 @@ from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from hashlib import sha256
+from plenum.common.messages.node_messages import Reply
 
 logger = getlogger()
 
@@ -58,14 +59,13 @@ class TestDomainRequestHandler(DomainRequestHandler):
     def prepare_buy_for_state(txn):
         from common.serializers.serialization import domain_state_serializer
         identifier = txn.get(f.IDENTIFIER.nm)
-        request_id = txn.get(f.REQ_ID.nm)
-        value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, request_id)
+        value = domain_state_serializer.serialize({"amount": txn['amount']})
+        key = TestDomainRequestHandler.prepare_buy_key(identifier)
         return key, value
 
     @staticmethod
-    def prepare_buy_key(identifier, request_id):
-        return sha256('{}:{}'.format(identifier, request_id).encode()).digest()
+    def prepare_buy_key(identifier):
+        return sha256('{}:buy'.format(identifier).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
@@ -181,6 +181,12 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def resetDelaysClient(self):
+        logger.debug("{} resetting delays for client".format(self))
+        self.nodestack.resetDelays()
+        self.clientstack.resetDelays()
+        self.clientIbStasher.resetDelays()
+
     def force_process_delayeds(self):
         c = self.nodestack.force_process_delayeds()
         c += self.nodeIbStasher.force_unstash()
@@ -190,9 +196,20 @@ class TestNodeCore(StackedTester):
                      "{} processed in total".format(self, c))
         return c
 
+    def force_process_delayeds_for_client(self):
+        c = self.clientstack.force_process_delayeds()
+        c += self.clientIbStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages for clients, "
+                     "{} processed in total".format(self, c))
+        return c
+
     def reset_delays_and_process_delayeds(self):
         self.resetDelays()
         self.force_process_delayeds()
+
+    def reset_delays_and_process_delayeds_for_clients(self):
+        self.resetDelaysClient()
+        self.force_process_delayeds_for_client()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
@@ -251,10 +268,27 @@ class TestNodeCore(StackedTester):
                                         self.reqProcessors,
                                         self.bls_bft.bls_store)
 
+    def processRequest(self, request, frm):
+        if request.operation[TXN_TYPE] == 'get_buy':
+            self.send_ack_to_client(request.key, frm)
+
+            identifier = request.identifier
+            buy_key = self.reqHandler.prepare_buy_key(identifier)
+            result = self.reqHandler.state.get(buy_key)
+
+            res = {
+                f.IDENTIFIER.nm: identifier,
+                f.REQ_ID.nm: request.reqId,
+                "buy": result
+            }
+
+            self.transmitToClient(Reply(res), frm)
+        else:
+            super().processRequest(request, frm)
 
 node_spyables = [Node.handleOneNodeMsg,
                  Node.handleInvalidClientMsg,
-                 Node.processRequest,
+                 Node.processRequest.__name__,
                  Node.processOrdered,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,

@@ -965,6 +965,10 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: a PREPARE msg
         :param sender: name of the node that sent the PREPARE
         """
+        key = (prepare.viewNo, prepare.ppSeqNo)
+        logger.debug("{} received PREPARE{} from {}"
+                     .format(self, key, sender))
+
         # TODO move this try/except up higher
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
