@@ -18,6 +18,31 @@ class HasActionQueue:
         self.aqNextCheck = float('inf')  # next time to check
         self.aid = 0  # action id
         self.repeatingActions = set()
+        self.scheduled = dict()
+
+    def _cancel(self, action: Callable = None, aid: int = None):
+        """
+        Cancel scheduled events
+
+        :param action:  (optional) scheduled action. If specified, all
+                scheduled events for the action are cancelled.
+        :param aid:     (options) scheduled event id. If specified,
+                scheduled event with the aid is cancelled.
+        """
+        if action is not None:
+            if action in self.scheduled:
+                logger.trace("{} cancelling all events for action {}, ids: {}"
+                             "".format(self, action, self.scheduled[action]))
+                self.scheduled[action].clear()
+        elif aid is not None:
+            for action, aids in self.scheduled.items():
+                try:
+                    aids.remove(aid)
+                except ValueError:
+                    pass
+                else:
+                    logger.trace("{} cancelled action {} with id {}".format(self, action, aid))
+                    break
 
     def _schedule(self, action: Callable, seconds: int=0) -> int:
         """
@@ -39,6 +64,11 @@ class HasActionQueue:
             logger.trace("{} scheduling action {} with id {} to run now".
                          format(self, get_func_name(action), self.aid))
             self.actionQueue.append((action, self.aid))
+
+        if action not in self.scheduled:
+            self.scheduled[action] = []
+        self.scheduled[action].append(self.aid)
+
         return self.aid
 
     def _serviceActions(self) -> int:
@@ -62,9 +92,15 @@ class HasActionQueue:
         count = len(self.actionQueue)
         while self.actionQueue:
             action, aid = self.actionQueue.popleft()
-            logger.trace("{} running action {} with id {}".
-                         format(self, get_func_name(action), aid))
-            action()
+            assert action in self.scheduled
+            if aid in self.scheduled[action]:
+                self.scheduled[action].remove(aid)
+                logger.trace("{} running action {} with id {}".
+                             format(self, get_func_name(action), aid))
+                action()
+            else:
+                logger.trace("{} not running cancelled action {} with id {}".
+                             format(self, get_func_name(action), aid))
         return count
 
     def startRepeating(self, action: Callable, seconds: int):
