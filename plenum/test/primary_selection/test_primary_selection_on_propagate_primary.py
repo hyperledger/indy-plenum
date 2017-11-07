@@ -53,8 +53,6 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
 
 def test_primary_selection_on_propogate_primary(txnPoolNodeSet,
         nodeSetWithNodeAddedAfterSomeTxns):
-    assert txnPoolNodeSet[0].viewNo == len(txnPoolNodeSet) - 1
-
     looper, _, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
 
     logger.debug("Send requests to ensure that pool is working properly, "
