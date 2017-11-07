@@ -286,8 +286,7 @@ class Client(Motor,
 
         for request in reqs:
             is_read_only = request.txn_type in self._read_only_requests
-            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
-               (self.hasAnyConnections and (is_read_only or request.isForced())):
+            if self.can_send_request(request):
                 recipients = self._connected_node_names
                 if is_read_only and len(recipients) > 1:
                     recipients = random.sample(list(recipients), 1)
@@ -603,6 +602,34 @@ class Client(Motor,
     def hasAnyConnections(self):
         return len(self.nodestack.conns) > 0
 
+    def can_send_write_requests(self):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if not self.hasSufficientConnections:
+            return False
+        return True
+
+    def can_send_read_requests(self):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if not self.hasAnyConnections:
+            return False
+        return True
+
+    def can_send_request(self, request):
+        if not Mode.is_done_discovering(self.mode):
+            return False
+        if self.hasSufficientConnections:
+            return True
+        if not self.hasAnyConnections:
+            return False
+        if request.isForced():
+            return True
+        is_read_only = request.txn_type in self._read_only_requests
+        if is_read_only:
+            return True
+        return False
+
     def pendReqsTillConnection(self, request, signer=None):
         """
         Enqueue requests that need to be submitted until the client has
@@ -621,8 +648,7 @@ class Client(Motor,
             tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                if (self.hasSufficientConnections and self.mode == Mode.discovered) or (
-                        req.isForced() and self.hasAnyConnections):
+                if self.can_send_request(req):
                     self.send(req, signer=signer)
                 else:
                     tmp.append((req, signer))
