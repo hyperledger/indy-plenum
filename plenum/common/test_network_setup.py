@@ -14,7 +14,7 @@ from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.common.constants import STEWARD, TRUSTEE
-from plenum.common.util import hexToFriendly
+from plenum.common.util import hexToFriendly, is_hostname_valid
 from plenum.common.signer_did import DidSigner
 from stp_core.common.util import adict
 from plenum.common.sys_util import copyall
@@ -167,12 +167,12 @@ class TestNetworkSetup:
                             help='the number of the node that will '
                                  'run on this machine')
         parser.add_argument('--ips',
-                            help='IPs of the nodes, provide comma separated'
-                                 ' IPs, if no of IPs provided are less than '
-                                 'number of nodes then the '
-                                 'remaining nodes are assigned the loopback '
-                                 'IP, i.e 127.0.0.1',
-                            type=cls._bootstrapArgsTypeIps)
+                            help='IPs/hostnames of the nodes, provide comma '
+                                 'separated IPs, if no of IPs provided are less'
+                                 ' than number of nodes then the remaining '
+                                 'nodes are assigned the loopback IP, '
+                                 'i.e 127.0.0.1',
+                            type=cls._bootstrap_args_type_ips_hosts)
         parser.add_argument('--network',
                             help='Network name (default sandbox)',
                             type=str,
@@ -232,18 +232,21 @@ class TestNetworkSetup:
         return n
 
     @staticmethod
-    def _bootstrapArgsTypeIps(ipsStrArg):
+    def _bootstrap_args_type_ips_hosts(ips_hosts_str_arg):
         ips = []
-        for ip in ipsStrArg.split(','):
-            ip = ip.strip()
+        for arg in ips_hosts_str_arg.split(','):
+            arg = arg.strip()
             try:
-                ipaddress.ip_address(ip)
+                ipaddress.ip_address(arg)
             except ValueError:
-                raise argparse.ArgumentTypeError(
-                    "'{}' is an invalid IP address".format(ip)
-                )
+                if not is_hostname_valid(arg):
+                    raise argparse.ArgumentTypeError(
+                        "'{}' is not a valid IP or hostname".format(arg)
+                    )
+                else:
+                    ips.append(arg)
             else:
-                ips.append(ip)
+                ips.append(arg)
         return ips
 
     @classmethod

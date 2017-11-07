@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
@@ -507,6 +508,17 @@ def is_network_ip_address_valid(ip_address):
         return True
 
 
+def is_hostname_valid(hostname):
+    # Taken from https://stackoverflow.com/a/2532344
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]    # strip exactly one dot from the right,
+        # if present
+    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in hostname.split("."))
+
+
 def check_endpoint_valid(endpoint):
     if ':' not in endpoint:
         # TODO: replace with more suitable exception
@@ -546,21 +558,6 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def updateWalletsBaseDirNameIfOutdated(config):
-    """
-    Renames the wallets base directory if it has the outdated name.
-
-    :param config: the application configuration
-    """
-    if config.walletsDir == 'wallets':  # if the parameter is not overridden
-        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'keyrings'))
-        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'wallets'))
-        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
-            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):
