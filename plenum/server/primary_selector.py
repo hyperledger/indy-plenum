@@ -1,6 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
@@ -38,6 +38,10 @@ class PrimarySelector(PrimaryDecider):
         self._has_acceptable_view_change_quorum = False
 
         self._accepted_view_change_done_message = None
+
+        # accept any primary if propagating view change done megs
+        # for already completed view change
+        self._accept_primary_for_completed_view_change = False
 
     @property
     def quorum(self) -> int:
@@ -79,7 +83,17 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
-        if self.node.is_synced and self.master_replica.isPrimary is None:
+        if self.node.propagate_primary:
+            accepted = self.get_sufficient_same_view_change_done_messages()
+            if accepted is not None and \
+                    self.ledger_summary[POOL_LEDGER_ID][1] > accepted[1][POOL_LEDGER_ID][1]:
+                logger.debug("{} Primary selection has been already completed on "
+                             "pool ledger size = {}, primary {}".format(
+                                 self, accepted[1][POOL_LEDGER_ID][1], accepted[0]))
+                self._accept_primary_for_completed_view_change = True
+
+        if self.node.is_synced and self.master_replica.isPrimary is None and \
+                not self._accept_primary_for_completed_view_change:
             self._send_view_change_done_message()
         self._start_selection()
 
@@ -140,32 +154,20 @@ class PrimarySelector(PrimaryDecider):
 
         self._start_selection()
 
-    def _verify_view_change(self):
-        if not self.has_acceptable_view_change_quorum:
-            return "has no view change quorum or no message from next primary"
-
-        rv = self.has_sufficient_same_view_change_done_messages
-        if rv is None:
-            return "there are not sufficient same ViewChangeDone messages"
-
-        if not self._verify_primary(*rv):
-            return "failed to verify primary"
-
-        return None
-
     def _verify_primary(self, new_primary, ledger_info):
         """
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
         """
 
-        expected_primary = self.next_primary_node_name(0)
-        if new_primary != expected_primary:
-            logger.error("{}{} expected next primary to be {}, but majority "
-                         "declared {} instead for view {}"
-                         .format(PRIMARY_SELECTION_PREFIX, self.name,
-                                 expected_primary, new_primary, self.viewNo))
-            return False
+        if not self._accept_primary_for_completed_view_change:
+            expected_primary = self.next_primary_node_name(0)
+            if new_primary != expected_primary:
+                logger.error("{}{} expected next primary to be {}, but majority "
+                             "declared {} instead for view {}"
+                             .format(PRIMARY_SELECTION_PREFIX, self.name,
+                                     expected_primary, new_primary, self.viewNo))
+                return False
 
         self.primary_verified = True
         return True
@@ -198,7 +200,8 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def has_view_change_from_primary(self) -> bool:
-        if not self._has_view_change_from_primary:
+        if not (self._has_view_change_from_primary or
+                self._accept_primary_for_completed_view_change):
             next_primary_name = self.next_primary_node_name(0)
 
             if next_primary_name not in self._view_change_done:
@@ -209,10 +212,10 @@ class PrimarySelector(PrimaryDecider):
                         self.viewNo, self.node.totalNodes))
                 return False
             else:
-                self._has_view_change_from_primary = True
+                logger.debug('{} received ViewChangeDone from primary {}'
+                             .format(self, next_primary_name))
 
-        logger.debug('{} received ViewChangeDone from primary {}'
-                     .format(self, self.next_primary_node_name(0)))
+        self._has_view_change_from_primary = True
         return True
 
     @property
@@ -222,8 +225,7 @@ class PrimarySelector(PrimaryDecider):
                 self._hasViewChangeQuorum and self.has_view_change_from_primary
         return self._has_acceptable_view_change_quorum
 
-    @property
-    def has_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
+    def get_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
         # Returns whether has a quorum of ViewChangeDone messages that are same
         # TODO: Does not look like optimal implementation.
         if self._accepted_view_change_done_message is None and \
@@ -249,26 +251,33 @@ class PrimarySelector(PrimaryDecider):
         # Checks if the node is currently behind the accepted state for this
         # view, only makes sense to call when the node has an acceptable
         # view change quorum
-        _, accepted_ledger_summary = self.has_sufficient_same_view_change_done_messages
-        for (_, own_ledger_size, _), (_, accepted_ledger_size, _) in \
+        _, accepted_ledger_summary = self.get_sufficient_same_view_change_done_messages()
+        for (ledgerId, own_ledger_size, _), (_, accepted_ledger_size, _) in \
                 zip(self.ledger_summary, accepted_ledger_summary):
             if own_ledger_size < accepted_ledger_size:
-                print(own_ledger_size, accepted_ledger_size)
+                logger.debug("{} ledger {} sizes are differ: own {} accepted {}"
+                             "".format(self, ledgerId, own_ledger_size, accepted_ledger_size))
                 return True
         return False
 
     def _start_selection(self):
 
-        error = self._verify_view_change()
-
-        if error:
-            logger.debug('{} cannot start primary selection because {}'
-                         .format(self, error))
-            return
+        error = None
 
         if not self.node.is_synced:
-            logger.debug('{} cannot start primary selection since mode is {}'
-                         .format(self, self.node.mode))
+            error = "mode is {}".format(self.node.mode)
+        elif not self.has_acceptable_view_change_quorum:
+            error = "has no view change quorum or no message from next primary"
+        else:
+            rv = self.get_sufficient_same_view_change_done_messages()
+            if rv is None:
+                error = "there are not sufficient same ViewChangeDone messages"
+            elif not self._verify_primary(*rv):
+                error = "failed to verify primary"
+
+        if error is not None:
+            logger.debug('{} cannot start primary selection because {}'
+                         .format(self, error))
             return
 
         if self.is_behind_for_view:
@@ -279,11 +288,23 @@ class PrimarySelector(PrimaryDecider):
             return
 
         logger.debug("{} starting selection".format(self))
+
+        nodeReg = None
+        # in case of already completed view change
+        # use node registry actual for the moment when
+        # it happened
+        if self._accept_primary_for_completed_view_change:
+            assert self._accepted_view_change_done_message is not None
+            ledger_summary = self._accepted_view_change_done_message[1]
+            pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
+            nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
+
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
-            new_primary_name = self.next_primary_replica_name(instance_id)
+            new_primary_name = self.next_primary_replica_name(
+                instance_id, nodeReg=nodeReg)
             logger.display("{}{} selected primary {} for instance {} (view {})"
                            .format(PRIMARY_SELECTION_PREFIX, replica,
                                    new_primary_name, instance_id, self.viewNo),
@@ -314,26 +335,29 @@ class PrimarySelector(PrimaryDecider):
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
-    def _get_primary_id(self, view_no, instance_id):
-        return (view_no + instance_id) % self.node.totalNodes
+    def _get_primary_id(self, view_no, instance_id, total_nodes):
+        return (view_no + instance_id) % total_nodes
 
-    def next_primary_node_name(self, instance_id):
-        rank = self._get_primary_id(self.viewNo, instance_id)
-        name = self.node.get_name_by_rank(rank)
+    def next_primary_node_name(self, instance_id, nodeReg=None):
+        if nodeReg is None:
+            nodeReg = self.node.nodeReg
+        rank = self._get_primary_id(self.viewNo, instance_id, len(nodeReg))
+        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
 
-        assert name, ("{} failed to get node name for rank {}: "
-                      "view_no {}, instance_id {}, totalNodes {}".format(
-                          self, rank, self.viewNo, instance_id,
-                          self.node.totalNodes))
+        logger.trace("{} selected {} as next primary node for instId {}, "
+                     "viewNo {} with rank {}, nodeReg {}".format(
+                         self, name, instance_id, self.viewNo, rank, nodeReg))
+        assert name, "{} failed to get next primary node name".format(self)
+
         return name
 
-    def next_primary_replica_name(self, instance_id):
+    def next_primary_replica_name(self, instance_id, nodeReg=None):
         """
         Returns name of the next node which is supposed to be a new Primary
         in round-robin fashion
         """
         return Replica.generateName(
-            nodeName=self.next_primary_node_name(instance_id),
+            nodeName=self.next_primary_node_name(instance_id, nodeReg=nodeReg),
             instId=instance_id)
 
     def _send_view_change_done_message(self):
