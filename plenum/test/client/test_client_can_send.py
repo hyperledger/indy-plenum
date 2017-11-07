@@ -27,13 +27,13 @@ def cancel_slow_catch_up(nodes):
     reset_delays_and_process_delayeds_for_client(nodes)
 
 
-def can_send_write(client):
+def can_send_write_requests(client):
     if not client.can_send_write_requests():
         raise TestException('Client must be able to send write requests')
 
 
-def can_send_read(client):
-    if not client.can_send_write_requests():
+def can_send_read_requests(client):
+    if not client.can_send_read_requests():
         raise TestException('Client must be able to send read requests')
 
 
@@ -47,7 +47,7 @@ def test_client_can_send_write_requests_no_catchup(looper,
                                                    txnPoolNodeSet):
     client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
     looper.add(client)
-    looper.run(eventually(can_send_write, client))
+    looper.run(eventually(can_send_write_requests, client))
 
 
 def test_client_can_send_read_requests_no_catchup(looper,
@@ -55,7 +55,7 @@ def test_client_can_send_read_requests_no_catchup(looper,
                                                   txnPoolNodeSet):
     client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
     looper.add(client)
-    looper.run(eventually(can_send_read, client))
+    looper.run(eventually(can_send_read_requests, client))
 
 
 def test_client_can_send_request_no_catchup(looper,
@@ -76,10 +76,10 @@ def test_client_can_not_send_write_requests_until_catchup(looper,
     looper.add(client)
 
     with pytest.raises(TestException):
-        looper.run(eventually(can_send_write, client, timeout=4))
+        looper.run(eventually(can_send_write_requests, client, timeout=4))
 
     cancel_slow_catch_up(txnPoolNodeSet)
-    looper.run(eventually(can_send_write, client))
+    looper.run(eventually(can_send_write_requests, client))
 
 
 def test_client_can_send_read_requests_until_catchup(looper,
@@ -91,10 +91,10 @@ def test_client_can_send_read_requests_until_catchup(looper,
     looper.add(client)
 
     with pytest.raises(TestException):
-        looper.run(eventually(can_send_write, client, timeout=4))
+        looper.run(eventually(can_send_read_requests, client, timeout=4))
 
     cancel_slow_catch_up(txnPoolNodeSet)
-    looper.run(eventually(can_send_read, client))
+    looper.run(eventually(can_send_read_requests, client))
 
 
 def test_client_can_send_request_until_catchup(looper,
@@ -104,10 +104,10 @@ def test_client_can_send_request_until_catchup(looper,
 
     client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
     looper.add(client)
+    req = random_requests(1)[0]
 
     with pytest.raises(TestException):
-        looper.run(eventually(can_send_write, client, timeout=4))
+        looper.run(eventually(can_send_request, client, req, timeout=4))
 
     cancel_slow_catch_up(txnPoolNodeSet)
-    req = random_requests(1)[0]
     looper.run(eventually(can_send_request, client, req))
