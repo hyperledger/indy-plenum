@@ -20,30 +20,6 @@ class HasActionQueue:
         self.repeatingActions = set()
         self.scheduled = dict()
 
-    def _cancel(self, action: Callable = None, aid: int = None):
-        """
-        Cancel scheduled events
-
-        :param action:  (optional) scheduled action. If specified, all
-                scheduled events for the action are cancelled.
-        :param aid:     (options) scheduled event id. If specified,
-                scheduled event with the aid is cancelled.
-        """
-        if action is not None:
-            if action in self.scheduled:
-                logger.trace("{} cancelling all events for action {}, ids: {}"
-                             "".format(self, action, self.scheduled[action]))
-                self.scheduled[action].clear()
-        elif aid is not None:
-            for action, aids in self.scheduled.items():
-                try:
-                    aids.remove(aid)
-                except ValueError:
-                    pass
-                else:
-                    logger.trace("{} cancelled action {} with id {}".format(self, action, aid))
-                    break
-
     def _schedule(self, action: Callable, seconds: int=0) -> int:
         """
         Schedule an action to be executed after `seconds` seconds.
@@ -70,6 +46,30 @@ class HasActionQueue:
         self.scheduled[action].append(self.aid)
 
         return self.aid
+
+    def _cancel(self, action: Callable = None, aid: int = None):
+        """
+        Cancel scheduled events
+
+        :param action:  (optional) scheduled action. If specified, all
+                scheduled events for the action are cancelled.
+        :param aid:     (options) scheduled event id. If specified,
+                scheduled event with the aid is cancelled.
+        """
+        if action is not None:
+            if action in self.scheduled:
+                logger.trace("{} cancelling all events for action {}, ids: {}"
+                             "".format(self, action, self.scheduled[action]))
+                self.scheduled[action].clear()
+        elif aid is not None:
+            for action, aids in self.scheduled.items():
+                try:
+                    aids.remove(aid)
+                except ValueError:
+                    pass
+                else:
+                    logger.trace("{} cancelled action {} with id {}".format(self, action, aid))
+                    break
 
     def _serviceActions(self) -> int:
         """

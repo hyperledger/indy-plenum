@@ -481,11 +481,16 @@ class Client(Motor,
         logger.debug("Received a different result from "
                      "at least one node for {}"
                      .format(full_req_id))
-
-        result, freq = mostCommonElement(results)
-        if not self.quorums.reply.is_reached(freq):
+        try:
+            result, freq = mostCommonElement(results)
+        except Exception as exc:
+            # TODO a bug, results is list of non-hashable dict
+            # but only hashable elements are allowed
             return None
-        return result
+        else:
+            if not self.quorums.reply.is_reached(freq):
+                return None
+            return result
 
     def take_one_proved(self, replies, full_req_id):
         """
