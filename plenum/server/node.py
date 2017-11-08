@@ -1974,6 +1974,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             raise RuntimeError("unhandled replica-escalated exception") from ex
 
+    def _on_verified_instance_change_msg(self, msg, frm):
+        view_no = msg.viewNo
+
+        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
+            self.instanceChanges.addVote(msg, frm)
+            if view_no > self.viewNo:
+                self.do_view_change_if_possible(view_no)
+
     def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
         """
         Validate and process an instance change request.
@@ -1997,24 +2005,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
-            if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self.instanceChanges.addVote(instChg, frm)
-                self.do_view_change_if_possible(instChg.viewNo)
+            self._on_verified_instance_change_msg(instChg, frm)
 
-            if self.monitor.isMasterDegraded() and not \
-                    self.instanceChanges.hasInstChngFrom(instChg.viewNo,
-                                                         self.name):
+            if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
+                logger.debug(
+                    "{} received instance change message {} but has already "
+                    "sent an instance change message".format(self, instChg))
+            elif not self.monitor.isMasterDegraded():
+                logger.debug(
+                    "{} received instance change message {} but did not "
+                    "find the master to be slow".format(self, instChg))
+            else:
                 logger.info(
                     "{}{} found master degraded after receiving instance change"
                     " message from {}".format(
                         VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
-            else:
-                logger.debug(
-                    "{} received instance change message {} but did not "
-                    "find the master to be slow or has already sent an instance"
-                    " change message".format(
-                        self, instChg))
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
@@ -2127,10 +2133,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.send(msg)
             # record instance change vote for self and try to change the view
             # if quorum is reached
-            self.instanceChanges.addVote(msg, self.name)
-            # TODO seems it's a mandatory conditional for the whole method
-            if view_no > self.viewNo:
-                self.do_view_change_if_possible(view_no)
+            self._on_verified_instance_change_msg(msg, self.name)
         else:
             logger.debug(
                 "{} cannot send instance change sooner then {} seconds".format(
