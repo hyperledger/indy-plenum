@@ -45,7 +45,7 @@ def initNodeKeysForBothStacks(name, keys_dir, sigseed, *, use_bls=True, override
     return keys
 
 
-def areKeysSetup(name, keys_dir, config=None):
+def areKeysSetup(name, keys_dir):
     return nodeStackClass.areKeysSetup(name, keys_dir)
 
 

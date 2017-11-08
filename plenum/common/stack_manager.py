@@ -150,7 +150,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeys(self.keys_dir, remoteName, verkey, override=True)
+                initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
@@ -200,7 +200,7 @@ class TxnStackManager(metaclass=ABCMeta):
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
-        initRemoteKeys(self.keys_dir, remoteName, verkey, override=True)
+        initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)

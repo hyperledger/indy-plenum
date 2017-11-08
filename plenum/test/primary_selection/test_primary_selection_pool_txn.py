@@ -31,11 +31,11 @@ def test_primary_selection_non_genesis_node(one_node_added, looper,
 @pytest.fixture(scope='module')
 def two_more_nodes_added(one_node_added, looper, txnPoolNodeSet,
                          stewardWallet, steward1,
-                         tdirWithPoolTxns, tconf, allPluginsPath):
+                         tdir, client_tdir, tconf, allPluginsPath):
     # check_accepted_view_change_sent(one_node_added, txnPoolNodeSet)
 
     new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
-                            tdirWithPoolTxns, tconf, allPluginsPath)
+                            tdir, client_tdir, tconf, allPluginsPath)
 
     check_newly_added_nodes(looper, txnPoolNodeSet, new_nodes)
     return new_nodes

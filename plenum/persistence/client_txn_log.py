@@ -13,7 +13,7 @@ class ClientTxnLog(HasFileStorage):
     """
 
     def __init__(self, dataLocation):
-        HasFileStorage.__init__(dataLocation)
+        HasFileStorage.__init__(self, dataLocation)
         self.clientDataLocation = self.dataLocation
         if not os.path.exists(self.clientDataLocation):
             os.makedirs(self.clientDataLocation)

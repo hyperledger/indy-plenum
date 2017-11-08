@@ -30,6 +30,10 @@ class PConfigHelper():
     def plugins_dir(self):
         return self.chroot_if_needed(self.config.PLUGINS_DIR)
 
+    @property
+    def keys_dir(self):
+        return self.chroot_if_needed(self.config.KEYS_DIR)
+
 
 class PNodeConfigHelper(PConfigHelper):
 
@@ -41,10 +45,6 @@ class PNodeConfigHelper(PConfigHelper):
     @property
     def ledger_dir(self):
         return self.chroot_if_needed(os.path.join(self.config.LEDGER_DIR, 'data', self.name))
-
-    @property
-    def keys_dir(self):
-        return self.chroot_if_needed(os.path.join(self.config.KEYS_DIR, self.name))
 
 
 class PClientConfigHelper(PConfigHelper):

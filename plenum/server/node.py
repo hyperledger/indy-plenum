@@ -624,7 +624,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return bls_bft
 
     def update_bls_key(self, new_bls_key):
-        bls_crypto_factory = create_default_bls_crypto_factory(self.key_path, self.name)
+        bls_keys_dir = os.path.join(self.keys_dir, self.name)
+        bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
         self.bls_bft.bls_crypto_signer = None
 
         try:
@@ -1011,7 +1012,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: refactor this
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
-            self.replicas.grow()
+            self.replicas.grow(self.config)
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas) - 1)
         while len(self.replicas) > self.requiredNumberOfInstances:
@@ -2560,7 +2561,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check whether the keys are setup in the local STP keep.
         Raises KeysNotFoundException if not found.
         """
-        if not areKeysSetup(self.name, self.keys_dir, self.config):
+        if not areKeysSetup(self.name, self.keys_dir):
             raise REx(REx.reason.format(self.name) + self.keygenScript)
 
     @staticmethod

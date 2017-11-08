@@ -20,7 +20,7 @@ logger = getlogger()
 txnCount = 10
 
 
-def testNodeRejectingInvalidTxns(conf, txnPoolNodeSet, patched_node,
+def testNodeRejectingInvalidTxns(tconf, txnPoolNodeSet, patched_node,
                                  nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
@@ -40,7 +40,7 @@ def testNodeRejectingInvalidTxns(conf, txnPoolNodeSet, patched_node,
 
     # catchup #1 -> CatchupTransactionsTimeout -> catchup #2
     catchup_timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet) + 1)
-    timeout = 2 * catchup_timeout + conf.CatchupTransactionsTimeout
+    timeout = 2 * catchup_timeout + tconf.CatchupTransactionsTimeout
 
     # have to skip seqno_db check because the txns are not executed
     # on the new node

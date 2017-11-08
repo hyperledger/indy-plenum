@@ -31,33 +31,33 @@ def nodeReg():
     }
 
 
-def initLocalKeys(tdir_for_func, conf_for_func, nodeReg):
+def initLocalKeys(tdir_for_func, tconf_for_func, nodeReg):
     for nName in nodeReg.keys():
         sigseed = randomString(32).encode()
-        config_helper = PNodeConfigHelper(nName, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(nName, tconf_for_func, chroot=tdir_for_func)
         initNodeKeysForBothStacks(nName, config_helper.keys_dir, sigseed, override=True)
         logger.debug('Created keys for {}'.format(nName))
 
 
 @pytest.mark.skip(reason='INDY-109. Intermittent failures')
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, conf_for_func,
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_func,
                                        looper_without_nodeset_for_func,
                                        nodeReg):
     looper = looper_without_nodeset_for_func
-    initLocalKeys(tdir_for_func, conf_for_func, nodeReg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     nodes = []
     names = list(nodeReg.keys())
     logger.debug("Node names: {}".format(names))
 
     def create(name):
-        config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
                         ledger_dir=config_helper.ledger_dir,
                         keys_dir=config_helper.keys_dir,
                         genesis_dir=config_helper.genesis_dir,
                         plugins_dir=config_helper.plugins_dir,
-                        config=conf_for_func,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
         return node
@@ -87,22 +87,22 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, conf_for_f
     stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, conf_for_func,
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_for_func,
                                            looper_without_nodeset_for_func,
                                            nodeReg):
     looper = looper_without_nodeset_for_func
     nodes = []
 
-    initLocalKeys(tdir_for_func, conf_for_func, nodeReg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     for name in nodeReg:
-        config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
                         ledger_dir=config_helper.ledger_dir,
                         keys_dir=config_helper.keys_dir,
                         genesis_dir=config_helper.genesis_dir,
                         plugins_dir=config_helper.plugins_dir,
-                        config=conf_for_func,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -118,14 +118,14 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, conf_f
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, conf_for_func,
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_func,
                                       looper_without_nodeset_for_func,
                                       nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     looper = looper_without_nodeset_for_func
 
-    initLocalKeys(tdir_for_func, conf_for_func, nodeReg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     nodes = []
 
@@ -136,13 +136,13 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, conf_for_fu
     rwaits = [randint(1, 10) for _ in names]
 
     for name in names:
-        config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
                         ledger_dir=config_helper.ledger_dir,
                         keys_dir=config_helper.keys_dir,
                         genesis_dir=config_helper.genesis_dir,
                         plugins_dir=config_helper.plugins_dir,
-                        config=conf_for_func,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -173,7 +173,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, conf_for_fu
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdir_for_func, conf_for_func,
+def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
                        looper_without_nodeset_for_func,
                        nodeReg):
     console = getConsole()
@@ -181,18 +181,18 @@ def testNodeConnection(allPluginsPath, tdir_for_func, conf_for_func,
     looper = looper_without_nodeset_for_func
     names = ["Alpha", "Beta"]
     nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir_for_func, conf_for_func, nrg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
 
     logger.debug(names)
     nodes = []
     for name in names:
-        config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nrg,
                         ledger_dir=config_helper.ledger_dir,
                         keys_dir=config_helper.keys_dir,
                         genesis_dir=config_helper.genesis_dir,
                         plugins_dir=config_helper.plugins_dir,
-                        config=conf_for_func,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -214,7 +214,7 @@ def testNodeConnection(allPluginsPath, tdir_for_func, conf_for_func,
     stopNodes([A, B], looper)
 
 
-def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, conf_for_func,
+def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
                                 looper_without_nodeset_for_func,
                                 nodeReg):
     """
@@ -225,18 +225,18 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, conf_for_func,
     looper = looper_without_nodeset_for_func
     names = ["Alpha", "Beta"]
     nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir_for_func, conf_for_func, nrg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
     logger.debug(names)
 
     nodes = []
     for name in names:
-        config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nrg,
                         ledger_dir=config_helper.ledger_dir,
                         keys_dir=config_helper.keys_dir,
                         genesis_dir=config_helper.genesis_dir,
                         plugins_dir=config_helper.plugins_dir,
-                        config=conf_for_func,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -249,14 +249,14 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, conf_for_func,
     looper.run(checkNodesConnected(nodes))
 
     name = "Gamma"
-    initLocalKeys(tdir_for_func, conf_for_func, {name: nodeReg[name]})
-    config_helper = PNodeConfigHelper(name, conf_for_func, chroot=tdir_for_func)
+    initLocalKeys(tdir_for_func, tconf_for_func, {name: nodeReg[name]})
+    config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
     C = TestNode(name, {**nrg, **{name: nodeReg[name]}},
                  ledger_dir=config_helper.ledger_dir,
                  keys_dir=config_helper.keys_dir,
                  genesis_dir=config_helper.genesis_dir,
                  plugins_dir=config_helper.plugins_dir,
-                 config=conf_for_func,
+                 config=tconf_for_func,
                  pluginPaths=allPluginsPath)
     for node in nodes:
         tellKeysToOthers(node, [C, ])

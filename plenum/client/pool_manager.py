@@ -20,8 +20,10 @@ t = f.TXN.nm
 class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
+        #assert hasattr(self, "name")
+
         self._ledgerFile = None
-        TxnStackManager.__init__(self, self.name, self.basedirpath,
+        TxnStackManager.__init__(self, self.name, self.genesis_dir, self.keys_dir,
                                  isNode=False)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg

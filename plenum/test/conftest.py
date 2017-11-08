@@ -301,9 +301,9 @@ def logcapture(request, whitelist, concerningLogLevels):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, conf, nodeReg, allPluginsPath, patchPluginManager):
+def nodeSet(request, tdir, tconf, nodeReg, allPluginsPath, patchPluginManager):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
-    with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
+    with TestNodeSet(tconf, nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
                      pluginPaths=allPluginsPath) as ns:
         yield ns
@@ -326,9 +326,28 @@ def tdir_for_func(tmpdir_factory):
     return tempdir
 
 
-def _user_conf(tmp_dir):
+def _client_tdir(temp_dir):
+    path = os.path.join(temp_dir, "home", "testuser")
+    os.makedirs(path)
+    return path
+
+
+@pytest.fixture(scope='module')
+def client_tdir(tdir):
+    tempdir = _client_tdir(tdir)
+    logger.debug("module-level client temporary directory: {}".format(tempdir))
+    return tempdir
+
+
+@pytest.fixture(scope='function')
+def client_tdir_for_func(tdir_for_func):
+    tempdir = _client_tdir(tdir_for_func)
+    logger.debug("function-level client temporary directory: {}".format(tempdir))
+    return tempdir
+
+
+def _user_tconf(tmp_dir):
     user_config_dir = os.path.join(tmp_dir, USER_CONFIG_DIR)
-    logger.debug("module-level user config directory: {}".format(user_config_dir))
     os.makedirs(user_config_dir)
     user_config = os.path.join(user_config_dir, plenum_config.USER_CONFIG_FILE)
     shutil.copy(platform_config.__file__, user_config)
@@ -336,20 +355,20 @@ def _user_conf(tmp_dir):
 
 
 @pytest.fixture(scope='module')
-def user_conf(tdir):
-    user_config_dir = _user_conf(tdir)
+def user_tconf(tdir):
+    user_config_dir = _user_tconf(tdir)
     logger.debug("module-level user config directory: {}".format(user_config_dir))
     return user_config_dir
 
 
 @pytest.fixture()
-def user_conf_for_func(tdir_for_func):
-    user_config_dir = _user_conf(tdir_for_func)
+def user_tconf_for_func(tdir_for_func):
+    user_config_dir = _user_tconf(tdir_for_func)
     logger.debug("function-level user config directory: {}".format(user_config_dir))
     return user_config_dir
 
 
-def _conf(user_config):
+def _tconf(user_config):
     config = getConfig(user_config)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
@@ -357,13 +376,13 @@ def _conf(user_config):
 
 
 @pytest.fixture(scope="module")
-def conf(user_conf):
-    return _conf(user_conf)
+def tconf(user_tconf):
+    return _tconf(user_tconf)
 
 
 @pytest.fixture()
-def conf_for_func(user_conf_for_func):
-    return _conf(user_conf_for_func)
+def tconf_for_func(user_tconf_for_func):
+    return _tconf(user_tconf_for_func)
 
 
 @pytest.fixture(scope="module")
@@ -385,9 +404,9 @@ def looper(unstartedLooper):
     return unstartedLooper
 
 
-@pytest.fixture(scope="module")
-def pool(tmpdir_factory):
-    return Pool(tmpdir_factory)
+@pytest.fixture(scope="function")
+def pool(tdir_for_func, tconf_for_func):
+    return Pool(tmpdir=tdir_for_func, config=tconf_for_func)
 
 
 @pytest.fixture(scope="module")
@@ -419,8 +438,8 @@ def delayed_perf_chk(nodeSet):
 
 
 @pytest.fixture(scope="module")
-def clientAndWallet1(looper, nodeSet, tdir, up):
-    client, wallet = genTestClient(nodeSet, tmpdir=tdir)
+def clientAndWallet1(looper, nodeSet, client_tdir, up):
+    client, wallet = genTestClient(nodeSet, tmpdir=client_tdir)
     yield client, wallet
     client.stop()
 
@@ -484,18 +503,18 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def noRetryReq(conf, request):
-    oldRetryAck = conf.CLIENT_MAX_RETRY_ACK
-    oldRetryReply = conf.CLIENT_MAX_RETRY_REPLY
-    conf.CLIENT_MAX_RETRY_ACK = 0
-    conf.CLIENT_MAX_RETRY_REPLY = 0
+def noRetryReq(tconf, request):
+    oldRetryAck = tconf.CLIENT_MAX_RETRY_ACK
+    oldRetryReply = tconf.CLIENT_MAX_RETRY_REPLY
+    tconf.CLIENT_MAX_RETRY_ACK = 0
+    tconf.CLIENT_MAX_RETRY_REPLY = 0
 
     def reset():
-        conf.CLIENT_MAX_RETRY_ACK = oldRetryAck
-        conf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
+        tconf.CLIENT_MAX_RETRY_ACK = oldRetryAck
+        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
 
 
 @pytest.fixture(scope="module")
@@ -673,13 +692,13 @@ def poolTxnData(request):
 
 
 @pytest.fixture(scope="module")
-def tdirWithPoolTxns(poolTxnData, tdir, conf):
+def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     import getpass
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
 
-    config_helper = PConfigHelper(conf, chroot=tdir)
-    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, conf.poolTransactionsFile)
+    config_helper = PConfigHelper(tconf, chroot=tdir)
+    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, tconf.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
@@ -689,14 +708,29 @@ def tdirWithPoolTxns(poolTxnData, tdir, conf):
 
 
 @pytest.fixture(scope="module")
+def tdirWithClientPoolTxns(poolTxnData, client_tdir):
+    import getpass
+    logging.debug("current user when creating new pool txn file for client: {}".
+                  format(getpass.getuser()))
+
+    ledger = create_genesis_txn_init_ledger(client_tdir, plenum_config.poolTransactionsFile)
+
+    for item in poolTxnData["txns"]:
+        if item.get(TXN_TYPE) == NODE:
+            ledger.add(item)
+    ledger.stop()
+    return client_tdir
+
+
+@pytest.fixture(scope="module")
 def domainTxnOrderedFields():
     return getTxnOrderedFields()
 
 
 @pytest.fixture(scope="module")
-def tdirWithDomainTxns(poolTxnData, tdir, conf, domainTxnOrderedFields):
-    config_helper = PConfigHelper(conf, chroot=tdir)
-    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, conf.domainTransactionsFile)
+def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
+    config_helper = PConfigHelper(tconf, chroot=tdir)
+    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, tconf.domainTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
@@ -706,12 +740,12 @@ def tdirWithDomainTxns(poolTxnData, tdir, conf, domainTxnOrderedFields):
 
 
 @pytest.fixture(scope="module")
-def tdirWithNodeKeepInited(tdir, conf, poolTxnData, poolTxnNodeNames):
+def tdirWithNodeKeepInited(tdir, tconf, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
         use_bls = nName in poolTxnData['nodesWithBls']
-        config_helper = PNodeConfigHelper(nName, conf, chroot=tdir)
+        config_helper = PNodeConfigHelper(nName, tconf, chroot=tdir)
         initNodeKeysForBothStacks(nName, config_helper.keys_dir, seed, use_bls=use_bls, override=True)
 
 @pytest.fixture(scope="module")
@@ -736,11 +770,11 @@ def pool_txn_stewards_data(poolTxnStewardNames, poolTxnData):
 
 @pytest.fixture(scope="module")
 def stewards_and_wallets(looper, txnPoolNodeSet, pool_txn_stewards_data,
-                      tdirWithPoolTxns):
+                      tdirWithClientPoolTxns):
     clients_and_wallets = []
     for pool_txn_steward_data in pool_txn_stewards_data:
         steward_client, steward_wallet = buildPoolClientAndWallet(pool_txn_steward_data,
-                                              tdirWithPoolTxns)
+                                              tdirWithClientPoolTxns)
         looper.add(steward_client)
         ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
                                                       *txnPoolNodeSet)
@@ -780,7 +814,7 @@ def txnPoolNodeSet(patchPluginManager,
                    tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tdir,
-                   conf,
+                   tconf,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
@@ -788,14 +822,14 @@ def txnPoolNodeSet(patchPluginManager,
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
-            config_helper = PNodeConfigHelper(nm, conf, chroot=tdir)
+            config_helper = PNodeConfigHelper(nm, tconf, chroot=tdir)
             node = exitStack.enter_context(
                 testNodeClass(nm,
                               ledger_dir=config_helper.ledger_dir,
                               keys_dir=config_helper.keys_dir,
                               genesis_dir=config_helper.genesis_dir,
                               plugins_dir=config_helper.plugins_dir,
-                              config=conf,
+                              config=tconf,
                               pluginPaths=allPluginsPath))
             txnPoolNodesLooper.add(node)
             nodes.append(node)
@@ -816,8 +850,8 @@ def txnPoolCliNodeReg(poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def postingStatsEnabled(request, conf):
-    conf.SendMonitorStats = True
+def postingStatsEnabled(request, tconf):
+    tconf.SendMonitorStats = True
 
     # def reset():
     #    config.SendMonitorStats = False
@@ -873,18 +907,18 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(pluginManager, tdir, conf):
+def testNode(pluginManager, tdir, tconf):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
-    config_helper = PNodeConfigHelper(name, conf, chroot=tdir)
+    config_helper = PNodeConfigHelper(name, tconf, chroot=tdir)
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg),
                     ledger_dir=config_helper.ledger_dir,
                     keys_dir=config_helper.keys_dir,
                     genesis_dir=config_helper.genesis_dir,
                     plugins_dir=config_helper.plugins_dir,
-                    config=conf,
+                    config=tconf,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
     node.start(None)
     yield node

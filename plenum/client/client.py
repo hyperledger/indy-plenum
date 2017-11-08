@@ -70,6 +70,8 @@ class Client(Motor,
                  name: str,
                  nodeReg: Dict[str, HA] = None,
                  ha: Union[HA, Tuple[str, int]] = None,
+                 basedirpath: str = None,
+                 genesis_dir: str = None,
                  ledger_dir: str = None,
                  keys_dir: str = None,
                  plugins_dir: str = None,
@@ -83,12 +85,10 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-
-        config_helper = ClientConfigHelper(self.name, self.config)
-
-        self.ledger_dir = ledger_dir or config_helper.ledger_dir
-        self.plugins_dir = plugins_dir or config_helper.plugins_dir
-        self.keys_dir = keys_dir or config_helper.keys_dir
+        self.basedirpath = basedirpath or self.config.baseDir
+        #self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
+        #                                               self.config.NETWORK_NAME)
+        dataDir = self.config.clientDataDir or "data"
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -99,6 +99,12 @@ class Client(Motor,
         # matter now, it used to matter in some CLI exampples in the past.
         # self.name = name
         self.name = self.stackName or 'Client~' + str(id(self))
+
+        self.genesis_dir = genesis_dir or os.path.join(self.basedirpath)
+        self.ledger_dir = ledger_dir or os.path.join(self.basedirpath, dataDir, self.name)
+        self.plugins_dir = plugins_dir or self.basedirpath
+        _keys_dir = keys_dir or self.basedirpath
+        self.keys_dir = os.path.join(_keys_dir, "keys")
 
         cha = None
         # If client information already exists is RAET then use that

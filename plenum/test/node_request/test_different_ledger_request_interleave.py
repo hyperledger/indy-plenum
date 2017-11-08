@@ -19,6 +19,7 @@ from plenum.test.batching_3pc.conftest import tconf
 def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
                                              client1, wallet1, one_node_added,
                                              client1Connected,
+                                             tdir, client_tdir,
                                              tdirWithPoolTxns, steward1,
                                              stewardWallet, allPluginsPath):
     """
@@ -32,7 +33,8 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     # Send domain ledger requests but don't wait for replies
     requests = sendRandomRequests(wallet1, client1, 2)
     # Add another node by sending pool ledger request
-    _, _, new_theta = nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
+    _, _, new_theta = nodeThetaAdded(looper, txnPoolNodeSet,
+                                     tdir, client_tdir,
                                      tconf, steward1, stewardWallet,
                                      allPluginsPath, name='new_theta')
 
@@ -49,14 +51,14 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
 
     ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
 
-    new_steward, new_steward_wallet = addNewSteward(looper, tdirWithPoolTxns,
+    new_steward, new_steward_wallet = addNewSteward(looper, client_tdir,
                                                     steward1, stewardWallet,
                                                     'another_ste')
 
     # Send another pool ledger request (NODE) but don't wait for completion of
     # request
     next_node_name = 'next_node'
-    r = sendAddNewNode(tdirWithPoolTxns, next_node_name, new_steward, new_steward_wallet)
+    r = sendAddNewNode(tdir, tconf, next_node_name, new_steward, new_steward_wallet)
     node_req = r[0]
 
     # Send more domain ledger requests but don't wait for replies

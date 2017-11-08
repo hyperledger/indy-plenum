@@ -32,9 +32,7 @@ def test_large_catchup(looper,
                        wallet1,
                        client1,
                        client1Connected,
-                       tconf,
-                       allPluginsPath,
-                       tdirWithPoolTxns):
+                       allPluginsPath):
     """
     Checks that node can catchup large ledgers
     """

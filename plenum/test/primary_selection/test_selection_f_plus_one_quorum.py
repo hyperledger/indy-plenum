@@ -17,6 +17,7 @@ def test_selection_f_plus_one_quorum(
         looper,
         txnPoolNodeSet,
         allPluginsPath,
+        tdir,
         tconf,
         client1,
         wallet1,
@@ -59,7 +60,7 @@ def test_selection_f_plus_one_quorum(
 
     # Start lagging node back
     restarted_node = start_stopped_node(
-        lagging_node, looper, tconf, lagging_node.basedirpath, allPluginsPath)
+        lagging_node, looper, tconf, tdir, allPluginsPath)
     active_nodes = [beta, delta, restarted_node]
 
     # Check that primary selected

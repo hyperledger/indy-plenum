@@ -438,6 +438,7 @@ class TestReplicas(Replicas):
 class TestNodeSet(ExitStack):
 
     def __init__(self,
+                 config,
                  names: Iterable[str]=None,
                  count: int=None,
                  nodeReg=None,
@@ -449,6 +450,8 @@ class TestNodeSet(ExitStack):
 
         super().__init__()
         self.tmpdir = tmpdir
+        assert config is not None
+        self.config = config
         self.keyshare = keyshare
         self.primaryDecider = primaryDecider
         self.pluginPaths = pluginPaths
@@ -479,9 +482,7 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
-        from plenum.common.config_util import getConfig
-        config = getConfig()
-        config_helper = PNodeConfigHelper(name, config, chroot=self.tmpdir)
+        config_helper = PNodeConfigHelper(name, self.config, chroot=self.tmpdir)
 
         seed = randomSeed()
         if self.keyshare:
@@ -604,13 +605,19 @@ class TestMonitor(Monitor):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, testNodeSetClass=TestNodeSet):
+    def __init__(self, tmpdir=None, tmpdir_factory=None, config=None, testNodeSetClass=TestNodeSet):
+        self.tmpdir = tmpdir
         self.tmpdir_factory = tmpdir_factory
         self.testNodeSetClass = testNodeSetClass
+        self.config = config
+        self.is_run = False
 
     def run(self, coro, nodecount=4):
-        tmpdir = self.fresh_tdir()
-        with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
+        assert self.is_run == False
+
+        self.is_run = True
+        tmpdir = self.tmpdir if self.tmpdir is not None else self.fresh_tdir()
+        with self.testNodeSetClass(self.config, count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
                 # for n in nodeset:
                 #     n.startKeySharing()

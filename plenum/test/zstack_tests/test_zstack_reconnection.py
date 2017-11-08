@@ -16,9 +16,9 @@ TestRunningTimeLimitSec = 300
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdirWithPoolTxns):
-    conf.UseZStack = True
-    return conf
+def tconf(tconf, tdirWithPoolTxns):
+    tconf.UseZStack = True
+    return tconf
 
 
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,

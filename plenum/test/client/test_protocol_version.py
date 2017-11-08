@@ -4,6 +4,7 @@ from plenum.common.request import Request
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
     send_signed_requests, checkReqNackWithReason, random_request_objects, \
     sign_request_objects, signed_random_requests, random_requests
+# noinspection PyUnresolvedReferences
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 from stp_core.loop.eventually import eventually
@@ -13,7 +14,7 @@ from stp_core.loop.eventually import eventually
 def request_num(request):
     return int(request.param)
 
-def test_request_no_protocol_version(tconf, looper, txnPoolNodeSet,
+def test_request_no_protocol_version(looper, txnPoolNodeSet,
                                      client1, client1Connected,
                                      wallet1,
                                      request_num):
@@ -26,7 +27,7 @@ def test_request_no_protocol_version(tconf, looper, txnPoolNodeSet,
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
 
 
-def test_version_not_set_by_default(tconf, looper, txnPoolNodeSet,
+def test_version_not_set_by_default(looper, txnPoolNodeSet,
                                 client1, client1Connected,
                                 wallet1,
                                 request_num):
@@ -42,7 +43,7 @@ def test_version_not_set_by_default(tconf, looper, txnPoolNodeSet,
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
 
 
-def test_request_with_correct_version(tconf, looper,
+def test_request_with_correct_version(looper,
                                       txnPoolNodeSet, client1, client1Connected,
                                       wallet1,
                                       request_num):
@@ -55,7 +56,7 @@ def test_request_with_correct_version(tconf, looper,
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
 
 
-def test_request_with_invalid_version(tconf, looper, txnPoolNodeSet,
+def test_request_with_invalid_version(looper, txnPoolNodeSet,
                                       client1, client1Connected,
                                       wallet1,
                                       request_num):
