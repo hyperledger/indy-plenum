@@ -31,7 +31,7 @@ class PrimarySelector(PrimaryDecider):
 
         # Set when an appropriate view change quorum is found which has
         # sufficient same ViewChangeDone messages
-        self.primary_verified = False
+        self._primary_verified = False
 
         self._has_view_change_from_primary = False
 
@@ -39,9 +39,9 @@ class PrimarySelector(PrimaryDecider):
 
         self._accepted_view_change_done_message = None
 
-        # accept any primary if propagating view change done megs
+        # accept any primary if propagating view change done msgs
         # for already completed view change
-        self._accept_primary_for_completed_view_change = False
+        self._propagated_view_change_completed = False
 
     @property
     def quorum(self) -> int:
@@ -83,26 +83,8 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
-        if self.node.propagate_primary and \
-                self.node.poolLedger is not None:
-            accepted = self.get_sufficient_same_view_change_done_messages()
-            if accepted is not None:
-                accepted_pool_ledger_i = \
-                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
-                                accepted[1]))
-                self_pool_ledger_i = \
-                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
-                                self.ledger_summary))
-                logger.debug("{} Primary selection has been already completed "
-                             "on pool ledger info = {}, primary {}, self pool "
-                             "ledger info {}".format(
-                                 self, accepted_pool_ledger_i,
-                                 accepted[0],
-                                 self_pool_ledger_i))
-                self._accept_primary_for_completed_view_change = True
-
         if self.node.is_synced and self.master_replica.isPrimary is None and \
-                not self._accept_primary_for_completed_view_change:
+                not self.is_propagated_view_change_completed:
             self._send_view_change_done_message()
 
         self._start_selection()
@@ -165,17 +147,15 @@ class PrimarySelector(PrimaryDecider):
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
         """
+        expected_primary = self.next_primary_node_name(0)
+        if new_primary != expected_primary:
+            logger.error("{}{} expected next primary to be {}, but majority "
+                         "declared {} instead for view {}"
+                         .format(PRIMARY_SELECTION_PREFIX, self.name,
+                                 expected_primary, new_primary, self.viewNo))
+            return False
 
-        if not self._accept_primary_for_completed_view_change:
-            expected_primary = self.next_primary_node_name(0)
-            if new_primary != expected_primary:
-                logger.error("{}{} expected next primary to be {}, but majority "
-                             "declared {} instead for view {}"
-                             .format(PRIMARY_SELECTION_PREFIX, self.name,
-                                     expected_primary, new_primary, self.viewNo))
-                return False
-
-        self.primary_verified = True
+        self._primary_verified = True
         return True
         # TODO: check if ledger status is expected
 
@@ -186,7 +166,7 @@ class PrimarySelector(PrimaryDecider):
         # TODO what is the case when node sends several different
         # view change done messages
         data = (new_primary_name, ledger_summary)
-        self._view_change_done[sender_name] = data
+        self._view_change_done[frm] = data
 
     @property
     def _hasViewChangeQuorum(self):
@@ -209,9 +189,32 @@ class PrimarySelector(PrimaryDecider):
         return True
 
     @property
+    def is_propagated_view_change_completed(self):
+        if not self._propagated_view_change_completed and \
+                self.node.poolLedger is not None and \
+                self.node.propagate_primary:
+
+            accepted = self.get_sufficient_same_view_change_done_messages()
+            if accepted is not None:
+                accepted_pool_ledger_i = \
+                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
+                                accepted[1]))
+                self_pool_ledger_i = \
+                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
+                                self.ledger_summary))
+                logger.debug("{} Primary selection has been already completed "
+                             "on pool ledger info = {}, primary {}, self pool "
+                             "ledger info {}".format(
+                                 self, accepted_pool_ledger_i,
+                                 accepted[0],
+                                 self_pool_ledger_i))
+                self._propagated_view_change_completed = True
+
+        return self._propagated_view_change_completed
+
+    @property
     def has_view_change_from_primary(self) -> bool:
-        if not (self._has_view_change_from_primary or
-                self._accept_primary_for_completed_view_change):
+        if not self._has_view_change_from_primary:
             next_primary_name = self.next_primary_node_name(0)
 
             if next_primary_name not in self._view_change_done:
@@ -220,19 +223,21 @@ class PrimarySelector(PrimaryDecider):
                     "primary {} (viewNo: {}, totalNodes: {})". format(
                         self.name, next_primary_name,
                         self.viewNo, self.node.totalNodes))
-                return False
             else:
                 logger.debug('{} received ViewChangeDone from primary {}'
                              .format(self, next_primary_name))
+                self._has_view_change_from_primary = True
 
-        self._has_view_change_from_primary = True
-        return True
+        return self._has_view_change_from_primary
 
     @property
     def has_acceptable_view_change_quorum(self):
         if not self._has_acceptable_view_change_quorum:
-            self._has_acceptable_view_change_quorum = \
-                self._hasViewChangeQuorum and self.has_view_change_from_primary
+            self._has_acceptable_view_change_quorum = (
+                self._hasViewChangeQuorum and
+                (self.is_propagated_view_change_completed or
+                 self.has_view_change_from_primary)
+            )
         return self._has_acceptable_view_change_quorum
 
     def get_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
@@ -282,7 +287,8 @@ class PrimarySelector(PrimaryDecider):
             rv = self.get_sufficient_same_view_change_done_messages()
             if rv is None:
                 error = "there are not sufficient same ViewChangeDone messages"
-            elif not self._verify_primary(*rv):
+            elif not (self.is_propagated_view_change_completed or
+                      self._verify_primary(*rv)):
                 error = "failed to verify primary"
 
         if error is not None:
@@ -301,9 +307,8 @@ class PrimarySelector(PrimaryDecider):
 
         nodeReg = None
         # in case of already completed view change
-        # use node registry actual for the moment when
-        # it happened
-        if self._accept_primary_for_completed_view_change:
+        # use node registry actual for the moment when it happened
+        if self.is_propagated_view_change_completed:
             assert self._accepted_view_change_done_message is not None
             ledger_summary = self._accepted_view_change_done_message[1]
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
