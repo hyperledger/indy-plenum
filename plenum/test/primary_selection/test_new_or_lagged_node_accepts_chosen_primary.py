@@ -50,12 +50,16 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
     return txnPoolNodeSet
 
 
-def test_primary_selection_on_propogate_primary(
+def test_new_node_accepts_chosen_primary(
         txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
 
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+
+    assert not new_node.elector._primary_verified
+    assert not new_node.elector.has_view_change_from_primary
+    assert new_node.elector.is_propagated_view_change_completed
 
     logger.debug("Send requests to ensure that pool is working properly, "
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
