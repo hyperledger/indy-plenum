@@ -9,6 +9,7 @@ from plenum.test.view_change.helper import ensure_view_change_complete
 
 from plenum.test.node_catchup.conftest import nodeCreatedAfterSomeTxns, \
     nodeSetWithNodeAddedAfterSomeTxns
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 logger = getlogger()
 
@@ -53,8 +54,14 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
 
 def test_primary_selection_on_propogate_primary(txnPoolNodeSet,
         nodeSetWithNodeAddedAfterSomeTxns):
-    looper, _, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+
+    logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
     logger.debug("Send requests to ensure that pool is working properly, "
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+
+    logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
