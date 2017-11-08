@@ -83,18 +83,28 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
-        if self.node.propagate_primary:
+        if self.node.propagate_primary and \
+                self.node.poolLedger is not None:
             accepted = self.get_sufficient_same_view_change_done_messages()
-            if accepted is not None and \
-                    self.ledger_summary[POOL_LEDGER_ID][1] > accepted[1][POOL_LEDGER_ID][1]:
-                logger.debug("{} Primary selection has been already completed on "
-                             "pool ledger size = {}, primary {}".format(
-                                 self, accepted[1][POOL_LEDGER_ID][1], accepted[0]))
+            if accepted is not None:
+                accepted_pool_ledger_i = \
+                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
+                                accepted[1]))
+                self_pool_ledger_i = \
+                    next(filter(lambda x: x[0] == POOL_LEDGER_ID,
+                                self.ledger_summary))
+                logger.debug("{} Primary selection has been already completed "
+                             "on pool ledger info = {}, primary {}, self pool "
+                             "ledger info {}".format(
+                                 self, accepted_pool_ledger_i,
+                                 accepted[0],
+                                 self_pool_ledger_i))
                 self._accept_primary_for_completed_view_change = True
 
         if self.node.is_synced and self.master_replica.isPrimary is None and \
                 not self._accept_primary_for_completed_view_change:
             self._send_view_change_done_message()
+
         self._start_selection()
 
     # Question: Master is always 0, until we change that rule why incur cost
