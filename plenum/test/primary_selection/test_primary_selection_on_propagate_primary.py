@@ -13,8 +13,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 logger = getlogger()
 
-nodes_wth_bls = 0
-
 
 class TestNodeWithAdjustedViewNo(TestNode):
     def __init__(self, *args, **kwargs):
@@ -38,7 +36,7 @@ def testNodeClass(patchPluginManager):
 
 @pytest.fixture("module")
 def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
-        tconf, tdirWithPoolTxns, allPluginsPath):
+                   tconf, tdirWithPoolTxns, allPluginsPath):
     logger.debug("Do several view changes to round the list of primaries")
 
     assert txnPoolNodeSet[0].viewNo == len(txnPoolNodeSet) - 1
@@ -52,8 +50,8 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
     return txnPoolNodeSet
 
 
-def test_primary_selection_on_propogate_primary(txnPoolNodeSet,
-        nodeSetWithNodeAddedAfterSomeTxns):
+def test_primary_selection_on_propogate_primary(
+        txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
 
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
