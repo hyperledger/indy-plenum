@@ -140,8 +140,6 @@ class PrimarySelector(PrimaryDecider):
             return False
 
         new_primary_name = msg.name
-        ledger_info = msg.ledgerInfo
-
         if new_primary_name == self.previous_master_primary:
             self.discard(msg,
                          '{} got Primary from {} for {} who was primary of '
@@ -151,10 +149,8 @@ class PrimarySelector(PrimaryDecider):
             return False
 
         # Since a node can send ViewChangeDone more than one time
-        self._track_view_change_done(sender,
-                                     new_primary_name,
-                                     ledger_info)
-
+        self._on_verified_view_change_done_msg(msg, sender)
+        # TODO why do we check that after the message tracking
         if self.master_replica.hasPrimary:
             self.discard(msg,
                          "it already decided primary which is {}".
@@ -183,8 +179,12 @@ class PrimarySelector(PrimaryDecider):
         return True
         # TODO: check if ledger status is expected
 
-    def _track_view_change_done(self, sender_name, new_primary_name,
-                                ledger_summary):
+    def _on_verified_view_change_done_msg(self, msg, frm):
+        new_primary_name = msg.name
+        ledger_summary = msg.ledgerInfo
+
+        # TODO what is the case when node sends several different
+        # view change done messages
         data = (new_primary_name, ledger_summary)
         self._view_change_done[sender_name] = data
 
@@ -380,8 +380,7 @@ class PrimarySelector(PrimaryDecider):
                                  new_primary_name,
                                  ledger_summary)
         self.send(message)
-        self._track_view_change_done(self.name,
-                                     new_primary_name, ledger_summary)
+        self._on_verified_view_change_done_msg(message, self.name)
 
     def view_change_started(self, viewNo: int):
         """
