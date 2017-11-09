@@ -133,8 +133,8 @@ class TestNodeCore(StackedTester):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
 
-    def create_replicas(self):
-        return TestReplicas(self, self.monitor)
+    def create_replicas(self, config=None):
+        return TestReplicas(self, self.monitor, config)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -148,8 +148,8 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    def createReplica(self, instNo: int, isMaster: bool):
-        return TestReplica(self, instNo, isMaster)
+    def createReplica(self, instNo: int, isMaster: bool, config=None):
+        return TestReplica(self, instNo, isMaster, config)
 
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
@@ -432,7 +432,7 @@ class TestReplica(replica.Replica):
 
 class TestReplicas(Replicas):
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, is_master, bls_bft)
+        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
 
 
 class TestNodeSet(ExitStack):

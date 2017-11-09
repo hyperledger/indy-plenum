@@ -390,7 +390,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._last_performance_check_data = {}
 
     def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor)
+        return Replicas(self, self.monitor, self.config)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -1012,7 +1012,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: refactor this
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
-            self.replicas.grow(self.config)
+            self.replicas.grow()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas) - 1)
         while len(self.replicas) > self.requiredNumberOfInstances:

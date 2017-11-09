@@ -86,6 +86,7 @@ class Replica(HasActionQueue, MessageProcessor):
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
+                 config=None,
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None):
         """
@@ -97,7 +98,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
-        self.config = getConfig()
+        self.config = config or getConfig()
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
