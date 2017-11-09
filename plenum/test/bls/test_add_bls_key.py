@@ -10,9 +10,8 @@ nodes_wth_bls = 0
 # As we use tests with Module scope, results from previous tests are accumulated, so
 # rotating BLS keys one by one, eventually we will have all keys changed
 
-def test_add_bls_one_node(looper, txnPoolNodeSet,
-                          client_tdir, poolTxnClientData,
-                          stewards_and_wallets):
+def test_add_bls_one_node(looper, txnPoolNodeSet, client_tdir,
+                          poolTxnClientData, stewards_and_wallets):
     '''
     Added BLS key for 1st Node;
     do not expect that BLS multi-sigs are applied since no consensus (n-f)
