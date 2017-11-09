@@ -9,6 +9,10 @@ from stp_core.crypto.nacl_wrappers import Verifier as NaclVerifier
 
 class Verifier:
     @abstractmethod
+    def __init__(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
     def verify(self, sig, msg) -> bool:
         pass
 

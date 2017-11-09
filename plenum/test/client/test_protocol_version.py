@@ -13,6 +13,7 @@ from stp_core.loop.eventually import eventually
 def request_num(request):
     return int(request.param)
 
+
 def test_request_no_protocol_version(tconf, looper, txnPoolNodeSet,
                                      client1, client1Connected,
                                      wallet1,

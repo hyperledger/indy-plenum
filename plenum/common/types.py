@@ -68,6 +68,8 @@ class f:  # provides a namespace for reusable field constants
     MSG_TYPE = Field("msg_type", str)
     PARAMS = Field("params", dict)
     PRIMARY = Field("primary", dict)
+    SIGS = Field('signatures', dict)
+    PLUGIN_FIELDS = Field('plugin_fields', dict)
 
 
 OPERATION = 'operation'
@@ -76,6 +78,7 @@ OPERATION = 'operation'
 PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
 PLUGIN_TYPE_PROCESSING = "PROCESSING"
 PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
+PLUGIN_TYPE_AUTHENTICATOR = 'AUTHENTICATOR'
 
 EVENT_REQ_ORDERED = "req_ordered"
 EVENT_NODE_STARTED = "node_started"

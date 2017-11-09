@@ -6,7 +6,8 @@ from abc import ABCMeta, abstractmethod
 import base58
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import VALID_LEDGER_IDS, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT
 
@@ -124,6 +125,16 @@ class LimitedLengthStringField(FieldBase):
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
+class FixedLengthField(FieldBase):
+    def __init__(self, length: int, **kwargs):
+        self.length = length
+        super().__init__(**kwargs)
+
+    def _specific_validation(self, val):
+        if len(val) != self.length:
+            return '{} should have length {}'.format(val, self.length)
+
+
 class SignatureField(LimitedLengthStringField):
     _base_types = (str, type(None))
 
@@ -146,7 +157,8 @@ class RoleField(FieldBase):
 
 
 class NonNegativeNumberField(FieldBase):
-    _base_types = (int,)
+
+    _base_types = (int, float)
 
     def _specific_validation(self, val):
         if val < 0:
@@ -264,7 +276,7 @@ class MessageField(FieldBase):
 
 class LedgerIdField(ChooseField):
     _base_types = (int,)
-    ledger_ids = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
+    ledger_ids = VALID_LEDGER_IDS + tuple(PLUGIN_LEDGER_IDS)
 
     def __init__(self, **kwargs):
         super().__init__(self.ledger_ids, **kwargs)
@@ -326,14 +338,20 @@ class DestNymField(Base58Field):
 class RequestIdentifierField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
+    _idr_field = IdentifierField()
+    _rid_field = NonNegativeNumberField()
 
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = IdentifierField().validate(val[0])
+        # idr_error = IdentifierField().validate(val[0])
+        if not isinstance(val[0], str):
+            return 'identifier not present'
+        from plenum.common.request import Request
+        idr_error = any(self._idr_field.validate(i) for i in val[0].split(Request.idr_delimiter))
         if idr_error:
             return idr_error
-        ts_error = NonNegativeNumberField().validate(val[1])
+        ts_error = self._rid_field.validate(val[1])
         if ts_error:
             return ts_error
 

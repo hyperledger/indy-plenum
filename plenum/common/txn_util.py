@@ -21,7 +21,8 @@ def getTxnOrderedFields():
         (TARGET_NYM, (str, str)),
         (VERKEY, (str, str)),
         (ROLE, (str, str)),
-        (ALIAS, (str, str))
+        (ALIAS, (str, str)),
+        (f.SIGS.nm, (str, str)),
     ])
 
 
@@ -77,6 +78,7 @@ def reqToTxn(req: Request, cons_time=None):
         f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
         f.REQ_ID.nm: data[f.REQ_ID.nm],
         f.SIG.nm: data[f.SIG.nm],
+        f.SIGS.nm: data[f.SIGS.nm],
         TXN_TIME: cons_time or data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
@@ -98,3 +100,10 @@ def txnToReq(txn):
 def isTxnForced(txn):
     force = txn.get(FORCE)
     return str(force) == 'True'
+
+
+def idr_from_req_data(data):
+    if data.get(f.IDENTIFIER.nm):
+        return data[f.IDENTIFIER.nm]
+    else:
+        return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
