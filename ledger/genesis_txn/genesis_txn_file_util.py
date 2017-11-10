@@ -1,11 +1,10 @@
 import os
 
-from plenum.common.config_util import getConfig
+import plenum.config as plenum_config
 
 
 def genesis_txn_file(transaction_file):
-    config = getConfig()
-    return transaction_file + config.genesis_file_suffix
+    return transaction_file + plenum_config.genesis_file_suffix
 
 
 def genesis_txn_path(genesis_dir, transaction_file):
