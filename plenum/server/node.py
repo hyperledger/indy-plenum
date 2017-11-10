@@ -1781,17 +1781,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # GET_TXN is generic, needs no request handler
             req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
             if not req_handler:
-                raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
-                                           format(TXN_TYPE, operation[TXN_TYPE]))
+                if self.opVerifiers:
+                    try:
+                        for v in self.opVerifiers:
+                            v.verify(operation)
+                    except Exception as ex:
+                        raise InvalidClientRequest(identifier, req_id) from ex
+                else:
+                    raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
+                                               format(TXN_TYPE, operation[TXN_TYPE]))
             else:
                 req_handler.doStaticValidation(request)
-
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(operation)
-            except Exception as ex:
-                raise InvalidClientRequest(identifier, req_id) from ex
 
         self.execute_hook(POST_STATIC_VALIDATION, request=request)
 

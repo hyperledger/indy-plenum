@@ -77,7 +77,7 @@ class InvalidSignature(SigningException, ReqInfo):
 
 class InsufficientSignatures(SigningException, ReqInfo):
     code = 126
-    reason = 'insufficient signatures, %d provided but %d required'
+    reason = 'insufficient signatures, {} provided but {} required'
 
     def __init__(self, provided, required, *args, **kwargs):
         self.reason = self.reason.format(provided, required)
@@ -86,7 +86,7 @@ class InsufficientSignatures(SigningException, ReqInfo):
 
 class InsufficientCorrectSignatures(SigningException, ReqInfo):
     code = 127
-    reason = 'insufficient correct signatures, %d correct but %d required'
+    reason = 'insufficient correct signatures, {} correct but {} required'
 
     def __init__(self, valid, required, *args, **kwargs):
         self.reason = self.reason.format(valid, required)

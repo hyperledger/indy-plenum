@@ -39,8 +39,8 @@ def test_large_catchup(looper,
     Checks that node can catchup large ledgers
     """
     # Prepare nodes
-    lagging_node = txnPoolNodeSet[0]
-    rest_nodes = txnPoolNodeSet[1:]
+    lagging_node = txnPoolNodeSet[-1]
+    rest_nodes = txnPoolNodeSet[:-1]
     all_nodes = txnPoolNodeSet
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
