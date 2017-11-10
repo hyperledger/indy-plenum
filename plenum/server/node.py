@@ -90,6 +90,7 @@ from stp_zmq.zstack import ZStack
 pluginManager = PluginManager()
 logger = getlogger()
 
+
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor):
     """

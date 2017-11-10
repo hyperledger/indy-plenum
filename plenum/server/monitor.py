@@ -502,7 +502,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # TODO:KS Move these computations as well to plenum-stats project
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
-            (now - self.orderedRequestsInLast[0]) > \
+                        (now - self.orderedRequestsInLast[0]) > \
                         self.config.ThroughputWindowSize:
             self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
@@ -541,7 +541,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupLatencies = []
         for instId, latencies in self.latenciesByBackupsInLast.items():
             while latencies and \
-                (now - latencies[0][0]) > \
+                            (now - latencies[0][0]) > \
                             self.config.LatencyWindowSize:
                 latencies = latencies[1:]
             backupLatencies.append(

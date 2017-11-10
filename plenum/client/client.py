@@ -75,7 +75,7 @@ class Client(Motor,
                  ledger_dir: str = None,
                  keys_dir: str = None,
                  plugins_dir: str = None,
-                 config = None,
+                 config=None,
                  sighex: str = None):
         """
         Creates a new client.
@@ -86,8 +86,7 @@ class Client(Motor,
         """
         self.config = config or getConfig()
         self.basedirpath = basedirpath or self.config.baseDir
-        #self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
-        #                                               self.config.NETWORK_NAME)
+
         dataDir = self.config.clientDataDir or "data"
 
         signer = Signer(sighex)

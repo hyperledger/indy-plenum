@@ -9,14 +9,12 @@ class PConfigHelper():
         self.config = config
         self.chroot = chroot
 
-
     def chroot_if_needed(self, path):
         result = path
         if self.chroot != "/":
             _path = path[1:] if path.startswith("/") else path
             result = os.path.join(self.chroot, _path)
         return result
-
 
     @property
     def log_dir(self):

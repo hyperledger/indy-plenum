@@ -1,5 +1,6 @@
 import os
 
+
 class NodeConfigHelper():
     def __init__(self, name: str, config, network_name: str=None):
         assert name is not None
