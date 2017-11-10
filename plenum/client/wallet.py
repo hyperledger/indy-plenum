@@ -6,9 +6,6 @@ from pathlib import Path
 
 import jsonpickle
 from jsonpickle import JSONBackend
-from jsonpickle import tags
-from jsonpickle.unpickler import loadclass
-from jsonpickle.util import importable_name
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
@@ -39,17 +36,6 @@ Alias = str
 IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
-
-
-def getClassVersionKey(cls):
-    """
-    Gets the wallet class version key for use in a serialized representation
-    of the wallet.
-
-    :param cls: the wallet class
-    :return: the class version key
-    """
-    return 'classver/{}'.format(importable_name(cls))
 
 
 class Wallet:
@@ -435,6 +421,9 @@ class WalletStorageHelper:
             wallet = self.decode(wf.read())
 
         return wallet
+
+
+WALLET_RAW_MIGRATORS = []
 
 
 class WalletCompatibilityBackend(JSONBackend):
