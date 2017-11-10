@@ -158,7 +158,7 @@ class RoleField(FieldBase):
 
 class NonNegativeNumberField(FieldBase):
 
-    _base_types = (int, float)
+    _base_types = (int, )
 
     def _specific_validation(self, val):
         if val < 0:

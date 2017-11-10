@@ -157,6 +157,14 @@ class SimpleAuthNr(NaclAuthNr):
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)
 
+    def authenticate(self,
+                     msg: Dict,
+                     identifier: str = None,
+                     signature: str = None):
+        signatures = {identifier: signature}
+        return self.authenticate_multi(msg,
+                                       signatures=signatures)
+
 
 class CoreAuthMixin:
     # TODO: This should know a list of valid fields rather than excluding
@@ -202,9 +210,12 @@ class CoreAuthMixin:
         """
         to_serialize = {k: v for k, v in req_data.items()
                         if k not in self.excluded_from_signing}
-        if req_data.get(f.SIG.nm) is None and req_data.get(f.SIGS.nm) is None:
+        if req_data.get(f.SIG.nm) is None and \
+                req_data.get(f.SIGS.nm) is None and \
+                signature is None:
             raise MissingSignature
-        if req_data.get(f.IDENTIFIER.nm) and req_data.get(f.SIG.nm):
+        if req_data.get(f.IDENTIFIER.nm) and (req_data.get(f.SIG.nm) or
+                                              signature):
             try:
                 # if not identifier:
                 identifier = identifier or self._extract_identifier(req_data)

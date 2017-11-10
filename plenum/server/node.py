@@ -42,6 +42,7 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.fields import TxnSeqNoField
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
@@ -115,6 +116,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     _info_tool_class = ValidatorNodeInfoTool
     ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
     _wallet_class = Wallet
+    _txn_seq_no_validator = TxnSeqNoField()
 
     def __init__(self,
                  name: str,
@@ -1777,12 +1779,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise InvalidClientRequest(identifier, req_id)
 
         self.execute_hook(PRE_STATIC_VALIDATION, request=request)
-        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-        if not req_handler:
-            raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
-                                       format(TXN_TYPE, operation[TXN_TYPE]))
-        else:
-            req_handler.doStaticValidation(request)
+        if operation[TXN_TYPE] != GET_TXN:
+            # GET_TXN is generic, needs no request handler
+            req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+            if not req_handler:
+                raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
+                                           format(TXN_TYPE, operation[TXN_TYPE]))
+            else:
+                req_handler.doStaticValidation(request)
 
         if self.opVerifiers:
             try:
@@ -1845,13 +1849,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: What if the reply was a REQNACK? Its not gonna be found in the
         # replies.
 
-        ledgerId = self.ledgerIdForRequest(request)
-        ledger = self.getLedger(ledgerId)
-
         if request.operation[TXN_TYPE] == GET_TXN:
             self.handle_get_txn_req(request, frm)
             self.total_read_request_number += 1
         else:
+            ledgerId = self.ledgerIdForRequest(request)
+            ledger = self.getLedger(ledgerId)
             reply = self.getReplyFromLedger(ledger, request)
             if reply:
                 logger.debug("{} returning REPLY from already processed "
@@ -1940,10 +1943,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Handle GET_TXN request
         """
+        ledger_id = request.operation.get(f.LEDGER_ID.nm)
+        if not ledger_id or ledger_id not in self.ledger_to_req_handler:
+            self.send_nack_to_client(request.key,
+                                     'Invalid ledger id {}'.format(ledger_id),
+                                     frm)
+            return
+        seq_no = request.operation.get(DATA)
+        error = self._txn_seq_no_validator.validate(seq_no)
+        if error:
+            self.send_nack_to_client(request.key, error, frm)
+            return
         self.send_ack_to_client(request.key, frm)
-        ledgerId = self.ledgerIdForRequest(request)
-        ledger = self.getLedger(ledgerId)
-        seq_no = request.operation[DATA]
+        ledger = self.getLedger(ledger_id)
         try:
             txn = self.getReplyFromLedger(ledger=ledger,
                                           seq_no=seq_no)

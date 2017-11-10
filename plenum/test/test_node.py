@@ -288,7 +288,7 @@ class TestNodeCore(StackedTester):
             self.send_ack_to_client(request.key, frm)
 
             identifier = request.identifier
-            req_id = request.identifier
+            req_id = request.reqId
             req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
             buy_key = req_handler.prepare_buy_key(identifier, req_id)
             result = req_handler.state.get(buy_key)

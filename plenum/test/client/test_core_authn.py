@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import GET_TXN, NODE, NYM
 from plenum.common.exceptions import CouldNotAuthenticate, \
-    InsufficientSignatures, InsufficientCorrectSignatures
+    InsufficientSignatures, InsufficientCorrectSignatures, MissingSignature
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import f
 from plenum.server.client_authn import CoreAuthNr
@@ -47,8 +47,8 @@ def test_authenticate_raises_correct_exception():
     verkey = simple_signer.verkey
     dummyAr = DummyAuthenticator()
     dummyAr.addIdr(identifier, verkey)
-    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate,
-                  msg, identifier, signature)
+    pytest.raises(MissingSignature, dummyAr.authenticate,
+                  msg, identifier)
 
 
 def testClientAuthentication(sa, cli, msg, sig):
