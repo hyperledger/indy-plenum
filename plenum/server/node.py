@@ -262,8 +262,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                nodeInfo=self.nodeInfo,
                                notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths,
-                               notifierEventsEnabled=
-                               self.config.SpikeEventsEnabled)
+                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
 
         self.replicas = self.create_replicas()
 
@@ -1773,8 +1772,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, ledgerId, nodeName))
 
     def doStaticValidation(self, request: Request):
-        identifier, req_id, operation = request.identifier, request.reqId, \
-                                        request.operation
+        identifier, req_id, operation = request.identifier, request.reqId, request.operation
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
@@ -2451,7 +2449,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                               state_root=state_root, txn_root=txn_root)
         try:
             committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
-                                                     state_root, txn_root)
+                                                         state_root, txn_root)
         except Exception as exc:
             logger.warning(
                 "{} commit failed for batch request, error {}, view no {}, "

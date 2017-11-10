@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
