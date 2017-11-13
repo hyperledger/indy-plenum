@@ -15,9 +15,9 @@ logger = getlogger()
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
-def testTestNodeDelay(tdir_for_func):
+def testTestNodeDelay(tdir_for_func, tconf_for_func):
     nodeNames = {"testA", "testB"}
-    with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodes:
+    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodes:
         nodeA = nodes.getNode("testA")
         nodeB = nodes.getNode("testB")
 
