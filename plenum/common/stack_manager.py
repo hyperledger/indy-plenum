@@ -62,7 +62,7 @@ class TxnStackManager(metaclass=ABCMeta):
         return ledger
 
     @staticmethod
-    def parseLedgerForHaAndKeys(ledger, returnActive=True):
+    def parseLedgerForHaAndKeys(ledger, returnActive=True, ledger_size=None):
         """
         Returns validator ip, ports and keys
         :param ledger:
@@ -76,7 +76,8 @@ class TxnStackManager(metaclass=ABCMeta):
         activeValidators = set()
         try:
             TxnStackManager._parse_pool_transaction_file(
-                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
+                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+                ledger_size=ledger_size)
         except ValueError:
             errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
             logger.exception(errMsg)
@@ -96,11 +97,12 @@ class TxnStackManager(metaclass=ABCMeta):
 
     @staticmethod
     def _parse_pool_transaction_file(
-            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+            ledger_size=None):
         """
         helper function for parseLedgerForHaAndKeys
         """
-        for _, txn in ledger.getAllTxn():
+        for _, txn in ledger.getAllTxn(to=ledger_size):
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
                 clientStackName = nodeName + CLIENT_STACK_SUFFIX
@@ -233,6 +235,11 @@ class TxnStackManager(metaclass=ABCMeta):
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
+
+    def getNodeRegistry(self, ledger_size=None):
+        nodeReg, _, _ = self.parseLedgerForHaAndKeys(
+            self.ledger, ledger_size=ledger_size)
+        return nodeReg
 
     def nodeExistsInLedger(self, nym):
         # Since PoolLedger is going to be small so using

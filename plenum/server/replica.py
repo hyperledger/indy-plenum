@@ -839,6 +839,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):
+        # Commit msg wirh 3PC key not greater than last prepared one's
         r = isinstance(msg, Commit) and \
             self.last_prepared_before_view_change and \
             compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
@@ -2137,8 +2138,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
                                  msg_type: str,
-                                 recipients: List[str] = None,
-                                 stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                                 recipients: List[str]=None,
+                                 stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         if three_pc_key in stash:
             logger.debug('{} not requesting {} since already '
                          'requested for {}'.format(self, msg_type, three_pc_key))
@@ -2159,8 +2160,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return True
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
-                             recipients: List[str] = None,
-                             stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                             recipients: List[str]=None,
+                             stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         """
         Request preprepare
         """
@@ -2171,8 +2172,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                              stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
-                         recipients: List[str] = None,
-                         stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                         recipients: List[str]=None,
+                         stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         """
         Request preprepare
         """

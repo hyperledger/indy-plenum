@@ -84,15 +84,37 @@ def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]):
+def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
+    :param to_hashable_f: (optional) if defined will be used to get
+        hashable presentation for non-hashable elements. Otherwise json.dumps
+        is used with sort_keys=True
     :return: element which is the most frequent in the collection and
         the number of its occurrences
     """
-    return Counter(elements).most_common(n=1)[0]
+    class _Hashable(collections.abc.Hashable):
+        def __init__(self, orig):
+            self.orig = orig
+
+            if isinstance(orig, collections.Hashable):
+                self.hashable = orig
+            elif to_hashable_f is not None:
+                self.hashable = to_hashable_f(orig)
+            else:
+                self.hashable = json.dumps(orig, sort_keys=True)
+
+        def __eq__(self, other):
+            return self.hashable == other.hashable
+
+        def __hash__(self):
+            return hash(self.hashable)
+
+    _elements = (_Hashable(el) for el in elements)
+    most_common, counter = Counter(_elements).most_common(n=1)[0]
+    return (most_common.orig, counter)
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
@@ -558,21 +580,6 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def updateWalletsBaseDirNameIfOutdated(config):
-    """
-    Renames the wallets base directory if it has the outdated name.
-
-    :param config: the application configuration
-    """
-    if config.walletsDir == 'wallets':  # if the parameter is not overridden
-        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'keyrings'))
-        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'wallets'))
-        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
-            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):
