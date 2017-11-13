@@ -1439,7 +1439,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         friendly = friendlyEx(ex)
         reason = self.reasonForClientFromException(ex)
         if isinstance(msg, Request):
-            msg = msg.__getstate__()
+            msg = msg.as_dict
         identifier = idr_from_req_data(msg)
         reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
