@@ -1006,13 +1006,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for node in joined:
             self.send_ledger_status_to_newly_connected_node(node)
 
-    # def _sync_ledger(self, ledger_id):
-    #     """
-    #     Sync specific ledger with other nodes
-    #     """
-    #     self.ledgerManager.setLedgerCanSync(ledger_id, True)
-    #     self.request_ledger_status_from_nodes(ledger_id)
-
     def request_ledger_status_from_nodes(self, ledger_id):
         for node_name in self.nodeReg:
             if node_name == self.name:
@@ -1044,15 +1037,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
         if Mode.is_done_discovering(self.mode):
-            # self.sendConfigLedgerStatus(node_name)
             self.sendLedgerStatus(node_name,
                                   self.ledgerManager.ledger_sync_order[1])
-            # self.sendDomainLedgerStatus(node_name)
-            # If the domain ledger is already synced send config ledger status
-            # else after the domain ledger is caught up, config ledger status
-            # will be sent
-            # if self.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID].state == LedgerState.synced:
-            #     self.sendConfigLedgerStatus(node_name)
 
     def nodeJoined(self, txn):
         logger.info("{} new node joined by txn {}".format(self, txn))
@@ -1647,19 +1633,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
         self.id
-        # self.catchup_next_ledger_after_pool()
-
-    # def catchup_next_ledger_after_pool(self):
-    #     # self.start_domain_ledger_sync()
-    #     self.start_config_ledger_sync()
-
-    # def start_config_ledger_sync(self):
-    #     self._sync_ledger(CONFIG_LEDGER_ID)
-    #     self.ledgerManager.processStashedLedgerStatuses(CONFIG_LEDGER_ID)
-
-    # def start_domain_ledger_sync(self):
-    #     self._sync_ledger(DOMAIN_LEDGER_ID)
-    #     self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -2458,7 +2431,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger_id = POOL_LEDGER_ID if self._is_there_pool_ledger() else \
             self.ledgerManager.ledger_sync_order[1]
         self.ledgerManager.catchup_ledger(ledger_id)
-        # self._sync_ledger(ledger_id)
 
     def _is_there_pool_ledger(self):
         # TODO isinstance is not OK
