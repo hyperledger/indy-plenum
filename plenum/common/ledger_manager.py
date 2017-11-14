@@ -35,12 +35,16 @@ class LedgerManager(HasActionQueue):
                  owner,
                  ownedByNode: bool=True,
                  postAllLedgersCaughtUp: Optional[Callable]=None,
-                 preCatchupClbk: Callable = None):
-
+                 preCatchupClbk: Optional[Callable]=None,
+                 ledger_sync_order: Optional[List]=None):
+        # If ledger_sync_order is not provided (is None), it is assumed that
+        # `postCatchupCompleteClbk` of the LedgerInfo will be used
         self.owner = owner
         self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.preCatchupClbk = preCatchupClbk
+        self.ledger_sync_order = ledger_sync_order
+
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
         # responsibility of calling its `_serviceActions` method periodically
@@ -860,6 +864,7 @@ class LedgerManager(HasActionQueue):
             self.last_caught_up_3PC = last_3PC
 
         self.mark_ledger_synced(ledgerId)
+        self.catchup_next_ledger(ledgerId)
 
     def mark_ledger_synced(self, ledger_id):
         ledgerInfo = self.getLedgerInfoByType(ledger_id)
@@ -874,6 +879,31 @@ class LedgerManager(HasActionQueue):
             if all(l.state == LedgerState.synced
                    for l in self.ledgerRegistry.values()):
                 self.postAllLedgersCaughtUp()
+
+    def catchup_next_ledger(self, ledger_id):
+        if self.ownedByNode:
+            next_ledger_id = self.ledger_to_sync_after(ledger_id)
+            if next_ledger_id:
+                self.catchup_ledger(next_ledger_id)
+            else:
+                logger.debug('{} not found any ledger to catchup after {}'
+                             .format(self, ledger_id))
+        else:
+            logger.debug('{} not owned by node'.format(self))
+
+    def catchup_ledger(self, ledger_id):
+        self.setLedgerCanSync(ledger_id, True)
+        self.owner.request_ledger_status_from_nodes(ledger_id)
+        self.processStashedLedgerStatuses(ledger_id)
+
+    def ledger_to_sync_after(self, ledger_id) -> Optional[int]:
+        if self.ledger_sync_order:
+            try:
+                idx = self.ledger_sync_order.index(ledger_id)
+                if idx < (len(self.ledger_sync_order) - 1):
+                    return self.ledger_sync_order[idx + 1]
+            except ValueError:
+                return None
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
         # TODO: This needs to be optimised, there needs to be a minimum size

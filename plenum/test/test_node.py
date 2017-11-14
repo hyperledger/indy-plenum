@@ -368,12 +368,14 @@ class TestNode(TestNodeCore, Node):
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
 
-    def getLedgerManager(self):
+    def get_new_ledger_manager(self):
         return TestLedgerManager(
             self,
             ownedByNode=True,
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-            preCatchupClbk=self.preLedgerCatchUp)
+            preCatchupClbk=self.preLedgerCatchUp,
+            ledger_sync_order=self.ledger_ids
+        )
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         committedTxns = list(committedTxns)
