@@ -267,8 +267,8 @@ def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
 
 
 @pytest.fixture
-def client_and_wallet(txnPoolNodesLooper, tdirWithPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
+def client_and_wallet(txnPoolNodesLooper, tdirWithClientPoolTxns, txnPoolNodeSet):
+    client, wallet = genTestClient(tmpdir=tdirWithClientPoolTxns, nodes=txnPoolNodeSet,
                                    name='reader', usePoolLedger=True)
     txnPoolNodesLooper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
