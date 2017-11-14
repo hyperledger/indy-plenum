@@ -5,7 +5,7 @@ from plenum.server.monitor import Monitor
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import TestNodeSet
 
-config = getConfig()
+#config = getConfig()
 
 
 def testPostingThroughput(postingStatsEnabled,
@@ -21,6 +21,8 @@ def testPostingThroughput(postingStatsEnabled,
     After `ThroughputWindowSize` seconds the throughput should be zero
     Test `totalRequests` too.
     """
+
+    config = decreasedMonitoringTimeouts
 
     # We are sleeping for this window size, because we need to clear previous
     # values that were being stored for this much time in tests
@@ -76,6 +78,9 @@ def testPostingLatency(postingStatsEnabled,
     latency till `LatencyWindowSize` should consider those `n` requests.
     After `LatencyWindowSize` seconds the latencies should be zero
     """
+
+    config = decreasedMonitoringTimeouts
+
     # Run for latency window duration so that `latenciesByMasterInLast` and
     # `latenciesByBackupsInLast` become empty
     looper.runFor(config.LatencyWindowSize)
