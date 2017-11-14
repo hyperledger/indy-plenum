@@ -41,6 +41,7 @@ from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from stp_raet.util import getLocalEstateData
+from plenum.common.config_helper import PNodeConfigHelper
 
 import configparser
 import os
@@ -117,7 +118,7 @@ class Cli:
     def __init__(self, looper, basedirpath: str, ledger_dir: str, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
-                 override_tags=None):
+                 override_tags=None, nodes_chroot: str=None):
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
@@ -157,6 +158,7 @@ class Cli:
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
+        self.nodes_chroot = nodes_chroot
 
         '''
         examples:
@@ -934,12 +936,15 @@ class Cli:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
 
-                learnKeysFromOthers(self.basedirpath, name,
+                config_helper = PNodeConfigHelper(name, self.config, chroot=self.nodes_chroot)
+                learnKeysFromOthers(config_helper.keys_dir, name,
                                     self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
-                                      basedirpath=self.basedirpath,
-                                      base_data_dir=self.basedirpath,
+                                      ledger_dir=config_helper.ledger_dir,
+                                      keys_dir=config_helper.keys_dir,
+                                      genesis_dir=config_helper.genesis_dir,
+                                      plugins_dir=config_helper.plugins_dir,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:

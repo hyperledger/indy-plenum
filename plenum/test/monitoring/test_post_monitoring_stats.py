@@ -5,8 +5,6 @@ from plenum.server.monitor import Monitor
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import TestNodeSet
 
-#config = getConfig()
-
 
 def testPostingThroughput(postingStatsEnabled,
                           decreasedMonitoringTimeouts,
