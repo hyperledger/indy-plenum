@@ -133,8 +133,7 @@ def test_validator_info_file_metrics_uptime_field_valid(load_latest_info,
     assert latest_info['metrics']['uptime'] > info['metrics']['uptime']
 
 
-def test_validator_info_file_pool_fields_valid(txnPoolNodesLooper, txnPoolNodeSet,
-                                               info,
+def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPoolNodeSet,
                                                load_latest_info):
     assert info['pool']['reachable']['count'] == nodeCount
     assert info['pool']['reachable']['list'] == sorted(list(node.name for node in txnPoolNodeSet))
@@ -193,7 +192,7 @@ def load_info(path):
 
 
 @pytest.fixture(scope='module')
-def info_path(node, patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet):
+def info_path(patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet, node):
     path = os.path.join(node.ledger_dir, INFO_FILENAME)
     txnPoolNodesLooper.runFor(patched_dump_info_period)
     assert os.path.exists(path), '{} exists'.format(path)
