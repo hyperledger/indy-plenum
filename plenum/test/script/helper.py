@@ -47,7 +47,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
 
     # change HA
     stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
-                                  nodeStackNewHA, stewardName, stewardsSeed, basedir=tdir)
+                                  nodeStackNewHA, stewardName, stewardsSeed,
+                                  basedir=tdirWithClientPoolTxns)
 
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
