@@ -10,7 +10,7 @@ import time
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, CURRENT_PROTOCOL_VERSION
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
@@ -27,6 +27,7 @@ from pygments.token import Token
 from functools import partial
 from plenum.test import waits
 from plenum.common import util
+from plenum.common.request import Request
 
 logger = getlogger()
 
@@ -273,8 +274,12 @@ def checkRequest(cli, operation):
     # Ensure client gets back the replies
     lastReqId = wallet._getIdData().lastReqId
 
+    request = Request(identifier=wallet.defaultId,
+                      reqId=lastReqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION)
+
     waitForSufficientRepliesForRequests(cli.looper, client,
-                                        requestIds=[lastReqId])
+                                        requests=[request])
 
     txn, status = client.getReply(wallet.defaultId, lastReqId)
 
@@ -294,7 +299,8 @@ def checkRequest(cli, operation):
     return client, wallet
 
 
-def newCLI(looper, basedir, cliClass=TestCli,
+def newCLI(looper, basedir, ledger_base_dir,
+           cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient,
            config=None,
@@ -313,6 +319,7 @@ def newCLI(looper, basedir, cliClass=TestCli,
     cliClassParams = {
         'looper': looper,
         'basedirpath': basedir,
+        'ledger_base_dir': ledger_base_dir,
         'nodeReg': None,
         'cliNodeReg': None,
         'output': mockOutput,

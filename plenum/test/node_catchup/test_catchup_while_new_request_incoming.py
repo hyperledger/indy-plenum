@@ -23,7 +23,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     node's ledger size. In the meantime, the new node will stash all requests
     """
 
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
 
     def chkAfterCall(self, req, frm):
         r = self.processCatchupReq(req, frm)
@@ -34,8 +34,8 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
         return r
 
     for node in txnPoolNodeSet:
-        node.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
-            chkAfterCall, node.ledgerManager)
+        node.nodeMsgRouter.routes[CatchupReq] = \
+            types.MethodType(chkAfterCall, node.ledgerManager)
         node.nodeIbStasher.delay(cqDelay(3))
 
     print('Sending 5 requests')

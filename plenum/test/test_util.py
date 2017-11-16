@@ -7,7 +7,8 @@ import os
 from libnacl import crypto_hash_sha256
 
 from plenum.common.util import randomString, compare_3PC_keys, \
-    check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch
+    check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch, \
+    mostCommonElement
 from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
 
@@ -120,3 +121,31 @@ def test_utc_epoch():
         del os.environ['TZ']
     else:
         os.environ['TZ'] = old_tz
+
+
+def test_mostCommonElement_for_hashable():
+    elements = [1, 2, 3, 3, 2, 5, 2]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == 2
+    assert count == 3
+
+
+def test_mostCommonElement_for_non_hashable():
+    elements = [{1: 2}, {1: 3}, {1: 4}, {1: 3}]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == {1: 3}
+    assert count == 2
+
+
+def test_mostCommonElement_for_non_hashable_with_hashable_f():
+    elements = [{1: 2}, {1: 3}, {1: 4}, {1: 3}]
+    most_common, count = mostCommonElement(elements, lambda el: tuple(el.items()))
+    assert most_common == {1: 3}
+    assert count == 2
+
+
+def test_mostCommonElement_for_mixed_hashable():
+    elements = [{1: 2}, 4, {1: 3}, 4, {1: 4}, 4, {1: 3}]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == 4
+    assert count == 3

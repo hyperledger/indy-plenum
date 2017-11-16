@@ -38,7 +38,6 @@ function build_from_pypi {
     rm ${PREREM_TMP}
 }
 
-
 build_from_pypi ioflo 1.5.4
 build_from_pypi orderedset 2.0
 build_from_pypi base58 0.2.4

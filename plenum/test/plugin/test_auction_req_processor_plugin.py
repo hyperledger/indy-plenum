@@ -62,7 +62,7 @@ class AuctionApp(App):
             }
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return req
 
     def getBalance(self) -> int:
@@ -71,7 +71,7 @@ class AuctionApp(App):
             TARGET_NYM: self.wallet.defaultId
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return self.client.hasConsensus(*req.key)[BALANCE]
 
     def bid(self, aucId, amount):
@@ -83,7 +83,7 @@ class AuctionApp(App):
             }
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return req
 
 

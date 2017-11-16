@@ -55,3 +55,8 @@ def test_state_proof_and_verification_serialized(state):
     for k, v in data.items():
         assert PruningState.verify_state_proof(state.headHash, k, v,
                                                proofs[k], serialized=True)
+
+
+def test_state_proof_for_missing_data(state):
+    p1 = state.generate_state_proof(b'k1')
+    assert PruningState.verify_state_proof(state.headHash, b'k1', None, p1)

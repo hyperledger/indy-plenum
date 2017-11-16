@@ -1,6 +1,7 @@
 # inter-node communication
 from enum import IntEnum, unique
 
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
 
@@ -25,6 +26,7 @@ COMMIT = "COMMIT"
 CHECKPOINT = "CHECKPOINT"
 CHECKPOINT_STATE = "CHECKPOINT_STATE"
 THREE_PC_STATE = "THREE_PC_STATE"
+UPDATE_BLS_MULTI_SIG = "UPDATE_BLS_MULTI_SIG"
 
 REPLY = "REPLY"
 
@@ -50,6 +52,7 @@ MONITORING_PREFIX = "MONITORING: "
 VIEW_CHANGE_PREFIX = "VIEW CHANGE: "
 CATCH_UP_PREFIX = "CATCH-UP: "
 PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
+BLS_PREFIX = "BLS: "
 
 NAME = "name"
 VERSION = "version"
@@ -70,6 +73,7 @@ HASH = "hash"
 ALIAS = "alias"
 PUBKEY = "pubkey"
 VERKEY = "verkey"
+BLS_KEY = "blskey"
 NYM_KEY = "NYM"
 NODE_IP = "node_ip"
 NODE_PORT = "node_port"
@@ -91,6 +95,21 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+
+# State proof fields
+STATE_PROOF = 'state_proof'
+ROOT_HASH = "root_hash"
+MULTI_SIGNATURE = "multi_signature"
+PROOF_NODES = "proof_nodes"
+
+MULTI_SIGNATURE_SIGNATURE = 'signature'
+MULTI_SIGNATURE_PARTICIPANTS = 'participants'
+MULTI_SIGNATURE_VALUE = 'value'
+MULTI_SIGNATURE_VALUE_LEDGER_ID = 'ledger_id'
+MULTI_SIGNATURE_VALUE_STATE_ROOT = 'state_root_hash'
+MULTI_SIGNATURE_VALUE_TXN_ROOT = 'txn_root_hash'
+MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT = 'pool_state_root_hash'
+MULTI_SIGNATURE_VALUE_TIMESTAMP = 'timestamp'
 
 # ROLES
 STEWARD = Roles.STEWARD.value
@@ -125,8 +144,8 @@ class KeyValueStorageType(IntEnum):
 @unique
 class LedgerState(IntEnum):
     not_synced = 1  # Still gathering consistency proofs
-    syncing = 2     # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
-    synced = 3      # Got replies for all catchup requests, indicating catchup complete for the ledger
+    syncing = 2  # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
+    synced = 3  # Got replies for all catchup requests, indicating catchup complete for the ledger
 
 
 OP_FIELD_NAME = "op"
@@ -146,3 +165,5 @@ HS_LEVELDB = 'leveldb'
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
+
+CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
