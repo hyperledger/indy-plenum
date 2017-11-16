@@ -28,7 +28,6 @@ logger.propagate = False
 logger.disabled = True
 
 config = getConfig()
-keys_dir =
 basedirpath = config.baseDir
 loadPlugins(basedirpath)
 

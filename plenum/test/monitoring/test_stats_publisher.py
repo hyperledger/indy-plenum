@@ -22,14 +22,6 @@ def listener():
     loop.run_until_complete(server.wait_closed())
 
 
-@pytest.fixture
-def statsServerMessageBufferMaxSizeReducer():
-    originalValue = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
-    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 100
-    yield
-    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = originalValue
-
-
 def testSendOneMessageNoOneListens():
     statsPublisher = TestStatsPublisher()
     statsPublisher.send(message="testMessage")
