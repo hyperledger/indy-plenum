@@ -1,5 +1,7 @@
 import pytest
 
+from stp_core.common.log import getlogger
+
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import stopNodes, waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
@@ -14,6 +16,10 @@ from plenum.test.view_change.helper import start_stopped_node
 
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
+
+
+logger = getlogger()
+
 
 def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
                                 allPluginsPath, tconf, client1, wallet1,
@@ -30,37 +36,37 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     assert 4 == len(active_nodes)
     initial_view_no = active_nodes[0].viewNo
 
-    # Stop first node (current Primary)
+    logger.info("Stop first node (current Primary)")
     _, active_nodes = stop_primary(looper, active_nodes)
 
-    # Make sure view changed
+    logger.info("Make sure view changed")
     expected_view_no = initial_view_no + 1
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
-    # send at least one checkpoint
+    logger.info("send at least one checkpoint")
     assert nodes_do_not_have_checkpoints(*active_nodes)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2*checkpoint_size)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
-    # Stop second node (current Primary) so the primary looses his state
+    logger.info("Stop second node (current Primary) so the primary looses his state")
     stopped_node, active_nodes = stop_primary(looper, active_nodes)
 
-    # Restart the primary node
+    logger.info("Restart the primary node")
     restarted_node = start_stopped_node(stopped_node, looper, tconf, stopped_node.basedirpath, allPluginsPath)
     assert nodes_do_not_have_checkpoints(restarted_node)
     assert nodes_have_checkpoints(*active_nodes)
     active_nodes = active_nodes + [restarted_node]
 
-    # Check that primary selected
+    logger.info("Check that primary selected")
     ensureElectionsDone(looper=looper, nodes=active_nodes,
                         numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
-    # Check if the pool is able to process requests
+    logger.info("Check if the pool is able to process requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10*checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
     assert nodes_have_checkpoints(*active_nodes)

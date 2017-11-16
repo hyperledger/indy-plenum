@@ -28,11 +28,18 @@ from plenum.test.node_catchup.conftest import whitelist, \
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 
-Logger.setLogLevel(logging.WARNING)
-logger = getlogger()
+@pytest.fixture
+def logger():
+    logger = getlogger()
+    old_value = logger.getEffectiveLevel()
+    logger.root.setLevel(logging.WARNING)
+    yield logger
+    logger.root.setLevel(old_value)
+
+# autouse and inject before others in all tests
+pytestmark = pytest.mark.usefixtures("logger")
+
 txnCount = 5
-
-
 TestRunningTimeLimitSec = math.inf
 
 
@@ -227,6 +234,7 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
     new_node = TestNode(
         new_node.name,
         basedirpath=tdirWithPoolTxns,
+        base_data_dir=tdirWithPoolTxns,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
@@ -295,7 +303,7 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
                   format(i + 1, txns_per_batch, perf_counter() - s))
 
     nodeHa, nodeCHa = HA(*x.nodestack.ha), HA(*x.clientstack.ha)
-    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, config=tconf,
+    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode

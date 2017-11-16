@@ -1,8 +1,6 @@
 import collections
 import json
 
-from ledger.genesis_txn.genesis_txn_file_util import \
-    update_genesis_txn_file_name_if_outdated
 from ledger.util import F
 from stp_core.network.exceptions import RemoteNotFound
 
@@ -13,6 +11,7 @@ from plenum.common.types import f, HA
 from plenum.common.messages.node_messages import PoolLedgerTxns
 from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
+from plenum.common.tools import lazy_field
 
 logger = getlogger()
 t = f.TXN.nm
@@ -22,11 +21,8 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
         self._ledgerFile = None
-        self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
-        update_genesis_txn_file_name_if_outdated(self.basedirpath,
-                                                 self.ledgerFile)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg
         self.addRemoteKeysFromLedger(nodeKeys)
@@ -81,7 +77,7 @@ class HasPoolManager(TxnStackManager):
                     self.stackKeysChanged(txn, remoteName, self)
                 if SERVICES in txn[DATA]:
                     self.nodeServicesChanged(txn)
-                    self.setF()
+                    self.setPoolParams()
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
@@ -92,7 +88,7 @@ class HasPoolManager(TxnStackManager):
                     # Since only one transaction has been made, this is a new
                     # node transactions
                     self.connectNewRemote(txn, remoteName, self)
-                    self.setF()
+                    self.setPoolParams()
                 else:
                     self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
@@ -136,19 +132,15 @@ class HasPoolManager(TxnStackManager):
     def hasLedger(self):
         return self.hasFile(self.ledgerFile)
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerLocation(self):
-        if not self._ledgerLocation:
-            self._ledgerLocation = self.dataLocation
-        return self._ledgerLocation
+        # noinspection PyUnresolvedReferences
+        return self.dataLocation
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerFile(self):
-        if not self._ledgerFile:
-            self._ledgerFile = self.config.poolTransactionsFile
-        return self._ledgerFile
+        # noinspection PyUnresolvedReferences
+        return self.config.poolTransactionsFile
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))

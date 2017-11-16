@@ -2,16 +2,17 @@ from plenum.common.util import getMaxFailures
 
 
 class Quorum:
-
     def __init__(self, value: int):
         self.value = value
 
     def is_reached(self, msg_count: int) -> bool:
         return msg_count >= self.value
 
+    def __repr__(self):
+        return "{}({!r})".format(self.__class__.__name__, self.value)
+
 
 class Quorums:
-
     def __init__(self, n):
         f = getMaxFailures(n)
         self.f = f
@@ -28,3 +29,8 @@ class Quorums:
         self.ledger_status = Quorum(n - f - 1)
         self.checkpoint = Quorum(2 * f)
         self.timestamp = Quorum(f + 1)
+        self.bls_signatures = Quorum(n - f)
+
+    def __str__(self):
+        # TODO more robust implementation
+        return "{}".format(self.__dict__)

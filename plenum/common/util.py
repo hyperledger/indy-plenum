@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
@@ -34,7 +35,7 @@ from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
-# Do not remove the next import until imports in sovrin are fixed
+# TODO Do not remove the next import until imports in indy are fixed
 from stp_core.common.util import adict
 
 
@@ -57,6 +58,7 @@ def randomString(size: int = 20) -> str:
         assert (size > 0), "Expected random string size cannot be less than 1"
         # Approach 1
         rv = randombytes(size // 2).hex()
+
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
@@ -68,18 +70,51 @@ def randomString(size: int = 20) -> str:
     return randomStr(size)
 
 
+def random_from_alphabet(size, alphabet):
+    """
+    Takes *size* random elements from provided alphabet
+    :param size:
+    :param alphabet:
+    """
+    import random
+    return list(random.choice(alphabet) for _ in range(size))
+
+
 def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]) -> T:
+def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
-    :return: element of type T which is most frequent in the collection
+    :param to_hashable_f: (optional) if defined will be used to get
+        hashable presentation for non-hashable elements. Otherwise json.dumps
+        is used with sort_keys=True
+    :return: element which is the most frequent in the collection and
+        the number of its occurrences
     """
-    return Counter(elements).most_common(1)[0][0]
+    class _Hashable(collections.abc.Hashable):
+        def __init__(self, orig):
+            self.orig = orig
+
+            if isinstance(orig, collections.Hashable):
+                self.hashable = orig
+            elif to_hashable_f is not None:
+                self.hashable = to_hashable_f(orig)
+            else:
+                self.hashable = json.dumps(orig, sort_keys=True)
+
+        def __eq__(self, other):
+            return self.hashable == other.hashable
+
+        def __hash__(self):
+            return hash(self.hashable)
+
+    _elements = (_Hashable(el) for el in elements)
+    most_common, counter = Counter(_elements).most_common(n=1)[0]
+    return (most_common.orig, counter)
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
@@ -88,8 +123,11 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
-), logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any,
+                     toFrom: Dict[Any, Any],
+                     checked: Set[Any]=None,
+                     logMsg: str=None,
+                     deepLevel: int=None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -98,6 +136,10 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(
     :param checked: set of attributes of the object for recursion. optional. defaults to `set()`
     :param logMsg: a custom log message
     """
+
+    if checked is None:
+        checked = set()
+
     checked.add(id(obj))
     pairs = [(i, getattr(obj, i)) for i in dir(obj) if not i.startswith("__")]
 
@@ -488,6 +530,17 @@ def is_network_ip_address_valid(ip_address):
         return True
 
 
+def is_hostname_valid(hostname):
+    # Taken from https://stackoverflow.com/a/2532344
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]    # strip exactly one dot from the right,
+        # if present
+    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in hostname.split("."))
+
+
 def check_endpoint_valid(endpoint):
     if ':' not in endpoint:
         # TODO: replace with more suitable exception
@@ -527,21 +580,6 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def updateWalletsBaseDirNameIfOutdated(config):
-    """
-    Renames the wallets base directory if it has the outdated name.
-
-    :param config: the application configuration
-    """
-    if config.walletsDir == 'wallets':  # if the parameter is not overridden
-        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'keyrings'))
-        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'wallets'))
-        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
-            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

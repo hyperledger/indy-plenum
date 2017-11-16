@@ -16,7 +16,7 @@ Examples:
 
 log_stats Node1.log
 
-log_stats /home/user/.sovrin/Node1.log /home/user/stats.txt
+log_stats /home/user/.indy/Node1.log /home/user/stats.txt
 """
 
 import argparse
