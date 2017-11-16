@@ -34,8 +34,7 @@ def test_dirty_read(looper, nodeSet, client1, wallet1):
     set_request = sendReqsToNodesAndVerifySuffReplies(looper,
                                                       wallet1,
                                                       client1,
-                                                      numReqs=1,
-                                                      fVal=1)[0]
+                                                      numReqs=1)[0]
 
     received_replies = getRepliesFromClientInbox(inbox=client1.inBox,
                                                 reqId=set_request.reqId)
@@ -45,8 +44,7 @@ def test_dirty_read(looper, nodeSet, client1, wallet1):
     send_signed_requests(client1, get_request)
     waitForSufficientRepliesForRequests(looper,
                                         client1,
-                                        requests=get_request,
-                                        fVal=1)
+                                        requests=get_request)
     received_replies = getRepliesFromClientInbox(inbox=client1.inBox,
                                                  reqId=get_request[0].reqId)
     results = [str(reply['result'][DATA]) for reply in received_replies]

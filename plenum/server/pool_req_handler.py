@@ -103,6 +103,13 @@ class PoolRequestHandler(RequestHandler):
             return {}
         return self.stateSerializer.deserialize(data)
 
+    def get_node_data_for_root_hash(self, root_hash, nym):
+        key = nym.encode()
+        data = self.state.get_for_root_hash(root_hash, key)
+        if not data:
+            return {}
+        return self.stateSerializer.deserialize(data)
+
     def updateNodeData(self, nym, data):
         key = nym.encode()
         val = self.stateSerializer.serialize(data)

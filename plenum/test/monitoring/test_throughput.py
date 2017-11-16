@@ -17,8 +17,7 @@ def testThroughput(looper, nodeSet: Iterable[Node], wallet1, client1):
     """
     for i in range(5):
         req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1,
-                                            requests=[req], fVal=1)
+        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
 
     for node in nodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(

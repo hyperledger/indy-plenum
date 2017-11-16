@@ -93,7 +93,8 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][0:3] + param['pp'][4:],
+                                  if (param['pre_prepare'][0:3] +
+                                      param['pre_prepare'][4:],
                                       param['sender']) == (
                                       expectedPrePrepareRequest[0:3] +
                                           expectedPrePrepareRequest[4:],

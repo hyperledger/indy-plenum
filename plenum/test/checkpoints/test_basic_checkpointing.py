@@ -14,14 +14,14 @@ def testCheckpointCreated(chkFreqPatched, looper, txnPoolNodeSet, client1,
     """
     # Send one batch less so checkpoint is not created
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet1, client1, reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize), 1)
+        looper, wallet1, client1, reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize))
     # Deliberately waiting so as to verify that not more than 1 checkpoint is
     # created
     looper.runFor(2)
     chkChkpoints(txnPoolNodeSet, 1)
 
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet1, client1, chkFreqPatched.Max3PCBatchSize, 1)
+        looper, wallet1, client1, chkFreqPatched.Max3PCBatchSize)
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chkChkpoints, txnPoolNodeSet,
@@ -35,12 +35,10 @@ def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
     checkpoint on each replica. The old stable checkpoint should be removed
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=2 * reqs_for_checkpoint,
-                                        fVal=1)
+                                        numReqs=2 * reqs_for_checkpoint)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=1,
-                                        fVal=1)
+                                        numReqs=1)
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chkChkpoints, txnPoolNodeSet,

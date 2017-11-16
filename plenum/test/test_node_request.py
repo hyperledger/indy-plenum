@@ -31,7 +31,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
             waitForSufficientRepliesForRequests(looper, client1,
-                                                requests=[req], fVal=1)
+                                                requests=[req])
 
             async def chk():
                 for node in nodeSet:
@@ -160,7 +160,7 @@ def testMultipleRequests(tdir_for_func):
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
                 waitForSufficientRepliesForRequests(looper, client,
-                                                    requests=requests, fVal=3)
+                                                    requests=requests)
 
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)

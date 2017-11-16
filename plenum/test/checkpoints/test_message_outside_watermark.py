@@ -45,7 +45,7 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(
                                      'achieved stable checkpoint')
 
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet1, client1, reqsToSend, 1)
+        looper, wallet1, client1, reqsToSend)
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeDataForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
