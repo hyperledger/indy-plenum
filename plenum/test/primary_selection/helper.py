@@ -23,15 +23,17 @@ def check_rank_consistent_across_each_node(nodes):
     order = []
     for node in nodes:
         if isinstance(node.poolManager, RegistryPoolManager):
-            order.append(node.poolManager.node_names_ordered_by_rank)
+            order.append(node.poolManager.node_names_ordered_by_rank())
         elif isinstance(node.poolManager, TxnPoolManager):
-            order.append(node.poolManager.node_ids_ordered_by_rank)
+            order.append(node.poolManager.node_ids_ordered_by_rank())
         else:
             RuntimeError('Dont know this pool manager {}'.
                          format(node.poolManager))
 
-    assert len(order) == len(nodes)
-    assert order.count(order[0]) == len(order)  # All elements are same
+    assert len(order) == len(nodes), "order {} nodes {}".format(order, nodes)
+    # All elements are same
+    assert order.count(order[0]) == len(order), \
+        "order count {}, order {}".format(order.count(order[0]), order)
 
 
 def check_newly_added_nodes(looper, all_nodes, new_nodes):

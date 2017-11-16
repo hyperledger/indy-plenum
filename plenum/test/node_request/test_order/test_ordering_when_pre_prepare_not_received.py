@@ -16,16 +16,17 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     pre-prepare is received and ordering should just happen once,
     """
     delay = 10
-    nonPrimReps = getNonPrimaryReplicas(nodeSet, 0)
-    slowRep = nonPrimReps[0]
-    slowNode = slowRep.node
-    slowNode.nodeIbStasher.delay(ppDelay(delay, 0))
-    slowNode.nodeIbStasher.delay(pDelay(delay, 0))
+    non_prim_reps = getNonPrimaryReplicas(nodeSet, 0)
+
+    slow_rep = non_prim_reps[0]
+    slow_node = slow_rep.node
+    slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
+    slow_node.nodeIbStasher.delay(pDelay(delay, 0))
 
     stash_pp = []
     stash_p = []
-    orig_pp_method = slowRep.processPrePrepare
-    orig_p_method = slowRep.processPrepare
+    orig_pp_method = slow_rep.processPrePrepare
+    orig_p_method = slow_rep.processPrepare
 
     def patched_pp(self, msg, sender):
         stash_pp.append((msg, sender))
@@ -33,11 +34,13 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     def patched_p(self, msg, sender):
         stash_p.append((msg, sender))
 
-    slowRep.processPrePrepare = types.MethodType(patched_pp, slowRep)
-    slowRep.processPrepare = types.MethodType(patched_p, slowRep)
+    slow_rep.processPrePrepare = \
+        types.MethodType(patched_pp, slow_rep)
+    slow_rep.processPrepare = \
+        types.MethodType(patched_p, slow_rep)
 
     def chk1():
-        assert len(slowRep.commitsWaitingForPrepare) > 0
+        assert len(slow_rep.commitsWaitingForPrepare) > 0
 
     sendRandomRequest(wallet1, client1)
     timeout = waits.expectedPrePrepareTime(len(nodeSet)) + delay
@@ -50,8 +53,8 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
         orig_p_method(m, s)
 
     def chk2():
-        assert len(slowRep.commitsWaitingForPrepare) == 0
-        assert slowRep.spylog.count(slowRep.doOrder.__name__) == 1
+        assert len(slow_rep.commitsWaitingForPrepare) == 0
+        assert slow_rep.spylog.count(slow_rep.doOrder.__name__) == 1
 
-    timeout = waits.expectedOrderingTime(len(nonPrimReps) + 1) + 2 * delay
+    timeout = waits.expectedOrderingTime(len(non_prim_reps) + 1) + 2 * delay
     looper.run(eventually(chk2, retryWait=1, timeout=timeout))

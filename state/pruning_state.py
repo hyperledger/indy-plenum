@@ -8,7 +8,6 @@ from state.trie.pruning_trie import BLANK_ROOT, Trie, BLANK_NODE, \
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string, isHex
-from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
 
 
@@ -47,10 +46,12 @@ class PruningState(State):
     def committedHead(self):
         # The committed head of the state, if the state is a merkle tree then
         # head is the root
-        if self.committedHeadHash == BLANK_ROOT:
+        return self._hash_to_node(self.committedHeadHash)
+
+    def _hash_to_node(self, node_hash):
+        if node_hash == BLANK_ROOT:
             return BLANK_NODE
-        else:
-            return self._trie._decode_to_node(self.committedHeadHash)
+        return self._trie._decode_to_node(node_hash)
 
     def set(self, key: bytes, value: bytes):
         self._trie.update(key, rlp_encode([value]))
@@ -61,6 +62,13 @@ class PruningState(State):
         else:
             val = self._trie._get(self.committedHead,
                                   bin_to_nibbles(to_string(key)))
+        if val:
+            return rlp_decode(val)[0]
+
+    def get_for_root_hash(self, root_hash, key: bytes) -> Optional[bytes]:
+        root = self._hash_to_node(root_hash)
+        val = self._trie._get(root,
+                              bin_to_nibbles(to_string(key)))
         if val:
             return rlp_decode(val)[0]
 
@@ -81,10 +89,7 @@ class PruningState(State):
         self._kv.put(self.rootHashKey, rootHash)
 
     def revertToHead(self, headHash=None):
-        if headHash != BLANK_ROOT:
-            head = self._trie._decode_to_node(headHash)
-        else:
-            head = BLANK_NODE
+        head = self._hash_to_node(headHash)
         self._trie.replace_root_hash(self._trie.root_node, head)
 
     # Proofs are always generated over committed state
@@ -93,7 +98,8 @@ class PruningState(State):
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):
-        return Trie.verify_spv_proof(root, key, rlp_encode([value]),
+        encoded_value = rlp_encode([value]) if value is not None else b''
+        return Trie.verify_spv_proof(root, key, encoded_value,
                                      proof_nodes, serialized)
 
     @property

@@ -44,13 +44,15 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                  instances: Instances, nodestack,
                  blacklister: Blacklister, nodeInfo: Dict,
                  notifierEventTriggeringConfig: Dict,
-                 pluginPaths: Iterable[str]=None):
+                 pluginPaths: Iterable[str]=None,
+                 notifierEventsEnabled: bool = True):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
         self.nodeInfo = nodeInfo
         self.notifierEventTriggeringConfig = notifierEventTriggeringConfig
+        self.notifierEventsEnabled = notifierEventsEnabled
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -490,7 +492,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.clusterThroughputSpikeMonitorData,
             accum,
             self.notifierEventTriggeringConfig['clusterThroughputSpike'],
-            self.name
+            self.name,
+            self.notifierEventsEnabled
         )
 
     @property
