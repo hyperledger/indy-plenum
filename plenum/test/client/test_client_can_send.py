@@ -42,6 +42,22 @@ def can_send_request(client, req):
         raise TestException('Client must be able to send a request {}'.format(req))
 
 
+def test_client_can_not_send_write_requests_not_started(poolTxnClientData, tdirWithPoolTxns):
+    client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
+    assert not client.can_send_write_requests()
+
+
+def test_client_can_not_send_read_requests_not_started(poolTxnClientData, tdirWithPoolTxns):
+    client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
+    req = random_requests(1)[0]
+    assert not client.can_send_request(req)
+
+
+def test_client_can_not_send_requests_not_started(poolTxnClientData, tdirWithPoolTxns):
+    client, _ = new_client(poolTxnClientData, tdirWithPoolTxns)
+    assert not client.can_send_read_requests()
+
+
 def test_client_can_send_write_requests_no_catchup(looper,
                                                    poolTxnClientData, tdirWithPoolTxns,
                                                    txnPoolNodeSet):

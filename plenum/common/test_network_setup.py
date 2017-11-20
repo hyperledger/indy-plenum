@@ -192,13 +192,15 @@ class TestNetworkSetup:
             bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
             assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
 
+        node_num = [args.nodeNum, None] if args.nodeNum else [None]
+
         steward_defs, node_defs = cls.gen_defs(args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
-        cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers,
-                                   domainTxnFieldOrder, trustee_def,
-                                   steward_defs, node_defs, client_defs,
-                                   args.nodeNum, nodeParamsFileName)
+
+        for n_num in node_num:
+            cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
+                                       steward_defs, node_defs, client_defs, n_num, nodeParamsFileName)
 
         # edit NETWORK_NAME in config
         for line in fileinput.input(['/etc/indy/indy_config.py'], inplace=True):
@@ -207,10 +209,10 @@ class TestNetworkSetup:
         with open('/etc/indy/indy_config.py', 'a') as cfgfile:
             cfgfile.write("NETWORK_NAME = '{}'".format(args.network))
 
-        # in case of client only delete unnecessary key dir
-        if args.nodeNum is None:
-            key_dir = cls.setup_clibase_dir(config, args.network)
-            key_dir = os.path.join(key_dir, "keys")
+        # delete unnecessary key dir in client folder
+        key_dir = cls.setup_clibase_dir(config, args.network)
+        key_dir = os.path.join(key_dir, "keys")
+        if os.path.isdir(key_dir):
             shutil.rmtree(key_dir, ignore_errors=True)
 
     @staticmethod
