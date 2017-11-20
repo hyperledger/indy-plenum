@@ -111,6 +111,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  ha: HA=None,
                  cliname: str=None,
                  cliha: HA=None,
+                 config_helper=None,
                  ledger_dir: str = None,
                  keys_dir: str = None,
                  genesis_dir: str = None,
@@ -132,12 +133,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.name = name
         self.config = config or getConfig()
 
-        config_helper = PNodeConfigHelper(self.name, self.config)
+        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
 
-        self.ledger_dir = ledger_dir or config_helper.ledger_dir
-        self.keys_dir = keys_dir or config_helper.keys_dir
-        self.plugins_dir = plugins_dir or config_helper.plugins_dir
-        self.genesis_dir = genesis_dir or config_helper.genesis_dir
+        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
+        self.keys_dir = keys_dir or self.config_helper.keys_dir
+        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
+        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 

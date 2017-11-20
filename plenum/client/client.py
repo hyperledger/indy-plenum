@@ -99,7 +99,7 @@ class Client(Motor,
         # self.name = name
         self.name = self.stackName or 'Client~' + str(id(self))
 
-        self.genesis_dir = genesis_dir or os.path.join(self.basedirpath)
+        self.genesis_dir = genesis_dir or self.basedirpath
         self.ledger_dir = ledger_dir or os.path.join(self.basedirpath, dataDir, self.name)
         self.plugins_dir = plugins_dir or self.basedirpath
         _keys_dir = keys_dir or self.basedirpath

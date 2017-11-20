@@ -1,5 +1,5 @@
 # Directory to store ledger.
-LEDGER_DIR = '/var/lib/indy'
+LEDGER_DIR = '/var/lib/indy/data'
 
 # Directory to store logs.
 LOG_DIR = '/var/log/indy'

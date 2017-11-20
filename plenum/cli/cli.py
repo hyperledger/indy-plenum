@@ -115,14 +115,14 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath: str, ledger_dir: str, nodeReg=None, cliNodeReg=None,
+    def __init__(self, looper, basedirpath: str, ledger_base_dir: str, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
                  override_tags=None, nodes_chroot: str=None):
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
-        self.ledger_dir = os.path.expanduser(ledger_dir)
+        self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
         Logger().enableCliLogging(self.out,
@@ -266,7 +266,7 @@ class Cli:
 
     @property
     def pool_ledger_dir(self):
-        return self.ledger_dir
+        return self.ledger_base_dir
 
     def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
         self.nodeRegLoadedFromFile = False
@@ -920,7 +920,9 @@ class Cli:
             return
 
         if nodeName == "all":
-            names = set(self.nodeReg.keys()) - set(self.nodes.keys())
+            nodeRegKeys = self.nodeReg.keys()
+            nodesKeys = self.nodes.keys()
+            names = set(nodeRegKeys) - set(nodesKeys)
         elif nodeName not in self.nodeReg:
             tokens = [
                 (Token.Error, "Invalid node name '{}'. ".format(nodeName))]

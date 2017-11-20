@@ -299,7 +299,7 @@ def checkRequest(cli, operation):
     return client, wallet
 
 
-def newCLI(looper, basedir, ledger_dir,
+def newCLI(looper, basedir, ledger_base_dir,
            cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient,
@@ -320,7 +320,7 @@ def newCLI(looper, basedir, ledger_dir,
     cliClassParams = {
         'looper': looper,
         'basedirpath': basedir,
-        'ledger_dir': ledger_dir,
+        'ledger_base_dir': ledger_base_dir,
         'nodeReg': None,
         'cliNodeReg': None,
         'output': mockOutput,
