@@ -92,6 +92,7 @@ def create_ledger_callable(request):
     elif request.param == 'LeveldbStorage':
         return create_ledger_leveldb_file_storage
 
+
 @pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage', 'LeveldbStorage'])
 def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
