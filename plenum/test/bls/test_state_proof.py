@@ -1,7 +1,7 @@
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN_TYPE, DATA, TXN_TIME, STATE_PROOF, \
     DOMAIN_LEDGER_ID, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
-    MULTI_SIGNATURE_VALUE_TIMESTAMP
+    MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import SafeRequest
 from plenum.common.types import f
@@ -159,3 +159,16 @@ def test_proof_in_reply(looper, txnPoolNodeSet,
 
     assert client1.validate_multi_signature(state_proof)
     assert client1.validate_proof(result)
+
+
+def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
+                                        client1, client1Connected, wallet1):
+    reqs = sendRandomRequests(wallet1, client1, 1)
+    wait_for_requests_ordered(looper, txnPoolNodeSet, reqs)
+    req = reqs[0]
+    key = txnPoolNodeSet[0].reqHandler.prepare_buy_key(req.identifier)
+
+    for node in txnPoolNodeSet:
+        node.states[DOMAIN_LEDGER_ID].set(key, b'somevalue')
+
+    check_result(txnPoolNodeSet, req, client1, True)

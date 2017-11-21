@@ -171,7 +171,9 @@ class DomainRequestHandler(RequestHandler):
         :param path: the path generate a state proof for
         :return: a state proof or None
         '''
-        proof = self.state.generate_state_proof(path, serialize=True)
+        proof = self.state.generate_state_proof(key=path,
+                                                root=self.state.committedHead,
+                                                serialize=True)
         root_hash = self.state.committedHeadHash
         encoded_proof = proof_nodes_serializer.serialize(proof)
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
