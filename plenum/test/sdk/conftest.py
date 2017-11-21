@@ -13,6 +13,7 @@ from indy.ledger import sign_and_submit_request, sign_request, submit_request
 import random
 from plenum.test.helper import random_requests, random_request_objects
 from indy.error import IndyError, ErrorCode
+import asyncio
 
 
 @pytest.fixture()
@@ -42,7 +43,7 @@ async def _gen_pool_handler(work_dir, name):
 
 
 @pytest.fixture()
-def sdk_pool_handle(looper, tdirWithPoolTxns, sdk_pool_name):
+def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
     pool_handle = looper.loop.run_until_complete(_gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
     looper.loop.run_until_complete(close_pool_ledger(pool_handle))
@@ -90,21 +91,13 @@ def sdk_signed_random_requests(looper, wallet_h, did, count):
     return sdk_sign_request_objects(looper, wallet_h, did, reqs_obj)
 
 
-def _call_sdk_submit(looper, func, *args):
-    try:
-        resp = looper.loop.run_until_complete(func(*args))
-    except IndyError as e:
-        resp = e.error_code
-    return resp
-
-
-def sdk_send_signed_requests(looper, pool_h, signed_reqs: Sequence):
-    return [_call_sdk_submit(looper, submit_request, pool_h, req) for req in signed_reqs]
+def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
+    return [asyncio.ensure_future(submit_request(pool_h, req)) for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, wallet_h, did, count: int):
     reqs = sdk_signed_random_requests(looper, wallet_h, did, count)
-    return sdk_send_signed_requests(looper, pool_h, reqs)
+    return sdk_send_signed_requests(pool_h, reqs)
 
 
 def sdk_send_random_request(looper, pool_h, wallet_h, did):
@@ -112,5 +105,5 @@ def sdk_send_random_request(looper, pool_h, wallet_h, did):
     return rets[0]
 
 
-def sdk_sign_and_submit_req(looper, pool_handle, wallet_handle, sender_did, req):
-    return _call_sdk_submit(looper, sign_and_submit_request, pool_handle, wallet_handle, sender_did, req)
+def sdk_sign_and_submit_req(pool_handle, wallet_handle, sender_did, req):
+    return asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
