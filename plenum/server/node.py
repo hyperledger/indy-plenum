@@ -801,7 +801,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if isinstance(self.poolManager, RegistryPoolManager):
                 # Node not using pool ledger so start syncing domain ledger
                 self.mode = Mode.discovered
-                # self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
                 self.ledgerManager.setLedgerCanSync(CONFIG_LEDGER_ID, True)
             else:
                 # Node using pool ledger so first sync pool ledger

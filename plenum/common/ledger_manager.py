@@ -235,11 +235,13 @@ class LedgerManager(HasActionQueue):
         self.getLedgerInfoByType(ledgerType).state = state
 
     def setLedgerCanSync(self, ledgerType: int, canSync: bool):
-        if ledgerType not in self.ledgerRegistry:
+        try:
+            ledger_info = self.getLedgerInfoByType(ledgerType)
+            ledger_info.canSync = canSync
+        except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledgerType))
             return
-        self.getLedgerInfoByType(ledgerType).canSync = canSync
 
     def prepare_ledgers_for_sync(self):
         for ledger_info in self.ledgerRegistry.values():
@@ -892,9 +894,16 @@ class LedgerManager(HasActionQueue):
             logger.debug('{} not owned by node'.format(self))
 
     def catchup_ledger(self, ledger_id):
-        self.setLedgerCanSync(ledger_id, True)
-        self.owner.request_ledger_status_from_nodes(ledger_id)
-        self.processStashedLedgerStatuses(ledger_id)
+        try:
+            ledger_info = self.getLedgerInfoByType(ledger_id)
+            ledger_info.set_defaults()
+            ledger_info.canSync = True
+            self.owner.request_ledger_status_from_nodes(ledger_id)
+            self.processStashedLedgerStatuses(ledger_id)
+        except KeyError:
+            logger.error("ledger type {} not present in ledgers so "
+                         "cannot set state".format(ledger_id))
+            return
 
     def ledger_to_sync_after(self, ledger_id) -> Optional[int]:
         if self.ledger_sync_order:

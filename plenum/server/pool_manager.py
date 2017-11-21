@@ -11,9 +11,7 @@ from typing import Dict, Tuple, List
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
-from plenum.common.exceptions import UnsupportedOperation, \
-    InvalidClientRequest
-from plenum.common.request import Request
+from plenum.common.exceptions import UnsupportedOperation
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
@@ -102,7 +100,6 @@ class HasPoolManager:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
             self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
-            # self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,
@@ -280,7 +277,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.node_about_to_be_disconnected(nodeName)
 
     def nodeKeysChanged(self, txn):
@@ -302,7 +298,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackKeysChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.node_about_to_be_disconnected(nodeName)
 
     def nodeServicesChanged(self, txn):

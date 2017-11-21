@@ -263,7 +263,7 @@ class Client(Motor,
             self.nodestack.start()
             self.nodestack.maintainConnections(force=True)
             if self.ledger:
-                self.ledgerManager.setLedgerCanSync(0, True)
+                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
                 self.mode = Mode.starting
 
     async def prod(self, limit) -> int:
