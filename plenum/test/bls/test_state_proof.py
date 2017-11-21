@@ -167,7 +167,7 @@ def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
     wait_for_requests_ordered(looper, txnPoolNodeSet, reqs)
     req = reqs[0]
     req_handler = txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
-    key = req_handler.prepare_buy_key(req.identifier)
+    key = req_handler.prepare_buy_key(req.identifier, req.reqId)
 
     for node in txnPoolNodeSet:
         node.states[DOMAIN_LEDGER_ID].set(key, b'somevalue')
