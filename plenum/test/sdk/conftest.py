@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 from typing import Sequence
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
@@ -16,12 +17,20 @@ from indy.error import IndyError, ErrorCode
 
 @pytest.fixture()
 def sdk_pool_name():
-    return "pool_name_" + randomText(13)
+    p_name = "pool_name_" + randomText(13)
+    yield p_name
+    p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
+    if os.path.isdir(p_dir):
+        shutil.rmtree(p_dir, ignore_errors=True)
 
 
 @pytest.fixture()
 def sdk_wallet_name():
-    return "wallet_name_" + randomText(13)
+    w_name = "wallet_name_" + randomText(13)
+    yield w_name
+    w_dir = os.path.join(os.path.expanduser("~/.indy_client/wallet"), w_name)
+    if os.path.isdir(w_dir):
+        shutil.rmtree(w_dir, ignore_errors=True)
 
 
 async def _gen_pool_handler(work_dir, name):
