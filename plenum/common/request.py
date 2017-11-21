@@ -27,10 +27,11 @@ class Request:
     def as_dict(self):
         # TODO: as of now, the keys below must be equal to the class fields name (see SafeRequest)
         dct = {
-            f.IDENTIFIER.nm: self.identifier,
             f.REQ_ID.nm: self.reqId,
             OPERATION: self.operation
         }
+        if self.identifier is not None:
+            dct[f.IDENTIFIER.nm] = self.identifier
         if self.signature is not None:
             dct[f.SIG.nm] = self.signature
         if self.protocolVersion is not None:

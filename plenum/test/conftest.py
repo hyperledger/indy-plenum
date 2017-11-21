@@ -14,6 +14,7 @@ from typing import Dict, Any
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
@@ -38,7 +39,7 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY
+    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, getMaxFailures
@@ -578,18 +579,18 @@ def poolTxnData(request):
             '0' * (32 - len(steward_name))
 
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
-        s_idr = SimpleSigner(
-            seed=data['seeds'][steward_name].encode()).identifier
+        s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
 
         data['txns'].append({
             TXN_TYPE: NYM,
             ROLE: STEWARD,
             ALIAS: steward_name,
-            TARGET_NYM: s_idr
+            TARGET_NYM: s_idr.identifier,
+            VERKEY: s_idr.verkey,
         })
         node_txn = {
             TXN_TYPE: NODE,
-            f.IDENTIFIER.nm: s_idr,
+            f.IDENTIFIER.nm: s_idr.identifier,
             TARGET_NYM: n_idr,
             DATA: {
                 ALIAS: node_name,
