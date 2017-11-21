@@ -204,8 +204,9 @@ def test_consistency_verification_on_startup_case_2(tempdir):
     ledger.stop()
 
 
-def test_recover_merkle_tree_invalid_hash_store(create_ledger_callable, tempdir,
-                                                txn_serializer, hash_serializer, genesis_txn_file):
+def test_recover_merkle_tree_from_txn_log_if_hash_store_runs_ahead(create_ledger_callable, tempdir,
+                                                                   txn_serializer, hash_serializer,
+                                                                   genesis_txn_file):
     '''
     Check that tree can be recovered from txn log if recovering from hash store failed
     (we have one more txn in hash store than in txn log, so consistency verification fails).
@@ -236,8 +237,9 @@ def test_recover_merkle_tree_invalid_hash_store(create_ledger_callable, tempdir,
     assert tree_size_before == restartedLedger.tree.tree_size
 
 
-def test_recover_merkle_tree_invalid_txn_log(create_ledger_callable, tempdir,
-                                             txn_serializer, hash_serializer, genesis_txn_file):
+def test_recover_merkle_tree_from_txn_log_if_hash_store_lags_behind(create_ledger_callable, tempdir,
+                                                                    txn_serializer, hash_serializer,
+                                                                    genesis_txn_file):
     '''
     Check that tree can be recovered from txn log if recovering from hash store failed
     (we have one more txn in txn log than in hash store, so consistency verification fails).
