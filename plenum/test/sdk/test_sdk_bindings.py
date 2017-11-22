@@ -25,8 +25,7 @@ def test_sdk_steward_wallet(sdk_wallet_steward):
 
 
 def test_sdk_steward_send(looper, sdk_pool_handle, sdk_wallet_steward):
-    steward_wh, steward_did = sdk_wallet_steward
-    resp_task = sdk_send_random_request(looper, sdk_pool_handle, steward_wh, steward_did)
+    resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
 
     resp = looper.run(resp_task)
 
@@ -37,7 +36,7 @@ def test_sdk_steward_send(looper, sdk_pool_handle, sdk_wallet_steward):
 def test_sdk_steward_get_nym(looper, sdk_pool_handle, sdk_wallet_steward):
     steward_wh, steward_did = sdk_wallet_steward
     get_nym_txn_req = looper.run(build_get_nym_request(steward_did, steward_did))
-    get_nym_txn_task = sdk_sign_and_submit_req(sdk_pool_handle, steward_wh, steward_did, get_nym_txn_req)
+    get_nym_txn_task = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_steward, get_nym_txn_req)
 
     get_nym_txn_resp = looper.run(get_nym_txn_task)
 

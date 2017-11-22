@@ -11,8 +11,7 @@ from indy.wallet import create_wallet, open_wallet, close_wallet
 from indy.signus import create_and_store_my_did
 from indy.ledger import sign_and_submit_request, sign_request, submit_request
 import random
-from plenum.test.helper import random_requests, random_request_objects
-from indy.error import IndyError, ErrorCode
+from plenum.test.helper import random_requests
 import asyncio
 
 
@@ -80,30 +79,33 @@ def sdk_random_request_objects(count, protocol_version, identifier=None):
                     protocolVersion=protocol_version, identifier=identifier) for op in ops]
 
 
-def sdk_sign_request_objects(looper, wallet_h, did, reqs: Sequence):
+def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
     resp = [looper.loop.run_until_complete(sign_request(wallet_h, did, req)) for req in reqs_str]
     return resp
 
 
-def sdk_signed_random_requests(looper, wallet_h, did, count):
+def sdk_signed_random_requests(looper, sdk_wallet, count):
+    _, did = sdk_wallet
     reqs_obj = sdk_random_request_objects(count, identifier=did, protocol_version=CURRENT_PROTOCOL_VERSION)
-    return sdk_sign_request_objects(looper, wallet_h, did, reqs_obj)
+    return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
     return [asyncio.ensure_future(submit_request(pool_h, req)) for req in signed_reqs]
 
 
-def sdk_send_random_requests(looper, pool_h, wallet_h, did, count: int):
-    reqs = sdk_signed_random_requests(looper, wallet_h, did, count)
+def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
+    reqs = sdk_signed_random_requests(looper, sdk_wallet, count)
     return sdk_send_signed_requests(pool_h, reqs)
 
 
-def sdk_send_random_request(looper, pool_h, wallet_h, did):
-    rets = sdk_send_random_requests(looper, pool_h, wallet_h, did, 1)
+def sdk_send_random_request(looper, pool_h, sdk_wallet):
+    rets = sdk_send_random_requests(looper, pool_h, sdk_wallet, 1)
     return rets[0]
 
 
-def sdk_sign_and_submit_req(pool_handle, wallet_handle, sender_did, req):
+def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
+    wallet_handle, sender_did = sdk_wallet
     return asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
