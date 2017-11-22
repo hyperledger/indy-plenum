@@ -102,7 +102,6 @@ class HasPoolManager:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
             self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
-            # self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,

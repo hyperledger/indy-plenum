@@ -59,7 +59,7 @@ from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_PROCESSING, OPERATION, f, PLUGIN_TYPE_AUTHENTICATOR
+    PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch, SortedDict
 from plenum.common.verifier import DidVerifier
@@ -183,13 +183,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
-        # self.req_authenticators = self.getPluginsByType(pluginPaths,
-        #                                                 PLUGIN_TYPE_AUTHENTICATOR)
-
         self.register_req_handler(DOMAIN_LEDGER_ID, self.getDomainReqHandler())
         self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
 
-        # self.reqHandler = self.getDomainReqHandler()
         self.initDomainState()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
@@ -703,7 +699,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{}BLS key is rotated/set for Node {}. "
                     "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
-    def ledgerIdForRequest(self, request: Request):
+    def ledger_id_for_request(self, request: Request):
         assert request.operation[TXN_TYPE]
         typ = request.operation[TXN_TYPE]
         return self.txn_type_to_ledger_id[typ]
@@ -1777,6 +1773,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(PRE_STATIC_VALIDATION, request=request)
         if operation[TXN_TYPE] != GET_TXN:
             # GET_TXN is generic, needs no request handler
+
             req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
             if not req_handler:
                 if self.opVerifiers:
@@ -1812,7 +1809,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           cons_time=cons_time)
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
-        ledger_id = self.ledgerIdForRequest(request)
+        ledger_id = self.ledger_id_for_request(request)
         self.execute_hook(POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
@@ -1848,24 +1845,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if request.operation[TXN_TYPE] == GET_TXN:
             self.handle_get_txn_req(request, frm)
             self.total_read_request_number += 1
-        else:
-            ledgerId = self.ledgerIdForRequest(request)
-            ledger = self.getLedger(ledgerId)
-            reply = self.getReplyFromLedger(ledger, request)
-            if reply:
-                logger.debug("{} returning REPLY from already processed "
-                             "REQUEST: {}".format(self, request))
-                self.transmitToClient(reply, frm)
-            else:
-                if self.is_query(request.operation[TXN_TYPE]):
-                    self.process_query(request, frm)
-                else:
-                    if not self.isProcessingReq(*request.key):
-                        self.startedProcessingReq(*request.key, frm)
-                    # If not already got the propagate request(PROPAGATE) for the
-                    # corresponding client request(REQUEST)
-                    self.recordAndPropagate(request, frm)
-                    self.send_ack_to_client(request.key, frm)
+            return
+
+        ledgerId = self.ledger_id_for_request(request)
+        ledger = self.getLedger(ledgerId)
+
+        reply = self.getReplyFromLedger(ledger, request)
+        if reply:
+            logger.debug("{} returning REPLY from already processed "
+                         "REQUEST: {}".format(self, request))
+            self.transmitToClient(reply, frm)
+            return
+
+        if self.is_query(request.operation[TXN_TYPE]):
+            self.process_query(request, frm)
+            return
+
+        if not self.isProcessingReq(*request.key):
+            self.startedProcessingReq(*request.key, frm)
+        # If not already got the propagate request(PROPAGATE) for the
+        # corresponding client request(REQUEST)
+        self.recordAndPropagate(request, frm)
+        self.send_ack_to_client(request.key, frm)
 
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?

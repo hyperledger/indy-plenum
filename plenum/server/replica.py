@@ -752,7 +752,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key].finalised
-        queue = self.requestQueues[self.node.ledgerIdForRequest(fin_req)]
+        queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
             logger.warning('{} is getting requests but still does not have '
