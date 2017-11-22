@@ -16,6 +16,7 @@ def test_observer_registration(looper, nodeSet, up, client1):
 
     client1.registerObserver(callable1, name='first')
     assert len(client1._observers) == 1
+    assert client1.hasObserver(callable1)
 
     # Error when registering callable again
     with pytest.raises(RuntimeError):
@@ -37,6 +38,7 @@ def test_observer_registration(looper, nodeSet, up, client1):
 
     client1.deregisterObserver('first')
     assert len(client1._observers) == 1
+    assert not client1.hasObserver(callable1)
 
     with pytest.raises(RuntimeError):
         client1.deregisterObserver('first')
