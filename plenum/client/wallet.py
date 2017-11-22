@@ -215,7 +215,8 @@ class Wallet:
         :param op: Operation to be signed
         :return: a signed Request object
         """
-        request = Request(operation=op, protocolVersion=CURRENT_PROTOCOL_VERSION)
+        request = Request(operation=op,
+                          protocolVersion=CURRENT_PROTOCOL_VERSION)
         return self.signRequest(request, identifier)
 
     def do_multi_sig_on_req(self, request: Request, identifier: str):
@@ -231,7 +232,8 @@ class Wallet:
         assert lxor(op, request)
         identifier = identifier or self.defaultId
         if op:
-            request = Request(reqId=Request.gen_req_id(), operation=op)
+            request = Request(reqId=Request.gen_req_id(), operation=op,
+                              protocolVersion=CURRENT_PROTOCOL_VERSION)
         self.do_multi_sig_on_req(request, identifier)
         return request
 
