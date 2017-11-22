@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABCMeta
-from typing import List, Tuple
+from typing import Tuple
 
 from ledger.hash_stores.hash_store import HashStore
 
@@ -79,5 +79,11 @@ class MerkleTree(metaclass=ABCMeta):
     @property
     @abstractmethod
     def hashStore(self) -> HashStore:
+        """
+        """
+
+    @property
+    @abstractmethod
+    def reset(self):
         """
         """
