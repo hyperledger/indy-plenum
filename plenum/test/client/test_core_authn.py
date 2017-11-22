@@ -71,39 +71,39 @@ def testAnotherAuthenticatorCanAuthenticate(sa, signer, msg, sig):
 
 
 def testReconstitutedClientCreatesTheSameSig(signer, sig, msg):
-    cli2 = SimpleSigner(idr, seed=signer.seed)
-    sig2 = cli2.sign(msg)
+    signer2 = SimpleSigner(idr, seed=signer.seed)
+    sig2 = signer2.sign(msg)
     assert sig == sig2
 
 
 @pytest.fixture(scope="module")
-def cli2():
+def signer2():
     return SimpleSigner()
 
 
 @pytest.fixture(scope="module")
-def cli3():
+def signer3():
     return SimpleSigner()
 
 
 @pytest.fixture(scope="module")
-def cli4():
+def signer4():
     return SimpleSigner()
 
 
 @pytest.fixture(scope="module")
-def multi_sa(sa, cli2, cli3, cli4):
-    for c in (cli2, cli3, cli4):
+def multi_sa(sa, signer2, signer3, signer4):
+    for c in (signer2, signer3, signer4):
         sa.addIdr(c.identifier, c.verkey)
     return sa
 
 
 @pytest.fixture(scope="module")
-def correct_sigs(msg, signer, cli2, cli3, cli4):
-    return {c.identifier: c.sign(msg) for c in (signer, cli2, cli3, cli4)}
+def correct_sigs(msg, signer, signer2, signer3, signer4):
+    return {c.identifier: c.sign(msg) for c in (signer, signer2, signer3, signer4)}
 
 
-def test_verify_multi_sig_correct(multi_sa, msg, signer, cli2, cli3, cli4,
+def test_verify_multi_sig_correct(multi_sa, msg, signer, signer2, signer3, signer4,
                                   correct_sigs):
     idrs = correct_sigs.keys()
     assert list(idrs) == multi_sa.authenticate_multi(msg, correct_sigs)
@@ -115,15 +115,15 @@ def test_verify_multi_sig_correct(multi_sa, msg, signer, cli2, cli3, cli4,
 
 
 @pytest.fixture(scope="module")
-def two_correct_sigs(msg, signer, cli2, cli3, cli4):
-    correct = {c.identifier: c.sign(msg) for c in (signer, cli2)}
-    incorrect = {c.identifier: c.sign({**msg, 'random_key': 11}) for c in (cli3, cli4)}
+def two_correct_sigs(msg, signer, signer2, signer3, signer4):
+    correct = {c.identifier: c.sign(msg) for c in (signer, signer2)}
+    incorrect = {c.identifier: c.sign({**msg, 'random_key': 11}) for c in (signer3, signer4)}
     return {**correct, **incorrect}
 
 
-def test_verify_multi_sig_threshold(multi_sa, msg, signer, cli2, cli3, cli4,
-                                    two_correct_sigs):
-    idrs = {signer.identifier, cli2.identifier}
+def test_verify_multi_sig_threshold(multi_sa, msg, signer, signer2, signer3,
+                                    signer4, two_correct_sigs):
+    idrs = {signer.identifier, signer2.identifier}
     for i in range(1, 3):
         # `authenticate_multi` returns threshold number of identifiers on success
         assert len(set(
@@ -140,7 +140,7 @@ def test_verify_multi_sig_threshold(multi_sa, msg, signer, cli2, cli3, cli4,
         multi_sa.authenticate_multi(msg, two_correct_sigs)
 
     with pytest.raises(InsufficientSignatures):
-        sigs = {c.identifier: c.sign(msg) for c in (signer, cli2)}
+        sigs = {c.identifier: c.sign(msg) for c in (signer, signer2)}
         multi_sa.authenticate_multi(msg, sigs, 3)
 
 

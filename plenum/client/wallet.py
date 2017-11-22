@@ -226,7 +226,7 @@ class Wallet:
         request.add_signature(idr, signature)
 
     def sign_using_multi_sig(self, op: Dict=None, request: Request=None,
-                             identifier=None):
+                             identifier=None) -> Request:
         # One and only 1 of `op` and `request` must be provided.
         # If `request` is provided it must have `reqId`
         assert lxor(op, request)
