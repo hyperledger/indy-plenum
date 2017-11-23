@@ -123,7 +123,7 @@ def test_less_than_minimal_valid(validator, operation):
                 OPERATION: operation}
     with pytest.raises(TypeError) as ex_info:
         validator.validate(req_dict)
-    ex_info.match('missed fields - identifier')
+    ex_info.match('Missing both signatures and identifier')
 
 
 def test_all_signature_invalid(validator, request_dict):
