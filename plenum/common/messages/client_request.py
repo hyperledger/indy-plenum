@@ -90,6 +90,19 @@ class ClientOperationField(MessageValidator):
 
 
 class ClientMessageValidator(MessageValidator):
+    schema = (
+        (f.IDENTIFIER.nm, IdentifierField(optional=True, nullable=True)),
+        (f.REQ_ID.nm, NonNegativeNumberField()),
+        (OPERATION, ClientOperationField()),
+        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT,
+                                  optional=True)),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
+                                               optional=True)),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
+        (f.SIGS.nm, MapField(IdentifierField(),
+                             SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
+                             optional=True, nullable=True)),
+    )
 
     def __init__(self, operation_schema_is_strict, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -107,16 +120,8 @@ class ClientMessageValidator(MessageValidator):
             schema[operation_field_index] = (OPERATION, op)
             self.schema = tuple(schema)
 
-    schema = (
-        (f.IDENTIFIER.nm, IdentifierField(nullable=True)),
-        (f.REQ_ID.nm, NonNegativeNumberField()),
-        (OPERATION, ClientOperationField()),
-        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT,
-                                  optional=True)),
-        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
-                                               optional=True)),
-        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
-        (f.SIGS.nm, MapField(IdentifierField(),
-                             SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
-                             optional=True, nullable=True)),
-    )
+    def validate(self, dct):
+        super().validate(dct)
+        if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
+            self._raise_invalid_message(
+                'Missing both signatures and identifier')

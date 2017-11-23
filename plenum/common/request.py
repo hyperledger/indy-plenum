@@ -140,9 +140,9 @@ class SafeRequest(Request, ClientMessageValidator):
         self.validate(kwargs)
         Request.__init__(self, **kwargs)
 
-    def validate(self, dct):
-        super().validate(dct)
-        if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
-            raise TypeError('{} {}'.
-                            format(self.__error_msg_prefix,
-                                   'Missing both signatures and identifier'))
+    # def validate(self, dct):
+    #     super().validate(dct)
+    #     if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
+    #         raise TypeError('{} {}'.
+    #                         format(self.__error_msg_prefix,
+    #                                'Missing both signatures and identifier'))

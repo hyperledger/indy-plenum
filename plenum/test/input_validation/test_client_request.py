@@ -145,3 +145,51 @@ def test_all_version_invalid(validator, request_dict):
     with pytest.raises(TypeError) as ex_info:
         validator.validate(request_dict)
     ex_info.match('Unknown protocol version value -5')
+
+
+def test_no_sigs(validator, operation):
+    request_data = {
+        f.IDENTIFIER.nm: "1" * 16,
+        f.REQ_ID.nm: 1,
+        OPERATION: operation,
+        f.SIG.nm: "signature",
+        f.DIGEST.nm: "digest",
+        f.PROTOCOL_VERSION.nm: 1
+    }
+    validator.validate(request_data)
+
+
+def test_no_idr(validator, operation):
+    request_data = {
+        f.REQ_ID.nm: 1,
+        OPERATION: operation,
+        f.SIGS.nm: {
+            "1" * 16: "signature"
+        },
+        f.DIGEST.nm: "digest",
+        f.PROTOCOL_VERSION.nm: 1
+    }
+    validator.validate(request_data)
+
+
+def test_no_sigs_and_idr(validator, operation):
+    request_data = {
+        f.REQ_ID.nm: 1,
+        OPERATION: operation,
+        f.SIG.nm: "signature",
+        f.DIGEST.nm: "digest",
+        f.PROTOCOL_VERSION.nm: 1
+    }
+    with pytest.raises(TypeError) as ex_info:
+        validator.validate(request_data)
+    ex_info.match('Missing both signatures and identifier')
+
+    request_data = {
+        f.REQ_ID.nm: 1,
+        OPERATION: operation,
+        f.DIGEST.nm: "digest",
+        f.PROTOCOL_VERSION.nm: 1
+    }
+    with pytest.raises(TypeError) as ex_info:
+        validator.validate(request_data)
+    ex_info.match('Missing both signatures and identifier')
