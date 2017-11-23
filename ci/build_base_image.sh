@@ -10,8 +10,8 @@ BASE_IMAGE=hyperledger/indy-core-baseci
 INDY_NODE_DIR=indy_node
 
 # TODO fix that before merge
-INDY_NODE_REPO_URL=https://github.com/andkononykhin/indy-node.git
-INDY_NODE_REPO_BRANCH=feature/ci-docker
+INDY_NODE_REPO_URL=https://github.com/hyperledger/indy-node.git
+INDY_NODE_REPO_BRANCH=master
 
 
 build_from_dockerfiles() {
