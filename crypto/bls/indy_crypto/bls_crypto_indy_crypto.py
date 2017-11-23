@@ -1,3 +1,4 @@
+import logging
 from logging import getLogger
 from typing import Sequence, Optional
 
@@ -5,6 +6,7 @@ import base58
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
 
+logging.getLogger("indy_crypto").setLevel(logging.WARNING)
 logger = getLogger()
 
 

@@ -80,8 +80,8 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
-                                                       self.config.NETWORK_NAME)
+        self.basedirpath = basedirpath or os.path.join(self.config.CLI_NETWORK_DIR, self.config.NETWORK_NAME)
+        self.basedirpath = os.path.expanduser(self.basedirpath)
 
         signer = Signer(sighex)
         sighex = signer.keyraw
@@ -139,7 +139,7 @@ class Client(Motor,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auth_mode=AuthMode.ALLOW_ANY.value)
-        stackargs['basedirpath'] = basedirpath
+        stackargs['basedirpath'] = self.basedirpath
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
