@@ -30,7 +30,7 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-tests_require = ['pytest', 'pytest-xdist']
+tests_require = ['pytest', 'pytest-xdist', 'python3-indy']
 
 setup(
     name='indy-plenum-dev',
