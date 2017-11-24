@@ -13,7 +13,9 @@ from importlib.util import module_from_spec, spec_from_file_location    # noqa: 
 
 import plenum   # noqa: E402
 import plenum.server.plugin     # noqa: E402
-from plenum.config import ENABLED_PLUGINS   # noqa: E402
+from plenum.common.config_util import getConfig   # noqa: E402
+
+config = getConfig()
 
 
 PLUGIN_LEDGER_IDS = set()
@@ -22,6 +24,8 @@ PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 def setup_plugins():
     global PLUGIN_LEDGER_IDS
+
+    ENABLED_PLUGINS = config.ENABLED_PLUGINS
     for plugin_name in ENABLED_PLUGINS:
         plugin_path = os.path.join(plenum.server.plugin.__path__[0],
                                    plugin_name, '__init__.py')

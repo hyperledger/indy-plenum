@@ -34,7 +34,7 @@ class Request:
             if nm in kwargs:
                 setattr(self, nm, kwargs[nm])
 
-    @lazy_field
+    @property
     def digest(self):
         if self._digest is None:
             self._digest = self.getDigest()
