@@ -1482,10 +1482,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        if self.isSignatureVerificationNeeded(msg):
-            self.execute_hook(PRE_SIG_VERIFICATION, cMsg)
-            self.verifySignature(cMsg)
-            self.execute_hook(POST_SIG_VERIFICATION, cMsg)
+        self.execute_hook(PRE_SIG_VERIFICATION, cMsg)
+        self.verifySignature(cMsg)
+        self.execute_hook(POST_SIG_VERIFICATION, cMsg)
             # Suspicions should only be raised when lot of sig failures are
             # observed
             # try:
@@ -2411,15 +2410,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def authNr(self, req):
         return self.clientAuthNr
 
-    def isSignatureVerificationNeeded(self, msg: Any):
-        # TODO: This should be removed, CoreAuthnr or a plugin would be used to
-        # check if needed
-        op = msg.get(OPERATION)
-        if op:
-            if op.get(TXN_TYPE) in openTxns:
-                return False
-        return True
-
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
         if ledger_id in self.txn_seq_range_to_3phase_key:
             # point query in interval tree
@@ -2465,9 +2455,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.requests.mark_as_executed(request)
                 logger.info(
                     "{} committed batch request, view no {}, ppSeqNo {}, "
-                    "ledger {}, state root {}, txn root {}, requests: {}".format(
-                        self, view_no, pp_seq_no, ledger_id, state_root, txn_root,
-                        [(req.identifier, req.reqId) for req in reqs]
+                    "ledger {}, state root {}, txn root {}, requests: {}"
+                        .format(self, view_no, pp_seq_no, ledger_id,
+                                state_root, txn_root,
+                                [(req.identifier, req.reqId) for req in reqs]
                     )
                 )
 

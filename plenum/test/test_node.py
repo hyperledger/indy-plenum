@@ -56,13 +56,11 @@ logger = getlogger()
 
 class TestCoreAuthnr(CoreAuthNr):
     write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
-    query_types = {'get_buy', }
+    query_types = CoreAuthNr.query_types.union({'get_buy', })
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
-    valid_txn_types = DomainRequestHandler.valid_txn_types.union({'buy',
-                                                                  'randombuy',
-                                                                  'get_buy'})
+    write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy',})
     query_types = DomainRequestHandler.query_types.union({'get_buy', })
 
     @staticmethod

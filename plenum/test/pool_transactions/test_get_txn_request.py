@@ -35,7 +35,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
 
 
 def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
-                                       steward1, stewardWallet):
+                                    steward1, stewardWallet):
     op = {
         TXN_TYPE: GET_TXN,
         f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
