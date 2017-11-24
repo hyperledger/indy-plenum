@@ -8,8 +8,7 @@ from os.path import isfile, join
 from typing import Any, Set, Dict
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER, \
-    PLUGIN_TYPE_AUTHENTICATOR
+    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
 
 from stp_core.common.log import getlogger
 
@@ -58,7 +57,7 @@ class PluginLoader:
         assert path, "path is required"
         self.path = path
         self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
-                            PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_TYPE_AUTHENTICATOR]
+                            PLUGIN_TYPE_STATS_CONSUMER]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 

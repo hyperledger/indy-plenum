@@ -116,7 +116,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     _info_tool_class = ValidatorNodeInfoTool
     ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
     _wallet_class = Wallet
-    _txn_seq_no_validator = TxnSeqNoField()
 
     def __init__(self,
                  name: str,
@@ -1947,10 +1946,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      frm)
             return
         seq_no = request.operation.get(DATA)
-        error = self._txn_seq_no_validator.validate(seq_no)
-        if error:
-            self.send_nack_to_client(request.key, error, frm)
-            return
         self.send_ack_to_client(request.key, frm)
         ledger = self.getLedger(ledger_id)
         try:

@@ -4,6 +4,7 @@ from typing import Mapping, NamedTuple, Dict
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.constants import REQKEY, FORCE, TXN_TYPE
 from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.common.tools import lazy_field
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getTimeBasedId
 from stp_core.types import Identifier
@@ -33,7 +34,7 @@ class Request:
             if nm in kwargs:
                 setattr(self, nm, kwargs[nm])
 
-    @property
+    @lazy_field
     def digest(self):
         if self._digest is None:
             self._digest = self.getDigest()
