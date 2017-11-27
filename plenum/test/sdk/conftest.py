@@ -10,6 +10,7 @@ from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_le
 from indy.wallet import create_wallet, open_wallet, close_wallet
 from indy.signus import create_and_store_my_did
 from indy.ledger import sign_and_submit_request, sign_request, submit_request
+from indy.error import ErrorCode, IndyError
 import random
 from plenum.test.helper import random_requests
 import asyncio
@@ -93,7 +94,7 @@ def sdk_signed_random_requests(looper, sdk_wallet, count):
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
-    return [asyncio.ensure_future(submit_request(pool_h, req)) for req in signed_reqs]
+    return [(json.loads(req), asyncio.ensure_future(submit_request(pool_h, req))) for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
@@ -108,4 +109,35 @@ def sdk_send_random_request(looper, pool_h, sdk_wallet):
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
-    return asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+    return json.loads(req), asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+
+
+def sdk_get_reply(looper, sdk_req_resp, timeout=None):
+    req_json, resp_task = sdk_req_resp
+    try:
+        resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
+        resp = json.loads(resp)
+    except asyncio.TimeoutError:
+        resp = None
+    except IndyError as e:
+        resp = e.error_code
+
+    return req_json, resp
+
+
+def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    resp_tasks = [resp for _, resp in sdk_req_resp]
+
+    def get_res(task, done_list):
+        if task in done:
+            try:
+                resp = json.loads(task.result())
+            except IndyError as e:
+                resp = e.error_code
+        else:
+            resp = None
+        return resp
+
+    done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
+    return ret
