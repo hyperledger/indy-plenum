@@ -5,7 +5,8 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, NonEmptyStringField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
-    NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, ProtocolVersionField
+    NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
+    ProtocolVersionField, LedgerIdField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
@@ -55,6 +56,7 @@ class ClientNYMOperation(MessageValidator):
 class ClientGetTxnOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(GET_TXN)),
+        (f.LEDGER_ID.nm, LedgerIdField(optional=True)),
         (DATA, TxnSeqNoField()),
     )
 

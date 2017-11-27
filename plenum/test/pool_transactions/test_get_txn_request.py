@@ -30,7 +30,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                   protocolVersion=CURRENT_PROTOCOL_VERSION)
     steward1.submitReqs(req)
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1, 'Invalid ledger id',
+        waitReqNackWithReason(looper, steward1, 'expected one of',
                               node.clientstack.name)
 
 
@@ -53,22 +53,29 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
 def test_get_txn_for_existing_seq_no(looper, steward1, stewardWallet):
     op = {
         TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
         DATA: 1
     }
-    req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION)
-    steward1.submitReqs(req)
 
-    timeout = waits.expectedTransactionExecutionTime(
-        len(steward1.inBox)) + c_delay
-    get_txn_response = \
-        looper.run(eventually(check_sufficient_replies_received,
-                              steward1, req.identifier, req.reqId,
-                              retryWait=1, timeout=timeout))
+    def chk():
+        nonlocal op
+        req = Request(identifier=stewardWallet.defaultId,
+                      operation=op, reqId=Request.gen_req_id(),
+                      protocolVersion=CURRENT_PROTOCOL_VERSION)
+        steward1.submitReqs(req)
 
-    assert get_txn_response[DATA]
+        timeout = waits.expectedTransactionExecutionTime(
+            len(steward1.inBox)) + c_delay
+        get_txn_response = \
+            looper.run(eventually(check_sufficient_replies_received,
+                                  steward1, req.identifier, req.reqId,
+                                  retryWait=1, timeout=timeout))
+
+        assert get_txn_response[DATA]
+
+    # Check with and without ledger id
+    chk()
+    op[f.LEDGER_ID.nm] = DOMAIN_LEDGER_ID
+    chk()
 
 
 def test_get_txn_for_non_existing_seq_no(looper, steward1, stewardWallet):

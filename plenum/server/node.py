@@ -1937,8 +1937,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Handle GET_TXN request
         """
-        ledger_id = request.operation.get(f.LEDGER_ID.nm)
-        if not ledger_id or ledger_id not in self.ledger_to_req_handler:
+        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
+        if ledger_id not in self.ledger_to_req_handler:
             self.send_nack_to_client(request.key,
                                      'Invalid ledger id {}'.format(ledger_id),
                                      frm)
