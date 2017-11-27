@@ -272,7 +272,7 @@ def checkRequest(cli, operation):
     client = cli.clients[cName]
     wallet = cli.wallets[cName]  # type: Wallet
     # Ensure client gets back the replies
-    lastReqId = wallet._getIdData().lastReqId
+    lastReqId = client.reqRepStore.lastReqId
 
     request = Request(identifier=wallet.defaultId,
                       reqId=lastReqId,

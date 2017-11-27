@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.exceptions import InvalidSignature
+from plenum.common.exceptions import InsufficientCorrectSignatures
 from stp_core.common.log import getlogger
 from stp_core.common.util import adict
 from plenum.test import waits
@@ -49,7 +49,7 @@ def testOneNodeAltersAClientRequest(looper,
             frm = params["nodeName"]
             reason = params["reason"]
             assert frm == 'Alpha'
-            assert reason == InvalidSignature.reason
+            assert reason == InsufficientCorrectSignatures.reason.format(0, 1)
 
             # ensure Alpha's propagates were ignored by the other nodes
             key = sent1.identifier, sent1.reqId

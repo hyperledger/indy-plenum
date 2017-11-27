@@ -18,7 +18,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 
 
-def sendAddNewClient(role, name, creatorClient, creatorWallet):
+def new_client_request(role, name, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -33,7 +33,11 @@ def sendAddNewClient(role, name, creatorClient, creatorWallet):
     if role:
         op[ROLE] = role
 
-    req = creatorWallet.signOp(op)
+    return creatorWallet.signOp(op), wallet
+
+
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
+    req, wallet = new_client_request(role, name, creatorWallet)
     creatorClient.submitReqs(req)
     return req, wallet
 

@@ -5,8 +5,10 @@ import base58
 import pytest
 import re
 
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
+    CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
+from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test import waits
@@ -193,7 +195,8 @@ def load_info(path):
 
 
 @pytest.fixture(scope='module')
-def info_path(tdirWithPoolTxns, patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet):
+def info_path(tdirWithPoolTxns, patched_dump_info_period, txnPoolNodesLooper,
+              txnPoolNodeSet):
     path = os.path.join(tdirWithPoolTxns, INFO_FILENAME)
     txnPoolNodesLooper.runFor(patched_dump_info_period)
     assert os.path.exists(path), '{} exists'.format(path)
@@ -224,6 +227,7 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
     def read_wrapped(txn_type):
         op = {
             TXN_TYPE: txn_type,
+            f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
             DATA: 1
         }
         req = Request(identifier=wallet.defaultId,
