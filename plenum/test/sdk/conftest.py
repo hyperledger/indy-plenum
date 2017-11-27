@@ -9,7 +9,7 @@ import json
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
 from indy.signus import create_and_store_my_did
-from indy.ledger import sign_and_submit_request, sign_request, submit_request
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 from indy.error import ErrorCode, IndyError
 import random
 from plenum.test.helper import random_requests
@@ -69,9 +69,30 @@ def sdk_steward_seed(poolTxnStewardData):
 
 
 @pytest.fixture()
+def sdk_client1_seed():
+    return "Client10000000000000000000000000"
+
+
+@pytest.fixture()
 def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
-    (steward_did, _) = looper.loop.run_until_complete(create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
+    (steward_did, steward_verkey) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
     return sdk_wallet_handle, steward_did
+
+
+async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
+    wh, steward_did = wallet_steward
+    (named_did, named_verkey) = await create_and_store_my_did(wh, json.dumps({"seed": named_seed, 'cid': True}))
+    nym_request = await build_nym_request(steward_did, named_did, named_verkey, None, None)
+    await sign_and_submit_request(pool_handle, wh, steward_did, nym_request)
+    return wh, named_did
+
+
+@pytest.fixture()
+def sdk_wallet_client1(looper, sdk_pool_handle, sdk_wallet_steward, sdk_client1_seed):
+    wh, client_did = looper.loop.run_until_complete(
+        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_client1_seed))
+    return wh, client_did
 
 
 def sdk_random_request_objects(count, protocol_version, identifier=None):
