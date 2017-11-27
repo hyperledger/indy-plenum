@@ -56,7 +56,7 @@ class ClientNYMOperation(MessageValidator):
 class ClientGetTxnOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(GET_TXN)),
-        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.LEDGER_ID.nm, LedgerIdField(optional=True)),
         (DATA, TxnSeqNoField()),
     )
 
