@@ -150,7 +150,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
 
     def get_res(task, done_list):
-        if task in done:
+        if task in done_list:
             try:
                 resp = json.loads(task.result())
             except IndyError as e:

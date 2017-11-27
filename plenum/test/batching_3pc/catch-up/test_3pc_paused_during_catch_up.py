@@ -25,7 +25,6 @@ def test_no_ordering_during_syncup(
 
 
 def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
-    steward_wh, steward_did = sdk_wallet_steward
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 
     # Put non-primary Node to syncing state once first Prepare is recieved
@@ -36,5 +35,5 @@ def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_h
 
     # Send requests. The non-primary Node should not fail since no ordering is
     # called while syncing
-    sdk_send_random_requests(looper, sdk_pool_handle, steward_wh, steward_did, tconf.Max3PCBatchSize)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_steward, tconf.Max3PCBatchSize)
     looper.runFor(5)
