@@ -92,7 +92,7 @@ class Logger(metaclass=Singleton):
         h = CliHandler(callback, override_tags)
         self._setHandler('cli', h)
         # assumption is there's never a need to have std logging when in CLI
-        # self._clearHandler('std')
+        self._clearHandler('std')
 
     def enableFileLogging(self, filename):
         d = os.path.dirname(filename)
