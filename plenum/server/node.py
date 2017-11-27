@@ -1485,14 +1485,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
         self.execute_hook(POST_SIG_VERIFICATION, cMsg)
-            # Suspicions should only be raised when lot of sig failures are
-            # observed
-            # try:
-            #     self.verifySignature(cMsg)
-            # except UnknownIdentifier as ex:
-            #     raise
-            # except Exception as ex:
-            #     raise SuspiciousClient from ex
+        # Suspicions should only be raised when lot of sig failures are
+        # observed
+        # try:
+        #     self.verifySignature(cMsg)
+        # except UnknownIdentifier as ex:
+        #     raise
+        # except Exception as ex:
+        #     raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -2455,11 +2455,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.requests.mark_as_executed(request)
                 logger.info(
                     "{} committed batch request, view no {}, ppSeqNo {}, "
-                    "ledger {}, state root {}, txn root {}, requests: {}"
-                        .format(self, view_no, pp_seq_no, ledger_id,
-                                state_root, txn_root,
-                                [(req.identifier, req.reqId) for req in reqs]
-                    )
+                    "ledger {}, state root {}, txn root {}, requests: {}".
+                    format(self, view_no, pp_seq_no, ledger_id, state_root,
+                           txn_root,
+                           [(req.identifier, req.reqId) for req in reqs])
                 )
 
         for txn in committedTxns:
