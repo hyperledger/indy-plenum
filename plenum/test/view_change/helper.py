@@ -224,7 +224,8 @@ def ensure_view_change_complete(looper, nodes, exclude_from_check=None,
     ensure_view_change(looper, nodes)
     ensureElectionsDone(looper=looper, nodes=nodes,
                         customTimeout=customTimeout)
-    ensure_all_nodes_have_same_data(looper, nodes, customTimeout)
+    ensure_all_nodes_have_same_data(looper, nodes, customTimeout,
+                                    exclude_from_check=exclude_from_check)
 
 
 def ensure_view_change_complete_by_primary_restart(
@@ -272,7 +273,10 @@ def view_change_in_between_3pc_random_delays(
 
     sendRandomRequests(wallet, client, 10)
 
-    ensure_view_change_complete(looper, nodes)
+    ensure_view_change_complete(looper,
+                                nodes,
+                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT + max_delay,
+                                exclude_from_check='check_last_ordered_3pc')
 
     reset_delays_and_process_delayeds(slow_nodes)
 
