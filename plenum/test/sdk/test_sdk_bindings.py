@@ -1,8 +1,6 @@
 from plenum.test.pool_transactions.conftest import looper
 from plenum.test.sdk.conftest import sdk_send_random_request, sdk_sign_and_submit_req, sdk_get_reply,\
     sdk_send_random_requests, sdk_get_replies, sdk_wallet_client1
-from indy.ledger import build_get_nym_request
-import json
 from stp_core.common.log import getlogger
 
 
@@ -48,19 +46,3 @@ def test_sdk_steward_send_many(looper, sdk_pool_handle, sdk_wallet_steward):
     repl = sdk_get_replies(looper, resp_task)
     for _, resp in repl:
         assert resp['result']
-
-
-def test_sdk_steward_get_nym(looper, sdk_pool_handle, sdk_wallet_steward):
-    steward_wh, steward_did = sdk_wallet_steward
-    req_str = looper.run(build_get_nym_request(steward_did, steward_did))
-    sdk_req_resp = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_steward, req_str)
-    req, resp = sdk_get_reply(looper, sdk_req_resp)
-    assert resp['result']['dest'] == steward_did
-
-
-def test_sdk_client_get_nym(looper, sdk_pool_handle, sdk_wallet_client1):
-    client_wh, client_did = sdk_wallet_client1
-    req_str = looper.run(build_get_nym_request(client_did, client_did))
-    sdk_req_resp = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_client1, req_str)
-    req, resp = sdk_get_reply(looper, sdk_req_resp)
-    assert resp['result']['dest'] == client_did

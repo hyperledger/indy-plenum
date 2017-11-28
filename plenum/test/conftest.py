@@ -610,33 +610,21 @@ def poolTxnData(request):
 
         data['txns'].append(node_txn)
 
-    # Below is some static data that is needed for some CLI tests
-    more_data = {'txns': [
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ",
-         "type": "1",
-         "alias": "Alice"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB",
-         "type": "1",
-         "alias": "Jason"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG",
-         "type": "1",
-         "alias": "John"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru",
-         "type": "1",
-         "alias": "Les"}
-    ], 'seeds': {
-        "Alice": "99999999999999999999999999999999",
-        "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "John": "dddddddddddddddddddddddddddddddd",
-        "Les": "ffffffffffffffffffffffffffffffff"
-    }}
+    more_data_seeds = \
+        {
+            "Alice": "99999999999999999999999999999999",
+            "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "John": "dddddddddddddddddddddddddddddddd",
+            "Les": "ffffffffffffffffffffffffffffffff"
+        }
+    more_data_users = []
+    for more_name, more_seed in more_data_seeds.items():
+        signer = DidSigner(seed=more_seed.encode())
+        more_data_users.append({TXN_TYPE: NYM, ALIAS: more_name, TARGET_NYM: signer.identifier, VERKEY: signer.verkey,
+                                f.IDENTIFIER.nm: "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC"})
 
-    data['txns'].extend(more_data['txns'])
-    data['seeds'].update(more_data['seeds'])
+    data['txns'].extend(more_data_users)
+    data['seeds'].update(more_data_seeds)
     return data
 
 

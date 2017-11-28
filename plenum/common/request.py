@@ -45,12 +45,13 @@ class Request:
         rv = {
             f.REQ_ID.nm: self.reqId,
             OPERATION: self.operation,
-            f.SIG.nm: self.signature,
         }
         if self._identifier is not None:
             rv[f.IDENTIFIER.nm] = self._identifier
         if self.signatures is not None:
             rv[f.SIGS.nm] = self.signatures
+        if self.signature is not None:
+                rv[f.SIG.nm] = self.signature
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
             if hasattr(self, nm):
                 rv[nm] = getattr(self, nm)

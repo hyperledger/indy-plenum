@@ -78,7 +78,7 @@ def reqToTxn(req: Request, cons_time=None):
         f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
         f.REQ_ID.nm: data[f.REQ_ID.nm],
         f.SIG.nm: data[f.SIG.nm],
-        f.SIGS.nm: data[f.SIGS.nm],
+        f.SIGS.nm: data.get(f.SIGS.nm, None),
         TXN_TIME: cons_time or data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
