@@ -1,7 +1,6 @@
 from copy import copy
 from typing import List, Tuple
 
-import base58
 from ledger.ledger import Ledger as _Ledger
 from stp_core.common.log import getlogger
 

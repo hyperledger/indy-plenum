@@ -256,7 +256,7 @@ class LedgerManager(HasActionQueue):
             self.discard(status, reason="Received negative sequence number "
                          "from {}".format(frm),
                          logMethod=logger.warning)
-
+            return
         ledgerId = getattr(status, f.LEDGER_ID.nm)
 
         # If this is a node's ledger manager and sender of this ledger status
@@ -324,6 +324,9 @@ class LedgerManager(HasActionQueue):
                     self.catchupCompleted(ledgerId, key)
                 else:
                     self.catchupCompleted(ledgerId)
+            else:
+                # Ledger was already synced
+                self.mark_ledger_synced(ledgerId)
 
     @staticmethod
     def has_ledger_status_quorum(leger_status_num, total_nodes):
@@ -845,22 +848,25 @@ class LedgerManager(HasActionQueue):
                              0.1 * batchSize)
 
     def catchupCompleted(self, ledgerId: int, last_3PC: Tuple=(0, 0)):
+        if ledgerId not in self.ledgerRegistry:
+            logger.error("{}{} called catchup completed for ledger {}".
+                         format(CATCH_UP_PREFIX, self, ledgerId))
+            return
+
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
         if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
 
-        if ledgerId not in self.ledgerRegistry:
-            logger.error("{}{} called catchup completed for ledger {}".
-                         format(CATCH_UP_PREFIX, self, ledgerId))
-            return
+        self.mark_ledger_synced(ledgerId)
 
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+    def mark_ledger_synced(self, ledger_id):
+        ledgerInfo = self.getLedgerInfoByType(ledger_id)
         ledgerInfo.done_syncing()
         logger.info("{}{} completed catching up ledger {},"
                     " caught up {} in total"
-                    .format(CATCH_UP_PREFIX, self, ledgerId,
+                    .format(CATCH_UP_PREFIX, self, ledger_id,
                             ledgerInfo.num_txns_caught_up),
                     extra={'cli': True})
 

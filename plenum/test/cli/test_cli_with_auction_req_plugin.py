@@ -29,7 +29,8 @@ def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):
 # TODO: Have a test for non existent auction id
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
+# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
+@pytest.mark.skip(reason="old style plugin")
 def testTransactions(cli, loadAuctionReqPlugin,
                      createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)

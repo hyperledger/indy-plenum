@@ -45,6 +45,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                                 pluginVerPath):
     plugin = PluginLoader(pluginVerPath)

@@ -115,6 +115,7 @@ class Ordered(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 
@@ -141,7 +142,8 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
-                                                    nullable=True))
+                                                    nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
 
 
@@ -155,6 +157,7 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 
@@ -166,6 +169,9 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+        # PLUGIN_FIELDS is not used in Commit as of now but adding for
+        # consistency
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 

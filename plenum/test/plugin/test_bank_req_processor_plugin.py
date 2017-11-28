@@ -101,6 +101,7 @@ class AccountApp(App):
         return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testBankTransactions(nodeSet, up, looper, apps):
     jason, john, les = apps
 

@@ -113,7 +113,7 @@ def test_less_than_minimal_valid(operation):
     with pytest.raises(TypeError) as ex_info:
         SafeRequest(reqId=1,
                     operation=operation)
-    ex_info.match('missed fields - identifier')
+    ex_info.match('Missing both signatures and identifier')
 
 
 def test_all_signature_invalid(operation):
