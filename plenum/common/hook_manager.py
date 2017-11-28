@@ -1,5 +1,7 @@
 from typing import Callable, Dict, List
 
+from plenum.common.error import error
+
 
 class HookManager:
     def __init__(self, hook_ids):
@@ -12,7 +14,8 @@ class HookManager:
             self.hooks[hook_id] = []
 
     def register_hook(self, hook_id, hook: Callable):
-        assert hook_id in self.hooks
+        if hook_id not in self.hooks:
+            error('Unknown hook id', KeyError)
         self.hooks[hook_id].append(hook)
 
     def execute_hook(self, hook_id, *args, **kwargs):

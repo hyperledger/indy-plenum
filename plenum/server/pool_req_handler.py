@@ -18,7 +18,7 @@ logger = getlogger()
 
 
 class PoolRequestHandler(RequestHandler):
-    valid_txn_types = {NODE, }
+    write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
                  domainState: State):

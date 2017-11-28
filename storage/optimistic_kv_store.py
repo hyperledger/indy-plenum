@@ -45,21 +45,16 @@ class OptimisticKVStore:
 
     def get(self, key, is_committed=False):
         if is_committed:
-            value = self._store.get(key)
-        else:
-            # Looking for uncommitted values, iterating over `current_batch_ops`
-            # and `un_committed` in reverse to get the latest value
-            for k, value in reversed(self.current_batch_ops):
-                if k == key:
-                    break
-            else:
-                for _, cache in reversed(self.un_committed):
-                    if key in cache:
-                        value = cache[key]
-                        break
-                else:
-                    value = self._store.get(key)
-        return value
+            return self._store.get(key)
+        # Looking for uncommitted values, iterating over `current_batch_ops`
+        # and `un_committed` in reverse to get the latest value
+        for k, value in reversed(self.current_batch_ops):
+            if k == key:
+                return value
+        for _, cache in reversed(self.un_committed):
+            if key in cache:
+                return cache[key]
+        return self._store.get(key)
 
     def set(self, key, value, is_committed=False):
         if is_committed:

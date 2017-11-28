@@ -18,7 +18,7 @@ class RequestHandler:
     Declares methods for validation, application of requests and
     state control
     """
-    valid_txn_types = set()
+    write_types = set()
     query_types = set()
 
     def __init__(self, ledger: Ledger, state: State):
@@ -82,3 +82,7 @@ class RequestHandler:
     @staticmethod
     def transform_txn_for_ledger(txn):
         return txn
+
+    @property
+    def valid_txn_types(self) -> set:
+        return self.write_types.union(self.query_types)

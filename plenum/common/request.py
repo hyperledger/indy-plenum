@@ -4,6 +4,7 @@ from typing import Mapping, NamedTuple, Dict
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.constants import REQKEY, FORCE, TXN_TYPE
 from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.common.tools import lazy_field
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getTimeBasedId
 from stp_core.types import Identifier
@@ -139,10 +140,3 @@ class SafeRequest(Request, ClientMessageValidator):
                                         schema_is_strict=False)
         self.validate(kwargs)
         Request.__init__(self, **kwargs)
-
-    def validate(self, dct):
-        super().validate(dct)
-        if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
-            raise TypeError('{} {}'.
-                            format(self.__error_msg_prefix,
-                                   'Missing both signatures and identifier'))

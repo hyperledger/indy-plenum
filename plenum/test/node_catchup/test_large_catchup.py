@@ -11,6 +11,9 @@ from plenum.test.test_node import checkNodesConnected
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 
+TestRunningTimeLimitSec = 125
+
+
 def decrease_max_request_size(node):
     old = node.nodestack.prepare_for_sending
 

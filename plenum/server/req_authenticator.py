@@ -1,6 +1,7 @@
 from typing import Optional
 
 from plenum.common.constants import TXN_TYPE
+from plenum.common.error import error
 from plenum.common.exceptions import NoAuthenticatorFound
 from plenum.common.types import OPERATION
 from plenum.server.client_authn import ClientAuthNr
@@ -42,7 +43,8 @@ class ReqAuthenticator:
 
     @property
     def core_authenticator(self):
-        assert self._authenticators, 'No authenticator registered yet'
+        if not self._authenticators:
+            error('No authenticator registered yet', RuntimeError)
         return self._authenticators[0]
 
     def get_authnr_by_type(self, authnr_type) -> Optional[ClientAuthNr]:

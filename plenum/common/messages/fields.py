@@ -6,9 +6,10 @@ from abc import ABCMeta, abstractmethod
 import base58
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
+from plenum.common.error import error
 from plenum.config import BLS_MULTI_SIG_LIMIT
 
 
@@ -126,7 +127,13 @@ class LimitedLengthStringField(FieldBase):
 
 
 class FixedLengthField(FieldBase):
+    _base_types = (str, )
+
     def __init__(self, length: int, **kwargs):
+        if not isinstance(length, int):
+            error('length should be integer', TypeError)
+        if length < 1:
+            error('should be greater than 0', ValueError)
         self.length = length
         super().__init__(**kwargs)
 
