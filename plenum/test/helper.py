@@ -281,22 +281,6 @@ def setupClients(count: int,
     return clients, wallets
 
 
-# noinspection PyIncorrectDocstring
-async def aSetupClient(looper: Looper,
-                       nodes: Sequence[TestNode] = None,
-                       nodeReg=None,
-                       tmpdir=None):
-    """
-    async version of above
-    """
-    client1 = genTestClient(nodes=nodes,
-                            nodeReg=nodeReg,
-                            tmpdir=tmpdir)
-    looper.add(client1)
-    await client1.ensureConnectedToNodes()
-    return client1
-
-
 def randomOperation():
     return {
         "type": "buy",

@@ -27,11 +27,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NODE_HOOKS, PRE_STATIC_VALIDATION, \
-    POST_STATIC_VALIDATION, \
-    PRE_DYNAMIC_VALIDATION, POST_DYNAMIC_VALIDATION, PRE_REQUEST_APPLICATION, \
-    POST_REQUEST_APPLICATION, PRE_REQUEST_COMMIT, POST_REQUEST_COMMIT, \
-    PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION
+    NODE_IP, BLS_PREFIX, NodeHooks
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -417,7 +413,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.setup_config()
 
-        HookManager.__init__(self, NODE_HOOKS)
+        HookManager.__init__(self, NodeHooks.get_all_vals())
 
         self.init_ledger_manager()
 
@@ -1027,7 +1023,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, node_name, ledger_id))
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
-        # self.sendPoolLedgerStatus(node_name)
         self.sendLedgerStatus(node_name,
                               self.ledgerManager.ledger_sync_order[0])
         # Send the domain ledger status only when it has discovered enough
@@ -1547,9 +1542,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.execute_hook(PRE_SIG_VERIFICATION, cMsg)
+        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
-        self.execute_hook(POST_SIG_VERIFICATION, cMsg)
+        self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
         # Suspicions should only be raised when lot of sig failures are
         # observed
         # try:
@@ -1630,14 +1625,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
         self.id
-        # self.catchup_next_ledger_after_pool()
-
-    # def catchup_next_ledger_after_pool(self):
-    #     self.start_domain_ledger_sync()
-    #
-    # def start_domain_ledger_sync(self):
-    #     self._sync_ledger(DOMAIN_LEDGER_ID)
-    #     self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -1835,7 +1822,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
-        self.execute_hook(PRE_STATIC_VALIDATION, request=request)
+        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
         if operation[TXN_TYPE] != GET_TXN:
             # GET_TXN is generic, needs no request handler
 
@@ -1853,29 +1840,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 req_handler.doStaticValidation(request)
 
-        self.execute_hook(POST_STATIC_VALIDATION, request=request)
+        self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
     def doDynamicValidation(self, request: Request):
         """
         State based validation
         """
-        self.execute_hook(PRE_DYNAMIC_VALIDATION, request=request)
+        self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
         req_handler.validate(request)
-        self.execute_hook(POST_DYNAMIC_VALIDATION, request=request)
+        self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
         """
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
-        self.execute_hook(PRE_REQUEST_APPLICATION, request=request,
+        self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time)
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
         ledger_id = self.ledger_id_for_request(request)
-        self.execute_hook(POST_REQUEST_APPLICATION, request=request,
+        self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
@@ -2496,8 +2483,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param reqs: list of client REQUESTs
         """
         for req in reqs:
-            self.execute_hook(PRE_REQUEST_COMMIT, request=req, pp_time=pp_time,
-                              state_root=state_root, txn_root=txn_root)
+            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
+                              pp_time=pp_time, state_root=state_root,
+                              txn_root=txn_root)
         try:
             committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
                                                          state_root, txn_root)
@@ -2526,8 +2514,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
 
         for txn in committedTxns:
-            self.execute_hook(POST_REQUEST_COMMIT, txn=txn, pp_time=pp_time,
-                              state_root=state_root, txn_root=txn_root)
+            self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
+                              pp_time=pp_time, state_root=state_root,
+                              txn_root=txn_root)
 
         if committedTxns:
             first_txn_seq_no = committedTxns[0][F.seqNo.name]
