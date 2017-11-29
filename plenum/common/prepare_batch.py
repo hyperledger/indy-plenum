@@ -9,13 +9,9 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
                               step_num=0):
 
     def split(rec_depth):
-        l = len(msgs) // 2
-        left_batch = split_messages_on_batches(msgs[:l], make_batch_func,
-                                               is_batch_len_under_limit,
-                                               rec_depth)
-        right_batch = split_messages_on_batches(msgs[l:], make_batch_func,
-                                                is_batch_len_under_limit,
-                                                rec_depth)
+        len_2 = len(msgs) // 2
+        left_batch = split_messages_on_batches(msgs[:len_2], make_batch_func, is_batch_len_under_limit, rec_depth)
+        right_batch = split_messages_on_batches(msgs[len_2:], make_batch_func, is_batch_len_under_limit, rec_depth)
         return left_batch + right_batch if left_batch and right_batch else None
 
     if step_num > SPLIT_STEPS_LIMIT:
