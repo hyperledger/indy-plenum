@@ -69,7 +69,13 @@ def sdk_steward_seed(poolTxnStewardData):
 
 
 @pytest.fixture()
-def sdk_client1_seed():
+def sdk_client_seed(poolTxnClientData):
+    _, seed = poolTxnClientData
+    return seed.decode()
+
+
+@pytest.fixture()
+def sdk_new_client_seed():
     return "Client10000000000000000000000000"
 
 
@@ -78,6 +84,13 @@ def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
     (steward_did, steward_verkey) = looper.loop.run_until_complete(
         create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
     return sdk_wallet_handle, steward_did
+
+
+@pytest.fixture()
+def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
+    (client_did, _) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_client_seed})))
+    return sdk_wallet_handle, client_did
 
 
 async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
@@ -89,9 +102,9 @@ async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
 
 
 @pytest.fixture()
-def sdk_wallet_client1(looper, sdk_pool_handle, sdk_wallet_steward, sdk_client1_seed):
+def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed):
     wh, client_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_client1_seed))
+        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed))
     return wh, client_did
 
 
