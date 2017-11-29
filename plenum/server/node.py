@@ -38,7 +38,6 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.fields import TxnSeqNoField
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
@@ -1030,8 +1029,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
         if Mode.is_done_discovering(self.mode):
-            self.sendLedgerStatus(node_name,
-                                  self.ledgerManager.ledger_sync_order[1])
+            for lid in self.ledgerManager.ledger_sync_order[1:]:
+                self.sendLedgerStatus(node_name, lid)
 
     def nodeJoined(self, txn):
         logger.info("{} new node joined by txn {}".format(self, txn))

@@ -5,9 +5,6 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
-from plenum.test.pool_transactions.conftest import \
-    client1, wallet1, client1Connected
-from plenum.test.test_node import checkNodesConnected
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 
@@ -45,11 +42,9 @@ def test_large_catchup(looper,
     lagging_node = txnPoolNodeSet[-1]
     rest_nodes = txnPoolNodeSet[:-1]
     all_nodes = txnPoolNodeSet
-    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Prepare client
     client, wallet = client1, wallet1
-    looper.run(client.ensureConnectedToNodes())
 
     # Check that requests executed well
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=10)
@@ -57,7 +52,7 @@ def test_large_catchup(looper,
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
-                                            rest_nodes,
+                                            txnPoolNodeSet,
                                             lagging_node,
                                             stopNode=True)
     looper.removeProdable(lagging_node)

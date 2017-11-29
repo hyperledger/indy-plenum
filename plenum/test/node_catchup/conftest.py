@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.test.spy_helpers import getAllReturnVals
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
