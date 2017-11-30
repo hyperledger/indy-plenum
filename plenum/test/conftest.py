@@ -22,7 +22,7 @@ import gc
 import pip
 import pytest
 import plenum.config as plenum_config
-import plenum.server.user_config.ubuntu_platform_config as platform_config
+import plenum.server.general_config.ubuntu_platform_config as platform_config
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
