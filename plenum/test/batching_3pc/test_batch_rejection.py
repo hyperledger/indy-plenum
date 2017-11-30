@@ -8,6 +8,8 @@ from plenum.common.util import updateNamedTuple
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test.sdk.conftest import *
+from plenum.test.sdk.helper import send_random_and_check, eval_timeout
 
 
 @pytest.fixture(scope="module")
@@ -17,6 +19,7 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
         getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
+    reqs = sdk_signed
     waitForSufficientRepliesForRequests(
         looper,
         client,
