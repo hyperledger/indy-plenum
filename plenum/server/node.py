@@ -1667,10 +1667,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
-            rh = self.get_req_handler(POOL_LEDGER_ID)
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-            rh = self.get_req_handler(DOMAIN_LEDGER_ID)
+        rh = self.get_req_handler(ledgerId)
         return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
@@ -1697,7 +1696,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
             self.no_more_catchups_needed()
 
-    def is_catchup_needed(self) -> bool:
+    def     is_catchup_needed(self) -> bool:
         """
         Check if received a quorum of view change done messages and if yes
         check if caught up till the

@@ -1,23 +1,8 @@
-
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.test.delayers import cr_delay
-from plenum.test.spy_helpers import get_count
-
-from stp_core.loop.eventually import eventually
-from plenum.common.types import HA
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    check_last_ordered_3pc
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    check_ledger_state
-from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
-from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected, TestNode
-from plenum.test import waits
 
+from plenum.test.test_ledger_manager import TestLedgerManager
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
@@ -33,6 +18,7 @@ def testNewNodeCatchup(newNodeCaughtUp):
     TODO: Test correct consistency proofs are generated
     :return:
     """
+    pass
 
 
 def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,

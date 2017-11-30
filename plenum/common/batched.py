@@ -124,8 +124,8 @@ class Batched(MessageProcessor):
                                 timeout=self.messageTimeout,
                                 serialized=True)
                     else:
-                        logger.warning("Cannot create batch(es) for {}".format(
-                            self, dest))
+                        logger.warning("{} cannot create batch(es) for {}"
+                                       .format(self, dest))
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),

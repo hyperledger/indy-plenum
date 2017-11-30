@@ -25,7 +25,7 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
     if not is_batch_len_under_limit(tt_len):
         for m in msgs:
             if not is_batch_len_under_limit(len(m)):
-                logger.warning('The message {} is to long ({}). '
+                logger.warning('The message {} is too long ({}). '
                                'Batches were not created'.format(m, len(m)))
                 return
         step_num += 1

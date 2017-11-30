@@ -3,6 +3,7 @@ import json
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
+from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.config_req_handler import ConfigReqHandler
 
@@ -19,6 +20,9 @@ class TestConfigReqHandler(ConfigReqHandler):
         self.query_handlers = {
             READ_CONF: self.handle_get_conf,
         }
+
+    def get_query_response(self, request: Request):
+        return self.query_handlers[request.operation[TXN_TYPE]](request)
 
     def apply(self, req: Request, cons_time: int):
         txn = reqToTxn(req, cons_time)
@@ -41,11 +45,20 @@ class TestConfigReqHandler(ConfigReqHandler):
     def handle_get_conf(self, request: Request):
         key = request.operation[DATA]
         val = self.state.get(key.encode())
-        return {**request.operation, **{DATA: {key: val}}}
+        return {f.IDENTIFIER.nm: request.identifier,
+                f.REQ_ID.nm: request.reqId,
+                **{DATA: json.dumps({key: val.decode()})}}
 
 
 def write_conf_op(key, value):
     return {
         TXN_TYPE: WRITE_CONF,
         DATA: json.dumps({key: value})
+    }
+
+
+def read_conf_op(key):
+    return {
+        TXN_TYPE: READ_CONF,
+        DATA: key
     }
