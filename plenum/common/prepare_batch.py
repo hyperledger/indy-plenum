@@ -10,8 +10,10 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
 
     def split(rec_depth):
         len_2 = len(msgs) // 2
-        left_batch = split_messages_on_batches(msgs[:len_2], make_batch_func, is_batch_len_under_limit, rec_depth)
-        right_batch = split_messages_on_batches(msgs[len_2:], make_batch_func, is_batch_len_under_limit, rec_depth)
+        left_batch = split_messages_on_batches(msgs[:len_2], make_batch_func,
+                                               is_batch_len_under_limit, rec_depth)
+        right_batch = split_messages_on_batches(msgs[len_2:], make_batch_func,
+                                                is_batch_len_under_limit, rec_depth)
         return left_batch + right_batch if left_batch and right_batch else None
 
     if step_num > SPLIT_STEPS_LIMIT:
@@ -21,8 +23,8 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
 
     # precondition for case when total length is greater than limit
     # helps skip extra serialization step
-    tt_len = sum(len(m) for m in msgs)
-    if not is_batch_len_under_limit(tt_len):
+    total_len = sum(len(m) for m in msgs)
+    if not is_batch_len_under_limit(total_len):
         for m in msgs:
             if not is_batch_len_under_limit(len(m)):
                 logger.warning('The message {} is too long ({}). '

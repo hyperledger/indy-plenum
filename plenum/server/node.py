@@ -1696,7 +1696,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
             self.no_more_catchups_needed()
 
-    def     is_catchup_needed(self) -> bool:
+    def is_catchup_needed(self) -> bool:
         """
         Check if received a quorum of view change done messages and if yes
         check if caught up till the
