@@ -20,7 +20,7 @@ def decrease_max_request_size(node):
             part_bytes = node.nodestack.sign_and_serialize(msg, signer)
             # Decrease at least 6 times to increase probability of
             # unintentional shuffle
-            new_limit = len(part_bytes) / 6
+            new_limit = len(part_bytes) // 6
             node.nodestack.msg_len_val = MessageLenValidator(new_limit)
         return old(msg, signer, message_splitter)
 

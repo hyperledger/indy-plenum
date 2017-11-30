@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Iterable
+from typing import Any, Iterable, Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.prepare_batch import split_messages_on_batches
