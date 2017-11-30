@@ -87,6 +87,7 @@ class AuctionApp(App):
         return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionTransactions(nodeSet, up, looper, apps):
     jason, tyler, les, john, timothy = apps
     auctionId = str(uuid4())

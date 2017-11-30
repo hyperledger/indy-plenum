@@ -65,33 +65,41 @@ def extend_with_default_external_config(extendee: object,
                                  extendee.USER_CONFIG_FILE))
 
 
-def getConfig(general_config_dir: str = None):
+def _getConfig(general_config_dir: str = None):
     """
     Reads a file called config.py in the project directory
 
     :raises: FileNotFoundError
     :return: the configuration as a python object
     """
+    stp_config = STPConfig()
+    plenum_config = import_module("plenum.config")
+    config = stp_config
+    config.__dict__.update(plenum_config.__dict__)
+
+    if (general_config_dir):
+        config.GENERAL_CONFIG_DIR = general_config_dir
+
+    if not config.GENERAL_CONFIG_DIR:
+        raise Exception('GENERAL_CONFIG_DIR must be set')
+
+    extend_with_external_config(config, (config.GENERAL_CONFIG_DIR, config.GENERAL_CONFIG_FILE))
+
+    # "unsafe" is a set of attributes that can set certain behaviors that
+    # are not safe, for example, 'disable_view_change' disables view changes
+    # from happening. This might be useful in testing scenarios, but never
+    # in a live network.
+    if not hasattr(config, 'unsafe'):
+        setattr(config, 'unsafe', set())
+    return config
+
+
+def getConfig(general_config_dir: str = None):
     global CONFIG
     if not CONFIG:
-        stp_config = STPConfig()
-        plenum_config = import_module("plenum.config")
-        config = stp_config
-        config.__dict__.update(plenum_config.__dict__)
-
-        if (general_config_dir):
-            config.GENERAL_CONFIG_DIR = general_config_dir
-
-        if not config.GENERAL_CONFIG_DIR:
-            raise Exception('GENERAL_CONFIG_DIR must be set')
-
-        extend_with_external_config(config, (config.GENERAL_CONFIG_DIR, config.GENERAL_CONFIG_FILE))
-
-        # "unsafe" is a set of attributes that can set certain behaviors that
-        # are not safe, for example, 'disable_view_change' disables view changes
-        # from happening. This might be useful in testing scenarios, but never
-        # in a live network.
-        if not hasattr(config, 'unsafe'):
-            setattr(config, 'unsafe', set())
-        CONFIG = config
+        CONFIG = _getConfig(general_config_dir)
     return CONFIG
+
+
+def getConfigOnce(general_config_dir: str = None):
+    return _getConfig(general_config_dir)

@@ -35,6 +35,7 @@ def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testWithOpValidationPlugin(nodeSet, replied1):
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers

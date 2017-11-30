@@ -11,6 +11,9 @@ from plenum.test.test_node import checkNodesConnected
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 
+TestRunningTimeLimitSec = 125
+
+
 def decrease_max_request_size(node):
     old = node.nodestack.prepare_for_sending
 
@@ -37,8 +40,8 @@ def test_large_catchup(looper,
     Checks that node can catchup large ledgers
     """
     # Prepare nodes
-    lagging_node = txnPoolNodeSet[0]
-    rest_nodes = txnPoolNodeSet[1:]
+    lagging_node = txnPoolNodeSet[-1]
+    rest_nodes = txnPoolNodeSet[:-1]
     all_nodes = txnPoolNodeSet
     looper.run(checkNodesConnected(txnPoolNodeSet))
 

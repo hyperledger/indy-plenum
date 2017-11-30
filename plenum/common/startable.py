@@ -58,8 +58,12 @@ class Mode(IntEnum):
 
     @classmethod
     def is_done_discovering(cls, mode):
+        if mode is None:
+            return False
         return mode >= cls.discovered
 
     @classmethod
     def is_done_syncing(cls, mode):
+        if mode is None:
+            return False
         return mode >= cls.synced

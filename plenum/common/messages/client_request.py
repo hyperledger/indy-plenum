@@ -1,8 +1,12 @@
+from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
-from plenum.common.messages.fields import NetworkIpAddressField, NetworkPortField, IterableField, \
-    ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, RoleField, TxnSeqNoField, IdentifierField, \
-    NonNegativeNumberField, SignatureField, LimitedLengthStringField, ProtocolVersionField
+from plenum.common.messages.fields import NetworkIpAddressField, \
+    NetworkPortField, NonEmptyStringField, IterableField, \
+    ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
+    RoleField, TxnSeqNoField, IdentifierField, \
+    NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
+    ProtocolVersionField, LedgerIdField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
@@ -52,6 +56,7 @@ class ClientNYMOperation(MessageValidator):
 class ClientGetTxnOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(GET_TXN)),
+        (f.LEDGER_ID.nm, LedgerIdField(optional=True)),
         (DATA, TxnSeqNoField()),
     )
 
@@ -87,14 +92,29 @@ class ClientOperationField(MessageValidator):
 
 
 class ClientMessageValidator(MessageValidator):
+    schema = (
+        (f.IDENTIFIER.nm, IdentifierField(optional=True, nullable=True)),
+        (f.REQ_ID.nm, NonNegativeNumberField()),
+        (OPERATION, ClientOperationField()),
+        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT,
+                                  optional=True)),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
+                                               optional=True)),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
+        (f.SIGS.nm, MapField(IdentifierField(),
+                             SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
+                             optional=True, nullable=True)),
+    )
 
     def __init__(self, operation_schema_is_strict, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Following code is for support of non-strict schema
         # TODO: refactor this
-        # TODO: this (and all related functionality) can be removed when
+        # TODO: this (and all related functionality) can be removed
         # when fixed problem with transaction serialization (INDY-338)
         strict = operation_schema_is_strict
+        # Adding fields from enabled plugins to schema.
+        self.schema = self.schema + tuple(PLUGIN_CLIENT_REQUEST_FIELDS.items())
         if not strict:
             operation_field_index = 2
             op = ClientOperationField(schema_is_strict=False)
@@ -102,11 +122,8 @@ class ClientMessageValidator(MessageValidator):
             schema[operation_field_index] = (OPERATION, op)
             self.schema = tuple(schema)
 
-    schema = (
-        (f.IDENTIFIER.nm, IdentifierField()),
-        (f.REQ_ID.nm, NonNegativeNumberField()),
-        (OPERATION, ClientOperationField()),
-        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT, optional=True)),
-        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT, optional=True)),
-        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
-    )
+    def validate(self, dct):
+        super().validate(dct)
+        if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
+            self._raise_invalid_message(
+                'Missing both signatures and identifier')

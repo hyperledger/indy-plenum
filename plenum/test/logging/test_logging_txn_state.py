@@ -2,7 +2,7 @@ import functools
 
 from stp_core.loop.eventually import eventually
 
-from plenum.common.constants import STEWARD
+from plenum.common.constants import STEWARD, DOMAIN_LEDGER_ID
 
 from plenum.test.pool_transactions.conftest import looper, stewardAndWallet1, \
     steward1, stewardWallet, client1, clientAndWallet1, client1Connected
@@ -99,7 +99,8 @@ def testLoggingTxnStateWhenCommitFails(
         pass
 
     def commitPatched(node, commitOrig, *args, **kwargs):
-        node.reqHandler.commit = commitOrig
+        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
+        req_handler.commit = commitOrig
         raise SomeError(ERORR_MSG)
 
     excCounter = 0
@@ -118,8 +119,9 @@ def testLoggingTxnStateWhenCommitFails(
         return
 
     for node in txnPoolNodeSet:
-        node.reqHandler.commit = functools.partial(
-            commitPatched, node, node.reqHandler.commit
+        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
+        req_handler.commit = functools.partial(
+            commitPatched, node, req_handler.commit
         )
         node.executeBatch = functools.partial(
             executeBatchPatched, node, node.executeBatch

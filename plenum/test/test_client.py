@@ -46,6 +46,7 @@ class TestClient(Client, StackedTester):
             key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
             return key, value
 
+
 def genTestClient(nodes=None,
                   nodeReg=None,
                   tmpdir=None,

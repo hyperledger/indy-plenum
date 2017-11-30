@@ -391,7 +391,7 @@ def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addIdr(identifier, verkey)
+        n.clientAuthNr.core_authenticator.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):

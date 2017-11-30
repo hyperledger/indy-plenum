@@ -45,6 +45,7 @@ def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                    pluginVerPath):
     # TODO: Test more cases

@@ -6,6 +6,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
 from plenum.common.roles import Roles
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.transactions import PlenumTransactions
 from plenum.test import waits
@@ -248,7 +249,7 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     assert basedir is not None
 
     # prepare steward wallet
-    stewardSigner = SimpleSigner(seed=stewardsSeed)
+    stewardSigner = DidSigner(seed=stewardsSeed)
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=stewardSigner)
 

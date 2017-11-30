@@ -163,7 +163,8 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
 
     def chk():
         for node in txnPoolNodeSet:
-            assert wallet.defaultId in node.clientAuthNr.clients
+            assert wallet.defaultId in \
+                   node.clientAuthNr.core_authenticator.clients
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

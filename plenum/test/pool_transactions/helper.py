@@ -9,6 +9,7 @@ from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, AL
     VALIDATOR, BLS_KEY
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
+from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
@@ -19,7 +20,7 @@ from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
 
-def sendAddNewClient(role, name, creatorClient, creatorWallet):
+def new_client_request(role, name, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -34,7 +35,11 @@ def sendAddNewClient(role, name, creatorClient, creatorWallet):
     if role:
         op[ROLE] = role
 
-    req = creatorWallet.signOp(op)
+    return creatorWallet.signOp(op), wallet
+
+
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
+    req, wallet = new_client_request(role, name, creatorWallet)
     creatorClient.submitReqs(req)
     return req, wallet
 
@@ -281,13 +286,12 @@ def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
                                         requests=[req])
 
 
-def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
-                             walletClass=None):
+def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=None):
     walletClass = walletClass or Wallet
     clientClass = clientClass or TestClient
     name, sigseed = clientData
     w = walletClass(name)
-    w.addIdentifier(signer=SimpleSigner(seed=sigseed))
+    w.addIdentifier(signer=DidSigner(seed=sigseed))
     client, _ = genTestClient(name=name, identifier=w.defaultId,
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)

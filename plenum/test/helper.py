@@ -35,9 +35,6 @@ from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
 
-DelayRef = NamedTuple("DelayRef", [
-    ("op", Optional[str]),
-    ("frm", Optional[str])])
 
 logger = getlogger()
 

@@ -1,7 +1,6 @@
 import types
 
 from stp_core.loop.eventually import eventually
-from plenum.common.request import ReqDigest
 from plenum.test.helper import sendRandomRequest
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -23,7 +22,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     replica = getNonPrimaryReplicas(nodeSet, instId=0)[0]
     delaysPrePrepareProcessing(replica.node, delay=delay, instId=0)
 
-    def doNotProcessReqDigest(self, rd: ReqDigest):
+    def doNotProcessReqDigest(self, _):
         pass
 
     patchedMethod = types.MethodType(doNotProcessReqDigest, replica)

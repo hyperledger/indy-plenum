@@ -1,6 +1,5 @@
 import pytest
 
-from stp_core.loop.looper import Looper
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
