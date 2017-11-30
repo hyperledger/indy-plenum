@@ -12,7 +12,8 @@ from plenum.test.sdk.helper import send_batches_of_random_and_check
 CHK_FREQ = 5
 
 
-@pytest.fixture(scope='function', params=['greater_than_checkpoint', 'lesser_than_checkpoint', 'equal_to_checkpoint'])
+@pytest.fixture(scope='function',
+                params=['greater_than_checkpoint', 'lesser_than_checkpoint', 'equal_to_checkpoint'])
 def sent_batches(request, chkFreqPatched):
     # Test with number of sent batches greater than checkpoint,
     # lesser than checkpoint and equal to checkpont.
@@ -37,8 +38,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
 
     # Check that correct garbage collection happens
     non_gced_batch_count = (sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
-    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count, non_gced_batch_count,
-                          non_gced_batch_count, retryWait=1))
+    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count,
+                          non_gced_batch_count, non_gced_batch_count, retryWait=1))
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -61,8 +62,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                      batch_size * sent_batches, sent_batches)
 
-    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count, non_gced_batch_count,
-                          non_gced_batch_count, retryWait=1))
+    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count,
+                          non_gced_batch_count, non_gced_batch_count, retryWait=1))
 
     # Send more batches so one more checkpoint happens. This is done so that
     # when this test finishes, all requests are garbage collected and the

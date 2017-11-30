@@ -43,13 +43,13 @@ def send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_walle
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
     if num_batches == 1:
         return send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
-    else:
-        sdk_resps = []
-        for _ in range(num_batches - 1):
-            sdk_resps.extend(send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
+
+    sdk_resps = []
+    for _ in range(num_batches - 1):
+        sdk_resps.extend(send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
                                                   num_reqs // num_batches, **kwargs))
-        rem = num_reqs % num_batches
-        if rem == 0:
-            rem = num_reqs // num_batches
-        sdk_resps.extend(send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
-        return sdk_resps
+    rem = num_reqs % num_batches
+    if rem == 0:
+        rem = num_reqs // num_batches
+    sdk_resps.extend(send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+    return sdk_resps
