@@ -9,6 +9,7 @@ if sys.version_info < (3, 5, 0):
     raise ImportError("Python 3.5.0 or later required.")
 
 import os   # noqa
+import importlib
 from importlib.util import module_from_spec, spec_from_file_location    # noqa: E402
 
 import plenum   # noqa: E402
@@ -24,10 +25,17 @@ PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 def setup_plugins():
     global PLUGIN_LEDGER_IDS
+    global PLUGIN_CLIENT_REQUEST_FIELDS
 
-    ENABLED_PLUGINS = config.ENABLED_PLUGINS
-    for plugin_name in ENABLED_PLUGINS:
-        plugin_path = os.path.join(plenum.server.plugin.__path__[0],
+    plugin_root = config.PLUGIN_ROOT
+    try:
+        plugin_root = importlib.import_module(plugin_root)
+    except ImportError:
+        raise ImportError('Incorrect plugin root {}. No such package found'.
+                          format(plugin_root))
+    enabled_plugins = config.ENABLED_PLUGINS
+    for plugin_name in enabled_plugins:
+        plugin_path = os.path.join(plugin_root.__path__[0],
                                    plugin_name, '__init__.py')
         spec = spec_from_file_location('__init__.py', plugin_path)
         init = module_from_spec(spec)

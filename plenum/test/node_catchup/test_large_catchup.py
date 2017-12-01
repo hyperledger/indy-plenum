@@ -27,15 +27,9 @@ def decrease_max_request_size(node):
     node.nodestack.prepare_for_sending = prepare_for_sending
 
 
-def test_large_catchup(looper,
-                       txnPoolNodeSet,
-                       wallet1,
-                       client1,
-                       client1Connected,
-                       tconf,
-                       allPluginsPath,
-                       tdirWithPoolTxns,
-                       testNodeClass):
+def test_large_catchup(looper, testNodeClass, txnPoolNodeSet, wallet1,
+                       client1, client1Connected, tconf, allPluginsPath,
+                       tdirWithPoolTxns):
     """
     Checks that node can catchup large ledgers
     """
@@ -70,9 +64,9 @@ def test_large_catchup(looper,
     # Restart stopped node and wait for successful catch up
     # Not calling start since it does not start states
     lagging_node = testNodeClass(lagging_node.name,
-                            basedirpath=tdirWithPoolTxns,
-                            base_data_dir=tdirWithPoolTxns,
-                            config=tconf, pluginPaths=allPluginsPath)
+                                 basedirpath=tdirWithPoolTxns,
+                                 base_data_dir=tdirWithPoolTxns,
+                                 config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
     txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)

@@ -4,6 +4,7 @@ from enum import IntEnum, unique
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
+from plenum.common.util import UniqueSet
 
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"
@@ -169,13 +170,6 @@ CONFIG_LEDGER_ID = 2
 VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID)
 
 CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
-
-
-@unique
-class UniqueSet(IntEnum):
-    @classmethod
-    def get_all_vals(cls):
-        return [i.value for i in cls.__members__.values()]
 
 
 class NodeHooks(UniqueSet):

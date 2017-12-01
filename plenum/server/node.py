@@ -648,6 +648,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                dataDir=self.dataLocation,
                                config=self.config)
 
+    def setup_pool_ledger(self):
+        if isinstance(self.poolManager, TxnPoolManager):
+            self.ledgerManager.addLedger(
+                POOL_LEDGER_ID,
+                self.poolLedger,
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.on_new_ledger_added(POOL_LEDGER_ID)
+
+    def setup_domain_ledger(self):
+        self.ledgerManager.addLedger(
+            DOMAIN_LEDGER_ID,
+            self.domainLedger,
+            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.on_new_ledger_added(DOMAIN_LEDGER_ID)
+
     def getHashStore(self, name) -> HashStore:
         """
         Create and return a hashStore implementation based on configuration
@@ -670,20 +687,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              ledger_sync_order=ledger_sync_order)
 
     def init_ledger_manager(self):
-        if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.addLedger(
-                POOL_LEDGER_ID,
-                self.poolLedger,
-                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-            self.on_new_ledger_added(POOL_LEDGER_ID)
-
-        self.ledgerManager.addLedger(
-            DOMAIN_LEDGER_ID,
-            self.domainLedger,
-            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-        self.on_new_ledger_added(DOMAIN_LEDGER_ID)
+        self.setup_pool_ledger()
+        self.setup_domain_ledger()
 
     def on_new_ledger_added(self, ledger_id):
         # If a ledger was added after a replicas were created
@@ -838,11 +843,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def ledgers(self):
-        ledgers = []
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-        ledgers.extend([self.configLedger, self.domainLedger])
-        return ledgers
+        return [self.ledgerManager.ledgerRegistry[lid].ledger
+                for lid in self.ledger_ids]
 
     def onStopping(self):
         """

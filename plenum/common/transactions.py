@@ -1,8 +1,7 @@
-from enum import Enum, unique
+from plenum.common.util import UniqueSet
 
 
-@unique
-class Transactions(Enum):
+class Transactions(UniqueSet):
     def __str__(self):
         return self.name
 

@@ -945,8 +945,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             item = (pre_prepare, sender, False)
             self.pre_prepares_stashed_for_incorrect_time[key] = item
             report_suspicious(Suspicions.PPR_TIME_WRONG)
-        elif why_not == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE:
-            report_suspicious(Suspicions.PPR_NO_BLS_MULTISIG_STATE)
         elif why_not == BlsBftReplica.PPR_BLS_MULTISIG_WRONG:
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
