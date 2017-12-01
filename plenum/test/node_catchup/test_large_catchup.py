@@ -34,7 +34,8 @@ def test_large_catchup(looper,
                        client1Connected,
                        tconf,
                        allPluginsPath,
-                       tdirWithPoolTxns):
+                       tdirWithPoolTxns,
+                       testNodeClass):
     """
     Checks that node can catchup large ledgers
     """
@@ -52,7 +53,7 @@ def test_large_catchup(looper,
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
-                                            txnPoolNodeSet,
+                                            all_nodes,
                                             lagging_node,
                                             stopNode=True)
     looper.removeProdable(lagging_node)
@@ -67,6 +68,11 @@ def test_large_catchup(looper,
         decrease_max_request_size(node)
 
     # Restart stopped node and wait for successful catch up
+    # Not calling start since it does not start states
+    lagging_node = testNodeClass(lagging_node.name,
+                            basedirpath=tdirWithPoolTxns,
+                            base_data_dir=tdirWithPoolTxns,
+                            config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
-    reconnect_node_and_ensure_connected(looper, all_nodes, lagging_node)
+    txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)

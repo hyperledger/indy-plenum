@@ -765,6 +765,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.txn_type_to_ledger_id[typ]
 
     def start(self, loop):
+        # Avoid calling stop and then start on the same node object as start
+        # does not re-initialise states
         oldstatus = self.status
         if oldstatus in Status.going():
             logger.debug("{} is already {}, so start has no effect".
