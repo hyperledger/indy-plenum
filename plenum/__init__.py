@@ -9,7 +9,7 @@ if sys.version_info < (3, 5, 0):
     raise ImportError("Python 3.5.0 or later required.")
 
 import os   # noqa
-import importlib
+import importlib    # noqa
 from importlib.util import module_from_spec, spec_from_file_location    # noqa: E402
 
 import plenum   # noqa: E402
