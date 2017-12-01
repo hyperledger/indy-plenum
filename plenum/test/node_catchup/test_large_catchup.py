@@ -52,7 +52,7 @@ def test_large_catchup(looper, testNodeClass, txnPoolNodeSet, wallet1,
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
-                                            rest_nodes,
+                                            all_nodes,
                                             lagging_node,
                                             stopNode=True)
     looper.removeProdable(lagging_node)
