@@ -8,17 +8,18 @@ from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
     checkRejectWithReason, waitForSufficientRepliesForRequests
 from stp_core.loop.eventually import eventually
 from plenum.test.sdk.conftest import *
-from plenum.test.sdk.helper import send_random_and_check, eval_timeout
+from plenum.test.sdk.helper import send_random_and_check, sign_request_from_dict, eval_timeout
 from plenum.common.exceptions import InvalidClientRequest
 
 
-def testRequestStaticValidation(tconf, looper, wallet1, testNodeClass):
+def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
+                                sdk_wallet_client):
     """
     Check that for requests which fail static validation, REQNACK is sent
     :return:
     """
-    node = testNodeClass('Alpha')
-    req = wallet1.signOp((lambda: {'something': 'nothing'})())
+    node = txnPoolNodeSet[0]
+    req = sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 

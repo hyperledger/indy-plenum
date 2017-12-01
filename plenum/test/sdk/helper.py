@@ -1,6 +1,11 @@
 from plenum.test.sdk.conftest import sdk_send_signed_requests, sdk_get_replies, sdk_send_random_requests
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test import waits
+import json
+from indy.ledger import sign_request
+from plenum.common.request import Request
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+import random
 
 
 def eval_timeout(req_count: int,
@@ -52,3 +57,13 @@ def send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_walle
         rem = num_reqs // num_batches
     sdk_resps.extend(send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
     return sdk_resps
+
+
+def sign_request_from_dict(looper, sdk_wallet, op):
+    wallet_h, did = sdk_wallet
+    request = Request(operation=op, reqId=random.randint(10, 100000),
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
+    req_str = json.dumps(request.as_dict)
+    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
+    assert resp
+    return request
