@@ -82,12 +82,12 @@ class ClientOperationField(MessageValidator):
         if not isinstance(dct, dict):
             # TODO this check should be in side of the validator not here
             self._raise_invalid_fields('', dct, 'wrong type')
-        schema_type = dct.get(TXN_TYPE, None)
-        if not schema_type:
+        txn_type = dct.get(TXN_TYPE)
+        if txn_type is None:
             self._raise_missed_fields(TXN_TYPE)
-        if schema_type in self.operations:
+        if txn_type in self.operations:
             # check only if the schema is defined
-            op = self.operations[schema_type]
+            op = self.operations[txn_type]
             op.validate(dct)
 
 

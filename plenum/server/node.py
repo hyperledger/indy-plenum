@@ -410,23 +410,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._last_performance_check_data = {}
 
+        self.configLedger = self.getConfigLedger()
+
+        self.init_ledger_manager()
         self.setup_config()
 
         HookManager.__init__(self, NodeHooks.get_all_vals())
-
-        self.init_ledger_manager()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor)
 
     def setup_config(self):
-        self.setup_config_ledger()
         self.setup_config_state()
         self.setup_config_req_handler()
         self.initConfigState()
 
     def setup_config_ledger(self):
-        self.configLedger = self.getConfigLedger()
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
             self.configLedger,
@@ -688,6 +687,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def init_ledger_manager(self):
         self.setup_pool_ledger()
+        self.setup_config_ledger()
         self.setup_domain_ledger()
 
     def on_new_ledger_added(self, ledger_id):
@@ -765,7 +765,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     def ledger_id_for_request(self, request: Request):
-        assert request.operation[TXN_TYPE]
+        assert request.operation[TXN_TYPE] is not None
         typ = request.operation[TXN_TYPE]
         return self.txn_type_to_ledger_id[typ]
 
@@ -844,7 +844,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def ledgers(self):
         return [self.ledgerManager.ledgerRegistry[lid].ledger
-                for lid in self.ledger_ids]
+                for lid in self.ledger_ids if lid in self.ledgerManager.ledgerRegistry]
 
     def onStopping(self):
         """
