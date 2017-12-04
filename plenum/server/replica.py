@@ -2,21 +2,22 @@ import time
 from collections import deque, OrderedDict
 from enum import unique, IntEnum
 from hashlib import sha256
-from typing import List, Union, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable
 
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
-from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
+    REPLICA_HOOKS, CREATE_PPR, CREATE_PR, CREATE_CM, CREATE_ORD
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
+from plenum.common.hook_manager import HookManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.request import ReqDigest, Request, ReqKey
+from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict
@@ -81,7 +82,7 @@ PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
 
 
-class Replica(HasActionQueue, MessageProcessor):
+class Replica(HasActionQueue, MessageProcessor, HookManager):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -285,6 +286,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
+
+        HookManager.__init__(self, REPLICA_HOOKS)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -728,6 +731,10 @@ class Replica(HasActionQueue, MessageProcessor):
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
+        if self.isMaster:
+            rv = self.execute_hook(CREATE_PPR, pre_prepare)
+            pre_prepare = rv if rv is not None else pre_prepare
+
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
@@ -744,9 +751,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, key: ReqKey):
-        cls = self.node.__class__
         fin_req = self.requests[key].finalised
-        queue = self.requestQueues[cls.ledgerIdForRequest(fin_req)]
+        queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
             logger.warning('{} is getting requests but still does not have '
@@ -833,6 +839,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):
+        # Commit msg wirh 3PC key not greater than last prepared one's
         r = isinstance(msg, Commit) and \
             self.last_prepared_before_view_change and \
             compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
@@ -938,8 +945,6 @@ class Replica(HasActionQueue, MessageProcessor):
             item = (pre_prepare, sender, False)
             self.pre_prepares_stashed_for_incorrect_time[key] = item
             report_suspicious(Suspicions.PPR_TIME_WRONG)
-        elif why_not == BlsBftReplica.PPR_NO_BLS_MULTISIG_STATE:
-            report_suspicious(Suspicions.PPR_NO_BLS_MULTISIG_STATE)
         elif why_not == BlsBftReplica.PPR_BLS_MULTISIG_WRONG:
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
@@ -965,6 +970,10 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: a PREPARE msg
         :param sender: name of the node that sent the PREPARE
         """
+        key = (prepare.viewNo, prepare.ppSeqNo)
+        logger.debug("{} received PREPARE{} from {}"
+                     .format(self, key, sender))
+
         # TODO move this try/except up higher
         if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
@@ -1048,6 +1057,9 @@ class Replica(HasActionQueue, MessageProcessor):
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
+        if self.isMaster:
+            rv = self.execute_hook(CREATE_PR, prepare)
+            prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
@@ -1067,10 +1079,13 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         if p.stateRootHash is not None:
-            pp = self.getPrePrepare(*key_3pc)
-            params = self._bls_bft_replica.update_commit(params, p.stateRootHash, pp.ledgerId)
+            pre_prepare = self.getPrePrepare(*key_3pc)
+            params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
+        if self.isMaster:
+            rv = self.execute_hook(CREATE_CM, commit)
+            commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
@@ -1421,8 +1436,8 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
         # BLS multi-sig:
-        pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self._bls_bft_replica.validate_commit(commit, sender, pp.stateRootHash)
+        pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
+        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             raise SuspiciousNode(sender,
@@ -1588,6 +1603,10 @@ class Replica(HasActionQueue, MessageProcessor):
                           pp.ledgerId,
                           pp.stateRootHash,
                           pp.txnRootHash)
+        if self.isMaster:
+            rv = self.execute_hook(CREATE_ORD, ordered)
+            ordered = rv if rv is not None else ordered
+
         # TODO: Should not order or add to checkpoint while syncing
         # 3 phase state.
         if key in self.stashingWhileCatchingUp:
@@ -1618,9 +1637,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key,
-                                            pp.stateRootHash,
                                             self.quorums,
-                                            pp.ledgerId)
+                                            pp)
 
         return True
 
@@ -1887,7 +1905,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
 
-    def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
+    def stashOutsideWatermarks(self, item: Tuple):
         self.stashingWhileOutsideWaterMarks.append(item)
 
     def processStashedMsgsForNewWaterMarks(self):
@@ -2118,8 +2136,8 @@ class Replica(HasActionQueue, MessageProcessor):
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
                                  msg_type: str,
-                                 recipients: List[str] = None,
-                                 stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                                 recipients: List[str]=None,
+                                 stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         if three_pc_key in stash:
             logger.debug('{} not requesting {} since already '
                          'requested for {}'.format(self, msg_type, three_pc_key))
@@ -2140,8 +2158,8 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
-                             recipients: List[str] = None,
-                             stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                             recipients: List[str]=None,
+                             stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         """
         Request preprepare
         """
@@ -2152,8 +2170,8 @@ class Replica(HasActionQueue, MessageProcessor):
                                              stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
-                         recipients: List[str] = None,
-                         stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                         recipients: List[str]=None,
+                         stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         """
         Request preprepare
         """

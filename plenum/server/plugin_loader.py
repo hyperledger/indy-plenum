@@ -7,7 +7,8 @@ from os import listdir
 from os.path import isfile, join
 from typing import Any, Set, Dict
 
-from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
+    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
 
 from stp_core.common.log import getlogger
 

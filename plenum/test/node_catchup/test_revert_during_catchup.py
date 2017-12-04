@@ -29,10 +29,10 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     revert some unordered state. Also till this time the node should have
     receive all COMMITs such that it will apply some of the COMMITs (
     for which it has not received txns from catchup).
-    For this delay COMMITs by long, do catchup for a little older than the state received in
-    LedgerStatus, once catchup completes, reset delays and try to process
-    delayed COMMITs, some COMMITs will be rejected but some will be processed
-    since catchup was done for older ledger.
+    For this delay COMMITs by long, do catchup for a little older than the
+    state received in LedgerStatus, once catchup completes, reset delays and
+    try to process delayed COMMITs, some COMMITs will be rejected but some will
+    be processed since catchup was done for older ledger.
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         3 * Max3PCBatchSize)

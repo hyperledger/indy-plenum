@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
@@ -57,6 +58,7 @@ def randomString(size: int = 20) -> str:
         assert (size > 0), "Expected random string size cannot be less than 1"
         # Approach 1
         rv = randombytes(size // 2).hex()
+
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
@@ -68,19 +70,51 @@ def randomString(size: int = 20) -> str:
     return randomStr(size)
 
 
+def random_from_alphabet(size, alphabet):
+    """
+    Takes *size* random elements from provided alphabet
+    :param size:
+    :param alphabet:
+    """
+    import random
+    return list(random.choice(alphabet) for _ in range(size))
+
+
 def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]):
+def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
+    :param to_hashable_f: (optional) if defined will be used to get
+        hashable presentation for non-hashable elements. Otherwise json.dumps
+        is used with sort_keys=True
     :return: element which is the most frequent in the collection and
         the number of its occurrences
     """
-    return Counter(elements).most_common(n=1)[0]
+    class _Hashable(collections.abc.Hashable):
+        def __init__(self, orig):
+            self.orig = orig
+
+            if isinstance(orig, collections.Hashable):
+                self.hashable = orig
+            elif to_hashable_f is not None:
+                self.hashable = to_hashable_f(orig)
+            else:
+                self.hashable = json.dumps(orig, sort_keys=True)
+
+        def __eq__(self, other):
+            return self.hashable == other.hashable
+
+        def __hash__(self):
+            return hash(self.hashable)
+
+    _elements = (_Hashable(el) for el in elements)
+    most_common, counter = Counter(_elements).most_common(n=1)[0]
+    return (most_common.orig, counter)
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
@@ -357,7 +391,7 @@ def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addIdr(identifier, verkey)
+        n.clientAuthNr.core_authenticator.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):
@@ -496,6 +530,17 @@ def is_network_ip_address_valid(ip_address):
         return True
 
 
+def is_hostname_valid(hostname):
+    # Taken from https://stackoverflow.com/a/2532344
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]    # strip exactly one dot from the right,
+        # if present
+    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in hostname.split("."))
+
+
 def check_endpoint_valid(endpoint):
     if ':' not in endpoint:
         # TODO: replace with more suitable exception
@@ -535,21 +580,6 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def updateWalletsBaseDirNameIfOutdated(config):
-    """
-    Renames the wallets base directory if it has the outdated name.
-
-    :param config: the application configuration
-    """
-    if config.walletsDir == 'wallets':  # if the parameter is not overridden
-        oldNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'keyrings'))
-        newNamedPath = os.path.expanduser(os.path.join(config.baseDir,
-                                                       'wallets'))
-        if not os.path.exists(newNamedPath) and os.path.isdir(oldNamedPath):
-            os.rename(oldNamedPath, newNamedPath)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

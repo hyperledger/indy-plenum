@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
+import os
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
@@ -22,6 +23,7 @@ class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
+        self.key_path = os.path.expanduser(basedirpath)
         self.isNode = isNode
 
     @property
@@ -60,7 +62,7 @@ class TxnStackManager(metaclass=ABCMeta):
         return ledger
 
     @staticmethod
-    def parseLedgerForHaAndKeys(ledger, returnActive=True):
+    def parseLedgerForHaAndKeys(ledger, returnActive=True, ledger_size=None):
         """
         Returns validator ip, ports and keys
         :param ledger:
@@ -74,7 +76,8 @@ class TxnStackManager(metaclass=ABCMeta):
         activeValidators = set()
         try:
             TxnStackManager._parse_pool_transaction_file(
-                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators)
+                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+                ledger_size=ledger_size)
         except ValueError:
             errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
             logger.exception(errMsg)
@@ -94,11 +97,12 @@ class TxnStackManager(metaclass=ABCMeta):
 
     @staticmethod
     def _parse_pool_transaction_file(
-            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators):
+            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+            ledger_size=None):
         """
         helper function for parseLedgerForHaAndKeys
         """
-        for _, txn in ledger.getAllTxn():
+        for _, txn in ledger.getAllTxn(to=ledger_size):
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
                 clientStackName = nodeName + CLIENT_STACK_SUFFIX
@@ -146,7 +150,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeys(self.name, remoteName, self.basedirpath,
+                initRemoteKeys(self.name, remoteName, self.key_path,
                                verkey, override=True)
             except Exception:
                 logger.exception("Exception while initializing keep for remote")
@@ -196,8 +200,7 @@ class TxnStackManager(metaclass=ABCMeta):
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
-        initRemoteKeys(self.name, remoteName, self.basedirpath,
-                       verkey, override=True)
+        initRemoteKeys(self.name, remoteName, self.key_path, verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -228,11 +231,15 @@ class TxnStackManager(metaclass=ABCMeta):
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
                 # if self.isNode:
-                initRemoteKeys(self.name, remoteName, self.basedirpath, key,
-                               override=True)
+                initRemoteKeys(self.name, remoteName, self.key_path, key, override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
+
+    def getNodeRegistry(self, ledger_size=None):
+        nodeReg, _, _ = self.parseLedgerForHaAndKeys(
+            self.ledger, ledger_size=ledger_size)
+        return nodeReg
 
     def nodeExistsInLedger(self, nym):
         # Since PoolLedger is going to be small so using

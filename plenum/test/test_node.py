@@ -11,6 +11,7 @@ from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
 
 from crypto.bls.bls_bft import BlsBft
 from plenum.common.stacks import nodeStackClass, clientStackClass
+from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -48,24 +49,32 @@ from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from hashlib import sha256
+from plenum.common.messages.node_messages import Reply
 
 logger = getlogger()
 
 
+class TestCoreAuthnr(CoreAuthNr):
+    write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
+    query_types = CoreAuthNr.query_types.union({'get_buy', })
+
+
 class TestDomainRequestHandler(DomainRequestHandler):
+    write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy',})
+    query_types = DomainRequestHandler.query_types.union({'get_buy', })
 
     @staticmethod
     def prepare_buy_for_state(txn):
         from common.serializers.serialization import domain_state_serializer
         identifier = txn.get(f.IDENTIFIER.nm)
-        request_id = txn.get(f.REQ_ID.nm)
-        value = domain_state_serializer.serialize({TXN_TYPE: "buy"})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, request_id)
+        req_id = txn.get(f.REQ_ID.nm)
+        value = domain_state_serializer.serialize({"amount": txn['amount']})
+        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
         return key, value
 
     @staticmethod
-    def prepare_buy_key(identifier, request_id):
-        return sha256('{}:{}'.format(identifier, request_id).encode()).digest()
+    def prepare_buy_key(identifier, req_id):
+        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = txn.get(TXN_TYPE)
@@ -76,6 +85,7 @@ class TestDomainRequestHandler(DomainRequestHandler):
                          format(self, self.state.headHash))
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
 
 NodeRef = TypeVar('NodeRef', Node, str)
 
@@ -181,6 +191,12 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def resetDelaysClient(self):
+        logger.debug("{} resetting delays for client".format(self))
+        self.nodestack.resetDelays()
+        self.clientstack.resetDelays()
+        self.clientIbStasher.resetDelays()
+
     def force_process_delayeds(self):
         c = self.nodestack.force_process_delayeds()
         c += self.nodeIbStasher.force_unstash()
@@ -190,9 +206,20 @@ class TestNodeCore(StackedTester):
                      "{} processed in total".format(self, c))
         return c
 
+    def force_process_delayeds_for_client(self):
+        c = self.clientstack.force_process_delayeds()
+        c += self.clientIbStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages for clients, "
+                     "{} processed in total".format(self, c))
+        return c
+
     def reset_delays_and_process_delayeds(self):
         self.resetDelays()
         self.force_process_delayeds()
+
+    def reset_delays_and_process_delayeds_for_clients(self):
+        self.resetDelaysClient()
+        self.force_process_delayeds_for_client()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
@@ -248,13 +275,37 @@ class TestNodeCore(StackedTester):
     def getDomainReqHandler(self):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
-                                        self.reqProcessors,
+                                        self.config, self.reqProcessors,
                                         self.bls_bft.bls_store)
+
+    def init_core_authenticator(self):
+        state = self.getState(DOMAIN_LEDGER_ID)
+        return TestCoreAuthnr(state=state)
+
+    def processRequest(self, request, frm):
+        if request.operation[TXN_TYPE] == 'get_buy':
+            self.send_ack_to_client(request.key, frm)
+
+            identifier = request.identifier
+            req_id = request.reqId
+            req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
+            buy_key = req_handler.prepare_buy_key(identifier, req_id)
+            result = req_handler.state.get(buy_key)
+
+            res = {
+                f.IDENTIFIER.nm: identifier,
+                f.REQ_ID.nm: req_id,
+                "buy": result
+            }
+
+            self.transmitToClient(Reply(res), frm)
+        else:
+            super().processRequest(request, frm)
 
 
 node_spyables = [Node.handleOneNodeMsg,
                  Node.handleInvalidClientMsg,
-                 Node.processRequest,
+                 Node.processRequest.__name__,
                  Node.processOrdered,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,
@@ -295,7 +346,6 @@ node_spyables = [Node.handleOneNodeMsg,
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
-
     def __init__(self, *args, **kwargs):
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
@@ -325,10 +375,11 @@ class TestNode(TestNodeCore, Node):
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         committedTxns = list(committedTxns)
+        req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
         for txn in committedTxns:
             if txn[TXN_TYPE] == "buy":
-                key, value = self.reqHandler.prepare_buy_for_state(txn)
-                proof = self.reqHandler.make_proof(key)
+                key, value = req_handler.prepare_buy_for_state(txn)
+                proof = req_handler.make_proof(key)
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
@@ -456,6 +507,7 @@ class TestNodeSet(ExitStack):
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
                           basedirpath=self.tmpdir,
+                          base_data_dir=self.tmpdir,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))

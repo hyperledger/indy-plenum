@@ -2,6 +2,8 @@ import argparse
 import ipaddress
 import os
 from collections import namedtuple
+import fileinput
+import shutil
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 
@@ -12,9 +14,10 @@ from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.common.constants import STEWARD, TRUSTEE
-from plenum.common.util import hexToFriendly
+from plenum.common.util import hexToFriendly, is_hostname_valid
 from plenum.common.signer_did import DidSigner
 from stp_core.common.util import adict
+from plenum.common.sys_util import copyall
 
 
 class TestNetworkSetup:
@@ -69,53 +72,38 @@ class TestNetworkSetup:
             else:
                 _localNodes = {int(_) for _ in localNodes}
         except BaseException as exc:
-            raise RuntimeError(
-                'nodeNum must be an int or set of ints') from exc
+            raise RuntimeError('nodeNum must be an int or set of ints') from exc
 
-        baseDir = cls.setup_base_dir(config)
+        baseDir = cls.setup_base_dir(config, envName) if _localNodes else cls.setup_clibase_dir(config, envName)
+        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config, envName)
+        domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config, envName, domainTxnFieldOrder)
 
-        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
-                                          envName)
-
-        domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
-                                              envName, domainTxnFieldOrder)
-
-        trustee_txn = Member.nym_txn(
-            trustee_def.nym,
-            trustee_def.name,
-            verkey=trustee_def.verkey,
-            role=TRUSTEE)
+        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(
-                sd.nym,
-                sd.name,
-                verkey=sd.verkey,
-                role=STEWARD,
-                creator=trustee_def.nym)
+            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym)
             domainLedger.add(nym_txn)
+
+        key_dir = os.path.expanduser(baseDir)
 
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, baseDir, nd.sigseed, override=True)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, key_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
                 if nd.ip != '127.0.0.1':
                     paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
-                    print('Nodes will not run locally, so writing '
-                          '{}'.format(paramsFilePath))
-                    TestNetworkSetup.writeNodeParamsFile(
-                        paramsFilePath, nd.name, nd.port, nd.client_port)
+                    print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
+                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
 
-                print("This node with name {} will use ports {} and {} for "
-                      "nodestack and clientstack respectively"
+                print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(baseDir, nd.name, nd.sigseed)
+                blskey = init_bls_keys(key_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
@@ -123,8 +111,7 @@ class TestNetworkSetup:
             poolLedger.add(node_txn)
 
         for cd in client_defs:
-            txn = Member.nym_txn(
-                cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
+            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
             domainLedger.add(txn)
 
         poolLedger.stop()
@@ -139,67 +126,58 @@ class TestNetworkSetup:
         return pool_ledger
 
     @classmethod
-    def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
-                           domainTxnFieldOrder):
+    def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName, domainTxnFieldOrder):
         domain_txn_file = cls.domain_ledger_file_name(config, envName)
-        domain_ledger = create_genesis_txn_init_ledger(
-            baseDir, domain_txn_file)
+        domain_ledger = create_genesis_txn_init_ledger(baseDir, domain_txn_file)
         if not appendToLedgers:
             domain_ledger.reset()
         return domain_ledger
 
     @classmethod
     def pool_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].poolLedger
-        else:
-            return config.poolTransactionsFile
+        return config.poolTransactionsFile
 
     @classmethod
     def domain_ledger_file_name(cls, config, envName):
-        if hasattr(config, "ENVS") and envName:
-            return config.ENVS[envName].domainLedger
-        else:
-            return config.domainTransactionsFile
+        return config.domainTransactionsFile
 
     @classmethod
-    def setup_base_dir(cls, config):
-        baseDir = config.baseDir
+    def setup_base_dir(cls, config, network_name):
+        baseDir = os.path.join(os.path.expanduser(config.baseDir), network_name)
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
         return baseDir
 
     @classmethod
-    def bootstrapTestNodes(cls, config, startingPort,
-                           nodeParamsFileName, domainTxnFieldOrder):
+    def setup_clibase_dir(cls, config, network_name):
+        cli_base_net = os.path.join(os.path.expanduser(config.CLI_NETWORK_DIR), network_name)
+        if not os.path.exists(cli_base_net):
+            os.makedirs(cli_base_net, exist_ok=True)
+        return cli_base_net
 
-        parser = argparse.ArgumentParser(
-            description="Generate pool transactions for testing")
-
+    @classmethod
+    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
+        parser = argparse.ArgumentParser(description="Generate pool transactions for testing")
         parser.add_argument('--nodes', required=True,
                             help='node count should be less than 100',
-                            type=cls._bootstrapArgsTypeNodeCount,
-                            )
+                            type=cls._bootstrapArgsTypeNodeCount)
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
-        parser.add_argument('--nodeNum', type=int,
+        parser.add_argument('--nodeNum', type=int, nargs='+',
                             help='the number of the node that will '
                                  'run on this machine')
         parser.add_argument('--ips',
-                            help='IPs of the nodes, provide comma separated'
-                                 ' IPs, if no of IPs provided are less than '
-                                 'number of nodes then the '
-                                 'remaining nodes are assigned the loopback '
-                                 'IP, i.e 127.0.0.1',
-                            type=cls._bootstrapArgsTypeIps)
-
-        parser.add_argument('--envName',
-                            help='Environment name (test or live)',
+                            help='IPs/hostnames of the nodes, provide comma '
+                                 'separated IPs, if no of IPs provided are less'
+                                 ' than number of nodes then the remaining '
+                                 'nodes are assigned the loopback IP, '
+                                 'i.e 127.0.0.1',
+                            type=cls._bootstrap_args_type_ips_hosts)
+        parser.add_argument('--network',
+                            help='Network name (default sandbox)',
                             type=str,
-                            choices=('test', 'live'),
-                            default="test",
+                            default="sandbox",
                             required=False)
-
         parser.add_argument(
             '--appendToLedgers',
             help="Determine if ledger files needs to be erased "
@@ -208,18 +186,34 @@ class TestNetworkSetup:
 
         args = parser.parse_args()
 
-        if args.nodeNum:
-            assert 0 <= args.nodeNum <= args.nodes, \
-                "nodeNum should be less ore equal to nodeCount"
+        if isinstance(args.nodeNum, int):
+            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less or equal to nodeCount"
+        elif isinstance(args.nodeNum, list):
+            bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
+            assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
 
-        steward_defs, node_defs = cls.gen_defs(
-            args.ips, args.nodes, startingPort)
+        node_num = [args.nodeNum, None] if args.nodeNum else [None]
+
+        steward_defs, node_defs = cls.gen_defs(args.ips, args.nodes, startingPort)
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
-        cls.bootstrapTestNodesCore(config, args.envName, args.appendToLedgers,
-                                   domainTxnFieldOrder, trustee_def,
-                                   steward_defs, node_defs, client_defs,
-                                   args.nodeNum, nodeParamsFileName)
+
+        for n_num in node_num:
+            cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
+                                       steward_defs, node_defs, client_defs, n_num, nodeParamsFileName)
+
+        # edit NETWORK_NAME in config
+        for line in fileinput.input(['/etc/indy/indy_config.py'], inplace=True):
+            if 'NETWORK_NAME' not in line:
+                print(line, end="")
+        with open('/etc/indy/indy_config.py', 'a') as cfgfile:
+            cfgfile.write("NETWORK_NAME = '{}'".format(args.network))
+
+        # delete unnecessary key dir in client folder
+        key_dir = cls.setup_clibase_dir(config, args.network)
+        key_dir = os.path.join(key_dir, "keys")
+        if os.path.isdir(key_dir):
+            shutil.rmtree(key_dir, ignore_errors=True)
 
     @staticmethod
     def _bootstrapArgsTypeNodeCount(nodesStrArg):
@@ -238,18 +232,21 @@ class TestNetworkSetup:
         return n
 
     @staticmethod
-    def _bootstrapArgsTypeIps(ipsStrArg):
+    def _bootstrap_args_type_ips_hosts(ips_hosts_str_arg):
         ips = []
-        for ip in ipsStrArg.split(','):
-            ip = ip.strip()
+        for arg in ips_hosts_str_arg.split(','):
+            arg = arg.strip()
             try:
-                ipaddress.ip_address(ip)
+                ipaddress.ip_address(arg)
             except ValueError:
-                raise argparse.ArgumentTypeError(
-                    "'{}' is an invalid IP address".format(ip)
-                )
+                if not is_hostname_valid(arg):
+                    raise argparse.ArgumentTypeError(
+                        "'{}' is not a valid IP or hostname".format(arg)
+                    )
+                else:
+                    ips.append(arg)
             else:
-                ips.append(ip)
+                ips.append(arg)
         return ips
 
     @classmethod

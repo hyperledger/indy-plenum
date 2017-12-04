@@ -6,6 +6,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
 from plenum.common.roles import Roles
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.transactions import PlenumTransactions
 from plenum.test import waits
@@ -241,19 +242,20 @@ def __checkClientConnected(cli, ):
 
 
 def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
-             stewardName, stewardsSeed, newClientHA=None):
+             stewardName, stewardsSeed, newClientHA=None, basedir=None):
     if not newClientHA:
         newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
 
+    assert basedir is not None
+
     # prepare steward wallet
-    stewardSigner = SimpleSigner(seed=stewardsSeed)
+    stewardSigner = DidSigner(seed=stewardsSeed)
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=stewardSigner)
 
     # prepare client to submit change ha request
     _, randomClientPort = genHa()
-    client = Client(stewardName,
-                    ha=('0.0.0.0', randomClientPort), config=config)
+    client = Client(stewardName, ha=('0.0.0.0', randomClientPort), config=config, basedirpath=basedir)
     looper.add(client)
     timeout = waits.expectedClientToPoolConnectionTimeout(4)
     looper.run(eventually(__checkClientConnected, client,

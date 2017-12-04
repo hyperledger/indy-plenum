@@ -26,9 +26,19 @@ cliNodeReg = OrderedDict([
 
 baseDir = '~/.plenum/'
 walletsDir = 'wallets'
+NODE_BASE_DATA_DIR = baseDir
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
+LOG_DIR = os.path.join(baseDir, "log")
+GENERAL_CONFIG_DIR = '/etc/indy'
 # walletDir = 'wallet'
+
+# it should be filled from baseConfig
+NETWORK_NAME = ''
+
+GENERAL_CONFIG_FILE = 'plenum_config.py'
+NETWORK_CONFIG_FILE = 'plenum_config.py'
+USER_CONFIG_FILE = 'plenum_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
@@ -89,14 +99,20 @@ notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     },
     'nodeRequestSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     }
 }
+
+SpikeEventsEnabled = False
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
@@ -228,3 +244,5 @@ BLS_KEY_LIMIT = 512
 BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
+
+ENABLED_PLUGINS = []

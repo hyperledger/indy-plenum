@@ -3,6 +3,8 @@ from typing import Optional
 import base58
 import pytest
 
+from stp_core.types import HA
+
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.messages.node_messages import ViewChangeDone
@@ -36,6 +38,9 @@ class FakeNode:
         self.viewNo = 0
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
+        self.nodeReg = {
+            name: HA("127.0.0.1", 0) for name in self.allNodeNames
+        }
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.replicas = [
@@ -53,7 +58,7 @@ class FakeNode:
         self.view_change_in_progress = True
         self.propagate_primary = False
 
-    def get_name_by_rank(self, name):
+    def get_name_by_rank(self, name, nodeReg=None):
         # This is used only for getting name of next primary, so
         # it just returns a constant
         return 'Node2'
@@ -261,7 +266,7 @@ def test_process_view_change_done(tmpdir):
 
     selector._processViewChangeDoneMessage(msg, 'Node3')
     assert selector._verify_primary(msg.name, msg.ledgerInfo)
-    selector._startSelection()
+    selector._start_selection()
     assert selector._view_change_done
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
@@ -302,7 +307,7 @@ def test_send_view_change_done_message(tmpdir):
     instance_id = 0
     view_no = selector.viewNo
     new_primary_name = selector.node.get_name_by_rank(selector._get_primary_id(
-        view_no, instance_id))
+        view_no, instance_id, node.totalNodes))
     selector._send_view_change_done_message()
 
     ledgerInfo = [

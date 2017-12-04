@@ -5,7 +5,7 @@ from plenum.client.wallet import Wallet
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.script_helper import changeHA
-from plenum.common.signer_simple import SimpleSigner
+from plenum.common.signer_did import DidSigner
 from plenum.common.util import getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
@@ -24,7 +24,7 @@ def looper(txnPoolNodesLooper):
 
 
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary, tdir):
 
     # prepare new ha for node and client stack
     subjectedNode = None
@@ -46,7 +46,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     # change HA
     stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
-                                  nodeStackNewHA, stewardName, stewardsSeed)
+                                  nodeStackNewHA, stewardName, stewardsSeed, basedir=tdir)
 
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
@@ -56,7 +56,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.removeProdable(subjectedNode)
 
     # start node with new HA
-    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)
@@ -77,6 +77,6 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(anotherClient)
     looper.run(eventually(anotherClient.ensureConnectedToNodes))
     stewardWallet = Wallet(stewardName)
-    stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
+    stewardWallet.addIdentifier(signer=DidSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(
         looper, stewardWallet, stewardClient, 8)

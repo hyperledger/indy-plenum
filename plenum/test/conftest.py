@@ -14,6 +14,7 @@ from typing import Dict, Any
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
@@ -38,7 +39,7 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY
+    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, getMaxFailures
@@ -578,18 +579,18 @@ def poolTxnData(request):
             '0' * (32 - len(steward_name))
 
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
-        s_idr = SimpleSigner(
-            seed=data['seeds'][steward_name].encode()).identifier
+        s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
 
         data['txns'].append({
             TXN_TYPE: NYM,
             ROLE: STEWARD,
             ALIAS: steward_name,
-            TARGET_NYM: s_idr
+            TARGET_NYM: s_idr.identifier,
+            VERKEY: s_idr.verkey,
         })
         node_txn = {
             TXN_TYPE: NODE,
-            f.IDENTIFIER.nm: s_idr,
+            f.IDENTIFIER.nm: s_idr.identifier,
             TARGET_NYM: n_idr,
             DATA: {
                 ALIAS: node_name,
@@ -609,33 +610,21 @@ def poolTxnData(request):
 
         data['txns'].append(node_txn)
 
-    # Below is some static data that is needed for some CLI tests
-    more_data = {'txns': [
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ",
-         "type": "1",
-         "alias": "Alice"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB",
-         "type": "1",
-         "alias": "Jason"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG",
-         "type": "1",
-         "alias": "John"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru",
-         "type": "1",
-         "alias": "Les"}
-    ], 'seeds': {
-        "Alice": "99999999999999999999999999999999",
-        "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "John": "dddddddddddddddddddddddddddddddd",
-        "Les": "ffffffffffffffffffffffffffffffff"
-    }}
+    more_data_seeds = \
+        {
+            "Alice": "99999999999999999999999999999999",
+            "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "John": "dddddddddddddddddddddddddddddddd",
+            "Les": "ffffffffffffffffffffffffffffffff"
+        }
+    more_data_users = []
+    for more_name, more_seed in more_data_seeds.items():
+        signer = DidSigner(seed=more_seed.encode())
+        more_data_users.append({TXN_TYPE: NYM, ALIAS: more_name, TARGET_NYM: signer.identifier, VERKEY: signer.verkey,
+                                f.IDENTIFIER.nm: "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC"})
 
-    data['txns'].extend(more_data['txns'])
-    data['seeds'].update(more_data['seeds'])
+    data['txns'].extend(more_data_users)
+    data['seeds'].update(more_data_seeds)
     return data
 
 
@@ -754,6 +743,7 @@ def txnPoolNodeSet(patchPluginManager,
             node = exitStack.enter_context(
                 testNodeClass(nm,
                               basedirpath=tdirWithPoolTxns,
+                              base_data_dir=tdirWithPoolTxns,
                               config=tconf,
                               pluginPaths=allPluginsPath))
             txnPoolNodesLooper.add(node)
@@ -838,7 +828,7 @@ def testNode(pluginManager, tdir):
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
-                    nodeRegistry=copy(nodeReg), basedirpath=tdir,
+                    nodeRegistry=copy(nodeReg), basedirpath=tdir, base_data_dir=tdir,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
     node.start(None)
     yield node

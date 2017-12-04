@@ -7,8 +7,7 @@ from typing import Iterable
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger, \
-    update_genesis_txn_file_name_if_outdated
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
@@ -69,7 +68,7 @@ from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
     getFriendlyIdentifier, \
     normalizedWalletFileName, getWalletFilePath, \
-    getLastSavedWalletFileName, updateWalletsBaseDirNameIfOutdated
+    getLastSavedWalletFileName
 from stp_core.common.log import \
     getlogger, Logger
 from plenum.server.node import Node
@@ -115,13 +114,14 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
+    def __init__(self, looper, basedirpath: str, ledger_base_dir: str, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
                  override_tags=None):
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
+        self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
         Logger().enableCliLogging(self.out,
@@ -258,11 +258,13 @@ class Cli:
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        updateWalletsBaseDirNameIfOutdated(self.config)
-
         self.restoreLastActiveWallet()
 
         self.checkIfCmdHandlerAndCmdMappingExists()
+
+    @property
+    def pool_ledger_dir(self):
+        return self.ledger_base_dir
 
     def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
         self.nodeRegLoadedFromFile = False
@@ -281,12 +283,10 @@ class Cli:
 
     def __init_registry_from_ledger(self):
         self.nodeRegLoadedFromFile = True
-        update_genesis_txn_file_name_if_outdated(
-            self.basedirpath, self.config.poolTransactionsFile)
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-            self.basedirpath, self.config.poolTransactionsFile)
+            self.pool_ledger_dir, self.config.poolTransactionsFile)
         ledger = Ledger(CompactMerkleTree(),
-                        dataDir=self.basedirpath,
+                        dataDir=self.pool_ledger_dir,
                         fileName=self.config.poolTransactionsFile,
                         genesis_txn_initiator=genesis_txn_initiator,
                         transactionLogStore=KeyValueStorageInMemory())
@@ -497,7 +497,7 @@ class Cli:
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
             ledger = create_genesis_txn_init_ledger(
-                self.basedirpath, self.config.poolTransactionsFile)
+                self.pool_ledger_dir, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
@@ -939,6 +939,7 @@ class Cli:
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
+                                      base_data_dir=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:
@@ -1063,7 +1064,7 @@ class Cli:
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=nodeReg,
-                                      basedirpath=self.basedirpath,
+                                      basedirpath=self.pool_ledger_dir,
                                       config=config)
             self.activeClient = client
             self.looper.add(client)
@@ -1870,7 +1871,7 @@ class Cli:
             os.path.join(self.getWalletsBaseDir(), NO_ENV))
 
     def getWalletsBaseDir(self):
-        return os.path.expanduser(os.path.join(self.config.baseDir,
+        return os.path.expanduser(os.path.join(self.basedirpath,
                                                self.config.walletsDir))
 
     def getContextBasedWalletsBaseDir(self):
@@ -2037,7 +2038,7 @@ class Cli:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        dataPath = os.path.join(self.config.baseDir, "data")
+        dataPath = os.path.join(self.basedirpath, "data")
         try:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:

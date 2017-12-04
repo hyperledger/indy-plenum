@@ -241,12 +241,12 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        logger.debug('{} forwarding request {} to {} replicas'.format(
-            self, key, self.replicas.sum_inbox_len))
-
+        num_replicas = self.replicas.num_replicas
+        logger.debug('{} forwarding request {} to {} replicas'
+                     .format(self, key, num_replicas))
         self.replicas.pass_message(ReqKey(*key))
         self.monitor.requestUnOrdered(*key)
-        self.requests.mark_as_forwarded(request, self.replicas.num_replicas)
+        self.requests.mark_as_forwarded(request, num_replicas)
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):

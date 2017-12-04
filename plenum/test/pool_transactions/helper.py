@@ -9,6 +9,7 @@ from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, AL
     VALIDATOR, BLS_KEY
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
+from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
@@ -18,7 +19,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 
 
-def sendAddNewClient(role, name, creatorClient, creatorWallet):
+def new_client_request(role, name, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -33,7 +34,11 @@ def sendAddNewClient(role, name, creatorClient, creatorWallet):
     if role:
         op[ROLE] = role
 
-    req = creatorWallet.signOp(op)
+    return creatorWallet.signOp(op), wallet
+
+
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
+    req, wallet = new_client_request(role, name, creatorWallet)
     creatorClient.submitReqs(req)
     return req, wallet
 
@@ -110,7 +115,7 @@ def start_newly_added_node(
         auto_start,
         plugin_path,
         nodeClass):
-    node = nodeClass(node_name, basedirpath=tdir, config=conf,
+    node = nodeClass(node_name, basedirpath=tdir, base_data_dir=tdir, config=conf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
     if auto_start:
@@ -192,7 +197,7 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
     client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns,
+    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))
@@ -268,13 +273,12 @@ def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
                                         requests=[req])
 
 
-def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
-                             walletClass=None):
+def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=None):
     walletClass = walletClass or Wallet
     clientClass = clientClass or TestClient
     name, sigseed = clientData
     w = walletClass(name)
-    w.addIdentifier(signer=SimpleSigner(seed=sigseed))
+    w.addIdentifier(signer=DidSigner(seed=sigseed))
     client, _ = genTestClient(name=name, identifier=w.defaultId,
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)

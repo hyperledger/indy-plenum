@@ -11,6 +11,9 @@ from plenum.test.test_node import checkNodesConnected
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 
+TestRunningTimeLimitSec = 125
+
+
 def decrease_max_request_size(node):
     old = node.nodestack.prepare_for_sending
 
@@ -27,20 +30,15 @@ def decrease_max_request_size(node):
     node.nodestack.prepare_for_sending = prepare_for_sending
 
 
-def test_large_catchup(looper,
-                       txnPoolNodeSet,
-                       wallet1,
-                       client1,
-                       client1Connected,
-                       tconf,
-                       allPluginsPath,
+def test_large_catchup(looper, testNodeClass, txnPoolNodeSet, wallet1,
+                       client1, client1Connected, tconf, allPluginsPath,
                        tdirWithPoolTxns):
     """
     Checks that node can catchup large ledgers
     """
     # Prepare nodes
-    lagging_node = txnPoolNodeSet[0]
-    rest_nodes = txnPoolNodeSet[1:]
+    lagging_node = txnPoolNodeSet[-1]
+    rest_nodes = txnPoolNodeSet[:-1]
     all_nodes = txnPoolNodeSet
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
@@ -54,7 +52,7 @@ def test_large_catchup(looper,
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
-                                            rest_nodes,
+                                            all_nodes,
                                             lagging_node,
                                             stopNode=True)
     looper.removeProdable(lagging_node)
@@ -69,6 +67,11 @@ def test_large_catchup(looper,
         decrease_max_request_size(node)
 
     # Restart stopped node and wait for successful catch up
+    # Not calling start since it does not start states
+    lagging_node = testNodeClass(lagging_node.name,
+                                 basedirpath=tdirWithPoolTxns,
+                                 base_data_dir=tdirWithPoolTxns,
+                                 config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
-    reconnect_node_and_ensure_connected(looper, all_nodes, lagging_node)
+    txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)

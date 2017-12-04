@@ -66,10 +66,12 @@ class PoolManager:
         """
 
     @abstractmethod
-    def get_rank_of(self, node_id) -> Optional[int]:
+    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
         """Return node rank among active pool validators by id
 
         :param node_id: node's id
+        :param nodeReg: (optional) node registry to operate with. If not specified,
+                        current one is used.
         :return: rank of the node or None if not found
         """
 
@@ -80,13 +82,15 @@ class PoolManager:
         return self.get_rank_of(self.id)
 
     @abstractmethod
-    def get_name_by_rank(self, rank) -> Optional[str]:
+    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         # Needed for communicating primary name to others and also nodeReg
         # uses node names (alias) and not ids
         # TODO: Should move to using node ids and not node names (alias)
         """Return node name (alias) by rank among active pool validators
 
         :param rank: rank of the node
+        :param nodeReg: (optional) node registry to operate with. If not specified,
+                        current one is used.
         :return: name of the node or None if not found
         """
 
@@ -97,7 +101,7 @@ class HasPoolManager:
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
-            self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
+            self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,
@@ -347,15 +351,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA][ALIAS]
 
-    def doStaticValidation(self, identifier, reqId, operation):
-        pass
-
-    def doDynamicValidation(self, request: Request):
-        self.reqHandler.validate(request)
-
-    def applyReq(self, request: Request, cons_time: int):
-        return self.reqHandler.apply(request, cons_time)
-
     @property
     def merkleRootHash(self) -> str:
         return self.ledger.root_hash
@@ -410,20 +405,21 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             logger.warning(msg)
             assert False, msg
 
-    @property
-    def node_ids_ordered_by_rank(self) -> List:
+    def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
+        if nodeReg is None:
+            nodeReg = self.nodeReg
         return [nym for nym, name in self._ordered_node_ids.items()
-                if name in self.nodeReg]
+                if name in nodeReg]
 
-    def get_rank_of(self, node_id) -> Optional[int]:
+    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
         if self.id is None:
             # This can happen if a non-genesis node starts
             return None
-        return self._get_rank(node_id, self.node_ids_ordered_by_rank)
+        return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
 
-    def get_name_by_rank(self, rank) -> Optional[str]:
+    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:
-            nym = self.node_ids_ordered_by_rank[rank]
+            nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
         except IndexError:
             return None
         else:
@@ -533,16 +529,17 @@ class RegistryPoolManager(PoolManager):
     def id(self):
         return self.nstack['name']
 
-    @property
-    def node_names_ordered_by_rank(self) -> List:
-        return sorted(self.nodeReg.keys())
+    def node_names_ordered_by_rank(self, nodeReg=None) -> List:
+        if nodeReg is None:
+            nodeReg = self.nodeReg
+        return sorted(nodeReg.keys())
 
-    def get_rank_of(self, node_id) -> Optional[int]:
+    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
         # TODO node_id here has got another meaning
-        return self._get_rank(node_id, self.node_names_ordered_by_rank)
+        return self._get_rank(node_id, self.node_names_ordered_by_rank(nodeReg))
 
-    def get_name_by_rank(self, rank) -> Optional[str]:
+    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:
-            return self.node_names_ordered_by_rank[rank]
+            return self.node_names_ordered_by_rank(nodeReg)[rank]
         except IndexError:
             return None
