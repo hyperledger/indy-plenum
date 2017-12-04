@@ -1,5 +1,6 @@
 from plenum.common.constants import TXN_TYPE
 from plenum.common.request import Request
+from plenum.common.types import f
 from plenum.server.req_handler import RequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
     AUCTION_START, GET_BAL
@@ -19,4 +20,7 @@ class AuctionReqHandler(RequestHandler):
         return self.query_handlers[request.operation[TXN_TYPE]](request)
 
     def handle_get_bal(self, request: Request):
-        pass
+        return {**request.operation, **{
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId,
+        }}
