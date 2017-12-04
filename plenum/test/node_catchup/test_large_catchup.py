@@ -1,4 +1,5 @@
 from plenum.common.messages.node_messages import CatchupRep
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
@@ -30,7 +31,9 @@ def decrease_max_request_size(node):
     node.nodestack.prepare_for_sending = prepare_for_sending
 
 
-def test_large_catchup(looper,
+def test_large_catchup(tdir, tconf,
+                       looper,
+                       testNodeClass,
                        txnPoolNodeSet,
                        wallet1,
                        client1,
@@ -55,7 +58,7 @@ def test_large_catchup(looper,
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
-                                            rest_nodes,
+                                            all_nodes,
                                             lagging_node,
                                             stopNode=True)
     looper.removeProdable(lagging_node)
@@ -70,6 +73,11 @@ def test_large_catchup(looper,
         decrease_max_request_size(node)
 
     # Restart stopped node and wait for successful catch up
+    # Not calling start since it does not start states
+    config_helper = PNodeConfigHelper(lagging_node.name, tconf, chroot=tdir)
+    lagging_node = testNodeClass(lagging_node.name,
+                                 config_helper=config_helper,
+                                 config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
-    reconnect_node_and_ensure_connected(looper, all_nodes, lagging_node)
+    txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)
