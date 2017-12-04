@@ -64,7 +64,8 @@ class TestNetworkSetup:
             localNodes,
             nodeParamsFileName,
             config_helper_class=PConfigHelper,
-            node_config_helper_class=PNodeConfigHelper):
+            node_config_helper_class=PNodeConfigHelper,
+            chroot: str=None):
 
         if not localNodes:
             localNodes = {}
@@ -78,7 +79,7 @@ class TestNetworkSetup:
 
         config.NETWORK_NAME = network
 
-        config_helper = config_helper_class(config)
+        config_helper = config_helper_class(config, chroot=chroot)
 
         os.makedirs(config_helper.genesis_dir, exist_ok=True)
 
@@ -94,7 +95,7 @@ class TestNetworkSetup:
             domainLedger.add(nym_txn)
 
         for nd in node_defs:
-            node_config_helper = node_config_helper_class(nd.name, config)
+            node_config_helper = node_config_helper_class(nd.name, config, chroot=chroot)
             os.makedirs(node_config_helper.ledger_dir, exist_ok=True)
 
             if nd.idx in _localNodes:
@@ -159,7 +160,8 @@ class TestNetworkSetup:
 
     @classmethod
     def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder,
-                           config_helper_class=PConfigHelper, node_config_helper_class=PNodeConfigHelper):
+                           config_helper_class=PConfigHelper, node_config_helper_class=PNodeConfigHelper,
+                           chroot: str=None):
         parser = argparse.ArgumentParser(description="Generate pool transactions for testing")
         parser.add_argument('--nodes', required=True,
                             help='node count should be less than 100',
