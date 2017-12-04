@@ -20,16 +20,15 @@ TestRunningTimeLimitSec = 150
 
 
 @pytest.fixture(scope="module")
-def reduced_catchup_timeout_conf(conf, tdir, request):
-    defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
-    conf.baseDir = tdir
-    conf.CatchupTransactionsTimeout = 10
+def reduced_catchup_timeout_conf(tconf, request):
+    defaultCatchupTransactionsTimeout = tconf.CatchupTransactionsTimeout
+    tconf.CatchupTransactionsTimeout = 10
 
     def reset():
-        conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
+        tconf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
 
 
 def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,

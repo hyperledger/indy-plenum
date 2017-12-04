@@ -9,6 +9,7 @@ from plenum.test.test_node import TestNode
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from plenum.common.config_util import getConfig
+from plenum.server.config_helper import NodeConfigHelper
 from plenum.server.node import Node
 from stp_core.common.log import Logger, getRAETLogLevelFromConfig, \
     getRAETLogFilePath
@@ -25,7 +26,9 @@ if __name__ == "__main__":
     ha = HA("0.0.0.0", int(sys.argv[2]))
     cliha = HA("0.0.0.0", int(sys.argv[3]))
 
-    logFileName = os.path.join(config.LOG_DIR, config.NETWORK_NAME, selfName + ".log")
+    config_helper = NodeConfigHelper(selfName, config)
+
+    logFileName = os.path.join(config_helper.log_dir, selfName + ".log")
 
     RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
                                                 Console.Wordage.mute,
@@ -34,17 +37,25 @@ if __name__ == "__main__":
 
     Logger().enableFileLogging(logFileName)
     Logger().setupRaet(RAETVerbosity, RAETLogFile)
+
+    print("Start plenum node:\n"
+          "------------------\n"
+          "ledger_dir = {}\n"
+          "keys_dir = {}\n"
+          "genesis_dir = {}\n"
+          "plugins_dir = {}\n"
+          "------------------"
+          .format(config_helper.ledger_dir,
+                  config_helper.keys_dir,
+                  config_helper.genesis_dir,
+                  config_helper.plugins_dir))
+
     print("You can find logs in {}".format(logFileName))
 
-    keepDir = os.path.join(config.baseDir, config.NETWORK_NAME)
-    print("You can find data in {}".format(keepDir))
-
-    node_data_dir = os.path.join(config.NODE_BASE_DATA_DIR, config.NETWORK_NAME)
-
     with Looper(debug=config.LOOPER_DEBUG) as looper:
-        node = Node(selfName, nodeRegistry=None, basedirpath=keepDir,
-                    base_data_dir=node_data_dir,
+        node = Node(selfName, nodeRegistry=None,
                     ha=ha,
-                    cliha=cliha)
+                    cliha=cliha,
+                    config=config)
         looper.add(node)
         looper.run()

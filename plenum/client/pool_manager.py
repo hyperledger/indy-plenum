@@ -21,7 +21,7 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
         self._ledgerFile = None
-        TxnStackManager.__init__(self, self.name, self.basedirpath,
+        TxnStackManager.__init__(self, self.name, self.genesis_dir, self.keys_dir,
                                  isNode=False)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg

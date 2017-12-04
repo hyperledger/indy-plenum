@@ -20,8 +20,8 @@ def testViewChangesIfMasterPrimaryDisconnected(
         wallet1,
         client1,
         client1Connected,
+        tdir,
         tconf,
-        tdirWithPoolTxns,
         allPluginsPath):
     """
     View change occurs when master's primary is disconnected
@@ -55,7 +55,7 @@ def testViewChangesIfMasterPrimaryDisconnected(
 
     # Check if old primary can join the pool and still functions
     old_pr_node = start_stopped_node(old_pr_node, looper, tconf,
-                                     tdirWithPoolTxns, allPluginsPath)
+                                     tdir, allPluginsPath)
 
     txnPoolNodeSet = remaining_nodes + [old_pr_node]
     looper.run(eventually(checkViewNoForNodes,

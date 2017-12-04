@@ -308,7 +308,8 @@ def newCLI(looper, basedir, ledger_base_dir,
            unique_name=None,
            logFileName=None,
            name=None,
-           agentCreator=None):
+           agentCreator=None,
+           nodes_chroot: str=None):
     if partition:
         recorder = Recorder(partition)
     else:
@@ -327,7 +328,8 @@ def newCLI(looper, basedir, ledger_base_dir,
         'config': config,
         'unique_name': unique_name,
         'override_tags': otags,
-        'logFileName': logFileName
+        'logFileName': logFileName,
+        'nodes_chroot': nodes_chroot
     }
     if name is not None and agentCreator is not None:
         cliClassParams['name'] = name
