@@ -15,10 +15,11 @@ MASTER_REPLICA_INDEX = 0
 
 
 class Replicas:
-    def __init__(self, node, monitor: Monitor):
+    def __init__(self, node, monitor: Monitor, config=None):
         # passing full node because Replica requires it
         self._node = node
         self._monitor = monitor
+        self._config = config
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
 
@@ -107,7 +108,7 @@ class Replicas:
         """
         Create a new replica with the specified parameters.
         """
-        return Replica(self._node, instance_id, is_master, bls_bft)
+        return Replica(self._node, instance_id, self._config, is_master, bls_bft)
 
     def _create_bls_bft_replica(self, is_master):
         bls_factory = create_default_bls_bft_factory(self._node)

@@ -9,31 +9,24 @@ logger = getlogger()
 
 class HasFileStorage:
 
-    def __init__(self, name, baseDir, dataDir=None):
-        self.name = name
-        self.basePath = baseDir
-        self.dataDir = dataDir if dataDir else ""
-        dataLoc = self.dataLocation
-        if not os.path.isdir(dataLoc):
-            os.makedirs(dataLoc)
+    def __init__(self, dataLocation):
+        self._dataLocation = dataLocation
+        if not os.path.isdir(dataLocation):
+            os.makedirs(dataLocation)
 
     @property
     def dataLocation(self):
-        return self.getDataLocation(self.name, self.basePath, self.dataDir)
-
-    @staticmethod
-    def getDataLocation(name, basePath, dataDir=""):
-        return os.path.join(basePath, dataDir, name)
+        return self._dataLocation
 
     def hasFile(self, fileName):
-        return os.path.isfile(os.path.join(self.dataLocation, fileName))
+        return os.path.isfile(os.path.join(self._dataLocation, fileName))
 
     def wipe(self):
         """
         IMPORTANT: calling this method will destroy local data
         :return:
         """
-        self.wipeDataLocation(self.dataLocation)
+        self.wipeDataLocation(self._dataLocation)
 
     @staticmethod
     def wipeDataLocation(dataLocation):
