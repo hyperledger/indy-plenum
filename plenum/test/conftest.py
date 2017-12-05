@@ -9,7 +9,7 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
-
+import json
 import time
 from typing import Dict, Any
 
@@ -58,6 +58,11 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
+from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
+from indy.wallet import create_wallet, open_wallet, close_wallet
+from indy.signus import create_and_store_my_did
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
+
 
 Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
@@ -935,3 +940,98 @@ def set_info_log_level(request):
         Logger.setLogLevel(logging.NOTSET)
 
     request.addfinalizer(reset)
+
+
+# ####### SDK
+
+
+@pytest.fixture()
+def sdk_pool_name():
+    p_name = "pool_name_" + randomText(13)
+    yield p_name
+    p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
+    if os.path.isdir(p_dir):
+        shutil.rmtree(p_dir, ignore_errors=True)
+
+
+@pytest.fixture()
+def sdk_wallet_name():
+    w_name = "wallet_name_" + randomText(13)
+    yield w_name
+    w_dir = os.path.join(os.path.expanduser("~/.indy_client/wallet"), w_name)
+    if os.path.isdir(w_dir):
+        shutil.rmtree(w_dir, ignore_errors=True)
+
+
+async def _gen_pool_handler(work_dir, name):
+    txn_file_name = os.path.join(work_dir, "pool_transactions_genesis")
+    pool_config = json.dumps({"genesis_txn": str(txn_file_name)})
+    await create_pool_ledger_config(name, pool_config)
+    pool_handle = await open_pool_ledger(name, None)
+    return pool_handle
+
+
+@pytest.fixture()
+def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
+    pool_handle = looper.loop.run_until_complete(_gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
+    yield pool_handle
+    looper.loop.run_until_complete(close_pool_ledger(pool_handle))
+
+
+async def _gen_wallet_handler(pool_name, wallet_name):
+    await create_wallet(pool_name, wallet_name, None, None, None)
+    wallet_handle = await open_wallet(wallet_name, None, None)
+    return wallet_handle
+
+
+@pytest.fixture()
+def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
+    wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+    yield wallet_handle
+    looper.loop.run_until_complete(close_wallet(wallet_handle))
+
+
+@pytest.fixture()
+def sdk_steward_seed(poolTxnStewardData):
+    _, seed = poolTxnStewardData
+    return seed.decode()
+
+
+@pytest.fixture()
+def sdk_client_seed(poolTxnClientData):
+    _, seed = poolTxnClientData
+    return seed.decode()
+
+
+@pytest.fixture()
+def sdk_new_client_seed():
+    return "Client10000000000000000000000000"
+
+
+@pytest.fixture()
+def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
+    (steward_did, steward_verkey) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
+    return sdk_wallet_handle, steward_did
+
+
+@pytest.fixture()
+def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
+    (client_did, _) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_client_seed})))
+    return sdk_wallet_handle, client_did
+
+
+async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
+    wh, steward_did = wallet_steward
+    (named_did, named_verkey) = await create_and_store_my_did(wh, json.dumps({"seed": named_seed, 'cid': True}))
+    nym_request = await build_nym_request(steward_did, named_did, named_verkey, None, None)
+    await sign_and_submit_request(pool_handle, wh, steward_did, nym_request)
+    return wh, named_did
+
+
+@pytest.fixture()
+def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed):
+    wh, client_did = looper.loop.run_until_complete(
+        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed))
+    return wh, client_did

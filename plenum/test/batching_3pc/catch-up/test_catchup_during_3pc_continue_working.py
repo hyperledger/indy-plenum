@@ -1,8 +1,8 @@
 import pytest
-from plenum.test.batching_3pc.helper import send_and_check, \
-    add_txns_to_ledger_before_order
-from plenum.test.helper import signed_random_requests
+from plenum.test.batching_3pc.helper import add_txns_to_ledger_before_order, checkNodesHaveSameRoots
 from plenum.test.test_node import getNonPrimaryReplicas
+import json
+from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check
 
 
 @pytest.fixture(scope="module")
@@ -20,19 +20,20 @@ def tconf(tconf, request):
     return tconf
 
 
-def test_catchup_during_3pc_continue_sending(
-        tconf, looper, txnPoolNodeSet, client, wallet1):
-    reqs = signed_random_requests(wallet1, tconf.Max3PCBatchSize + 2)
+def test_catchup_during_3pc_continue_sending(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, tconf.Max3PCBatchSize + 2)
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 
     # Simulate catch-up (add txns to ledger):
     # add txns corresponding to the requests after we got enough COMMITs to
     # order, but before ordering.
     add_txns_to_ledger_before_order(
-        non_primary_replica, reqs[:tconf.Max3PCBatchSize])
+        non_primary_replica, [json.loads(req) for req in reqs[:tconf.Max3PCBatchSize]])
 
-    send_and_check(reqs, looper, txnPoolNodeSet, client)
+    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # send another requests and check that they are received
-    reqs = signed_random_requests(wallet1, 2 * tconf.Max3PCBatchSize - 2)
-    send_and_check(reqs, looper, txnPoolNodeSet, client)
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 2 * tconf.Max3PCBatchSize - 2)
+    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    checkNodesHaveSameRoots(txnPoolNodeSet)
