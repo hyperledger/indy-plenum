@@ -881,8 +881,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self.serviceElectorInbox()
         # TODO: Why is protected method accessed here?
         a = self.elector._serviceActions()
-        v = self.view_changer._serviceActions()
-        return o + i + a
+        v = self.view_changer._serviceActions()  # TODO
+        return o + i + a + v
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -2617,16 +2617,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         prepare for election, which then will be started from outside by
         calling decidePrimaries()
         """
-        #if viewNo <= self.viewNo:
-        #    logger.warning("{}Provided view no {} is not greater"
-        #                   " than the current view no {}"
-        #                   .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
-        #    return False
-        #self.viewNo = viewNo
+        # if viewNo <= self.viewNo:
+        #     logger.warning("{}Provided view no {} is not greater"
+        #                    " than the current view no {}"
+        #                    .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
+        #     return False
+        # self.viewNo = viewNo
         for replica in self.replicas:
             replica.primaryName = None
         return True
-
 
     def transform_txn_for_ledger(self, txn):
         return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
@@ -2698,8 +2697,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
 
-
-
     def startViewChange(self, *args, **kwargs):
         return self.view_changer.startViewChange(*args, **kwargs)
 
@@ -2736,16 +2733,16 @@ def getp(pr):
         return getattr(self.view_changer, pr)
     return wrapper
 
+
 def setp(pr):
     def wrapper(self, v):
         setattr(self.view_changer, pr, v)
     return wrapper
 
+
 for pr in (
         'view_change_in_progress',
         'propagate_primary',
         'instanceChanges',
-        '_next_view_indications'
-
-    ):
+        '_next_view_indications'):
     setattr(Node, pr, property(getp(pr), setp(pr)))

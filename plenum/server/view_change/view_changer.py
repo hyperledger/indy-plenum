@@ -20,6 +20,7 @@ logger = getlogger()
 # TODO docs and types
 # TODO logging
 
+
 class ViewChanger(HasActionQueue, MessageProcessor):
 
     def __init__(self, node):
@@ -50,14 +51,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self.set_defaults()
 
-
         self.initInsChngThrottling()
 
         self._ledger_manager = self.node.ledgerManager
 
     def __repr__(self):
         return "{}".format(self.name)
-
 
     def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
         """
@@ -71,13 +70,15 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.node.discard(instChg, "{}field viewNo has incorrect type: {}".
-                         format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
+            self.node.discard(
+                instChg, "{}field viewNo has incorrect type: {}".
+                format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
         elif instChg.viewNo <= self.viewNo:
-            self.node.discard(instChg,
-                         "Received instance change request with view no {} "
-                         "which is not more than its view no {}".
-                         format(instChg.viewNo, self.viewNo), logger.info)
+            self.node.discard(
+                instChg,
+                "Received instance change request with view no {} "
+                "which is not more than its view no {}".
+                format(instChg.viewNo, self.viewNo), logger.info)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
@@ -98,7 +99,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                     " message from {}".format(
                         VIEW_CHANGE_PREFIX, self, frm))
                 self.node.sendInstanceChange(instChg.viewNo)
-
 
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):
@@ -143,7 +143,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def _create_instance_change_msg(self, view_no, suspicion_code):
         return InstanceChange(view_no, suspicion_code)
 
-    #def send(self, *args, **kwargs):
+    # def send(self, *args, **kwargs):
     #    self.node.elector.send(*args, **kwargs)
 
     def _on_verified_instance_change_msg(self, msg, frm):
@@ -217,11 +217,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
-        self.node.processStashedMsgsForView(self.viewNo) # TODO
+        self.node.processStashedMsgsForView(self.viewNo)  # TODO
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
-        self.view_change_started(self.viewNo) # TODO
-        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo) # TODO
+        self.view_change_started(self.viewNo)  # TODO
+        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)  # TODO
         self.initInsChngThrottling()
         self.node.logNodeInfo()
         # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
@@ -260,9 +260,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         logger.info("{}{} initiating a view change to {} from {}".format(
             VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
         self.node.sendInstanceChange(next_view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+                                     Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
-
 
     def _processViewChangeDoneMessage(self,
                                       msg: ViewChangeDone,
@@ -282,30 +281,33 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         view_no = msg.viewNo
 
         if self.viewNo != view_no:
-            self.node.elector.discard(msg,
-                         '{} got Primary from {} for view no {} '
-                         'whereas current view no is {}'
-                         .format(self, sender, view_no, self.viewNo),
-                         logMethod=logger.debug)
+            self.node.elector.discard(
+                msg,
+                '{} got Primary from {} for view no {} '
+                'whereas current view no is {}'
+                .format(self, sender, view_no, self.viewNo),
+                logMethod=logger.debug)
             return False
 
         new_primary_name = msg.name
         if new_primary_name == self.previous_master_primary:
-            self.node.elector.discard(msg,
-                         '{} got Primary from {} for {} who was primary of '
-                         'master in previous view too'
-                         .format(self, sender, new_primary_name),
-                         logMethod=logger.debug)
+            self.node.elector.discard(
+                msg,
+                '{} got Primary from {} for {} who was primary of '
+                'master in previous view too'
+                .format(self, sender, new_primary_name),
+                logMethod=logger.debug)
             return False
 
         # Since a node can send ViewChangeDone more than one time
         self._on_verified_view_change_done_msg(msg, sender)
         # TODO why do we check that after the message tracking
         if self.master_replica.hasPrimary:
-            self.node.elector.discard(msg,
-                         "it already decided primary which is {}".
-                         format(self.master_replica.primaryName),
-                         logger.debug)
+            self.node.elector.discard(
+                msg,
+                "it already decided primary which is {}".
+                format(self.master_replica.primaryName),
+                logger.debug)
             return False
 
         self._start_selection()
@@ -422,8 +424,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             return self.node.quorums.propagate_primary.value
         return self.node.quorums.view_change_done.value
 
-
-
     @property
     def _hasViewChangeQuorum(self):
         # This method should just be present for master instance.
@@ -496,7 +496,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             )
         return self._has_acceptable_view_change_quorum
 
-
     def get_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
         # Returns whether has a quorum of ViewChangeDone messages that are same
         # TODO: Does not look like optimal implementation.
@@ -517,7 +516,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                                    (new_primary, ledger_info)))
 
         return self._accepted_view_change_done_message
-
 
     @property
     def is_behind_for_view(self) -> bool:
@@ -558,7 +556,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self._start_selection()
 
-
     def _send_view_change_done_message(self):
         """
         Sends ViewChangeDone message to other protocol participants
@@ -570,18 +567,15 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                  ledger_summary)
 
         logger.debug("{} is sending ViewChangeDone msg to all : {}"
-                "".format(self,message))
+                     "".format(self, message))
 
         self.node.elector.send(message)
         self._on_verified_view_change_done_msg(message, self.name)
-
 
     @property
     def ledger_summary(self):
         return [li.ledger_summary for li in
                 self._ledger_manager.ledgerRegistry.values()]
-
-
 
     # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
@@ -621,10 +615,12 @@ def getp(pr):
         return getattr(self.node, pr)
     return wrapper
 
+
 def setp(pr):
     def wrapper(self, v):
         setattr(self.node, pr, v)
     return wrapper
+
 
 for pr in ('viewNo',
            'monitor',
@@ -642,165 +638,3 @@ for pr in ('viewNo',
            '_view_change_timeout',
            'catchup_rounds_without_txns'):
     setattr(ViewChanger, pr, property(getp(pr), setp(pr)))
-
-
-
-"""
-        # ready to start view change
-        self._ready_to_start = None
-
-        # ready to complete view change
-        self._ready_to_complete = None
-
-
-
-    @property
-    def ready_to_start(self):
-        if self._ready_to_start is None:
-            self._ready_to_start = asyncio.Future() # TODO
-        return self._ready_to_start
-
-    @property
-    def ready_to_complete(self):
-        if self._ready_to_complete is None:
-            self._ready_to_complete = asyncio.Future() # TODO
-        return self._ready_to_complete
-
-    # EVENTS
-    def _on_instance_change_msg(self, msg, frm):
-        view_no = msg.viewNo
-
-        if not valid: # TODO
-            - view_no < 0
-            - view_no <= self
-            discard
-
-        if self.instanceChanges.hasInstChngFrom(view_no, self.name) and \
-               self.monitor.isMasterDegraded():
-            self.sendInstanceChange(view_no)
-
-        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
-            self.instanceChanges.addVote(msg, frm)
-            quorum = self.node.quorums.view_change.value # TODO quorum name
-            if view_no > self.viewNo and \
-                    self.instanceChanges.hasQuorum(viewNo quorum): # TODO
-                self.propagate_primary = False
-                 # TODO
-                 #  - could 
-                 #  - result
-                self.ready_to_start.set_result(view_no)
-
-    def _on_verified_view_change_done_msg(self, msg, frm):
-        new_primary_name = msg.name
-        ledger_summary = msg.ledgerInfo
-
-        # TODO what is the case when node sends several different
-        # view change done messages
-        data = (new_primary_name, ledger_summary)
-        self._view_change_done[frm] = data
-
-        self._check_ready_to_complete()
-
-    def _on_catchup_completed(self):
-        self._check_ready_to_complete()
-
-
-    def cancel(self):
-        # TODO
-        if self._ready_to_complete is not None:
-            self._ready_to_complete.cancel()
-            self._ready_to_complete = None
-
-        if self._ready_to_start is not None:
-            self._ready_to_start.cancel()
-            self._ready_to_start = None
-
-    async def do(self):
-        view_no = await self.ready_to_start
-        ledger_summary, nodeReg = await self.ready_to_complete
-        return ledger_summary, nodeReg
-
-
-
-
-    # view change completion
-    def _start_selection(self):
-        for instance_id, replica in enumerate(self.replicas):
-            if replica.primaryName is not None:
-                logger.debug('{} already has a primary'.format(replica))
-                continue
-            new_primary_name = self.node.elector.next_primary_replica_name(
-                instance_id, nodeReg=nodeReg)
-            logger.display("{}{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX, replica,
-                                   new_primary_name, instance_id, self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-            if instance_id == 0:
-                self.previous_master_primary = None
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.node.start_participating()
-
-            replica.primaryChanged(new_primary_name)
-            self.node.primary_selected(instance_id)
-
-            logger.display("{}{} declares view change {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(VIEW_CHANGE_PREFIX,
-                                   replica,
-                                   self.viewNo,
-                                   instance_id,
-                                   new_primary_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-
-    def _on_verified_instance_change_msg(self, msg, frm):
-        view_no = msg.viewNo
-
-        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
-            self.instanceChanges.addVote(msg, frm)
-            if view_no > self.viewNo: # TODO
-                self._do_view_change_if_possible(view_no)
-
-
-    def _on_verified_view_change_done_msg(self, msg, frm):
-        new_primary_name = msg.name
-        ledger_summary = msg.ledgerInfo
-
-        # TODO what is the case when node sends several different
-        # view change done messages
-        data = (new_primary_name, ledger_summary)
-        self._view_change_done[frm] = data
-
-        self._check_ready_to_complete()
-
-    def _on_catchup_completed(self):
-        self._check_ready_to_complete()
-
-    def cancel(self):
-        _instance_change_quorum(self).cancel()
-
-    async def do(self):
-        await self.ready_to_start
-        await self.ready_to_complete
-
-        ledger_summary = None
-        nodeReg = None
-        # in case of already completed view change
-        # use node registry actual for the moment when it happened
-        if self.is_propagated_view_change_completed:
-            assert self._accepted_view_change_done_message is not None
-            ledger_summary = self._accepted_view_change_done_message[1]
-            pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
-            nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
-
-        return ledger_summary, nodeReg
-"""
