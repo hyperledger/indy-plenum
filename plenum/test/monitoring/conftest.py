@@ -1,15 +1,14 @@
 import pytest
 
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import sdk_eval_timeout, sdk_send_random_request, sdk_get_reply
 
 
-@pytest.fixture(scope="module")
-def requests(looper, wallet1, client1):
+@pytest.fixture()
+def requests(looper, sdk_wallet_client, sdk_pool_handle):
     requests = []
     for i in range(5):
-        req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
+        req = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        req, _ = sdk_get_reply(looper, req, timeout=sdk_eval_timeout(1, 4))
         requests.append(req)
     return requests
 
