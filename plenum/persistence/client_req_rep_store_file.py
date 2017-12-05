@@ -16,12 +16,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     LinePrefixes = namedtuple(
         'LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
-    def __init__(self, name, baseDir):
-        self.baseDir = baseDir
-        self.dataDir = "data/clients"
-        self.name = name
-        HasFileStorage.__init__(self, name=self.name, baseDir=baseDir,
-                                dataDir=self.dataDir)
+    def __init__(self, dataLocation):
+        assert dataLocation is not None
+        HasFileStorage.__init__(self, dataLocation)
         if not os.path.exists(self.dataLocation):
             os.makedirs(self.dataLocation)
         self.reqStore = DirectoryStore(self.dataLocation, "Requests")

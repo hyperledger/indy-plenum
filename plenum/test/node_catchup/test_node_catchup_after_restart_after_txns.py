@@ -18,6 +18,7 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
+from plenum.common.config_helper import PNodeConfigHelper
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -35,9 +36,9 @@ txnCount = 5
 def test_node_catchup_after_restart_with_txns(
         newNodeCaughtUp,
         txnPoolNodeSet,
+        tdir,
         tconf,
         nodeSetWithNodeAddedAfterSomeTxns,
-        tdirWithPoolTxns,
         allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
@@ -61,10 +62,13 @@ def test_node_catchup_after_restart_with_txns(
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
     logger.debug("Starting the stopped node, {}".format(newNode))
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
     newNode = TestNode(
         newNode.name,
-        basedirpath=tdirWithPoolTxns,
-        base_data_dir=tdirWithPoolTxns,
+        ledger_dir=config_helper.ledger_dir,
+        keys_dir=config_helper.keys_dir,
+        genesis_dir=config_helper.genesis_dir,
+        plugins_dir=config_helper.plugins_dir,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,

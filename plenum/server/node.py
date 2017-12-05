@@ -89,6 +89,7 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
+from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
 from stp_core.common.log import getlogger
@@ -125,8 +126,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  ha: HA=None,
                  cliname: str=None,
                  cliha: HA=None,
-                 basedirpath: str=None,
-                 base_data_dir: str=None,
+                 config_helper=None,
+                 ledger_dir: str = None,
+                 keys_dir: str = None,
+                 genesis_dir: str = None,
+                 plugins_dir: str = None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
@@ -137,27 +141,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param nodeRegistry: names and host addresses of all nodes in the pool
         :param clientAuthNr: client authenticator implementation to be used
-        :param basedirpath: path to the base directory used by `nstack` and
-            `cstack`
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
         self.created = time.time()
         self.name = name
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.baseDir,
-                                                       self.config.NETWORK_NAME)
-        self.basedirpath = os.path.expanduser(self.basedirpath)
-        self.key_path = self.basedirpath
-        self.dataDir = self.config.nodeDataDir or "data/nodes"
-        self.base_data_dir = base_data_dir or os.path.join(
-            self.config.NODE_BASE_DATA_DIR, self.config.NETWORK_NAME)
-        self.base_data_dir = os.path.expanduser(self.base_data_dir)
+
+        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
+
+        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
+        self.keys_dir = keys_dir or self.config_helper.keys_dir
+        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
+        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
-        HasFileStorage.__init__(self, name, baseDir=self.base_data_dir,
-                                dataDir=self.dataDir)
+        HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
@@ -370,7 +370,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # is lost until the primary is connected.
         self.lost_primary_at = time.perf_counter()
 
-        tp = loadPlugins(self.basedirpath)
+        plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
+        tp = loadPlugins(self.plugins_dir, plugins_to_load)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
@@ -399,7 +400,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         HookManager.__init__(self, NODE_HOOKS)
 
     def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor)
+        return Replicas(self, self.monitor, self.config)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -550,7 +551,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: add a place for initialization of all ledgers, so it's
             # clear what ledgers we have and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.basedirpath, self.config.domainTransactionsFile)
+                self.genesis_dir, self.config.domainTransactionsFile)
             return Ledger(
                 CompactMerkleTree(
                     hashStore=self.getHashStore('domain')),
@@ -651,7 +652,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return bls_bft
 
     def update_bls_key(self, new_bls_key):
-        bls_crypto_factory = create_default_bls_crypto_factory(self.key_path, self.name)
+        bls_keys_dir = os.path.join(self.keys_dir, self.name)
+        bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
         self.bls_bft.bls_crypto_signer = None
 
         try:
@@ -721,7 +723,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def schedule_node_status_dump(self):
         # one-shot dump right after start
         self._schedule(action=self._info_tool.dump_json_file,
-                       seconds=3)
+                       seconds=self.config.DUMP_VALIDATOR_INFO_INIT_SEC)
         self.startRepeating(
             self._info_tool.dump_json_file,
             seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,
@@ -2445,9 +2447,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check whether the keys are setup in the local STP keep.
         Raises KeysNotFoundException if not found.
         """
-        name, baseDir = self.name, self.key_path
-        if not areKeysSetup(name, baseDir, self.config):
-            raise REx(REx.reason.format(name) + self.keygenScript)
+        if not areKeysSetup(self.name, self.keys_dir):
+            raise REx(REx.reason.format(self.name) + self.keygenScript)
 
     @staticmethod
     def reasonForClientFromException(ex: Exception):
@@ -2680,7 +2681,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'rank': self.rank,
             'view': self.viewNo,
             'creationDate': self.created,
-            'baseDir': self.basedirpath,
+            'ledger_dir': self.ledger_dir,
+            'keys_dir': self.keys_dir,
+            'genesis_dir': self.genesis_dir,
+            'plugins_dir': self.plugins_dir,
             'portN': self.nodestack.ha[1],
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
@@ -2693,7 +2697,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.nodeInfo['data'] = self.collectNodeInfo()
 
-        with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
+        with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
 

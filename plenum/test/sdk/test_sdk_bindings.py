@@ -1,10 +1,6 @@
+import pytest
 from plenum.test.pool_transactions.conftest import looper
-from plenum.test.sdk.conftest import sdk_send_random_request, sdk_sign_and_submit_req, sdk_get_reply,\
-    sdk_send_random_requests, sdk_get_replies, sdk_wallet_new_client, sdk_wallet_client
-from stp_core.common.log import getlogger
-
-
-logger = getlogger()
+from plenum.test.helper import sdk_send_random_request, sdk_get_reply, sdk_send_random_requests, sdk_get_replies
 
 
 def test_sdk_pool_handle(sdk_pool_handle):

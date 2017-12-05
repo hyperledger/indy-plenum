@@ -57,7 +57,7 @@ def test_new_node_has_same_view_as_others(new_node_in_correct_view):
 
 def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                                    looper, txnPoolNodeSet,
-                                                   tdirWithPoolTxns,
+                                                   tdir,
                                                    allPluginsPath, tconf,
                                                    wallet1, client1):
     """
@@ -81,7 +81,7 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     restarted_node = start_stopped_node(node_to_stop, looper, tconf,
-                                        tdirWithPoolTxns, allPluginsPath)
+                                        tdir, allPluginsPath)
     txnPoolNodeSet = remaining_nodes + [restarted_node]
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=10))
