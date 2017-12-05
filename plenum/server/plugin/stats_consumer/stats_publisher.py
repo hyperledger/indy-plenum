@@ -6,7 +6,6 @@ from stp_core.common.log import getlogger
 from plenum.common.config_util import getConfig
 
 logger = getlogger()
-config = getConfig()
 
 
 class StatsPublisher:
@@ -14,9 +13,10 @@ class StatsPublisher:
     Class to send data to TCP port which runs stats collecting service
     """
 
-    def __init__(self, destIp, destPort):
+    def __init__(self, destIp, destPort, msg_buff_max_size):
         self.ip = destIp
         self.port = destPort
+        self.msg_buff_max_size = msg_buff_max_size
         self._reader = None
         self._writer = None
         self._messageBuffer = deque()
@@ -24,7 +24,7 @@ class StatsPublisher:
         self._connectionSem = asyncio.Lock()
 
     def addMsgToBuffer(self, message):
-        if len(self._messageBuffer) >= config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+        if len(self._messageBuffer) >= self.msg_buff_max_size:
             logger.warning(
                 "Message buffer is too large. Refuse to add a new message {}".format(message))
             return False

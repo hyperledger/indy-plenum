@@ -1,15 +1,12 @@
 import types
-
 import pytest
-
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
-    checkRejectWithReason, waitForSufficientRepliesForRequests
+from plenum.test.helper import sendRandomRequests, checkRejectWithReason, waitForSufficientRepliesForRequests
 from stp_core.loop.eventually import eventually
-from plenum.test.sdk.conftest import *
-from plenum.test.sdk.helper import send_random_and_check, sign_request_from_dict, eval_timeout
 from plenum.common.exceptions import InvalidClientRequest
+from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
+
 
 
 def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
@@ -19,7 +16,7 @@ def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
     :return:
     """
     node = txnPoolNodeSet[0]
-    req = sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
+    req = sdk_sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 
@@ -31,11 +28,7 @@ def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
     received and propagated.
     :return:
     """
-    reqs = sdk_send_random_requests(looper,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
-                                    tconf.Max3PCBatchSize)
-    sdk_get_replies(looper, reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
 
 
 def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
@@ -45,11 +38,7 @@ def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
     not received but threshold time has passed
     :return:
     """
-    send_random_and_check(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          tconf.Max3PCBatchSize - 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize - 1)
 
 
 def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
@@ -60,19 +49,11 @@ def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
     :return:
     """
     # Send 1 batch
-    send_random_and_check(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          tconf.Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # Send 2 batches
-    send_random_and_check(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          2 * tconf.Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 

@@ -25,7 +25,7 @@ def limitTestRunningTime():
 
 # noinspection PyIncorrectDocstring
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
-        tdir_for_func):
+        tconf_for_func, tdir_for_func):
     """
     A protocol instance must have at least 4 nodes to come up.
     The status of the nodes will change from starting to started only after the
@@ -36,7 +36,7 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     minimumNodesToBeUp = nodeCount - f
 
     nodeNames = genNodeNames(nodeCount)
-    with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
+    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
 
             # helpers

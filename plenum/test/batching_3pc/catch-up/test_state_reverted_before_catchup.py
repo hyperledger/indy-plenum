@@ -1,9 +1,9 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import cDelay
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.sdk.conftest import *
-from plenum.test.sdk.helper import send_and_check
-
+from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
+from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check,\
+    sdk_send_random_requests, sdk_get_replies
 
 
 def test_unordered_state_reverted_before_catchup(
@@ -27,7 +27,8 @@ def test_unordered_state_reverted_before_catchup(
     # send reqs and make sure we are at the same state
 
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 10)
-    send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # the state of the node before
     committed_ledger_before = non_primary_ledger.tree.root_hash

@@ -15,18 +15,18 @@ def requests(looper, wallet1, client1):
 
 
 @pytest.fixture
-def decreasedMonitoringTimeouts(conf, request):
-    oldThroughputWindowSize = conf.ThroughputWindowSize
-    oldDashboardUpdateFreq = conf.DashboardUpdateFreq
-    oldLatencyWindowSize = conf.LatencyWindowSize
-    conf.ThroughputWindowSize = 5
-    conf.LatencyWindowSize = 5
-    conf.DashboardUpdateFreq = 1
+def decreasedMonitoringTimeouts(tconf, request):
+    oldThroughputWindowSize = tconf.ThroughputWindowSize
+    oldDashboardUpdateFreq = tconf.DashboardUpdateFreq
+    oldLatencyWindowSize = tconf.LatencyWindowSize
+    tconf.ThroughputWindowSize = 5
+    tconf.LatencyWindowSize = 5
+    tconf.DashboardUpdateFreq = 1
 
     def reset():
-        conf.ThroughputWindowSize = oldThroughputWindowSize
-        conf.LatencyWindowSize = oldLatencyWindowSize
-        conf.DashboardUpdateFreq = oldDashboardUpdateFreq
+        tconf.ThroughputWindowSize = oldThroughputWindowSize
+        tconf.LatencyWindowSize = oldLatencyWindowSize
+        tconf.DashboardUpdateFreq = oldDashboardUpdateFreq
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
