@@ -9,7 +9,7 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
-
+import json
 import time
 from typing import Dict, Any
 
@@ -58,7 +58,6 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
-import json
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
 from indy.signus import create_and_store_my_did

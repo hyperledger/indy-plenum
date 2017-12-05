@@ -64,7 +64,7 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
-    # Change this test for using SDK.
+    # TODO: Change this test for using SDK.
     # Now SDK, can't distinguish REJECTED messages and simply raise IndyError
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}

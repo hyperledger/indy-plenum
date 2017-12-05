@@ -9,16 +9,19 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
-
+import json
 from psutil import Popen
+import asyncio
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT,\
+    CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
+from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -30,13 +33,9 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
-from typing import Sequence
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
-from plenum.common.request import Request
-import json
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 from indy.error import ErrorCode, IndyError
-import asyncio
+
 
 
 logger = getlogger()
@@ -968,10 +967,14 @@ def wait_for_requests_ordered(looper, nodes, requests):
 # ####### SDK
 
 
+def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION, identifier=None):
+    return Request(operation=operation, reqId=random.randint(10, 100000),
+                   protocolVersion=protocol_version, identifier=identifier)
+
+
 def sdk_random_request_objects(count, protocol_version, identifier=None):
     ops = random_requests(count)
-    return [Request(operation=op, reqId=random.randint(10, 100000),
-                    protocolVersion=protocol_version, identifier=identifier) for op in ops]
+    return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
 
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
@@ -1004,6 +1007,11 @@ def sdk_send_random_request(looper, pool_h, sdk_wallet):
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
     return json.loads(req), asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+
+
+def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
 
 
 def sdk_get_reply(looper, sdk_req_resp, timeout=None):
