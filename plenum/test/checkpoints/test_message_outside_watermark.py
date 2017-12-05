@@ -4,6 +4,7 @@ from plenum.test.helper import countDiscarded
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
+from plenum.test.helper import sdk_send_random_and_check
 
 
 def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle,
@@ -35,7 +36,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, loo
     oldDiscardCounts = discardCounts([n.replicas[instId] for n in txnPoolNodeSet if n != slowNode],
                                      'achieved stable checkpoint')
 
-    send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqsToSend)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqsToSend)
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeDataForEquality, slowNode, *[_ for _ in txnPoolNodeSet if _ != slowNode],
                           retryWait=1, timeout=timeout))
