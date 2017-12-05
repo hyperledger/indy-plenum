@@ -1,9 +1,6 @@
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints, checkRequestCounts
 from stp_core.loop.eventually import eventually
-from plenum.test.sdk.conftest import sdk_pool_name, sdk_pool_handle, sdk_wallet_name,\
-    sdk_wallet_handle, sdk_wallet_client, sdk_client_seed
-from plenum.test.sdk.helper import send_random_and_check
 
 
 def test_request_older_than_stable_checkpoint_removed(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle,

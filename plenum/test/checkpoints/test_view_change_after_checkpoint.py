@@ -5,9 +5,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
-from plenum.test.sdk.conftest import sdk_pool_name, sdk_pool_handle, sdk_wallet_name,\
-    sdk_wallet_handle, sdk_wallet_client, sdk_client_seed
-from plenum.test.sdk.helper import send_batches_of_random_and_check
+
 
 CHK_FREQ = 5
 

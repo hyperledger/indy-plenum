@@ -7,9 +7,6 @@ from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay, icDelay
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
-from plenum.test.sdk.conftest import sdk_pool_name, sdk_pool_handle, sdk_wallet_name,\
-    sdk_wallet_handle, sdk_wallet_client, sdk_client_seed
-from plenum.test.sdk.helper import send_random_and_check
 
 
 TestRunningTimeLimitSec = 300
