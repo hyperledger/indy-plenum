@@ -47,6 +47,16 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=3)
 
+    logger.debug("Pool is ready, current viewNo: {}".format(txnPoolNodeSet[0].viewNo))
+
+    # TODO find out and fix why additional view change could happen
+    # because of degarded master. It's critical for current test to have
+    # view change completed for the time when new node is joining.
+    # Thus, disable master degradation check as it won't impact the case
+    # and guarantees necessary state.
+    for node in txnPoolNodeSet:
+        node.monitor.isMasterDegraded = lambda: False
+
     return txnPoolNodeSet
 
 

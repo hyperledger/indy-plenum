@@ -35,6 +35,7 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -164,6 +165,9 @@ class TestNodeCore(StackedTester):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimarySelector
         return pdCls(self)
+
+    def newViewChanger(self):
+        return TestViewChange(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -410,6 +414,20 @@ selector_spyables = [PrimarySelector.decidePrimaries]
 @spyable(methods=selector_spyables)
 class TestPrimarySelector(PrimarySelector):
     pass
+
+
+view_change_spyables = [
+    ViewChanger.sendInstanceChange,
+    ViewChanger._start_view_change_if_possible,
+    ViewChanger.processInstanceChange,
+    ViewChanger._check_view_change_completed,
+    ViewChanger.startViewChange
+]
+
+@spyable(methods=view_change_spyables)
+class TestViewChange(ViewChanger):
+    pass
+
 
 
 replica_spyables = [

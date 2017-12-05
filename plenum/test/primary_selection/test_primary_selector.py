@@ -7,10 +7,12 @@ from stp_core.types import HA
 
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.config_util import getConfig
 
 
 whitelist = ['but majority declared']
@@ -57,6 +59,8 @@ class FakeNode:
         self.quorums = Quorums(self.totalNodes)
         self.view_change_in_progress = True
         self.propagate_primary = False
+        self.config = getConfig() # TODO do we need fake object here?
+        self.view_changer = ViewChanger(self)
 
     def get_name_by_rank(self, name, nodeReg=None):
         # This is used only for getting name of next primary, so
@@ -68,6 +72,24 @@ class FakeNode:
 
     def is_primary_found(self):
         return self._found
+
+    # TODO remove that
+
+    def view_change_started(self, viewNo: int):
+        """
+        Notifies primary decider about the fact that view changed to let it
+        prepare for election, which then will be started from outside by
+        calling decidePrimaries()
+        """
+        #if viewNo <= self.viewNo:
+        #    logger.warning("{}Provided view no {} is not greater"
+        #                   " than the current view no {}"
+        #                   .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
+        #    return False
+        #self.viewNo = viewNo
+        for replica in self.replicas:
+            replica.primaryName = None
+        return True
 
     @property
     def master_primary_name(self) -> Optional[str]:
@@ -102,6 +124,7 @@ def test_has_view_change_quorum_number(tmpdir):
     node.view_change_in_progress = True
     node.propagate_primary = False
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
 
     assert not selector._hasViewChangeQuorum
 
@@ -141,6 +164,7 @@ def test_has_view_change_quorum_must_contain_primary(tmpdir):
     node.view_change_in_progress = True
     node.propagate_primary = False
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
 
     assert not selector._hasViewChangeQuorum
 
@@ -185,6 +209,7 @@ def test_has_view_change_quorum_number_propagate_primary(tmpdir):
     node.view_change_in_progress = True
     node.propagate_primary = True
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
 
     assert not selector._hasViewChangeQuorum
 
@@ -221,6 +246,7 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tm
     node.view_change_in_progress = True
     node.propagate_primary = True
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
 
     assert not selector._hasViewChangeQuorum
 
@@ -254,17 +280,18 @@ def test_process_view_change_done(tmpdir):
                          ledgerInfo=ledgerInfo)
     node = FakeNode(str(tmpdir))
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
     quorum = selector.quorum
     for i in range(quorum):
-        selector._processViewChangeDoneMessage(msg, 'Node2')
+        node.view_changer._processViewChangeDoneMessage(msg, 'Node2')
     assert selector._view_change_done
     assert not node.is_primary_found()
 
-    selector._processViewChangeDoneMessage(msg, 'Node1')
+    node.view_changer._processViewChangeDoneMessage(msg, 'Node1')
     assert selector._view_change_done
     assert not node.is_primary_found()
 
-    selector._processViewChangeDoneMessage(msg, 'Node3')
+    node.view_changer._processViewChangeDoneMessage(msg, 'Node3')
     assert selector._verify_primary(msg.name, msg.ledgerInfo)
     selector._start_selection()
     assert selector._view_change_done
@@ -304,6 +331,7 @@ def test_get_msgs_for_lagged_nodes(tmpdir):
 def test_send_view_change_done_message(tmpdir):
     node = FakeNode(str(tmpdir))
     selector = PrimarySelector(node)
+    node.elector = selector # TODO remove that
     instance_id = 0
     view_no = selector.viewNo
     new_primary_name = selector.node.get_name_by_rank(selector._get_primary_id(

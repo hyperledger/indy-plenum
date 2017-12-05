@@ -99,6 +99,8 @@ from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
 
+from plenum.server.view_change.view_changer import ViewChanger
+
 pluginManager = PluginManager()
 logger = getlogger()
 
@@ -267,8 +269,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
-        self.instanceChanges = InstanceChanges()
-
         self.viewNo = 0  # type: int
 
         # Requests that are to be given to the elector by the node
@@ -296,7 +296,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.initInsChngThrottling()
+        self.view_changer = self.newViewChanger()
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -384,26 +384,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
-        self._view_change_in_progress = False
-
-        # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
-        # or just propagating viewNo and Primary from `CurrentState` messages sent to a newly joined Node.
-        # TODO: separate real view change and Propagation of Primary
-        # TODO: separate catch-up, view-change and primary selection so that
-        # they are really independent.
-        self.propagate_primary = False
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
-
-        # Tracks if other nodes are indicating that this node is in lower view
-        # than others. Keeps a map of view no to senders
-        # TODO: Consider if sufficient ViewChangeDone for 2 different (and
-        # higher views) are received, should one view change be interrupted in
-        # between.
-        self._next_view_indications = SortedDict()
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
@@ -450,14 +435,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeMsgRouter.extend(
                 (msgTyp, self.sendToElector) for msgTyp in
                 self._elector.supported_msg_types)
-
-    @property
-    def view_change_in_progress(self):
-        return self._view_change_in_progress
-
-    @view_change_in_progress.setter
-    def view_change_in_progress(self, value):
-        self._view_change_in_progress = value
 
     def utc_epoch(self) -> int:
         """
@@ -763,6 +740,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return PrimarySelector(self)
 
+    def newViewChanger(self):
+        return ViewChanger(self)
+
     @property
     def connectedNodeCount(self) -> int:
         """
@@ -901,6 +881,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self.serviceElectorInbox()
         # TODO: Why is protected method accessed here?
         a = self.elector._serviceActions()
+        v = self.view_changer._serviceActions()
         return o + i + a
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
@@ -1004,7 +985,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
-        election_messages = self.elector.get_msgs_for_lagged_nodes()
+        election_messages = self.view_changer.get_msgs_for_lagged_nodes()
         message = CurrentState(viewNo=self.viewNo,
                                primary=election_messages)
 
@@ -1114,27 +1095,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         using a PrimaryDecider.
         """
         self.elector.decidePrimaries()
-
-    def _check_view_change_completed(self):
-        """
-        This thing checks whether new primary was elected.
-        If it was not - starts view change again
-        """
-        logger.debug('{} running the scheduled check for view change '
-                     'completion'.format(self))
-        if not self.view_change_in_progress:
-            logger.debug('{} already completion view change'.format(self))
-            return False
-
-        next_view_no = self.viewNo + 1
-        logger.info("view change to view {} is not completed in time, "
-                    "starting view change for view {}"
-                    .format(self.viewNo, next_view_no))
-        logger.info("{}{} initiating a view change to {} from {}".format(
-            VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
-        self.sendInstanceChange(next_view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
-        return True
 
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
@@ -1675,7 +1635,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} does not have view change quorum for view {}'.
                          format(self, self.viewNo))
             return False
-        vc = self.elector.get_sufficient_same_view_change_done_messages()
+        vc = self.view_changer.get_sufficient_same_view_change_done_messages()
         if not vc:
             logger.debug('{} does not have acceptable ViewChangeDone for '
                          'view {}'.format(self, self.viewNo))
@@ -2063,79 +2023,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             raise RuntimeError("unhandled replica-escalated exception") from ex
 
-    def _on_verified_instance_change_msg(self, msg, frm):
-        view_no = msg.viewNo
-
-        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
-            self.instanceChanges.addVote(msg, frm)
-            if view_no > self.viewNo:
-                self.do_view_change_if_possible(view_no)
-
-    def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
-        """
-        Validate and process an instance change request.
-
-        :param instChg: the instance change request
-        :param frm: the name of the node that sent this `msg`
-        """
-        logger.debug("{} received instance change request: {} from {}".
-                     format(self, instChg, frm))
-
-        # TODO: add sender to blacklist?
-        if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "{}field viewNo has incorrect type: {}".
-                         format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
-        elif instChg.viewNo <= self.viewNo:
-            self.discard(instChg,
-                         "Received instance change request with view no {} "
-                         "which is not more than its view no {}".
-                         format(instChg.viewNo, self.viewNo), logger.info)
-        else:
-            # Record instance changes for views but send instance change
-            # only when found master to be degraded. if quorum of view changes
-            #  found then change view even if master not degraded
-            self._on_verified_instance_change_msg(instChg, frm)
-
-            if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
-                logger.debug(
-                    "{} received instance change message {} but has already "
-                    "sent an instance change message".format(self, instChg))
-            elif not self.monitor.isMasterDegraded():
-                logger.debug(
-                    "{} received instance change message {} but did not "
-                    "find the master to be slow".format(self, instChg))
-            else:
-                logger.info(
-                    "{}{} found master degraded after receiving instance change"
-                    " message from {}".format(
-                        VIEW_CHANGE_PREFIX, self, frm))
-                self.sendInstanceChange(instChg.viewNo)
-
-    def do_view_change_if_possible(self, view_no):
-        # TODO: Need to handle skewed distributions which can arise due to
-        # malicious nodes sending messages early on
-        can, whyNot = self.canViewChange(view_no)
-        if can:
-            logger.info("{}{} initiating a view change to {} from {}".
-                        format(VIEW_CHANGE_PREFIX, self, view_no, self.viewNo))
-            self.propagate_primary = False
-            self.startViewChange(view_no)
-        else:
-            logger.debug(whyNot)
-        return can
-
-    def _start_view_change_if_possible(self, view_no) -> bool:
-        ind_count = len(self._next_view_indications[view_no])
-        if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.info(
-                '{}{} starting view change for {} after {} view change '
-                'indications from other nodes'.format(
-                    VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            self.propagate_primary = True
-            self.startViewChange(view_no)
-            return True
-        return False
-
     def checkPerformance(self):
         """
         Check if master instance is slow and send an instance change request.
@@ -2190,50 +2077,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.config.SpikeEventsEnabled
         )
 
-    def _create_instance_change_msg(self, view_no, suspicion_code):
-        return InstanceChange(view_no, suspicion_code)
-
-    def sendInstanceChange(self, view_no: int,
-                           suspicion=Suspicions.PRIMARY_DEGRADED):
-        """
-        Broadcast an instance change request to all the remaining nodes
-
-        :param view_no: the view number when the instance change is requested
-        """
-
-        # If not found any sent instance change messages in last
-        # `ViewChangeWindowSize` seconds or the last sent instance change
-        # message was sent long enough ago then instance change message can be
-        # sent otherwise no.
-        canSendInsChange, cooldown = self.insChngThrottler.acquire()
-
-        if canSendInsChange:
-            logger.info(
-                "{}{} sending an instance change with view_no {}"
-                " since {}".format(
-                    VIEW_CHANGE_PREFIX,
-                    self,
-                    view_no,
-                    suspicion.reason))
-            logger.info("{}{} metrics for monitor: {}"
-                        .format(MONITORING_PREFIX, self,
-                                self.monitor.prettymetrics))
-            msg = self._create_instance_change_msg(view_no, suspicion.code)
-            self.send(msg)
-            # record instance change vote for self and try to change the view
-            # if quorum is reached
-            self._on_verified_instance_change_msg(msg, self.name)
-        else:
-            logger.debug(
-                "{} cannot send instance change sooner then {} seconds".format(
-                    self, cooldown))
-
-    # noinspection PyAttributeOutsideInit
-    def initInsChngThrottling(self):
-        windowSize = self.config.ViewChangeWindowSize
-        ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
-        self.insChngThrottler = Throttler(windowSize, ratchet.get)
-
     def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
         if instance_id == 0:
@@ -2245,21 +2088,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_change_in_progress and \
                 self.replicas.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
-
-    def canViewChange(self, proposedViewNo: int) -> (bool, str):
-        """
-        Return whether there's quorum for view change for the proposed view
-        number and its view is less than or equal to the proposed view
-        """
-        msg = None
-        quorum = self.quorums.view_change.value
-        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
-            msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
-        elif not proposedViewNo > self.viewNo:
-            msg = '{} is in higher view more than {}'.format(
-                self, proposedViewNo)
-
-        return not bool(msg), msg
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
@@ -2293,46 +2121,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
-
-    def startViewChange(self, proposed_view_no: int):
-        """
-        Trigger the view change process.
-
-        :param proposed_view_no: the new view number after view change.
-        """
-        # TODO: consider moving this to pool manager
-        # TODO: view change is a special case, which can have different
-        # implementations - we need to make this logic pluggable
-
-        for view_no in tuple(self._next_view_indications.keys()):
-            if view_no > proposed_view_no:
-                break
-            self._next_view_indications.pop(view_no)
-
-        self.view_change_in_progress = True
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=self._view_change_timeout)
-        self.master_replica.on_view_change_start()
-        self.viewNo = proposed_view_no
-        logger.debug("{} resetting monitor stats after view change".
-                     format(self))
-        self.monitor.reset()
-        self.processStashedMsgsForView(self.viewNo)
-        # Now communicate the view change to the elector which will
-        # contest primary elections across protocol all instances
-        self.elector.view_change_started(self.viewNo)
-        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
-        self.initInsChngThrottling()
-        self.logNodeInfo()
-        # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
-        # prepared certificate the first PRE-PREPARE of the new view
-        logger.info('{}{} changed to view {}, will start catchup now'.
-                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
-        # Set to 0 even when set to 0 in `on_view_change_complete` since
-        # catchup might be started due to several reasons.
-        self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = time.perf_counter()
-        self.start_catchup()
 
     def on_view_change_complete(self, view_no):
         """
@@ -2823,6 +2611,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # All the data of any transaction is stored in the ledger
         return txn
 
+    def view_change_started(self, viewNo: int):
+        """
+        Notifies primary decider about the fact that view changed to let it
+        prepare for election, which then will be started from outside by
+        calling decidePrimaries()
+        """
+        #if viewNo <= self.viewNo:
+        #    logger.warning("{}Provided view no {} is not greater"
+        #                   " than the current view no {}"
+        #                   .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
+        #    return False
+        #self.viewNo = viewNo
+        for replica in self.replicas:
+            replica.primaryName = None
+        return True
+
+
     def transform_txn_for_ledger(self, txn):
         return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
             transform_txn_for_ledger(txn)
@@ -2892,3 +2697,55 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+
+
+    def startViewChange(self, *args, **kwargs):
+        return self.view_changer.startViewChange(*args, **kwargs)
+
+    def sendInstanceChange(self, *args, **kwargs):
+        return self.view_changer.sendInstanceChange(*args, **kwargs)
+
+    def processInstanceChange(self, *args, **kwargs):
+        return self.view_changer.processInstanceChange(*args, **kwargs)
+
+    def _check_view_change_completed(self, *args, **kwargs):
+        return self.view_changer._check_view_change_completed(*args, **kwargs)
+
+    def _start_view_change_if_possible(self, *args, **kwargs):
+        return self.view_changer._start_view_change_if_possible(*args, **kwargs)
+
+    def do_view_change_if_possible(self, *args, **kwargs):
+        return self.view_changer.do_view_change_if_possible(*args, **kwargs)
+
+    def _on_verified_instance_change_msg(self, *args, **kwargs):
+        return self.view_changer._on_verified_instance_change_msg(*args, **kwargs)
+
+    def _create_instance_change_msg(self, *args, **kwargs):
+        return self.view_changer._create_instance_change_msg(*args, **kwargs)
+
+    def initInsChngThrottling(self, *args, **kwargs):
+        return self.view_changer.initInsChngThrottling(*args, **kwargs)
+
+    def canViewChange(self, *args, **kwargs):
+        return self.view_changer.canViewChange(*args, **kwargs)
+
+
+def getp(pr):
+    def wrapper(self):
+        return getattr(self.view_changer, pr)
+    return wrapper
+
+def setp(pr):
+    def wrapper(self, v):
+        setattr(self.view_changer, pr, v)
+    return wrapper
+
+for pr in (
+        'view_change_in_progress',
+        'propagate_primary',
+        'instanceChanges',
+        '_next_view_indications'
+
+    ):
+    setattr(Node, pr, property(getp(pr), setp(pr)))
