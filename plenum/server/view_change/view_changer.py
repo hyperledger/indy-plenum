@@ -602,8 +602,5 @@ def setp(pr):
     return wrapper
 
 
-for pr in (
-           'master_replica',
-           'elector',
-           ):
+for pr in ('master_replica', 'elector'):
     setattr(ViewChanger, pr, property(getp(pr), setp(pr)))
