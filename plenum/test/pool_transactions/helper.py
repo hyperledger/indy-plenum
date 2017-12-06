@@ -11,7 +11,8 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import waitForSufficientRepliesForRequests
+from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj,\
+    sdk_get_reply
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
     ensure_node_disconnected, checkNodesConnected
@@ -192,6 +193,23 @@ def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
     node.clientstack.clearRemoteKeeps()
+
+
+def sdk_send_update_node(looper, sdk_pool, sdk_wallet_steward, node, node_data):
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: node_dest,
+        DATA: node_data,
+    }
+    req_obj = sdk_gen_request(op, identifier=sdk_wallet_steward[1])
+    return sdk_sign_and_submit_req_obj(looper, sdk_pool, sdk_wallet_steward, req_obj)
+
+
+def sdk_update_node_data(looper, sdk_pool, sdk_wallet_steward, node, node_data):
+    node_req = sdk_send_update_node(sdk_wallet_steward, node, node_data)
+    _, j_resp = sdk_get_reply(looper, node_req)
+    assert j_resp['result']
 
 
 def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
