@@ -9,7 +9,6 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
-import json
 import time
 from typing import Dict, Any
 
@@ -58,6 +57,8 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
+
+import json
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
 from indy.signus import create_and_store_my_did
@@ -945,7 +946,7 @@ def set_info_log_level(request):
 # ####### SDK
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_pool_name():
     p_name = "pool_name_" + randomText(13)
     yield p_name
@@ -954,7 +955,7 @@ def sdk_pool_name():
         shutil.rmtree(p_dir, ignore_errors=True)
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_wallet_name():
     w_name = "wallet_name_" + randomText(13)
     yield w_name
@@ -971,7 +972,7 @@ async def _gen_pool_handler(work_dir, name):
     return pool_handle
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
     pool_handle = looper.loop.run_until_complete(_gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
@@ -984,38 +985,38 @@ async def _gen_wallet_handler(pool_name, wallet_name):
     return wallet_handle
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
     wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_steward_seed(poolTxnStewardData):
     _, seed = poolTxnStewardData
     return seed.decode()
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_client_seed(poolTxnClientData):
     _, seed = poolTxnClientData
     return seed.decode()
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_new_client_seed():
     return "Client10000000000000000000000000"
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
     (steward_did, steward_verkey) = looper.loop.run_until_complete(
         create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
     return sdk_wallet_handle, steward_did
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     (client_did, _) = looper.loop.run_until_complete(
         create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_client_seed})))
@@ -1030,7 +1031,7 @@ async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
     return wh, named_did
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed):
     wh, client_did = looper.loop.run_until_complete(
         _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed))

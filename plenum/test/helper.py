@@ -9,9 +9,7 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
-import json
 from psutil import Popen
-import asyncio
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
@@ -21,7 +19,6 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQA
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
-from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -33,9 +30,13 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
+from typing import Sequence
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.request import Request
+import json
+import asyncio
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 from indy.error import ErrorCode, IndyError
-
 
 
 logger = getlogger()
@@ -977,6 +978,7 @@ def sdk_random_request_objects(count, protocol_version, identifier=None):
     return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
 
 
+
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
@@ -1102,3 +1104,18 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op):
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
     assert resp
     return request
+
+
+def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+    instances = range(getNoInstances(len(nodeSet)))
+    coros = []
+    for node, inst_id in itertools.product(nodeSet, instances):
+        c = partial(checkRequestNotReturnedToNode,
+                    node=node,
+                    identifier=request['identifier'],
+                    reqId=request['reqId'],
+                    instId=inst_id
+                    )
+        coros.append(c)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
