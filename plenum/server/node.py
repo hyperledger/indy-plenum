@@ -1149,6 +1149,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
+    def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
+        return self.view_changer.on_instance_change_msg(instChg, frm)
+
+
     def serviceElectorOutBox(self, limit: int=None) -> int:
         """
         Service at most `limit` number of messages from the elector's outBox.
@@ -2718,26 +2722,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
 
-    def processInstanceChange(self, *args, **kwargs):
-        return self.view_changer.processInstanceChange(*args, **kwargs)
-
-    def _check_view_change_completed(self, *args, **kwargs):
-        return self.view_changer._check_view_change_completed(*args, **kwargs)
-
     def _start_view_change_if_possible(self, *args, **kwargs):
         return self.view_changer._start_view_change_if_possible(*args, **kwargs)
 
     def do_view_change_if_possible(self, *args, **kwargs):
         return self.view_changer.do_view_change_if_possible(*args, **kwargs)
-
-    def _on_verified_instance_change_msg(self, *args, **kwargs):
-        return self.view_changer._on_verified_instance_change_msg(*args, **kwargs)
-
-    def _create_instance_change_msg(self, *args, **kwargs):
-        return self.view_changer._create_instance_change_msg(*args, **kwargs)
-
-    def initInsChngThrottling(self, *args, **kwargs):
-        return self.view_changer.initInsChngThrottling(*args, **kwargs)
 
     def canViewChange(self, *args, **kwargs):
         return self.view_changer.canViewChange(*args, **kwargs)

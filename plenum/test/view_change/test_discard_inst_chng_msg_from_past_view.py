@@ -14,7 +14,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
+    icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
@@ -46,7 +46,7 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
         sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
 
     # Send an instance change message to all nodes
-    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
+    icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.

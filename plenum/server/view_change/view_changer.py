@@ -94,7 +94,16 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.sendInstanceChange(view_no, suspicion)
         # TODO why we don't try to start view change here
 
-    def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
+    def on_view_change_not_completed_in_time(self):
+        view_no = self.view_no + 1
+        logger.info("{} sending instance with view_no = {} since "
+                    "view change to view {} is not completed in time"
+                    "".format(self, view_no, self.view_no))
+        self.sendInstanceChange(view_no,
+                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+
+
+    def on_instance_change_msg(self, instChg: InstanceChange, frm: str) -> None:
         """
         Validate and process an instance change request.
 
@@ -246,7 +255,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self._next_view_indications.pop(view_no)
 
         self.view_change_in_progress = True
-        self._schedule(action=self.node._check_view_change_completed,
+        self._schedule(action=self._check_view_change_completed,
                        seconds=self._view_change_timeout)
         self.master_replica.on_view_change_start()
         self.view_no = proposed_view_no
@@ -289,14 +298,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.debug('{} already completion view change'.format(self))
             return False
 
-        next_view_no = self.view_no + 1
-        logger.info("view change to view {} is not completed in time, "
-                    "starting view change for view {}"
-                    .format(self.view_no, next_view_no))
-        logger.info("{}{} initiating a view change to {} from {}".format(
-            VIEW_CHANGE_PREFIX, self, next_view_no, self.view_no))
-        self.sendInstanceChange(next_view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        self.on_view_change_not_completed_in_time()
         return True
 
     def _processViewChangeDoneMessage(self,

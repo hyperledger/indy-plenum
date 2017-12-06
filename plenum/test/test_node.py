@@ -337,7 +337,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
                  Node.caught_up_for_current_view,
-                 Node._check_view_change_completed,
                  Node.primary_selected,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
@@ -420,7 +419,7 @@ class TestPrimarySelector(PrimarySelector):
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
     ViewChanger._start_view_change_if_possible,
-    ViewChanger.processInstanceChange,
+    ViewChanger.on_instance_change_msg,
     ViewChanger._check_view_change_completed,
     ViewChanger.startViewChange
 ]
