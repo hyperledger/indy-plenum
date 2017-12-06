@@ -264,7 +264,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
-            self.node.sendInstanceChange(
+            # TODO VCH
+            self.node.view_changer.sendInstanceChange(
                 self.node.viewNo + 1,
                 Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 

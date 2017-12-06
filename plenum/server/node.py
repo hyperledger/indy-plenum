@@ -131,6 +131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  keys_dir: str = None,
                  genesis_dir: str = None,
                  plugins_dir: str = None,
+                 view_changer: ViewChanger = None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
@@ -227,6 +228,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         MessageReqProcessor.__init__(self)
 
+        self.view_changer = ViewChanger
         self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
@@ -244,6 +246,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'data': {}
         }
 
+        self._view_changer = None  # type: ViewChanger
         self._elector = None  # type: PrimaryDecider
 
         self.instances = Instances()
@@ -269,8 +272,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
-        self.viewNo = 0  # type: int
-
         # Requests that are to be given to the elector by the node
         self.msgsToElector = deque()
 
@@ -295,8 +296,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             self.config
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
-
-        self.view_changer = self.newViewChanger()
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -399,11 +398,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HookManager.__init__(self, NODE_HOOKS)
 
-    def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor, self.config)
+    @property
+    def viewNo(self):
+        return None if self.view_changer is None else self.view_changer.view_no
 
-    def reject_client_msg_handler(self, reason, frm):
-        self.transmitToClient(Reject("", "", reason), frm)
+    # TODO not sure that this should be allowed
+    @viewNo.setter
+    def viewNo(self, value):
+        self.view_changer.view_no = value
 
     @property
     def id(self):
@@ -422,6 +424,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self._wallet
 
     @property
+    def view_changer(self) -> ViewChanger:
+        return self._view_changer
+
+    @view_changer.setter
+    def view_changer(self, value):
+        self._view_changer = value
+
+    @property
     def elector(self) -> PrimaryDecider:
         return self._elector
 
@@ -436,6 +446,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeMsgRouter.extend(
                 (msgTyp, self.sendToElector) for msgTyp in
                 self._elector.supported_msg_types)
+
+    def create_replicas(self) -> Replicas:
+        return Replicas(self, self.monitor, self.config)
+
+    def reject_client_msg_handler(self, reason, frm):
+        self.transmitToClient(Reject("", "", reason), frm)
 
     def utc_epoch(self) -> int:
         """
@@ -696,7 +712,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodestack.start()
             self.clientstack.start()
 
+            self.view_changer = self.newViewChanger()
             self.elector = self.newPrimaryDecider()
+
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
@@ -736,14 +754,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_name_by_rank(self, rank, nodeReg=None):
         return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
 
+    def newViewChanger(self):
+        if self.view_changer:
+            return self.view_changer
+        else:
+            return ViewChanger(self)
+
     def newPrimaryDecider(self):
         if self.primaryDecider:
             return self.primaryDecider
         else:
             return PrimarySelector(self)
-
-    def newViewChanger(self):
-        return ViewChanger(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -813,6 +834,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.aqStash.clear()
         self.actionQueue.clear()
         self.elector = None
+        self.view_changer = None
 
     async def prod(self, limit: int=None) -> int:
         """.opened
@@ -882,8 +904,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         o = self.serviceElectorOutBox()
         i = await self.serviceElectorInbox()
         # TODO: Why is protected method accessed here?
+        v = self.view_changer._serviceActions()  # TODO VCH
         a = self.elector._serviceActions()
-        v = self.view_changer._serviceActions()  # TODO
         return o + i + a + v
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
@@ -2048,10 +2070,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
-                self.sendInstanceChange(self.viewNo + 1)
-                logger.info('{} sent view change since performance degraded '
-                            'of master instance'.format(self))
-                self.do_view_change_if_possible(self.viewNo + 1)
+                logger.info(
+                    '{} master instance performance degraded'.format(self))
+                self.view_changer.on_master_degradation()
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -2099,16 +2120,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace('{} The primary is already connected '
                          'so view change will not be proposed'.format(self))
             return
+
         disconnected_time = time.perf_counter() - self.lost_primary_at
-        disconnected_long_enough = \
-            disconnected_time >= self.config.ToleratePrimaryDisconnection
-        if disconnected_long_enough:
-            view_no = self.viewNo + 1
-            self.sendInstanceChange(view_no,
-                                    Suspicions.PRIMARY_DISCONNECTED)
-            logger.info('{} sent view change since was disconnected '
-                        'from primary for too long'.format(self))
-            self.do_view_change_if_possible(view_no)
+        if disconnected_time >= self.config.ToleratePrimaryDisconnection:
+            logger.info("{} primary has been disconnected for too long"
+                        "".format(self))
+            self.view_changer.on_primary_loss()
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
@@ -2495,10 +2512,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_REJECT_WRONG,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG)):
-            self.sendInstanceChange(
-                self.viewNo + 1, Suspicions.get_by_code(code))
-            logger.info('{}{} sent instance change since suspicion code {}'
+            logger.info('{}{} got one of primary suspicions codes {}'
                         .format(VIEW_CHANGE_PREFIX, self, code))
+            self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.debug)
@@ -2612,9 +2628,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # All the data of any transaction is stored in the ledger
         return txn
 
+    # TODO VCH rename to 'on_...'
     def view_change_started(self, viewNo: int):
         """
-        Notifies primary decider about the fact that view changed to let it
+        Notifies node about the fact that view changed to let it
         prepare for election, which then will be started from outside by
         calling decidePrimaries()
         """
@@ -2700,12 +2717,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
-
-    def startViewChange(self, *args, **kwargs):
-        return self.view_changer.startViewChange(*args, **kwargs)
-
-    def sendInstanceChange(self, *args, **kwargs):
-        return self.view_changer.sendInstanceChange(*args, **kwargs)
 
     def processInstanceChange(self, *args, **kwargs):
         return self.view_changer.processInstanceChange(*args, **kwargs)

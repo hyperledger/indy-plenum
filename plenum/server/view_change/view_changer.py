@@ -27,12 +27,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.node = node
         self.name = node.name
 
+        self.view_no = 0  # type: int
+
         HasActionQueue.__init__(self)
 
         self.instanceChanges = InstanceChanges()
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
-        # or just propagating viewNo and Primary from `CurrentState` messages sent to a newly joined Node.
+        # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
         # TODO: separate real view change and Propagation of Primary
         # TODO: separate catch-up, view-change and primary selection so that
         # they are really independent.
@@ -58,6 +60,40 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def __repr__(self):
         return "{}".format(self.name)
 
+    @property
+    def config(self):
+        return self.node.config
+
+    # EVENTS
+
+    def on_master_degradation(self):
+        """
+        """
+        view_no = self.view_no + 1
+        logger.info(
+            "{} sending instance with view_no = {} and trying to start "
+            "view change since performance of master instance degraded"
+            "".format(self, view_no))
+        self.sendInstanceChange(view_no)
+        self.do_view_change_if_possible(view_no)
+
+    def on_primary_loss(self):
+        view_no = self.view_no + 1
+        logger.info("{} sending instance with view_no = {} and trying "
+                    "to start view change since primary was lost"
+                    "".format(self, view_no))
+        self.sendInstanceChange(view_no,
+                                Suspicions.PRIMARY_DISCONNECTED)
+        self.do_view_change_if_possible(view_no)
+
+    def on_suspicious_primary(self, suspicion: Suspicions):
+        view_no = self.view_no + 1
+        logger.info("{} sending instance with view_no = {} since primary "
+                    "seems suspicious, reason {}"
+                    "".format(self, view_no, suspicion.reason))
+        self.sendInstanceChange(view_no, suspicion)
+        # TODO why we don't try to start view change here
+
     def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
         """
         Validate and process an instance change request.
@@ -71,14 +107,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
             self.node.discard(
-                instChg, "{}field viewNo has incorrect type: {}".
+                instChg, "{}field view_no has incorrect type: {}".
                 format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
-        elif instChg.viewNo <= self.viewNo:
+        elif instChg.viewNo <= self.view_no:
             self.node.discard(
                 instChg,
                 "Received instance change request with view no {} "
                 "which is not more than its view no {}".
-                format(instChg.viewNo, self.viewNo), logger.info)
+                format(instChg.viewNo, self.view_no), logger.info)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
@@ -98,7 +134,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                     "{}{} found master degraded after receiving instance change"
                     " message from {}".format(
                         VIEW_CHANGE_PREFIX, self, frm))
-                self.node.sendInstanceChange(instChg.viewNo)
+                self.sendInstanceChange(instChg.viewNo)
 
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):
@@ -151,7 +187,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         if not self.instanceChanges.hasInstChngFrom(view_no, frm):
             self.instanceChanges.addVote(msg, frm)
-            if view_no > self.viewNo:
+            if view_no > self.view_no:
                 self.do_view_change_if_possible(view_no)
 
     def do_view_change_if_possible(self, view_no):
@@ -160,7 +196,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         can, whyNot = self.canViewChange(view_no)
         if can:
             logger.info("{}{} initiating a view change to {} from {}".
-                        format(VIEW_CHANGE_PREFIX, self, view_no, self.viewNo))
+                        format(VIEW_CHANGE_PREFIX, self, view_no, self.view_no))
             self.propagate_primary = False
             self.startViewChange(view_no)
         else:
@@ -188,7 +224,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         quorum = self.quorums.view_change.value
         if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
-        elif not proposedViewNo > self.viewNo:
+        elif not proposedViewNo > self.view_no:
             msg = '{} is in higher view more than {}'.format(
                 self, proposedViewNo)
 
@@ -213,21 +249,21 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._schedule(action=self.node._check_view_change_completed,
                        seconds=self._view_change_timeout)
         self.master_replica.on_view_change_start()
-        self.viewNo = proposed_view_no
+        self.view_no = proposed_view_no
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
-        self.node.processStashedMsgsForView(self.viewNo)  # TODO
+        self.node.processStashedMsgsForView(self.view_no)  # TODO
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
-        self.view_change_started(self.viewNo)  # TODO
-        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)  # TODO
+        self.view_change_started(self.view_no)  # TODO
+        pop_keys(self.msgsForFutureViews, lambda x: x <= self.view_no)  # TODO
         self.initInsChngThrottling()
         self.node.logNodeInfo()
         # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{}{} changed to view {}, will start catchup now'.
-                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
+                    format(VIEW_CHANGE_PREFIX, self, self.view_no))
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
@@ -253,13 +289,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.debug('{} already completion view change'.format(self))
             return False
 
-        next_view_no = self.viewNo + 1
+        next_view_no = self.view_no + 1
         logger.info("view change to view {} is not completed in time, "
                     "starting view change for view {}"
-                    .format(self.viewNo, next_view_no))
+                    .format(self.view_no, next_view_no))
         logger.info("{}{} initiating a view change to {} from {}".format(
-            VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
-        self.node.sendInstanceChange(next_view_no,
+            VIEW_CHANGE_PREFIX, self, next_view_no, self.view_no))
+        self.sendInstanceChange(next_view_no,
                                      Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
 
@@ -280,12 +316,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         view_no = msg.viewNo
 
-        if self.viewNo != view_no:
+        if self.view_no != view_no:
             self.node.elector.discard(
                 msg,
                 '{} got Primary from {} for view no {} '
                 'whereas current view no is {}'
-                .format(self, sender, view_no, self.viewNo),
+                .format(self, sender, view_no, self.view_no),
                 logMethod=logger.debug)
             return False
 
@@ -368,7 +404,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                 instance_id, nodeReg=nodeReg)
             logger.display("{}{} selected primary {} for instance {} (view {})"
                            .format(PRIMARY_SELECTION_PREFIX, replica,
-                                   new_primary_name, instance_id, self.viewNo),
+                                   new_primary_name, instance_id, self.view_no),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
@@ -389,7 +425,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                            "ledger info is {}"
                            .format(VIEW_CHANGE_PREFIX,
                                    replica,
-                                   self.viewNo,
+                                   self.view_no,
                                    instance_id,
                                    new_primary_name,
                                    self.ledger_summary),
@@ -476,9 +512,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             if next_primary_name not in self._view_change_done:
                 logger.debug(
                     "{} has not received ViewChangeDone from the next "
-                    "primary {} (viewNo: {}, totalNodes: {})". format(
+                    "primary {} (view_no: {}, totalNodes: {})". format(
                         self.name, next_primary_name,
-                        self.viewNo, self.node.totalNodes))
+                        self.view_no, self.node.totalNodes))
             else:
                 logger.debug('{} received ViewChangeDone from primary {}'
                              .format(self, next_primary_name))
@@ -541,7 +577,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.error("{}{} expected next primary to be {}, but majority "
                          "declared {} instead for view {}"
                          .format(PRIMARY_SELECTION_PREFIX, self.name,
-                                 expected_primary, new_primary, self.viewNo))
+                                 expected_primary, new_primary, self.view_no))
             return False
 
         self._primary_verified = True
@@ -562,7 +598,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         new_primary_name = self.node.elector.next_primary_node_name(0)
         ledger_summary = self.ledger_summary
-        message = ViewChangeDone(self.viewNo,
+        message = ViewChangeDone(self.view_no,
                                  new_primary_name,
                                  ledger_summary)
 
@@ -591,21 +627,21 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         messages = []
         accepted = self._accepted_view_change_done_message
         if accepted:
-            messages.append(ViewChangeDone(self.viewNo, *accepted))
+            messages.append(ViewChangeDone(self.view_no, *accepted))
         elif self.name in self._view_change_done:
-            messages.append(ViewChangeDone(self.viewNo,
+            messages.append(ViewChangeDone(self.view_no,
                                            *self._view_change_done[self.name]))
         else:
             logger.debug(
                 '{} has no ViewChangeDone message to send for view {}'. format(
-                    self, self.viewNo))
+                    self, self.view_no))
         return messages
 
-    def view_change_started(self, viewNo: int):
+    def view_change_started(self, view_no: int):
         """
-        :param viewNo: the new view number.
+        :param view_no: the new view number.
         """
-        if self.node.view_change_started(viewNo):
+        if self.node.view_change_started(view_no):
             self.previous_master_primary = self.node.master_primary_name
             self.set_defaults()
 
@@ -622,8 +658,7 @@ def setp(pr):
     return wrapper
 
 
-for pr in ('viewNo',
-           'monitor',
+for pr in ('monitor',
            'config',
            'quorums',
            'master_replica',
