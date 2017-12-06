@@ -7,19 +7,20 @@ from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.types import f
 from plenum.common.util import check_if_all_equal_in_list, updateNamedTuple
 from plenum.test.delayers import ppDelay
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
-    countDiscarded
+from plenum.test.helper import countDiscarded, sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
+from plenum.test.pool_transactions.conftest import looper
 
 
 whitelist = ['does not have expected state']
 
 
-def test_node_requests_missing_preprepare(looper, txnPoolNodeSet, client1,
-                                          wallet1, client1Connected, teardown):
+def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
+                                          sdk_wallet_client, sdk_pool_handle,
+                                          teardown):
     """
     A node has bad network with primary and thus loses PRE-PREPARE,
     it requests PRE-PREPARE from non-primaries once it has sufficient PREPAREs
@@ -34,7 +35,12 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet, client1,
                      for n in other_nodes}
     old_count_mrp = get_count(slow_node, slow_node.process_message_rep)
 
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 15, 5)
+    sdk_send_batches_of_random_and_check(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         num_reqs=15,
+                                         num_batches=5)
 
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
@@ -106,8 +112,8 @@ def malicious_setup(request, txnPoolNodeSet):
 
 
 def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
-                                                    client1, wallet1,
-                                                    client1Connected,
+                                                    sdk_wallet_client,
+                                                    sdk_pool_handle,
                                                     malicious_setup, teardown):
     """
     A node has bad network with primary and thus loses PRE-PREPARE,
@@ -136,7 +142,12 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
     old_discarded = countDiscarded(slow_node.master_replica, 'does not have '
                                    'expected state')
 
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 10, 2)
+    sdk_send_batches_of_random_and_check(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         num_reqs=10,
+                                         num_batches=2)
 
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
