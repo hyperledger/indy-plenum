@@ -296,7 +296,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         logger.info("{}{} initiating a view change to {} from {}".format(
             VIEW_CHANGE_PREFIX, self, next_view_no, self.view_no))
         self.sendInstanceChange(next_view_no,
-                                     Suspicions.INSTANCE_CHANGE_TIMEOUT)
+                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
         return True
 
     def _processViewChangeDoneMessage(self,
