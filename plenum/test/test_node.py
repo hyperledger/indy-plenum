@@ -337,6 +337,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
                  Node.caught_up_for_current_view,
+                 Node._check_view_change_completed,
                  Node.primary_selected,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
@@ -344,7 +345,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
                  Node.process_current_state_message,
-                 Node._start_view_change_if_possible
                  ]
 
 
@@ -420,7 +420,6 @@ view_changer_spyables = [
     ViewChanger.sendInstanceChange,
     ViewChanger._start_view_change_if_possible,
     ViewChanger.on_instance_change_msg,
-    ViewChanger._check_view_change_completed,
     ViewChanger.startViewChange
 ]
 

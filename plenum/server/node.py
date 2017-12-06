@@ -408,6 +408,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.view_no = value
 
     @property
+    def view_change_in_progress(self):
+        return (None if self.view_changer is None else
+                self.view_changer.view_change_in_progress)
+
+    @property
     def id(self):
         if isinstance(self.poolManager, TxnPoolManager):
             return self.poolManager.id
@@ -422,6 +427,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             wallet.addIdentifier(signer=signer)
             self._wallet = wallet
         return self._wallet
+
+    @property
+    def ledger_summary(self):
+        return [li.ledger_summary for li in
+                self.ledgerManager.ledgerRegistry.values()]
 
     @property
     def view_changer(self) -> ViewChanger:
@@ -446,6 +456,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeMsgRouter.extend(
                 (msgTyp, self.sendToElector) for msgTyp in
                 self._elector.supported_msg_types)
+
+    # EXTERNAL EVENTS
+
+    def on_view_change_start(self):
+        """
+        Notifies node about the fact that view changed to let it
+        prepare for election, which then will be started from outside by
+        calling decidePrimaries()
+        """
+        self.master_replica.on_view_change_start()
+        logger.debug("{} resetting monitor stats at view change start".
+                     format(self))
+        self.monitor.reset()
+        self.processStashedMsgsForView(self.viewNo)
+
+        for replica in self.replicas:
+            replica.primaryName = None
+
+        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
+        self.logNodeInfo()
+        # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
+        # prepared certificate the first PRE-PREPARE of the new view
+        logger.info('{}{} changed to view {}, will start catchup now'.
+                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
+
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=self._view_change_timeout)
+
+        # Set to 0 even when set to 0 in `on_view_change_complete` since
+        # catchup might be started due to several reasons.
+        self.catchup_rounds_without_txns = 0
+        self._catch_up_start_ts = time.perf_counter()
+        self.start_catchup()
+
+    def on_view_change_complete(self):
+        """
+        View change completes for a replica when it has been decided which was
+        the last ppSeqno and state and txn root for previous view
+        """
+        # TODO VCH update method description
+
+        assert self.replicas.all_instances_have_primary
+
+        self._cancel(self._check_view_change_completed)
+
+        self.catchup_rounds_without_txns = 0
+        self._catch_up_start_ts = 0
+
+        self.master_replica.on_view_change_done()
+        if self.view_changer.propagate_primary:  # TODO VCH
+            self.master_replica.on_propagate_primary_done()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
@@ -1120,6 +1181,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.elector.decidePrimaries()
 
+    def _check_view_change_completed(self):
+        """
+        This thing checks whether new primary was elected.
+        If it was not - starts view change again
+        """
+        logger.debug('{} running the scheduled check for view change '
+                     'completion'.format(self))
+        if not self.view_changer.view_change_in_progress:
+            logger.debug('{} already completion view change'.format(self))
+            return False
+
+        self.view_changer.on_view_change_not_completed_in_time()
+        return True
+
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages
@@ -1151,7 +1226,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
         return self.view_changer.on_instance_change_msg(instChg, frm)
-
 
     def serviceElectorOutBox(self, limit: int=None) -> int:
         """
@@ -1267,10 +1341,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                if view_no not in self._next_view_indications:
-                    self._next_view_indications[view_no] = set()
-                self._next_view_indications[view_no].add(frm)
-                self._start_view_change_if_possible(view_no)
+                self.view_changer.on_future_view_vchd_msg(view_no, frm)
         else:
             return True
         return False
@@ -2112,10 +2183,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.lost_primary_at and self.nodestack.isConnectedTo(self.master_primary_name):
             self.lost_primary_at = None
 
-        if self.view_change_in_progress and \
-                self.replicas.all_instances_have_primary:
-            self.on_view_change_complete(self.viewNo)
-
     def propose_view_change(self):
         # Sends instance change message when primary has been
         # disconnected for long enough
@@ -2145,19 +2212,40 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
-    def on_view_change_complete(self, view_no):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqno and state and txn root for previous view
-        """
-        self.view_change_in_progress = False
-        self.instanceChanges.pop(view_no - 1, None)
-        self.master_replica.on_view_change_done()
-        if self.propagate_primary:
-            self.master_replica.on_propagate_primary_done()
-        self.propagate_primary = False
-        self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = 0
+    def select_primaries(self, nodeReg: Dict[str, HA]=None):
+        for instance_id, replica in enumerate(self.replicas):
+            if replica.primaryName is not None:
+                logger.debug('{} already has a primary'.format(replica))
+                continue
+            new_primary_name = self.elector.next_primary_replica_name(
+                instance_id, nodeReg=nodeReg)
+            logger.display("{}{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX, replica,
+                                   new_primary_name, instance_id, self.viewNo),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
+            if instance_id == 0:
+                # The node needs to be set in participating mode since when
+                # the replica is made aware of the primary, it will start
+                # processing stashed requests and hence the node needs to be
+                # participating.
+                self.start_participating()
+
+            replica.primaryChanged(new_primary_name)
+            self.primary_selected(instance_id)
+
+            logger.display("{}{} declares view change {} as completed for "
+                           "instance {}, "
+                           "new primary is {}, "
+                           "ledger info is {}"
+                           .format(VIEW_CHANGE_PREFIX,
+                                   replica,
+                                   self.viewNo,
+                                   instance_id,
+                                   new_primary_name,
+                                   self.ledger_summary),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica
@@ -2632,23 +2720,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # All the data of any transaction is stored in the ledger
         return txn
 
-    # TODO VCH rename to 'on_...'
-    def view_change_started(self, viewNo: int):
-        """
-        Notifies node about the fact that view changed to let it
-        prepare for election, which then will be started from outside by
-        calling decidePrimaries()
-        """
-        # if viewNo <= self.viewNo:
-        #     logger.warning("{}Provided view no {} is not greater"
-        #                    " than the current view no {}"
-        #                    .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
-        #     return False
-        # self.viewNo = viewNo
-        for replica in self.replicas:
-            replica.primaryName = None
-        return True
-
     def transform_txn_for_ledger(self, txn):
         return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
             transform_txn_for_ledger(txn)
@@ -2721,32 +2792,3 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
-
-    def _start_view_change_if_possible(self, *args, **kwargs):
-        return self.view_changer._start_view_change_if_possible(*args, **kwargs)
-
-    def do_view_change_if_possible(self, *args, **kwargs):
-        return self.view_changer.do_view_change_if_possible(*args, **kwargs)
-
-    def canViewChange(self, *args, **kwargs):
-        return self.view_changer.canViewChange(*args, **kwargs)
-
-
-def getp(pr):
-    def wrapper(self):
-        return getattr(self.view_changer, pr)
-    return wrapper
-
-
-def setp(pr):
-    def wrapper(self, v):
-        setattr(self.view_changer, pr, v)
-    return wrapper
-
-
-for pr in (
-        'view_change_in_progress',
-        'propagate_primary',
-        'instanceChanges',
-        '_next_view_indications'):
-    setattr(Node, pr, property(getp(pr), setp(pr)))
