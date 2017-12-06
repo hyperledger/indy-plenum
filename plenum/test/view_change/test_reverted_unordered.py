@@ -5,12 +5,9 @@ from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE
 from plenum.common.messages.node_messages import Commit
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
+from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
@@ -18,8 +15,7 @@ from plenum.test.view_change.helper import ensure_view_change
 TestRunningTimeLimitSec = 150
 
 
-def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
-                            client1, client1Connected):
+def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     """
     Before starting catchup, revert any uncommitted changes to state and
     ledger. This is to avoid any re-application of requests that were
@@ -50,8 +46,8 @@ def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     slow_node.nodeIbStasher.delay(cDelay(120, 0))
     sent_batches = 5
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           2 * sent_batches, sent_batches)
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_client, 2 * sent_batches, sent_batches)
 
     # Fast nodes have same last ordered and same data
     last_ordered = [n.master_last_ordered_3PC for n in fast_nodes]
@@ -110,4 +106,6 @@ def test_reverted_unordered(txnPoolNodeSet, looper, wallet1,
     looper.run(eventually(chk3, retryWait=1))
 
     # Ensure pool is functional
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_client, 10, 2)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
