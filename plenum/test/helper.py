@@ -1094,3 +1094,17 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op):
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
     assert resp
     return request
+
+def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+    instances = range(getNoInstances(len(nodeSet)))
+    coros = []
+    for node, inst_id in itertools.product(nodeSet, instances):
+        c = partial(checkRequestNotReturnedToNode,
+                    node=node,
+                    identifier=request['identifier'],
+                    reqId=request['reqId'],
+                    instId=inst_id
+                    )
+        coros.append(c)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
