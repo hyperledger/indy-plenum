@@ -51,6 +51,10 @@ class SpyLog(list):
         last = self.getLast(method, required)
         return last.params if last is not None else None
 
+    def getLastResult(self, method: str, required: bool = True) -> Tuple:
+        last = self.getLast(method, required)
+        return last.result if last is not None else None
+
     def count(self, method: SpyableMethod) -> int:
         if callable(method):
             method = method.__name__
