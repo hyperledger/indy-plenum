@@ -1605,6 +1605,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 for reqKey in pp.reqIdr[:pp.discarded]:
                     req = self.requests[reqKey].finalised
                     self.node.applyReq(req, pp.ppTime)
+                state_root = self.stateRootHash(pp.ledgerId, to_str=False)
+                self.node.onBatchCreated(pp.ledgerId, state_root)
+
             self.stashingWhileCatchingUp.remove(key)
 
         self._discard_ordered_req_keys(pp)

@@ -96,16 +96,9 @@ class Batched(MessageProcessor):
                 removedRemotes.append(rid)
                 continue
             if msgs:
-                if len(msgs) == 1:
-                    msg = msgs.popleft()
-                    # Setting timeout to never expire
-                    self.transmit(msg, rid, timeout=self.messageTimeout,
-                                  serialized=True)
-                    logger.trace(
-                        "{} sending msg {} to {}".format(self, msg, dest))
-                else:
+                if self._should_batch(msgs):
                     logger.debug(
-                        "{} batching {} msgs to {} into one transmission".
+                        "{} batching {} msgs to {} into fewer transmissions".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
                     batches = split_messages_on_batches(list(msgs),
@@ -126,6 +119,15 @@ class Batched(MessageProcessor):
                     else:
                         logger.warning("Cannot create batch(es) for {}".format(
                             self, dest))
+                else:
+                    while msgs:
+                        msg = msgs.popleft()
+                        # Setting timeout to never expire
+                        self.transmit(msg, rid, timeout=self.messageTimeout,
+                                      serialized=True)
+                        logger.trace(
+                            "{} sending msg {} to {}".format(self, msg, dest))
+
         for rid in removedRemotes:
             logger.warning("{}{} rid {} has been removed"
                            .format(CONNECTION_PREFIX, self, rid),
@@ -189,3 +191,6 @@ class Batched(MessageProcessor):
         payload = self.prepForSending(msg, signer)
         msg_bytes = self.serializeMsg(payload)
         return msg_bytes
+
+    def _should_batch(self, msgs):
+        return len(msgs) > 1

@@ -409,6 +409,7 @@ replica_spyables = [
     replica.Replica.discard,
     replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
+    replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
     replica.Replica.process_requested_pre_prepare,
