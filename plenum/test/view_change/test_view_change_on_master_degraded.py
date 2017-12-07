@@ -70,10 +70,10 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
     # thus must have called `sendInstanceChange`
     for n in nodeSet:
         if n.name != relucatantNode.name:
-            assert n.spylog.count(instChngMethodName) > \
+            assert n.view_changer.spylog.count(instChngMethodName) > \
                 sentInstChanges.get(n.name, 0)
         else:
-            assert n.spylog.count(instChngMethodName) == \
+            assert n.view_changer.spylog.count(instChngMethodName) == \
                 sentInstChanges.get(n.name, 0)
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)
