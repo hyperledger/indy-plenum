@@ -24,9 +24,9 @@ def setup(nodeSet, looper):
     times = {}
     for node in nodeSet:
         times[node.name] = {
-            'called': get_count(node.view_changer, node.view_changer._check_view_change_completed),
+            'called': get_count(node, node._check_view_change_completed),
             'returned_true': len(getAllReturnVals(
-                node.view_changer, node.view_changer._check_view_change_completed, compare_val_to=True))
+                node, node._check_view_change_completed, compare_val_to=True))
         }
     return m_primary_node, initial_view_no, times
 
@@ -58,9 +58,9 @@ def test_view_change_timeout(nodeSet, looper, up, setup, wallet1, client1):
     # The timeout method has been called at least once
     for node in nodeSet:
         assert get_count(
-            node.view_changer, node.view_changer._check_view_change_completed) > times[node.name]['called']
-        assert len(getAllReturnVals(node.view_changer,
-                                    node.view_changer._check_view_change_completed,
+            node, node._check_view_change_completed) > times[node.name]['called']
+        assert len(getAllReturnVals(node,
+                                    node._check_view_change_completed,
                                     compare_val_to=True)) > times[node.name]['returned_true']
 
     # Multiple view changes have been initiated
@@ -89,9 +89,9 @@ def test_view_change_timeout_next_primary_is_disconnected(nodeSet, looper, up, s
     # The timeout method has been called at least once
     for node in alive_nodes:
         assert get_count(
-            node.view_changer, node.view_changer._check_view_change_completed) > times[node.name]['called']
-        assert len(getAllReturnVals(node.view_changer,
-                                    node.view_changer._check_view_change_completed,
+            node, node._check_view_change_completed) > times[node.name]['called']
+        assert len(getAllReturnVals(node,
+                                    node._check_view_change_completed,
                                     compare_val_to=True)) > times[node.name]['returned_true']
 
 
