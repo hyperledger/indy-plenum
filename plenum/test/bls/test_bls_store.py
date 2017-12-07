@@ -5,10 +5,8 @@ import pytest
 
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_store import BlsStore
-from plenum.common.config_util import getConfig
 from plenum.common.util import get_utc_epoch
-
-config = getConfig()
+import plenum.config as plenum_config
 
 state_root_hash = base58.b58encode(b"somefakeroothashsomefakeroothash")
 pool_state_root_hash = base58.b58encode(b"somefakepoolroothashsomefakepoolroothash")
@@ -29,10 +27,10 @@ multi_sig = MultiSignature(sign, participants, value)
 
 
 @pytest.fixture()
-def bls_store(tempdir):
-    bls_str = BlsStore(config.stateSignatureStorage,
-                       tempdir,
-                       config.stateSignatureDbName)
+def bls_store(tdir_for_func):
+    bls_str = BlsStore(plenum_config.stateSignatureStorage,
+                       tdir_for_func,
+                       plenum_config.stateSignatureDbName)
     yield bls_str
     bls_str.close()
 

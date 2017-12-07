@@ -29,11 +29,11 @@ def allPluginPaths(pluginVerPath, pluginPrcPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths
                      ) as ns:
@@ -87,6 +87,7 @@ class AuctionApp(App):
         return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionTransactions(nodeSet, up, looper, apps):
     jason, tyler, les, john, timothy = apps
     auctionId = str(uuid4())

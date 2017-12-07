@@ -68,6 +68,8 @@ class f:  # provides a namespace for reusable field constants
     MSG_TYPE = Field("msg_type", str)
     PARAMS = Field("params", dict)
     PRIMARY = Field("primary", dict)
+    SIGS = Field('signatures', dict)
+    PLUGIN_FIELDS = Field('plugin_fields', dict)
 
 
 OPERATION = 'operation'

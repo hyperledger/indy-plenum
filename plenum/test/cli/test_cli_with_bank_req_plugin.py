@@ -23,6 +23,7 @@ def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     assertNoClient(cli)
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
 

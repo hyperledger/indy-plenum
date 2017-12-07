@@ -53,7 +53,7 @@ class PortDispenser:
                     checkPortAvailable(("", port))
                     ports.append(port)
                     self.logger.debug("new port dispensed: {}".format(port))
-                except:
+                except Exception:
                     if recurlvl < self.maxportretries:
                         self.logger.debug("port {} unavailable, trying again...".
                                           format(port))

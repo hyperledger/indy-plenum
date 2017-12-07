@@ -4,15 +4,14 @@ from plenum.test.helper import countDiscarded, \
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.node_request_helper import \
     chk_commits_prepares_recvd
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.loop.eventually import eventually
+from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 
 def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
-                                                  client1, wallet1,
-                                                  client1Connected):
+                                                  sdk_wallet_client, sdk_pool_handle):
     """
     Nodes discard any 3PC messages for already ordered 3PC keys
     (view_no, pp_seq_no). Delay all 3PC messages to a node so it cannot respond
@@ -26,8 +25,14 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
     delay_3pc_messages([slow_node], 1, delay)
 
     sent_batches = 3
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           2 * sent_batches, sent_batches)
+    sdk_send_batches_of_random_and_check(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         num_reqs=2*sent_batches,
+                                         num_batches=sent_batches)
+    # send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
+    #                                        2 * sent_batches, sent_batches)
 
     def chk(node, inst_id, p_count, c_count):
         # A node will still record PREPRAREs even if more than n-f-1, till the

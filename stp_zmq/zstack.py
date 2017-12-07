@@ -14,7 +14,7 @@ import sys
 import time
 from binascii import hexlify, unhexlify
 from collections import deque
-from typing import Mapping, Tuple, Any, Union
+from typing import Mapping, Tuple, Any, Union, Optional
 
 # import stp_zmq.asyncio
 import zmq.auth
@@ -215,8 +215,7 @@ class ZStack(NetworkInterface):
 
     @staticmethod
     def homeDirPath(baseDirPath, name):
-        bdir = os.path.expanduser(baseDirPath) if baseDirPath else ''
-        return os.path.join(bdir, "keys", name)
+        return os.path.join(os.path.expanduser(baseDirPath), name)
 
     @staticmethod
     def publicDirPath(homeDirPath):
@@ -731,7 +730,7 @@ class ZStack(NetworkInterface):
             logger.error(err_str)
         return False, err_str
 
-    def transmitThroughListener(self, msg, ident):
+    def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
         if isinstance(ident, str):
             ident = ident.encode()
         if ident not in self.peersWithoutRemotes:

@@ -1,52 +1,47 @@
 from importlib.util import module_from_spec, spec_from_file_location
 import os
 
-from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
 
-pluginsLoaded = {}  # Dict(baseDir, List[plugin names])
-pluginsNotFound = {}  # Dict(baseDir, List[plugin names])
+pluginsLoaded = {}  # Dict(plugins_dir, List[plugin names])
+pluginsNotFound = {}  # Dict(plugins_dir, List[plugin names])
 
 logger = getlogger("plugin-loader")
 
 
-def loadPlugins(baseDir):
+def loadPlugins(plugins_dir, plugins_to_load=None):
     global pluginsLoaded
 
-    alreadyLoadedPlugins = pluginsLoaded.get(baseDir)
+    alreadyLoadedPlugins = pluginsLoaded.get(plugins_dir)
     i = 0
     if alreadyLoadedPlugins:
-        logger.debug("Plugins {} are already loaded from basedir: {}".format(
-            alreadyLoadedPlugins, baseDir))
+        logger.debug("Plugins {} are already loaded from plugins_dir: {}".format(
+            alreadyLoadedPlugins, plugins_dir))
     else:
         logger.debug(
-            "Plugin loading started to load plugins from basedir: {}".format(
-                baseDir))
+            "Plugin loading started to load plugins from plugins_dir: {}".format(
+                plugins_dir))
 
-        config = getConfig()
-        pluginsDirPath = os.path.expanduser(os.path.join(
-            baseDir, config.PluginsDir))
-
-        if not os.path.exists(pluginsDirPath):
-            os.makedirs(pluginsDirPath)
+        if not os.path.exists(plugins_dir):
+            os.makedirs(plugins_dir)
             logger.debug("Plugin directory created at: {}".format(
-                pluginsDirPath))
+                plugins_dir))
 
-        if hasattr(config, "PluginsToLoad"):
-            for pluginName in config.PluginsToLoad:
+        if plugins_to_load is not None:
+            for pluginName in plugins_to_load:
+                pluginPath = os.path.expanduser(
+                    os.path.join(plugins_dir, pluginName + ".py"))
                 try:
-                    pluginPath = os.path.expanduser(
-                        os.path.join(pluginsDirPath, pluginName + ".py"))
                     if os.path.exists(pluginPath):
                         spec = spec_from_file_location(
                             pluginName,
                             pluginPath)
                         plugin = module_from_spec(spec)
                         spec.loader.exec_module(plugin)
-                        if baseDir in pluginsLoaded:
-                            pluginsLoaded[baseDir].add(pluginName)
+                        if plugins_dir in pluginsLoaded:
+                            pluginsLoaded[plugins_dir].add(pluginName)
                         else:
-                            pluginsLoaded[baseDir] = {pluginName}
+                            pluginsLoaded[plugins_dir] = {pluginName}
                         i += 1
                     else:
                         if not pluginsNotFound.get(pluginPath):
@@ -65,5 +60,5 @@ def loadPlugins(baseDir):
                         .format(pluginPath, str(ex)))
 
     logger.debug(
-        "Total plugins loaded from basedir {} are : {}".format(baseDir, i))
+        "Total plugins loaded from plugins_dir {} are : {}".format(plugins_dir, i))
     return i

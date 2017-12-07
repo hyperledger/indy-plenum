@@ -25,7 +25,6 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
-config = getConfig()
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -59,6 +58,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.Omega = Omega
         self.statsConsumers = self.getPluginsByType(pluginPaths,
                                                     PLUGIN_TYPE_STATS_CONSUMER)
+
+        self.config = getConfig()
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and
@@ -129,17 +130,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
 
-        if config.SendMonitorStats:
+        if self.config.SendMonitorStats:
             self.startRepeating(self.sendPeriodicStats,
-                                config.DashboardUpdateFreq)
+                                self.config.DashboardUpdateFreq)
 
         self.startRepeating(
             self.checkPerformance,
-            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+            self.config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
-        if 'disable_view_change' in config.unsafe:
+        if 'disable_view_change' in self.config.unsafe:
             self.isMasterDegraded = lambda: False
-        if 'disable_monitor' in config.unsafe:
+        if 'disable_monitor' in self.config.unsafe:
             self.requestOrdered = lambda *args, **kwargs: {}
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
@@ -501,11 +502,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # TODO:KS Move these computations as well to plenum-stats project
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
-            (now - self.orderedRequestsInLast[0]) > \
-                config.ThroughputWindowSize:
+                (now - self.orderedRequestsInLast[0]) > \
+                self.config.ThroughputWindowSize:
             self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
-        return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
+        return len(self.orderedRequestsInLast) / self.config.ThroughputWindowSize
 
     def sendThroughput(self):
         logger.debug("{} sending throughput".format(self))
@@ -528,7 +529,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         now = time.perf_counter()
         while self.latenciesByMasterInLast and \
             (now - self.latenciesByMasterInLast[0][0]) > \
-                config.LatencyWindowSize:
+                self.config.LatencyWindowSize:
             self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
         return (sum(l[1] for l in self.latenciesByMasterInLast) /
                 len(self.latenciesByMasterInLast)) if \
@@ -540,8 +541,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupLatencies = []
         for instId, latencies in self.latenciesByBackupsInLast.items():
             while latencies and \
-                (now - latencies[0][0]) > \
-                    config.LatencyWindowSize:
+                    (now - latencies[0][0]) > \
+                    self.config.LatencyWindowSize:
                 latencies = latencies[1:]
             backupLatencies.append(
                 (sum(l[1] for l in latencies) / len(latencies)) if
@@ -643,9 +644,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def postOnNodeStarted(self, startedAt):
         throughputData = {
-            "throughputWindowSize": config.ThroughputWindowSize,
-            "updateFrequency": config.DashboardUpdateFreq,
-            "graphDuration": config.ThroughputGraphDuration
+            "throughputWindowSize": self.config.ThroughputWindowSize,
+            "updateFrequency": self.config.DashboardUpdateFreq,
+            "graphDuration": self.config.ThroughputGraphDuration
         }
         startedAtData = {"startedAt": startedAt, "ctx": "DEMO"}
         startedEventDict = {
@@ -659,7 +660,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencies = {}
 
     def _sendStatsDataIfRequired(self, event, stats):
-        if config.SendMonitorStats:
+        if self.config.SendMonitorStats:
             for sc in self.statsConsumers:
                 sc.sendStats(event, stats)
 
