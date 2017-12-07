@@ -79,12 +79,15 @@ class TestNetworkSetup:
 
         config.NETWORK_NAME = network
 
-        config_helper = config_helper_class(config, chroot=chroot)
+        if _localNodes:
+            config_helper = config_helper_class(config, chroot=chroot)
+            os.makedirs(config_helper.genesis_dir, exist_ok=True)
+            genesis_dir = config_helper.genesis_dir
+        else:
+            genesis_dir = cls.setup_clibase_dir(config, network)
 
-        os.makedirs(config_helper.genesis_dir, exist_ok=True)
-
-        poolLedger = cls.init_pool_ledger(appendToLedgers, config_helper.genesis_dir, config)
-        domainLedger = cls.init_domain_ledger(appendToLedgers, config_helper.genesis_dir,
+        poolLedger = cls.init_pool_ledger(appendToLedgers, genesis_dir, config)
+        domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
                                               config, domainTxnFieldOrder)
 
         trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
