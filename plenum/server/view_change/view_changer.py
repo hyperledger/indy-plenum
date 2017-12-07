@@ -208,6 +208,15 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                 Suspicions.PRIMARY_DISCONNECTED)
         self.do_view_change_if_possible(view_no)
 
+    # TODO we have `on_primary_loss`, do we need that one?
+    def on_primary_about_to_be_disconnected(self):
+        view_no = self.view_no + 1
+        logger.info("{} sending instance with view_no = {} "
+                    "since primary is about to be disconnected"
+                    "".format(self, view_no))
+        self.sendInstanceChange(
+            view_no, Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+
     def on_suspicious_primary(self, suspicion: Suspicions):
         view_no = self.view_no + 1
         logger.info("{} sending instance with view_no = {} since primary "
