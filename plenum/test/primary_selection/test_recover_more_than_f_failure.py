@@ -22,7 +22,7 @@ logger = getlogger()
 
 
 def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
-                                allPluginsPath, tconf, client1, wallet1,
+                                allPluginsPath, tdir, tconf, client1, wallet1,
                                 client1Connected):
     """
     Test that we can recover after having more than f nodes disconnected:
@@ -55,7 +55,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     stopped_node, active_nodes = stop_primary(looper, active_nodes)
 
     logger.info("Restart the primary node")
-    restarted_node = start_stopped_node(stopped_node, looper, tconf, stopped_node.basedirpath, allPluginsPath)
+    restarted_node = start_stopped_node(stopped_node, looper, tconf, tdir, allPluginsPath)
     assert nodes_do_not_have_checkpoints(restarted_node)
     assert nodes_have_checkpoints(*active_nodes)
     active_nodes = active_nodes + [restarted_node]

@@ -6,11 +6,6 @@ from plenum.common.util import get_utc_epoch
 from plenum.test.bls.helper import generate_state_root
 
 
-@pytest.fixture()
-def tempdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('').strpath
-
-
 participants = ["Node1", "Node2", "Node3"]
 signature = "somefakesignaturesomefakesignaturesomefakesignature"
 
@@ -32,6 +27,6 @@ def fake_multi_sig_value(fake_state_root_hash):
 @pytest.fixture()
 def fake_multi_sig(fake_multi_sig_value):
     return MultiSignature(
-        signature="somefakesignaturesomefakesignaturesomefakesignature",
-        participants=["Node1", "Node2", "Node3"],
+        signature=signature,
+        participants=participants,
         value=fake_multi_sig_value)

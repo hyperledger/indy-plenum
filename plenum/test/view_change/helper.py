@@ -14,17 +14,23 @@ from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
 
 def start_stopped_node(stopped_node, looper, tconf,
-                       tdirWithPoolTxns, allPluginsPath,
+                       tdir, allPluginsPath,
                        delay_instance_change_msgs=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
-    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+    config_helper = PNodeConfigHelper(stopped_node.name, tconf, chroot=tdir)
+    restarted_node = TestNode(stopped_node.name,
+                              ledger_dir=config_helper.ledger_dir,
+                              keys_dir=config_helper.keys_dir,
+                              genesis_dir=config_helper.genesis_dir,
+                              plugins_dir=config_helper.plugins_dir,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
@@ -224,7 +230,8 @@ def ensure_view_change_complete(looper, nodes, exclude_from_check=None,
     ensure_view_change(looper, nodes)
     ensureElectionsDone(looper=looper, nodes=nodes,
                         customTimeout=customTimeout)
-    ensure_all_nodes_have_same_data(looper, nodes, customTimeout)
+    ensure_all_nodes_have_same_data(looper, nodes, customTimeout,
+                                    exclude_from_check=exclude_from_check)
 
 
 def ensure_view_change_complete_by_primary_restart(
@@ -272,7 +279,10 @@ def view_change_in_between_3pc_random_delays(
 
     sendRandomRequests(wallet, client, 10)
 
-    ensure_view_change_complete(looper, nodes)
+    ensure_view_change_complete(looper,
+                                nodes,
+                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT + max_delay,
+                                exclude_from_check='check_last_ordered_3pc')
 
     reset_delays_and_process_delayeds(slow_nodes)
 

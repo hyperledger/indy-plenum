@@ -28,11 +28,11 @@ def allPluginPaths(pluginVerPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths) as ns:
 
@@ -45,6 +45,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                    pluginVerPath):
     # TODO: Test more cases

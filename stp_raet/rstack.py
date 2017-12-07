@@ -349,7 +349,7 @@ class RStack(NetworkInterface):
     async def _raetcoro(self):
         try:
             await self._serviceStack(self.age)
-            l = len(self.raetStack.rxMsgs)
+            len_msgs = len(self.raetStack.rxMsgs)
         except Exception as ex:
             if isinstance(ex, OSError) and \
                     len(ex.args) > 0 and \
@@ -364,8 +364,8 @@ class RStack(NetworkInterface):
                              format(CONNECTION_PREFIX, self.name, ex, ex.args),
                              extra={'cli': 'WARNING'})
 
-            l = 0
-        return l
+            len_msgs = 0
+        return len_msgs
 
     async def _serviceStack(self, age):
         """

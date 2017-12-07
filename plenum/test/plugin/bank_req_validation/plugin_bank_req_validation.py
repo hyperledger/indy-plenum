@@ -15,9 +15,12 @@ class BankReqValidationPlugin:
     def __init__(self):
         self.count = 0
 
+    def is_valid_txn_type(self, txn_type):
+        return txn_type in self.validTxnTypes
+
     def verify(self, operation):
         typ = operation.get(TXN_TYPE)
-        assert typ in self.validTxnTypes, \
+        assert self.is_valid_txn_type(typ), \
             "{} is not a valid transaction type, must be one of {}".\
             format(typ, ', '.join(self.validTxnTypes))
 

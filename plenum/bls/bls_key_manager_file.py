@@ -12,16 +12,15 @@ class BlsKeyManagerFile(BlsKeyManager):
     BLS_SK_FILE_MODE = 0o600
     BLS_PK_FILE_MODE = 0o644
 
-    def __init__(self, basedir, node_name):
-        bdir = os.path.expanduser(basedir) if basedir else ''
-        self._key_path = os.path.join(bdir, "keys", node_name)
+    def __init__(self, keys_dir):
+        self._keys_dir = keys_dir
         self._init_dirs()
 
     def _init_dirs(self):
         os.makedirs(
-            self._key_path,
+            self._keys_dir,
             exist_ok=True)
-        self._bls_keys_dir = os.path.join(self._key_path, self.BLS_KEYS_DIR_NAME)
+        self._bls_keys_dir = os.path.join(self._keys_dir, self.BLS_KEYS_DIR_NAME)
         os.makedirs(
             self._bls_keys_dir,
             self.BLS_KEYS_DIR_MODE,

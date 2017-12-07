@@ -89,6 +89,15 @@ class KeyValueStorageFile(KeyValueStorage):
         for k, v in batch:
             self.put(k, v)
 
+    def do_ops_in_batch(self, batch: Iterable[Tuple]):
+        for op, key, value in batch:
+            if op == self.WRITE_OP:
+                self.put(key, value)
+            elif op == self.REMOVE_OP:
+                self.remove(key)
+            else:
+                raise ValueError('Unknown operation')
+
     def _is_valid_range(self, start=None, end=None):
         if start and end:
             assert self.isLineNoKey
