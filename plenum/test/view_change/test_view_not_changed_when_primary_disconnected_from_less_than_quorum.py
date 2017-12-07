@@ -26,7 +26,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         partitioned_node.lost_master_primary.__name__)
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.processInstanceChange.__name__) for node in txnPoolNodeSet
+        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
         if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
@@ -52,8 +52,8 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
             partitioned_node.lost_master_primary.__name__) > lost_pr_calls
         for node in txnPoolNodeSet:
             if node != partitioned_node and node != pr_node:
-                assert node.spylog.count(
-                    node.processInstanceChange.__name__) > recv_inst_chg_calls[node.name]
+                assert node.view_changer.spylog.count(
+                    node.view_changer.process_instance_change_msg.__name__) > recv_inst_chg_calls[node.name]
 
     looper.run(eventually(chk1, retryWait=1, timeout=10))
 

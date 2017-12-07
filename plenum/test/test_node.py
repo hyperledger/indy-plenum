@@ -317,7 +317,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,
                  "eatTestMsg",
-                 Node.decidePrimaries,
                  Node.discard,
                  Node.reportSuspiciousNode,
                  Node.reportSuspiciousClient,
@@ -325,7 +324,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.propagate,
                  Node.forward,
                  Node.send,
-                 Node.processInstanceChange,
                  Node.checkPerformance,
                  Node.processStashedOrderedReqs,
                  Node.lost_master_primary,
@@ -419,7 +417,7 @@ class TestPrimarySelector(PrimarySelector):
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
     ViewChanger._start_view_change_if_possible,
-    ViewChanger.on_instance_change_msg,
+    ViewChanger.process_instance_change_msg,
     ViewChanger.startViewChange
 ]
 

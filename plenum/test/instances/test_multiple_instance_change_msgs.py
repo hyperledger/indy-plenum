@@ -22,7 +22,7 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     def chk(instId):
         for node in nodeSet:
             if node.name != maliciousNode.name:
-                args = getAllArgs(node, Node.processInstanceChange)
+                args = getAllArgs(node, ViewChanger.process_instance_change_msg)
                 assert len(args) == 5
                 for arg in args:
                     assert arg['frm'] == maliciousNode.name

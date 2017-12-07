@@ -23,7 +23,7 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self.node.view_changer._processViewChangeDoneMessage)]
+        return []
 
     # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
@@ -69,74 +69,3 @@ class PrimarySelector(PrimaryDecider):
     def start_election_for_instance(self, instance_id):
         raise NotImplementedError("Election can be started for "
                                   "all instances only")
-
-    def _processViewChangeDoneMessage(self, *args, **kwargs):
-        return self.node.view_changer._processViewChangeDoneMessage(*args, **kwargs)
-
-    def _verify_primary(self, *args, **kwargs):
-        return self.node.view_changer._verify_primary(*args, **kwargs)
-
-    def _on_verified_view_change_done_msg(self, *args, **kwargs):
-        return self.node.view_changer._on_verified_view_change_done_msg(*args, **kwargs)
-
-    def _hasViewChangeQuorum(self, *args, **kwargs):
-        return self.node.view_changer._hasViewChangeQuorum(*args, **kwargs)
-
-    def is_propagated_view_change_completed(self, *args, **kwargs):
-        return self.node.view_changer.is_propagated_view_change_completed(*args, **kwargs)
-
-    def has_view_change_from_primary(self, *args, **kwargs):
-        return self.node.view_changer.has_view_change_from_primary(*args, **kwargs)
-
-    def has_acceptable_view_change_quorum(self, *args, **kwargs):
-        return self.node.view_changer.has_acceptable_view_change_quorum(*args, **kwargs)
-
-    def get_sufficient_same_view_change_done_messages(self, *args, **kwargs):
-        return self.node.view_changer.get_sufficient_same_view_change_done_messages(*args, **kwargs)
-
-    def is_behind_for_view(self, *args, **kwargs):
-        return self.node.view_changer.is_behind_for_view(*args, **kwargs)
-
-    def _start_selection(self, *args, **kwargs):
-        return self.node.view_changer._start_selection(*args, **kwargs)
-
-    def _send_view_change_done_message(self, *args, **kwargs):
-        return self.node.view_changer._send_view_change_done_message(*args, **kwargs)
-
-    def view_change_started(self, *args, **kwargs):
-        return self.node.view_changer.view_change_started(*args, **kwargs)
-
-    @property
-    def ledger_summary(self):
-        return self.node.view_changer.ledger_summary()
-
-
-def getp(pr):
-    def wrapper(self):
-        return getattr(self.node.view_changer, pr)
-    return wrapper
-
-
-def setp(pr):
-    def wrapper(self, v):
-        setattr(self.node.view_changer, pr, v)
-    return wrapper
-
-
-for pr in (
-        'previous_master_primary',
-        '_view_change_done',
-        '_primary_verified',
-        '_has_view_change_from_primary',
-        '_has_acceptable_view_change_quorum',
-        '_accepted_view_change_done_message',
-        '_propagated_view_change_completed',
-        'quorum',
-        '_hasViewChangeQuorum',
-        'is_propagated_view_change_completed',
-        'has_view_change_from_primary',
-        'has_acceptable_view_change_quorum',
-        'is_behind_for_view',
-        'ledger_summary',
-        '_ledger_manager'):
-    setattr(PrimarySelector, pr, property(getp(pr), setp(pr)))

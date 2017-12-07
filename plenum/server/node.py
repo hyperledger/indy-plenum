@@ -272,8 +272,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
-        # Requests that are to be given to the elector by the node
-        self.msgsToElector = deque()
+        # Requests that are to be given to the view_changer by the node
+        self.msgsToViewChanger = deque()
 
         self.ledgerManager = self.getLedgerManager()
         self.init_ledger_manager()
@@ -330,7 +330,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # CurrentState
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
-            (InstanceChange, self.processInstanceChange),
+            (InstanceChange, self.sendToViewChanger),
+            (ViewChangeDone, self.sendToViewChanger),
             (MessageReq, self.process_message_req),
             (MessageRep, self.process_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -447,23 +448,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @elector.setter
     def elector(self, value):
-        # clear old routes
-        if self._elector:
-            self.nodeMsgRouter.remove(self._elector.supported_msg_types)
         self._elector = value
-        # set up new routes
-        if self._elector:
-            self.nodeMsgRouter.extend(
-                (msgTyp, self.sendToElector) for msgTyp in
-                self._elector.supported_msg_types)
 
     # EXTERNAL EVENTS
 
     def on_view_change_start(self):
         """
         Notifies node about the fact that view changed to let it
-        prepare for election, which then will be started from outside by
-        calling decidePrimaries()
+        prepare for election
         """
         self.master_replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
@@ -488,7 +480,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
         self._catch_up_start_ts = time.perf_counter()
-        self.start_catchup()
 
     def on_view_change_complete(self):
         """
@@ -500,9 +491,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         assert self.replicas.all_instances_have_primary
 
         self._cancel(self._check_view_change_completed)
-
-        self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = 0
 
         self.master_replica.on_view_change_done()
         if self.view_changer.propagate_primary:  # TODO VCH
@@ -913,7 +901,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self._serviceActions()
             c += self.ledgerManager.service()
             c += self.monitor._serviceActions()
-            c += await self.serviceElector()
+            c += await self.serviceViewChanger()
             self.nodestack.flushOutBoxes()
         if self.isGoing():
             self.nodestack.serviceLifecycle()
@@ -954,20 +942,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    async def serviceElector(self) -> int:
+    async def serviceViewChanger(self) -> int:
         """
-        Service the elector's inBox, outBox and action queues.
+        Service the view_changer's inBox, outBox and action queues.
 
         :return: the number of messages successfully serviced
         """
         if not self.isReady():
             return 0
-        o = self.serviceElectorOutBox()
-        i = await self.serviceElectorInbox()
+        o = self.serviceViewChangerOutBox()
+        i = await self.serviceViewChangerInbox()
         # TODO: Why is protected method accessed here?
-        v = self.view_changer._serviceActions()  # TODO VCH
-        a = self.elector._serviceActions()
-        return o + i + a + v
+        a = self.view_changer._serviceActions()
+        return o + i + a
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -1042,8 +1029,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} new node joined by txn {}".format(self, txn))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
-        if new_replicas > 0:
-            self.decidePrimaries()
+        if new_replicas > 0 and not self.view_changer.view_change_in_progress:
+            self.select_primaries()
 
     def nodeLeft(self, txn):
         logger.info("{} node left by txn {}".format(self, txn))
@@ -1070,9 +1057,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
-        election_messages = self.view_changer.get_msgs_for_lagged_nodes()
-        message = CurrentState(viewNo=self.viewNo,
-                               primary=election_messages)
+        vch_messages = self.view_changer.get_msgs_for_lagged_nodes()
+        message = CurrentState(viewNo=self.viewNo, primary=vch_messages)
 
         logger.debug("{} sending current state {} to lagged node {}".
                      format(self, message, nodeName))
@@ -1089,7 +1075,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 # TODO DRY, view change done messages are managed by routes
-                self.sendToElector(message, frm)
+                self.sendToViewChanger(message, frm)
         except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
@@ -1136,8 +1122,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, (ElectionType, ViewChangeDone)):
-            self.sendToElector(msg, frm)
+        if isinstance(msg, (InstanceChange, ViewChangeDone)):
+            self.sendToViewChanger(msg, frm)
             return True
         elif isinstance(msg, ThreePhaseType):
             self.sendToReplica(msg, frm)
@@ -1173,13 +1159,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             i += 1
         logger.debug("{} processed {} stashed msgs for view no {}".
                      format(self, i, view_no))
-
-    def decidePrimaries(self):
-        """
-        Choose the primary replica for each protocol instance in the system
-        using a PrimaryDecider.
-        """
-        self.elector.decidePrimaries()
 
     def _check_view_change_completed(self):
         """
@@ -1224,42 +1203,35 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
-        return self.view_changer.on_instance_change_msg(instChg, frm)
-
-    def serviceElectorOutBox(self, limit: int=None) -> int:
+    def serviceViewChangerOutBox(self, limit: int=None) -> int:
         """
-        Service at most `limit` number of messages from the elector's outBox.
+        Service at most `limit` number of messages from the view_changer's outBox.
 
         :return: the number of messages successfully serviced.
         """
         msgCount = 0
-        while self.elector.outBox and (not limit or msgCount < limit):
+        while self.view_changer.outBox and (not limit or msgCount < limit):
             msgCount += 1
-            msg = self.elector.outBox.popleft()
-            if isinstance(msg, (ElectionType, ViewChangeDone)):
+            msg = self.view_changer.outBox.popleft()
+            if isinstance(msg, (InstanceChange, ViewChangeDone)):
                 self.send(msg)
-            elif isinstance(msg, BlacklistMsg):
-                nodeName = getattr(msg, f.NODE_NAME.nm)
-                code = getattr(msg, f.SUSP_CODE.nm)
-                self.reportSuspiciousNode(nodeName, code=code)
             else:
                 logger.error("Received msg {} and don't know how to handle it".
                              format(msg))
         return msgCount
 
-    async def serviceElectorInbox(self, limit: int=None) -> int:
+    async def serviceViewChangerInbox(self, limit: int=None) -> int:
         """
-        Service at most `limit` number of messages from the elector's outBox.
+        Service at most `limit` number of messages from the view_changer's outBox.
 
         :return: the number of messages successfully serviced.
         """
         msgCount = 0
-        while self.msgsToElector and (not limit or msgCount < limit):
+        while self.msgsToViewChanger and (not limit or msgCount < limit):
             msgCount += 1
-            msg = self.msgsToElector.popleft()
-            self.elector.inBox.append(msg)
-        await self.elector.serviceQueues(limit)
+            msg = self.msgsToViewChanger.popleft()
+            self.view_changer.inBox.append(msg)
+        await self.view_changer.serviceQueues(limit)
         return msgCount
 
     @property
@@ -1341,6 +1313,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
+                # TODO this is put of the msgs queue scope
                 self.view_changer.on_future_view_vchd_msg(view_no, frm)
         else:
             return True
@@ -1359,19 +1332,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.msgHasAcceptableViewNo(msg, frm):
                 self.replicas.pass_message((msg, frm), msg.instId)
 
-    def sendToElector(self, msg, frm):
+    def sendToViewChanger(self, msg, frm):
         """
-        Send the message to the intended elector.
+        Send the message to the intended view changer.
 
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if (isinstance(msg, ViewChangeDone) or
-                self.msgHasAcceptableInstId(msg, frm)) and \
-                self.msgHasAcceptableViewNo(msg, frm):
-            logger.debug("{} sending message to elector: {}".
+        if (isinstance(msg, InstanceChange) or
+                self.msgHasAcceptableViewNo(msg, frm)):
+            logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
-            self.msgsToElector.append((msg, frm))
+            self.msgsToViewChanger.append((msg, frm))
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
@@ -1730,7 +1702,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def caught_up_for_current_view(self) -> bool:
-        if not self.elector._hasViewChangeQuorum:
+        if not self.view_changer._hasViewChangeQuorum:
             logger.debug('{} does not have view change quorum for view {}'.
                          format(self, self.viewNo))
             return False
@@ -1780,7 +1752,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
         self.mode = Mode.synced
-        self.decidePrimaries()
+        self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
         # then set mode to participating, can happen if a catchup is triggered
@@ -2750,7 +2722,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "view no                 : {}".format(self.viewNo),
             "rank                    : {}".format(self.rank),
             "msgs to replicas        : {}".format(self.replicas.sum_inbox_len),
-            "msgs to elector         : {}".format(len(self.msgsToElector)),
+            "msgs to view changer    : {}".format(len(self.msgsToViewChanger)),
             "action queue            : {} {}".format(len(self.actionQueue),
                                                      id(self.actionQueue)),
             "action queue stash      : {} {}".format(len(self.aqStash),
