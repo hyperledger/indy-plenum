@@ -6,6 +6,7 @@ from plenum.test.pool_transactions.helper import add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
+# TODO: replace this func with sdk_ensure_pool_functional
 def ensure_pool_functional(looper, nodes, wallet, client, num_reqs=10,
                            num_batches=2):
     send_reqs_batches_and_get_suff_replies(looper, wallet, client, num_reqs,

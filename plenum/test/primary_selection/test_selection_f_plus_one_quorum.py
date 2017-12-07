@@ -1,8 +1,6 @@
-from plenum.test.helper import stopNodes, waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, \
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 from plenum.test.view_change.helper import ensure_view_change
@@ -13,15 +11,8 @@ from plenum.test.view_change.helper import start_stopped_node
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
 
-def test_selection_f_plus_one_quorum(
-        looper,
-        txnPoolNodeSet,
-        allPluginsPath,
-        tdir,
-        tconf,
-        client1,
-        wallet1,
-        client1Connected):
+def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
+                                     tdir, tconf, sdk_pool_handle, sdk_wallet_client):
     """
     Check that quorum f + 1 is used for primary selection
     when initiated by CurrentState messages.
@@ -69,4 +60,4 @@ def test_selection_f_plus_one_quorum(
                         numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)

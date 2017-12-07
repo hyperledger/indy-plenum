@@ -1,17 +1,13 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
-
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 
 
 def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
-                                                   wallet1, client1,
-                                                   client1Connected, tconf):
+                                                   sdk_pool_handle, sdk_wallet_client, tconf):
     """
     When primary is disconnected but not long enough to trigger the timeout,
     view change should not happen
@@ -72,4 +68,4 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
     looper.run(eventually(chk3, retryWait=1, timeout=10))
 
     # Send some requests and make sure the request execute
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)

@@ -6,6 +6,7 @@ from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
     get_timestamp_suspicion_count
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests
 
 Max3PCBatchSize = 4
 
@@ -15,8 +16,8 @@ from plenum.test.batching_3pc.conftest import tconf
 TestRunningTimeLimitSec = 200
 
 
-def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
-                                     wallet1, client1Connected):
+def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
+                                     sdk_wallet_client, sdk_pool_handle):
     """
     One of non-primary has a bad clock, it raises suspicions but orders
     requests after getting PREPAREs. Then a view change happens this
@@ -32,8 +33,11 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
 
     assert not faulty_node.master_replica.isPrimary
     # faulty_node replies too
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
-                                              Max3PCBatchSize * 3)
+    sdk_send_random_and_check(looper,
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              count=Max3PCBatchSize * 3)
 
     ledger_sizes = {
         node.name: node.domainLedger.size for node in txnPoolNodeSet}
@@ -49,7 +53,10 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
 
     # Requests are sent
     for _ in range(5):
-        sendRandomRequests(wallet1, client1, 2)
+        sdk_send_random_requests(looper,
+                                sdk_pool_handle,
+                                sdk_wallet_client,
+                                count=2)
         looper.runFor(.2)
 
     def chk():
@@ -72,5 +79,8 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet, client1,
     assert not faulty_node.master_replica.isPrimary
 
     # All nodes reply
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
-                                              Max3PCBatchSize * 2)
+    sdk_send_random_and_check(looper,
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              count=Max3PCBatchSize * 2)
