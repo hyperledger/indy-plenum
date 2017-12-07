@@ -228,7 +228,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         MessageReqProcessor.__init__(self)
 
-        self.view_changer = ViewChanger
+        self.view_changer = view_changer
         self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
