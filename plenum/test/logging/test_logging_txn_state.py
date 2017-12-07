@@ -8,10 +8,7 @@ from plenum.test.pool_transactions.conftest import looper, stewardAndWallet1, \
     steward1, stewardWallet, client1, clientAndWallet1, client1Connected
 from plenum.test.pool_transactions.helper import sendAddNewClient
 from plenum.test import waits
-from plenum.test.helper import ensureRejectsRecvd, \
-    check_sufficient_replies_received
-from plenum.test.sdk.helper import send_random_and_check
-from plenum.test.sdk.conftest import *
+from plenum.test.helper import ensureRejectsRecvd, sdk_send_random_and_check
 
 
 ERORR_MSG = "something went wrong"
@@ -36,7 +33,7 @@ def testLoggingTxnStateForValidRequest(
         funcs=['executeBatch'], msgs=['committed batch request']
     )
 
-    reqs = send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     req, _ = reqs[0]
 
     reqId = str(req['reqId'])
