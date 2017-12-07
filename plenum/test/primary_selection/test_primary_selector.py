@@ -80,24 +80,6 @@ class FakeNode:
     def is_primary_found(self):
         return self._found
 
-    # TODO remove that
-
-    def view_change_started(self, viewNo: int):
-        """
-        Notifies primary decider about the fact that view changed to let it
-        prepare for election, which then will be started from outside by
-        calling decidePrimaries()
-        """
-        #if viewNo <= self.viewNo:
-        #    logger.warning("{}Provided view no {} is not greater"
-        #                   " than the current view no {}"
-        #                   .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
-        #    return False
-        #self.viewNo = viewNo
-        for replica in self.replicas:
-            replica.primaryName = None
-        return True
-
     @property
     def master_primary_name(self) -> Optional[str]:
         nm = self.replicas[0].primaryName
