@@ -1,7 +1,6 @@
 from plenum.test.waits import expectedPoolGetReadyTimeout
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-# from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
@@ -32,16 +31,12 @@ def test_node_requests_missing_three_phase_messages(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               INIT_REQS_CNT)
-    # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1Connected, INIT_REQS_CNT)
-    # waitNodeDataEquality(looper, disconnected_nodes[0], *txnPoolNodeSet[:-1])
-
     init_ledger_size = txnPoolNodeSet[0].domainLedger.size
 
     for node in disconnected_nodes:
         disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
 
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, MISSING_REQS_CNT)
-    # sendRandomRequests(wallet1, client1Connected, MISSING_REQS_CNT)
 
     def check_pp_out_of_sync(alive_nodes, disconnected_nodes):
 
@@ -71,7 +66,6 @@ def test_node_requests_missing_three_phase_messages(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               REQS_AFTER_RECONNECT_CNT)
-    # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1Connected, REQS_AFTER_RECONNECT_CNT)
     waitNodeDataEquality(looper, disconnected_nodes[0], *txnPoolNodeSet[:-1])
 
     for node in txnPoolNodeSet:

@@ -6,11 +6,17 @@ import os
 import shutil
 import re
 import warnings
+import json
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
 import time
 from typing import Dict, Any
+
+from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
+from indy.wallet import create_wallet, open_wallet, close_wallet
+from indy.signus import create_and_store_my_did
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
@@ -57,12 +63,6 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
-
-import json
-from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
-from indy.wallet import create_wallet, open_wallet, close_wallet
-from indy.signus import create_and_store_my_did
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 
 
 Logger.setLogLevel(logging.NOTSET)

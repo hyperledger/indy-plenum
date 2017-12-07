@@ -32,9 +32,6 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               count=Max3PCBatchSize * 3)
-    # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
-    #                                           Max3PCBatchSize * 3)
-
     ledger_sizes = {node.name: node.domainLedger.size for node in
                     txnPoolNodeSet}
     susp_counts = {node.name: get_timestamp_suspicion_count(node) for node in

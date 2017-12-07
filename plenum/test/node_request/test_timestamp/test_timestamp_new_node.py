@@ -1,7 +1,3 @@
-from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getNodeSuspicions, \
-    sendReqsToNodesAndVerifySuffReplies, \
-    send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.test_timestamp.helper import \
     get_timestamp_suspicion_count
@@ -34,7 +30,6 @@ def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               count=10)
-    # sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
     # No suspicions were raised by new_node

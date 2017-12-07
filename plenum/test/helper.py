@@ -10,6 +10,11 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
 from psutil import Popen
+import json
+import asyncio
+
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
+from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
@@ -19,6 +24,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQA
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
+from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -30,13 +36,6 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
-from typing import Sequence
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
-from plenum.common.request import Request
-import json
-import asyncio
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
-from indy.error import ErrorCode, IndyError
 
 
 logger = getlogger()
