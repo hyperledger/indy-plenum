@@ -414,6 +414,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def view_change_in_progress(self):
         return (None if self.view_changer is None else
                 self.view_changer.view_change_in_progress)
+
     def setup_config(self):
         self.setup_config_state()
         self.setup_config_req_handler()
@@ -557,9 +558,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
-
-    def reject_client_msg_handler(self, reason, frm):
-        self.transmitToClient(Reject("", "", reason), frm)
 
     def utc_epoch(self) -> int:
         """
