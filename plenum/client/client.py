@@ -58,7 +58,6 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from plenum.common.constants import STATE_PROOF
 from plenum.common.tools import lazy_field
-from plenum.server.config_helper import ClientConfigHelper
 
 logger = getlogger()
 
@@ -88,7 +87,7 @@ class Client(Motor,
         """
         self.config = config or getConfig()
 
-        dataDir = self.config.clientDataDir or "data"
+        dataDir = self.config.clientDataDir or "data/clients"
         self.basedirpath = basedirpath or self.config.CLI_BASE_DIR
         self.basedirpath = os.path.expanduser(self.basedirpath)
 
