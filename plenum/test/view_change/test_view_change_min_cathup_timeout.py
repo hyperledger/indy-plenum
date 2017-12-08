@@ -48,7 +48,7 @@ def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
     # 3. start view change
     expected_view_no = viewNo + 1
     for node in nodeSet:
-        node.startViewChange(expected_view_no)
+        node.view_changer.startViewChange(expected_view_no)
 
     # 4. check that it's not finished till
     # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE

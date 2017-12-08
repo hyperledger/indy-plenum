@@ -24,7 +24,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         if node != pr_node}
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.processInstanceChange.__name__) for node in txnPoolNodeSet
+        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
         if node != pr_node}
 
     def chk1():
@@ -42,7 +42,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
             if node != pr_node:
                 assert node.spylog.count(node.propose_view_change.__name__) \
                     > prp_inst_chg_calls[node.name]
-                assert node.spylog.count(node.processInstanceChange.__name__) \
+                assert node.view_changer.spylog.count(node.view_changer.process_instance_change_msg.__name__) \
                     == recv_inst_chg_calls[node.name]
 
     # Disconnect master's primary

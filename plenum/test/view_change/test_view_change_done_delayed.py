@@ -23,8 +23,8 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     slow_node.nodeIbStasher.delay(vcd_delay(delay_vcd))
 
     def chk(node):
-        assert node.elector.has_acceptable_view_change_quorum
-        assert node.elector._primary_verified
+        assert node.view_changer.has_acceptable_view_change_quorum
+        assert node.view_changer._primary_verified
         assert node.isParticipating
         assert None not in {r.isPrimary for r in node.replicas}
 
@@ -42,8 +42,8 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
 
     # Since `ViewChangeCone` is delayed, slow_node is not able to select primary
     # and participate
-    assert not slow_node.elector.has_acceptable_view_change_quorum
-    assert not slow_node.elector._primary_verified
+    assert not slow_node.view_changer.has_acceptable_view_change_quorum
+    assert not slow_node.view_changer._primary_verified
     assert not slow_node.isParticipating
     assert {r.isPrimary for r in slow_node.replicas} == {None}
 
