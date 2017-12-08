@@ -33,6 +33,7 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
@@ -165,6 +166,11 @@ class TestNodeCore(StackedTester):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimarySelector
         return pdCls(self)
+
+    def newViewChanger(self):
+        vchCls = self.view_changer if self.view_changer is not None else \
+            TestViewChanger
+        return vchCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -311,8 +317,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,
                  "eatTestMsg",
-                 Node.decidePrimaries,
-                 Node.startViewChange,
                  Node.discard,
                  Node.reportSuspiciousNode,
                  Node.reportSuspiciousClient,
@@ -320,8 +324,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.propagate,
                  Node.forward,
                  Node.send,
-                 Node.sendInstanceChange,
-                 Node.processInstanceChange,
                  Node.checkPerformance,
                  Node.processStashedOrderedReqs,
                  Node.lost_master_primary,
@@ -341,7 +343,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
                  Node.process_current_state_message,
-                 Node._start_view_change_if_possible
                  ]
 
 
@@ -411,6 +412,19 @@ selector_spyables = [PrimarySelector.decidePrimaries]
 @spyable(methods=selector_spyables)
 class TestPrimarySelector(PrimarySelector):
     pass
+
+
+view_changer_spyables = [
+    ViewChanger.sendInstanceChange,
+    ViewChanger._start_view_change_if_possible,
+    ViewChanger.process_instance_change_msg,
+    ViewChanger.startViewChange
+]
+
+@spyable(methods=view_changer_spyables)
+class TestViewChanger(ViewChanger):
+    pass
+
 
 
 replica_spyables = [
@@ -903,7 +917,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     :param proposedViewNo: The view no which is proposed
     :return:
     """
-    params = [args for args in getAllArgs(node, TestNode.startViewChange)]
+    params = [args for args in getAllArgs(node.view_changer, ViewChanger.startViewChange)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo

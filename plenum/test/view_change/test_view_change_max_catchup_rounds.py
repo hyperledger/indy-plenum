@@ -19,7 +19,7 @@ def test_view_change_after_max_catchup_rounds(txnPoolNodeSet, looper, sdk_pool_h
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 2 * 3, 3)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    ledger_summary = txnPoolNodeSet[0].elector.ledger_summary
+    ledger_summary = txnPoolNodeSet[0].ledger_summary
 
     slow_nodes = [r.node for r in getNonPrimaryReplicas(
         txnPoolNodeSet, 0)[-2:]]
@@ -54,7 +54,7 @@ def test_view_change_after_max_catchup_rounds(txnPoolNodeSet, looper, sdk_pool_h
 
     # The requests which were prepared by only a subset of the nodes were
     # not ordered
-    assert txnPoolNodeSet[0].elector.ledger_summary == ledger_summary
+    assert txnPoolNodeSet[0].ledger_summary == ledger_summary
 
     for node in slow_nodes:
         node.nodeIbStasher.reset_delays_and_process_delayeds()

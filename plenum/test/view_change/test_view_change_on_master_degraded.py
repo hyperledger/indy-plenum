@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from plenum.server.node import Node
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
@@ -53,9 +53,9 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
-    instChngMethodName = Node.sendInstanceChange.__name__
+    instChngMethodName = ViewChanger.sendInstanceChange.__name__
     for n in nodeSet:
-        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
+        sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
 
     # Node reluctant to change view, never says master is degraded
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
@@ -70,10 +70,10 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
     # thus must have called `sendInstanceChange`
     for n in nodeSet:
         if n.name != relucatantNode.name:
-            assert n.spylog.count(instChngMethodName) > \
+            assert n.view_changer.spylog.count(instChngMethodName) > \
                 sentInstChanges.get(n.name, 0)
         else:
-            assert n.spylog.count(instChngMethodName) == \
+            assert n.view_changer.spylog.count(instChngMethodName) == \
                 sentInstChanges.get(n.name, 0)
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)
