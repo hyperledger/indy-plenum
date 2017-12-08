@@ -6,6 +6,7 @@ from plenum.test.pool_transactions.helper import updateNodeData, \
     buildPoolClientAndWallet
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
@@ -15,8 +16,8 @@ whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
              "conflicting address", "got error while verifying message"]
 
 
-def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
-                                         tdirWithPoolTxns, tconf, steward1,
+def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithPoolTxns,
+                                         tdirWithClientPoolTxns, tconf, steward1,
                                          stewardWallet, nodeThetaAdded,
                                          poolTxnClientData):
     newSteward, newStewardWallet, newNode = nodeThetaAdded
@@ -44,14 +45,25 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     # what happens when starting the node with script
     restartedNodes = []
     for node in txnPoolNodeSet[:-1]:
-        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+        config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
+        restartedNode = TestNode(node.name,
+                                 ledger_dir=config_helper.ledger_dir,
+                                 keys_dir=config_helper.keys_dir,
+                                 genesis_dir=config_helper.genesis_dir,
+                                 plugins_dir=config_helper.plugins_dir,
                                  config=tconf, ha=node.nodestack.ha,
                                  cliha=node.clientstack.ha)
         looper.add(restartedNode)
         restartedNodes.append(restartedNode)
 
     # Starting the node whose HA was changed
-    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
+    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
+    node = TestNode(newNode.name,
+                    ledger_dir=config_helper.ledger_dir,
+                    keys_dir=config_helper.keys_dir,
+                    genesis_dir=config_helper.genesis_dir,
+                    plugins_dir=config_helper.plugins_dir,
+                    config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
     restartedNodes.append(node)
@@ -62,7 +74,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     # Building a new client that reads from the genesis txn file
     # but is able to connect to all nodes
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithPoolTxns)
+                                              tdirWithClientPoolTxns)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *restartedNodes)

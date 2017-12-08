@@ -2,7 +2,7 @@ from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
 
-def test_ordered_cleaning():
+def test_ordered_cleaning(tconf):
 
     global_view_no = 2
 
@@ -15,7 +15,7 @@ def test_ordered_cleaning():
         gc = lambda *args: None,
     )
 
-    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
+    replica = Replica(node, instId=0, config=tconf, bls_bft_replica=bls_bft_replica)
     total = []
 
     num_requests_per_view = 3
@@ -33,7 +33,7 @@ def test_ordered_cleaning():
     assert len(replica.ordered) == len(total[num_requests_per_view:])
 
 
-def test_primary_names_cleaning():
+def test_primary_names_cleaning(tconf):
 
     node = FakeSomething(
         name="fake node",
@@ -44,7 +44,7 @@ def test_primary_names_cleaning():
         gc = lambda *args: None,
     )
 
-    replica = Replica(node, instId=0, bls_bft_replica=bls_bft_replica)
+    replica = Replica(node, instId=0, config=tconf, bls_bft_replica=bls_bft_replica)
 
     replica.primaryName = "Node1:0"
     assert list(replica.primaryNames.items()) == \

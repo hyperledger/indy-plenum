@@ -1,10 +1,10 @@
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import getPrimaryReplica, getNonPrimaryReplicas
 from plenum.test.view_change.conftest import perf_chk_patched
+from plenum.test.helper import sdk_send_random_and_check
 
 logger = getlogger()
 
@@ -12,7 +12,7 @@ pp_delay = 3
 
 
 def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
-                                   wallet1, client):
+                                   sdk_pool_handle, sdk_wallet_client):
     """
     A non-primary receives PRE-PREPARE out of order, it receives with ppSeqNo 2
      earlier than it receives the one with ppSeqNo 1 but it stashes the one
@@ -43,8 +43,9 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
                      format(node))
         node.nodeIbStasher.delay(specificPrePrepares)
 
-    send_reqs_to_nodes_and_verify_all_replies(
-        looper, wallet1, client, (ppsToDelay + 1) * tconf.Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                              (ppsToDelay + 1) * tconf.Max3PCBatchSize)
+
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:

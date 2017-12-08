@@ -6,20 +6,18 @@ from stp_raet.rstack import RStack
 from stp_zmq.zstack import ZStack
 from stp_core.types import HA
 
-from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventuallyAll, eventually
 from plenum.common.exceptions import NotConnectedToAny
 from stp_core.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
 from plenum.test import waits
-from plenum.common import util
+from plenum.config import UseZStack
 
 logger = getlogger()
-config = getConfig()
 
 
-if config.UseZStack:
+if UseZStack:
     BaseStackClass = ZStack
 else:
     BaseStackClass = RStack
@@ -104,7 +102,7 @@ def getTestableStack(stack: NetworkInterface):
 
 
 # TODO: move to stp
-if config.UseZStack:
+if UseZStack:
     RemoteState = NamedTuple("RemoteState", [
         ('isConnected', Optional[bool])
     ])

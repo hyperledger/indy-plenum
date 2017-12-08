@@ -42,10 +42,10 @@ def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
     new_node = one_node_added
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, retryWait=1,
                           timeout=10))
-    assert len(getAllReturnVals(new_node,
-                                new_node._start_view_change_if_possible,
+    assert len(getAllReturnVals(new_node.view_changer,
+                                new_node.view_changer._start_view_change_if_possible,
                                 compare_val_to=True)) > 0
-    assert not new_node._next_view_indications
+    assert not new_node.view_changer._next_view_indications
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
 
 
@@ -57,7 +57,7 @@ def test_new_node_has_same_view_as_others(new_node_in_correct_view):
 
 def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                                    looper, txnPoolNodeSet,
-                                                   tdirWithPoolTxns,
+                                                   tdir,
                                                    allPluginsPath, tconf,
                                                    wallet1, client1):
     """
@@ -81,14 +81,14 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     restarted_node = start_stopped_node(node_to_stop, looper, tconf,
-                                        tdirWithPoolTxns, allPluginsPath)
+                                        tdir, allPluginsPath)
     txnPoolNodeSet = remaining_nodes + [restarted_node]
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=10))
-    assert len(getAllReturnVals(restarted_node,
-                                restarted_node._start_view_change_if_possible,
+    assert len(getAllReturnVals(restarted_node.view_changer,
+                                restarted_node.view_changer._start_view_change_if_possible,
                                 compare_val_to=True)) > 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
-    assert not restarted_node._next_view_indications
+    assert not restarted_node.view_changer._next_view_indications

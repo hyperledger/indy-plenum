@@ -35,6 +35,7 @@ GENERAL_CONFIG_DIR = '/etc/indy'
 
 # it should be filled from baseConfig
 NETWORK_NAME = ''
+USER_CONFIG_DIR = None
 
 GENERAL_CONFIG_FILE = 'plenum_config.py'
 NETWORK_CONFIG_FILE = 'plenum_config.py'
@@ -123,6 +124,7 @@ STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 # Node status configuration
+DUMP_VALIDATOR_INFO_INIT_SEC = 3
 DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
 
 RAETLogLevel = "terse"
