@@ -2642,10 +2642,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
                     self.applyReq(req, msg.ppTime)
-                self.processOrdered(msg)
-            else:
-                self.processOrdered(msg)
+                state_root = self.stateRootHash(msg.ledgerId, isCommitted=False)
+                self.onBatchCreated(msg.ledgerId, state_root)
+
+            self.processOrdered(msg)
             i += 1
+
         logger.debug(
             "{} processed {} stashed ordered requests".format(
                 self, i))
