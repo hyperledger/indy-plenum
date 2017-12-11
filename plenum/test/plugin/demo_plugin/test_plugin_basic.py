@@ -9,6 +9,9 @@ from stp_core.loop.eventually import eventually
 
 
 def test_plugin_setup(txnPoolNodeSet):
+    """
+    Test that plugin's ledger and state are setup
+    """
     for node in txnPoolNodeSet:
         assert AUCTION_LEDGER_ID in node.ledger_ids
         assert AUCTION_LEDGER_ID in node.ledgerManager.ledgerRegistry
@@ -18,9 +21,15 @@ def test_plugin_setup(txnPoolNodeSet):
 
 def test_plugin_client_req_fields(txnPoolNodeSet, looper, wallet1, client1,
                                   client1Connected):
+    """
+    Test that plugin's addition of request fields and their validation is
+    successfful
+    """
     op = {
         TXN_TYPE: GET_BAL
     }
+
+    # Valid field value results in successful processing
     req = Request(operation=op, reqId=Request.gen_req_id(),
                   protocolVersion=CURRENT_PROTOCOL_VERSION,
                   identifier=wallet1.defaultId,
@@ -28,6 +37,7 @@ def test_plugin_client_req_fields(txnPoolNodeSet, looper, wallet1, client1,
     client1.submitReqs(req)
     waitForSufficientRepliesForRequests(looper, client1, requests=[req, ])
 
+    # Invalid field value results in proper failure
     req = Request(operation=op, reqId=Request.gen_req_id(),
                   protocolVersion=CURRENT_PROTOCOL_VERSION,
                   identifier=wallet1.defaultId,

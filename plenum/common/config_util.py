@@ -77,13 +77,14 @@ def _getConfig(general_config_dir: str = None):
     config = stp_config
     config.__dict__.update(plenum_config.__dict__)
 
-    if (general_config_dir):
+    if general_config_dir:
         config.GENERAL_CONFIG_DIR = general_config_dir
 
     if not config.GENERAL_CONFIG_DIR:
         raise Exception('GENERAL_CONFIG_DIR must be set')
 
-    extend_with_external_config(config, (config.GENERAL_CONFIG_DIR, config.GENERAL_CONFIG_FILE))
+    extend_with_external_config(config, (config.GENERAL_CONFIG_DIR,
+                                         config.GENERAL_CONFIG_FILE))
 
     # "unsafe" is a set of attributes that can set certain behaviors that
     # are not safe, for example, 'disable_view_change' disables view changes

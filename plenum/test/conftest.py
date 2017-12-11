@@ -329,6 +329,7 @@ def nodeSet(request, tdir, tconf, nodeReg, allPluginsPath, patchPluginManager):
 def _tdir(tdir_fact):
     return tdir_fact.mktemp('').strpath
 
+
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory):
     tempdir = _tdir(tmpdir_factory)
@@ -757,6 +758,7 @@ def tdirWithNodeKeepInited(tdir, tconf, node_config_helper_class, poolTxnData, p
         use_bls = nName in poolTxnData['nodesWithBls']
         config_helper = node_config_helper_class(nName, tconf, chroot=tdir)
         initNodeKeysForBothStacks(nName, config_helper.keys_dir, seed, use_bls=use_bls, override=True)
+
 
 @pytest.fixture(scope="module")
 def poolTxnClientData(poolTxnClientNames, poolTxnData):

@@ -1,15 +1,17 @@
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
-from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
+from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
+    CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
 from plenum.common.messages.fields import NetworkIpAddressField, \
-    NetworkPortField, NonEmptyStringField, IterableField, \
+    NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
-from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
+from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
+    SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
 
 
 class ClientNodeOperationData(MessageValidator):

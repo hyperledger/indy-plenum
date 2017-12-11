@@ -50,7 +50,10 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf,
     nodeHa, nodeCHa = HA(*node0.nodestack.ha), HA(*node0.clientstack.ha)
     node0 = TestNode(
         node0.name,
-        basedirpath=tdirWithPoolTxns,
+        ledger_dir=node0.ledger_dir,
+        keys_dir=node0.keys_dir,
+        genesis_dir=node0.genesis_dir,
+        plugins_dir=node0.plugins_dir,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
