@@ -72,9 +72,18 @@ def test_new_node_accepts_chosen_primary(
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
+    # here we must have view_no = 4
+    #  - current primary is Alpha (based on node registry before new node joined)
+    #  - but new node expects itself as primary basing
+    #    on updated node registry
+    # -> new node doesn't verify current primary
     assert not new_node.view_changer._primary_verified
+    # -> new node haven't received ViewChangeDone from the expected primary
+    #    (self VCHD message is registered when node sends it, not the case
+    #    for primary propagate logic)
     assert not new_node.view_changer.has_view_change_from_primary
-    assert new_node.view_changer.is_propagated_view_change_completed
+    # -> BUT new node understands that no view change actually happens
+    assert new_node.view_changer._is_propagated_view_change_completed
 
     logger.debug("Send requests to ensure that pool is working properly, "
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
