@@ -531,6 +531,7 @@ class TestNodeSet(ExitStack):
                           keys_dir=config_helper.keys_dir,
                           genesis_dir=config_helper.genesis_dir,
                           plugins_dir=config_helper.plugins_dir,
+                          node_info_dir=config_helper.node_info_dir,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))
