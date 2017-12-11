@@ -27,10 +27,10 @@ class ValidatorNodeInfoTool:
     JSON_SCHEMA_VERSION = '0.0.1'
     FILE_NAME_TEMPLATE = '{node_name}_info.json'
 
-    def __init__(self, node, node_info_dir):
+    def __init__(self, node):
         self._node = node
         self.__name = self._node.name
-        self.__node_info_dir = node_info_dir
+        self.__node_info_dir = self._node.node_info_dir
 
     @property
     def info(self):

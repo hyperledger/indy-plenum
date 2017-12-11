@@ -395,7 +395,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
-        self._info_tool = self._info_tool_class(self, self.node_info_dir)
+        self._info_tool = self._info_tool_class(self)
 
         self._last_performance_check_data = {}
 
