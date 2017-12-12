@@ -527,11 +527,7 @@ class TestNodeSet(ExitStack):
                           cliname=cliname,
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
-                          ledger_dir=config_helper.ledger_dir,
-                          keys_dir=config_helper.keys_dir,
-                          genesis_dir=config_helper.genesis_dir,
-                          plugins_dir=config_helper.plugins_dir,
-                          node_info_dir=config_helper.node_info_dir,
+                          config_helper=config_helper,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))

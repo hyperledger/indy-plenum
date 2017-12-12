@@ -922,10 +922,7 @@ def testNode(pluginManager, tdir, tconf, node_config_helper_class):
     config_helper = node_config_helper_class(name, tconf, chroot=tdir)
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg),
-                    ledger_dir=config_helper.ledger_dir,
-                    keys_dir=config_helper.keys_dir,
-                    genesis_dir=config_helper.genesis_dir,
-                    plugins_dir=config_helper.plugins_dir,
+                    config_helper=config_helper,
                     config=tconf,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
     node.start(None)

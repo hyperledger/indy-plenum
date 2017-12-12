@@ -53,10 +53,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_
     def create(name):
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)

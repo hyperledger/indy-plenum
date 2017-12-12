@@ -47,10 +47,7 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet, tdir, tconf,
     # during the steps, only the final result is checked.
     config_helper = PNodeConfigHelper(theta.name, tconf, chroot=tdir)
     restartedNode = TestNode(theta.name,
-                             ledger_dir=config_helper.ledger_dir,
-                             keys_dir=config_helper.keys_dir,
-                             genesis_dir=config_helper.genesis_dir,
-                             plugins_dir=config_helper.plugins_dir,
+                             config_helper=config_helper,
                              config=tconf, ha=correctNodeHa, cliha=clientHa)
     looper.add(restartedNode)
     txnPoolNodeSet[-1] = restartedNode

@@ -121,10 +121,7 @@ def start_newly_added_node(
         nodeClass):
     config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
     node = nodeClass(node_name,
-                     ledger_dir=config_helper.ledger_dir,
-                     keys_dir=config_helper.keys_dir,
-                     genesis_dir=config_helper.genesis_dir,
-                     plugins_dir=config_helper.plugins_dir,
+                     config_helper=config_helper,
                      config=tconf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
@@ -225,10 +222,7 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     looper.removeProdable(name=node.name)
     config_helper = PNodeConfigHelper(node_alias, tconf, chroot=tdir)
     restartedNode = TestNode(node_alias,
-                             ledger_dir=config_helper.ledger_dir,
-                             keys_dir=config_helper.keys_dir,
-                             genesis_dir=config_helper.genesis_dir,
-                             plugins_dir=config_helper.plugins_dir,
+                             config_helper=config_helper,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))

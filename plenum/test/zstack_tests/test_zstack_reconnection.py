@@ -51,10 +51,7 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     config_helper = PNodeConfigHelper(nodeToCrash.name, tconf, chroot=tdir)
     node = TestNode(
         nodeToCrash.name,
-        ledger_dir=config_helper.ledger_dir,
-        keys_dir=config_helper.keys_dir,
-        genesis_dir=config_helper.genesis_dir,
-        plugins_dir=config_helper.plugins_dir,
+        config_helper=config_helper,
         config=tconf,
         ha=nodeToCrash.nodestack.ha,
         cliha=nodeToCrash.clientstack.ha)

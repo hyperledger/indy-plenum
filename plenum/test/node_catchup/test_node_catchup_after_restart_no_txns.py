@@ -51,10 +51,7 @@ def test_node_catchup_after_restart_no_txns(
     config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
     new_node = TestNode(
         new_node.name,
-        ledger_dir=config_helper.ledger_dir,
-        keys_dir=config_helper.keys_dir,
-        genesis_dir=config_helper.genesis_dir,
-        plugins_dir=config_helper.plugins_dir,
+        config_helper=config_helper,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
