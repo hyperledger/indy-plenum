@@ -63,16 +63,17 @@ Note: We may change the order of Iterations (and hence the roadmap of tasks in t
 - All states
 - Attributes store
 - BLS store (in fact the last entry only) 
+- seqNo store
 
 ###Participants
 
 ##### Catch-up
 |  | What ledger | Min Number of nodes to finish | Node type to finish | Bootstrapping 
 | --- | --- | --- | --- | --- 
-Client | POOL | F_G + 1 | Gatekeepers | Yes (from Observers and Gatekeepers)
-Observer | All | F_G + 1 | Gatekeepers | Yes (from Observers and Gatekeepers)
-Gatekeeper | All | F_V + 1 | Validators | Yes (from Gatekeepers and Validators)
-Validator | All | F_V + 1 | Validators | Yes (from Gatekeepers and Validators)
+Client | POOL | F_G + 1 (or even 1 if use state proofs and timestamp)| Gatekeepers | Yes (from Observers and Gatekeepers)
+Observer | All | F_G + 1 (or even 1 if use state proofs and timestamp)| Gatekeepers | Yes (from Observers and Gatekeepers)
+Gatekeeper | All | F_V + 1 (or even 1 if use state proofs and timestamp)| Validators | Yes (from Gatekeepers and Validators)
+Validator | All | F_V + 1 (or even 1 if use state proofs and timestamp)| Validators | Yes (from Gatekeepers and Validators)
 
 ##### Read and Write
 | | Read Node type | Read Min Number of nodes | Write Node type | Write Min Number of nodes | 
@@ -97,7 +98,7 @@ Validator | Catch-up | Validators
     - Provides catch-up for Gatekeepers and other Validators only (neither for Clients nor other Observers)
     - Connected to all Gatekeepers (the same way as to Validators, but just doesn’t include them into 3PC)
     - Propagates all write replies to all Gatekeepers to make them in sync
-    - Can bootstrap catch-up using other Gatekeepers or Validators
+    - Can bootstrap catch-up using other Gatekeepers or Validators and validate catch-up results using state proofs and timestamp of the latest state.
     - Has BFT f parameter as f_V
     - The number of Validators can not be too big because of RBFT chattiness problem
 - Gatekeepers Ring: 
@@ -107,7 +108,7 @@ Validator | Catch-up | Validators
     - Registers to Validators to be in sync with them on every Reply
     - Can become a Validator
     - Can register Observers to keep them in sync
-    - Can bootstrap catch-up using other Gatekeepers or Validators
+    - Can bootstrap catch-up using other Gatekeepers or Validators and validate catch-up results using state proofs and timestamp of the latest state.
     - Has BFT f parameter as f_G
     - The number of Gatekeepers can be bigger than the number of Validators since it doesn’t have RBFT chattiness problem
 - Observers Ring
@@ -117,7 +118,7 @@ Validator | Catch-up | Validators
     - Registers to Gatekeepers with some synchronization policy to be in sync
     - Can not become a Validator
     - Can register Observers to keep them in sync => a net of Observers
-    - Can bootstrap catch-up using other Observers or Gatekeeper’s states
+    - Can bootstrap catch-up using other Observers or Gatekeeper’s states and validate catch-up results using state proofs and timestamp of the latest state.
     - No restrictions on a number of Observers 
 - Clients
     - Can connect to Observers or Gatekeepers only
@@ -140,7 +141,8 @@ Reduce Catch-up load
     1. Register all Gatekeeper Nodes as Observers with a default Policy to send each write Reply to all Gatekeepers
     1. Restrict Gatekeepers to process read requests only and exclude them from consensus. Gatekeepers reject write requests at this point
     1. Support processing observed data by Gatekeepers (or Observers in general)
-    1.Catch-up BLS store by all Nodes (in fact the latest BLS store is needed)
+    1. Catch-up BLS store by all Nodes (in fact the latest BLS store is needed)
+    1. Catch-up seqNo store by all Nodes
 - Goal4: Reduce Write load
     1. Support Write State Proofs 
     1. Make sure that a valid Reply with State Proof is sent for already processed reqId  
