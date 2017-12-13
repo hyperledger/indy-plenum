@@ -3,8 +3,6 @@ import types
 from distutils.dir_util import copy_tree
 from stat import ST_MODE
 
-from copy import deepcopy
-
 from stp_core.common.util import adict
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -15,17 +13,17 @@ from stp_zmq.zstack import ZStack
 
 
 def genKeys(baseDir, names):
-    generate_certificates(baseDir, *names, clean=True)
+    bdir = os.path.join(baseDir)
+    generate_certificates(bdir, *names, clean=True)
     for n in names:
-        d = os.path.join(baseDir, n)
+        d = os.path.join(bdir, n)
         os.makedirs(d, exist_ok=True)
         for kd in ZStack.keyDirNames():
-            copy_tree(os.path.join(baseDir, kd), os.path.join(d, kd))
+            copy_tree(os.path.join(bdir, kd), os.path.join(d, kd))
 
 
 def patch_send_ping_counter(stack):
     stack.ping_count = 0
-    origMethod = stack.sendPingPong
 
 
 def add_counters_to_ping_pong(stack):

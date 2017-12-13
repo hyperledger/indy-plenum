@@ -1,17 +1,16 @@
 from plenum.common.has_file_storage import HasFileStorage
-from plenum.common.keygen_utils import initLocalKeys, initNodeKeysForBothStacks
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 
 
-def cleanup_environment(name, base_dir):
-    dataLocation = HasFileStorage.getDataLocation(name, base_dir)
+def cleanup_environment(dataLocation):
+    dataLocation = HasFileStorage.getDataLocation(dataLocation)
     HasFileStorage.wipeDataLocation(dataLocation)
 
 
-def initialize_node_environment(name, base_dir, sigseed=None,
+def initialize_node_environment(name, node_config_helper, sigseed=None,
                                 override_keep=False):
-    cleanup_environment(name, base_dir)
+    cleanup_environment(node_config_helper.ledger_dir)
 
-    _, vk = initNodeKeysForBothStacks(name=name, baseDir=base_dir,
-                                      sigseed=sigseed, override=override_keep)
-
-    return vk
+    _, vk, bls_key = initNodeKeysForBothStacks(name=name, keys_dir=node_config_helper.keys_dir,
+                                               sigseed=sigseed, override=override_keep)
+    return vk, bls_key

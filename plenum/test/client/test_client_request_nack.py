@@ -30,6 +30,7 @@ def request1(wallet1):
     return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testRequestFullRoundTrip(restrictiveVerifier,
                              client1,
                              sent1,

@@ -9,6 +9,7 @@ from plenum.test.node_catchup.helper import \
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import checkNodesConnected, TestNode, \
     ensureElectionsDone
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
@@ -24,9 +25,9 @@ def testClientUsingPoolTxns(looper, txnPoolNodeSet, poolTxnClient):
                                                   *txnPoolNodeSet)
 
 
-def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
+def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithClientPoolTxns):
     cname = "testClient" + randomString(5)
-    newClient, _ = genTestClient(tmpdir=tdirWithPoolTxns, name=cname,
+    newClient, _ = genTestClient(tmpdir=tdirWithClientPoolTxns, name=cname,
                                  usePoolLedger=True)
     logger.debug("{} starting at {}".format(newClient, newClient.nodestack.ha))
     looper.add(newClient)
@@ -39,7 +40,7 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
     looper.run(newClient.ensureConnectedToNodes())
     newClient.stop()
     looper.removeProdable(newClient)
-    newClient, _ = genTestClient(tmpdir=tdirWithPoolTxns, name=cname,
+    newClient, _ = genTestClient(tmpdir=tdirWithClientPoolTxns, name=cname,
                                  usePoolLedger=True)
     logger.debug("{} again starting at {}".format(newClient,
                                                   newClient.nodestack.ha))
@@ -54,11 +55,11 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
 
 
 def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                                      tdir, tdirWithClientPoolTxns,
                                       poolTxnClientNames, poolTxnData, tconf,
-                                      poolTxnNodeNames,
-                                      allPluginsPath):
+                                      poolTxnNodeNames, allPluginsPath):
     name = poolTxnClientNames[-1]
-    newClient, w = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
+    newClient, w = genTestClient(tmpdir=tdirWithClientPoolTxns, nodes=txnPoolNodeSet,
                                  name=name, usePoolLedger=True)
     looper.add(newClient)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
@@ -71,7 +72,9 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # looper.run(newClient.ensureDisconnectedToNodes(timeout=60))
     txnPoolNodeSet = []
     for nm in poolTxnNodeNames:
-        node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+        config_helper = PNodeConfigHelper(nm, tconf, chroot=tdir)
+        node = TestNode(nm,
+                        config_helper=config_helper,
                         config=tconf, pluginPaths=allPluginsPath)
         looper.add(node)
         txnPoolNodeSet.append(node)

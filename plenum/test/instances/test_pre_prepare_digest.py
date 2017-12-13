@@ -22,7 +22,7 @@ whitelist = [Suspicions.PPR_DIGEST_WRONG.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # The primary replica would send PRE-PREPARE messages with incorrect digest
     makeNodeFaulty(primaryRep.node, partial(send3PhaseMsgWithIncorrectDigest,

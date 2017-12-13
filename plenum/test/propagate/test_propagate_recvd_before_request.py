@@ -13,6 +13,7 @@ nodeCount = 4
 howlong = 10
 delaySec = 5
 
+
 @pytest.fixture()
 def setup(nodeSet):
     A, B, C, D = nodeSet.nodes.values()
@@ -47,5 +48,6 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should have forwarded the request
         assertLength(forwardedRequest(A), 1)
 
-    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet)) + delaySec
+    timeout = waits.expectedClientRequestPropagationTime(
+        len(nodeSet)) + delaySec
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

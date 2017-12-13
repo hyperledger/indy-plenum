@@ -1,8 +1,7 @@
-from abc import abstractmethod
 from typing import Optional
 
 from plenum.common.request import Request
-from plenum.common.messages.node_messages import *
+from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.msg_filter import MessageFilter
 
 
@@ -32,7 +31,7 @@ class ViewChangeMessageFilter(MessageFilter):
 
         for msg_3pc in msgs_3pc:
             if isinstance(msg, msg_3pc) and\
-                            msg.viewNo > self.__view_no:
+                    msg.viewNo > self.__view_no:
                 return True
 
         return False

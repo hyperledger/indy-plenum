@@ -26,8 +26,8 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
         client, wallet = buildPoolClientAndWallet((name, seed),
                                                   tdirWithPoolTxns)
         txnPoolNodesLooper.add(client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
-                                                      *txnPoolNodeSet)
+        ensureClientConnectedToNodesAndPoolLedgerSame(
+            txnPoolNodesLooper, client, *txnPoolNodeSet)
         clients.append((client, wallet))
 
     numRequests = 250

@@ -1,9 +1,9 @@
 import asyncio
 
+import pytest
 from stp_core.common.temp_file_util import SafeTemporaryDirectory
 from stp_core.loop.looper import Looper
 from stp_core.network.port_dispenser import genHa
-from stp_core.test.conftest import *
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ def tdirAndLooper(loop):
     asyncio.set_event_loop(loop)
 
     with SafeTemporaryDirectory() as td:
-        with Looper(loop=loop, debug=True) as looper:
+        with Looper(loop=loop) as looper:
             yield td, looper
 
 

@@ -20,16 +20,15 @@ TestRunningTimeLimitSec = 150
 
 
 @pytest.fixture(scope="module")
-def reduced_catchup_timeout_conf(conf, tdir, request):
-    defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
-    conf.baseDir = tdir
-    conf.CatchupTransactionsTimeout = 10
+def reduced_catchup_timeout_conf(tconf, request):
+    defaultCatchupTransactionsTimeout = tconf.CatchupTransactionsTimeout
+    tconf.CatchupTransactionsTimeout = 10
 
     def reset():
-        conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
+        tconf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
 
 
 def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
@@ -69,11 +68,13 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     # Since one of the nodes does not reply, this new node will experience a
     # timeout and retry catchup requests, hence a long test timeout.
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-              reduced_catchup_timeout_conf.CatchupTransactionsTimeout
+        reduced_catchup_timeout_conf.CatchupTransactionsTimeout
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
     new_size = len(new_node_ledger.ledger)
 
-    # The new node ledger might catchup some transactions from the batch of `more_request` transactions
-    assert old_size_others - old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
+    # The new node ledger might catchup some transactions from the batch of
+    # `more_request` transactions
+    assert old_size_others - \
+        old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
     sendRandomRequests(wallet, client, 2)

@@ -1,5 +1,5 @@
 from stp_core.loop.eventually import eventually
-from plenum.server.node import Node
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test import waits
 from plenum.test.helper import checkDiscardMsg, waitForViewChange
 
@@ -14,7 +14,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
+    icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
@@ -41,12 +41,12 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
-    instChngMethodName = Node.sendInstanceChange.__name__
+    instChngMethodName = ViewChanger.sendInstanceChange.__name__
     for n in nodeSet:
-        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
+        sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
 
     # Send an instance change message to all nodes
-    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
+    icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.
@@ -55,4 +55,4 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
     # `sendInstanceChange`
     for n in nodeSet:
         assert n.spylog.count(instChngMethodName) == \
-                   sentInstChanges.get(n.name, 0)
+            sentInstChanges.get(n.name, 0)

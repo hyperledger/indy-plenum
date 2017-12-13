@@ -4,7 +4,7 @@ import argparse
 
 from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
     buildKeepDirIfNotExists
-from plenum.common.keygen_utils import initLocalKeys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
@@ -45,33 +45,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Initialize node stack
-    print("For node stack, stack name is", args.name)
-    verkey = None
-
-    if not args.seed:
-        args.seed = randomString(32)
-        print("Generating a random seed for the keypair {}".format(args.seed))
+    print("Node-stack name is", args.name)
+    print("Client-stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        verkey = initLocalKeys(args.name, config.baseDir, args.seed, args.force,
-                          config=config)
-    except Exception as ex:
-        print(ex)
-        exit()
-
-    # Initialize client stack
-    print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
-    try:
-        initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
-                 args.force, config=config)
-    except Exception as ex:
-        print(ex)
-        exit()
-
-    typ = args.type or "node"
-
-    # Print genesis transaction commands
-    try:
+        pubkey, verkey, blspk = initNodeKeysForBothStacks(args.name, config.baseDir, args.seed, override=args.force)
+        typ = args.type or "node"
+        # Print genesis transaction commands
         if args.print_gen_txn:
             printGenesisTrans(typ, args.name, verkey, args.stewardverkey,
                               args.nodeip, args.nodeport)

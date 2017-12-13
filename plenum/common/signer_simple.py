@@ -1,15 +1,13 @@
-import base58
 from binascii import hexlify
 from typing import Dict
 
+import base58
+from common.serializers.serialization import serialize_msg_for_signing
 from libnacl import randombytes
-from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
-
-from stp_core.crypto.signer import Signer
-from plenum.common.signing import serializeMsg
 from plenum.common.types import f
-
 from plenum.common.util import hexToFriendly
+from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
+from stp_core.crypto.signer import Signer
 
 
 class SimpleSigner(Signer):
@@ -65,7 +63,8 @@ class SimpleSigner(Signer):
         """
         Return a signature for the given message.
         """
-        ser = serializeMsg(msg, topLevelKeysToIgnore=[f.SIG.nm])
+        ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm,
+                                                                   f.SIGS.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

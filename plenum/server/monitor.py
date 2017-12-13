@@ -1,13 +1,15 @@
 import time
 from datetime import datetime
+from operator import itemgetter
 from statistics import mean
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Set
 from typing import List
 from typing import Tuple
 
 import psutil
 
 from plenum.common.config_util import getConfig
+from plenum.common.constants import MONITORING_PREFIX
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -23,7 +25,6 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
-config = getConfig()
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -34,24 +35,31 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     monitors the performance of each instance. Throughput of requests and
     latency per client request are measured.
     """
+    WARN_NOT_PARTICIPATING_WINDOW_MINS = 5
+    WARN_NOT_PARTICIPATING_UNORDERED_NUM = 10
+    WARN_NOT_PARTICIPATING_MIN_DIFF_SEC = 3
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack,
                  blacklister: Blacklister, nodeInfo: Dict,
                  notifierEventTriggeringConfig: Dict,
-                 pluginPaths: Iterable[str]=None):
+                 pluginPaths: Iterable[str]=None,
+                 notifierEventsEnabled: bool = True):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
         self.nodeInfo = nodeInfo
         self.notifierEventTriggeringConfig = notifierEventTriggeringConfig
+        self.notifierEventsEnabled = notifierEventsEnabled
 
         self.Delta = Delta
         self.Lambda = Lambda
         self.Omega = Omega
         self.statsConsumers = self.getPluginsByType(pluginPaths,
                                                     PLUGIN_TYPE_STATS_CONSUMER)
+
+        self.config = getConfig()
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and
@@ -63,6 +71,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # tuple of client id and request id and the value is the time at which
         # the request was submitted for ordering
         self.requestOrderingStarted = {}  # type: Dict[Tuple[str, int], float]
+
+        # Contains keys of ordered requests
+        self.ordered_requests_keys = set()  # type: Set[Tuple[str, int]]
 
         # Request latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
@@ -119,16 +130,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
 
-        if config.SendMonitorStats:
+        if self.config.SendMonitorStats:
             self.startRepeating(self.sendPeriodicStats,
-                                config.DashboardUpdateFreq)
+                                self.config.DashboardUpdateFreq)
 
-        self.startRepeating(self.checkPerformance,
-                            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+        self.startRepeating(
+            self.checkPerformance,
+            self.config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
-        if 'disable_view_change' in config.unsafe:
+        if 'disable_view_change' in self.config.unsafe:
             self.isMasterDegraded = lambda: False
-        if 'disable_monitor' in config.unsafe:
+        if 'disable_monitor' in self.config.unsafe:
             self.requestOrdered = lambda *args, **kwargs: {}
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
@@ -180,9 +192,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Reset the monitor. Sets all monitored values to defaults.
         """
-        logger.debug("Monitor being reset")
-        self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
+        logger.debug("{}'s Monitor being reset".format(self))
+        num_instances = len(self.instances.started)
+        self.numOrderedRequests = [(0, 0)] * num_instances
         self.requestOrderingStarted = {}
+        self.ordered_requests_keys.clear()
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
@@ -196,6 +210,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
+
+    def removeInstance(self, index=None):
+        if self.instances.count > 0:
+            if index is None:
+                index = self.instances.count - 1
+            self.instances.remove(index)
+            del self.numOrderedRequests[index]
+            del self.clientAvgReqLatencies[index]
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False) -> Dict:
@@ -216,6 +238,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             duration = now - self.requestOrderingStarted[(identifier, reqId)]
             if byMaster:
                 self.masterReqLatencies[(identifier, reqId)] = duration
+                self.ordered_requests_keys.add((identifier, reqId))
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
@@ -229,8 +252,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             # If avg of `n` items is `a`, thus sum of `n` items is `x` where
             # `x=n*a` then avg of `n+1` items where `y` is the new item is
             # `((n*a)+y)/n+1`
-            self.clientAvgReqLatencies[instId][identifier] = \
-                (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            self.clientAvgReqLatencies[instId][identifier] = (
+                totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
             durations[identifier, reqId] = duration
 
@@ -257,6 +280,31 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Record the time at which request ordering started.
         """
         self.requestOrderingStarted[(identifier, reqId)] = time.perf_counter()
+        self.warn_has_lot_unordered_requests()
+
+    def warn_has_lot_unordered_requests(self):
+        unordered_started_at = []
+        now = time.perf_counter()
+        sorted_by_started_at = sorted(self.requestOrderingStarted.items(), key=itemgetter(1))
+        for key, started_at in sorted_by_started_at:
+            in_window = (now - started_at) < self.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60
+            if in_window and key not in self.ordered_requests_keys:
+                    dt = (started_at - unordered_started_at[-1]) if unordered_started_at else None
+                    if dt is None or dt > self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC:
+                        unordered_started_at.append(started_at)
+            elif not in_window and key in self.ordered_requests_keys:
+                self.ordered_requests_keys.remove(key)
+
+        if len(unordered_started_at) >= self.WARN_NOT_PARTICIPATING_UNORDERED_NUM:
+            logger.warning('It looks like {} does not participate in processing messages '
+                           'because it has {} unordered requests '
+                           'in the last {} minutes (assumed that minimum difference between unordered '
+                           'requests is at least {} seconds)'
+                           .format(self, len(unordered_started_at),
+                                   self.WARN_NOT_PARTICIPATING_WINDOW_MINS,
+                                   self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC))
+            return True
+        return False
 
     def isMasterDegraded(self):
         """
@@ -292,8 +340,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         tooLow = r < self.Delta
         if tooLow:
-            logger.info("{} master throughput ratio {} is lower than "
-                        "Delta {}.".format(self, r, self.Delta))
+            logger.info("{}{} master throughput ratio {} is lower than Delta"
+                        " {}.".format(MONITORING_PREFIX, self, r, self.Delta))
         else:
             logger.trace("{} master throughput ratio {} is acceptable.".
                          format(self, r))
@@ -308,8 +356,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             next(((key, lat) for key, lat in self.masterReqLatencies.items() if
                   lat > self.Lambda), None)
         if r:
-            logger.info("{} found master's latency {} to be higher than the "
-                         "threshold for request {}.".format(self, r[1], r[0]))
+            logger.info("{}{} found master's latency {} to be higher than the"
+                        " threshold for request {}."
+                        .format(MONITORING_PREFIX, self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "
                          "threshold for all requests.".format(self))
@@ -333,9 +382,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 return False
             d = avgLatM[cid] - lat
             if d > self.Omega:
-                logger.info("{} found difference between master's and "
-                             "backups's avg latency {} to be higher than the "
-                             "threshold".format(self, d))
+                logger.info("{}{} found difference between master's and "
+                            "backups's avg latency {} to be higher than the "
+                            "threshold".format(MONITORING_PREFIX, self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
@@ -355,13 +404,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         masterThrp = self.getThroughput(masterInstId)
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
+        backupThrp = totalReqs / totalTm if totalTm else None
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
-                avgReqsPerInst = totalReqs / self.instances.count
+                avgReqsPerInst = (totalReqs or 0) / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None
-        backupThrp = totalReqs / totalTm if totalTm else None
         return masterThrp, backupThrp
 
     def getThroughput(self, instId: int) -> float:
@@ -376,9 +425,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if instId >= self.instances.count:
             return None
         reqs, tm = self.numOrderedRequests[instId]
-        return reqs / tm if tm else None
+        return reqs / tm if tm else 0
 
-    def getInstanceMetrics(self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
+    def getInstanceMetrics(
+            self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
         """
         Calculate and return the average throughput of all the instances except
         the one specified as `forAllExcept`.
@@ -418,7 +468,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def sendPeriodicStats(self):
         thoughputData = self.sendThroughput()
-        self.clusterThroughputSpikeMonitorData['accum'].append(thoughputData['throughput'])
+        self.clusterThroughputSpikeMonitorData['accum'].append(
+            thoughputData['throughput'])
         self.sendLatencies()
         self.sendKnownNodesInfo()
         self.sendNodeInfo()
@@ -442,7 +493,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.clusterThroughputSpikeMonitorData,
             accum,
             self.notifierEventTriggeringConfig['clusterThroughputSpike'],
-            self.name
+            self.name,
+            self.notifierEventsEnabled
         )
 
     @property
@@ -450,11 +502,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # TODO:KS Move these computations as well to plenum-stats project
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
-                        (now - self.orderedRequestsInLast[0]) > \
-                         config.ThroughputWindowSize:
+                (now - self.orderedRequestsInLast[0]) > \
+                self.config.ThroughputWindowSize:
             self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
-        return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
+        return len(self.orderedRequestsInLast) / self.config.ThroughputWindowSize
 
     def sendThroughput(self):
         logger.debug("{} sending throughput".format(self))
@@ -468,18 +520,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             # Multiply by 1000 for JavaScript date conversion
             "time": time.mktime(utcTime.timetuple()) * 1000
         }
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_THROUGHPUT, mtrStats)
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_THROUGHPUT, mtrStats)
         return mtrStats
 
     @property
     def masterLatency(self):
         now = time.perf_counter()
         while self.latenciesByMasterInLast and \
-                        (now - self.latenciesByMasterInLast[0][0]) > \
-                        config.LatencyWindowSize:
+            (now - self.latenciesByMasterInLast[0][0]) > \
+                self.config.LatencyWindowSize:
             self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
         return (sum(l[1] for l in self.latenciesByMasterInLast) /
-            len(self.latenciesByMasterInLast)) if \
+                len(self.latenciesByMasterInLast)) if \
             len(self.latenciesByMasterInLast) > 0 else 0
 
     @property
@@ -488,8 +541,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupLatencies = []
         for instId, latencies in self.latenciesByBackupsInLast.items():
             while latencies and \
-                            (now - latencies[0][0]) > \
-                            config.LatencyWindowSize:
+                    (now - latencies[0][0]) > \
+                    self.config.LatencyWindowSize:
                 latencies = latencies[1:]
             backupLatencies.append(
                 (sum(l[1] for l in latencies) / len(latencies)) if
@@ -512,19 +565,25 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             timestamp=utcTime.isoformat()
         )
 
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_LATENCIES, latencies)
 
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_NODES, remotesInfo(
+                self.nodestack, self.blacklister))
 
     def sendSystemPerfomanceInfo(self):
         logger.debug("{} sending system performance".format(self))
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO, self.captureSystemPerformance())
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO,
+            self.captureSystemPerformance())
 
     def sendNodeInfo(self):
         logger.debug("{} sending node info".format(self))
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODE_INFO, self.nodeInfo['data'])
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_NODE_INFO, self.nodeInfo['data'])
 
     def sendTotalRequests(self):
         logger.debug("{} sending total requests".format(self))
@@ -533,7 +592,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             totalRequests=self.totalRequests
         )
 
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
+        self._sendStatsDataIfRequired(
+            EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
 
     def captureSystemPerformance(self):
         logger.debug("{} capturing system performance".format(self))
@@ -584,9 +644,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def postOnNodeStarted(self, startedAt):
         throughputData = {
-            "throughputWindowSize": config.ThroughputWindowSize,
-            "updateFrequency": config.DashboardUpdateFreq,
-            "graphDuration": config.ThroughputGraphDuration
+            "throughputWindowSize": self.config.ThroughputWindowSize,
+            "updateFrequency": self.config.DashboardUpdateFreq,
+            "graphDuration": self.config.ThroughputGraphDuration
         }
         startedAtData = {"startedAt": startedAt, "ctx": "DEMO"}
         startedEventDict = {
@@ -600,7 +660,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencies = {}
 
     def _sendStatsDataIfRequired(self, event, stats):
-        if config.SendMonitorStats:
+        if self.config.SendMonitorStats:
             for sc in self.statsConsumers:
                 sc.sendStats(event, stats)
 
@@ -634,7 +694,7 @@ def remoteInfo(remote, nodestack, blacklister):
     return res
 
 
-def pickRemoteEstateFields(remote, customName = None):
+def pickRemoteEstateFields(remote, customName=None):
     host, port = remote.ha
     return {
         'name': customName or remote.name,

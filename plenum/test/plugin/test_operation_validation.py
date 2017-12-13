@@ -1,4 +1,3 @@
-import os
 
 import pytest
 
@@ -19,11 +18,11 @@ def allPluginPaths(pluginVerPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths) as ns:
 
@@ -36,6 +35,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testWithOpValidationPlugin(nodeSet, replied1):
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers

@@ -20,7 +20,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     https://www.pivotaltracker.com/n/projects/1889887/stories/133655009
     """
     pr, replicas = getPrimaryReplica(nodeSet, instId=0), \
-                   getNonPrimaryReplicas(nodeSet, instId=0)
+        getNonPrimaryReplicas(nodeSet, instId=0)
     assert len(replicas) == 6
 
     rep0 = pr

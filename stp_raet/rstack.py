@@ -3,7 +3,7 @@ import sys
 import time
 from collections import Callable
 from collections import OrderedDict
-from typing import Any, Set
+from typing import Any
 from typing import Dict
 
 from raet.raeting import AutoMode, TrnsKind
@@ -11,6 +11,8 @@ from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower, Messenger
+
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.error import error
 from stp_core.common.log import getlogger
 from stp_core.crypto.nacl_wrappers import Signer
@@ -67,9 +69,10 @@ class RStack(NetworkInterface):
         self.raetStack = RoadStack(*args, **kwargs)
 
         if self.ha[1] != kwargs['ha'].port:
-            error("the stack port number has changed, likely due to "
+            error("{}the stack port number has changed, likely due to "
                   "information in the keep. {} passed {}, actual {}".
-                  format(kwargs['name'], kwargs['ha'].port, self.ha[1]))
+                  format(CONNECTION_PREFIX, kwargs['name'], kwargs['ha'].port,
+                         self.ha[1]))
         self._created = time.perf_counter()
         self.coro = None
 
@@ -125,7 +128,8 @@ class RStack(NetworkInterface):
         rolePath = os.path.join(baseDir, name, "role", "local", "role.json")
         if os.path.isfile(rolePath):
             if not override:
-                raise FileExistsError("Keys exists for local role {}".format(name))
+                raise FileExistsError(
+                    "Keys exists for local role {}".format(name))
 
         if sigseed and not isinstance(sigseed, bytes):
             sigseed = sigseed.encode()
@@ -134,7 +138,7 @@ class RStack(NetworkInterface):
         keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
         sigkey, verkey = signer.keyhex, signer.verhex
         prikey, pubkey = ed25519SkToCurve25519(sigkey, toHex=True), \
-                         ed25519PkToCurve25519(verkey, toHex=True)
+            ed25519PkToCurve25519(verkey, toHex=True)
         data = OrderedDict([
             ("role", name),
             ("prihex", prikey),
@@ -156,8 +160,12 @@ class RStack(NetworkInterface):
         :param override: overwrite the role.remoteName.json file if it already
         exists.
         """
-        rolePath = os.path.join(baseDir, name, "role", "remote", "role.{}.json".
-                                format(remoteName))
+        rolePath = os.path.join(
+            baseDir,
+            name,
+            "role",
+            "remote",
+            "role.{}.json". format(remoteName))
         if os.path.isfile(rolePath):
             if not override:
                 raise FileExistsError("Keys exists for remote role {}".
@@ -218,7 +226,13 @@ class RStack(NetworkInterface):
         return self.findInRemotesByHA(ha) if ha else \
             self.findInRemotesByName(name)
 
-    def connect(self, name=None, remoteId=None, ha=None, verKeyRaw=None, publicKeyRaw=None):
+    def connect(
+            self,
+            name=None,
+            remoteId=None,
+            ha=None,
+            verKeyRaw=None,
+            publicKeyRaw=None):
         """
         Connect to the node specified by name.
 
@@ -232,14 +246,14 @@ class RStack(NetworkInterface):
         #                   format(self, name))
         #     return None
         if not remoteId and not ha:
-            raise ValueError('Either Host Address or Remote ID must be provided to connect to a node in Raet stack')
+            raise ValueError(
+                'Either Host Address or Remote ID must be provided to connect to a node in Raet stack')
 
         if remoteId:
             remote = self.remotes[remoteId]
             return self._doConnectRemote(remote, name)
         else:
             return self._doConnectByHA(ha, name)
-
 
     def _doConnectByHA(self, ha, name=None):
         remote = RemoteEstate(stack=self.raetStack,
@@ -251,8 +265,9 @@ class RStack(NetworkInterface):
         # updates the store time so the join timer is accurate
         self.updateStamp()
         self.raetStack.join(uid=remote.uid, cascade=True, timeout=30)
-        logger.info("{} looking for {} at {}:{}".
-                    format(self, name or remote.name, *remote.ha),
+        logger.info("{}{} looking for {} at {}:{}"
+                    .format(CONNECTION_PREFIX, self,
+                            name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
         return remote.uid
 
@@ -261,6 +276,7 @@ class RStack(NetworkInterface):
 
     def transmit(self, msg, uid, timeout=None):
         self.raetStack.transmit(msg, uid, timeout=timeout)
+        return True, None
 
     @property
     def ha(self):
@@ -269,9 +285,9 @@ class RStack(NetworkInterface):
     def start(self):
         if not self.opened:
             self.open()
-        logger.info("stack {} starting at {} in {} mode"
-                    .format(self, self.ha, self.raetStack.keep.auto),
-                    extra={"cli": False})
+        logger.debug("stack {} starting at {} in {} mode"
+                     .format(self, self.ha, self.raetStack.keep.auto),
+                     extra={"cli": False})
         # self.coro = self._raetcoro()
         self.coro = self._raetcoro
 
@@ -279,7 +295,8 @@ class RStack(NetworkInterface):
         if self.opened:
             self.close()
         self.coro = None
-        logger.info("stack {} stopped".format(self.name), extra={"cli": False})
+        logger.debug("stack {} stopped".format(
+            self.name), extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """
@@ -332,22 +349,23 @@ class RStack(NetworkInterface):
     async def _raetcoro(self):
         try:
             await self._serviceStack(self.age)
-            l = len(self.raetStack.rxMsgs)
+            len_msgs = len(self.raetStack.rxMsgs)
         except Exception as ex:
             if isinstance(ex, OSError) and \
                     len(ex.args) > 0 and \
                     ex.args[0] == 22:
-                logger.error("Error servicing stack {}: {}. This could be "
+                logger.error("{}Error servicing stack {}: {}. This could be "
                              "due to binding to an internal network "
                              "and trying to route to an external one.".
-                             format(self.name, ex), extra={'cli': 'WARNING'})
+                             format(CONNECTION_PREFIX, self.name, ex),
+                             extra={'cli': 'WARNING'})
             else:
-                logger.error("Error servicing stack {}: {} {}".
-                             format(self.name, ex, ex.args),
+                logger.error("{}Error servicing stack {}: {} {}".
+                             format(CONNECTION_PREFIX, self.name, ex, ex.args),
                              extra={'cli': 'WARNING'})
 
-            l = 0
-        return l
+            len_msgs = 0
+        return len_msgs
 
     async def _serviceStack(self, age):
         """
@@ -412,17 +430,21 @@ class RStack(NetworkInterface):
         rid = self.getRemote(remoteName, ha).uid
         # Setting timeout to never expire
         self.raetStack.transmit(msg, rid, timeout=self.messageTimeout)
+        return True, None
 
 
 class SimpleRStack(RStack):
-    def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
+    def __init__(
+            self,
+            stackParams: Dict,
+            msgHandler: Callable,
+            sighex: str=None):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
         super().__init__(**stackParams, msgHandler=self.msgHandler, sighex=sighex)
 
     def start(self):
         super().start()
-
 
 
 class KITRStack(SimpleRStack, KITNetworkInterface):
@@ -504,9 +526,10 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
                     # error("{} ha for {} doesn't match. ha of remote is {} but "
                     #       "should be {}".
                     #       format(self, r.name, r.ha, self.registry[r.name]))
-                    logger.error("{} ha for {} doesn't match. ha of remote is {} but "
-                                 "should be {}".
-                                 format(self, r.name, r.ha, self.registry[r.name]))
+                    logger.error("{}{} ha for {} doesn't match. ha of remote"
+                                 " is {} but should be {}".
+                                 format(CONNECTION_PREFIX, self, r.name, r.ha,
+                                        self.registry[r.name]))
             else:
                 regName = self.findInNodeRegByHA(r.ha)
 
@@ -526,14 +549,15 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
                     logger.debug("{} found a legacy remote {} "
                                  "without a matching ha {}".
                                  format(self, r.name, r.ha))
-                    logger.info(str(self.registry))
+                    logger.debug(str(self.registry))
                     legacy.add(r)
 
         # missing from remotes... need to connect
         missing = set(self.registry.keys()) - matches
 
         if len(missing) + len(matches) + len(conflicts) != len(self.registry):
-            logger.error("Error reconciling nodeReg with remotes")
+            logger.error("{}Error reconciling nodeReg with remotes"
+                         .format(CONNECTION_PREFIX))
             logger.error("missing: {}".format(missing))
             logger.error("matches: {}".format(matches))
             logger.error("conflicts: {}".format(conflicts))
@@ -541,13 +565,13 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
             logger.error("Error reconciling nodeReg with remotes; see logs")
 
         if conflicts:
-            logger.error("found conflicting address information {} in registry"
-                         .format(conflicts))
+            logger.error("{}found conflicting address information {} in registry"
+                         .format(CONNECTION_PREFIX, conflicts))
         if legacy:
             for l in legacy:
-                logger.error("{} found legacy entry [{}, {}] in remotes, "
+                logger.error("{}{} found legacy entry [{}, {}] in remotes, "
                              "that were not in registry".
-                             format(self, l.name, l.ha))
+                             format(CONNECTION_PREFIX, self, l.name, l.ha))
                 self.removeRemote(l)
         return missing
 
@@ -558,16 +582,17 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
             # (no need to connect to itself)
             del self.registry[self.name]
 
-
     def addRemote(self, remote, dump=False):
         if not self.findInNodeRegByHA(remote.ha):
-            logger.debug('Remote {} with HA {} not added -> not found in registry'.format(remote.name, remote.ha))
+            logger.debug(
+                'Remote {} with HA {} not added -> not found in registry'.format(remote.name, remote.ha))
             return
         return self.raetStack.addRemote(remote, dump)
 
     def createRemote(self, ha):
         if ha and not self.findInNodeRegByHA(ha):
-            logger.debug('Remote with HA {} not added -> not found in registry'.format(ha))
+            logger.debug(
+                'Remote with HA {} not added -> not found in registry'.format(ha))
             return
         return super(KITRStack, self).createRemote(ha)
 
@@ -576,17 +601,17 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
         # of unnecessary JSON files for remotes
         tk = packet.data['tk']
 
-        if tk in [TrnsKind.join]: # join transaction
-            sha = (packet.data['sh'],  packet.data['sp'])
+        if tk in [TrnsKind.join]:  # join transaction
+            sha = (packet.data['sh'], packet.data['sp'])
             if not self.findInNodeRegByHA(sha):
                 return self.handleJoinFromUnregisteredRemote(sha)
 
         return super(KITRStack, self).processRx(packet)
 
     def handleJoinFromUnregisteredRemote(self, sha):
-        logger.debug('Remote with HA {} not added -> not found in registry'.format(sha))
+        logger.debug(
+            'Remote with HA {} not added -> not found in registry'.format(sha))
         return None
-
 
     def connectToMissing(self, currentTime):
         """
@@ -625,7 +650,8 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
         #                  format(self, disconn.uid))
         #     return
 
-        logger.trace("{} handling disconnected remote {}".format(self, disconn))
+        logger.trace(
+            "{} handling disconnected remote {}".format(self, disconn))
 
         if disconn.joinInProcess():
             logger.trace("{} join already in process, so "
@@ -684,8 +710,13 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
         else:
             self.connect(dname, remoteId=disconn.uid)
 
-
-    def connect(self, name=None, remoteId=None, ha=None, verKeyRaw=None, publicKeyRaw=None):
+    def connect(
+            self,
+            name=None,
+            remoteId=None,
+            ha=None,
+            verKeyRaw=None,
+            publicKeyRaw=None):
         """
         Connect to the node specified by name.
 
@@ -706,4 +737,3 @@ class KITRStack(SimpleRStack, KITNetworkInterface):
         else:
             ha = self.registry[name]
             return self._doConnectByHA(ha, name)
-

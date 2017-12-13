@@ -1,11 +1,9 @@
-import time
 
 import pytest
 
 from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.messages.node_messages import Prepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
@@ -28,13 +26,7 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, delay_commits,
         primary = getPrimaryReplica(nodeSet, instId)
         viewNo, ppSeqNo = next(iter(primary.sentPrePrepares.keys()))
         ppReq = primary.sentPrePrepares[viewNo, ppSeqNo]
-        prepare = Prepare(instId,
-                          viewNo,
-                          ppSeqNo,
-                          ppReq.digest,
-                          ppReq.stateRootHash,
-                          ppReq.txnRootHash)
-        primary.doPrepare(prepare)
+        primary.doPrepare(ppReq)
 
         def chk():
             for r in getNonPrimaryReplicas(nodeSet, instId):

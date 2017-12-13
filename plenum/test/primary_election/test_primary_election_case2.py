@@ -38,6 +38,8 @@ def case2Setup(startedNodes: TestNodeSet):
         node.whitelistNode(B.name, Suspicions.DUPLICATE_NOM_SENT.code)
 
 # noinspection PyIncorrectDocstring
+
+
 @pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     """

@@ -32,15 +32,15 @@ def tconf(tconf, request):
 
 
 @pytest.fixture("module")
-def pre_check(tconf, looper, txnPoolNodeSet, tdirWithPoolTxns,
+def pre_check(tconf, looper, txnPoolNodeSet, tdirWithClientPoolTxns,
               poolTxnStewardData):
     # TODO: Maybe this needs to be extracted in another fixture
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
-    for i in range(tconf.ProcessedBatchMapsToKeep-1):
+    for i in range(tconf.ProcessedBatchMapsToKeep - 1):
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1)
 
     # All node maintain the same map from txn range to 3PC

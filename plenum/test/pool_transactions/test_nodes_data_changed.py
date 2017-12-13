@@ -1,4 +1,5 @@
-from plenum.common.constants import *
+from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, SERVICES, VALIDATOR
 from plenum.common.util import randomString
 from plenum.test.helper import waitRejectWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
@@ -25,7 +26,6 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 
 
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
-                                                tdirWithPoolTxns, tconf,
                                                 steward1, stewardWallet,
                                                 nodeThetaAdded):
     _, _, newNode = nodeThetaAdded
@@ -52,8 +52,7 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
 
 
 def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
-                                      tdirWithPoolTxns,
-                                      tconf, nodeThetaAdded):
+                                      nodeThetaAdded):
     """
     The node alias cannot be changed.
     """
@@ -67,8 +66,8 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
                              node.clientstack.name)
 
 
-def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, stewardWallet, nodeThetaAdded):
+def testNodePortChanged(looper, txnPoolNodeSet, tdir, tconf,
+                        steward1, stewardWallet, nodeThetaAdded):
     """
     An running node's port is changed
     """
@@ -89,7 +88,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     node = updateNodeDataAndReconnect(looper, newSteward,
                                       newStewardWallet, newNode,
                                       node_data,
-                                      tdirWithPoolTxns, tconf,
+                                      tdir, tconf,
                                       txnPoolNodeSet)
 
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
@@ -100,9 +99,8 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                    tconf, steward1, stewardWallet,
-                                    allPluginsPath):
+def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdir, client_tdir,
+                                    tconf, steward1, stewardWallet, allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Kappa"
 
@@ -114,7 +112,7 @@ def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
         addNewStewardAndNode(looper,
                              steward1, stewardWallet,
                              newStewardName, newNodeName,
-                             tdirWithPoolTxns, tconf, allPluginsPath,
+                             tdir, client_tdir, tconf, allPluginsPath,
                              transformNodeOpFunc=del_services)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
@@ -127,5 +125,5 @@ def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
     updateNodeDataAndReconnect(looper, newSteward,
                                newStewardWallet, newNode,
                                node_data,
-                               tdirWithPoolTxns, tconf,
+                               tdir, tconf,
                                txnPoolNodeSet + [newNode])

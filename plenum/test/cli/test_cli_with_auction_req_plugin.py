@@ -1,4 +1,3 @@
-from functools import partial
 from uuid import uuid4
 
 import pytest
@@ -30,8 +29,10 @@ def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):
 # TODO: Have a test for non existent auction id
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
-def testTransactions(cli, loadAuctionReqPlugin, createAllNodes, validNodeNames):
+# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
+@pytest.mark.skip(reason="old style plugin")
+def testTransactions(cli, loadAuctionReqPlugin,
+                     createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
     auctionId = str(uuid4())
     names = ["Jason", "John", "Les", "Timothy", "Tyler"]

@@ -1,4 +1,3 @@
-from hashlib import sha256
 
 from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, TXN_ID, ROLE, VERKEY
 from plenum.common.types import f
@@ -13,7 +12,7 @@ class Member:
         txn = {
             TXN_TYPE: NYM,
             TARGET_NYM: nym,
-            #TXN_ID: sha256(name.encode()).hexdigest()
+            # TXN_ID: sha256(name.encode()).hexdigest()
         }
         if verkey is not None:
             txn[VERKEY] = verkey

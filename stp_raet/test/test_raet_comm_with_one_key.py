@@ -22,14 +22,14 @@ def keysAndNames():
     alphaName = 'alpha'
     betaName = 'beta'
     return alphaSigner.keyhex, alphaPrikey, alphaSigner.verhex, alphaPubkey, \
-           alphaName, betaSigner.keyhex, betaPrikey, betaSigner.verhex, \
-           betaPubkey, betaName
+        alphaName, betaSigner.keyhex, betaPrikey, betaSigner.verhex, \
+        betaPubkey, betaName
 
 
 def testNonPromiscousConnectionWithOneKey(tdir, keysAndNames):
     # Simulating node to node connection
-    alphaSighex, alphaPrikey, alphaVerhex, alphaPubkey,  alphaName, betaSighex,\
-    betaPrikey, betaVerhex, betaPubkey, betaName = keysAndNames
+    alphaSighex, alphaPrikey, alphaVerhex, alphaPubkey, alphaName, betaSighex,\
+        betaPrikey, betaVerhex, betaPubkey, betaName = keysAndNames
     alpha = RoadStack(name=alphaName,
                       ha=genHa(),
                       sigkey=alphaSighex,
@@ -75,7 +75,7 @@ def testNonPromiscousConnectionWithOneKey(tdir, keysAndNames):
 def testPromiscuousConnection(tdir, keysAndNames):
     # Simulating node to client connection
     alphaSighex, alphaPrikey, alphaVerhex, alphaPubkey, alphaName, betaSighex, \
-    betaPrikey, betaVerhex, betaPubkey, betaName = keysAndNames
+        betaPrikey, betaVerhex, betaPubkey, betaName = keysAndNames
     alpha = RoadStack(name=alphaName,
                       ha=genHa(),
                       sigkey=alphaSighex,

@@ -42,6 +42,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     # does not get enough similar consistency proofs
     next_size = 0
     origMethod = newNode.build_ledger_status
+
     def build_broken_ledger_status(self, ledger_id):
         nonlocal next_size
         if ledger_id != DOMAIN_LEDGER_ID:
@@ -56,12 +57,12 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            next_size)
         v, p = three_pc_key if three_pc_key else None, None
-        ledgerStatus =  LedgerStatus(1, next_size, v, p, newRootHash)
+        ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash)
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
-
-    newNode.build_ledger_status = types.MethodType(build_broken_ledger_status, newNode)
+    newNode.build_ledger_status = types.MethodType(
+        build_broken_ledger_status, newNode)
     logger.debug(
         'Domain Ledger status sender of {} patched'.format(newNode))
 
@@ -75,6 +76,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=75)
 
-    # Other nodes should have received a request for `CONSISTENCY_PROOF` and processed it.
+    # Other nodes should have received a request for `CONSISTENCY_PROOF` and
+    # processed it.
     for node in txnPoolNodeSet[:-1]:
         assert count_msg_reqs_of_type(node, CONSISTENCY_PROOF) > 0, node

@@ -1,10 +1,14 @@
 import math
 from itertools import combinations
 
+import time
+
+import os
 from libnacl import crypto_hash_sha256
 
 from plenum.common.util import randomString, compare_3PC_keys, \
-    check_if_all_equal_in_list, min_3PC_key, max_3PC_key
+    check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch, \
+    mostCommonElement
 from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
 
@@ -76,10 +80,10 @@ def test_list_item_equality():
 
 
 def test_3PC_key_comaparison():
-    assert compare_3PC_keys((1,2), (1,2)) == 0
-    assert compare_3PC_keys((1,3), (1,2)) < 0
-    assert compare_3PC_keys((1,2), (1,3)) > 0
-    assert compare_3PC_keys((1,2), (1,10)) > 0
+    assert compare_3PC_keys((1, 2), (1, 2)) == 0
+    assert compare_3PC_keys((1, 3), (1, 2)) < 0
+    assert compare_3PC_keys((1, 2), (1, 3)) > 0
+    assert compare_3PC_keys((1, 2), (1, 10)) > 0
     assert compare_3PC_keys((1, 100), (2, 3)) > 0
     assert compare_3PC_keys((1, 100), (4, 3)) > 0
     assert compare_3PC_keys((2, 100), (1, 300)) < 0
@@ -89,3 +93,59 @@ def test_3PC_key_comaparison():
     assert max_3PC_key([(2, 100), (1, 300), (5, 6)]) == (5, 6)
     assert max_3PC_key([(2, 100), (3, 20), (4, 1)]) == (4, 1)
     assert max_3PC_key([(2, 100), (2, 300), (2, 400)]) == (2, 400)
+
+
+def test_utc_epoch():
+    t1 = get_utc_epoch()
+    time.sleep(1)
+    t2 = get_utc_epoch()
+    assert 1 <= t2 - t1 < 2
+
+    old_tz = os.environ.get('TZ')
+
+    t3 = get_utc_epoch()
+    os.environ['TZ'] = 'Europe/London'
+    time.tzset()
+    time.sleep(1)
+    t4 = get_utc_epoch()
+    assert 1 <= t4 - t3 < 2
+
+    t5 = get_utc_epoch()
+    os.environ['TZ'] = 'America/St_Johns'
+    time.tzset()
+    time.sleep(1)
+    t6 = get_utc_epoch()
+    assert 1 <= t6 - t5 < 2
+
+    if old_tz is None:
+        del os.environ['TZ']
+    else:
+        os.environ['TZ'] = old_tz
+
+
+def test_mostCommonElement_for_hashable():
+    elements = [1, 2, 3, 3, 2, 5, 2]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == 2
+    assert count == 3
+
+
+def test_mostCommonElement_for_non_hashable():
+    elements = [{1: 2}, {1: 3}, {1: 4}, {1: 3}]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == {1: 3}
+    assert count == 2
+
+
+def test_mostCommonElement_for_non_hashable_with_hashable_f():
+    elements = [{1: 2}, {1: 3}, {1: 4}, {1: 3}]
+    most_common, count = mostCommonElement(elements, lambda el: tuple(el.items()))
+    assert most_common == {1: 3}
+    assert count == 2
+
+
+def test_mostCommonElement_for_mixed_hashable():
+    elements = [{1: 2}, 4, {1: 3}, 4, {1: 4}, 4, {1: 3}]
+    most_common, count = mostCommonElement(elements)
+    assert most_common == 4
+    assert count == 3

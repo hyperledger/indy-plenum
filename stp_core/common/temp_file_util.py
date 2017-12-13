@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 
 # TODO: move it to plenum-util repo
 
+
 class SafeTemporaryDirectory(TemporaryDirectory):
     """TemporaryDirectory that works on Windows 10
     """

@@ -52,13 +52,15 @@ class TreeHasher(object):
         else:
             # next smallest power of 2
             split_width = 2**((width - 1).bit_length() - 1)
-            assert split_width < width <= 2*split_width
-            l_root, l_hashes = self._hash_full(leaves, l_idx, l_idx+split_width)
-            assert len(l_hashes) == 1 # left tree always full
-            r_root, r_hashes = self._hash_full(leaves, l_idx+split_width, r_idx)
+            assert split_width < width <= 2 * split_width
+            l_root, l_hashes = self._hash_full(
+                leaves, l_idx, l_idx + split_width)
+            assert len(l_hashes) == 1  # left tree always full
+            r_root, r_hashes = self._hash_full(
+                leaves, l_idx + split_width, r_idx)
             root_hash = self.hash_children(l_root, r_root)
-            return (root_hash, (root_hash,) if split_width*2 == width else
-                                l_hashes + r_hashes)
+            return (root_hash, (root_hash,) if split_width * 2 == width else
+                    l_hashes + r_hashes)
 
     def hash_full_tree(self, leaves):
         """Hash a set of leaves representing a valid full tree."""

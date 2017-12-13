@@ -15,11 +15,14 @@ class BankReqValidationPlugin:
     def __init__(self):
         self.count = 0
 
+    def is_valid_txn_type(self, txn_type):
+        return txn_type in self.validTxnTypes
+
     def verify(self, operation):
         typ = operation.get(TXN_TYPE)
-        assert typ in self.validTxnTypes, \
+        assert self.is_valid_txn_type(typ), \
             "{} is not a valid transaction type, must be one of {}".\
-                format(typ, ', '.join(self.validTxnTypes))
+            format(typ, ', '.join(self.validTxnTypes))
 
         if typ == CREDIT:
             data = operation.get(DATA)
@@ -28,5 +31,5 @@ class BankReqValidationPlugin:
             amount = data.get(AMOUNT)
             assert isinstance(amount, (int, float)) and amount > 0, \
                 "{} must be present and should be a number greater than 0"\
-                    .format(AMOUNT)
+                .format(AMOUNT)
         self.count += 1

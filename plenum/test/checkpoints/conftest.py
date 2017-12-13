@@ -1,9 +1,9 @@
 import pytest
 
 from plenum.test.conftest import getValueFromModule
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.test.pool_transactions.conftest import looper
 from plenum.test.batching_3pc.conftest import tconf
+
 
 
 @pytest.fixture(scope="module")
@@ -12,7 +12,7 @@ def chkFreqPatched(tconf, request):
     oldLogSize = tconf.LOG_SIZE
 
     tconf.CHK_FREQ = getValueFromModule(request, "CHK_FREQ", 2)
-    tconf.LOG_SIZE = 2*tconf.CHK_FREQ
+    tconf.LOG_SIZE = 2 * tconf.CHK_FREQ
 
     def reset():
         tconf.CHK_FREQ = oldChkFreq

@@ -1,13 +1,16 @@
 from collections import deque
 from typing import Any, Iterable
-from typing import Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
+from plenum.common.prepare_batch import split_messages_on_batches
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
 from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Batch
 from plenum.common.message_processor import MessageProcessor
+from stp_core.validators.message_length_validator import MessageLenValidator
+from stp_core.common.config.util import getConfig
 
 logger = getlogger()
 
@@ -18,11 +21,14 @@ class Batched(MessageProcessor):
     Assumes a Stack (ZStack or RStack) is mixed
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """
         :param self: 'NodeStacked'
+        :param config: 'stp config'
         """
         self.outBoxes = {}  # type: Dict[int, deque]
+        self.stp_config = config or getConfig()
+        self.msg_len_val = MessageLenValidator(self.stp_config.MSG_LEN_LIMIT)
 
     def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
@@ -44,25 +50,39 @@ class Batched(MessageProcessor):
         for rid in self.remotes.keys():
             self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None) -> None:
+    def send(self,
+             msg: Any, *
+             rids: Iterable[int],
+             signer: Signer = None,
+             message_splitter=None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
-         or into the outBoxes of all the remotes if rids is None
+        or into the outBoxes of all the remotes if rids is None
 
         :param msg: the message to enqueue
         :param rids: ids of the remotes to whose outBoxes
-         this message must be enqueued
+            this message must be enqueued
+        :param message_splitter: callable that splits msg on
+            two smaller messages
         """
         # Signing (if required) and serializing before enqueueing otherwise
         # each call to `_enqueue` will have to sign it and `transmit` will try
         # to serialize it which is waste of resources
-        serializedPayload = self.signAndSerialize(msg, signer)
+        message_parts, err_msg = \
+            self.prepare_for_sending(msg, signer, message_splitter)
+
+        # TODO: returning breaks contract of super class
+        if err_msg is not None:
+            return False, err_msg
 
         if rids:
             for r in rids:
-                self._enqueue(serializedPayload, r, signer)
+                for part in message_parts:
+                    self._enqueue(part, r, signer)
         else:
-            self._enqueueIntoAllRemotes(serializedPayload, signer)
+            for part in message_parts:
+                self._enqueueIntoAllRemotes(part, signer)
+        return True, None
 
     def flushOutBoxes(self) -> None:
         """
@@ -76,37 +96,57 @@ class Batched(MessageProcessor):
                 removedRemotes.append(rid)
                 continue
             if msgs:
-                if len(msgs) == 1:
-                    msg = msgs.popleft()
-                    # Setting timeout to never expire
-                    self.transmit(msg, rid, timeout=self.messageTimeout,
-                                  serialized=True)
-                    logger.trace(
-                        "{} sending msg {} to {}".format(self, msg, dest))
-                else:
+                if self._should_batch(msgs):
                     logger.debug(
-                        "{} batching {} msgs to {} into one transmission".
+                        "{} batching {} msgs to {} into fewer transmissions".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
-                    batch = Batch(list(msgs), None)
+                    batches = split_messages_on_batches(list(msgs),
+                                                        self._make_batch,
+                                                        self._test_batch_len,
+                                                        )
                     msgs.clear()
-                    # don't need to sign the batch, when the composed msgs are
-                    # signed
-                    payload = self.signAndSerialize(batch)
-                    logger.trace("{} sending payload to {}: {}".format(self,
-                                                                       dest,
-                                                                       payload))
-                    # Setting timeout to never expire
-                    self.transmit(payload, rid, timeout=self.messageTimeout,
-                                  serialized=True)
+                    if batches:
+                        for batch in batches:
+                            logger.trace("{} sending payload to {}: {}".format(
+                                self, dest, batch))
+                            # Setting timeout to never expire
+                            self.transmit(
+                                batch,
+                                rid,
+                                timeout=self.messageTimeout,
+                                serialized=True)
+                    else:
+                        logger.warning("Cannot create batch(es) for {}".format(
+                            self, dest))
+                else:
+                    while msgs:
+                        msg = msgs.popleft()
+                        # Setting timeout to never expire
+                        self.transmit(msg, rid, timeout=self.messageTimeout,
+                                      serialized=True)
+                        logger.trace(
+                            "{} sending msg {} to {}".format(self, msg, dest))
+
         for rid in removedRemotes:
-            logger.warning("{} rid {} has been removed".format(self, rid),
+            logger.warning("{}{} rid {} has been removed"
+                           .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
-                self.discard(msgs, "rid {} no longer available".format(rid),
+                self.discard(msgs,
+                             "{}rid {} no longer available"
+                             .format(CONNECTION_PREFIX, rid),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
+
+    def _make_batch(self, msgs):
+        batch = Batch(msgs, None)
+        serialized_batch = self.sign_and_serialize(batch)
+        return serialized_batch
+
+    def _test_batch_len(self, batch_len):
+        return self.msg_len_val.is_len_less_than_limit(batch_len)
 
     def doProcessReceived(self, msg, frm, ident):
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
@@ -123,6 +163,34 @@ class Batched(MessageProcessor):
                 msg[f.MSGS.nm] = relevantMsgs
         return msg
 
-    def signAndSerialize(self, msg, signer=None):
+    def prepare_for_sending(self, msg, signer,
+                            message_splitter=lambda x: None):
+        large_msg_parts = [msg]
+        fine_msg_parts = []
+        while len(large_msg_parts):
+            part = large_msg_parts.pop()
+            part_bytes = self.sign_and_serialize(part, signer)
+            if self.msg_len_val.is_len_less_than_limit(len(part_bytes)):
+                fine_msg_parts.append(part_bytes)
+                continue
+            if message_splitter is not None:
+                smaller_parts = message_splitter(part)
+                if smaller_parts is not None:
+                    large_msg_parts.extend(smaller_parts)
+                    continue
+
+            large_msg_parts.append(part)
+            break
+
+        if len(large_msg_parts):
+            return None, "message is too large and cannot be split"
+
+        return fine_msg_parts, None
+
+    def sign_and_serialize(self, msg, signer=None):
         payload = self.prepForSending(msg, signer)
-        return self.serializeMsg(payload)
+        msg_bytes = self.serializeMsg(payload)
+        return msg_bytes
+
+    def _should_batch(self, msgs):
+        return len(msgs) > 1

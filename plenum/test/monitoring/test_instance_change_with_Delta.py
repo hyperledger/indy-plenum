@@ -24,10 +24,16 @@ verify that throughput has dropped
 verify a view change happens
 """
 
+@pytest.fixture
+def logger():
+    logger = getlogger()
+    old_value = logger.getEffectiveLevel()
+    logger.root.setLevel(logging.DEBUG)
+    yield logger
+    logger.root.setLevel(old_value)
 
-logger = getlogger()
-logger.root.setLevel(logging.DEBUG)
-
+# autouse and inject before others in all tests
+pytestmark = pytest.mark.usefixtures("logger")
 
 def latestPerfChecks(nodes):
     """
@@ -101,7 +107,8 @@ def step2(step1, looper):
 
 @pytest.fixture(scope="module")
 def step3(step2):
-    # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
+    # make P (primary replica on master) faulty, i.e., slow to send
+    # PRE-PREPAREs
     slow_primary(step2.nodes, 0, 5)
     return step2
 
@@ -115,4 +122,3 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
-

@@ -30,12 +30,9 @@ def slow_node(request, txnPoolNodeSet):
         return nprs[0].node
 
 
-def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
-                                                                 txnPoolNodeSet,
-                                                                 steward1,
-                                                                 stewardWallet,
-                                                                 tconf,
-                                                                 slow_node):
+@pytest.mark.skip(reasone="It's an intermittent test, INDY-722")
+def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
+        looper, txnPoolNodeSet, steward1, stewardWallet, tconf, slow_node):
     """
     Delay 3PC to 1 node and then cause view change so by the time the view
     change happens(each node gets >n-f `INSTANCE_CHANGE`s), the slow node is
@@ -48,10 +45,11 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
 
     # Bad network introduced
     slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
-    slow_node.nodeIbStasher.delay(pDelay(2*delay, 0))
-    slow_node.nodeIbStasher.delay(cDelay(3*delay, 0))
+    slow_node.nodeIbStasher.delay(pDelay(2 * delay, 0))
+    slow_node.nodeIbStasher.delay(cDelay(3 * delay, 0))
     for i in range(2):
-        sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
+        sendReqsToNodesAndVerifySuffReplies(
+            looper, stewardWallet, steward1, 20)
         waitNodeDataInequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
@@ -63,7 +61,11 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
         assert slow_node.master_replica.batches
 
     # The slow node has received some PRE-PREPAREs
-    looper.run(eventually(slow_node_processed_some, retryWait=1, timeout=delay))
+    looper.run(
+        eventually(
+            slow_node_processed_some,
+            retryWait=1,
+            timeout=delay))
 
     # No reverts have been called by the slow node
     rv = getAllReturnVals(slow_node.replicas[0],
@@ -94,8 +96,10 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                 n.ledgerManager.processCatchupRep) == catchup_reply_counts[n.name]
 
     # Greater than 0 batches were reverted by the slow node
-    assert max(getAllReturnVals(slow_node.master_replica,
-                                slow_node.master_replica.revert_unordered_batches)) > 0
+    assert max(
+        getAllReturnVals(
+            slow_node.master_replica,
+            slow_node.master_replica.revert_unordered_batches)) > 0
 
     # Bad network repaired
     slow_node.reset_delays_and_process_delayeds()
@@ -103,4 +107,3 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     # Make sure pool is functional
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-

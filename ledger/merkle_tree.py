@@ -1,8 +1,10 @@
-from abc import abstractmethod
-from typing import List, Tuple
+from abc import abstractmethod, ABCMeta
+from typing import Tuple
+
+from ledger.hash_stores.hash_store import HashStore
 
 
-class MerkleTree:
+class MerkleTree(metaclass=ABCMeta):
     """
     Interface to be implemented by all Merkle Trees.
     """
@@ -70,5 +72,18 @@ class MerkleTree:
 
     @abstractmethod
     def verify_consistency(self, expectedLeafCount) -> bool:
+        """
+        """
+
+    # TODO: do we need a separate interface/mixin for a Merkle Tree with Hash Store?
+    @property
+    @abstractmethod
+    def hashStore(self) -> HashStore:
+        """
+        """
+
+    @property
+    @abstractmethod
+    def reset(self):
         """
         """

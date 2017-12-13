@@ -22,7 +22,8 @@ def getSelfNominationByNode(node: TestNode) -> int:
     """
     for instId, replica in enumerate(node.elector.replicas):
         name = Replica.generateName(node.name, instId)
-        if node.elector.nominations.get(instId, {}).get(name, [None, ])[0] == name:
+        if node.elector.nominations.get(instId, {}).get(name, [None, ])[
+                0] == name:
             return instId
 
 

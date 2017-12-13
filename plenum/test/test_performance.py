@@ -7,7 +7,7 @@ import math
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.perf_util import get_memory_usage
+from plenum.common.perf_util import get_memory_usage, timeit
 from plenum.test.delayers import cr_delay
 from plenum.test.test_client import TestClient
 
@@ -28,11 +28,18 @@ from plenum.test.node_catchup.conftest import whitelist, \
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 
-Logger.setLogLevel(logging.WARNING)
-logger = getlogger()
+@pytest.fixture
+def logger():
+    logger = getlogger()
+    old_value = logger.getEffectiveLevel()
+    logger.root.setLevel(logging.WARNING)
+    yield logger
+    logger.root.setLevel(old_value)
+
+# autouse and inject before others in all tests
+pytestmark = pytest.mark.usefixtures("logger")
+
 txnCount = 5
-
-
 TestRunningTimeLimitSec = math.inf
 
 
@@ -98,7 +105,23 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
     time_log = []
     warm_up_batches = 10
     tolerance_factor = 2
-    from pympler import asizeof
+    print_detailed_memory_usage = False
+    from pympler import tracker
+    tr = tracker.SummaryTracker()
+    node_methods_to_capture = [TestNode.executeBatch,
+                               TestNode.recordAndPropagate,
+                               TestNode.domainDynamicValidation,
+                               TestNode.domainRequestApplication]
+    times = {n.name: {meth.__name__: [] for meth in node_methods_to_capture}
+             for n in txnPoolNodeSet}
+
+    for node in txnPoolNodeSet:
+        for meth in node_methods_to_capture:
+            meth_name = meth.__name__
+            patched = timeit(getattr(node, meth_name),
+                             times[node.name][meth_name])
+            setattr(node, meth_name, patched)
+
     for i in range(client_batches):
         s = perf_counter()
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
@@ -113,15 +136,31 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                 # print(sys.getsizeof(node))
                 print('---Node {}-----'.format(node))
                 # print('Requests {}'.format(asizeof.asizeof(node.requests, detail=1)))
-                print(get_memory_usage(node, True, get_only_non_empty=True))
+                print(
+                    get_memory_usage(
+                        node,
+                        print_detailed_memory_usage,
+                        get_only_non_empty=True))
                 for r in node.replicas:
                     print('---Replica {}-----'.format(r))
-                    print(get_memory_usage(r, True, get_only_non_empty=True))
+                    print(
+                        get_memory_usage(
+                            r,
+                            print_detailed_memory_usage,
+                            get_only_non_empty=True))
+
+            # if i % 3 == 0:
+            #     tr.print_diff()
             print('--------Memory Usage details end')
+            for node in txnPoolNodeSet:
+                for meth in node_methods_to_capture:
+                    ts = times[node.name][meth.__name__]
+                    print('{} {} {} {}'.format(
+                        node, meth.__name__, mean(ts), ts))
 
         if len(time_log) >= warm_up_batches:
             m = mean(time_log)
-            sd = tolerance_factor*pstdev(time_log)
+            sd = tolerance_factor * pstdev(time_log)
             assert m > t or abs(t - m) <= sd, '{} {}'.format(abs(t - m), sd)
         time_log.append(t)
         # Since client checks inbox for sufficient replies, clear inbox so that
@@ -153,7 +192,7 @@ def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
                                             override_timeout_limit=True)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
-                  format(i+1, txns_per_batch, perf_counter()-s))
+                  format(i + 1, txns_per_batch, perf_counter() - s))
 
     logger.debug("Starting the stopped node, {}".format(new_node))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
@@ -187,13 +226,19 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
                                             override_timeout_limit=True)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
-                  format(i+1, txns_per_batch, perf_counter()-s))
+                  format(i + 1, txns_per_batch, perf_counter() - s))
 
     with capsys.disabled():
         print("Starting the stopped node, {}".format(new_node))
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
-    new_node = TestNode(new_node.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    new_node = TestNode(
+        new_node.name,
+        basedirpath=tdirWithPoolTxns,
+        base_data_dir=tdirWithPoolTxns,
+        config=tconf,
+        ha=nodeHa,
+        cliha=nodeCHa,
+        pluginPaths=allPluginsPath)
     looper.add(new_node)
     txnPoolNodeSet[-1] = new_node
 
@@ -208,7 +253,7 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
 
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-              2*delay_catchup_reply
+        2 * delay_catchup_reply
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
                          customTimeout=timeout)
 
@@ -255,10 +300,10 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
                                             override_timeout_limit=True)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
-                  format(i+1, txns_per_batch, perf_counter()-s))
+                  format(i + 1, txns_per_batch, perf_counter() - s))
 
     nodeHa, nodeCHa = HA(*x.nodestack.ha), HA(*x.clientstack.ha)
-    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, config=tconf,
+    newNode = TestNode(x.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns, config=tconf,
                        ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode
@@ -266,9 +311,14 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
 
 
 @skipper
-def test_node_load_after_one_node_drops_all_msgs(looper, txnPoolNodeSet, tconf,
-                                             tdirWithPoolTxns, allPluginsPath,
-                                             poolTxnStewardData, capsys):
+def test_node_load_after_one_node_drops_all_msgs(
+        looper,
+        txnPoolNodeSet,
+        tconf,
+        tdirWithPoolTxns,
+        allPluginsPath,
+        poolTxnStewardData,
+        capsys):
 
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
@@ -297,4 +347,4 @@ def test_node_load_after_one_node_drops_all_msgs(looper, txnPoolNodeSet, tconf,
                                             override_timeout_limit=True)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
-                  format(i+1, txns_per_batch, perf_counter()-s))
+                  format(i + 1, txns_per_batch, perf_counter() - s))

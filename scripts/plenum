@@ -42,8 +42,8 @@ def run_cli():
     cliNodeReg = config.cliNodeReg
     commands = sys.argv[1:]
     for name in {**nodeReg, **cliNodeReg}:
-        initLocalKeys(name, basedirpath, randomString(32), True)
-    with Looper(debug=False) as looper:
+        initLocalKeys(name, basedirpath, randomString(32), use_bls=True, override=True)
+    with Looper(debug=config.LOOPER_DEBUG) as looper:
         cli = Cli(looper=looper,
                   nodeReg=nodeReg,
                   cliNodeReg=cliNodeReg,

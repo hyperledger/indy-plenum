@@ -32,4 +32,3 @@ def testPluginLoaderHelper():
     assertPluginCounts(PLUGIN_TYPE_VERIFICATION, pluginPaths, 1)
     assertPluginCounts(PLUGIN_TYPE_PROCESSING, pluginPaths, 1)
     assertPluginCounts(PLUGIN_TYPE_STATS_CONSUMER, pluginPaths, 1)
-

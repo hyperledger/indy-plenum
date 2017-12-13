@@ -29,13 +29,13 @@ def allPluginPaths(pluginVerPath, pluginPrcPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
-                        pluginPaths=allPluginPaths
+                     pluginPaths=allPluginPaths
                      ) as ns:
 
         for n in ns:  # type: Node
@@ -62,7 +62,7 @@ class AuctionApp(App):
             }
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return req
 
     def getBalance(self) -> int:
@@ -71,7 +71,7 @@ class AuctionApp(App):
             TARGET_NYM: self.wallet.defaultId
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return self.client.hasConsensus(*req.key)[BALANCE]
 
     def bid(self, aucId, amount):
@@ -83,10 +83,11 @@ class AuctionApp(App):
             }
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
         return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionTransactions(nodeSet, up, looper, apps):
     jason, tyler, les, john, timothy = apps
     auctionId = str(uuid4())

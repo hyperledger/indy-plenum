@@ -1,7 +1,6 @@
-import json
 from functools import lru_cache
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
     SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
@@ -19,12 +18,16 @@ logger = getlogger()
 
 
 class PoolRequestHandler(RequestHandler):
+    write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
                  domainState: State):
         super().__init__(ledger, state)
         self.domainState = domainState
-        self.stateSerializer = JsonSerializer()
+        self.stateSerializer = pool_state_serializer
+
+    def doStaticValidation(self, request: Request):
+        pass
 
     def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)
@@ -39,15 +42,16 @@ class PoolRequestHandler(RequestHandler):
             raise UnauthorizedClientRequest(req.identifier, req.reqId,
                                             error)
 
-    def apply(self, req: Request):
+    def apply(self, req: Request, cons_time: int):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
-            txn = reqToTxn(req)
+            txn = reqToTxn(req, cons_time)
             (start, end), _ = self.ledger.appendTxns([txn])
             self.updateState(txnsWithSeqNo(start, end, [txn]))
-            return txn
+            return start, txn
         else:
-            logger.debug('Cannot apply request of type {} to state'.format(typ))
+            logger.debug(
+                'Cannot apply request of type {} to state'.format(typ))
             return None
 
     def updateState(self, txns, isCommitted=False):
@@ -72,7 +76,8 @@ class PoolRequestHandler(RequestHandler):
 
         isSteward = self.isSteward(origin, isCommitted=False)
         if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
+            return "{} is not a steward so cannot add a new node".format(
+                origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
         if self.isNodeDataConflicting(operation.get(DATA, {})):
@@ -98,7 +103,16 @@ class PoolRequestHandler(RequestHandler):
     def getNodeData(self, nym, isCommitted: bool = True):
         key = nym.encode()
         data = self.state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return self.stateSerializer.deserialize(data)
+
+    def get_node_data_for_root_hash(self, root_hash, nym):
+        key = nym.encode()
+        data = self.state.get_for_root_hash(root_hash, key)
+        if not data:
+            return {}
+        return self.stateSerializer.deserialize(data)
 
     def updateNodeData(self, nym, data):
         key = nym.encode()
@@ -106,7 +120,8 @@ class PoolRequestHandler(RequestHandler):
         self.state.set(key, val)
 
     def isSteward(self, nym, isCommitted: bool = True):
-        return DomainRequestHandler.isSteward(self.domainState, nym, isCommitted)
+        return DomainRequestHandler.isSteward(
+            self.domainState, nym, isCommitted)
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym, isCommitted=True):
@@ -118,7 +133,7 @@ class PoolRequestHandler(RequestHandler):
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
         for nodeNym, nodeData in self.state.as_dict.items():
-            nodeData = json.loads(nodeData.decode())
+            nodeData = self.stateSerializer.deserialize(nodeData)
             if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
                 return True
         return False
@@ -159,7 +174,7 @@ class PoolRequestHandler(RequestHandler):
 
         for otherNode, otherNodeData in self.state.as_dict.items():
             otherNode = otherNode.decode()
-            otherNodeData = json.loads(otherNodeData.decode())
+            otherNodeData = self.stateSerializer.deserialize(otherNodeData)
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)
             if not nodeNym or otherNode != nodeNym:
@@ -173,7 +188,8 @@ class PoolRequestHandler(RequestHandler):
                 list(map(lambda x: bag.remove(x) if x in bag else None,
                          (None, (None, None))))
 
-                if (not nodeData and len(bag) != 3) or (nodeData and len(bag) != 6):
+                if (not nodeData and len(bag) != 3) or (
+                        nodeData and len(bag) != 6):
                     return True
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):

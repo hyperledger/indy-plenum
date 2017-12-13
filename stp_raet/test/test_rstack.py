@@ -17,7 +17,7 @@ def test2RStackCommunication(tdir, looper):
         "main": True,
         "mutable": "mutable",
         "messageTimeout": 30,
-        "basedirpath" : tdir
+        "basedirpath": tdir
     }
     stackParamsBeta = {
         "name": names[1],
@@ -26,7 +26,7 @@ def test2RStackCommunication(tdir, looper):
         "auth_mode": AuthMode.ALLOW_ANY.value,
         "mutable": "mutable",
         "messageTimeout": 30,
-        "basedirpath" : tdir
+        "basedirpath": tdir
     }
 
     alpha = SimpleRStack(stackParamsAlpha, msgHandler=alphaP.print)
@@ -45,6 +45,3 @@ def test2RStackCommunication(tdir, looper):
 
     looper.run(eventually(chkPrinted, betaP, {'greetings': 'hi Beta'}))
     looper.run(eventually(chkPrinted, alphaP, {'greetings': 'hi Alpha'}))
-
-
-

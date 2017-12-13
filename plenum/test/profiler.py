@@ -2,14 +2,14 @@ import cProfile
 import profile
 import pstats
 from statistics import stdev, mean
-import inspect
+
 
 def calibrate():
     pr = profile.Profile()
     samples = []
     for i in range(20):
         samples.append(pr.calibrate(100000))
-        print("calculated {:02d}: {}".format(i+1, samples[i]))
+        print("calculated {:02d}: {}".format(i + 1, samples[i]))
     print("------------------------------------")
     print("         mean: {}".format(mean(samples)))
     print("std deviation: {}".format(stdev(samples)))
@@ -17,7 +17,8 @@ def calibrate():
 
 def profile_this(func, *args, **kwargs):
     pr = cProfile.Profile()
-    pr.bias = 7.328898416011422e-07  # calculated on Jason's machine using 'calibrate' function; YMMV
+    # calculated on Jason's machine using 'calibrate' function; YMMV
+    pr.bias = 7.328898416011422e-07
     pr.enable()
 
     r = func(*args, **kwargs)

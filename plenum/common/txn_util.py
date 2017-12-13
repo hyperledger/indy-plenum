@@ -1,10 +1,8 @@
 from collections import OrderedDict
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
-from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY
+    ALIAS, VERKEY, FORCE
 from plenum.common.types import f, OPERATION
 from plenum.common.request import Request
 from stp_core.common.log import getlogger
@@ -18,20 +16,19 @@ def getTxnOrderedFields():
         (f.IDENTIFIER.nm, (str, str)),
         (f.REQ_ID.nm, (str, int)),
         (f.SIG.nm, (str, str)),
-        (TXN_TIME, (str, float)),
+        (TXN_TIME, (str, int)),
         (TXN_TYPE, (str, str)),
         (TARGET_NYM, (str, str)),
         (VERKEY, (str, str)),
         (ROLE, (str, str)),
-        (ALIAS, (str, str))
+        (ALIAS, (str, str)),
+        (f.SIGS.nm, (str, str)),
     ])
 
 
 def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
                          reset=True):
-    ledger = Ledger(CompactMerkleTree(), dataDir=targetDir,
-                    serializer=CompactSerializer(fields=fieldOrdering),
-                    fileName=fileName)
+    ledger = create_genesis_txn_init_ledger(targetDir, fileName)
 
     if reset:
         ledger.reset()
@@ -50,11 +47,12 @@ def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
     ledger.stop()
 
 
-def reqToTxn(req: Request):
+def reqToTxn(req: Request, cons_time=None):
     """
     Transform a client request such that it can be stored in the ledger.
     Also this is what will be returned to the client in the reply
     :param req:
+    :param cons_time: UTC epoch at which consensus was reached
     :return:
     """
     # TODO: we should not reformat transaction this way
@@ -68,18 +66,20 @@ def reqToTxn(req: Request):
     # }
     # res.update(data[OPERATION])
     # return res
-    
+
     if isinstance(req, dict):
         if TXN_TYPE in req:
             return req
         data = req
-    else :
+    else:
         data = req.as_dict
 
     res = {
         f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
         f.REQ_ID.nm: data[f.REQ_ID.nm],
-        f.SIG.nm: data[f.SIG.nm]
+        f.SIG.nm: data.get(f.SIG.nm, None),
+        f.SIGS.nm: data.get(f.SIGS.nm, None),
+        TXN_TIME: cons_time or data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
     return res
@@ -87,7 +87,7 @@ def reqToTxn(req: Request):
 
 def txnToReq(txn):
     """
-    Transforms transactions to request form (not to Request)  
+    Transforms transactions to request form (not to Request)
     """
     txn = txn.copy()
     request = {}
@@ -95,3 +95,15 @@ def txnToReq(txn):
         request[field_name] = txn.pop(field_name, None)
     request[OPERATION] = txn
     return request
+
+
+def isTxnForced(txn):
+    force = txn.get(FORCE)
+    return str(force) == 'True'
+
+
+def idr_from_req_data(data):
+    if data.get(f.IDENTIFIER.nm):
+        return data[f.IDENTIFIER.nm]
+    else:
+        return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))

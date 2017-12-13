@@ -10,6 +10,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
+# noinspection PyUnresolvedReferences
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
     steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
     client1Connected
@@ -31,10 +32,10 @@ def looper(txnPoolNodesLooper):
 
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
-                             tdirWithPoolTxns, poolTxnStewardData, tconf,
+                             tdir, tdirWithClientPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
@@ -47,13 +48,14 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, client, wallet, newStewardName, newNodeName,
-        tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
     yield looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet
 
 
 @pytest.fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def nodeSetWithNodeAddedAfterSomeTxns(
+        txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
@@ -79,6 +81,36 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
         # check the return value of `num_txns_caught_up_in_last_catchup` to be
         # greater than 0
 
-        assert max(getAllReturnVals(newNode,
-                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
+        assert max(
+            getAllReturnVals(
+                newNode,
+                newNode.num_txns_caught_up_in_last_catchup)) > 0
+
+    for li in newNode.ledgerManager.ledgerRegistry.values():
+        assert not li.receivedCatchUpReplies
+        assert not li.recvdCatchupRepliesFrm
+
     return newNode
+
+
+@pytest.yield_fixture("module")
+def poolAfterSomeTxns(
+        looper,
+        txnPoolNodesLooper,
+        txnPoolNodeSet,
+        tdirWithClientPoolTxns,
+        poolTxnStewardData,
+        allPluginsPath,
+        request):
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithClientPoolTxns,
+                                              clientClass=TestClient)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+                                        wallet,
+                                        client,
+                                        txnCount)
+    yield looper, client, wallet

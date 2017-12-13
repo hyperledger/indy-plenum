@@ -26,7 +26,7 @@ whitelist = [Suspicions.DUPLICATE_PPR_SENT.reason,
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-                                 getNonPrimaryReplicas(nodeSet, 0)
+        getNonPrimaryReplicas(nodeSet, 0)
 
     # The primary replica would send 3 duplicate PRE-PREPARE requests to
     # non primary replicas

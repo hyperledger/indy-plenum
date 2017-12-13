@@ -1,6 +1,7 @@
 import pytest
 
-from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
+from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate, \
+    InsufficientCorrectSignatures
 from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
@@ -8,9 +9,11 @@ from plenum.server.client_authn import SimpleAuthNr
 idr = '5G72199XZB7wREviUbQma7'
 msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 
+
 class DummyAuthenticator(SimpleAuthNr):
     def getVerkey(self, _):
         return None
+
 
 @pytest.fixture(scope="module")
 def cli():
@@ -42,8 +45,8 @@ def test_authenticate_raises_correct_exception():
     verkey = simple_signer.verkey
     dummyAr = DummyAuthenticator()
     dummyAr.addIdr(identifier, verkey)
-    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
-
+    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate,
+                  msg, identifier, signature)
 
 
 def testClientAuthentication(sa, cli, msg, sig):
@@ -56,7 +59,7 @@ def testMessageModified(sa, cli, msg, sig):
     # slight modification to the message
     msg2['myMsg'] = msg2['myMsg'][:-1] + '!'
 
-    with pytest.raises(InvalidSignature):
+    with pytest.raises(InsufficientCorrectSignatures):
         sa.authenticate(msg2, idr, sig)
 
 

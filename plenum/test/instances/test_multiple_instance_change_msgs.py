@@ -17,21 +17,23 @@ nodeCount = 7
 def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     maliciousNode = nodeSet.Alpha
     for i in range(0, 5):
-        maliciousNode.send(maliciousNode._create_instance_change_msg(i, 0))
+        maliciousNode.send(maliciousNode.view_changer._create_instance_change_msg(i, 0))
 
     def chk(instId):
         for node in nodeSet:
             if node.name != maliciousNode.name:
-                args = getAllArgs(node, Node.processInstanceChange)
+                args = getAllArgs(node, ViewChanger.process_instance_change_msg)
                 assert len(args) == 5
                 for arg in args:
                     assert arg['frm'] == maliciousNode.name
 
     numOfNodes = len(nodeSet)
-    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(numOfNodes)
+    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(
+        numOfNodes)
 
     for i in range(0, 5):
-        looper.run(eventually(chk, i, retryWait=1, timeout=instanceChangeTimeout))
+        looper.run(eventually(chk, i, retryWait=1,
+                              timeout=instanceChangeTimeout))
 
     def g():
         for node in nodeSet:

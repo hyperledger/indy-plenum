@@ -66,8 +66,8 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
     for node in nodeSet.nodes.values():
         for instId, replica in enumerate(node.elector.replicas):
             logger.debug("replica {} {} with votes {}".
-                          format(replica.name, replica.instId,
-                                 node.elector.nominations.get(instId, {})))
+                         format(replica.name, replica.instId,
+                                node.elector.nominations.get(instId, {})))
 
     nominationTimeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     logger.debug("Check nomination")

@@ -12,7 +12,8 @@ logger = getlogger()
 txnCount = 5
 
 
-# TODO: Refactor tests to minimize module-scoped fixtures.They make tests depend on each other
+# TODO: Refactor tests to minimize module-scoped fixtures.They make tests
+# depend on each other
 def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
                                    nodeSetWithNodeAddedAfterSomeTxns):
     """
@@ -24,7 +25,8 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
 
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode, stopNode=False)
+    disconnect_node_and_ensure_disconnected(
+        looper, txnPoolNodeSet, newNode, stopNode=False)
     looper.removeProdable(newNode)
 
     # TODO: Check if the node has really stopped processing requests?

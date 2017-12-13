@@ -80,6 +80,8 @@ class LedgerInfo:
         self.state = LedgerState.synced
         self.ledgerStatusOk = set()
         self.recvdConsistencyProofs = {}
+        self.receivedCatchUpReplies = []
+        self.recvdCatchupRepliesFrm = {}
         self.postCatchupCompleteClbk()
         self.catchupReplyTimer = None
         if self.catchUpTill:

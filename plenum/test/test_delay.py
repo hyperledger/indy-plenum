@@ -15,9 +15,9 @@ logger = getlogger()
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
-def testTestNodeDelay(tdir_for_func):
+def testTestNodeDelay(tdir_for_func, tconf_for_func):
     nodeNames = {"testA", "testB"}
-    with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodes:
+    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodes:
         nodeA = nodes.getNode("testA")
         nodeB = nodes.getNode("testB")
 
@@ -68,8 +68,8 @@ def testSelfNominationDelay(tdir_for_func):
             # that it is delaying self nomination
             timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
-                               timeout=timeout))
+                eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
+                           timeout=timeout))
 
             ensureElectionsDone(looper=looper,
                                 nodes=nodeSet,
@@ -78,13 +78,13 @@ def testSelfNominationDelay(tdir_for_func):
             # node A should not have any primary replica
             timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
-                    eventually(lambda: assertExp(not nodeA.hasPrimary),
-                               retryWait=1,
-                               timeout=timeout))
+                eventually(lambda: assertExp(not nodeA.hasPrimary),
+                           retryWait=1,
+                           timeout=timeout))
 
             # Make sure that after at the most 30 seconds, nodeA's
             # `startElection` is called
             looper.run(eventually(lambda: assertExp(
-                    len(nodeA.spylog.getAll(
-                            Node.decidePrimaries.__name__)) > 0),
-                                  retryWait=1, timeout=delay))
+                len(nodeA.spylog.getAll(
+                    Node.decidePrimaries.__name__)) > 0),
+                retryWait=1, timeout=delay))

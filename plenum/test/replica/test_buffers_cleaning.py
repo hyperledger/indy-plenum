@@ -1,24 +1,21 @@
 from plenum.server.replica import Replica
+from plenum.test.testing_utils import FakeSomething
 
 
-class FakeNode():
-
-    def __init__(self, **kwargs):
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
-
-def test_ordered_cleaning():
+def test_ordered_cleaning(tconf):
 
     global_view_no = 2
 
-    node = FakeNode(
+    node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=global_view_no,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, config=tconf, bls_bft_replica=bls_bft_replica)
     total = []
 
     num_requests_per_view = 3
@@ -36,31 +33,34 @@ def test_ordered_cleaning():
     assert len(replica.ordered) == len(total[num_requests_per_view:])
 
 
-def test_primary_names_cleaning():
+def test_primary_names_cleaning(tconf):
 
-    node = FakeNode(
+    node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=0,
     )
+    bls_bft_replica = FakeSomething(
+        gc = lambda *args: None,
+    )
 
-    replica = Replica(node, instId=0)
+    replica = Replica(node, instId=0, config=tconf, bls_bft_replica=bls_bft_replica)
 
     replica.primaryName = "Node1:0"
     assert list(replica.primaryNames.items()) == \
-           [(0, "Node1:0")]
+        [(0, "Node1:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node2:0"
     assert list(replica.primaryNames.items()) == \
-           [(0, "Node1:0"), (1, "Node2:0")]
+        [(0, "Node1:0"), (1, "Node2:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node3:0"
     assert list(replica.primaryNames.items()) == \
-           [(1, "Node2:0"), (2, "Node3:0")]
+        [(1, "Node2:0"), (2, "Node3:0")]
 
     node.viewNo += 1
     replica.primaryName = "Node4:0"
     assert list(replica.primaryNames.items()) == \
-           [(2, "Node3:0"), (3, "Node4:0")]
+        [(2, "Node3:0"), (3, "Node4:0")]

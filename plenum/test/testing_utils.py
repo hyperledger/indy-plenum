@@ -40,10 +40,14 @@ def checkDblImp():
 
 def setupTestLogging():
     logging.basicConfig(
-            level=TRACE_LOG_LEVEL,
-            format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
-            style='{')
+        level=TRACE_LOG_LEVEL,
+        format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
+        style='{')
     console = getConsole()
     console.reinit(verbosity=console.Wordage.concise)
 
 
+class FakeSomething:
+    def __init__(self, **kwargs):
+        for name, value in kwargs.items():
+            setattr(self, name, value)

@@ -31,7 +31,8 @@ def elections_done(case_6_setup, looper, keySharedNodes):
     inst_ids = (0, 1)
 
     def chk():
-        # Check that each Primary is received by A before A has sent any Primary
+        # Check that each Primary is received by A before A has sent any
+        # Primary
         primary_recv_times = {
             i: [entry.starttime for entry in A.elector.spylog.getAll(
                 A.elector.processPrimary) if entry.params['prim'].instId == i]

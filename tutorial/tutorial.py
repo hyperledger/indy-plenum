@@ -32,14 +32,14 @@ with SafeTemporaryDirectory() as tmpdir:
         """
         The nodes need to have the their keys initialized
         """
-        initLocalKeys('Alpha', tmpdir, randomString(32), override=True)
-        initLocalKeys('AlphaC', tmpdir, randomString(32), override=True)
-        initLocalKeys('Beta', tmpdir, randomString(32), override=True)
-        initLocalKeys('BetaC', tmpdir, randomString(32), override=True)
-        initLocalKeys('Gamma', tmpdir, randomString(32), override=True)
-        initLocalKeys('GammaC', tmpdir, randomString(32), override=True)
-        initLocalKeys('Delta', tmpdir, randomString(32), override=True)
-        initLocalKeys('DeltaC', tmpdir, randomString(32), override=True)
+        initLocalKeys('Alpha', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('AlphaC', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('Beta', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('BetaC', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('Gamma', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('GammaC', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('Delta', tmpdir, randomString(32), use_bls=True, override=True)
+        initLocalKeys('DeltaC', tmpdir, randomString(32), use_bls=True, override=True)
 
         """
         A node registry is a dictionary of Node names and their IP addresses
@@ -177,7 +177,7 @@ with SafeTemporaryDirectory() as tmpdir:
         Let's get the reply.
         """
         reply, status = client.getReply(request.reqId)
-        
+
         """
         Check the reply and see if consensus has been reached.
         """

@@ -5,3 +5,5 @@ class ProdableAlreadyAdded(Exception):
     pass
 
 
+class EventuallyTimeoutException(Exception):
+    pass

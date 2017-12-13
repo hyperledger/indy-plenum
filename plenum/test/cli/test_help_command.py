@@ -9,7 +9,7 @@ def testDefaultHelp(cli):
         "help - Shows this or specific help message for given command",
         "license - Shows the license",
         "exit - Exit the command-line interface ('quit' also works)"
-        ]
+    ]
 
     for dhm in defaultHelpMsgs:
         assert dhm in cli.lastCmdOutput
@@ -22,7 +22,7 @@ def testNewKey(cli):
     cli.enterCmd("help new key")
     newMsg = """new key
 -------
-     title: Adds new key to active keyring
+     title: Adds new key to active wallet
 
      usage: new key [with seed <32 character seed>] [[as] <alias>]
 

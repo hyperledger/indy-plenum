@@ -62,4 +62,3 @@ def testSimpleZStacksMsgs(tdir, looper):
     looper.runFor(0.25)
     alpha.send({'greetings': 'hi'}, beta.name)
     looper.runFor(1)
-

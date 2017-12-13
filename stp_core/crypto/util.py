@@ -26,7 +26,7 @@ def seedFromHex(seed):
     if len(seed) == 64:
         try:
             return unhexlify(seed)
-        except:
+        except Exception:
             pass
 
 

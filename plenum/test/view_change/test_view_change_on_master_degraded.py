@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from plenum.server.node import Node
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
@@ -14,8 +14,10 @@ from plenum.test.view_change.helper import simulate_slow_master
 nodeCount = 7
 
 # noinspection PyIncorrectDocstring
+
+
 def test_view_change_on_performance_degraded(looper, nodeSet, up, viewNo,
-                   wallet1, client1):
+                                             wallet1, client1):
     """
     Test that a view change is done when the performance of master goes down
     Send multiple requests from the client and delay some requests by master
@@ -51,9 +53,9 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
-    instChngMethodName = Node.sendInstanceChange.__name__
+    instChngMethodName = ViewChanger.sendInstanceChange.__name__
     for n in nodeSet:
-        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
+        sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
 
     # Node reluctant to change view, never says master is degraded
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
@@ -62,17 +64,17 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # Check that view change happened for all nodes
-    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
+    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo + 1)
 
     # All nodes except the reluctant node should have sent a view change and
     # thus must have called `sendInstanceChange`
     for n in nodeSet:
         if n.name != relucatantNode.name:
-            assert n.spylog.count(instChngMethodName) > \
-                   sentInstChanges.get(n.name, 0)
+            assert n.view_changer.spylog.count(instChngMethodName) > \
+                sentInstChanges.get(n.name, 0)
         else:
-            assert n.spylog.count(instChngMethodName) == \
-                   sentInstChanges.get(n.name, 0)
+            assert n.view_changer.spylog.count(instChngMethodName) == \
+                sentInstChanges.get(n.name, 0)
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))

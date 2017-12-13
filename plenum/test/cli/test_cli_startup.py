@@ -11,8 +11,8 @@ def assertPrintsDefaultClientAndIdentifier(cli):
     assert cli.printeds[1]['msg'] == "Current wallet set to {walletName}". \
         format(walletName=dc.name)
     assert cli.printeds[0]['msg'] == \
-           "Current identifier set to {alias} ({cryptonym})". \
-               format(alias=dc.name, cryptonym=verstr)
+        "Current identifier set to {alias} ({cryptonym})". \
+        format(alias=dc.name, cryptonym=verstr)
 
 
 def printedMessages(cli):
@@ -26,7 +26,7 @@ def initStatements(cli):
     return ["New wallet {} created".format(name),
             "Current wallet set to " + name,
             "Key created in wallet " + name,
-            "Identifier for key is " + cryptonym,
+            "DID for key is " + cryptonym,
             "Current identifier set to " + cryptonym,
             "Note: To rename this wallet, use following command:",
             "    rename wallet Default to NewName"]

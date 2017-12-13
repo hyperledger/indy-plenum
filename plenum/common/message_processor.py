@@ -10,8 +10,9 @@ class MessageProcessor:
     Helper functions for messages.
     """
 
-    def __init__(self, allowDictOnly = False):
-        self.allowDictOnly = allowDictOnly # if True, message must be converted to Dict before sending.
+    def __init__(self, allowDictOnly=False):
+        # if True, message must be converted to Dict before sending.
+        self.allowDictOnly = allowDictOnly
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         """
@@ -44,7 +45,7 @@ class MessageProcessor:
             tmsg = dict(msg.__dict__)
         elif self.allowDictOnly:
             raise ValueError("Message cannot be converted to an appropriate "
-                                 "format for transmission")
+                             "format for transmission")
         else:
             tmsg = msg
         return tmsg

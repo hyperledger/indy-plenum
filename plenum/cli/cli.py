@@ -2,20 +2,18 @@ from __future__ import unicode_literals
 
 import glob
 import shutil
-from hashlib import sha256
 from os.path import basename, dirname
-from typing import Dict, Iterable
+from typing import Iterable
 
 from jsonpickle import json
-
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
-from ledger.stores.file_hash_store import FileHashStore
-from plenum import config
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
-    newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
-    listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
+    newWalletCmd, renameWalletCmd, useWalletCmd, saveWalletCmd, \
+    listWalletCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
 from plenum.cli.command import licenseCmd
 from plenum.cli.command import newClientCmd
@@ -27,27 +25,23 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet, WalletStorageHelper
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.signer_did import DidSigner
-from stp_core.crypto.util import cleanSeed, seedFromHex
-from stp_raet.util import getLocalEstateData
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
-    CLIENT_STACK_SUFFIX
+from plenum.common.tools import lazy_field
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from storage.kv_in_memory import KeyValueStorageInMemory
+from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
-
-if is_windows():
-    from prompt_toolkit.terminal.win32_output import Win32Output
-    from prompt_toolkit.terminal.conemu_output import ConEmuOutput
-else:
-    from prompt_toolkit.terminal.vt100_output import Vt100_Output
+from stp_raet.util import getLocalEstateData
+from plenum.common.config_helper import PNodeConfigHelper
 
 import configparser
 import os
@@ -59,8 +53,6 @@ import ast
 from functools import reduce, partial
 import sys
 
-from prompt_toolkit.history import FileHistory
-from ioflo.aid.consoling import Console
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -79,13 +71,20 @@ from plenum.common.util import getMaxFailures, \
     normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
-    getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
+    getlogger, Logger
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
+from plenum.cli.command_history import CliFileHistory
+
+if is_windows():
+    from prompt_toolkit.terminal.win32_output import Win32Output  # noqa
+    from prompt_toolkit.terminal.conemu_output import ConEmuOutput  # noqa
+else:
+    from prompt_toolkit.terminal.vt100_output import Vt100_Output  # noqa
 
 
 class CustomOutput(Vt100_Output):
@@ -108,7 +107,6 @@ class Cli:
     name = 'plenum'
     properName = 'Plenum'
     fullName = 'Plenum protocol'
-    githubUrl = 'https://github.com/evernym/plenum'
 
     NodeClass = Node
     ClientClass = Client
@@ -117,40 +115,21 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
+    def __init__(self, looper, basedirpath: str, ledger_base_dir: str, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
-                 override_tags=None):
+                 override_tags=None, nodes_chroot: str=None):
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
+        self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
         Logger().enableCliLogging(self.out,
                                   override_tags=override_tags)
         self.looper = looper
-        self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
-                and len(cliNodeReg)):
-            self.nodeRegLoadedFromFile = True
-            dataDir = self.basedirpath
-            fileHashStore = FileHashStore(dataDir=dataDir)
-            ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
-                dataDir=dataDir,
-                fileName=self.config.poolTransactionsFile)
-            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
-                ledger)
-            ledger.stop()
-            fileHashStore.close()
-
         self.withNode = withNode
-        self.nodeReg = nodeReg
-        self.cliNodeReg = cliNodeReg
-        self.nodeRegistry = {}
-        for nStkNm, nha in self.nodeReg.items():
-            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+        self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -173,14 +152,13 @@ class Cli:
         self.plugins = {}
         self.pluginPaths = []
         self.defaultClient = None
-        self.activeIdentifier = None
+        self.activeDID = None
         # Wallet and Client are the same from user perspective for now
         self._activeClient = None
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
-
-        self._walletSaver = None
+        self.nodes_chroot = nodes_chroot
 
         '''
         examples:
@@ -226,7 +204,8 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        self.pers_hist = FileHistory('.{}-cli-history'.format(self.name))
+        self.pers_hist = CliFileHistory(
+            command_filter=self.mask_seed, filename='.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
@@ -264,7 +243,7 @@ class Cli:
             Logger().enableFileLogging(logFileName)
 
         # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
-        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
+        # Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
@@ -285,6 +264,41 @@ class Cli:
 
         self.checkIfCmdHandlerAndCmdMappingExists()
 
+    @property
+    def pool_ledger_dir(self):
+        return self.ledger_base_dir
+
+    def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
+        self.nodeRegLoadedFromFile = False
+        if not (useNodeReg and nodeReg and len(nodeReg) and
+                cliNodeReg and len(cliNodeReg)):
+            self.__init_registry_from_ledger()
+        else:
+            self.nodeReg = nodeReg
+            self.cliNodeReg = cliNodeReg
+
+        self.nodeRegistry = {}
+        for nStkNm, nha in self.nodeReg.items():
+            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
+            self.nodeRegistry[nStkNm] = NodeDetail(
+                HA(*nha), cStkNm, HA(*self.cliNodeReg[cStkNm]))
+
+    def __init_registry_from_ledger(self):
+        self.nodeRegLoadedFromFile = True
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            self.pool_ledger_dir, self.config.poolTransactionsFile)
+        ledger = Ledger(CompactMerkleTree(),
+                        dataDir=self.pool_ledger_dir,
+                        fileName=self.config.poolTransactionsFile,
+                        genesis_txn_initiator=genesis_txn_initiator,
+                        transactionLogStore=KeyValueStorageInMemory())
+        nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+            ledger)
+        ledger.stop()
+
+        self.nodeReg = nodeReg
+        self.cliNodeReg = cliNodeReg
+
     def close(self):
         """
         Stops all the created clients and nodes.
@@ -295,18 +309,18 @@ class Cli:
             self.nodes[key].stop()
 
     def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
-        msg="Command mapping not provided for '{}' command handler. " \
+        msg = "Command mapping not provided for '{}' command handler. " \
             "\nPlease add proper mapping for that command handler " \
             "(in function '{}') with corresponding command object.".\
             format(cmdHandlerFuncName, mappingFuncName)
 
-        sep = "\n" + "*"*125 + "\n"
+        sep = "\n" + "*" * 125 + "\n"
         msg = sep + msg + sep
         return msg
 
     def checkIfCmdHandlerAndCmdMappingExists(self):
         for cmdHandlerFunc in self.actions:
-            funcName = cmdHandlerFunc.__name__.replace("_","")
+            funcName = cmdHandlerFunc.__name__.replace("_", "")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
                 raise Exception(self._getCmdMappingError(
                     cmdHandlerFunc.__name__,
@@ -334,9 +348,9 @@ class Cli:
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
                              self._createGenTxnFileAction, self._changePrompt,
-                             self._newKeyring, self._renameKeyring,
-                             self._useKeyringAction, self._saveKeyringAction,
-                             self._listKeyringsAction]
+                             self._newWallet, self._renameWallet,
+                             self._useWalletAction, self._saveWalletAction,
+                             self._listWalletsAction]
         return self._actions
 
     @property
@@ -347,15 +361,11 @@ class Cli:
             self._config = getConfig()
             return self._config
 
-
-    @property
+    @lazy_field
     def walletSaver(self):
-        if self._walletSaver is None:
-            self._walletSaver = WalletStorageHelper(
-                    self.getKeyringsBaseDir(),
-                    dmode=self.config.KEYRING_DIR_MODE,
-                    fmode=self.config.KEYRING_FILE_MODE)
-        return self._walletSaver
+        return WalletStorageHelper(self.getWalletsBaseDir(),
+                                   dmode=self.config.WALLET_DIR_MODE,
+                                   fmode=self.config.WALLET_FILE_MODE)
 
     @property
     def allGrams(self):
@@ -383,14 +393,14 @@ class Cli:
                 'add_key': PhraseWordCompleter('add key'),
                 'for_client': PhraseWordCompleter('for client'),
                 'new_key': PhraseWordCompleter('new key'),
-                'new_keyring': PhraseWordCompleter('new keyring'),
-                'rename_keyring': PhraseWordCompleter('rename keyring'),
+                'new_wallet': PhraseWordCompleter('new wallet'),
+                'rename_wallet': PhraseWordCompleter('rename wallet'),
                 'list_ids': PhraseWordCompleter('list ids'),
-                'list_krs': PhraseWordCompleter('list keyrings'),
+                'list_wallet': PhraseWordCompleter('list wallets'),
                 'become': WordCompleter(['become']),
-                'use_id': PhraseWordCompleter('use identifier'),
-                'use_kr': PhraseWordCompleter('use keyring'),
-                'save_kr': PhraseWordCompleter('save keyring'),
+                'use_id': PhraseWordCompleter('use DID'),
+                'use_wallet': PhraseWordCompleter('use wallet'),
+                'save_wallet': PhraseWordCompleter('save wallet'),
                 'add_gen_txn': PhraseWordCompleter('add genesis transaction'),
                 'prompt': WordCompleter(['prompt']),
                 'create_gen_txn_file': PhraseWordCompleter(
@@ -415,17 +425,17 @@ class Cli:
                 'add_key',
                 'verkey',
                 'for_client',
-                'identifier',
+                'DID',
                 'new_key',
                 'list_ids',
-                'list_krs',
+                'list_wallets',
                 'become',
                 'use_id',
                 'prompt',
-                'new_keyring',
-                'use_kr',
-                'save_kr',
-                'rename_keyring',
+                'new_wallet',
+                'use_wallet',
+                'save_wallet',
+                'rename_wallet',
                 'add_genesis',
                 'create_gen_txn_file'
             }
@@ -434,12 +444,12 @@ class Cli:
         return self._lexers
 
     def _renameWalletFile(self, oldWalletName, newWalletName):
-        keyringsDir = self.getContextBasedKeyringsBaseDir()
+        walletsDir = self.getContextBasedWalletsBaseDir()
         oldWalletFilePath = getWalletFilePath(
-            keyringsDir, normalizedWalletFileName(oldWalletName))
+            walletsDir, normalizedWalletFileName(oldWalletName))
         if os.path.exists(oldWalletFilePath):
             newWalletFilePath = getWalletFilePath(
-            keyringsDir, normalizedWalletFileName(newWalletName))
+                walletsDir, normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
                 self.print("A persistent wallet file already exists for "
                            "new wallet name. Please choose new wallet name.")
@@ -447,8 +457,8 @@ class Cli:
             os.rename(oldWalletFilePath, newWalletFilePath)
         return True
 
-    def _renameKeyring(self, matchedVars):
-        if matchedVars.get('rename_keyring'):
+    def _renameWallet(self, matchedVars):
+        if matchedVars.get('rename_wallet'):
             fromName = matchedVars.get('from')
             toName = matchedVars.get('to')
             conflictFound = self._checkIfIdentifierConflicts(
@@ -457,7 +467,7 @@ class Cli:
                 fromWallet = self.wallets.get(fromName) if fromName \
                     else self.activeWallet
                 if not fromWallet:
-                    self.print('Keyring {} not found'.format(fromName))
+                    self.print('Wallet {} not found'.format(fromName))
                     return True
 
                 if not self._renameWalletFile(fromName, toName):
@@ -467,17 +477,17 @@ class Cli:
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
 
-                self.print('Keyring {} renamed to {}'.format(fromName, toName))
+                self.print('Wallet {} renamed to {}'.format(fromName, toName))
             return True
 
-    def _newKeyring(self, matchedVars):
-        if matchedVars.get('new_keyring'):
+    def _newWallet(self, matchedVars):
+        if matchedVars.get('new_wallet'):
             name = matchedVars.get('name')
             conflictFound = self._checkIfIdentifierConflicts(
                 name, checkInAliases=False, checkInSigners=False)
             if not conflictFound:
                 self._saveActiveWallet()
-                self._newWallet(name)
+                self._createWallet(name)
             return True
 
     def _changePrompt(self, matchedVars):
@@ -488,14 +498,13 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            ledger = Ledger(CompactMerkleTree(),
-                            dataDir=self.basedirpath,
-                            fileName=self.config.poolTransactionsFile)
+            ledger = create_genesis_txn_init_ledger(
+                self.pool_ledger_dir, self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
             self.print('Genesis transaction file created at {} '
-                       .format(ledger._transactionLog.dbPath))
+                       .format(ledger._transactionLog.db_path))
             ledger.stop()
             return True
 
@@ -509,11 +518,11 @@ class Cli:
     def _addNewGenesisCommand(self, matchedVars):
         typ = self._getType(matchedVars)
 
-        nodeName, nodeData, identifier = None, None, None
+        nodeName, nodeData, DID = None, None, None
         jsonNodeData = json.loads(matchedVars.get(DATA))
         for key, value in jsonNodeData.items():
             if key == BY:
-                identifier = value
+                DID = value
             else:
                 nodeName, nodeData = key, value
 
@@ -529,7 +538,7 @@ class Cli:
 
         newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
                           TARGET_NYM: nodeData.get(VERKEY),
-                          IDENTIFIER: identifier}
+                          IDENTIFIER: DID}
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
@@ -540,7 +549,8 @@ class Cli:
             TARGET_NYM: destId,
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = getFriendlyIdentifier(matchedVars.get(IDENTIFIER))
+            txn[IDENTIFIER] = getFriendlyIdentifier(
+                matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
@@ -552,7 +562,7 @@ class Cli:
     def _buildClientIfNotExists(self, config=None):
         if not self._activeClient:
             if not self.activeWallet:
-                print("Keyring is not initialized")
+                print("Wallet is not initialized")
                 return
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
@@ -562,7 +572,7 @@ class Cli:
         typeVar = matchedVars.get(TXN_TYPE)
 
         try:
-            type =  PlenumTransactions(typeVar)
+            type = PlenumTransactions(typeVar)
             return type.value
         except ValueError:
             pass
@@ -573,9 +583,8 @@ class Cli:
         except KeyError:
             pass
 
-        self.print("Invalid transaction type. Valid types are: {}".
-                   format(", ".join(map(lambda r: r.name, PlenumTransactions))),
-                   Token.Error)
+        self.print("Invalid transaction type. Valid types are: {}". format(
+            ", ".join(map(lambda r: r.name, PlenumTransactions))), Token.Error)
         return None
 
     @property
@@ -588,13 +597,13 @@ class Cli:
             if self.wallets:
                 self.activeWallet = firstValue(self.wallets)
             else:
-                self.activeWallet = self._newWallet()
+                self.activeWallet = self._createWallet()
         return self._activeWallet
 
     @activeWallet.setter
     def activeWallet(self, wallet):
         self._activeWallet = wallet
-        self.print('Active keyring set to "{}"'.format(wallet.name))
+        self.print('Active wallet set to "{}"'.format(wallet.name))
 
     @property
     def activeClient(self):
@@ -629,7 +638,8 @@ class Cli:
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
-        part = partial(self.cli.print_tokens, [(token, msg)])
+        tkn = token or ()
+        part = partial(self.cli.print_tokens, [(tkn, msg)])
         if self.debug:
             part()
         else:
@@ -676,11 +686,11 @@ class Cli:
         # mappings['keyShareAction'] = keyShareCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
 
-        mappings['newKeyring'] = newKeyringCmd
-        mappings['renameKeyring'] = renameKeyringCmd
-        mappings['useKeyringAction'] = useKeyringCmd
-        mappings['saveKeyringAction'] = saveKeyringCmd
-        mappings['listKeyringsAction'] = listKeyringCmd
+        mappings['newWallet'] = newWalletCmd
+        mappings['renameWallet'] = renameWalletCmd
+        mappings['useWalletAction'] = useWalletCmd
+        mappings['saveWalletAction'] = saveWalletCmd
+        mappings['listWalletsAction'] = listWalletCmd
 
         mappings['newKeyAction'] = newKeyCmd
         mappings['useIdentifierAction'] = useIdCmd
@@ -709,7 +719,6 @@ class Cli:
         # command handlers or let it point to None
         mappings['addKeyAction'] = None         # obsolete command
 
-
         return mappings
 
     def getTopComdMappingKeysForHelp(self):
@@ -727,12 +736,14 @@ class Cli:
         bottomCmdsKeys = self.getBottomComdMappingKeysForHelp()
 
         topCmds = [self.cmdHandlerToCmdMappings().get(k) for k in topCmdKeys]
-        bottomCmds = [self.cmdHandlerToCmdMappings().get(k) for k in bottomCmdsKeys]
+        bottomCmds = [self.cmdHandlerToCmdMappings().get(k)
+                      for k in bottomCmdsKeys]
         middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
-                      if k not in topCmdKeys
-                      and k not in bottomCmdsKeys
-                      and k not in removeCmdKeys]
-        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
+                      if k not in topCmdKeys and
+                      k not in bottomCmdsKeys and
+                      k not in removeCmdKeys]
+        return [c for c in (topCmds + middleCmds +
+                            bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -751,7 +762,7 @@ class Cli:
             helpMsgFormattedLine = "\n         ".join(helpMsgLines)
 
             helpMsgStr += "{}       {} - {}".format(
-                '\n'*gapsInLines, cmd.id, helpMsgFormattedLine)
+                '\n' * gapsInLines, cmd.id, helpMsgFormattedLine)
 
             if cmd.id in showUsageFor:
                 helpMsgStr += "\n         Usage:\n            {}".\
@@ -763,9 +774,11 @@ class Cli:
         return ["help"]
 
     def printHelp(self):
-        self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
-                                     sort=False, printHeader=True,
-                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(
+            self.getDefaultOrderedCmds(),
+            sort=False,
+            printHeader=True,
+            showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -885,11 +898,11 @@ class Cli:
         if not self.withNode:
             self.print("This command is only available if you start "
                        "this cli with command line argument --with-node "
-                       "(and it assumes you have installed sovrin-node "
+                       "(and it assumes you have installed indy-node "
                        "dependency)")
             return False
         if not self.NodeClass:
-            self.print("This command requires sovrin-node dependency, "
+            self.print("This command requires indy-node dependency, "
                        "please install it and then resume.")
             return False
 
@@ -907,7 +920,9 @@ class Cli:
             return
 
         if nodeName == "all":
-            names = set(self.nodeReg.keys()) - set(self.nodes.keys())
+            nodeRegKeys = self.nodeReg.keys()
+            nodesKeys = self.nodes.keys()
+            names = set(nodeRegKeys) - set(nodesKeys)
         elif nodeName not in self.nodeReg:
             tokens = [
                 (Token.Error, "Invalid node name '{}'. ".format(nodeName))]
@@ -923,10 +938,12 @@ class Cli:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
 
-                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
+                config_helper = PNodeConfigHelper(name, self.config, chroot=self.nodes_chroot)
+                learnKeysFromOthers(config_helper.keys_dir, name,
+                                    self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
-                                      basedirpath=self.basedirpath,
+                                      config_helper=config_helper,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:
@@ -941,8 +958,8 @@ class Cli:
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
 
-            for identifier, verkey in self.externalClientKeys.items():
-                node.clientAuthNr.addIdr(identifier, verkey)
+            for DID, verkey in self.externalClientKeys.items():
+                node.clientAuthNr.addIdr(DID, verkey)
             nodes.append(node)
         return nodes
 
@@ -987,7 +1004,7 @@ class Cli:
             if self.activeWallet and self.activeWallet.defaultId:
                 wallet = self.activeWallet
                 idr = wallet.defaultId
-                self.print("    Identifier: {}".format(idr))
+                self.print("    DID: {}".format(idr))
                 self.print(
                     "    Verification key: {}".format(wallet.getVerkey(idr)))
 
@@ -1015,15 +1032,15 @@ class Cli:
             else:
                 self.printVoid()
             notConnecteds = list({r for r in self.nodes.keys()
-                                  if r not in connecteds
-                                  and r != nodeName})
+                                  if r not in connecteds and
+                                  r != nodeName})
             if notConnecteds:
                 self.print('    Not connected: ', newline=False)
                 self.printNames(notConnecteds, newline=True)
             self.print("    Replicas: {}".format(len(node.replicas)),
                        newline=False)
             if node.hasPrimary:
-                if node.primaryReplicaNo == 0:
+                if node.has_master_primary:
                     self.print("  (primary of Master)")
                 else:
                     self.print("  (primary of Backup)")
@@ -1051,7 +1068,7 @@ class Cli:
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=nodeReg,
-                                      basedirpath=self.basedirpath,
+                                      basedirpath=self.pool_ledger_dir,
                                       config=config)
             self.activeClient = client
             self.looper.add(client)
@@ -1062,10 +1079,10 @@ class Cli:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
-    def bootstrapKey(wallet, node, identifier=None):
-        identifier = identifier or wallet.defaultId
-        assert identifier, "Client has no identifier"
-        node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
+    def bootstrapKey(wallet, node, DID=None):
+        DID = DID or wallet.defaultId
+        assert DID, "Client has no DID"
+        node.clientAuthNr.addIdr(DID, wallet.getVerkey(DID))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -1082,32 +1099,40 @@ class Cli:
         if client:
             if wallet:
                 req = wallet.signOp(msg)
-                request, = client.submitReqs(req)
-                self.requests[request.key] = request
-                self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
+                request, errs = client.submitReqs(req)
+                if request:
+                    rqst = request[0]
+                    self.requests[rqst.key] = rqst
+                    self.print("Request sent, request id: {}".format(
+                        req.reqId), Token.BoldBlue)
+                else:
+                    for err in errs:
+                        self.print("Request error: {}".format(
+                            err), Token.Error)
             else:
                 try:
-                    self._newWallet(clientName)
+                    self._createWallet(clientName)
                     self.printNoKeyMsg()
                 except NameAlreadyExists:
-                    self.print("Keyring with name {} is not in use, please select it by using 'use keyring {}' command"
-                               .format(clientName, clientName))
+                    self.print(
+                        "Wallet with name {} is not in use, please select it by using 'use wallet {}' command" .format(
+                            clientName, clientName))
 
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, identifier, reqId):
+    def getReply(self, clientName, DID, reqId):
         reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        if client and (identifier, reqId) in self.requests:
-            reply, status = client.getReply(identifier, reqId)
+        if client and (DID, reqId) in self.requests:
+            reply, status = client.getReply(DID, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help client show request status' for more details")
-
+            self.print(
+                "No such request. See: 'help client show request status' for more details")
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1248,7 +1273,8 @@ class Cli:
                     pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
+                        if hasattr(
+                                plugin, "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
@@ -1258,9 +1284,11 @@ class Cli:
                                 parserReInitNeeded = True
                             # TODO Need to check if `plugin.cliActionNames`
                             #  conflicts with any of `self.cliActions`
-                            if hasattr(plugin, "cliActionNames") and \
-                                    isinstance(plugin.cliActionNames, set) and \
-                                    plugin.cliActionNames:
+                            if hasattr(
+                                    plugin,
+                                    "cliActionNames") and isinstance(
+                                    plugin.cliActionNames,
+                                    set) and plugin.cliActionNames:
                                 self.cliActions.update(plugin.cliActionNames)
                                 # TODO: Find better way to reinitialize completers
                                 # , also might need to reinitialize lexers
@@ -1288,37 +1316,37 @@ class Cli:
         if matchedVars.get('add_key') == 'add key':
             verkey = matchedVars.get('verkey')
             # TODO make verkey case insensitive
-            identifier = matchedVars.get('identifier')
-            if identifier in self.externalClientKeys:
-                self.print("identifier already added", Token.Error)
+            DID = matchedVars.get('DID')
+            if DID in self.externalClientKeys:
+                self.print("DID already added", Token.Error)
                 return
-            self.externalClientKeys[identifier] = verkey
+            self.externalClientKeys[DID] = verkey
             for n in self.nodes.values():
-                n.clientAuthNr.addIdr(identifier, verkey)
+                n.clientAuthNr.addIdr(DID, verkey)
             return True
 
     def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,
                                 showMsg: bool=False):
         if not wallet:
-            wallet = self._newWallet()
+            wallet = self._createWallet()
         wallet.addIdentifier(signer=signer)
         if showMsg:
-            self.print("Key created in keyring " + wallet.name)
+            self.print("Key created in wallet " + wallet.name)
 
     def _newSigner(self,
                    wallet=None,
-                   identifier=None,
+                   DID=None,
                    seed=None,
                    alias=None):
 
         cseed = cleanSeed(seed)
 
-        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
+        signer = DidSigner(identifier=DID, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
-        self.print("Identifier for key is {}".format(signer.identifier))
+        self.print("DID for key is {}".format(signer.identifier))
         self.print("Verification key is {}".format(signer.verkey))
         if alias:
-            self.print("Alias for identifier is {}".format(signer.alias))
+            self.print("Alias for DID is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
         self.bootstrapClientKeys(signer.identifier, signer.verkey,
                                  self.nodes.values())
@@ -1332,9 +1360,10 @@ class Cli:
         if seed:
             seed = seed.strip()
             if len(seed) != 32 and not seedFromHex(seed):
-                self.print('Seed needs to be 32 or 64 characters (if hex) long '
-                           'but is {} characters long'.format(len(seed)),
-                           Token.Error)
+                self.print(
+                    'Seed needs to be 32 or 64 characters (if hex) long '
+                    'but is {} characters long'.format(
+                        len(seed)), Token.Error)
                 return False
 
         return True
@@ -1357,7 +1386,7 @@ class Cli:
     def walletClass(self):
         return Wallet
 
-    def _newWallet(self, walletName=None):
+    def _createWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
 
         while True:
@@ -1372,13 +1401,13 @@ class Cli:
             nm = "{}_{}".format(nm, randomString(5))
 
         if nm in self.wallets:
-            self.print("Keyring {} already exists".format(nm))
+            self.print("Wallet {} already exists".format(nm))
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
-        self.print("New keyring {} created".format(nm))
+        self.print("New wallet {} created".format(nm))
         self.activeWallet = wallet
         # TODO when the command is implemented
         # if nm == self.defaultWalletName:
@@ -1386,20 +1415,23 @@ class Cli:
         #     self.print("    rename wallet {} to NewName".format(nm))
         return wallet
 
-    def _listKeyringsAction(self, matchedVars):
-        if matchedVars.get('list_krs') == 'list keyrings':
+    def _listWalletsAction(self, matchedVars):
+        if matchedVars.get('list_wallets') == 'list wallets':
             # TODO move file system related routine to WalletStorageHelper
-            keyringBaseDir = self.getKeyringsBaseDir()
-            contextDirPath = self.getContextBasedKeyringsBaseDir()
-            dirs_to_scan = self.getAllSubDirNamesForKeyrings()
+            walletBaseDir = self.getWalletsBaseDir()
+            contextDirPath = self.getContextBasedWalletsBaseDir()
+            dirs_to_scan = self.getAllSubDirNamesForWallets()
             if contextDirPath not in dirs_to_scan:
                 dirs_to_scan.insert(0, contextDirPath)
-            dirs_to_scan = [os.path.join(keyringBaseDir, e) for e in dirs_to_scan]
+            dirs_to_scan = [os.path.join(walletBaseDir, e)
+                            for e in dirs_to_scan]
             anyWalletFound = False
             for dir in dirs_to_scan:
-                cleaned_dir_name = dir.rstrip(os.sep)   # removed os path separator at the end
+                # removed os path separator at the end
+                cleaned_dir_name = dir.rstrip(os.sep)
                 dir_name = basename(cleaned_dir_name)
-                files = glob.glob("{}/*.{}".format(cleaned_dir_name, WALLET_FILE_EXTENSION))
+                files = glob.glob(
+                    "{}/*.{}".format(cleaned_dir_name, WALLET_FILE_EXTENSION))
                 persistedWalletNames = []
                 unpersistedWalletNames = []
 
@@ -1414,27 +1446,33 @@ class Cli:
                         if n.lower() not in persistedWalletNames]
 
                 if len(persistedWalletNames) > 0 or \
-                                len(unpersistedWalletNames) > 0:
+                        len(unpersistedWalletNames) > 0:
                     anyWalletFound = True
-                    self.print("\nContext Name: {}".format(dir_name), newline=False)
+                    self.print("\nContext Name: {}".format(
+                        dir_name), newline=False)
                     self.print(" (path:{})".format(dir), Token.Gray)
 
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(cleaned_dir_name, normalizedWalletFileName(pwn))
+                        f = os.path.join(cleaned_dir_name,
+                                         normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
                         isThisActiveWallet = True if contextDirPath == cleaned_dir_name and \
-                               self._activeWallet is not None and \
-                               self._activeWallet.name.lower() == pwn.lower() \
+                            self._activeWallet is not None and \
+                            self._activeWallet.name.lower() == pwn.lower() \
                             else False
-                        activeKeyringMsg = " [Active keyring, may have some unsaved changes]" \
+                        activeWalletMsg = " [Active wallet, may have some unsaved changes]" \
                             if isThisActiveWallet else ""
                         activeWalletSign = "*  " if isThisActiveWallet \
                             else "   "
 
-                        self.print("    {}{}{}".format(
-                            activeWalletSign, pwn, activeKeyringMsg), newline=False)
+                        self.print(
+                            "    {}{}{}".format(
+                                activeWalletSign,
+                                pwn,
+                                activeWalletMsg),
+                            newline=False)
                         self.print(" (last modified at: {})".
                                    format(lastModifiedTime), Token.Gray)
 
@@ -1444,40 +1482,44 @@ class Cli:
                         self.print("        {}".format(n))
 
             if not anyWalletFound:
-                self.print("No keyrings exists")
+                self.print("No wallets exists")
 
             return True
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
             if self._activeWallet:
-                self.print("Active keyring: {}".
+                self.print("Active wallet: {}".
                            format(self._activeWallet.name), newline=False)
                 if self._activeWallet.defaultId:
-                    self.print(" (active identifier: {})\n".
-                           format(self._activeWallet.defaultId), Token.Gray)
+                    self.print(
+                        " (active DID: {})\n". format(
+                            self._activeWallet.defaultId),
+                        Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
-                    self.print("Identifiers:")
-                    withVerkeys = matchedVars.get('with_verkeys') == 'with verkeys'
+                    self.print("DIDs:")
+                    withVerkeys = matchedVars.get(
+                        'with_verkeys') == 'with verkeys'
                     for id in self._activeWallet.listIds():
                         verKey = ""
                         if withVerkeys:
                             aliasId = self._activeWallet.aliasesToIds.get(id)
                             actualId = aliasId if aliasId else id
-                            signer = self._activeWallet.idsToSigners.get(actualId)
+                            signer = self._activeWallet.idsToSigners.get(
+                                actualId)
                             verKey = ", verkey: {}".format(signer.verkey)
 
                         self.print("  {}{}".format(id, verKey))
                 else:
-                    self.print("\nNo identifiers")
+                    self.print("\nNo DIDs")
 
             else:
-                self.print("No active keyring found.")
+                self.print("No active wallet found.")
             return True
 
     def checkIfPersistentWalletExists(self, name, inContextDir=None):
         toBeWalletFileName = normalizedWalletFileName(name)
-        contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
+        contextDir = inContextDir or self.getContextBasedWalletsBaseDir()
         toBeWalletFilePath = getWalletFilePath(
             contextDir, toBeWalletFileName)
         if os.path.exists(toBeWalletFilePath):
@@ -1507,16 +1549,17 @@ class Cli:
                         allWallets.append(wk.lower())
 
                 if name in allWallets:
-                    return True, 'keyring'
+                    return True, 'wallet'
                 if name in allAliases:
                     return True, 'alias'
                 if name in allSigners:
-                    return True, 'identifier'
+                    return True, 'DID'
 
                 if checkPersistedFile:
-                    toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
+                    toBeWalletFilePath = self.checkIfPersistentWalletExists(
+                        origName)
                     if toBeWalletFilePath:
-                        return True, 'keyring (stored at: {})'.\
+                        return True, 'wallet (stored at: {})'.\
                             format(toBeWalletFilePath)
 
                 return False, None
@@ -1532,7 +1575,8 @@ class Cli:
                        format(origName, foundIn), Token.Warning)
         return status
 
-    def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
+    def _loadWalletIfExistsAndNotLoaded(
+            self, name, copyAs=None, override=False):
         wallet = self._getWalletByName(name)
         if not wallet:
             walletFileName = normalizedWalletFileName(name)
@@ -1559,38 +1603,38 @@ class Cli:
         return True
 
     def _isWalletFilePathBelongsToCurrentContext(self, filePath):
-        contextBasedKeyringsBaseDir = self.getContextBasedKeyringsBaseDir()
+        contextBasedWalletsBaseDir = self.getContextBasedWalletsBaseDir()
         fileBaseDir = dirname(filePath)
 
         self.logger.debug("wallet file path: {}".format(filePath))
-        self.logger.debug("  contextBasedKeyringsBaseDir: {}".
-                          format(contextBasedKeyringsBaseDir))
+        self.logger.debug("  contextBasedWalletsBaseDir: {}".
+                          format(contextBasedWalletsBaseDir))
         self.logger.debug("  fileBaseDir: {}".format(fileBaseDir))
 
-        if contextBasedKeyringsBaseDir != fileBaseDir:
+        if contextBasedWalletsBaseDir != fileBaseDir:
             self.logger.debug("  doesn't belong to the context")
             return False
 
         return True
 
-    def getAllSubDirNamesForKeyrings(self):
+    def getAllSubDirNamesForWallets(self):
         return [NO_ENV]
 
     def checkIfWalletPathBelongsToCurrentContext(self, filePath):
-        keyringsBaseDir = self.getKeyringsBaseDir()
+        walletsBaseDir = self.getWalletsBaseDir()
         baseWalletDirName = dirname(filePath)
         if not self._isWalletFilePathBelongsToCurrentContext(filePath):
-            self.print("\nKeyring base directory is: {}"
-                       "\nGiven keyring file {} "
+            self.print("\nWallet base directory is: {}"
+                       "\nGiven wallet file {} "
                        "should be in one of it's sub directories "
                        "(you can create it if it doesn't exists) "
                        "according to the environment it belongs to."
                        "\nPossible sub directory names are: {}".
-                       format(keyringsBaseDir, filePath,
-                              self.getAllSubDirNamesForKeyrings()))
+                       format(walletsBaseDir, filePath,
+                              self.getAllSubDirNamesForWallets()))
             return False
 
-        curContextDirName = self.getContextBasedKeyringsBaseDir()
+        curContextDirName = self.getContextBasedWalletsBaseDir()
         if baseWalletDirName != curContextDirName:
             self.print(
                 self.getWalletFileIncompatibleForGivenContextMsg(filePath))
@@ -1599,11 +1643,11 @@ class Cli:
         return True
 
     def getWalletFileIncompatibleForGivenContextMsg(self, filePath):
-        noEnvKeyringsBaseDir = self.getNoEnvKeyringsBaseDir()
+        noEnvWalletsBaseDir = self.getNoEnvWalletsBaseDir()
         baseWalletDirName = dirname(filePath)
         msg = "Given wallet file ({}) doesn't belong to current context.".\
-                format(filePath)
-        if baseWalletDirName == noEnvKeyringsBaseDir:
+            format(filePath)
+        if baseWalletDirName == noEnvWalletsBaseDir:
             msg += "\nPlease disconnect and try again."
         else:
             msg += "\nPlease connect to '{}' environment and try again.".\
@@ -1612,7 +1656,7 @@ class Cli:
 
     def _searchAndSetWallet(self, name, copyAs=None, override=False):
         if self._activeWallet and self._activeWallet.name.lower() == name.lower():
-            self.print("Keyring already in use.")
+            self.print("Wallet already in use.")
             return True
 
         if os.path.isabs(name) and os.path.exists(name):
@@ -1625,12 +1669,12 @@ class Cli:
                 self._saveActiveWallet()
                 self.activeWallet = wallet
             if not wallet:
-                self.print("No such keyring found in current context.")
+                self.print("No such wallet found in current context.")
         return True
 
-    def _saveKeyringAction(self, matchedVars):
-        if matchedVars.get('save_kr') == 'save keyring':
-            name = matchedVars.get('keyring')
+    def _saveWalletAction(self, matchedVars):
+        if matchedVars.get('save_wallet') == 'save wallet':
+            name = matchedVars.get('wallet')
             if not self._activeWallet:
                 self.print("No active wallet to be saved.\n")
                 return True
@@ -1638,19 +1682,19 @@ class Cli:
             if name:
                 wallet = self._getWalletByName(name)
                 if not wallet:
-                    self.print("No such keyring loaded or exists.")
+                    self.print("No such wallet loaded or exists.")
                     return True
                 elif wallet.name != self._activeWallet.name:
-                    self.print("Given keyring is not active "
+                    self.print("Given wallet is not active "
                                "and it must be already saved.")
                     return True
 
             self._saveActiveWallet()
             return True
 
-    def _useKeyringAction(self, matchedVars):
-        if matchedVars.get('use_kr') == 'use keyring':
-            name = matchedVars.get('keyring')
+    def _useWalletAction(self, matchedVars):
+        if matchedVars.get('use_wallet') == 'use wallet':
+            name = matchedVars.get('wallet')
             override = True if matchedVars.get('override') else False
             copyAs = matchedVars.get('copy_as_name')
             self._searchAndSetWallet(name, copyAs=copyAs, override=override)
@@ -1660,31 +1704,31 @@ class Cli:
         if self.activeWallet:
             wallet = self.activeWallet
             if idrOrAlias not in wallet.aliasesToIds and \
-                            idrOrAlias not in wallet.idsToSigners:
+                    idrOrAlias not in wallet.idsToSigners:
                 return False
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
             if idrFromAlias:
-                self.activeIdentifier = idrFromAlias
+                self.activeDID = idrFromAlias
                 self.activeAlias = idrOrAlias
             else:
                 alias = [k for k, v
                          in wallet.aliasesToIds.items()
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
-                self.activeIdentifier = idrOrAlias
-            wallet.defaultId = self.activeIdentifier
-            self.print("Current identifier set to {}".
-                       format(self.activeAlias or self.activeIdentifier))
+                self.activeDID = idrOrAlias
+            wallet.defaultId = self.activeDID
+            self.print("Current DID set to {}".
+                       format(self.activeAlias or self.activeDID))
             return True
         return False
 
     def _useIdentifierAction(self, matchedVars):
-        if matchedVars.get('use_id') == 'use identifier':
-            nymOrAlias = matchedVars.get('identifier')
+        if matchedVars.get('use_id') == 'use DID':
+            nymOrAlias = matchedVars.get('DID')
             found = self._setActiveIdentifier(nymOrAlias)
             if not found:
-                self.print("No such identifier found in current keyring")
+                self.print("No such DID found in current wallet")
             return True
 
     def _setPrompt(self, promptText):
@@ -1712,16 +1756,16 @@ class Cli:
 
     @property
     def getWalletContextMistmatchMsg(self):
-        return "The active keyring '{}' doesn't belong to current " \
+        return "The active wallet '{}' doesn't belong to current " \
                "environment. \nBefore you perform any transaction signing, " \
-               "please create or activate compatible keyring.".\
+               "please create or activate compatible wallet.".\
             format(self._activeWallet.name)
 
     def printWarningIfIncompatibleWalletIsRestored(self, walletFilePath):
         if not self.checkIfWalletBelongsToCurrentContext(self._activeWallet) \
                 or not self._isWalletFilePathBelongsToCurrentContext(walletFilePath):
             self.print(self.getWalletContextMistmatchMsg)
-            self.print("Any changes made to this keyring won't be persisted.",
+            self.print("Any changes made to this wallet won't be persisted.",
                        Token.BoldOrange)
 
     def performValidationCheck(self, wallet, walletFilePath, override=False):
@@ -1735,12 +1779,12 @@ class Cli:
 
         if conflictFound and not override:
             self.print(
-                "A keyring with given name already loaded, "
+                "A wallet with given name already loaded, "
                 "here are few options:\n"
-                "1. If you still want to load given persisted keyring at the "
-                "risk of overriding the already loaded keyring, then add this "
+                "1. If you still want to load given persisted wallet at the "
+                "risk of overriding the already loaded wallet, then add this "
                 "clause to same command and retry: override\n"
-                "2. If you want to create a copy of persisted keyring with "
+                "2. If you want to create a copy of persisted wallet with "
                 "different name, then, add this clause to "
                 "same command and retry: copy-as <new-wallet-name>")
             return False
@@ -1752,7 +1796,7 @@ class Cli:
             wallet = self.walletSaver.loadWallet(walletFilePath)
 
             if copyAs:
-                wallet.name=copyAs
+                wallet.name = copyAs
 
             if not self.performValidationCheck(wallet, walletFilePath,
                                                override):
@@ -1764,33 +1808,32 @@ class Cli:
                 self._saveActiveWallet()
 
             self._wallets[wallet.name] = wallet
-            self.print('\nSaved keyring "{}" restored'.
+            self.print('\nSaved wallet "{}" restored'.
                        format(wallet.name), newline=False)
-            self.print(" ({})".format(walletFilePath)
-                       , Token.Gray)
+            self.print(" ({})".format(walletFilePath), Token.Gray)
             self.activeWallet = wallet
-            self.activeIdentifier = wallet.defaultId
+            self.activeDID = wallet.defaultId
 
             self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
             return True
         except (ValueError, AttributeError) as e:
-            self.logger.info(
+            self.logger.warning(
                 "error occurred while restoring wallet {}: {}".
-                    format(walletFilePath, e), Token.BoldOrange)
+                format(walletFilePath, e))
         except IOError as e:
-            self.logger.debug("No such keyring file exists ({})".
+            self.logger.debug("No such wallet file exists ({})".
                               format(walletFilePath))
 
     def restoreLastActiveWallet(self):
-        baseFileName=None
+        baseFileName = None
         try:
-            keyringPath = self.getContextBasedKeyringsBaseDir()
-            baseFileName = getLastSavedWalletFileName(keyringPath)
-            self._searchAndSetWallet(os.path.join(keyringPath, baseFileName))
+            walletPath = self.getContextBasedWalletsBaseDir()
+            baseFileName = getLastSavedWalletFileName(walletPath)
+            self._searchAndSetWallet(os.path.join(walletPath, baseFileName))
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
-               self.errorDuringRestoringLastActiveWallet(baseFileName, e)
+                self.errorDuringRestoringLastActiveWallet(baseFileName, e)
         except Exception as e:
             self.errorDuringRestoringLastActiveWallet(baseFileName, e)
 
@@ -1802,8 +1845,9 @@ class Cli:
 
     def restoreWalletByName(self, walletFileName, copyAs=None, override=False):
         walletFilePath = getWalletFilePath(
-            self.getContextBasedKeyringsBaseDir(), walletFileName)
-        self.restoreWalletByPath(walletFilePath, copyAs=copyAs, override=override)
+            self.getContextBasedWalletsBaseDir(), walletFileName)
+        self.restoreWalletByPath(
+            walletFilePath, copyAs=copyAs, override=override)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1822,33 +1866,32 @@ class Cli:
             else self.name
         return normalizedWalletFileName(fileName)
 
-
     @property
     def walletFileName(self):
         return self.getActiveWalletPersitentFileName()
 
-    def getNoEnvKeyringsBaseDir(self):
+    def getNoEnvWalletsBaseDir(self):
         return os.path.expanduser(
-            os.path.join(self.getKeyringsBaseDir(), NO_ENV))
+            os.path.join(self.getWalletsBaseDir(), NO_ENV))
 
-    def getKeyringsBaseDir(self):
-        return os.path.expanduser(os.path.join(self.config.baseDir,
-                                        self.config.keyringsDir))
+    def getWalletsBaseDir(self):
+        return os.path.expanduser(os.path.join(self.basedirpath,
+                                               self.config.walletsDir))
 
-    def getContextBasedKeyringsBaseDir(self):
-        keyringsBaseDir = self.getKeyringsBaseDir()
+    def getContextBasedWalletsBaseDir(self):
+        walletsBaseDir = self.getWalletsBaseDir()
         prompt, envName = Cli.getPromptAndEnv(self.name,
                                               self.currPromptText)
-        envKeyringsDir = keyringsBaseDir
+        envWalletDir = walletsBaseDir
         if envName != "":
-            envKeyringsDir = os.path.join(keyringsBaseDir, envName)
+            envWalletDir = os.path.join(walletsBaseDir, envName)
 
-        return envKeyringsDir
+        return envWalletDir
 
     def isAnyWalletFileExistsForGivenEnv(self, env):
-        keyringPath = self.getKeyringsBaseDir()
-        envKeyringPath = os.path.join(keyringPath, env)
-        pattern = "{}/*.{}".format(envKeyringPath, WALLET_FILE_EXTENSION)
+        walletPath = self.getWalletsBaseDir()
+        envWalletPath = os.path.join(walletPath, env)
+        pattern = "{}/*.{}".format(envWalletPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
@@ -1860,8 +1903,8 @@ class Cli:
             return False
 
     def isAnyWalletFileExistsForCurrentContext(self):
-        keyringPath = self.getContextBasedKeyringsBaseDir()
-        pattern = "{}/*.{}".format(keyringPath, WALLET_FILE_EXTENSION)
+        walletPath = self.getContextBasedWalletsBaseDir()
+        pattern = "{}/*.{}".format(walletPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     @property
@@ -1877,7 +1920,7 @@ class Cli:
                 if self._activeWallet.getEnvName else "a different"
             currEnvName = " ({})".format(self.getActiveEnv) \
                 if self.getActiveEnv else ""
-            self.print("Active keyring belongs to '{}' environment and can't "
+            self.print("Active wallet belongs to '{}' environment and can't "
                        "be saved to the current environment{}.".
                        format(walletEnvName, currEnvName),
                        Token.BoldOrange)
@@ -1890,7 +1933,7 @@ class Cli:
                 self._activeWallet,
                 getWalletFilePath(contextDir, self.walletFileName))
             if printMsgs:
-                self.print('Active keyring "{}" saved'.format(
+                self.print('Active wallet "{}" saved'.format(
                     self._activeWallet.name), newline=False)
                 self.print(' ({})'.format(walletFilePath), Token.Gray)
 
@@ -1907,8 +1950,17 @@ class Cli:
             self.updateEnvNameInWallet()
             if not self.performCompatibilityCheckBeforeSave():
                 return False
-            keyringsDir = self.getContextBasedKeyringsBaseDir()
-            self._saveActiveWalletInDir(keyringsDir, printMsgs=True)
+            walletsDir = self.getContextBasedWalletsBaseDir()
+            self._saveActiveWalletInDir(walletsDir, printMsgs=True)
+
+    def mask_seed(self, cmd_text):
+        parts = cmd_text.split()
+        prev_seed = False
+        for idx, val in enumerate(parts):
+            if prev_seed:
+                parts[idx] = "[redacted]"
+            prev_seed = (val == "seed")
+        return " ".join(parts)
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
@@ -1916,8 +1968,10 @@ class Cli:
         # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
-            self.logger.info("CLI command entered: {}".format(cmdText),
-                             extra={"cli": False})
+            self.logger.info(
+                "CLI command entered: {}".format(
+                    self.mask_seed(cmdText)), extra={
+                    "cli": False})
             for action in self.actions:
                 r = action(matchedVars)
                 if r:
@@ -1935,9 +1989,9 @@ class Cli:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
-        identifier = matchedVars.get("nym")
-        if len(names) == 1 and (seed or identifier):
-            initializer(names[0].strip(), seed=seed, identifier=identifier)
+        DID = matchedVars.get("nym")
+        if len(names) == 1 and (seed or DID):
+            initializer(names[0].strip(), seed=seed, identifier=DID)
         else:
             for name in names:
                 initializer(name.strip())
@@ -1976,7 +2030,7 @@ class Cli:
         return True
 
     def printNoKeyMsg(self):
-        self.print("No key present in keyring")
+        self.print("No key present in wallet")
         self.printUsage(("new key [with seed <32 byte string>]", ))
 
     def printUsage(self, msgs):
@@ -1988,7 +2042,7 @@ class Cli:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        dataPath = os.path.join(self.config.baseDir, "data")
+        dataPath = os.path.join(self.basedirpath, "data")
         try:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:
@@ -2004,4 +2058,3 @@ class Cli:
 
 class Exit(Exception):
     pass
-

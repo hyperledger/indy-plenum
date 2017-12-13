@@ -1,15 +1,16 @@
 import pytest
 from plenum.common.keygen_utils import initRemoteKeys
+from plenum.common.util import getMaxFailures
 
 from stp_core.loop.eventually import eventually
-from plenum.common.exceptions import EmptySignature
+from plenum.common.exceptions import MissingSignature
 from plenum.common.exceptions import NotConnectedToAny
 from stp_core.common.log import getlogger
 from plenum.common.constants import OP_FIELD_NAME, REPLY, REQACK
 from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
+from plenum.test.helper import checkResponseCorrectnessFromNodes, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
     sendRandomRequest, waitForSufficientRepliesForRequests, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
@@ -59,13 +60,13 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
     """
-
     async def go(ctx):
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
-        client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
+        client1, _ = genTestClient(
+            nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
         for node in ctx.nodeset:
             stack = node.nodestack
-            args = (client1.name, stack.name, ctx.tmpdir, stack.verhex, True)
+            args = (client1.name, stack.name, client1.keys_dir, stack.verhex, True)
             initRemoteKeys(*args)
 
         ctx.looper.add(client1)
@@ -93,20 +94,20 @@ def testSendRequestWithoutSignatureFails(pool):
 
         request = wallet.signOp(op=randomOperation())
         request.signature = None
-        request = client1.submitReqs(request)[0]
+        request = client1.submitReqs(request)[0][0]
         timeout = waits.expectedClientRequestPropagationTime(nodeCount)
 
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
                 await eventually(
-                        checkLastClientReqForNode, node, request,
-                        retryWait=1, timeout=timeout)
+                    checkLastClientReqForNode, node, request,
+                    retryWait=1, timeout=timeout)
 
         for n in ctx.nodeset:
             params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
             ex = params['ex']
             msg, _ = params['wrappedMsg']
-            assert isinstance(ex, EmptySignature)
+            assert isinstance(ex, MissingSignature)
             assert msg.get(f.IDENTIFIER.nm) == request.identifier
 
             params = n.spylog.getLastParams(Node.discard)
@@ -114,7 +115,7 @@ def testSendRequestWithoutSignatureFails(pool):
             (msg, frm) = params["msg"]
             assert msg == request.as_dict
             assert msg.get(f.IDENTIFIER.nm) == request.identifier
-            assert "EmptySignature" in reason
+            assert "MissingSignature" in reason
 
     pool.run(go)
 
@@ -157,9 +158,9 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
-            eventually(checkResponseRecvdFromNodes, client1,
-                       nodeCount, request.reqId,
-                       retryWait=1, timeout=responseTimeout))
+        eventually(checkResponseRecvdFromNodes, client1,
+                   nodeCount, request.reqId,
+                   retryWait=1, timeout=responseTimeout))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
@@ -177,9 +178,9 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # have a different operations
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
-            eventually(checkResponseRecvdFromNodes, client1,
-                       nodeCount, request.reqId,
-                       retryWait=1, timeout=responseTimeout))
+        eventually(checkResponseRecvdFromNodes, client1,
+                   nodeCount, request.reqId,
+                   retryWait=1, timeout=responseTimeout))
 
     replies = (msg for msg, frm in client1.inBox
                if msg[OP_FIELD_NAME] == REPLY and
@@ -200,28 +201,31 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     will be sent again to the client. An acknowledgement will not be sent
     for a repeated request.
     """
-    waitForSufficientRepliesForRequests(looper, client1,
-                                        requests=[sent1], fVal=2)
+    waitForSufficientRepliesForRequests(looper, client1, requests=[sent1])
 
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    serializedPayload = client1.nodestack.signAndSerialize(sent1, None)
-    client1.nodestack._enqueueIntoAllRemotes(serializedPayload, None)
 
+    message_parts, err_msg = \
+        client1.nodestack.prepare_for_sending(sent1, None)
+
+    for part in message_parts:
+        client1.nodestack._enqueueIntoAllRemotes(part, None)
+        
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
-                       response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
+                          response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
                       (response[0].get(OP_FIELD_NAME) == REQACK and
                        response[0].get(f.REQ_ID.nm) == sent1.reqId)],
                      originalRequestResponsesLen + duplicateRequestRepliesLen)
 
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
-    looper.run(eventually( chk, retryWait=1, timeout=responseTimeout))
+    looper.run(eventually(chk, retryWait=1, timeout=responseTimeout))
 
 
 # noinspection PyIncorrectDocstring
-def testReplyMatchesRequest(looper, nodeSet, tdir, up):
+def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
     '''
     This tests does check following things:
       - wallet works correctly when used by multiple clients
@@ -230,7 +234,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
     def makeClient(id):
         client, wallet = genTestClient(nodeSet,
-                                       tmpdir=tdir,
+                                       tmpdir=client_tdir,
                                        name="client-{}".format(id))
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
@@ -255,11 +259,11 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             op = randomOperation()
             req = sharedWallet.signOp(op)
 
-            request = client.submitReqs(req)[0]
+            request = client.submitReqs(req)[0][0]
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
-        responseTimeout =waits.expectedTransactionExecutionTime(nodeCount)
+        responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
         for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
@@ -289,9 +293,9 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             assert replies[0] == sentAmount
 
 
-def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
+def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, client_tdir,
                                                 client1, wallet1):
-    newClient, _ = genTestClient(nodeSet, tmpdir=tdir)
+    newClient, _ = genTestClient(nodeSet, tmpdir=client_tdir)
     looper.add(newClient)
     looper.run(newClient.ensureConnectedToNodes())
     client1InboxSize = len(client1.inBox)

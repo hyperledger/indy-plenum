@@ -24,17 +24,31 @@ cliNodeReg = OrderedDict([
     ('DeltaC', ('127.0.0.1', 9708))
 ])
 
-baseDir = '~/.plenum/'
-keyringsDir = 'keyrings'
-nodeDataDir = 'data/nodes'
+walletsDir = 'wallets'
 clientDataDir = 'data/clients'
-walletDir = 'wallet'
+GENERAL_CONFIG_DIR = '/etc/indy'
+# walletDir = 'wallet'
 
-poolTransactionsFile = 'pool_transactions_sandbox'
-domainTransactionsFile = 'transactions_sandbox'
+# it should be filled from baseConfig
+NETWORK_NAME = ''
+USER_CONFIG_DIR = None
+
+GENERAL_CONFIG_FILE = 'plenum_config.py'
+NETWORK_CONFIG_FILE = 'plenum_config.py'
+USER_CONFIG_FILE = 'plenum_config.py'
+
+pool_transactions_file_base = 'pool_transactions'
+domain_transactions_file_base = 'domain_transactions'
+genesis_file_suffix = '_genesis'
+
+poolTransactionsFile = pool_transactions_file_base
+domainTransactionsFile = domain_transactions_file_base
+
 
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
+
+stateSignatureDbName = 'state_signature'
 
 # There is only one seqNoDB as it maintain the mapping of
 # request id to sequence numbers
@@ -51,6 +65,8 @@ primaryStorage = None
 domainStateStorage = KeyValueStorageType.Leveldb
 poolStateStorage = KeyValueStorageType.Leveldb
 reqIdToTxnStorage = KeyValueStorageType.Leveldb
+
+stateSignatureStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -80,23 +96,33 @@ notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     },
     'nodeRequestSpike': {
         'coefficient': 3,
         'minCnt': 100,
-        'freq': 60
+        'freq': 60,
+        'minActivityThreshold': 2,
+        'enabled': True
     }
 }
+
+SpikeEventsEnabled = False
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
+# Node status configuration
+DUMP_VALIDATOR_INFO_INIT_SEC = 3
+DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
+
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
-RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
+RAETLogFilePath = os.path.expanduser('~/.plenum/raet.log')
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
@@ -123,13 +149,13 @@ logRotationInterval = 1
 logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
-logFormatStyle='{'
-logLevel=logging.NOTSET
-enableStdOutLogging=True
+logFormatStyle = '{'
+logLevel = logging.NOTSET
+enableStdOutLogging = True
 
 # OPTIONS RELATED TO TESTS
 
-# todo test 60sec after https://evernym.atlassian.net/browse/SOV-995 closed
+# TODO test 60sec
 TestRunningTimeLimitSec = 100
 
 # Expected time for one stack to get connected to another
@@ -176,7 +202,7 @@ MaxStateProofTime = 3
 CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
+LOG_SIZE = 3 * CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5
@@ -186,7 +212,35 @@ CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 
 # permissions for keyring dirs/files
-KEYRING_DIR_MODE = 0o700  # drwx------ 
-KEYRING_FILE_MODE = 0o600  # -rw-------
+WALLET_DIR_MODE = 0o700  # drwx------
+WALLET_FILE_MODE = 0o600  # -rw-------
+
+# This timeout is high enough so that even if some PRE-PREPAREs are stashed
+# because of being delivered out of order or being out of watermarks or not
+# having finalised requests.
+ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 600  # seconds
+
+# TXN fields length limits
+ALIAS_FIELD_LIMIT = 256
+DIGEST_FIELD_LIMIT = 512
+TIE_IDR_FIELD_LIMIT = 256
+NAME_FIELD_LIMIT = 256
+SENDER_CLIENT_FIELD_LIMIT = 256
+HASH_FIELD_LIMIT = 256
+SIGNATURE_FIELD_LIMIT = 512
+JSON_FIELD_LIMIT = 5 * 1024
+DATA_FIELD_LIMIT = 5 * 1024
+NONCE_FIELD_LIMIT = 512
+ORIGIN_FIELD_LIMIT = 128
+ENC_FIELD_LIMIT = 16
+RAW_FIELD_LIMIT = 5 * 1024
+SIGNATURE_TYPE_FIELD_LIMIT = 16
+BLS_KEY_LIMIT = 512
+BLS_SIG_LIMIT = 512
+BLS_MULTI_SIG_LIMIT = 512
+VERSION_FIELD_LIMIT = 128
+
+ENABLED_PLUGINS = []

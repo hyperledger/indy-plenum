@@ -1,0 +1,8 @@
+{"alias":"Steward1","dest":"5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC","reqId":1,"role":"2","signature":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b","type":"1"}
+{"alias":"Steward2","dest":"3NhxuJKShrpnhxG8VYGkum6mv3HeXWUDfj7ktn5NbeymHoDX","reqId":2,"role":"2","signature":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4c","type":"1"}
+{"alias":"Steward3","dest":"CECeGXDi6EHuhpwz19uyjjEnsRGNXodFYqCRgdLmLRkt","reqId":3,"role":"2","signature":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4d","type":"1"}
+{"alias":"Steward4","dest":"3znAGhp6Tk4kmebhXnk9K3jaTMffu82PJfEG91AeRkq2","reqId":4,"role":"2","signature":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4e","type":"1"}
+{"alias":"Alice","dest":"4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ","identifier":"5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC","reqId":1,"signature":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683","type":"1"}
+{"alias":"Jason","dest":"46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB","identifier":"5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC","reqId":2,"signature":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919684","type":"1"}
+{"alias":"John","dest":"3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG","identifier":"5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC","reqId":3,"signature":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919685","type":"1"}
+{"alias":"Les","dest":"4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru","identifier":"5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC","reqId":4,"signature":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919686","type":"1"}

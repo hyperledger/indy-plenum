@@ -38,9 +38,9 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     delayX = 45
     delayY = 2
     stewardX, nodeX = addNewStewardAndNode(looper, client, stewardXName,
-                                               nodeXName,
-                                               tdirWithPoolTxns, tconf,
-                                               allPluginsPath, autoStart=False)
+                                           nodeXName,
+                                           tdirWithPoolTxns, tconf,
+                                           allPluginsPath, autoStart=False)
     stewardY, nodeY = addNewStewardAndNode(looper, client, stewardYName,
                                            nodeYName,
                                            tdirWithPoolTxns, tconf,
@@ -52,7 +52,8 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     txnPoolNodeSet.append(nodeX)
     txnPoolNodeSet.append(nodeY)
 
-    timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + delayX + delayY
+    timeout = waits.expectedPoolCatchupTime(
+        len(txnPoolNodeSet)) + delayX + delayY
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=timeout))
     logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
                                                              nodeY.name))

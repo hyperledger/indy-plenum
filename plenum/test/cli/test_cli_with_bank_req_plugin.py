@@ -6,6 +6,7 @@ from plenum.test.cli.helper import \
     assertNoClient, loadPlugin, \
     createClientAndConnect
 
+
 @pytest.fixture("module")
 def loadBankReqPlugin(cli):
     loadPlugin(cli, 'bank_req_validation')
@@ -22,6 +23,7 @@ def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     assertNoClient(cli)
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
 

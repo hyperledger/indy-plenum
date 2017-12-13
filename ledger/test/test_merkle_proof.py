@@ -7,10 +7,10 @@ import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.stores.hash_store import HashStore
+from ledger.hash_stores.hash_store import HashStore
 from ledger.tree_hasher import TreeHasher
-from ledger.stores.memory_hash_store import MemoryHashStore
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.test.helper import checkConsistency
 from ledger.util import STH
 
@@ -149,7 +149,7 @@ def addTxns(hasherAndTree):
 
     auditPaths = []
     for d in range(TXN_COUNT):
-        serNo = d+1
+        serNo = d + 1
         data = str(serNo).encode()
         auditPaths.append([hexlify(h) for h in m.append(data)])
     return TXN_COUNT, auditPaths
@@ -194,7 +194,6 @@ def show(h, m, data):
 
 def testCompactMerkleTree2(hasherAndTree, verifier):
     h, m = hasherAndTree
-    v = verifier
     for serNo in range(1, 4):
         data = hexlify(str(serNo).encode())
         m.append(data)
@@ -209,7 +208,7 @@ def testCompactMerkleTree(hasherAndTree, verifier):
         data_hex = hexlify(data)
         audit_path = m.append(data)
         audit_path_hex = [hexlify(h) for h in audit_path]
-        incl_proof = m.inclusion_proof(d, d+1)
+        incl_proof = m.inclusion_proof(d, d + 1)
         assert audit_path == incl_proof
         assert m.nodeCount == m.get_expected_node_count(m.leafCount)
         assert m.hashStore.is_consistent
@@ -217,14 +216,14 @@ def testCompactMerkleTree(hasherAndTree, verifier):
             show(h, m, data_hex)
             print("audit path is {}".format(audit_path_hex))
             print("audit path length is {}".format(verifier.audit_path_length(
-                d, d+1)))
+                d, d + 1)))
             print("audit path calculated length is {}".format(
                 len(audit_path)))
         calculated_root_hash = verifier._calculate_root_hash_from_audit_path(
-            h.hash_leaf(data), d, audit_path[:], d+1)
+            h.hash_leaf(data), d, audit_path[:], d + 1)
         if d % printEvery == 0:
             print("calculated root hash is {}".format(calculated_root_hash))
-        sth = STH(d+1, m.root_hash)
+        sth = STH(d + 1, m.root_hash)
         verifier.verify_leaf_inclusion(data, d, audit_path, sth)
 
     checkConsistency(m, verifier=verifier)
@@ -296,7 +295,7 @@ def testLocate(hasherAndTree, addTxns, storeHashes):
     startingTime = time.perf_counter()
     for d in range(50):
         print()
-        pos = d+1
+        pos = d + 1
         print("Audit Path for Serial No: {}".format(pos))
         leafs, nodes = mhs.getPath(pos)
         calculatedAuditPath = []
@@ -311,18 +310,19 @@ def testLocate(hasherAndTree, addTxns, storeHashes):
             calculatedAuditPath.append(hexNodeData)
         print("{} -> leafs: {}, nodes: {}".format(pos, leafs, nodes))
         print("Audit path built using formula {}".format(calculatedAuditPath))
-        print("Audit path received while appending leaf {}".format(auditPaths[d]))
+        print("Audit path received while appending leaf {}".format(
+            auditPaths[d]))
 
         # Testing equality of audit path calculated using formula and audit path
         #  received while inserting leaf into the tree
         assert calculatedAuditPath == auditPaths[d]
-        auditPathLength = verifier.audit_path_length(d, d+1)
+        auditPathLength = verifier.audit_path_length(d, d + 1)
         assert auditPathLength == len(calculatedAuditPath)
 
         # Testing root hash generation
         leafHash = storeHashes.readLeaf(d + 1)
         rootHashFrmCalc = hexlify(verifier._calculate_root_hash_from_audit_path(
-            leafHash, d, [unhexlify(h) for h in calculatedAuditPath], d+1))
+            leafHash, d, [unhexlify(h) for h in calculatedAuditPath], d + 1))
         rootHash = hexlify(verifier._calculate_root_hash_from_audit_path(
             leafHash, d, [unhexlify(h) for h in auditPaths[d]], d + 1))
         assert rootHash == rootHashFrmCalc
@@ -346,4 +346,4 @@ def testLocate(hasherAndTree, addTxns, storeHashes):
         verifier.verify_leaf_hash_inclusion(
             leafHash, d,
             [unhexlify(h) for h in auditPaths[d]], sth)
-    print(time.perf_counter()-startingTime)
+    print(time.perf_counter() - startingTime)

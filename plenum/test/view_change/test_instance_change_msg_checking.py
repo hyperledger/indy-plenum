@@ -7,7 +7,7 @@ from plenum.test.test_node import TestNode
 
 DISCARD_REASON = "validation error \[InstanceChange\]: expected types"
 
-whitelist = [DISCARD_REASON,]
+whitelist = [DISCARD_REASON, ]
 
 
 def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
@@ -22,7 +22,7 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
 
         goodViewNo = 1
         badViewNo = "BAD"
-        icMsg = nodeSet.Alpha._create_instance_change_msg(goodViewNo, 0)
+        icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(goodViewNo, 0)
         icMsg._fields["viewNo"] = badViewNo
         return icMsg
 

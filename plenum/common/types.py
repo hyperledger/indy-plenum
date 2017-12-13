@@ -26,7 +26,8 @@ class f:  # provides a namespace for reusable field constants
     SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
-    ORD_SEQ_NOS = Field('ordSeqNos', List[int])  # Last ordered seq no of each protocol instance, sent during view change
+    # Last ordered seq no of each protocol instance, sent during view change
+    ORD_SEQ_NOS = Field('ordSeqNos', List[int])
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -36,6 +37,7 @@ class f:  # provides a namespace for reusable field constants
     IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
     SIG = Field('signature', Optional[str])
+    PROTOCOL_VERSION = Field('protocolVersion', int)
     SUSP_CODE = Field('suspicionCode', int)
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
@@ -46,6 +48,9 @@ class f:  # provides a namespace for reusable field constants
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
+    BLS_SIG = Field("blsSig", str)
+    BLS_MULTI_SIG = Field("blsMultiSig", str)
+    BLS_MULTI_SIG_STATE_ROOT = Field("blsMultiSigStateRoot", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
@@ -62,6 +67,9 @@ class f:  # provides a namespace for reusable field constants
     CONS_PROOF = Field("consProof", Any)
     MSG_TYPE = Field("msg_type", str)
     PARAMS = Field("params", dict)
+    PRIMARY = Field("primary", dict)
+    SIGS = Field('signatures', dict)
+    PLUGIN_FIELDS = Field('plugin_fields', dict)
 
 
 OPERATION = 'operation'

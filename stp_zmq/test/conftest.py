@@ -32,7 +32,7 @@ def tdirAndLooper(loop):
     asyncio.set_event_loop(loop)
 
     with SafeTemporaryDirectory() as td:
-        with Looper(loop=loop, debug=True) as looper:
+        with Looper(loop=loop) as looper:
             yield td, looper
 
 

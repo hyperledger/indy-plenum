@@ -19,7 +19,8 @@ logger = getlogger()
 def electContFixture(startedNodes: TestNodeSet):
     A, B, C, D = startedNodes.nodes.values()
 
-    # Delaying nodeB' self nomination so nodeA's nomination can reach NodeC and NodeD
+    # Delaying nodeB' self nomination so nodeA's nomination can reach NodeC
+    # and NodeD
     B.delaySelfNomination(2)
 
     # For B delay nominate messages from A and C

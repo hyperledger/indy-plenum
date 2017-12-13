@@ -119,7 +119,8 @@ def deep_eq(_v1, _v2, datetime_fudge=default_fudge, _assert=False):
 
     def op(a, b):
         _op = operator.eq
-        if type(a) == datetime.datetime and type(b) == datetime.datetime:
+        if isinstance(a, datetime.datetime) and isinstance(
+                b, datetime.datetime):
             s = datetime_fudge.seconds
             t1, t2 = (time.mktime(a.timetuple()), time.mktime(b.timetuple()))
             l = t1 - t2

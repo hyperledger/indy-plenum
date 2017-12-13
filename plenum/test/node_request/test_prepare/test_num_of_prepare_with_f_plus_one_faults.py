@@ -51,5 +51,6 @@ def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
                      timeout=timeouts)
 
 
-def testNumOfPrepareWithFPlusOneFaults(afterElection, noRetryReq, preprepared1WithDelay):
+def testNumOfPrepareWithFPlusOneFaults(
+        afterElection, noRetryReq, preprepared1WithDelay):
     pass

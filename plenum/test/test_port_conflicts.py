@@ -24,7 +24,6 @@ def testOverlappingNodePorts(up):
     With the Alpha and Beta nodes running on the same port, the consensus pool
      should still be able to come up.
     """
-    pass
 
 
 def testUsedPortDetection(tdir, client1):

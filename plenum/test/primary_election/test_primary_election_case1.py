@@ -73,7 +73,8 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     # Node B sends multiple NOMINATE messages for Node D but only after A has
     # nominated itself
-    timeout = waits.expectedPoolNominationTimeout(nodeCount=len(keySharedNodes))
+    timeout = waits.expectedPoolNominationTimeout(
+        nodeCount=len(keySharedNodes))
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
                           retryWait=.25, timeout=timeout))
 
@@ -91,7 +92,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     for node in [nodeA, nodeC, nodeD]:
         assert [n[0] for n in node.elector.nominations[instId].values()].count(
             Replica.generateName(nodeD.name, instId)) \
-               <= 1
+            <= 1
 
     timeout = waits.expectedPoolElectionTimeout(nodeCount) + delayOfNomination
     primaryReplicas = ensureElectionsDone(looper=looper,

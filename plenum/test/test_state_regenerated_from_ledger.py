@@ -9,14 +9,21 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 from plenum.test.test_node import checkNodesConnected, TestNode
+from plenum.common.config_helper import PNodeConfigHelper
 from stp_core.types import HA
 
 TestRunningTimeLimitSec = 200
 
 
-def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
-                                       client1, wallet1, client1Connected,
-                                       tconf, tdirWithPoolTxns, allPluginsPath):
+def test_state_regenerated_from_ledger(
+        looper,
+        txnPoolNodeSet,
+        client1,
+        wallet1,
+        client1Connected,
+        tdir,
+        tconf,
+        allPluginsPath):
     """
     Node loses its state database but recreates it from ledger after start
     """
@@ -27,15 +34,19 @@ def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
     node_to_stop = txnPoolNodeSet[-1]
     node_state = node_to_stop.states[DOMAIN_LEDGER_ID]
     assert not node_state.isEmpty
-    state_db_path = node_state._kv._dbPath
-    nodeHa, nodeCHa = HA(*node_to_stop.nodestack.ha), HA(*node_to_stop.clientstack.ha)
+    state_db_path = node_state._kv.db_path
+    nodeHa, nodeCHa = HA(*
+                         node_to_stop.nodestack.ha), HA(*
+                                                        node_to_stop.clientstack.ha)
 
     node_to_stop.stop()
     looper.removeProdable(node_to_stop)
 
     shutil.rmtree(state_db_path)
 
-    restarted_node = TestNode(node_to_stop.name, basedirpath=tdirWithPoolTxns,
+    config_helper = PNodeConfigHelper(node_to_stop.name, tconf, chroot=tdir)
+    restarted_node = TestNode(node_to_stop.name,
+                              config_helper=config_helper,
                               config=tconf, ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
     looper.add(restarted_node)

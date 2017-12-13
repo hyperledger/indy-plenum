@@ -3,7 +3,6 @@ import json
 
 from ledger.util import F
 from stp_core.network.exceptions import RemoteNotFound
-from stp_core.types import HA
 
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
@@ -12,6 +11,7 @@ from plenum.common.types import f, HA
 from plenum.common.messages.node_messages import PoolLedgerTxns
 from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
+from plenum.common.tools import lazy_field
 
 logger = getlogger()
 t = f.TXN.nm
@@ -21,8 +21,7 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
         self._ledgerFile = None
-        self._ledgerLocation = None
-        TxnStackManager.__init__(self, self.name, self.basedirpath,
+        TxnStackManager.__init__(self, self.name, self.genesis_dir, self.keys_dir,
                                  isNode=False)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg
@@ -34,6 +33,7 @@ class HasPoolManager(TxnStackManager):
         self.tempNodeTxns = {}  # type: Dict[int, Dict[str, Dict]]
 
     def poolTxnReceived(self, msg: PoolLedgerTxns, frm):
+        global t
         logger.debug("{} received pool txn {} from {}".format(self, msg, frm))
         txn = getattr(msg, t)
         seqNo = txn.pop(F.seqNo.name)
@@ -48,8 +48,8 @@ class HasPoolManager(TxnStackManager):
                 # TODO: Shouldnt this use `checkIfMoreThanFSameItems`
                 txns = [item for item, count in
                         collections.Counter(
-                            [json.dumps(t, sort_keys=True)
-                             for t in self.tempNodeTxns[seqNo].values()]
+                            [json.dumps(_t, sort_keys=True)
+                             for _t in self.tempNodeTxns[seqNo].values()]
                         ).items() if count > f]
                 if len(txns) > 0:
                     txn = json.loads(txns[0])
@@ -77,7 +77,7 @@ class HasPoolManager(TxnStackManager):
                     self.stackKeysChanged(txn, remoteName, self)
                 if SERVICES in txn[DATA]:
                     self.nodeServicesChanged(txn)
-                    self.setF()
+                    self.setPoolParams()
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
@@ -88,9 +88,9 @@ class HasPoolManager(TxnStackManager):
                     # Since only one transaction has been made, this is a new
                     # node transactions
                     self.connectNewRemote(txn, remoteName, self)
-                    self.setF()
+                    self.setPoolParams()
                 else:
-                    self.nodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(
+                    self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                     _update(txn)
         else:
@@ -113,13 +113,14 @@ class HasPoolManager(TxnStackManager):
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
                 self.updateNodeTxns(nodeInfo, txn)
-                self.connectNewRemote(nodeInfo, remoteName, self    )
+                self.connectNewRemote(nodeInfo, remoteName, self)
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
                 try:
-                    rid = TxnStackManager.removeRemote(self.nodestack, remoteName)
+                    rid = TxnStackManager.removeRemote(
+                        self.nodestack, remoteName)
                     if rid:
                         self.nodestack.outBoxes.pop(rid, None)
                 except RemoteNotFound:
@@ -131,19 +132,15 @@ class HasPoolManager(TxnStackManager):
     def hasLedger(self):
         return self.hasFile(self.ledgerFile)
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerLocation(self):
-        if not self._ledgerLocation:
-            self._ledgerLocation = self.dataLocation
-        return self._ledgerLocation
+        # noinspection PyUnresolvedReferences
+        return self.dataLocation
 
-    # noinspection PyUnresolvedReferences
-    @property
+    @lazy_field
     def ledgerFile(self):
-        if not self._ledgerFile:
-            self._ledgerFile = self.config.poolTransactionsFile
-        return self._ledgerFile
+        # noinspection PyUnresolvedReferences
+        return self.config.poolTransactionsFile
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))

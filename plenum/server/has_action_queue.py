@@ -1,19 +1,24 @@
 import time
 from collections import deque
+from functools import wraps
 from typing import Callable
 
 from stp_core.common.log import getlogger
+from stp_core.common.util import get_func_name
 
 logger = getlogger()
 
 
 class HasActionQueue:
     def __init__(self):
-        self.actionQueue = deque()  # holds a deque of Callables; use functools.partial if the callable needs arguments
+        # holds a deque of Callables; use functools.partial if the callable
+        # needs arguments
+        self.actionQueue = deque()
         self.aqStash = deque()
         self.aqNextCheck = float('inf')  # next time to check
         self.aid = 0  # action id
         self.repeatingActions = set()
+        self.scheduled = dict()
 
     def _schedule(self, action: Callable, seconds: int=0) -> int:
         """
@@ -27,14 +32,44 @@ class HasActionQueue:
             nxt = time.perf_counter() + seconds
             if nxt < self.aqNextCheck:
                 self.aqNextCheck = nxt
-            logger.debug("{} scheduling action {} with id {} to run in {} "
-                         "seconds".format(self, action, self.aid, seconds))
+            logger.trace("{} scheduling action {} with id {} to run in {} "
+                         "seconds".format(self, get_func_name(action),
+                                          self.aid, seconds))
             self.aqStash.append((nxt, (action, self.aid)))
         else:
-            logger.debug("{} scheduling action {} with id {} to run now".
-                         format(self, action, self.aid))
+            logger.trace("{} scheduling action {} with id {} to run now".
+                         format(self, get_func_name(action), self.aid))
             self.actionQueue.append((action, self.aid))
+
+        if action not in self.scheduled:
+            self.scheduled[action] = []
+        self.scheduled[action].append(self.aid)
+
         return self.aid
+
+    def _cancel(self, action: Callable = None, aid: int = None):
+        """
+        Cancel scheduled events
+
+        :param action:  (optional) scheduled action. If specified, all
+                scheduled events for the action are cancelled.
+        :param aid:     (options) scheduled event id. If specified,
+                scheduled event with the aid is cancelled.
+        """
+        if action is not None:
+            if action in self.scheduled:
+                logger.trace("{} cancelling all events for action {}, ids: {}"
+                             "".format(self, action, self.scheduled[action]))
+                self.scheduled[action].clear()
+        elif aid is not None:
+            for action, aids in self.scheduled.items():
+                try:
+                    aids.remove(aid)
+                except ValueError:
+                    pass
+                else:
+                    logger.trace("{} cancelled action {} with id {}".format(self, action, aid))
+                    break
 
     def _serviceActions(self) -> int:
         """
@@ -57,12 +92,19 @@ class HasActionQueue:
         count = len(self.actionQueue)
         while self.actionQueue:
             action, aid = self.actionQueue.popleft()
-            logger.debug("{} running action {} with id {}".
-                         format(self, action, aid))
-            action()
+            assert action in self.scheduled
+            if aid in self.scheduled[action]:
+                self.scheduled[action].remove(aid)
+                logger.trace("{} running action {} with id {}".
+                             format(self, get_func_name(action), aid))
+                action()
+            else:
+                logger.trace("{} not running cancelled action {} with id {}".
+                             format(self, get_func_name(action), aid))
         return count
 
     def startRepeating(self, action: Callable, seconds: int):
+        @wraps(action)
         def wrapper():
             if action in self.repeatingActions:
                 action()
@@ -70,18 +112,21 @@ class HasActionQueue:
 
         if action not in self.repeatingActions:
             logger.debug('{} will be repeating every {} seconds'.
-                         format(action, seconds))
+                         format(get_func_name(action), seconds))
             self.repeatingActions.add(action)
             self._schedule(wrapper, seconds)
         else:
-            logger.debug('{} is already repeating'.format(action))
+            logger.debug('{} is already repeating'.format(
+                get_func_name(action)))
 
     def stopRepeating(self, action: Callable, strict=True):
         try:
             self.repeatingActions.remove(action)
-            logger.debug('{} will not be repeating'.format(action))
+            logger.debug('{} will not be repeating'.format(
+                get_func_name(action)))
         except KeyError:
-            msg = '{} not found in repeating actions'.format(action)
+            msg = '{} not found in repeating actions'.format(
+                get_func_name(action))
             if strict:
                 raise KeyError(msg)
             else:

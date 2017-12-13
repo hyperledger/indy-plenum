@@ -1,4 +1,3 @@
-from plenum.server.suspicion_codes import Suspicion
 from re import compile
 
 from plenum.server.suspicion_codes import Suspicion
@@ -76,6 +75,24 @@ class InvalidSignature(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class InsufficientSignatures(SigningException, ReqInfo):
+    code = 126
+    reason = 'insufficient signatures, {} provided but {} required'
+
+    def __init__(self, provided, required, *args, **kwargs):
+        self.reason = self.reason.format(provided, required)
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
+class InsufficientCorrectSignatures(SigningException, ReqInfo):
+    code = 127
+    reason = 'insufficient correct signatures, {} correct but {} required'
+
+    def __init__(self, valid, required, *args, **kwargs):
+        self.reason = self.reason.format(valid, required)
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
 class MissingIdentifier(SigningException):
     code = 130
     reason = 'missing identifier'
@@ -105,6 +122,10 @@ class InvalidIdentifier(SigningException, ReqInfo):
 class UnregisteredIdentifier(SigningException):
     code = 136
     reason = 'provided owner identifier not registered with agent'
+
+
+class NoAuthenticatorFound(SigningException):
+    code = 137
 
 
 class KeysNotFoundException(Exception):
@@ -195,8 +216,10 @@ class DataDirectoryNotFound(StorageException):
 class DBConfigNotFound(StorageException):
     pass
 
+
 class KeyValueStorageConfigNotFound(StorageException):
     pass
+
 
 class UnsupportedOperation(Exception):
     pass
@@ -211,7 +234,6 @@ class BlowUp(BaseException):
     An exception designed to blow through fault barriers. Useful during testing.
     Derives from BaseException so asyncio will let it through.
     """
-    pass
 
 
 class ProdableAlreadyAdded(Exception):
@@ -252,3 +274,9 @@ class OperationError(Exception):
     def __init__(self, error):
         super().__init__("error occurred during operation: {}".format(error))
 
+
+class InvalidMessageExceedingSizeException(InvalidMessageException):
+    def __init__(self, expLen, actLen, *args, **kwargs):
+        ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
+            actLen, expLen)
+        super().__init__(ex_txt, *args, **kwargs)

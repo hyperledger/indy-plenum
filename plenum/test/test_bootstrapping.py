@@ -15,7 +15,7 @@ whitelist = ['public key from disk', 'verification key from disk',
 
 
 # noinspection PyIncorrectDocstring
-def testKeyShareParty(tdir_for_func):
+def testKeyShareParty(tdir_for_func, tconf_for_func):
     """
     connections to all nodes should be successfully established when key
     sharing is enabled.
@@ -23,13 +23,13 @@ def testKeyShareParty(tdir_for_func):
     nodeReg = genNodeReg(5)
 
     logger.debug("-----sharing keys-----")
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf_for_func, nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             looper.run(checkNodesConnected(nodeSet))
 
     logger.debug("-----key sharing done, connect after key sharing-----")
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf_for_func, nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as loop:
             loop.run(checkNodesConnected(nodeSet),
@@ -37,15 +37,14 @@ def testKeyShareParty(tdir_for_func):
 
 
 # noinspection PyIncorrectDocstring
-def testConnectWithoutKeySharingFails(tdir_for_func):
+def testConnectWithoutKeySharingFails(tdir_for_func, tconf_for_func):
     """
     attempts at connecting to nodes when key sharing is disabled must fail
     """
     nodeNames = genNodeNames(5)
 
     with pytest.raises(PublicKeyNotFoundOnDisk):
-        with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func,
+        with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func,
                          keyshare=False) as nodes:
             with Looper(nodes) as looper:
                 looper.runFor(2)
-

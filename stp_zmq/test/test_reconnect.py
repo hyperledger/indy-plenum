@@ -24,7 +24,8 @@ def connected_stacks(registry, tdir, looper, connection_timeout):
     stacks = []
     for name, ha in registry.items():
         printer = Printer(name)
-        stackParams = dict(name=name, ha=ha, basedirpath=tdir, auth_mode=AuthMode.RESTRICTED.value)
+        stackParams = dict(name=name, ha=ha, basedirpath=tdir,
+                           auth_mode=AuthMode.RESTRICTED.value)
         reg = copy(registry)
         reg.pop(name)
         stack = KITZStack(stackParams, printer.print, reg)
@@ -77,7 +78,7 @@ def check_disconnected_for(disconnect_time, looper, connected_stacks,
     # CONNECT
     connect(looper, disconnect_first_stack)
     looper.run(eventually(
-        checkStacksConnected, stacks, retryWait=1, timeout=2*connection_timeout))
+        checkStacksConnected, stacks, retryWait=1, timeout=2 * connection_timeout))
 
 
 def test_reconnect_short(looper, connected_stacks, connection_timeout,
@@ -121,12 +122,14 @@ def test_recreate_sockets_after_ping_retry(looper, tconf, connected_stacks,
     # check that sockets are not re-created MAX_RECONNECT_RETRY_ON_SAME_SOCKET times
     # and PING is called
     for i in range(tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET):
-        sockets_before = [remote.socket for name, remote in stack.remotes.items()]
+        sockets_before = [remote.socket for name,
+                          remote in stack.remotes.items()]
         ping_before = stack.sent_ping_count
 
         stack.retryDisconnected()
 
-        sockets_after = [remote.socket for name, remote in stack.remotes.items()]
+        sockets_after = [remote.socket for name,
+                         remote in stack.remotes.items()]
         ping_after = stack.sent_ping_count
         assert sockets_before == sockets_after
         assert ping_before == ping_after - 1

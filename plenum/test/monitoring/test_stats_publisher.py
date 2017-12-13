@@ -3,11 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from plenum.common.config_util import getConfig
-from plenum.config import STATS_SERVER_PORT, STATS_SERVER_IP
+from plenum.config import STATS_SERVER_PORT, STATS_SERVER_IP, STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher
-
-config = getConfig()
 
 
 @pytest.fixture(scope="function")
@@ -25,15 +22,7 @@ def listener():
     loop.run_until_complete(server.wait_closed())
 
 
-@pytest.fixture
-def statsServerMessageBufferMaxSizeReducer():
-    originalValue = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
-    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 100
-    yield
-    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = originalValue
-
-
-def testSendOneMessageNoOneListens(postingStatsEnabled):
+def testSendOneMessageNoOneListens():
     statsPublisher = TestStatsPublisher()
     statsPublisher.send(message="testMessage")
 
@@ -41,7 +30,7 @@ def testSendOneMessageNoOneListens(postingStatsEnabled):
     assert ["testMessage"] == statsPublisher.refused
 
 
-def testSendMultipleNoOneListens(postingStatsEnabled):
+def testSendMultipleNoOneListens():
     N = 50
     statsPublisher = TestStatsPublisher()
     for i in range(N):
@@ -50,7 +39,7 @@ def testSendMultipleNoOneListens(postingStatsEnabled):
     statsPublisher.assertMessages(0, N, 0)
 
 
-def testSendOneMessageSomeoneListens(postingStatsEnabled, listener):
+def testSendOneMessageSomeoneListens(listener):
     statsPublisher = TestStatsPublisher()
     statsPublisher.send(message="testMessage")
 
@@ -58,7 +47,7 @@ def testSendOneMessageSomeoneListens(postingStatsEnabled, listener):
     assert ["testMessage"] == statsPublisher.sent
 
 
-def testSendMultipleMessagesSomeoneListens(postingStatsEnabled, listener):
+def testSendMultipleMessagesSomeoneListens(listener):
     N = 50
     statsPublisher = TestStatsPublisher()
     for i in range(N):
@@ -67,7 +56,7 @@ def testSendMultipleMessagesSomeoneListens(postingStatsEnabled, listener):
     statsPublisher.assertMessages(N, 0, 0)
 
 
-def testReconnectEachTime(postingStatsEnabled, listener):
+def testReconnectEachTime(listener):
     # send when no one listens (send to port 30001)
     NOT_SENT_COUNT = 50
     statsPublisher = TestStatsPublisher()
@@ -85,7 +74,7 @@ def testReconnectEachTime(postingStatsEnabled, listener):
     statsPublisher.assertMessages(SENT_COUNT, NOT_SENT_COUNT, 0)
 
 
-def testSendAllFromBuffer(postingStatsEnabled):
+def testSendAllFromBuffer():
     N = 100
     statsPublisher = TestStatsPublisher()
     for i in range(N):
@@ -96,28 +85,31 @@ def testSendAllFromBuffer(postingStatsEnabled):
     statsPublisher.assertMessages(0, N + 1, 0)
 
 
-def testSendEvenIfBufferFull(postingStatsEnabled,
-                             statsServerMessageBufferMaxSizeReducer):
-    N = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE + 10
-    statsPublisher = TestStatsPublisher()
+def testSendEvenIfBufferFull():
+    msg_buff_max_size = 100
+
+    N = msg_buff_max_size + 10
+    statsPublisher = TestStatsPublisher(msg_buff_max_size=msg_buff_max_size)
     for i in range(N):
         statsPublisher.addMsgToBuffer("testMessage{}".format(i))
 
     statsPublisher.send(message="testMessage{}".format(N))
 
-    statsPublisher.assertMessages(0, config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE, 0)
+    statsPublisher.assertMessages(
+        0, msg_buff_max_size, 0)
 
 
-def testUnexpectedConnectionError(postingStatsEnabled):
+def testUnexpectedConnectionError():
     statsPublisher = TestStatsPublisher()
-    statsPublisher._checkConnectionAndConnect = Mock(side_effect=AssertionError("Some Error"))
+    statsPublisher._checkConnectionAndConnect = Mock(
+        side_effect=AssertionError("Some Error"))
 
     statsPublisher.send(message="testMessage")
 
     statsPublisher.assertMessages(0, 0, 1)
 
 
-def testSendManyNoExceptions(postingStatsEnabled):
+def testSendManyNoExceptions():
     N = 100
     statsPublisher = TestStatsPublisher()
     statsPublisher.localPort = None
@@ -127,19 +119,24 @@ def testSendManyNoExceptions(postingStatsEnabled):
     assert N == len(statsPublisher.refused)
 
 
-def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
+def testSendManyNoExceptionsIfDestPortFromSourceRange():
     N = 100
-    # use a port that may lead to assertion error (this port may be used as an input port to establish connection)
+    # use a port that may lead to assertion error (this port may be used as an
+    # input port to establish connection)
     statsPublisher = TestStatsPublisher(port=50000)
     for i in range(N):
         statsPublisher.send(message="testMessage{}".format(i))
 
-    assert N == len(statsPublisher.refused) + len(statsPublisher.unexpected) + len(statsPublisher.sent)
+    assert N == len(statsPublisher.refused) + \
+        len(statsPublisher.unexpected) + len(statsPublisher.sent)
 
 
 class TestStatsPublisher(StatsPublisher):
-    def __init__(self, ip=None, port=None, localPort=None):
-        super().__init__(ip if ip else STATS_SERVER_IP, port if port else STATS_SERVER_PORT)
+    def __init__(self, ip=None, port=None, msg_buff_max_size=None, localPort=None):
+        super().__init__(
+            ip if ip else STATS_SERVER_IP,
+            port if port else STATS_SERVER_PORT,
+            msg_buff_max_size if msg_buff_max_size else STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE)
         self.sent = []
         self.refused = []
         self.unexpected = []
@@ -156,7 +153,8 @@ class TestStatsPublisher(StatsPublisher):
         super()._connectionFailedUnexpectedly(message, ex)
         self.unexpected.append(message)
 
-    def assertMessages(self, expectedSent, expectedRefused, expectedUnexpected):
+    def assertMessages(self, expectedSent, expectedRefused,
+                       expectedUnexpected):
         assert expectedSent == len(self.sent)
         assert expectedRefused == len(self.refused)
         assert expectedUnexpected == len(self.unexpected)

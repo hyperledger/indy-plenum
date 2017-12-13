@@ -12,15 +12,16 @@ from stp_core.crypto.nacl_wrappers import Signer, Privateer
 
 
 # TODO: Abstract this functionality in a method inside plenum/common/raet.py so
-# it can be used in sovrin too. Look at how init_plenum_keys is implemented
+# it can be re-used. Look at how init_plenum_keys is implemented
 
 def breakIt(message):
     print(message)
     sys.exit(1)
 
+
 if len(sys.argv) > 2:
     breakIt('provide only one parameter which specifies node or client'
-                    ' name')
+            ' name')
 if len(sys.argv) < 2:
     breakIt('provide the parameter which specifies node or client name')
 

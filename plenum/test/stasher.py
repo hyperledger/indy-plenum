@@ -40,8 +40,8 @@ class Stasher:
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
                     logger.debug("{} stashing message {} for "
-                                  "{} seconds".
-                                  format(self.name, rx, secondsToDelay))
+                                 "{} seconds".
+                                 format(self.name, rx, secondsToDelay))
                     self.delayeds.append((age + secondsToDelay, rx))
                     self.queue.remove(rx)
 
@@ -58,16 +58,18 @@ class Stasher:
         for idx, d in enumerate(self.delayeds):
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
-            if ignore_age_check or (names and d[1][0].__name__ in names) or age >= d[0]:
+            if ignore_age_check or (
+                    names and d[1][0].__name__ in names) or age >= d[0]:
                 if ignore_age_check:
                     msg = '(forced)'
                 elif names and d[1][0].__name__ in names:
                     msg = '({} present in {})'.format(d[1][0].__name__, names)
                 else:
-                    msg = '({:.0f} milliseconds overdue)'.format((age - d[0]) * 1000)
+                    msg = '({:.0f} milliseconds overdue)'.format(
+                        (age - d[0]) * 1000)
                 logger.debug(
-                        "{} unstashing message {} {}".
-                            format(self.name, d[1], msg))
+                    "{} unstashing message {} {}".
+                    format(self.name, d[1], msg))
                 self.queue.appendleft(d[1])
                 to_remove.append(idx)
                 unstashed += 1

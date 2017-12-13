@@ -3,9 +3,9 @@ import pytest
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testEachNodeHasSeparatePluginObject(cli,
-                                      validNodeNames,
-                                      loadOpVerificationPlugin,
-                                      createAllNodes):
+                                        validNodeNames,
+                                        loadOpVerificationPlugin,
+                                        createAllNodes):
     """
     This test is needed to make sure each node has a different plugin object
     loaded. This is neccessary for plugins that maintain some state

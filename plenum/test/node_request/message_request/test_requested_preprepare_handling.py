@@ -4,15 +4,18 @@ from plenum.common.constants import PREPREPARE
 from plenum.common.messages.node_messages import MessageRep
 from plenum.common.types import f
 from plenum.test.delayers import ppDelay
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import sdk_send_batches_of_random_and_check
 
-def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected, teardown):
+
+def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
+                                    sdk_wallet_client, sdk_pool_handle,
+                                    teardown):
     """
     Make a node send PREPREPARE again after the slow node has ordered
     """
@@ -20,7 +23,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
         split_nodes(txnPoolNodeSet)
     # This node will send PRE-PREPARE again
     confused_node = other_non_primary_nodes[0]
-    orig_method = confused_node._serve_preprepare_request
+    orig_method = confused_node.handlers[PREPREPARE].serve
 
     last_pp = None
 
@@ -29,13 +32,17 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
         last_pp = orig_method(msg)
         return last_pp
 
-    confused_node.req_handlers[PREPREPARE] = types.MethodType(patched_method,
-                                                               confused_node)
+    confused_node.handlers[PREPREPARE].serve = types.MethodType(patched_method, confused_node.handlers[PREPREPARE])
 
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 10, 5)
+    sdk_send_batches_of_random_and_check(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         num_reqs=10,
+                                         num_batches=5)
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     slow_master_replica = slow_node.master_replica
@@ -58,9 +65,11 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
     def chk():
         # `process_requested_pre_prepare` is called but
         # `processThreePhaseMsg` is not called
-        assert get_count(slow_master_replica,
-                         slow_master_replica.process_requested_pre_prepare) > count_pr_req
-        assert get_count(slow_master_replica,
-                  slow_master_replica.processThreePhaseMsg) == count_pr_tpc
+        assert get_count(
+            slow_master_replica,
+            slow_master_replica.process_requested_pre_prepare) > count_pr_req
+        assert get_count(
+            slow_master_replica,
+            slow_master_replica.processThreePhaseMsg) == count_pr_tpc
 
     looper.run(eventually(chk, retryWait=1))

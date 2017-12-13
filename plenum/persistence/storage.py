@@ -1,13 +1,12 @@
-import os
 from abc import abstractmethod, ABC
 
-from ledger.stores.text_file_store import TextFileStore
-from plenum.common.exceptions import DataDirectoryNotFound, KeyValueStorageConfigNotFound
 from plenum.common.constants import StorageType, KeyValueStorageType
+from plenum.common.exceptions import DataDirectoryNotFound, KeyValueStorageConfigNotFound
 from plenum.common.messages.node_messages import Reply
-from state.kv.kv_in_memory import KeyValueStorageInMemory
-from state.kv.kv_store import KeyValueStorage
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_in_memory import KeyValueStorageInMemory
+from storage.kv_store import KeyValueStorage
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.text_file_store import TextFileStore
 
 
 class Storage(ABC):
@@ -28,10 +27,10 @@ class Storage(ABC):
         pass
 
 
-def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName) -> KeyValueStorage:
+def initKeyValueStorage(keyValueType, dataLocation,
+                        keyValueStorageName) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
-        kvPath = os.path.join(dataLocation, keyValueStorageName)
-        return KeyValueStorageLeveldb(kvPath)
+        return KeyValueStorageLeveldb(dataLocation, keyValueStorageName)
     elif keyValueType == KeyValueStorageType.Memory:
         return KeyValueStorageInMemory()
     else:

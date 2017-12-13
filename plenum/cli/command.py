@@ -14,7 +14,8 @@ class Command:
     def __str__(self):
         detailIndent = "    "
         header = "\n{}\n{}\n".format(self.id, '-' * (len(self.id)))
-        note = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
+        note = "{} note: {}\n\n".format(
+            detailIndent, self.note) if self.note else ""
         examplesStr = '\n{}{}'.format(detailIndent, detailIndent).join(
             self.examples) if self.examples else ""
         examples = "{} example(s):\n{}    {}\n".format(
@@ -107,7 +108,7 @@ clientShowCmd = Command(
 
 newKeyCmd = Command(
     id="new key",
-    title="Adds new key to active keyring",
+    title="Adds new key to active wallet",
     usage="new key [with seed <32 character seed>] [[as] <alias>]",
     examples=[
         "new key",
@@ -117,28 +118,31 @@ newKeyCmd = Command(
 
 listIdsCmd = Command(
     id="list ids",
-    title="Lists all identifiers of active keyring",
+    title="Lists all DIDs of active wallet",
     usage="list ids [with verkeys]",
     examples=["list ids", "list ids with verkeys"])
 
 useIdCmd = Command(
-    id="use identifier",
-    title="Marks given identifier active/default",
-    usage="use identifier <identifier>",
-    note="Note: To see all identifiers in active keyring, use 'list ids' command",
-    examples="use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
+    id="use DID",
+    title="Marks given DID active/default",
+    usage="use DID <DID>",
+    note="Note: To see all DIDs in active wallet, use 'list ids' command",
+    examples="use DID 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
 
 addGenesisTxnCmd = Command(
     id="add genesis transaction",
     title="Adds given genesis transaction",
-    usage="add genesis transaction <type> for <dest-identifier> [by <identifier>] [with data {<json data>}] [role=<role>]",
+    usage="add genesis transaction <type> for <dest-DID> [by <DID>] [with data {<json data>}] [role=<role>]",
     examples=[
         'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
-            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name),
         'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {{"alias": "Alice"}} role={role}'.format(
-            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name),
         'add genesis transaction {node} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML by FvDi9xQZd1CZitbK15BNKFbA7izCdXZjvxf91u3rQVzW '
-        'with data {{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}}'.format(node=PlenumTransactions.NODE.name)])
+        'with data {{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}}'.format(
+            node=PlenumTransactions.NODE.name)])
 
 createGenesisTxnFileCmd = Command(
     id="create genesis transaction file",
@@ -152,31 +156,33 @@ changePromptCmd = Command(
     usage="prompt <principal-name>",
     examples="prompt Alice")
 
-newKeyringCmd = Command(
-    id="new keyring",
-    title="Creates new keyring",
-    usage="new keyring <name>",
-    examples="new keyring mykeyring")
+newWalletCmd = Command(
+    id="new wallet",
+    title="Creates new wallet",
+    usage="new wallet <name>",
+    examples="new wallet mywallet")
 
-useKeyringCmd = Command(
-    id="use keyring",
-    title="Loads given keyring and marks it active/default",
-    usage="use keyring <name|absolute-wallet-file-path>",
-    examples=["use keyring mykeyring", "use keyring /home/ubuntu/.sovrin/keyrings/test/mykeyring.wallet"])
+useWalletCmd = Command(
+    id="use wallet",
+    title="Loads given wallet and marks it active/default",
+    usage="use wallet <name|absolute-wallet-file-path>",
+    examples=[
+        "use wallet mywallet",
+        "use wallet /home/ubuntu/.indy/wallets/test/mywallet.wallet"])
 
-saveKeyringCmd = Command(
-    id="save keyring",
-    title="Saves active keyring",
-    usage="save keyring [<active-keyring-name>]",
-    examples=["save keyring", "save keyring mykeyring"])
+saveWalletCmd = Command(
+    id="save wallet",
+    title="Saves active wallet",
+    usage="save wallet [<active-wallet-name>]",
+    examples=["save wallet", "save wallet mywallet"])
 
-renameKeyringCmd = Command(
-    id="rename keyring",
-    title="Renames given keyring",
-    usage="rename keyring <old-name> to <new-name>",
-    examples="rename keyring mykeyring to yourkeyring")
+renameWalletCmd = Command(
+    id="rename wallet",
+    title="Renames given wallet",
+    usage="rename wallet <old-name> to <new-name>",
+    examples="rename wallet mywallet to yourwallet")
 
-listKeyringCmd = Command(
-    id="list keyrings",
-    title="Lists all keyrings",
-    usage="list keyrings")
+listWalletCmd = Command(
+    id="list wallets",
+    title="Lists all wallets",
+    usage="list wallets")

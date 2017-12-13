@@ -34,11 +34,11 @@ def allPluginPaths(pluginVerPath, pluginPrcPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths) as ns:
 
@@ -71,7 +71,7 @@ class AccountApp(App):
             }})
         if expected:
             waitForSufficientRepliesForRequests(self.looper, self.client,
-                                                requests=[req], fVal=1)
+                                                requests=[req])
         else:
             timeout = waits.expectedReqNAckQuorumTime()
             for node in nodes:
@@ -86,7 +86,7 @@ class AccountApp(App):
             TARGET_NYM: self.wallet.defaultId
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
 
         return self.client.hasConsensus(*req.key)[BALANCE]
 
@@ -96,11 +96,12 @@ class AccountApp(App):
             TARGET_NYM: self.wallet.defaultId
         })
         waitForSufficientRepliesForRequests(self.looper, self.client,
-                                            requests=[req], fVal=1)
+                                            requests=[req])
 
         return req
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testBankTransactions(nodeSet, up, looper, apps):
     jason, john, les = apps
 

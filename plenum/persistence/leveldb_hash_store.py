@@ -1,20 +1,17 @@
-import os
-
-from ledger.stores.hash_store import HashStore
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
+from ledger.hash_stores.hash_store import HashStore
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from stp_core.common.log import getlogger
-
 
 logger = getlogger()
 
 
 class LevelDbHashStore(HashStore):
-    def __init__(self, dataDir):
+    def __init__(self, dataDir, fileNamePrefix=""):
         self.dataDir = dataDir
-        self.nodesDbPath = os.path.join(self.dataDir, '_merkleNodes')
-        self.leavesDbPath = os.path.join(self.dataDir, '_merkleLeaves')
         self.nodesDb = None
         self.leavesDb = None
+        self.nodes_db_name = fileNamePrefix + '_merkleNodes'
+        self.leaves_db_name = fileNamePrefix + '_merkleLeaves'
         self.open()
 
     @property
@@ -57,7 +54,7 @@ class LevelDbHashStore(HashStore):
          """
         self._validatePos(start, end)
         # Converting any bytearray to bytes
-        return [bytes(db.get(str(pos))) for pos in range(start, end+1)]
+        return [bytes(db.get(str(pos))) for pos in range(start, end + 1)]
 
     @property
     def leafCount(self) -> int:
@@ -73,25 +70,21 @@ class LevelDbHashStore(HashStore):
 
     @property
     def closed(self):
-        return self.nodesDb is None and self.leavesDb is None
+        return (self.nodesDb is None and self.leavesDb is None) \
+            or \
+               (self.nodesDb.closed and self.leavesDb.closed)
 
     def open(self):
-        self.nodesDb = KeyValueStorageLeveldb(self.nodesDbPath)
-        self.leavesDb = KeyValueStorageLeveldb(self.leavesDbPath)
+        self.nodesDb = KeyValueStorageLeveldb(self.dataDir, self.nodes_db_name)
+        self.leavesDb = KeyValueStorageLeveldb(
+            self.dataDir, self.leaves_db_name)
 
     def close(self):
         self.nodesDb.close()
         self.leavesDb.close()
 
     def reset(self) -> bool:
-        self.nodesDb.close()
-        self.nodesDb.drop()
-        self.nodesDb.open()
-
-        self.leavesDb.close()
-        self.leavesDb.drop()
-        self.leavesDb.open()
-
+        self.nodesDb.reset()
+        self.leavesDb.reset()
         self.leafCount = 0
-
         return True

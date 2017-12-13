@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from stp_core.loop.eventually import eventuallyAll
-from plenum.common.constants import TXN_TYPE,  DATA
+from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
@@ -28,11 +28,11 @@ def allPluginPaths(pluginVerPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths) as ns:
 
@@ -45,6 +45,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                    pluginVerPath):
     # TODO: Test more cases
@@ -56,7 +57,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: "dummy",
         DATA: {
             AMOUNT: 30
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     validTypes = ', '.join(plugin.validTxnTypes)
     update = {
@@ -108,7 +109,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
         TXN_TYPE: PLACE_BID,
         DATA: {
             AMOUNT: 453
-    }}
+        }}
     req = submitOp(wallet1, client1, op)
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}

@@ -23,15 +23,15 @@ whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()
 
 
-def testReqExecWhenReturnedByMaster(tdir_for_func):
-    with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
+def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
+    with TestNodeSet(tconf_for_func, count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
             waitForSufficientRepliesForRequests(looper, client1,
-                                                requests=[req], fVal=1)
+                                                requests=[req])
 
             async def chk():
                 for node in nodeSet:
@@ -44,7 +44,8 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                             assert result
                         else:
                             assert result is False
-            timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
+            timeout = waits.expectedOrderingTime(
+                nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
 
 
@@ -57,7 +58,9 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             prepareNodeSet(looper, nodeSet)
 
             nodeA, nodeB, nodeC, nodeD = tuple(
-                addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
+                addNodeBack(
+                    nodeSet, looper, nodeNames[i]) for i in range(
+                    0, 4))
 
             # Since primary selection is round robin, A and B will be primaries
 
@@ -111,10 +114,15 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
             for reqType in [PrePrepare, Prepare, Commit]:
-                looper.run(eventually(lambda: assertLength(
-                    getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                 reqType),
-                    0), retryWait=1, timeout=delayD)) # wait little more than delay
+                looper.run(
+                    eventually(
+                        lambda: assertLength(
+                            getPendingRequestsForReplica(
+                                nodeD.replicas[instNo],
+                                reqType),
+                            0),
+                        retryWait=1,
+                        timeout=delayD))  # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
@@ -152,7 +160,7 @@ def testMultipleRequests(tdir_for_func):
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
                 waitForSufficientRepliesForRequests(looper, client,
-                                                    requests=requests, fVal=3)
+                                                    requests=requests)
 
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)

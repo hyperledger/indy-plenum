@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+
+"""
+Filters a log file using the specified criteria.
+
+Usage:
+
+filter_log -i INPUT [-o OUTPUT] [-l LEVEL] [-p PREFIX]
+
+or
+
+filter_log --input INPUT [--output OUTPUT] [--level LEVEL] [--prefix PREFIX]
+
+where
+INPUT   - the path of the source log
+OUTPUT  - the path for the filtered output (by default the output is printed
+          to stdout)
+LEVEL   - the lowest level of the messages to keep
+PREFIX  - the prefix of the messages to keep
+
+Examples:
+
+filter_log -i Node1.log -p MONITORING
+
+filter_log -i Node1.log -o filtered.log -l INFO
+
+filter_log -i /home/user/.indy/Node1.log -o /home/user/filtered.log -l DEBUG -p "VIEW CHANGE"
+
+filter_log --input /home/user/.indy/Node1.log --output /home/user/filtered.log --level DEBUG --prefix "VIEW CHANGE"
+"""
+
+import argparse
+import re
+from logging import CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+
+from stp_core.common.log import DISPLAY_LOG_LEVEL, TRACE_LOG_LEVEL
+
+LOG_RECORD_PREFIX = '20'
+LOG_RECORD_PATTERN = \
+    '[^\|]*\| (?P<log_level>[^ \|]+) +\|[^\|]*\|[^\|]*\| {msg_prefix}.*'
+
+LOG_NAME_TO_LEVEL = {
+    'CRITICAL': CRITICAL,
+    'ERROR': ERROR,
+    'WARNING': WARNING,
+    'DISPLAY': DISPLAY_LOG_LEVEL,
+    'INFO': INFO,
+    'DEBUG': DEBUG,
+    'TRACE': TRACE_LOG_LEVEL
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-i', '--input',
+                        required=True,
+                        help='Source log path')
+
+    parser.add_argument('-o', '--output',
+                        default='/dev/stdout',
+                        help='Filtered output path')
+
+    parser.add_argument('-l', '--level',
+                        type=str.upper,
+                        choices=['CRITICAL',
+                                 'ERROR',
+                                 'WARNING',
+                                 'DISPLAY',
+                                 'INFO',
+                                 'DEBUG',
+                                 'TRACE'],
+                        help='Target log level')
+
+    parser.add_argument('-p', '--prefix',
+                        help='Log message prefix')
+
+    args = parser.parse_args()
+
+    if not (args.level or args.prefix):
+        parser.error('At least one of the following arguments must be present:'
+                     ' -l/--level, -p/--prefix')
+
+    return args
+
+
+def main(args):
+    msg_prefix = args.prefix if args.prefix else ''
+    target_log_level = LOG_NAME_TO_LEVEL[args.level] if args.level else NOTSET
+
+    target_log_record_regex = re.compile(
+        LOG_RECORD_PATTERN.format(msg_prefix=re.escape(msg_prefix)))
+
+    def should_write(line):
+        match = target_log_record_regex.match(line)
+        if not match:
+            return False
+        log_level = LOG_NAME_TO_LEVEL.get(match.group('log_level'))
+        return not log_level or log_level >= target_log_level
+
+    with open(args.input, 'r') as source_log, \
+            open(args.output, 'w') as filtered_output:
+
+        write_continuation = False
+
+        while True:
+            line = source_log.readline()
+
+            if not line:
+                break
+
+            if line.startswith(LOG_RECORD_PREFIX):
+                if should_write(line):
+                    filtered_output.write(line)
+                    write_continuation = True
+                else:
+                    write_continuation = False
+
+            elif write_continuation:
+                filtered_output.write(line)
+
+
+if __name__ == '__main__':
+    main(parse_args())

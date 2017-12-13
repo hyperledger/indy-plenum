@@ -1,4 +1,3 @@
-import logging
 from functools import partial
 
 import pytest
@@ -32,9 +31,12 @@ def setup(startedNodes):
     B = startedNodes.Gamma
     G = startedNodes.Zeta
     for node in A, B, G:
-        makeNodeFaulty(node,
-                       changesRequest,
-                       partial(delaysPrePrepareProcessing, delay=delayPrePrepareSec))
+        makeNodeFaulty(
+            node,
+            changesRequest,
+            partial(
+                delaysPrePrepareProcessing,
+                delay=delayPrePrepareSec))
         # Delaying nomination to avoid becoming primary
         # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
@@ -59,10 +61,10 @@ def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
 
 
 def testNumOfPrePrepareWithFPlusOneFaults(
-                                          afterElection,
-                                          noRetryReq,
-                                          nodeSet,
-                                          preprepared1WithDelay):
+        afterElection,
+        noRetryReq,
+        nodeSet,
+        preprepared1WithDelay):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:

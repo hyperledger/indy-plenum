@@ -28,11 +28,11 @@ def allPluginPaths(pluginVerPath):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, allPluginPaths):
+def nodeSet(tdir, tconf, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    with TestNodeSet(nodeReg=nodeReg,
+    with TestNodeSet(tconf, nodeReg=nodeReg,
                      tmpdir=tdir,
                      pluginPaths=allPluginPaths) as ns:
 
@@ -45,6 +45,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
+@pytest.mark.skip(reason="old style plugin")
 def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                                 pluginVerPath):
     plugin = PluginLoader(pluginVerPath)
@@ -59,9 +60,12 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
         }})
 
     validTypes = ', '.join(plugin.validTxnTypes)
-    update = {'reason': makeReason(commonError, "dummy is not a valid "
-                                                "transaction type, must be "
-                                                "one of {}".format(validTypes))}
+    update = {
+        'reason': makeReason(
+            commonError,
+            "dummy is not a valid "
+            "transaction type, must be "
+            "one of {}".format(validTypes))}
 
     coros1 = [partial(checkReqNack, client1, node, req.identifier,
                       req.reqId, update) for node in nodeSet]
@@ -69,7 +73,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
         TARGET_NYM: wallet2.defaultId,
-        })
+    })
 
     update = {
         'reason': makeReason(commonError,
@@ -108,7 +112,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                       update) for node in nodeSet]
 
     timeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=timeout))
+    looper.run(eventuallyAll(
+        *(coros1 + coros2 + coros3 + coros4), totalTimeout=timeout))
 
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
@@ -117,8 +122,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
             AMOUNT: 30
         }})
 
-    waitForSufficientRepliesForRequests(looper, client1,
-                                        requests=[req], fVal=1)
+    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers
         assert opVerifier.count == 1

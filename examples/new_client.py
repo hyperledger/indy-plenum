@@ -8,7 +8,7 @@ TODO: create client
 TODO: demonstrate client verification key bootstrapping
 """
 
-#TODO Remove this file, just for now
+# TODO Remove this file, just for now
 
 from plenum.client.client import Client
 from stp_core.loop.looper import Looper
@@ -17,12 +17,11 @@ from plenum.common.config_util import getConfig
 
 
 def run_node():
-
-    with Looper(debug=False) as looper:
+    config = getConfig()
+    with Looper(debug=config.LOOPER_DEBUG) as looper:
         # Nodes persist keys when bootstrapping to other nodes and reconnecting
         # using an ephemeral temporary directory when proving a concept is a
         # nice way to keep things clean.
-        config = getConfig()
         basedirpath = config.baseDir
         cliNodeReg = {k: v[0] for k, v in config.cliNodeReg.items()}
         clientName = 'Alice'

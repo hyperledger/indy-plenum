@@ -13,8 +13,7 @@ from plenum.test import waits
 whitelist = ['AlphaC unable to send message', ]
 
 
-def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
-                                             wallet1, tconf):
+def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1, wallet1):
     """
     The client gets disconnected from node say Alpha but does not know it.
     It sends request to all nodes including Alpha, expects ACK and REPLY from
@@ -79,16 +78,15 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     # Client should get only 3 replies till the retry timeout since one node
     # is not sending any replies
     wait_for_replies(looper, client1, idr, reqId, 3,
-                     custom_timeout=tconf.CLIENT_REPLY_TIMEOUT-1)
+                     custom_timeout=tconf.CLIENT_REPLY_TIMEOUT - 1)
     end = time.perf_counter()
     # Client should wait till the retry timeout but after that should
     # get the reply from the remaining node
-    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT-(end-start))
+    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT - (end - start))
     wait_for_replies(looper, client1, idr, reqId, 4)
 
 
-def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
-                                                 wallet1, tconf):
+def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1, wallet1):
     """
     A node sends REQNACK. The client does not resend Request.
     """
@@ -118,13 +116,15 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
     # Wait till ACK timeout
     looper.runFor(reqAckTimeout + 1)
-    assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+    assert client1.spylog.count(
+        client1.resendRequests.__name__) == totalResends
 
     # Wait till REPLY timeout
     retryTimeout = executionTimeout - reqAckTimeout + 1
     looper.runFor(retryTimeout)
 
-    assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+    assert client1.spylog.count(
+        client1.resendRequests.__name__) == totalResends
     idr, reqId = req.key
     wait_for_replies(looper, client1, idr, reqId, 3)
 
@@ -133,7 +133,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
 
 @pytest.fixture(scope="function")
-def withFewerRetryReq(tconf, tdir, request):
+def withFewerRetryReq(tconf, request):
     oldRetryReplyCount = tconf.CLIENT_MAX_RETRY_REPLY
     oldRetryReplyTimeout = tconf.CLIENT_REPLY_TIMEOUT
     tconf.CLIENT_MAX_RETRY_REPLY = 3

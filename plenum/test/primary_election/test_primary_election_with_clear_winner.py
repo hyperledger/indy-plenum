@@ -19,7 +19,8 @@ def electContFixture(startedNodes: TestNodeSet):
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes):
+def testPrimaryElectionWithAClearWinner(
+        electContFixture, looper, keySharedNodes):
     """
     Primary selection (Sunny Day)
     A, B, C, D, E
@@ -60,7 +61,8 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
 
     # Checking whether one of the replicas of Node A nominated itself
     timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=timeout))
+    looper.run(eventually(checkNomination, A,
+                          A.name, retryWait=1, timeout=timeout))
 
     timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     for n in nodesBCD:

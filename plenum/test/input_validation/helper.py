@@ -82,7 +82,6 @@ class MerkleRootField(TestFieldBase):
     negative_test_cases = ()
     positive_test_cases = ('47DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',)
     field_types = (str,)
-    pass
     # TODO implement
     # negative_test_cases = (
     #     '',
@@ -138,14 +137,17 @@ class RequestIdrField(TestFieldBase):
     @property
     def negative_test_cases(self):
         return [
-            [[self.idr_field.positive_test_cases[0], self.ts_field.negative_test_cases[0]]],
-            [[self.idr_field.negative_test_cases[0], self.ts_field.positive_test_cases[0]]],
+            [[self.idr_field.positive_test_cases[0],
+                self.ts_field.negative_test_cases[0]]],
+            [[self.idr_field.negative_test_cases[0],
+                self.ts_field.positive_test_cases[0]]],
         ]
 
     @property
     def positive_test_cases(self):
         return [
-            [[self.idr_field.positive_test_cases[0], self.ts_field.positive_test_cases[0]]],
+            [[self.idr_field.positive_test_cases[0],
+                self.ts_field.positive_test_cases[0]]],
         ]
 
 
@@ -157,14 +159,17 @@ class TieAmongField(TestFieldBase):
     @property
     def negative_test_cases(self):
         return [
-            [self.name_field.positive_test_cases[0], self.ts_field.negative_test_cases[0]],
-            [self.name_field.negative_test_cases[0], self.ts_field.positive_test_cases[0]],
+            [self.name_field.positive_test_cases[0],
+                self.ts_field.negative_test_cases[0]],
+            [self.name_field.negative_test_cases[0],
+                self.ts_field.positive_test_cases[0]],
         ]
 
     @property
     def positive_test_cases(self):
         return [
-            [self.name_field.positive_test_cases[0], self.ts_field.positive_test_cases[0]],
+            [self.name_field.positive_test_cases[0],
+                self.ts_field.positive_test_cases[0]],
         ]
 
 
@@ -318,4 +323,5 @@ class MessageDescriptor(TestFieldBase):
 
     @property
     def _any_positive_case_copy(self):
-        return deepcopy({field.name: field.positive_test_cases[0] for field in self.fields})
+        return deepcopy(
+            {field.name: field.positive_test_cases[0] for field in self.fields})

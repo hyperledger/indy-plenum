@@ -1,21 +1,25 @@
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import ppDelay, pDelay
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 
-def test_commits_recvd_first(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected):
+def test_commits_recvd_first(looper, txnPoolNodeSet,
+                             sdk_wallet_client, sdk_pool_handle):
     slow_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet, 0)][-1]
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = 50
     slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
     slow_node.nodeIbStasher.delay(pDelay(delay, 0))
 
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 20, 4)
+    sdk_send_batches_of_random_and_check(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         num_reqs=20,
+                                         num_batches=4)
 
     assert not slow_node.master_replica.prePrepares
     assert not slow_node.master_replica.prepares

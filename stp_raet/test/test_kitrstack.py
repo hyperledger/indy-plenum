@@ -6,12 +6,14 @@ from stp_core.network.auth_mode import AuthMode
 from stp_raet.rstack import KITRStack
 from stp_core.test.helper import Printer, prepStacks, checkStacksConnected, chkPrinted
 
+
 @pytest.fixture()
 def printers(registry):
     printersDict = {}
     for name, ha in registry.items():
         printersDict[name] = Printer(name)
     return printersDict
+
 
 @pytest.fixture()
 def stacks(registry, tdir, looper, printers):
@@ -46,7 +48,5 @@ def testKitRStacksSendMesages(looper, stacks, printers):
 
     stacks[0].send({'greetings': 'hi'}, stacks[1].name)
 
-    looper.run(eventually(chkPrinted, printers[stacks[1].name], {'greetings': 'hi'}))
-
-
-
+    looper.run(eventually(
+        chkPrinted, printers[stacks[1].name], {'greetings': 'hi'}))

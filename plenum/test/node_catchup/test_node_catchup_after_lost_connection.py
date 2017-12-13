@@ -13,9 +13,10 @@ logger = getlogger()
 txnCount = 5
 
 
-# TODO: Refactor tests to minimize module-scoped fixtures.They make tests depend on each other
+# TODO: Refactor tests to minimize module-scoped fixtures.They make tests
+# depend on each other
 def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
-                                   nodeSetWithNodeAddedAfterSomeTxns):
+                                       nodeSetWithNodeAddedAfterSomeTxns):
     """
     A node that has poor internet connection and got unsynced after some
     transactions should eventually get the transactions which happened while

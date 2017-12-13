@@ -14,11 +14,14 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
     # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-                 getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(
+        looper,
+        client,
+        requests=reqs,
+        customTimeoutPerReq=tconf.Max3PCBatchWait)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr.create3PCBatch
@@ -42,7 +45,7 @@ def reverted(setup, looper):
     pr, otherR, oldStateRoot = setup
 
     def chkStateRoot(root):
-        for r in [pr]+otherR:
+        for r in [pr] + otherR:
             r.stateRootHash(DOMAIN_LEDGER_ID, to_str=False) == root
 
     looper.run(eventually(chkStateRoot, oldStateRoot))
@@ -63,7 +66,6 @@ def testTreeStateRevertedAfterBatchRejection(reverted):
     After a batch is rejected, all nodes revert their trees to last known
     correct state
     """
-    pass
 
 
 def testViewChangeAfterBatchRejected(viewChanged):
@@ -71,7 +73,6 @@ def testViewChangeAfterBatchRejected(viewChanged):
     After a batch is rejected and each batch that was created based on the
     rejected batch is discarded, the discarded batches are tried again
     """
-    pass
 
 
 def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
@@ -81,5 +82,8 @@ def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
     :return:
     """
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(
+        looper,
+        client,
+        requests=reqs,
+        customTimeoutPerReq=tconf.Max3PCBatchWait)

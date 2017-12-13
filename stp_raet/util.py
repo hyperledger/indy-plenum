@@ -1,11 +1,8 @@
 import json
 import os
-from collections import OrderedDict
 
 from stp_core.crypto.nacl_wrappers import Signer, Privateer
 from raet.road.keeping import RoadKeep
-
-from stp_core.crypto.util import ed25519SkToCurve25519, ed25519PkToCurve25519
 
 
 def getLocalKeep(name, baseDir=None):
@@ -73,6 +70,6 @@ def isPortUsedByRaetRemote(keepDir, port):
                                                               'estate.json')))
                 if localRemoteData['ha'][1] == port:
                     return True
-            except:
+            except BaseException:
                 continue
     return False
