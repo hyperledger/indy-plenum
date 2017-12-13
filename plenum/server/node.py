@@ -413,7 +413,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return (None if self.view_changer is None else
+        return (False if self.view_changer is None else
                 self.view_changer.view_change_in_progress)
 
     def setup_config(self):

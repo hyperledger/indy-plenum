@@ -83,8 +83,10 @@ class TestNetworkSetup:
             config_helper = config_helper_class(config, chroot=chroot)
             os.makedirs(config_helper.genesis_dir, exist_ok=True)
             genesis_dir = config_helper.genesis_dir
+            keys_dir = config_helper.keys_dir
         else:
             genesis_dir = cls.setup_clibase_dir(config, network)
+            keys_dir = os.path.join(genesis_dir, "keys")
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, genesis_dir, config)
         domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
@@ -98,17 +100,13 @@ class TestNetworkSetup:
             domainLedger.add(nym_txn)
 
         for nd in node_defs:
-            node_config_helper = node_config_helper_class(nd.name, config, chroot=chroot)
-            os.makedirs(node_config_helper.ledger_dir, exist_ok=True)
-
             if nd.idx in _localNodes:
-                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, node_config_helper.keys_dir,
-                                                              nd.sigseed, override=True)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
                 if nd.ip != '127.0.0.1':
-                    paramsFilePath = os.path.join(node_config_helper.ledger_dir, nodeParamsFileName)
+                    paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
                     TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
 
@@ -116,7 +114,7 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(node_config_helper.keys_dir, nd.name, nd.sigseed)
+                blskey = init_bls_keys(keys_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
