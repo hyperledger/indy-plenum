@@ -847,7 +847,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # Node not using pool ledger so start syncing config ledger
                 self.mode = Mode.discovered
                 self.ledgerManager.setLedgerCanSync(
-                    self.ledgerManager.ledger_sync_order[0], True)
+                    self.ledgerManager.ledger_sync_order[1], True)
             else:
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
