@@ -2753,6 +2753,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'keys_dir': self.keys_dir,
             'genesis_dir': self.genesis_dir,
             'plugins_dir': self.plugins_dir,
+            'node_info_dir': self.node_info_dir,
             'portN': self.nodestack.ha[1],
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
