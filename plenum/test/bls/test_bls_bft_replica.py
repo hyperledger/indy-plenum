@@ -16,6 +16,7 @@ from plenum.test.bls.helper import process_commits_for_key, calculate_multi_sig,
     create_prepare_params, generate_state_root, create_commit_with_bls_sig, \
     create_pre_prepare_no_bls
 
+whitelist = ['Indy Crypto error']
 
 @pytest.fixture()
 def bls_bft_replicas(txnPoolNodeSet):

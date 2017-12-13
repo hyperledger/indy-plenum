@@ -56,8 +56,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6',
-                      'indy-crypto==0.1.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,

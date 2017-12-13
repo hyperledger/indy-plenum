@@ -3,6 +3,8 @@ from logging import getLogger
 from typing import Sequence, Optional
 
 import base58
+from indy_crypto import IndyCryptoError
+
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
 from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
 
@@ -18,7 +20,7 @@ class BlsGroupParamsLoaderIndyCrypto(BlsGroupParamsLoader):
 
 
 class IndyCryptoBlsUtils:
-    SEED_LEN = 48
+    SEED_LEN = 32
 
     @staticmethod
     def bls_to_str(v: BlsEntity) -> str:
@@ -35,11 +37,11 @@ class IndyCryptoBlsUtils:
             logger.error('BLS: value {} can not be decoded to base58'.format(v))
             return None
 
-        # FIXME: a workaround for crash when short or long values are provided:
-        bts_len = len(bts)
-        if bts_len not in [32, 128]:
+        try:
+            return cls.from_bytes(bts)
+        except IndyCryptoError as e:
+            logger.error('BLS: Indy Crypto error: {}'.format(e))
             return None
-        return cls.from_bytes(bts)
 
     @staticmethod
     def prepare_seed(seed):
@@ -49,11 +51,11 @@ class IndyCryptoBlsUtils:
         if isinstance(seed, (bytes, bytearray)):
             seed_bytes = seed
 
-        # TODO: FIXME: indy-crupto supports 48-bit seeds only
+        # TODO: FIXME: indy-crypto supports 32-bit seeds only
         if seed_bytes:
             if len(seed_bytes) < IndyCryptoBlsUtils.SEED_LEN:
                 seed_bytes += b'0' * (IndyCryptoBlsUtils.SEED_LEN - len(seed_bytes))
-            assert (len(seed_bytes) == IndyCryptoBlsUtils.SEED_LEN)
+            assert (len(seed_bytes) >= IndyCryptoBlsUtils.SEED_LEN)
 
         return seed_bytes
 
