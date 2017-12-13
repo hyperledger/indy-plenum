@@ -41,10 +41,9 @@ def checkNodeDataForEquality(node: TestNode,
         check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
 
         chk_ledger_and_state(node, n, DOMAIN_LEDGER_ID)
+        chk_ledger_and_state(node, n, CONFIG_LEDGER_ID)
         if n.poolLedger:
             chk_ledger_and_state(node, n, POOL_LEDGER_ID)
-        if n.getLedger(CONFIG_LEDGER_ID):
-            chk_ledger_and_state(node, n, CONFIG_LEDGER_ID)
 
 
 def checkNodeDataForInequality(node: TestNode,

@@ -170,9 +170,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
-        self.primaryStorage = storage or self.getPrimaryStorage()
-
         self.states = {}  # type: Dict[int, State]
+
+        self.primaryStorage = storage or self.getPrimaryStorage()
 
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
 
@@ -273,9 +273,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Requests that are to be given to the view_changer by the node
         self.msgsToViewChanger = deque()
 
-        self.ledgerManager = self.get_new_ledger_manager()
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
+
+        self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
         self.adjustReplicas()
@@ -420,7 +421,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setup_config_req_handler()
         self.initConfigState()
 
-    def setup_config_ledger(self):
+    def _add_config_ledger(self):
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
             self.configLedger,
@@ -460,7 +461,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                 self.states[CONFIG_LEDGER_ID])
 
     def postConfigLedgerCaughtUp(self, **kwargs):
-        # self.start_domain_ledger_sync()
         pass
 
     def sendConfigLedgerStatus(self, nodeName):
@@ -688,7 +688,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                dataDir=self.dataLocation,
                                config=self.config)
 
-    def setup_pool_ledger(self):
+    def _add_pool_ledger(self):
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(
                 POOL_LEDGER_ID,
@@ -697,7 +697,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
-    def setup_domain_ledger(self):
+    def _add_domain_ledger(self):
         self.ledgerManager.addLedger(
             DOMAIN_LEDGER_ID,
             self.domainLedger,
@@ -727,9 +727,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              ledger_sync_order=ledger_sync_order)
 
     def init_ledger_manager(self):
-        self.setup_pool_ledger()
-        self.setup_config_ledger()
-        self.setup_domain_ledger()
+        self._add_pool_ledger()
+        self._add_config_ledger()
+        self._add_domain_ledger()
 
     def on_new_ledger_added(self, ledger_id):
         # If a ledger was added after a replicas were created
@@ -844,9 +844,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.nodestack.maintainConnections(force=True)
 
             if isinstance(self.poolManager, RegistryPoolManager):
-                # Node not using pool ledger so start syncing domain ledger
+                # Node not using pool ledger so start syncing config ledger
                 self.mode = Mode.discovered
-                self.ledgerManager.setLedgerCanSync(CONFIG_LEDGER_ID, True)
+                self.ledgerManager.setLedgerCanSync(
+                    self.ledgerManager.ledger_sync_order[0], True)
             else:
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
@@ -1833,12 +1834,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
 
     def getLedgerStatus(self, ledgerId: int):
-        if ledgerId == POOL_LEDGER_ID:
-            return self.poolLedgerStatus
-        if ledgerId == DOMAIN_LEDGER_ID:
-            return self.domainLedgerStatus
-        if ledgerId == CONFIG_LEDGER_ID:
-            return self.configLedgerStatus
+        if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
+            # Since old style nodes don't know have pool ledger
+            return None
+        else:
+            return self.build_ledger_status(ledgerId)
 
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):
         ledgerStatus = self.getLedgerStatus(ledgerId)

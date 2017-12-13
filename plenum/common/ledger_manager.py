@@ -883,15 +883,15 @@ class LedgerManager(HasActionQueue):
                 self.postAllLedgersCaughtUp()
 
     def catchup_next_ledger(self, ledger_id):
-        if self.ownedByNode:
-            next_ledger_id = self.ledger_to_sync_after(ledger_id)
-            if next_ledger_id:
-                self.catchup_ledger(next_ledger_id)
-            else:
-                logger.debug('{} not found any ledger to catchup after {}'
-                             .format(self, ledger_id))
-        else:
+        if not self.ownedByNode:
             logger.debug('{} not owned by node'.format(self))
+            return
+        next_ledger_id = self.ledger_to_sync_after(ledger_id)
+        if next_ledger_id is not None:
+            self.catchup_ledger(next_ledger_id)
+        else:
+            logger.debug('{} not found any ledger to catchup after {}'
+                         .format(self, ledger_id))
 
     def catchup_ledger(self, ledger_id):
         try:
