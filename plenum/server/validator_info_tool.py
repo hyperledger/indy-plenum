@@ -30,7 +30,7 @@ class ValidatorNodeInfoTool:
     def __init__(self, node):
         self._node = node
         self.__name = self._node.name
-        self.__ledger_dir = self._node.ledger_dir
+        self.__node_info_dir = self._node.node_info_dir
 
     @property
     def info(self):
@@ -167,6 +167,6 @@ class ValidatorNodeInfoTool:
 
     def dump_json_file(self):
         file_name = self.FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
-        path = os.path.join(self.__ledger_dir, file_name)
+        path = os.path.join(self.__node_info_dir, file_name)
         with open(path, 'w') as fd:
             json.dump(self.info, fd)

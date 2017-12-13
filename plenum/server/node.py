@@ -131,6 +131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  keys_dir: str = None,
                  genesis_dir: str = None,
                  plugins_dir: str = None,
+                 node_info_dir: str = None,
                  view_changer: ViewChanger = None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
@@ -155,6 +156,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.keys_dir = keys_dir or self.config_helper.keys_dir
         self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
         self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
+        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
@@ -2751,6 +2753,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'keys_dir': self.keys_dir,
             'genesis_dir': self.genesis_dir,
             'plugins_dir': self.plugins_dir,
+            'node_info_dir': self.node_info_dir,
             'portN': self.nodestack.ha[1],
             'portC': self.clientstack.ha[1],
             'address': nodeAddress

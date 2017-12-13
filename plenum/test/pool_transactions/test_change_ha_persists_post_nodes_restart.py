@@ -47,10 +47,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithP
     for node in txnPoolNodeSet[:-1]:
         config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
         restartedNode = TestNode(node.name,
-                                 ledger_dir=config_helper.ledger_dir,
-                                 keys_dir=config_helper.keys_dir,
-                                 genesis_dir=config_helper.genesis_dir,
-                                 plugins_dir=config_helper.plugins_dir,
+                                 config_helper=config_helper,
                                  config=tconf, ha=node.nodestack.ha,
                                  cliha=node.clientstack.ha)
         looper.add(restartedNode)
@@ -59,10 +56,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithP
     # Starting the node whose HA was changed
     config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
     node = TestNode(newNode.name,
-                    ledger_dir=config_helper.ledger_dir,
-                    keys_dir=config_helper.keys_dir,
-                    genesis_dir=config_helper.genesis_dir,
-                    plugins_dir=config_helper.plugins_dir,
+                    config_helper=config_helper,
                     config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)

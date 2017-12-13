@@ -195,7 +195,7 @@ def load_info(path):
 
 @pytest.fixture(scope='module')
 def info_path(patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet, node):
-    path = os.path.join(node.ledger_dir, INFO_FILENAME)
+    path = os.path.join(node.node_info_dir, INFO_FILENAME)
     txnPoolNodesLooper.runFor(patched_dump_info_period)
     assert os.path.exists(path), '{} exists'.format(path)
     return path

@@ -33,6 +33,10 @@ class PConfigHelper():
     def keys_dir(self):
         return self.chroot_if_needed(self.config.KEYS_DIR)
 
+    @property
+    def node_info_dir(self):
+        return self.chroot_if_needed(self.config.NODE_INFO_DIR)
+
 
 class PNodeConfigHelper(PConfigHelper):
 

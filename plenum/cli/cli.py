@@ -943,10 +943,7 @@ class Cli:
                                     self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
-                                      ledger_dir=config_helper.ledger_dir,
-                                      keys_dir=config_helper.keys_dir,
-                                      genesis_dir=config_helper.genesis_dir,
-                                      plugins_dir=config_helper.plugins_dir,
+                                      config_helper=config_helper,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
             except KeysNotFoundException as e:
