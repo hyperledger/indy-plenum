@@ -8,10 +8,8 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 
 from plenum.common.util import randomString
-from plenum.test.helper import send_signed_requests, sign_requests, \
-    waitForSufficientRepliesForRequests, check_sufficient_replies_received, \
-    sdk_gen_request, sdk_sign_request_objects, sdk_send_signed_requests, \
-    sdk_get_replies
+from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
+    sdk_send_signed_requests, sdk_get_replies
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
@@ -26,31 +24,29 @@ class NewTestNode(TestNode):
                                     self.states[CONFIG_LEDGER_ID])
 
 
-def write(key, val, looper, client, wallet):
-    # TODO: Use indy-sdk instead.
-    # reqs_obj = [sdk_gen_request(op) for op in [write_conf_op(key, val)]]
-    # reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    # sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    # sdk_get_replies(looper, sent_reqs, timeout=10)
-    reqs = send_signed_requests(client,
-                                sign_requests(wallet,
-                                              [write_conf_op(key, val)]))
-    waitForSufficientRepliesForRequests(looper, client,
-                                        requests=reqs)
+def write(key, val, looper, sdk_pool_handle, sdk_wallet):
+    _, idr = sdk_wallet
+    reqs_obj = [sdk_gen_request(op, identifier=idr)
+                for op in [write_conf_op(key, val)]]
+    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    sdk_get_replies(looper, sent_reqs, timeout=10)
 
 
-def read(key, looper, client, wallet):
-    req, = send_signed_requests(client, sign_requests(wallet,
-                                                      [read_conf_op(key)]))
-    resp = looper.run(eventually(check_sufficient_replies_received, client,
-                                 req.identifier, req.reqId, retryWait=1))
-    return json.loads(resp[DATA])[key]
+def read(key, looper, sdk_pool_handle, sdk_wallet):
+    _, idr = sdk_wallet
+    reqs_obj = [sdk_gen_request(op, identifier=idr)
+                for op in [read_conf_op(key)]]
+    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    (req, resp),  = sdk_get_replies(looper, sent_reqs, timeout=10)
+    return json.loads(resp['result'][DATA])[key]
 
 
-def send_some_config_txns(looper, client, wallet, keys):
+def send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys):
     for i in range(5):
         key, val = 'key_{}'.format(i+1), randomString()
-        write(key, val, looper, client, wallet)
+        write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
         keys[key] = val
     return keys
 
@@ -68,8 +64,8 @@ def setup(testNodeClass, txnPoolNodeSet):
         ca.query_types.add(READ_CONF)
 
 
-def test_config_ledger_txns(looper, setup, txnPoolNodeSet, wallet1,
-                            client1, client1Connected):
+def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
+                            sdk_pool_handle):
     """
     Do some writes and reads on the config ledger
     """
@@ -82,28 +78,28 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, wallet1,
 
     # Do a write txn
     key, val = 'test_key', 'test_val'
-    write(key, val, looper, client1, wallet1)
+    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
 
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
-    assert read(key, looper, client1, wallet1) == val
+    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
     old_config_ledger_size += 1
 
     key, val = 'test_key', 'test_val1'
-    write(key, val, looper, client1, wallet1)
+    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
-    assert read(key, looper, client1, wallet1) == val
+    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
     old_config_ledger_size += 1
 
     key, val = 'test_key1', 'test_val11'
-    write(key, val, looper, client1, wallet1)
+    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
-    assert read(key, looper, client1, wallet1) == val
+    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
 
 
 @pytest.fixture(scope="module")
@@ -112,14 +108,13 @@ def keys():
 
 
 @pytest.fixture(scope="module")
-def some_config_txns_done(looper, setup, txnPoolNodeSet, wallet1,
-                          client1, client1Connected, keys):
-    return send_some_config_txns(looper, client1, wallet1, keys)
+def some_config_txns_done(looper, setup, txnPoolNodeSet, keys,
+                          sdk_wallet_client, sdk_pool_handle):
+    return send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys)
 
 
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
-                                        txnPoolNodeSet, wallet1, client1,
-                                        client1Connected, newNodeCaughtUp):
+                                        txnPoolNodeSet, newNodeCaughtUp):
     """
     A new node catches up the config ledger too
     """
@@ -129,8 +124,9 @@ def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
 
 def test_disconnected_node_catchup_config_ledger_txns(looper,
                                                       some_config_txns_done,
-                                                      txnPoolNodeSet, wallet1,
-                                                      client1, client1Connected,
+                                                      txnPoolNodeSet,
+                                                      sdk_wallet_client,
+                                                      sdk_pool_handle,
                                                       newNodeCaughtUp, keys):
     """
     A node gets disconnected, a few config ledger txns happen,
@@ -143,7 +139,7 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
 
     # Do some config txns; using a fixture as a method, passing some arguments
     # as None as they only make sense for the fixture (pre-requisites)
-    send_some_config_txns(looper, client1, wallet1, keys)
+    send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys)
 
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])

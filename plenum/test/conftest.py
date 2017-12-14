@@ -973,7 +973,8 @@ async def _gen_pool_handler(work_dir, name):
 
 @pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
-    pool_handle = looper.loop.run_until_complete(_gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
+    pool_handle = looper.loop.run_until_complete(
+        _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
     looper.loop.run_until_complete(close_pool_ledger(pool_handle))
 
@@ -986,7 +987,8 @@ async def _gen_wallet_handler(pool_name, wallet_name):
 
 @pytest.fixture(scope='module')
 def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
-    wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+    wallet_handle = looper.loop.run_until_complete(
+        _gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 
@@ -1011,27 +1013,36 @@ def sdk_new_client_seed():
 @pytest.fixture(scope='module')
 def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
     (steward_did, steward_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({"seed": sdk_steward_seed})))
     return sdk_wallet_handle, steward_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     (client_did, _) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_client_seed})))
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({"seed": sdk_client_seed})))
     return sdk_wallet_handle, client_did
 
 
-async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
-    wh, steward_did = wallet_steward
-    (named_did, named_verkey) = await create_and_store_my_did(wh, json.dumps({"seed": named_seed, 'cid': True}))
-    nym_request = await build_nym_request(steward_did, named_did, named_verkey, None, None)
+async def _gen_named_wallet(pool_handle, wallet, named_seed):
+    wh, steward_did = wallet
+    (named_did, named_verkey) = await create_and_store_my_did(wh,
+                                                              json.dumps({
+                                                                  "seed": named_seed,
+                                                                  'cid': True})
+                                                              )
+    nym_request = await build_nym_request(steward_did, named_did, named_verkey,
+                                          None, None)
     await sign_and_submit_request(pool_handle, wh, steward_did, nym_request)
     return wh, named_did
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed):
+def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
+                          sdk_new_client_seed):
     wh, client_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed))
+        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward,
+                          sdk_new_client_seed))
     return wh, client_did
