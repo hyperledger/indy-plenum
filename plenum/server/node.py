@@ -396,12 +396,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._last_performance_check_data = {}
 
-        self.configLedger = self.getConfigLedger()
+        self.init_config_ledger_and_req_handler()
 
         self.init_ledger_manager()
-        self.init_config_state()
 
         HookManager.__init__(self, NodeHooks.get_all_vals())
+
+    def init_config_ledger_and_req_handler(self):
+        self.configLedger = self.getConfigLedger()
+        self.init_config_state()
 
     @property
     def viewNo(self):

@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.test.helper import waitReqNackFromPoolWithReason, \
     send_signed_requests, sign_requests, \
@@ -5,6 +7,14 @@ from plenum.test.helper import waitReqNackFromPoolWithReason, \
     sdk_get_reply
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
+from plenum.test.plugin.demo_plugin.main import update_node_obj
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSet(txnPoolNodeSet):
+    for node in txnPoolNodeSet:
+        update_node_obj(node)
+    return txnPoolNodeSet
 
 
 def successful_op(looper, op, sdk_wallet, sdk_pool_handle):

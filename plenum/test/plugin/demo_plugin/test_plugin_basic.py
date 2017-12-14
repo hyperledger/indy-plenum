@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.helper import checkReqNackWithReason, sdk_gen_request, \
     sdk_sign_and_submit_req_obj, sdk_get_reply
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_TYPE, DATA
@@ -5,7 +7,15 @@ from plenum.common.request import Request
 from plenum.common.util import randomString
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID, dummy_field_length
 from plenum.test.plugin.demo_plugin.constants import GET_BAL
+from plenum.test.plugin.demo_plugin.main import update_node_obj
 from stp_core.loop.eventually import eventually
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSet(txnPoolNodeSet):
+    for node in txnPoolNodeSet:
+        update_node_obj(node)
+    return txnPoolNodeSet
 
 
 def test_plugin_setup(txnPoolNodeSet):

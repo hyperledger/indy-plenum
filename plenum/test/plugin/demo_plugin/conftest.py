@@ -1,6 +1,7 @@
 import importlib
 
 import pytest
+from copy import deepcopy
 
 from plenum import setup_plugins, PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.pkg_util import update_module_vars
@@ -15,10 +16,10 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 def tconf(tconf, request):
     global PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
 
-    orig_plugin_root = tconf.PLUGIN_ROOT
-    orig_enabled_plugins = tconf.ENABLED_PLUGINS
-    orig_plugin_ledger_ids = PLUGIN_LEDGER_IDS
-    orig_plugin_client_req_fields = PLUGIN_CLIENT_REQUEST_FIELDS
+    orig_plugin_root = deepcopy(tconf.PLUGIN_ROOT)
+    orig_enabled_plugins = deepcopy(tconf.ENABLED_PLUGINS)
+    orig_plugin_ledger_ids = deepcopy(PLUGIN_LEDGER_IDS)
+    orig_plugin_client_req_fields = deepcopy(PLUGIN_CLIENT_REQUEST_FIELDS)
 
     update_module_vars('plenum.config',
                        **{
@@ -51,10 +52,3 @@ def tconf(tconf, request):
 
     request.addfinalizer(reset)
     return tconf
-
-
-@pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodeSet):
-    for node in txnPoolNodeSet:
-        update_node_obj(node)
-    return txnPoolNodeSet

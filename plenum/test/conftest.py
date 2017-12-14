@@ -71,6 +71,7 @@ logger = getlogger()
 
 GENERAL_CONFIG_DIR='etc/indy'
 
+
 @pytest.mark.firstresult
 def pytest_xdist_make_scheduler(config, log):
     return GroupedLoadScheduling(config, log)
