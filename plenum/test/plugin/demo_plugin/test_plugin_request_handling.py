@@ -1,13 +1,22 @@
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_TYPE, DATA
+from plenum.common.constants import TXN_TYPE, DATA
 from plenum.test.helper import waitReqNackFromPoolWithReason, \
-    waitForSufficientRepliesForRequests, send_signed_requests, sign_requests, \
-    waitRejectFromPoolWithReason
+    send_signed_requests, sign_requests, \
+    waitRejectFromPoolWithReason, sdk_gen_request, sdk_sign_and_submit_req_obj, \
+    sdk_get_reply
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
 
 
+def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
+    req_obj = sdk_gen_request(op, identifier=sdk_wallet[1])
+    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle,
+                                      sdk_wallet, req_obj)
+    sdk_get_reply(looper, req)
+
+
 def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
-                                  steward1, client1Connected):
+                                  steward1, client1Connected,
+                                  sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin static validation fails and passes
     """
@@ -30,8 +39,8 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'abc'}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -45,12 +54,12 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: PLACE_BID,
         DATA: {'id': 'abc', AMOUNT: 20}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
 def test_plugin_dynamic_validation(txnPoolNodeSet, looper, stewardWallet,
-                                   steward1, client1Connected):
+                                   steward1, client1Connected,
+                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
     """
@@ -66,19 +75,17 @@ def test_plugin_dynamic_validation(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'xyz'}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     op = {
         TXN_TYPE: AUCTION_END,
         DATA: {'id': 'xyz'}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
 def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
-                                 steward1, client1Connected):
+                                 steward1, client1Connected, sdk_wallet_steward, sdk_pool_handle):
     """
     Check that plugin requests are applied and change plugin's internal state
     """
@@ -86,15 +93,13 @@ def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'pqr'}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     op = {
         TXN_TYPE: PLACE_BID,
         DATA: {'id': 'pqr', AMOUNT: 20}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     for node in txnPoolNodeSet:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
@@ -105,8 +110,7 @@ def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: PLACE_BID,
         DATA: {'id': 'pqr', AMOUNT: 40}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     for node in txnPoolNodeSet:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
@@ -117,5 +121,4 @@ def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_END,
         DATA: {'id': 'pqr'}
     }
-    reqs = send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitForSufficientRepliesForRequests(looper, steward1, requests=reqs)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)

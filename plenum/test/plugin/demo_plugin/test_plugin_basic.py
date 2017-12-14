@@ -1,5 +1,5 @@
-from plenum.test.helper import waitForSufficientRepliesForRequests, \
-    checkReqNackWithReason
+from plenum.test.helper import checkReqNackWithReason, sdk_gen_request, \
+    sdk_sign_and_submit_req_obj, sdk_get_reply
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_TYPE, DATA
 from plenum.common.request import Request
 from plenum.common.util import randomString
@@ -20,7 +20,8 @@ def test_plugin_setup(txnPoolNodeSet):
 
 
 def test_plugin_client_req_fields(txnPoolNodeSet, looper, stewardWallet,
-                                  steward1, client1Connected):
+                                  steward1, client1Connected,
+                                  sdk_wallet_steward, sdk_pool_handle):
     """
     Test that plugin's addition of request fields and their validation is
     successful
@@ -31,13 +32,11 @@ def test_plugin_client_req_fields(txnPoolNodeSet, looper, stewardWallet,
     }
 
     # Valid field value results in successful processing
-    req = Request(operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION,
-                  identifier=stewardWallet.defaultId,
-                  fix_length_dummy=randomString(dummy_field_length))
-    req = stewardWallet.signRequest(req)
-    steward1.submitReqs(req)
-    waitForSufficientRepliesForRequests(looper, steward1, requests=[req, ])
+    req_obj = sdk_gen_request(op, identifier=sdk_wallet_steward[1],
+                              fix_length_dummy=randomString(dummy_field_length))
+    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_steward,
+                                      req_obj)
+    sdk_get_reply(looper, req)
 
     # Invalid field value results in proper failure
     req = Request(operation=op, reqId=Request.gen_req_id(),
