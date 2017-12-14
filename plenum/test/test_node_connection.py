@@ -53,10 +53,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_
     def create(name):
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
@@ -98,10 +95,7 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_
     for name in nodeReg:
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
@@ -138,10 +132,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_f
     for name in names:
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nodeReg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
@@ -188,10 +179,7 @@ def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
     for name in names:
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nrg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
@@ -232,10 +220,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
     for name in names:
         config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
         node = TestNode(name, nrg,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
@@ -252,10 +237,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
     initLocalKeys(tdir_for_func, tconf_for_func, {name: nodeReg[name]})
     config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
     C = TestNode(name, {**nrg, **{name: nodeReg[name]}},
-                 ledger_dir=config_helper.ledger_dir,
-                 keys_dir=config_helper.keys_dir,
-                 genesis_dir=config_helper.genesis_dir,
-                 plugins_dir=config_helper.plugins_dir,
+                 config_helper=config_helper,
                  config=tconf_for_func,
                  pluginPaths=allPluginsPath)
     for node in nodes:

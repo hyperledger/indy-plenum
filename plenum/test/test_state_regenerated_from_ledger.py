@@ -46,10 +46,7 @@ def test_state_regenerated_from_ledger(
 
     config_helper = PNodeConfigHelper(node_to_stop.name, tconf, chroot=tdir)
     restarted_node = TestNode(node_to_stop.name,
-                              ledger_dir=config_helper.ledger_dir,
-                              keys_dir=config_helper.keys_dir,
-                              genesis_dir=config_helper.genesis_dir,
-                              plugins_dir=config_helper.plugins_dir,
+                              config_helper=config_helper,
                               config=tconf, ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
     looper.add(restarted_node)

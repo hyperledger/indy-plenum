@@ -74,10 +74,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     for nm in poolTxnNodeNames:
         config_helper = PNodeConfigHelper(nm, tconf, chroot=tdir)
         node = TestNode(nm,
-                        ledger_dir=config_helper.ledger_dir,
-                        keys_dir=config_helper.keys_dir,
-                        genesis_dir=config_helper.genesis_dir,
-                        plugins_dir=config_helper.plugins_dir,
+                        config_helper=config_helper,
                         config=tconf, pluginPaths=allPluginsPath)
         looper.add(node)
         txnPoolNodeSet.append(node)

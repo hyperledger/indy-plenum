@@ -61,6 +61,7 @@ class TestStatsConsumer(StatsConsumer):
         assert 'keys_dir' in nodeInfo
         assert 'genesis_dir' in nodeInfo
         assert 'plugins_dir' in nodeInfo
+        assert 'node_info_dir' in nodeInfo
         assert 'portN' in nodeInfo
         assert 'portC' in nodeInfo
         assert 'address' in nodeInfo
