@@ -1707,6 +1707,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 'so the catchup procedure starts'.format(
                     self, quorums))
             self.node.start_catchup()
+            self.h = max_pp_seq_no
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -2381,7 +2382,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc[1]))
             self.h = self.last_ordered_3pc[1]
         else:
-            logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is False")
+            logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
     def caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
