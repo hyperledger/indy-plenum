@@ -1,5 +1,4 @@
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_TYPE, DATA
-from plenum.common.request import Request
 from plenum.test.helper import waitReqNackFromPoolWithReason, \
     waitForSufficientRepliesForRequests, send_signed_requests, sign_requests, \
     waitRejectFromPoolWithReason
