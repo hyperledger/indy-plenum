@@ -495,6 +495,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # of ppSeqNo
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+            self.update_watermark_from_3pc()
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
