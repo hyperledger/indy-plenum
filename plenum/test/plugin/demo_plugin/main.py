@@ -1,3 +1,4 @@
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.auction_req_handler import AuctionReqHandler
 from plenum.test.plugin.demo_plugin.client_authnr import AuctionAuthNr
@@ -27,7 +28,7 @@ def update_node_obj(node):
                                  postTxnAddedToLedgerClbk=node.postTxnFromCatchupAddedToLedger)
     node.on_new_ledger_added(AUCTION_LEDGER_ID)
     node.states[AUCTION_LEDGER_ID] = state
-    auction_authnr = AuctionAuthNr(node.states[AUCTION_LEDGER_ID])
+    auction_authnr = AuctionAuthNr(node.states[DOMAIN_LEDGER_ID])
     node.clientAuthNr.register_authenticator(auction_authnr)
     auction_req_handler = AuctionReqHandler(ledger, state)
     node.register_req_handler(AUCTION_LEDGER_ID, auction_req_handler)

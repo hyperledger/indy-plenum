@@ -14,6 +14,7 @@ from importlib.util import module_from_spec, spec_from_file_location    # noqa: 
 
 import plenum   # noqa: E402
 import plenum.server.plugin     # noqa: E402
+
 from plenum.common.config_util import getConfigOnce   # noqa: E402
 
 PLUGIN_LEDGER_IDS = set()
@@ -44,6 +45,12 @@ def setup_plugins():
             PLUGIN_LEDGER_IDS.update(plugin_globals['LEDGER_IDS'])
         if 'CLIENT_REQUEST_FIELDS' in plugin_globals:
             PLUGIN_CLIENT_REQUEST_FIELDS.update(plugin_globals['CLIENT_REQUEST_FIELDS'])
+
+    # Reloading message types since some some schemas would have been changed
+    import plenum.common.messages.node_messages
+    import plenum.common.messages.node_message_factory
+    importlib.reload(plenum.common.messages.node_messages)
+    importlib.reload(plenum.common.messages.node_message_factory)
 
 
 setup_plugins()

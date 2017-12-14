@@ -961,7 +961,6 @@ def sdk_random_request_objects(count, protocol_version, identifier=None):
     return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
 
 
-
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]

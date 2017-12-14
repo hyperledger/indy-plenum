@@ -23,7 +23,7 @@ def test_plugin_client_req_fields(txnPoolNodeSet, looper, wallet1, client1,
                                   client1Connected):
     """
     Test that plugin's addition of request fields and their validation is
-    successfful
+    successful
     """
     op = {
         TXN_TYPE: GET_BAL

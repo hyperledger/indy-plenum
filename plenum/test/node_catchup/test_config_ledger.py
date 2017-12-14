@@ -21,7 +21,7 @@ from stp_core.loop.eventually import eventually
 class NewTestNode(TestNode):
     def getConfigReqHandler(self):
         return TestConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
+                                    self.states[CONFIG_LEDGER_ID])
 
 
 def write(key, val, looper, client, wallet):
@@ -63,8 +63,9 @@ def setup(testNodeClass, txnPoolNodeSet):
 
 def test_config_ledger_txns(looper, setup, txnPoolNodeSet, wallet1,
                             client1, client1Connected):
-
-    # Do some writes and reads on the config ledger
+    """
+    Do some writes and reads on the config ledger
+    """
     old_config_ledger_size = None
     for node in txnPoolNodeSet:
         if old_config_ledger_size is None:
@@ -112,7 +113,9 @@ def some_config_txns_done(looper, setup, txnPoolNodeSet, wallet1,
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
                                         txnPoolNodeSet, wallet1, client1,
                                         client1Connected, newNodeCaughtUp):
-    # A new node catches up the config ledger too
+    """
+    A new node catches up the config ledger too
+    """
     assert len(newNodeCaughtUp.getLedger(CONFIG_LEDGER_ID)) >= \
            len(some_config_txns_done)
 
@@ -122,8 +125,10 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
                                                       txnPoolNodeSet, wallet1,
                                                       client1, client1Connected,
                                                       newNodeCaughtUp, keys):
-    # A node gets disconnected, a few config ledger txns happen,
-    # the disconnected node comes back up and catches up the config ledger
+    """
+    A node gets disconnected, a few config ledger txns happen,
+    the disconnected node comes back up and catches up the config ledger
+    """
     new_node = newNodeCaughtUp
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)

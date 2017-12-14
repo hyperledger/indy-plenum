@@ -283,10 +283,15 @@ class MessageField(FieldBase):
 
 class LedgerIdField(ChooseField):
     _base_types = (int,)
-    ledger_ids = VALID_LEDGER_IDS + tuple(PLUGIN_LEDGER_IDS)
+    ledger_ids = VALID_LEDGER_IDS
 
     def __init__(self, **kwargs):
+        self.ledger_ids = self.update_with_plugin_ledger_ids()
         super().__init__(self.ledger_ids, **kwargs)
+
+    @staticmethod
+    def update_with_plugin_ledger_ids():
+        return VALID_LEDGER_IDS + tuple(PLUGIN_LEDGER_IDS)
 
 
 class Base58Field(FieldBase):

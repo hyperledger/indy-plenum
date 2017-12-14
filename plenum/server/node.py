@@ -398,7 +398,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.configLedger = self.getConfigLedger()
 
         self.init_ledger_manager()
-        self.setup_config()
+        self.init_config_state()
 
         HookManager.__init__(self, NodeHooks.get_all_vals())
 
@@ -416,7 +416,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return (False if self.view_changer is None else
                 self.view_changer.view_change_in_progress)
 
-    def setup_config(self):
+    def init_config_state(self):
         self.setup_config_state()
         self.setup_config_req_handler()
         self.initConfigState()
@@ -1698,7 +1698,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 ledger_id, (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
-        rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerId == DOMAIN_LEDGER_ID:
@@ -1837,8 +1836,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
             # Since old style nodes don't know have pool ledger
             return None
-        else:
-            return self.build_ledger_status(ledgerId)
+        return self.build_ledger_status(ledgerId)
 
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):
         ledgerStatus = self.getLedgerStatus(ledgerId)
@@ -1849,7 +1847,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, ledgerId, nodeName))
 
     def doStaticValidation(self, request: Request):
-        identifier, req_id, operation = request.identifier, request.reqId, request.operation
+        identifier, req_id, operation = request.identifier, request.reqId, \
+                                        request.operation
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
@@ -1930,8 +1929,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.total_read_request_number += 1
             return
 
-        ledgerId = self.ledger_id_for_request(request)
-        ledger = self.getLedger(ledgerId)
+        ledger_id = self.ledger_id_for_request(request)
+        ledger = self.getLedger(ledger_id)
 
         reply = self.getReplyFromLedger(ledger, request)
         if reply:
