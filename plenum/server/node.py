@@ -31,7 +31,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     POST_STATIC_VALIDATION, \
     PRE_DYNAMIC_VALIDATION, POST_DYNAMIC_VALIDATION, PRE_REQUEST_APPLICATION, \
     POST_REQUEST_APPLICATION, PRE_REQUEST_COMMIT, POST_REQUEST_COMMIT, \
-    PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION
+    PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION, PRE_REPLY_SENT, POST_REPLY_SENT
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2422,8 +2422,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn), (idr_from_req_data(txn),
-                                                txn[f.REQ_ID.nm]))
+            reply = Reply(txn)
+            self.execute_hook(PRE_REPLY_SENT, reply=reply)
+            self.sendReplyToClient(reply,
+                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
+            self.execute_hook(POST_REPLY_SENT, reply=reply)
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
