@@ -1849,8 +1849,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, ledgerId, nodeName))
 
     def doStaticValidation(self, request: Request):
-        identifier, req_id, operation = request.identifier, request.reqId, \
-                                        request.operation
+        identifier, req_id, operation = request.identifier, request.reqId, request.operation
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
