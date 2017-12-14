@@ -77,4 +77,3 @@ class AuctionReqHandler(RequestHandler):
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         # Not doing anything since it is a sample plugin maintaining in memory state
         pass
-

@@ -172,7 +172,6 @@ class Wallet:
         :param otherIdentifier:
         :return: signature that then can be assigned to request
         """
-
         idr = self.requiredIdr(idr=identifier or otherIdentifier)
         signer = self._signerById(idr)
         signature = signer.sign(msg)
@@ -198,7 +197,7 @@ class Wallet:
         # QUESTION: `self.ids[idr]` would be overwritten if same identifier
         # is used to send 2 requests, why is `IdData` persisted?
         # self.ids[idr] = IdData(idData.signer, req.reqId)
-        req.signature = self.signMsg(msg=req.signingState(),
+        req.signature = self.signMsg(msg=req.signingState(identifier=idr),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
 

@@ -40,10 +40,10 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+    CurrentState, MessageReq, MessageRep, ThreePhaseType
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -51,7 +51,6 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.throttler import Throttler
 from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
@@ -464,9 +463,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def postConfigLedgerCaughtUp(self, **kwargs):
         pass
-
-    def sendConfigLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, CONFIG_LEDGER_ID)
 
     @property
     def configLedgerStatus(self):
@@ -1828,12 +1824,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn.get(TXN_TYPE) == NYM:
             self.addNewRole(txn)
 
-    def sendPoolLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
-
-    def sendDomainLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
-
     def getLedgerStatus(self, ledgerId: int):
         if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
             # Since old style nodes don't know have pool ledger
@@ -2431,9 +2421,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           txnRoot) -> List:
         committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
                                                stateRoot, txnRoot)
+
+        # Refactor: This is only needed for plenum as some old style tests
+        # require authentication based on an in-memory map. This would be
+        # removed later when we migrate old-style tests
         for txn in committed_txns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
+
         return committed_txns
 
     def onBatchCreated(self, ledger_id, state_root):

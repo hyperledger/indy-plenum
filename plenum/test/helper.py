@@ -951,31 +951,41 @@ def wait_for_requests_ordered(looper, nodes, requests):
 # ####### SDK
 
 
-def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION, identifier=None):
+def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
+                    identifier=None, **kwargs):
+    # Question: Why this method is called sdk_gen_request? It does not use
+    # the indy-sdk
     return Request(operation=operation, reqId=random.randint(10, 100000),
-                   protocolVersion=protocol_version, identifier=identifier)
+                   protocolVersion=protocol_version, identifier=identifier,
+                   **kwargs)
 
 
-def sdk_random_request_objects(count, protocol_version, identifier=None):
+def sdk_random_request_objects(count, protocol_version, identifier=None,
+                               **kwargs):
     ops = random_requests(count)
-    return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
+    return [sdk_gen_request(op, protocol_version=protocol_version,
+                            identifier=identifier, **kwargs) for op in ops]
 
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
-    resp = [looper.loop.run_until_complete(sign_request(wallet_h, did, req)) for req in reqs_str]
-    return resp
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
 
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
-    reqs_obj = sdk_random_request_objects(count, identifier=did, protocol_version=CURRENT_PROTOCOL_VERSION)
+    reqs_obj = sdk_random_request_objects(count, identifier=did,
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
     return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
-    return [(json.loads(req), asyncio.ensure_future(submit_request(pool_h, req))) for req in signed_reqs]
+    return [(json.loads(req),
+             asyncio.ensure_future(submit_request(pool_h, req)))
+            for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
@@ -990,7 +1000,8 @@ def sdk_send_random_request(looper, pool_h, sdk_wallet):
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
-    return json.loads(req), asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+    return json.loads(req), asyncio.ensure_future(
+        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):

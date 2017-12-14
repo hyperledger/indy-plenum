@@ -9,7 +9,9 @@ from plenum.test.pool_transactions.helper import \
 
 from plenum.common.util import randomString
 from plenum.test.helper import send_signed_requests, sign_requests, \
-    waitForSufficientRepliesForRequests, check_sufficient_replies_received
+    waitForSufficientRepliesForRequests, check_sufficient_replies_received, \
+    sdk_gen_request, sdk_sign_request_objects, sdk_send_signed_requests, \
+    sdk_get_replies
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
@@ -25,6 +27,11 @@ class NewTestNode(TestNode):
 
 
 def write(key, val, looper, client, wallet):
+    # TODO: Use indy-sdk instead.
+    # reqs_obj = [sdk_gen_request(op) for op in [write_conf_op(key, val)]]
+    # reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    # sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    # sdk_get_replies(looper, sent_reqs, timeout=10)
     reqs = send_signed_requests(client,
                                 sign_requests(wallet,
                                               [write_conf_op(key, val)]))
@@ -117,7 +124,7 @@ def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
     A new node catches up the config ledger too
     """
     assert len(newNodeCaughtUp.getLedger(CONFIG_LEDGER_ID)) >= \
-           len(some_config_txns_done)
+        len(some_config_txns_done)
 
 
 def test_disconnected_node_catchup_config_ledger_txns(looper,
