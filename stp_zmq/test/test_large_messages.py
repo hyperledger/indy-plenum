@@ -19,7 +19,8 @@ def testSimpleZStacksMsgs(tdir, looper):
     msg = json.dumps({'random': randomSeed(size).decode()}).encode()
 
     def aHandler(m):
-        print('{} printing... {}'.format(names[0], m))
+        str_m = "{}".format(m)
+        print('{} printing... {}'.format(names[0], str_m[:100]))
         d, _ = m
         print('Message size is {}'.format(len(d['random'])))
         assert len(d['random']) == size
@@ -32,7 +33,8 @@ def testSimpleZStacksMsgs(tdir, looper):
                                          flags=zmq.NOBLOCK)
         except zmq.Again:
             return False
-        print('{} printing... {}'.format(names[1], m))
+        str_m = "{}".format(m)
+        print('{} printing... {}'.format(names[1], str_m[:100]))
 
     stackParams = {
         "name": names[0],
