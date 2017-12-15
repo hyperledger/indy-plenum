@@ -495,7 +495,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # of ppSeqNo
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-            self.h = self.last_ordered_3pc[1]
+            self.update_watermark_from_3pc()
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -2378,10 +2378,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 break
         return i
 
+    def update_watermark_from_3pc(self):
+        if self.last_ordered_3pc:
+            logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc[1]))
+            self.h = self.last_ordered_3pc[1]
+        else:
+            logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is None")
+
     def caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
+        self.update_watermark_from_3pc()
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """
