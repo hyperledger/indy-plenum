@@ -34,10 +34,13 @@ def tconf(tconf, request):
     # production none of these modules would be loaded before plugins are
     # setup (not initialised)
     import plenum.server
+    import plenum.common
 
     importlib.reload(plenum.server.replica)
     importlib.reload(plenum.server.node)
     importlib.reload(plenum.server.view_change.view_changer)
+    importlib.reload(plenum.server.message_handlers)
+    importlib.reload(plenum.common.ledger_manager)
 
     def reset():
         global PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
@@ -52,3 +55,17 @@ def tconf(tconf, request):
 
     request.addfinalizer(reset)
     return tconf
+
+
+@pytest.fixture(scope="module")
+def do_post_node_creation():
+    # Integrate plugin into each node.
+    def _post_node_creation(node):
+        update_node_obj(node)
+
+    return _post_node_creation
+
+
+@pytest.fixture(scope="module")
+def nodeSet(tconf, do_post_node_creation, txnPoolNodeSet):
+    return txnPoolNodeSet

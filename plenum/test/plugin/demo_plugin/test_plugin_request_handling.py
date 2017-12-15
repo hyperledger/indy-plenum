@@ -1,5 +1,3 @@
-import pytest
-
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.test.helper import waitReqNackFromPoolWithReason, \
     send_signed_requests, sign_requests, \
@@ -7,14 +5,6 @@ from plenum.test.helper import waitReqNackFromPoolWithReason, \
     sdk_get_reply
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.main import update_node_obj
-
-
-@pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodeSet):
-    for node in txnPoolNodeSet:
-        update_node_obj(node)
-    return txnPoolNodeSet
 
 
 def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
@@ -24,7 +14,7 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     sdk_get_reply(looper, req)
 
 
-def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
+def test_plugin_static_validation(nodeSet, looper, stewardWallet,
                                   steward1, client1Connected,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
@@ -34,7 +24,7 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_START
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
                                   'attribute is missing or not in proper format')
 
     op = {
@@ -42,7 +32,7 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
         DATA: 'should be a dict but giving a string'
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
                                   'attribute is missing or not in proper format')
 
     op = {
@@ -57,7 +47,7 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
         DATA: {'id': 'abc', AMOUNT: -3}
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
                                   'must be present and should be a number')
 
     op = {
@@ -67,7 +57,7 @@ def test_plugin_static_validation(txnPoolNodeSet, looper, stewardWallet,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_dynamic_validation(txnPoolNodeSet, looper, stewardWallet,
+def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
                                    steward1, client1Connected,
                                    sdk_wallet_steward, sdk_pool_handle):
     """
@@ -78,7 +68,7 @@ def test_plugin_dynamic_validation(txnPoolNodeSet, looper, stewardWallet,
         DATA: {'id': 'abcdef'}
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitRejectFromPoolWithReason(looper, txnPoolNodeSet, steward1,
+    waitRejectFromPoolWithReason(looper, nodeSet, steward1,
                                  'unknown auction')
 
     op = {
@@ -94,8 +84,9 @@ def test_plugin_dynamic_validation(txnPoolNodeSet, looper, stewardWallet,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
-                                 steward1, client1Connected, sdk_wallet_steward, sdk_pool_handle):
+def test_plugin_request_handling(nodeSet, looper, stewardWallet,
+                                 steward1, client1Connected,
+                                 sdk_wallet_steward, sdk_pool_handle):
     """
     Check that plugin requests are applied and change plugin's internal state
     """
@@ -111,7 +102,7 @@ def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
-    for node in txnPoolNodeSet:
+    for node in nodeSet:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
         assert auctions['pqr'][stewardWallet.defaultId] == 20
@@ -122,7 +113,7 @@ def test_plugin_request_handling(txnPoolNodeSet, looper, stewardWallet,
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
-    for node in txnPoolNodeSet:
+    for node in nodeSet:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
         assert auctions['pqr'][stewardWallet.defaultId] == 40

@@ -82,7 +82,8 @@ class LedgerInfo:
         self.recvdConsistencyProofs = {}
         self.receivedCatchUpReplies = []
         self.recvdCatchupRepliesFrm = {}
-        self.postCatchupCompleteClbk()
+        if self.postCatchupCompleteClbk:
+            self.postCatchupCompleteClbk()
         self.catchupReplyTimer = None
         if self.catchUpTill:
             cp = self.catchUpTill

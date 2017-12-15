@@ -55,7 +55,8 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs
+    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
+    create_new_test_node
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -822,6 +823,19 @@ def txnPoolNodesLooper():
 
 
 @pytest.fixture(scope="module")
+def do_post_node_creation():
+    """
+    This fixture is used to do any changes on the newly created node. To use
+    this, override this fixture in test module or conftest and define the
+    changes in the function `_post_node_creation`
+    """
+    def _post_node_creation(node):
+        pass
+
+    return _post_node_creation
+
+
+@pytest.fixture(scope="module")
 def txnPoolNodeSet(node_config_helper_class,
                    patchPluginManager,
                    txnPoolNodesLooper,
@@ -832,16 +846,15 @@ def txnPoolNodeSet(node_config_helper_class,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
-                   testNodeClass):
+                   testNodeClass,
+                   do_post_node_creation):
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
-            config_helper = node_config_helper_class(nm, tconf, chroot=tdir)
-            node = exitStack.enter_context(
-                testNodeClass(nm,
-                              config_helper=config_helper,
-                              config=tconf,
-                              pluginPaths=allPluginsPath))
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
             txnPoolNodesLooper.add(node)
             nodes.append(node)
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
