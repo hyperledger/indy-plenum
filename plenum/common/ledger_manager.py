@@ -147,8 +147,6 @@ class LedgerManager(HasActionQueue):
 
         logger.debug("{} requesting {} missing transactions "
                      "after timeout".format(self, num_missing))
-        # eligibleNodes = list(self.nodestack.conns -
-        #                      self.blacklistedNodes)
         eligibleNodes = self.nodes_to_request_txns_from
 
         if not eligibleNodes:
@@ -220,7 +218,6 @@ class LedgerManager(HasActionQueue):
         numElgNodes = len(eligibleNodes)
         for i, req in enumerate(cReqs):
             nodeName = eligibleNodes[i % numElgNodes]
-            # self.send(req, self.nodestack.getRemote(nodeName).uid)
             self.sendTo(req, nodeName)
 
         ledgerInfo.catchupReplyTimer = time.perf_counter()
