@@ -17,7 +17,7 @@ from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
 import plenum.test.delayers as delayers
-from plenum.common.error import error
+from common.error import error
 from stp_core.loop.eventually import eventually, eventuallyAll
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers

@@ -6,8 +6,8 @@ from common.serializers.json_serializer import JsonSerializer
 from common.serializers.msgpack_serializer import MsgPackSerializer
 from common.serializers.signing_serializer import SigningSerializer
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
-from ledger.test.helper import create_ledger, create_ledger_text_file_storage, create_ledger_chunked_file_storage, \
-    create_ledger_leveldb_file_storage
+from ledger.test.helper import create_ledger, create_ledger_text_file_storage, \
+    create_ledger_chunked_file_storage, create_ledger_leveldb_file_storage
 
 
 @pytest.fixture(scope='module')

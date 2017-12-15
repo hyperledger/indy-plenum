@@ -9,7 +9,7 @@ from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.common.error import error
+from common.error import error
 from plenum.config import BLS_MULTI_SIG_LIMIT
 
 

@@ -31,7 +31,7 @@ from sortedcontainers import SortedDict as _SortedDict
 
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
-from plenum.common.error import error
+from common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort

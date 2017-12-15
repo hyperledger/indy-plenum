@@ -320,29 +320,10 @@ def test_add_get_txns(ledger_no_genesis):
 
     check_ledger_generator(ledger)
 
-    for s, t in ledger.getAllTxn(frm=1, to=20):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3, to=8):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=5, to=17):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=6, to=10):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3, to=3):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(to=10):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn():
-        assert txns[s - 1] == t
+    for frm, to in [(1, 20), (3, 8), (5, 17), (6, 10), (3, 3),
+                    (3, None), (None, 10), (None, None)]:
+        for s, t in ledger.getAllTxn(frm=frm, to=to):
+            assert txns[s - 1] == t
 
     # with pytest.raises(AssertionError):
     #     list(ledger.getAllTxn(frm=3, to=1))
