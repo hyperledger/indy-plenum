@@ -1,34 +1,19 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum, unique
 
+from plenum.common.messages.node_messages import ObservedData
+
 
 @unique
 class ObserverSyncPolicyType(Enum):
-    EACH_REPLY = 0
+    EACH_BATCH = 0
     # TBD more
 
 
 class ObserverSyncPolicy(metaclass=ABCMeta):
-    def __init__(self, observable) -> None:
-        self._observable = observable
-        self._observers = []
-
-    def add_observer(self,
-                     observer_remote_id: str,
-                     observer_policy_type: ObserverSyncPolicyType):
-        if not self.can_process(observer_policy_type):
-            return
-        self._observers.append(observer_remote_id)
-
-    def remove_observer(self, observer_remote_id):
-        try:
-            self._observers.remove(observer_remote_id)
-        except ValueError:
-            pass
-
-    def get_observers(self):
-        return self._observers
+    def __init__(self) -> None:
+        pass
 
     @abstractmethod
-    def can_process(self, observer_policy_type: ObserverSyncPolicyType):
+    def apply_data(self, msg: ObservedData):
         pass

@@ -1,29 +1,35 @@
-from abc import abstractmethod, ABCMeta
+from collections import deque
 
-from plenum.common.messages.node_messages import ObservedData
-from plenum.server.node import Node
+from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.node_messages import ObservedData, BatchCommitted
+from plenum.server.has_action_queue import HasActionQueue
+from plenum.server.observer.observable_sync_policy_each_batch import ObservableSyncPolicyEachBatch
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
-from plenum.server.observer.observer_sync_policy_each_req import ObserverSyncPolicyEachReply
+from plenum.server.router import Router
 
 
-class Observable(metaclass=ABCMeta):
+class Observable(HasActionQueue, MessageProcessor):
     def __init__(self) -> None:
-        self.__sync_policies = {}
+        HasActionQueue.__init__(self)
+        self._inbox = deque()
+        self._outbox = deque()
+        self._inbox_router = Router(
+            (BatchCommitted, self.process_new_batch),
+        )
 
-    def register_observable(self, node: Node):
         # TODO: support other policies
         self.__sync_policies = {
-            ObserverSyncPolicyType.EACH_REPLY: ObserverSyncPolicyEachReply(self, node)
+            ObserverSyncPolicyType.EACH_BATCH: ObservableSyncPolicyEachBatch(self)
         }
+
+    #### ADD/REMOVE OBSERVERS (delegated to Policies)
 
     def add_observer(self, observer_remote_id: str,
                      observer_policy_type: ObserverSyncPolicyType):
-        assert len(self.__sync_policies) > 0, "call `register_observable` first"
         for sync_policy in self.__sync_policies.values():
             sync_policy.add_observer(observer_remote_id, observer_policy_type)
 
     def remove_observer(self, observer_remote_id):
-        assert len(self.__sync_policies) > 0, "call `register_observable` first"
         for sync_policy in self.__sync_policies.values():
             sync_policy.remove_observer(observer_remote_id)
 
@@ -33,12 +39,36 @@ class Observable(metaclass=ABCMeta):
             return []
         return policy.get_observers()
 
+    ### MESSAGES from/to Node
+
+    async def serviceQueues(self, limit=None) -> int:
+        """
+        Service at most `limit` messages from the inBox.
+
+        :param limit: the maximum number of messages to service
+        :return: the number of messages successfully processed
+        """
+
+        return await self._inbox_router.handleAll(self._inbox, limit)
+
+    def send_to_observable(self, msg, sender):
+        self._inbox.append((msg, sender))
+
+    def send_to_observers(self, msg: ObservedData, observer_remote_ids):
+        # As of now we assume that all Observers are nodes we can connect to
+        # TODO: support other ways of connection to observers
+        # TODO: get rid of dependency on Node and direct sending via Node
+        self._outbox.append((msg, observer_remote_ids))
+
+    ### PROCESS BatchCommitted from Node Actor (delegated to Policies)
+
+    def process_new_batch(self, msg: BatchCommitted, sender):
+        for sync_policy in self.__sync_policies.values():
+            sync_policy.process_new_batch(msg)
+
+    ### PRIVATE
+
     def _get_policy(self, observer_policy_type: ObserverSyncPolicyType):
         if observer_policy_type not in self.__sync_policies:
             return None
         return self.__sync_policies[observer_policy_type]
-
-    @abstractmethod
-    def send_to_observers(self, msg: ObservedData, observer_remote_ids):
-        # TODO: support other ways of connection to observers
-        pass

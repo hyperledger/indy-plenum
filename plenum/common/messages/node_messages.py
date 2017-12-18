@@ -3,7 +3,7 @@ from typing import TypeVar, NamedTuple
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
     POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
@@ -360,6 +360,28 @@ class ObservedData(MessageBase):
     # TODO: support other types
     # TODO: support validation of Msg according to the type
     allowed_types = {REPLY}
+    typename = OBSERVED_DATA
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
+        (f.MSG.nm, AnyValueField())
+    )
+
+class BatchCommitted(MessageBase):
+    typename = BATCH_COMMITTED
+    schema = (
+        (f.REQUEST.nm, AnyValueField()),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
+    )
+
+class ObservedData(MessageBase):
+    """
+    Purpose: propagate data from Validators to Observers
+    """
+    # TODO: support other types
+    # TODO: support validation of Msg according to the type
+    allowed_types = {BATCH}
     typename = OBSERVED_DATA
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),

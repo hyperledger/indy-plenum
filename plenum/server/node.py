@@ -25,13 +25,13 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TXN_TYPE, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, \
+    GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NODE_HOOKS, PRE_STATIC_VALIDATION, \
     POST_STATIC_VALIDATION, \
     PRE_DYNAMIC_VALIDATION, POST_DYNAMIC_VALIDATION, PRE_REQUEST_APPLICATION, \
     POST_REQUEST_APPLICATION, PRE_REQUEST_COMMIT, POST_REQUEST_COMMIT, \
-    PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION, PRE_REPLY_SENT, POST_REPLY_SENT
+    PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -47,7 +47,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, BatchCommitted
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -76,6 +76,7 @@ from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
+from plenum.server.observer.observable import Observable
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -400,6 +401,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._last_performance_check_data = {}
 
         HookManager.__init__(self, NODE_HOOKS)
+
+        self._observable = Observable()
 
     @property
     def viewNo(self):
@@ -903,7 +906,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self._serviceActions()
             c += self.ledgerManager.service()
             c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger()
+            c += await self.serviceViewChanger(limit)
+            c += await self.service_observable(limit)
             self.nodestack.flushOutBoxes()
         if self.isGoing():
             self.nodestack.serviceLifecycle()
@@ -944,7 +948,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    async def serviceViewChanger(self) -> int:
+    async def serviceViewChanger(self, limit) -> int:
         """
         Service the view_changer's inBox, outBox and action queues.
 
@@ -952,11 +956,40 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if not self.isReady():
             return 0
-        o = self.serviceViewChangerOutBox()
-        i = await self.serviceViewChangerInbox()
+        o = self.serviceViewChangerOutBox(limit)
+        i = await self.serviceViewChangerInbox(limit)
         # TODO: Why is protected method accessed here?
         a = self.view_changer._serviceActions()
         return o + i + a
+
+    async def service_observable(self, limit) -> int:
+        """
+        Service the observable's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        o = 0 #self.__service_observable_out_box(limit)
+        i = await self._observable.serviceQueues(limit)
+        return o + i
+
+    def __service_observable_out_box(self, limit: int=None) -> int:
+        """
+        Service at most `limit` number of messages from the view_changer's outBox.
+
+        :return: the number of messages successfully serviced.
+        """
+        msgCount = 0
+        while self._observable._outbox and (not limit or msgCount < limit):
+            msgCount += 1
+            msg = self._observable._outbox.popleft()
+            if isinstance(msg, (InstanceChange, ViewChangeDone)):
+                self.send(msg)
+            else:
+                logger.error("Received msg {} and don't know how to handle it".
+                             format(msg))
+        return msgCount
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -2319,41 +2352,47 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
             )
             raise
-        else:
-            if committedTxns:
-                # TODO is it possible to get len(committedTxns) != len(reqs)
-                # someday
-                for request in reqs:
-                    self.requests.mark_as_executed(request)
-                logger.info(
-                    "{} committed batch request, view no {}, ppSeqNo {}, "
-                    "ledger {}, state root {}, txn root {}, requests: {}".
-                    format(self, view_no, pp_seq_no, ledger_id, state_root,
-                           txn_root,
-                           [(req.identifier, req.reqId) for req in reqs])
-                )
+
+        if not committedTxns:
+            return
+
+        # TODO is it possible to get len(committedTxns) != len(reqs)
+        # someday
+        for request in reqs:
+            self.requests.mark_as_executed(request)
+        logger.info(
+            "{} committed batch request, view no {}, ppSeqNo {}, "
+            "ledger {}, state root {}, txn root {}, requests: {}".
+            format(self, view_no, pp_seq_no, ledger_id, state_root,
+                   txn_root,
+                   [(req.identifier, req.reqId) for req in reqs])
+        )
 
         for txn in committedTxns:
             self.execute_hook(POST_REQUEST_COMMIT, txn=txn, pp_time=pp_time,
                               state_root=state_root, txn_root=txn_root)
 
-        if committedTxns:
-            first_txn_seq_no = committedTxns[0][F.seqNo.name]
-            last_txn_seq_no = committedTxns[-1][F.seqNo.name]
-            if ledger_id not in self.txn_seq_range_to_3phase_key:
-                self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
-            # adding one to end of range since its exclusive
-            intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-            intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
-            logger.debug('{} storing 3PC key {} for ledger {} range {}'.
-                         format(self, (view_no, pp_seq_no), ledger_id,
-                                (first_txn_seq_no, last_txn_seq_no)))
-            if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
-                # Remove the first element from the interval tree
-                old = intrv_tree[intrv_tree.begin()].pop()
-                intrv_tree.remove(old)
-                logger.debug('{} popped {} from txn to batch seqNo map'.
-                             format(self, old))
+
+        first_txn_seq_no = committedTxns[0][F.seqNo.name]
+        last_txn_seq_no = committedTxns[-1][F.seqNo.name]
+        if ledger_id not in self.txn_seq_range_to_3phase_key:
+            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+        # adding one to end of range since its exclusive
+        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
+        intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
+        logger.debug('{} storing 3PC key {} for ledger {} range {}'.
+                     format(self, (view_no, pp_seq_no), ledger_id,
+                            (first_txn_seq_no, last_txn_seq_no)))
+        if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
+            # Remove the first element from the interval tree
+            old = intrv_tree[intrv_tree.begin()].pop()
+            intrv_tree.remove(old)
+            logger.debug('{} popped {} from txn to batch seqNo map'.
+                         format(self, old))
+
+        batch_committed_msg = BatchCommitted(reqs, ledger_id, state_root, txn_root)
+        self._observable.send_to_observable(batch_committed_msg, self.name)
+
 
     def updateSeqNoMap(self, committedTxns):
         if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
@@ -2423,10 +2462,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
             reply = Reply(txn)
-            self.execute_hook(PRE_REPLY_SENT, reply=reply)
             self.sendReplyToClient(reply,
                                    (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
-            self.execute_hook(POST_REPLY_SENT, reply=reply)
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
