@@ -172,8 +172,7 @@ def send_reqs_batches_and_get_suff_replies(
                     looper,
                     wallet,
                     client,
-                    num_reqs //
-                    num_batches,
+                    num_reqs // num_batches,
                     **kwargs))
         rem = num_reqs % num_batches
         if rem == 0:
