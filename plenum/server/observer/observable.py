@@ -51,20 +51,22 @@ class Observable(HasActionQueue, MessageProcessor):
 
         return await self._inbox_router.handleAll(self._inbox, limit)
 
-    def send_to_observable(self, msg, sender):
+    def append_input(self, msg, sender):
         self._inbox.append((msg, sender))
 
-    def send_to_observers(self, msg: ObservedData, observer_remote_ids):
-        # As of now we assume that all Observers are nodes we can connect to
-        # TODO: support other ways of connection to observers
-        # TODO: get rid of dependency on Node and direct sending via Node
-        self._outbox.append((msg, observer_remote_ids))
+    def get_output(self):
+        return self._outbox.popleft() if self._outbox else None
 
     ### PROCESS BatchCommitted from Node Actor (delegated to Policies)
 
     def process_new_batch(self, msg: BatchCommitted, sender):
         for sync_policy in self.__sync_policies.values():
             sync_policy.process_new_batch(msg)
+
+    def send_to_observers(self, msg: ObservedData, observer_remote_ids):
+        # As of now we assume that all Observers are nodes we can connect to
+        # TODO: support other ways of connection to observers
+        self._outbox.append((msg, observer_remote_ids))
 
     ### PRIVATE
 

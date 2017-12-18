@@ -970,25 +970,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if not self.isReady():
             return 0
-        o = 0 #self.__service_observable_out_box(limit)
+        o = self._service_observable_out_box(limit)
         i = await self._observable.serviceQueues(limit)
         return o + i
 
-    def __service_observable_out_box(self, limit: int=None) -> int:
+    def _service_observable_out_box(self, limit: int=None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
         :return: the number of messages successfully serviced.
         """
         msgCount = 0
-        while self._observable._outbox and (not limit or msgCount < limit):
+        while True:
+            if limit and msgCount >= limit:
+                break
+            msg = self._observable.get_output()
+            if not msg:
+                break
             msgCount += 1
-            msg = self._observable._outbox.popleft()
-            if isinstance(msg, (InstanceChange, ViewChangeDone)):
-                self.send(msg)
-            else:
-                logger.error("Received msg {} and don't know how to handle it".
-                             format(msg))
+            self.send(msg)
         return msgCount
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
@@ -2391,7 +2391,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          format(self, old))
 
         batch_committed_msg = BatchCommitted(reqs, ledger_id, state_root, txn_root)
-        self._observable.send_to_observable(batch_committed_msg, self.name)
+        self._observable.append_input(batch_committed_msg, self.name)
 
 
     def updateSeqNoMap(self, committedTxns):

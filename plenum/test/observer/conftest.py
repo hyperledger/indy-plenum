@@ -12,18 +12,21 @@ from plenum.test.testable import spyable
 from plenum.test.pool_transactions.conftest import looper
 
 
-@spyable(methods=[Observable.send_to_observable,
+@spyable(methods=[Observable.append_input,
                   Observable.send_to_observers,
                   Observable.process_new_batch,
                   ])
-class SpyableObservable(Observable):
+class TestObservable(Observable):
     pass
 
 
 class TestNodeWithObservable(TestNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._observable = SpyableObservable()
+        self._observable = TestObservable()
+
+    def _service_observable_out_box(self, limit: int = None) -> int:
+        return 0
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +46,7 @@ def node_observable(node):
 
 @pytest.fixture()
 def observable():
-    return SpyableObservable()
+    return TestObservable()
 
 
 @pytest.fixture()

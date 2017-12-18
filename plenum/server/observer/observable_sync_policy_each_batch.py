@@ -12,5 +12,7 @@ class ObservableSyncPolicyEachBatch(ObservableSyncPolicy):
         return observer_policy_type == ObserverSyncPolicyType.EACH_BATCH
 
     def process_new_batch(self, msg: BatchCommitted):
+        if not self._observers:
+            return
         msg = ObservedData(BATCH, msg)
         self._observable.send_to_observers(msg, self._observers)
