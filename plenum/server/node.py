@@ -1877,6 +1877,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
+    def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
+        requests = []
+        for req_key in request_ids:
+            requests.append(self.requests[req_key].finalised)
+        self.apply_reqs(requests, cons_time, ledger_id)
+
+    def apply_reqs(self, requests, cons_time: int, ledger_id):
+        for req in requests:
+            self.applyReq(req, cons_time)
+        state_root = self.stateRootHash(ledger_id, isCommitted=False)
+        self.onBatchCreated(ledger_id, state_root)
+
     def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
@@ -2390,7 +2402,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} popped {} from txn to batch seqNo map'.
                          format(self, old))
 
-        batch_committed_msg = BatchCommitted(reqs, ledger_id, state_root, txn_root)
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+                                             ledger_id,
+                                             pp_time,
+                                             state_root,
+                                             txn_root)
         self._observable.append_input(batch_committed_msg, self.name)
 
 
@@ -2550,11 +2566,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
-                for reqKey in msg.reqIdr:
-                    req = self.requests[reqKey].finalised
-                    self.applyReq(req, msg.ppTime)
-                state_root = self.stateRootHash(msg.ledgerId, isCommitted=False)
-                self.onBatchCreated(msg.ledgerId, state_root)
+                self.apply_stashed_reqs(msg.reqIdr,
+                                        msg.ppTime,
+                                        msg.ledgerId)
 
             self.processOrdered(msg)
             i += 1

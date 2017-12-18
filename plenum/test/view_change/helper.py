@@ -279,7 +279,7 @@ def view_change_in_between_3pc_random_delays(
     ensure_view_change_complete(looper,
                                 nodes,
                                 customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT + max_delay,
-                                exclude_from_check='check_last_ordered_3pc')
+                                exclude_from_check=['check_last_ordered_3pc'])
 
     reset_delays_and_process_delayeds(slow_nodes)
 

@@ -2,6 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import BatchCommitted
+from plenum.common.util import get_utc_epoch
 from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.test.bls.helper import generate_state_root
@@ -64,5 +65,6 @@ def fake_msg_batch_committed():
     reqs = sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)
     BatchCommitted(reqs,
                    DOMAIN_LEDGER_ID,
+                   get_utc_epoch(),
                    generate_state_root(),
                    generate_state_root())

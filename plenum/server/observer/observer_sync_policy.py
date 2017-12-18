@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum, unique
 
-from plenum.common.messages.node_messages import ObservedData
-
 
 @unique
 class ObserverSyncPolicyType(Enum):
@@ -15,5 +13,10 @@ class ObserverSyncPolicy(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def apply_data(self, msg: ObservedData):
+    def apply_data(self, msg):
+        pass
+
+    @property
+    @abstractmethod
+    def policy_type(self) -> str:
         pass

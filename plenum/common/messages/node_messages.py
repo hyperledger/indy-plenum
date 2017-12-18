@@ -371,6 +371,7 @@ class BatchCommitted(MessageBase):
     schema = (
         (f.REQUEST.nm, AnyValueField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),
     )

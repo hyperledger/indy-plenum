@@ -26,11 +26,16 @@ def checkNodeDataForEquality(node: TestNode,
                              exclude_from_check=None):
     # Checks for node's ledgers and state's to be equal
     for n in otherNodes:
-        if exclude_from_check != 'check_last_ordered_3pc':
+        if 'check_last_ordered_3pc' not in exclude_from_check:
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
-        check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
+
+        if 'check_seqno_db' not in exclude_from_check:
+            check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
+        else:
+            logger.debug("Excluding check_seqno_db_equality check")
+
         checkLedgerEquality(node.domainLedger, n.domainLedger)
         checkStateEquality(node.getState(DOMAIN_LEDGER_ID),
                            n.getState(DOMAIN_LEDGER_ID))
