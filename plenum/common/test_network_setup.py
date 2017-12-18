@@ -16,8 +16,8 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.common.constants import STEWARD, TRUSTEE
 from plenum.common.util import hexToFriendly, is_hostname_valid
 from plenum.common.signer_did import DidSigner
+from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
-from plenum.common.sys_util import copyall
 
 
 class TestNetworkSetup:
@@ -54,7 +54,7 @@ class TestNetworkSetup:
     def bootstrapTestNodesCore(
             cls,
             config,
-            envName,
+            network,
             appendToLedgers,
             domainTxnFieldOrder,
             trustee_def,
@@ -62,7 +62,10 @@ class TestNetworkSetup:
             node_defs,
             client_defs,
             localNodes,
-            nodeParamsFileName):
+            nodeParamsFileName,
+            config_helper_class=PConfigHelper,
+            node_config_helper_class=PNodeConfigHelper,
+            chroot: str=None):
 
         if not localNodes:
             localNodes = {}
@@ -74,9 +77,20 @@ class TestNetworkSetup:
         except BaseException as exc:
             raise RuntimeError('nodeNum must be an int or set of ints') from exc
 
-        baseDir = cls.setup_base_dir(config, envName) if _localNodes else cls.setup_clibase_dir(config, envName)
-        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config, envName)
-        domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config, envName, domainTxnFieldOrder)
+        config.NETWORK_NAME = network
+
+        if _localNodes:
+            config_helper = config_helper_class(config, chroot=chroot)
+            os.makedirs(config_helper.genesis_dir, exist_ok=True)
+            genesis_dir = config_helper.genesis_dir
+            keys_dir = config_helper.keys_dir
+        else:
+            genesis_dir = cls.setup_clibase_dir(config, network)
+            keys_dir = os.path.join(genesis_dir, "keys")
+
+        poolLedger = cls.init_pool_ledger(appendToLedgers, genesis_dir, config)
+        domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
+                                              config, domainTxnFieldOrder)
 
         trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
         domainLedger.add(trustee_txn)
@@ -85,17 +99,14 @@ class TestNetworkSetup:
             nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym)
             domainLedger.add(nym_txn)
 
-        key_dir = os.path.expanduser(baseDir)
-
         for nd in node_defs:
-
             if nd.idx in _localNodes:
-                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, key_dir, nd.sigseed, override=True)
+                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
                 if nd.ip != '127.0.0.1':
-                    paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
+                    paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
                     TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
 
@@ -103,7 +114,7 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(key_dir, nd.name, nd.sigseed)
+                blskey = init_bls_keys(keys_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
@@ -118,35 +129,28 @@ class TestNetworkSetup:
         domainLedger.stop()
 
     @classmethod
-    def init_pool_ledger(cls, appendToLedgers, baseDir, config, envName):
-        pool_txn_file = cls.pool_ledger_file_name(config, envName)
-        pool_ledger = create_genesis_txn_init_ledger(baseDir, pool_txn_file)
+    def init_pool_ledger(cls, appendToLedgers, genesis_dir, config):
+        pool_txn_file = cls.pool_ledger_file_name(config)
+        pool_ledger = create_genesis_txn_init_ledger(genesis_dir, pool_txn_file)
         if not appendToLedgers:
             pool_ledger.reset()
         return pool_ledger
 
     @classmethod
-    def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName, domainTxnFieldOrder):
-        domain_txn_file = cls.domain_ledger_file_name(config, envName)
-        domain_ledger = create_genesis_txn_init_ledger(baseDir, domain_txn_file)
+    def init_domain_ledger(cls, appendToLedgers, genesis_dir, config, domainTxnFieldOrder):
+        domain_txn_file = cls.domain_ledger_file_name(config)
+        domain_ledger = create_genesis_txn_init_ledger(genesis_dir, domain_txn_file)
         if not appendToLedgers:
             domain_ledger.reset()
         return domain_ledger
 
     @classmethod
-    def pool_ledger_file_name(cls, config, envName):
+    def pool_ledger_file_name(cls, config):
         return config.poolTransactionsFile
 
     @classmethod
-    def domain_ledger_file_name(cls, config, envName):
+    def domain_ledger_file_name(cls, config):
         return config.domainTransactionsFile
-
-    @classmethod
-    def setup_base_dir(cls, config, network_name):
-        baseDir = os.path.join(os.path.expanduser(config.baseDir), network_name)
-        if not os.path.exists(baseDir):
-            os.makedirs(baseDir, exist_ok=True)
-        return baseDir
 
     @classmethod
     def setup_clibase_dir(cls, config, network_name):
@@ -156,7 +160,9 @@ class TestNetworkSetup:
         return cli_base_net
 
     @classmethod
-    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
+    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder,
+                           config_helper_class=PConfigHelper, node_config_helper_class=PNodeConfigHelper,
+                           chroot: str=None):
         parser = argparse.ArgumentParser(description="Generate pool transactions for testing")
         parser.add_argument('--nodes', required=True,
                             help='node count should be less than 100',
@@ -198,16 +204,17 @@ class TestNetworkSetup:
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
 
-        for n_num in node_num:
-            cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
-                                       steward_defs, node_defs, client_defs, n_num, nodeParamsFileName)
-
         # edit NETWORK_NAME in config
         for line in fileinput.input(['/etc/indy/indy_config.py'], inplace=True):
             if 'NETWORK_NAME' not in line:
                 print(line, end="")
         with open('/etc/indy/indy_config.py', 'a') as cfgfile:
             cfgfile.write("NETWORK_NAME = '{}'".format(args.network))
+
+        for n_num in node_num:
+            cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
+                                       steward_defs, node_defs, client_defs, n_num, nodeParamsFileName,
+                                       config_helper_class, node_config_helper_class)
 
         # delete unnecessary key dir in client folder
         key_dir = cls.setup_clibase_dir(config, args.network)

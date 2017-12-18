@@ -83,7 +83,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     reqIdr = [(request2.identifier, request2.reqId)]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
-        primaryRepl.viewNo,
+        view_no,
         primaryRepl.lastPrePrepareSeqNo,
         get_utc_epoch(),
         reqIdr,

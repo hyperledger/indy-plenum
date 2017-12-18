@@ -7,10 +7,12 @@ from stp_core.types import HA
 
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.config_util import getConfig
 
 
 whitelist = ['but majority declared']
@@ -35,7 +37,6 @@ class FakeNode:
         self.name = 'Node1'
         self.f = 1
         self.replicas = []
-        self.viewNo = 0
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
         self.nodeReg = {
@@ -55,8 +56,18 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.view_change_in_progress = True
-        self.propagate_primary = False
+        self.config = getConfig() # TODO do we need fake object here?
+        self.view_changer = ViewChanger(self)
+        self.elector = PrimarySelector(self)
+
+    @property
+    def viewNo(self):
+        return None if self.view_changer is None else self.view_changer.view_no
+
+    @property
+    def ledger_summary(self):
+        return [li.ledger_summary for li in
+                self.ledgerManager.ledgerRegistry.values()]
 
     def get_name_by_rank(self, name, nodeReg=None):
         # This is used only for getting name of next primary, so
@@ -83,6 +94,11 @@ class FakeNode:
     def is_synced(self):
         return self.mode >= Mode.synced
 
+    def on_view_change_start(self):
+        pass
+
+    def start_catchup(self):
+        pass
 
 def test_has_view_change_quorum_number(tmpdir):
     """
@@ -99,28 +115,27 @@ def test_has_view_change_quorum_number(tmpdir):
     )
 
     node = FakeNode(str(tmpdir))
-    node.view_change_in_progress = True
-    node.propagate_primary = False
-    selector = PrimarySelector(node)
+    node.view_changer.view_change_in_progress = True
+    node.view_changer.propagate_primary = False
 
-    assert not selector._hasViewChangeQuorum
+    assert not node.view_changer._hasViewChangeQuorum
 
     # Accessing _view_change_done directly to avoid influence of methods
-    selector._view_change_done = {}
+    node.view_changer._view_change_done = {}
 
     def declare(replica_name):
-        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
     # Declare the Primary first and check that n-f are required
     declare('Node2')
-    assert selector.has_view_change_from_primary
-    assert not selector._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
     declare('Node1')
-    assert selector.has_view_change_from_primary
-    assert not selector._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
     declare('Node3')
-    assert selector.has_view_change_from_primary
-    assert selector._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
 
 
 def test_has_view_change_quorum_must_contain_primary(tmpdir):
@@ -138,33 +153,32 @@ def test_has_view_change_quorum_must_contain_primary(tmpdir):
     )
 
     node = FakeNode(str(tmpdir))
-    node.view_change_in_progress = True
-    node.propagate_primary = False
-    selector = PrimarySelector(node)
+    node.view_changer.view_change_in_progress = True
+    node.view_changer.propagate_primary = False
 
-    assert not selector._hasViewChangeQuorum
+    assert not node.view_changer._hasViewChangeQuorum
 
     # Accessing _view_change_done directly to avoid influence of methods
-    selector._view_change_done = {}
+    node.view_changer._view_change_done = {}
 
     def declare(replica_name):
-        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
     declare('Node1')
-    assert not selector._hasViewChangeQuorum
-    assert not selector.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
+    assert not node.view_changer.has_view_change_from_primary
     declare('Node3')
-    assert not selector._hasViewChangeQuorum
-    assert not selector.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
+    assert not node.view_changer.has_view_change_from_primary
     declare('Node4')
-    assert selector._hasViewChangeQuorum
-    assert not selector.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
+    assert not node.view_changer.has_view_change_from_primary
 
     # Three nodes is enough for quorum, but there is no Node2:0 which is
     # expected to be next primary, so no quorum should be achieved
     declare('Node2')
-    assert selector._hasViewChangeQuorum
-    assert selector.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
 
 
 def test_has_view_change_quorum_number_propagate_primary(tmpdir):
@@ -182,25 +196,24 @@ def test_has_view_change_quorum_number_propagate_primary(tmpdir):
     )
 
     node = FakeNode(str(tmpdir))
-    node.view_change_in_progress = True
-    node.propagate_primary = True
-    selector = PrimarySelector(node)
+    node.view_changer.view_change_in_progress = True
+    node.view_changer.propagate_primary = True
 
-    assert not selector._hasViewChangeQuorum
+    assert not node.view_changer._hasViewChangeQuorum
 
     # Accessing _view_change_done directly to avoid influence of methods
-    selector._view_change_done = {}
+    node.view_changer._view_change_done = {}
 
     def declare(replica_name):
-        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
     # Declare the Primary first and check that f+1 are required
     declare('Node2')
-    assert selector.has_view_change_from_primary
-    assert not selector._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
     declare('Node1')
-    assert selector._hasViewChangeQuorum
-    assert selector.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
 
 
 def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tmpdir):
@@ -218,29 +231,28 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tm
     )
 
     node = FakeNode(str(tmpdir))
-    node.view_change_in_progress = True
-    node.propagate_primary = True
-    selector = PrimarySelector(node)
+    node.view_changer.view_change_in_progress = True
+    node.view_changer.propagate_primary = True
 
-    assert not selector._hasViewChangeQuorum
+    assert not node.view_changer._hasViewChangeQuorum
 
     # Accessing _view_change_done directly to avoid influence of methods
-    selector._view_change_done = {}
+    node.view_changer._view_change_done = {}
 
     def declare(replica_name):
-        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
     # Declare the Primary first and check that f+1 are required
     declare('Node1')
-    assert not selector.has_view_change_from_primary
-    assert not selector._hasViewChangeQuorum
+    assert not node.view_changer.has_view_change_from_primary
+    assert not node.view_changer._hasViewChangeQuorum
     declare('Node3')
-    assert not selector.has_view_change_from_primary
-    assert selector._hasViewChangeQuorum
+    assert not node.view_changer.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
 
     declare('Node2')
-    assert selector.has_view_change_from_primary
-    assert selector._hasViewChangeQuorum
+    assert node.view_changer.has_view_change_from_primary
+    assert node.view_changer._hasViewChangeQuorum
 
 
 def test_process_view_change_done(tmpdir):
@@ -253,25 +265,24 @@ def test_process_view_change_done(tmpdir):
                          name='Node2',
                          ledgerInfo=ledgerInfo)
     node = FakeNode(str(tmpdir))
-    selector = PrimarySelector(node)
-    quorum = selector.quorum
+    quorum = node.view_changer.quorum
     for i in range(quorum):
-        selector._processViewChangeDoneMessage(msg, 'Node2')
-    assert selector._view_change_done
+        node.view_changer.process_vchd_msg(msg, 'Node2')
+    assert node.view_changer._view_change_done
     assert not node.is_primary_found()
 
-    selector._processViewChangeDoneMessage(msg, 'Node1')
-    assert selector._view_change_done
+    node.view_changer.process_vchd_msg(msg, 'Node1')
+    assert node.view_changer._view_change_done
     assert not node.is_primary_found()
 
-    selector._processViewChangeDoneMessage(msg, 'Node3')
-    assert selector._verify_primary(msg.name, msg.ledgerInfo)
-    selector._start_selection()
-    assert selector._view_change_done
+    node.view_changer.process_vchd_msg(msg, 'Node3')
+    assert node.view_changer._verify_primary(msg.name, msg.ledgerInfo)
+    node.view_changer._start_selection()
+    assert node.view_changer._view_change_done
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
-    selector.view_change_started(1)
-    assert not selector._view_change_done
+    node.view_changer.startViewChange(1)
+    assert not node.view_changer._view_change_done
 
 
 def test_get_msgs_for_lagged_nodes(tmpdir):
@@ -292,23 +303,21 @@ def test_get_msgs_for_lagged_nodes(tmpdir):
             ledgerInfo=ledgerInfo),
          'Node2')]
     node = FakeNode(str(tmpdir))
-    selector = PrimarySelector(node)
     for message in messages:
-        selector._processViewChangeDoneMessage(*message)
+        node.view_changer.process_vchd_msg(*message)
 
-    messages_for_lagged = selector.get_msgs_for_lagged_nodes()
+    messages_for_lagged = node.view_changer.get_msgs_for_lagged_nodes()
     assert {m for m in messages_for_lagged} == {
         m[0] for m in messages if m[1] == node.name}
 
 
 def test_send_view_change_done_message(tmpdir):
     node = FakeNode(str(tmpdir))
-    selector = PrimarySelector(node)
     instance_id = 0
-    view_no = selector.viewNo
-    new_primary_name = selector.node.get_name_by_rank(selector._get_primary_id(
+    view_no = node.view_changer.view_no
+    new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_primary_id(
         view_no, instance_id, node.totalNodes))
-    selector._send_view_change_done_message()
+    node.view_changer._send_view_change_done_message()
 
     ledgerInfo = [
         #  ledger id, ledger length, merkle root
@@ -319,9 +328,9 @@ def test_send_view_change_done_message(tmpdir):
         ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo)
     ]
 
-    assert len(selector.outBox) == 1
+    assert len(node.view_changer.outBox) == 1
 
-    print(list(selector.outBox))
+    print(list(node.view_changer.outBox))
     print(messages)
 
-    assert list(selector.outBox) == messages
+    assert list(node.view_changer.outBox) == messages

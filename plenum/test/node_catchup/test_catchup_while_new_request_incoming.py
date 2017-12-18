@@ -14,7 +14,7 @@ from stp_core.loop.eventually import eventually
 
 
 def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
-                                            tdirWithPoolTxns, tconf,
+                                            tdir, tdirWithClientPoolTxns, tconf,
                                             steward1, stewardWallet,
                                             allPluginsPath):
     """
@@ -45,7 +45,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, steward1, stewardWallet, newStewardName, newNodeName,
-        tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
     txnPoolNodeSet.append(newNode)
     looper.runFor(2)
     sendRandomRequests(stewardWallet, steward1, 5)

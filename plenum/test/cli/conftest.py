@@ -34,17 +34,18 @@ def nodeRegsForCLI(nodeNames):
 
 
 @pytest.fixture("module")
-def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited):
-    cli = newCLI(cliLooper, tdir, tdir)
+def cli(tdir, cliLooper, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithClientPoolTxns, tdirWithNodeKeepInited):
+    cli = newCLI(cliLooper, tdirWithClientPoolTxns, tdirWithPoolTxns, nodes_chroot=tdir)
     yield cli
     cli.close()
 
 
 @pytest.fixture("module")
-def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-             tdirWithNodeKeepInited):
-    cli = newCLI(cliLooper, tdir, tdir, unique_name='alice')
+def aliceCli(tdir, cliLooper, tdirWithPoolTxns, tdirWithDomainTxns,
+             tdirWithClientPoolTxns, tdirWithNodeKeepInited):
+    cli = newCLI(cliLooper, tdirWithClientPoolTxns, tdirWithPoolTxns, nodes_chroot=tdir,
+                 unique_name='alice')
     yield cli
     cli.close()
 

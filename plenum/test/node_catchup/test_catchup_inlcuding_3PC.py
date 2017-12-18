@@ -32,11 +32,11 @@ def tconf(tconf, request):
 
 
 @pytest.fixture("module")
-def pre_check(tconf, looper, txnPoolNodeSet, tdirWithPoolTxns,
+def pre_check(tconf, looper, txnPoolNodeSet, tdirWithClientPoolTxns,
               poolTxnStewardData):
     # TODO: Maybe this needs to be extracted in another fixture
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())

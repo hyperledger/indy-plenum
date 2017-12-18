@@ -7,9 +7,7 @@ from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay, icDelay
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
-from plenum.test.sdk.conftest import sdk_pool_name, sdk_pool_handle, sdk_wallet_name,\
-    sdk_wallet_handle, sdk_wallet_client, sdk_client_seed
-from plenum.test.sdk.helper import send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 
 
 TestRunningTimeLimitSec = 300
@@ -51,5 +49,5 @@ def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFr
     def chk():
         assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
 
-    send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
     looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

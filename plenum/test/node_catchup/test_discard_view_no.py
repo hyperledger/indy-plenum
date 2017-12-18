@@ -17,8 +17,8 @@ whitelist = ['found legacy entry']  # warnings
 
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
-                                          newNodeCaughtUp, tdirWithPoolTxns,
-                                          tconf, allPluginsPath):
+                                          newNodeCaughtUp,
+                                          allPluginsPath):
     """
     Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)

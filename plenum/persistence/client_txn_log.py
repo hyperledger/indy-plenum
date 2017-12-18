@@ -12,12 +12,8 @@ class ClientTxnLog(HasFileStorage):
     An immutable log of transactions made by the client.
     """
 
-    def __init__(self, name, baseDir=None):
-        self.dataDir = "data/clients"
-        self.name = name
-        HasFileStorage.__init__(self, name,
-                                baseDir=baseDir,
-                                dataDir=self.dataDir)
+    def __init__(self, dataLocation):
+        HasFileStorage.__init__(self, dataLocation)
         self.clientDataLocation = self.dataLocation
         if not os.path.exists(self.clientDataLocation):
             os.makedirs(self.clientDataLocation)

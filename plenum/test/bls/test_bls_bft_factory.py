@@ -1,3 +1,4 @@
+import os
 import pytest
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -6,9 +7,6 @@ from plenum.bls.bls_bft_factory import BlsFactoryBftPlenum
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 
 from plenum.bls.bls_store import BlsStore
-from plenum.common.config_util import getConfig
-
-config = getConfig()
 
 i = 0
 
@@ -19,9 +17,9 @@ def node(txnPoolNodeSet):
 
 
 @pytest.fixture()
-def bls_bft_factory(node, tempdir):
-    bls_crypto_factory = create_default_bls_crypto_factory(tempdir,
-                                                           'TestNode')
+def bls_bft_factory(node, tdir_for_func):
+    dir = os.path.join(tdir_for_func, 'TestNode')
+    bls_crypto_factory = create_default_bls_crypto_factory(dir)
     return BlsFactoryBftPlenum(bls_crypto_factory,
                                node)
 

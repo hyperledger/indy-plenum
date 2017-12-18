@@ -135,8 +135,7 @@ def test_validator_info_file_metrics_uptime_field_valid(load_latest_info,
     assert latest_info['metrics']['uptime'] > info['metrics']['uptime']
 
 
-def test_validator_info_file_pool_fields_valid(txnPoolNodesLooper, txnPoolNodeSet,
-                                               info,
+def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPoolNodeSet,
                                                load_latest_info):
     assert info['pool']['reachable']['count'] == nodeCount
     assert info['pool']['reachable']['list'] == sorted(list(node.name for node in txnPoolNodeSet))
@@ -195,9 +194,8 @@ def load_info(path):
 
 
 @pytest.fixture(scope='module')
-def info_path(tdirWithPoolTxns, patched_dump_info_period, txnPoolNodesLooper,
-              txnPoolNodeSet):
-    path = os.path.join(tdirWithPoolTxns, INFO_FILENAME)
+def info_path(patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet, node):
+    path = os.path.join(node.node_info_dir, INFO_FILENAME)
     txnPoolNodesLooper.runFor(patched_dump_info_period)
     assert os.path.exists(path), '{} exists'.format(path)
     return path
@@ -271,8 +269,8 @@ def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
 
 
 @pytest.fixture
-def client_and_wallet(txnPoolNodesLooper, tdirWithPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
+def client_and_wallet(txnPoolNodesLooper, tdirWithClientPoolTxns, txnPoolNodeSet):
+    client, wallet = genTestClient(tmpdir=tdirWithClientPoolTxns, nodes=txnPoolNodeSet,
                                    name='reader', usePoolLedger=True)
     txnPoolNodesLooper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,

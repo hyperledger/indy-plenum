@@ -151,11 +151,11 @@ def create_prepare(req_key, state_root):
     return Prepare(*params)
 
 
-def change_bls_key(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def change_bls_key(looper, txnPoolNodeSet,
                    node,
                    steward_client, steward_wallet,
                    add_wrong=False):
-    new_blspk = init_bls_keys(tdirWithPoolTxns, node.name)
+    new_blspk = init_bls_keys(node.keys_dir, node.name)
 
     key_in_txn = \
         new_blspk \
@@ -194,15 +194,15 @@ def check_bls_key(blskey, node, nodes, add_wrong=False):
 
 
 def check_update_bls_key(node_num, saved_multi_sigs_count,
-                         looper, txnPoolNodeSet, tdirWithPoolTxns,
+                         looper, txnPoolNodeSet,
+                         client_tdir,
                          poolTxnClientData,
                          stewards_and_wallets,
                          add_wrong=False):
     # 1. Change BLS key for a specified NODE
     node = txnPoolNodeSet[node_num]
     steward_client, steward_wallet = stewards_and_wallets[node_num]
-    new_blspk = change_bls_key(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                               node,
+    new_blspk = change_bls_key(looper, txnPoolNodeSet, node,
                                steward_client, steward_wallet,
                                add_wrong)
 
@@ -212,7 +212,7 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
     # 3. Check that we can send new requests and have correct multisigs
     client, wallet = new_client(looper,
                                 poolTxnClientData,
-                                txnPoolNodeSet, tdirWithPoolTxns)
+                                txnPoolNodeSet, client_tdir)
     check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
                                    client, wallet,
                                    saved_multi_sigs_count=saved_multi_sigs_count)

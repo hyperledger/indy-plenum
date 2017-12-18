@@ -4,11 +4,8 @@ import pytest
 from crypto.bls.bls_crypto import BlsCryptoSigner
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
-from plenum.common.config_util import getConfig
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
-
-config = getConfig()
 
 
 @pytest.fixture()
@@ -17,15 +14,17 @@ def pool_state():
 
 
 @pytest.fixture()
-def bls_crypto_factory(tempdir):
-    os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsFactoryIndyCrypto(tempdir, 'Node1')
+def bls_crypto_factory(tdir_for_func):
+    keys_dir = os.path.join(tdir_for_func, 'Node1')
+    os.mkdir(keys_dir)
+    return BlsFactoryIndyCrypto(keys_dir)
 
 
 @pytest.fixture()
-def bls_crypto_factory2(tempdir):
-    os.mkdir(os.path.join(tempdir, 'Node2'))
-    return BlsFactoryIndyCrypto(tempdir, 'Node2')
+def bls_crypto_factory2(tdir_for_func):
+    keys_dir = os.path.join(tdir_for_func, 'Node2')
+    os.mkdir(keys_dir)
+    return BlsFactoryIndyCrypto(keys_dir)
 
 
 def test_create_and_store_bls_keys(bls_crypto_factory):

@@ -13,10 +13,7 @@ from importlib.util import module_from_spec, spec_from_file_location    # noqa: 
 
 import plenum   # noqa: E402
 import plenum.server.plugin     # noqa: E402
-from plenum.common.config_util import getConfig   # noqa: E402
-
-config = getConfig()
-
+from plenum.common.config_util import getConfigOnce   # noqa: E402
 
 PLUGIN_LEDGER_IDS = set()
 PLUGIN_CLIENT_REQUEST_FIELDS = {}
@@ -24,6 +21,8 @@ PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 def setup_plugins():
     global PLUGIN_LEDGER_IDS
+
+    config = getConfigOnce()
 
     ENABLED_PLUGINS = config.ENABLED_PLUGINS
     for plugin_name in ENABLED_PLUGINS:

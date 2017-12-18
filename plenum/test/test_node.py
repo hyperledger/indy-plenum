@@ -33,6 +33,7 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
+from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
@@ -48,6 +49,7 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
+from plenum.common.config_helper import PNodeConfigHelper
 from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
 
@@ -142,8 +144,8 @@ class TestNodeCore(StackedTester):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
 
-    def create_replicas(self):
-        return TestReplicas(self, self.monitor)
+    def create_replicas(self, config=None):
+        return TestReplicas(self, self.monitor, config)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -157,13 +159,18 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    def createReplica(self, instNo: int, isMaster: bool):
-        return TestReplica(self, instNo, isMaster)
+    def createReplica(self, instNo: int, isMaster: bool, config=None):
+        return TestReplica(self, instNo, isMaster, config)
 
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimarySelector
         return pdCls(self)
+
+    def newViewChanger(self):
+        vchCls = self.view_changer if self.view_changer is not None else \
+            TestViewChanger
+        return vchCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -310,8 +317,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.postToClientInBox,
                  Node.postToNodeInBox,
                  "eatTestMsg",
-                 Node.decidePrimaries,
-                 Node.startViewChange,
                  Node.discard,
                  Node.reportSuspiciousNode,
                  Node.reportSuspiciousClient,
@@ -319,8 +324,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.propagate,
                  Node.forward,
                  Node.send,
-                 Node.sendInstanceChange,
-                 Node.processInstanceChange,
                  Node.checkPerformance,
                  Node.processStashedOrderedReqs,
                  Node.lost_master_primary,
@@ -340,7 +343,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
                  Node.process_current_state_message,
-                 Node._start_view_change_if_possible
                  ]
 
 
@@ -412,6 +414,19 @@ class TestPrimarySelector(PrimarySelector):
     pass
 
 
+view_changer_spyables = [
+    ViewChanger.sendInstanceChange,
+    ViewChanger._start_view_change_if_possible,
+    ViewChanger.process_instance_change_msg,
+    ViewChanger.startViewChange
+]
+
+@spyable(methods=view_changer_spyables)
+class TestViewChanger(ViewChanger):
+    pass
+
+
+
 replica_spyables = [
     replica.Replica.sendPrePrepare,
     replica.Replica._can_process_pre_prepare,
@@ -426,6 +441,7 @@ replica_spyables = [
     replica.Replica.discard,
     replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
+    replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
     replica.Replica.process_requested_pre_prepare,
@@ -448,12 +464,13 @@ class TestReplica(replica.Replica):
 
 class TestReplicas(Replicas):
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, is_master, bls_bft)
+        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
 
 
 class TestNodeSet(ExitStack):
 
     def __init__(self,
+                 config,
                  names: Iterable[str]=None,
                  count: int=None,
                  nodeReg=None,
@@ -465,6 +482,8 @@ class TestNodeSet(ExitStack):
 
         super().__init__()
         self.tmpdir = tmpdir
+        assert config is not None
+        self.config = config
         self.keyshare = keyshare
         self.primaryDecider = primaryDecider
         self.pluginPaths = pluginPaths
@@ -495,9 +514,11 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
+        config_helper = PNodeConfigHelper(name, self.config, chroot=self.tmpdir)
+
         seed = randomSeed()
         if self.keyshare:
-            learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
+            learnKeysFromOthers(config_helper.keys_dir, name, self.nodes.values())
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
@@ -506,8 +527,7 @@ class TestNodeSet(ExitStack):
                           cliname=cliname,
                           cliha=cliha,
                           nodeRegistry=copy(self.nodeReg),
-                          basedirpath=self.tmpdir,
-                          base_data_dir=self.tmpdir,
+                          config_helper=config_helper,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
                           seed=seed))
@@ -614,13 +634,19 @@ class TestMonitor(Monitor):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, testNodeSetClass=TestNodeSet):
+    def __init__(self, tmpdir=None, tmpdir_factory=None, config=None, testNodeSetClass=TestNodeSet):
+        self.tmpdir = tmpdir
         self.tmpdir_factory = tmpdir_factory
         self.testNodeSetClass = testNodeSetClass
+        self.config = config
+        self.is_run = False
 
     def run(self, coro, nodecount=4):
-        tmpdir = self.fresh_tdir()
-        with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
+        assert self.is_run == False
+
+        self.is_run = True
+        tmpdir = self.tmpdir if self.tmpdir is not None else self.fresh_tdir()
+        with self.testNodeSetClass(self.config, count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
                 # for n in nodeset:
                 #     n.startKeySharing()
@@ -888,7 +914,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     :param proposedViewNo: The view no which is proposed
     :return:
     """
-    params = [args for args in getAllArgs(node, TestNode.startViewChange)]
+    params = [args for args in getAllArgs(node.view_changer, ViewChanger.startViewChange)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo

@@ -72,6 +72,10 @@ class Client(Motor,
                  nodeReg: Dict[str, HA] = None,
                  ha: Union[HA, Tuple[str, int]] = None,
                  basedirpath: str = None,
+                 genesis_dir: str = None,
+                 ledger_dir: str = None,
+                 keys_dir: str = None,
+                 plugins_dir: str = None,
                  config=None,
                  sighex: str = None):
         """
@@ -82,7 +86,9 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.CLI_NETWORK_DIR, self.config.NETWORK_NAME)
+
+        dataDir = self.config.clientDataDir or "data/clients"
+        self.basedirpath = basedirpath or self.config.CLI_BASE_DIR
         self.basedirpath = os.path.expanduser(self.basedirpath)
 
         signer = Signer(sighex)
@@ -95,11 +101,17 @@ class Client(Motor,
         # self.name = name
         self.name = self.stackName or 'Client~' + str(id(self))
 
+        self.genesis_dir = genesis_dir or self.basedirpath
+        self.ledger_dir = ledger_dir or os.path.join(self.basedirpath, dataDir, self.name)
+        self.plugins_dir = plugins_dir or self.basedirpath
+        _keys_dir = keys_dir or self.basedirpath
+        self.keys_dir = os.path.join(_keys_dir, "keys")
+
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, self.basedirpath):
+        if self.exists(self.stackName, self.keys_dir):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, self.basedirpath)
+                self.stackName, self.keys_dir)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -110,9 +122,7 @@ class Client(Motor,
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
 
-        self.dataDir = self.config.clientDataDir or "data/clients"
-        HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
-                                dataDir=self.dataDir)
+        HasFileStorage.__init__(self, self.ledger_dir)
 
         # TODO: Find a proper name
         self.alias = name
@@ -141,7 +151,7 @@ class Client(Motor,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auth_mode=AuthMode.ALLOW_ANY.value)
-        stackargs['basedirpath'] = self.basedirpath
+        stackargs['basedirpath'] = self.keys_dir
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
@@ -193,7 +203,9 @@ class Client(Motor,
         self._observers = {}  # type Dict[str, Callable]
         self._observerSet = set()  # makes it easier to guard against duplicates
 
-        tp = loadPlugins(self.basedirpath)
+        plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
+        tp = loadPlugins(self.plugins_dir, plugins_to_load)
+
         logger.debug("total plugins loaded in client: {}".format(tp))
 
         self._multi_sig_verifier = self._create_multi_sig_verifier()
@@ -209,10 +221,10 @@ class Client(Motor,
         return verifier
 
     def getReqRepStore(self):
-        return ClientReqRepStoreFile(self.name, self.basedirpath)
+        return ClientReqRepStoreFile(self.ledger_dir)
 
     def getTxnLogStore(self):
-        return ClientTxnLog(self.name, self.basedirpath)
+        return ClientTxnLog(self.ledger_dir)
 
     def __repr__(self):
         return self.name
@@ -245,9 +257,9 @@ class Client(Motor,
                 self.minNodesToConnect, self.quorums))
 
     @staticmethod
-    def exists(name, basedirpath):
-        return os.path.exists(basedirpath) and \
-            os.path.exists(os.path.join(basedirpath, name))
+    def exists(name, base_dir):
+        return os.path.exists(base_dir) and \
+            os.path.exists(os.path.join(base_dir, name))
 
     @property
     def nodeStackClass(self) -> NetworkInterface:

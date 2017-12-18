@@ -85,7 +85,7 @@ def genTestClient(nodes=None,
     if not usePoolLedger and nodes:
         for node in nodes:
             stack = node.clientstack
-            initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
+            initRemoteKeys(tc.name, stack.name, tc.keys_dir, stack.verhex,
                            override=True)
 
     w = None  # type: Wallet

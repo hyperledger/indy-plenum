@@ -1,12 +1,12 @@
 import pytest
 from plenum.test.delayers import ppgDelay, req_delay
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import sdk_send_random_and_check, \
+    sdk_send_batches_of_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 
 @pytest.fixture(scope='function', params=['client_requests',
@@ -29,8 +29,8 @@ def setup(request, txnPoolNodeSet):
         return faulty_node, False
 
 
-def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
-                                 wallet1, client1Connected, request):
+def test_node_request_propagates(looper, setup, txnPoolNodeSet,
+                                 sdk_wallet_client, sdk_pool_handle, request):
     """
     One of node lacks sufficient propagates
     """
@@ -42,8 +42,11 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
         faulty_node, faulty_node.request_propagates)
 
     sent_reqs = 5
-    send_reqs_to_nodes_and_verify_all_replies(
-        looper, wallet1, client1, sent_reqs)
+    sdk_send_random_and_check(looper,
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              sent_reqs)
 
     assert get_count(
         faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
@@ -69,4 +72,9 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet, client1,
     assert requested_propagate_counts[1] == sent_reqs
 
     faulty_node.nodeIbStasher.reset_delays_and_process_delayeds()
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1, 4)
+    sdk_ensure_pool_functional(looper,
+                           txnPoolNodeSet,
+                           sdk_wallet_client,
+                           sdk_pool_handle,
+                           num_reqs=4)
+

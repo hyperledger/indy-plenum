@@ -9,14 +9,13 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdir, request):
-    conf.baseDir = tdir
+def tconf(tconf, request):
     # Lowering DELTA since some requests will result in validation errors and
     # that will decrease master throughput.
     # TODO: When monitoring metrics are calibrated, these things
     # should be taken care of.
-    conf.DELTA = .6
-    return conf
+    tconf.DELTA = .6
+    return tconf
 
 
 @pytest.yield_fixture(scope="module")
@@ -26,9 +25,9 @@ def looper(txnPoolNodesLooper):
 
 @pytest.fixture(scope="module")
 def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
-                      tdirWithPoolTxns):
+                      tdirWithClientPoolTxns, client_tdir):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns)
+                                              client_tdir)
     yield client, wallet
     client.stop()
 
@@ -48,8 +47,8 @@ def stewardWallet(stewardAndWallet1):
 
 
 @pytest.fixture("module")
-def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
-                   stewardWallet, allPluginsPath, testNodeClass=None,
+def nodeThetaAdded(looper, txnPoolNodeSet, tdir, client_tdir,
+                   tconf, steward1, stewardWallet, allPluginsPath, testNodeClass=None,
                    testClientClass=None, name=None):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = name or "Theta"
@@ -58,7 +57,8 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
                                                                  stewardWallet,
                                                                  newStewardName,
                                                                  newNodeName,
-                                                                 tdirWithPoolTxns,
+                                                                 tdir,
+                                                                 client_tdir,
                                                                  tconf,
                                                                  allPluginsPath,
                                                                  nodeClass=testNodeClass,
@@ -73,9 +73,9 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
 
 
 @pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
+def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithClientPoolTxns, client_tdir):
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithPoolTxns)
+                                              client_tdir)
     yield client, wallet
     client.stop()
 
@@ -98,9 +98,9 @@ def client1Connected(looper, client1):
 
 
 @pytest.fixture(scope="function")
-def newAdHocSteward(looper, tdir, steward1, stewardWallet):
+def newAdHocSteward(looper, client_tdir, steward1, stewardWallet):
     newStewardName = "testClientSteward" + randomString(3)
-    newSteward, newStewardWallet = addNewSteward(looper, tdir, steward1,
+    newSteward, newStewardWallet = addNewSteward(looper, client_tdir, steward1,
                                                  stewardWallet,
                                                  newStewardName)
     return newSteward, newStewardWallet

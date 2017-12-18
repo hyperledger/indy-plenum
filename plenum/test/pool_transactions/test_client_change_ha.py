@@ -10,8 +10,8 @@ from stp_core.network.port_dispenser import genHa
 whitelist = ['client already added']
 
 
-def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet,
-                                        tdirWithPoolTxns, poolTxnClientData):
+def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                                        tdirWithClientPoolTxns, poolTxnClientData):
     """
     Client should not be able to connect to nodes even after it has changed
     its HA. Since running on a local environment, only checking change of port.
@@ -20,21 +20,21 @@ def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet,
     """
     # TODO: Check for change of IP too
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithPoolTxns)
+                                              tdirWithClientPoolTxns)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet)
-    basedirpath = client.basedirpath
+    keys_dir = os.path.join(client.keys_dir, client.name)
     client.stop()
     looper.removeProdable(client)
 
     # Removing RAET keep directory otherwise the client will use the same port
     #  since it will a directory of its name in the keep
-    shutil.rmtree(os.path.join(basedirpath, client.name), ignore_errors=True)
+    shutil.rmtree(keys_dir, ignore_errors=True)
 
     ha = genHa()
     client, _ = genTestClient(txnPoolNodeSet, identifier=wallet.defaultId,
-                              ha=ha, tmpdir=tdirWithPoolTxns,
+                              ha=ha, tmpdir=tdirWithClientPoolTxns,
                               usePoolLedger=True, name=client.name)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,

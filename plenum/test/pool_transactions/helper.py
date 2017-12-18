@@ -11,12 +11,14 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import waitForSufficientRepliesForRequests
+from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj,\
+    sdk_get_reply
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
+from plenum.common.config_helper import PNodeConfigHelper
 
 
 def new_client_request(role, name, creatorWallet):
@@ -52,12 +54,14 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     return wallet
 
 
-def sendAddNewNode(tdir, newNodeName, stewardClient, stewardWallet,
+def sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
                    transformOpFunc=None):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
+    config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
+    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
+                                                   sigseed, override=True)
     op = {
         TXN_TYPE: NODE,
         TARGET_NYM: nodeSigner.identifier,
@@ -87,7 +91,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                transformOpFunc=None):
     nodeClass = nodeClass or TestNode
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
-        = sendAddNewNode(tdir, newNodeName, stewardClient, stewardWallet,
+        = sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
                          transformOpFunc)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
@@ -111,11 +115,14 @@ def start_newly_added_node(
         sigseed,
         node_ha,
         client_ha,
-        conf,
+        tconf,
         auto_start,
         plugin_path,
         nodeClass):
-    node = nodeClass(node_name, basedirpath=tdir, base_data_dir=tdir, config=conf,
+    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+    node = nodeClass(node_name,
+                     config_helper=config_helper,
+                     config=tconf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
     if auto_start:
@@ -123,7 +130,7 @@ def start_newly_added_node(
     return node
 
 
-def addNewSteward(looper, tdir,
+def addNewSteward(looper, client_tdir,
                   creatorClient, creatorWallet, stewardName,
                   clientClass=TestClient):
     clientClass = clientClass or TestClient
@@ -131,7 +138,7 @@ def addNewSteward(looper, tdir,
                                     creatorWallet, stewardName)
     newSteward = clientClass(name=stewardName,
                              nodeReg=None, ha=genHa(),
-                             basedirpath=tdir)
+                             basedirpath=client_tdir)
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
@@ -139,11 +146,11 @@ def addNewSteward(looper, tdir,
 
 
 def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         newNodeName, tdir, client_tdir, tconf, allPluginsPath=None,
                          autoStart=True, nodeClass=TestNode,
                          clientClass=TestClient, transformNodeOpFunc=None):
 
-    newSteward, newStewardWallet = addNewSteward(looper, tdir, creatorClient,
+    newSteward, newStewardWallet = addNewSteward(looper, client_tdir, creatorClient,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
 
@@ -185,9 +192,25 @@ def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
     node.clientstack.clearRemoteKeeps()
 
 
+def sdk_send_update_node(looper, sdk_pool, sdk_wallet_steward, node, node_data):
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: node_dest,
+        DATA: node_data,
+    }
+    req_obj = sdk_gen_request(op, identifier=sdk_wallet_steward[1])
+    return sdk_sign_and_submit_req_obj(looper, sdk_pool, sdk_wallet_steward, req_obj)
+
+
+def sdk_update_node_data(looper, sdk_pool, sdk_wallet_steward, node, node_data):
+    node_req = sdk_send_update_node(sdk_wallet_steward, node, node_data)
+    _, j_resp = sdk_get_reply(looper, node_req)
+    assert j_resp['result']
+
+
 def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
-                               node_data,
-                               tdirWithPoolTxns, tconf, txnPoolNodeSet):
+                               node_data, tdir, tconf, txnPoolNodeSet):
     updateNodeData(looper, steward, stewardWallet, node, node_data)
     # restart the Node with new HA
     node.stop()
@@ -197,7 +220,9 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
     client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+    config_helper = PNodeConfigHelper(node_alias, tconf, chroot=tdir)
+    restartedNode = TestNode(node_alias,
+                             config_helper=config_helper,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))
@@ -285,9 +310,9 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=
     return client, w
 
 
-def new_client(looper, poolTxnClientData, txnPoolNodeSet, tdirWithPoolTxns):
+def new_client(looper, poolTxnClientData, txnPoolNodeSet, client_tdir):
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithPoolTxns)
+                                              client_tdir)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
@@ -345,7 +370,7 @@ def reconnect_node_and_ensure_connected(looper, poolNodes,
 
 
 def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
-                tdir_with_pool_txns, conf, all_plugins_path, names=None):
+                tdir, client_tdir, tconf, all_plugins_path, names=None):
     assert names is None or (isinstance(names, list) and len(names) == 2)
     names = names or ("Zeta", "Eta")
     new_nodes = []
@@ -356,8 +381,9 @@ def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
                                                                          steward_wallet,
                                                                          new_steward_name,
                                                                          node_name,
-                                                                         tdir_with_pool_txns,
-                                                                         conf,
+                                                                         tdir,
+                                                                         client_tdir,
+                                                                         tconf,
                                                                          all_plugins_path)
         existing_nodes.append(new_node)
         looper.run(checkNodesConnected(existing_nodes))

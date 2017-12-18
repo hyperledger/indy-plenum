@@ -14,17 +14,20 @@ from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
 
 def start_stopped_node(stopped_node, looper, tconf,
-                       tdirWithPoolTxns, allPluginsPath,
+                       tdir, allPluginsPath,
                        delay_instance_change_msgs=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
-    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+    config_helper = PNodeConfigHelper(stopped_node.name, tconf, chroot=tdir)
+    restarted_node = TestNode(stopped_node.name,
+                              config_helper=config_helper,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)

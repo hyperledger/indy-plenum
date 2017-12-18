@@ -1,4 +1,5 @@
 from plenum.common.messages.node_messages import CatchupRep
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
@@ -30,9 +31,14 @@ def decrease_max_request_size(node):
     node.nodestack.prepare_for_sending = prepare_for_sending
 
 
-def test_large_catchup(looper, testNodeClass, txnPoolNodeSet, wallet1,
-                       client1, client1Connected, tconf, allPluginsPath,
-                       tdirWithPoolTxns):
+def test_large_catchup(tdir, tconf,
+                       looper,
+                       testNodeClass,
+                       txnPoolNodeSet,
+                       wallet1,
+                       client1,
+                       client1Connected,
+                       allPluginsPath):
     """
     Checks that node can catchup large ledgers
     """
@@ -68,9 +74,9 @@ def test_large_catchup(looper, testNodeClass, txnPoolNodeSet, wallet1,
 
     # Restart stopped node and wait for successful catch up
     # Not calling start since it does not start states
+    config_helper = PNodeConfigHelper(lagging_node.name, tconf, chroot=tdir)
     lagging_node = testNodeClass(lagging_node.name,
-                                 basedirpath=tdirWithPoolTxns,
-                                 base_data_dir=tdirWithPoolTxns,
+                                 config_helper=config_helper,
                                  config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
     txnPoolNodeSet[-1] = lagging_node

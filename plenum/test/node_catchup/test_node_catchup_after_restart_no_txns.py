@@ -17,6 +17,7 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
+from plenum.common.config_helper import PNodeConfigHelper
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -28,6 +29,7 @@ txnCount = 5
 def test_node_catchup_after_restart_no_txns(
         newNodeCaughtUp,
         txnPoolNodeSet,
+        tdir,
         tconf,
         nodeSetWithNodeAddedAfterSomeTxns,
         tdirWithPoolTxns,
@@ -46,10 +48,10 @@ def test_node_catchup_after_restart_no_txns(
 
     logger.debug("Starting the stopped node, {}".format(new_node))
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
+    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
     new_node = TestNode(
         new_node.name,
-        basedirpath=tdirWithPoolTxns,
-        base_data_dir=tdirWithPoolTxns,
+        config_helper=config_helper,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,

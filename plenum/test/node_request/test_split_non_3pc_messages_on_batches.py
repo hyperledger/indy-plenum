@@ -13,9 +13,7 @@ from plenum.test.pool_transactions.conftest import looper, client1Connected  # n
 from plenum.test.pool_transactions.conftest import clientAndWallet1, client1, wallet1  # noqa
 
 
-def test_msg_max_length_check_node_to_node(tconf,
-                                           tdir,
-                                           looper,
+def test_msg_max_length_check_node_to_node(looper,
                                            txnPoolNodeSet,
                                            client1,
                                            wallet1,
@@ -64,9 +62,9 @@ def check_reqacks(client, looper, reqs, txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def clientAndWallet2(looper, poolTxnClientData, tdirWithPoolTxns):
+def clientAndWallet2(looper, poolTxnClientData, tdirWithClientPoolTxns):
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithPoolTxns)
+                                              tdirWithClientPoolTxns)
 
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())

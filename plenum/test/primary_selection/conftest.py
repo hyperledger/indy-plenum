@@ -27,14 +27,14 @@ def txnPoolMasterNodes(txnPoolNodeSet):
 
 @pytest.fixture(scope="module")
 def stewardAndWalletForMasterNode(looper, poolTxnData, poolTxnStewardNames,
-        tdirWithPoolTxns, txnPoolNodeSet, txnPoolMasterNodes):
+        tdirWithClientPoolTxns, txnPoolNodeSet, txnPoolMasterNodes):
     primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)
     master_node = txnPoolMasterNodes[0]
     stewardName = poolTxnStewardNames[primariesIdxs[0]]
     stewardsSeed = poolTxnData["seeds"][stewardName].encode()
 
     stewardClient, stewardWallet = buildPoolClientAndWallet(
-            (stewardName, stewardsSeed), tdirWithPoolTxns)
+            (stewardName, stewardsSeed), tdirWithClientPoolTxns)
     looper.add(stewardClient)
     looper.run(stewardClient.ensureConnectedToNodes())
 

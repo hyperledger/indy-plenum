@@ -5,6 +5,7 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.batching_3pc.conftest import tconf
 
 
+
 @pytest.fixture(scope="module")
 def chkFreqPatched(tconf, request):
     oldChkFreq = tconf.CHK_FREQ

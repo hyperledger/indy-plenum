@@ -32,10 +32,10 @@ def looper(txnPoolNodesLooper):
 
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
-                             tdirWithPoolTxns, poolTxnStewardData, tconf,
+                             tdir, tdirWithClientPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
@@ -48,7 +48,7 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, client, wallet, newStewardName, newNodeName,
-        tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
     yield looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet
 
@@ -98,13 +98,12 @@ def poolAfterSomeTxns(
         looper,
         txnPoolNodesLooper,
         txnPoolNodeSet,
-        tdirWithPoolTxns,
+        tdirWithClientPoolTxns,
         poolTxnStewardData,
-        tconf,
         allPluginsPath,
         request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.add(client)

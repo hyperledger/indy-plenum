@@ -1,65 +1,59 @@
 import types
-
 import pytest
-
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
-    checkRejectWithReason, waitForSufficientRepliesForRequests
+from plenum.test.helper import sendRandomRequests, checkRejectWithReason, waitForSufficientRepliesForRequests
 from stp_core.loop.eventually import eventually
+from plenum.common.exceptions import InvalidClientRequest
+from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
 
 
-def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,
-                                wallet1):
+
+def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
+                                sdk_wallet_client):
     """
     Check that for requests which fail static validation, REQNACK is sent
     :return:
     """
-    reqs = [wallet1.signOp((lambda: {'something': 'nothing'})()) for _ in
-            range(tconf.Max3PCBatchSize)]
-    client.submitReqs(*reqs)
-    for node in txnPoolNodeSet:
-        looper.run(eventually(checkReqNackWithReason, client, '',
-                              node.clientstack.name, retryWait=1))
+    node = txnPoolNodeSet[0]
+    req = sdk_sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
+    with pytest.raises(InvalidClientRequest):
+        node.doStaticValidation(req)
 
 
 def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
-                                      wallet1):
+                                      sdk_wallet_client, sdk_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
     received and propagated.
     :return:
     """
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
 
 
 def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
-                                              client, wallet1):
+                                              sdk_wallet_client, sdk_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
     not received but threshold time has passed
     :return:
     """
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize - 1)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize - 1)
 
 
 def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
-                                       client, wallet1):
+                                       sdk_pool_handle, sdk_wallet_client):
     """
     Check if both state root and txn tree root are correct and same on each
     node after each batch
     :return:
     """
     # Send 1 batch
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # Send 2 batches
-    reqs = sendRandomRequests(wallet1, client, 2 * tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
@@ -70,6 +64,8 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
+    # TODO: Change this test for using SDK.
+    # Now SDK, can't distinguish REJECTED messages and simply raise IndyError
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}
 

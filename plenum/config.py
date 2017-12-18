@@ -24,17 +24,14 @@ cliNodeReg = OrderedDict([
     ('DeltaC', ('127.0.0.1', 9708))
 ])
 
-baseDir = '~/.plenum/'
 walletsDir = 'wallets'
-NODE_BASE_DATA_DIR = baseDir
-nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
-LOG_DIR = os.path.join(baseDir, "log")
 GENERAL_CONFIG_DIR = '/etc/indy'
 # walletDir = 'wallet'
 
 # it should be filled from baseConfig
 NETWORK_NAME = ''
+USER_CONFIG_DIR = None
 
 GENERAL_CONFIG_FILE = 'plenum_config.py'
 NETWORK_CONFIG_FILE = 'plenum_config.py'
@@ -120,11 +117,12 @@ STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 # Node status configuration
+DUMP_VALIDATOR_INFO_INIT_SEC = 3
 DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
 
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
-RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
+RAETLogFilePath = os.path.expanduser('~/.plenum/raet.log')
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
