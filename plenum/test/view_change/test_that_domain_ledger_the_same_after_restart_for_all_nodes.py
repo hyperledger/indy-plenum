@@ -11,7 +11,11 @@ logger = getlogger()
 
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
-    return 600
+    """
+    We do 4 view change. Timeout for one view change usually 60 sec.
+    Test running time will excpect as 4 * 60 = 240.
+    """
+    return 300
 
 
 def catchuped(node):
@@ -83,7 +87,7 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
                                                                 tconf,
                                                                 tdir,
                                                                 allPluginsPath,
-                                                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                                customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
         for node in pool_of_nodes:
             logger.debug("compare_domain_ledgers: "
                          "primary node before view_change: {}, "

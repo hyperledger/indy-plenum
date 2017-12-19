@@ -20,18 +20,13 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
 logger = getlogger()
 
 
-@pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime():
-    return 600
-
-
 def catchuped(node):
     assert node.mode == Mode.participating
 
 
 def test_node_catchup_when_3_not_primary_node_restarted(
         looper, txnPoolNodeSet, tdir, tconf,
-         allPluginsPath, steward1, stewardWallet, limitTestRunningTime):
+         allPluginsPath, steward1, stewardWallet):
     """
     Test case:
     1. Create pool of 4 nodes

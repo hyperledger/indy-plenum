@@ -75,7 +75,7 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
 
     # Send some requests before view change
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
-    ensure_view_change(looper, remaining_nodes)
+    ensure_view_change(looper, remaining_nodes, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
     ensureElectionsDone(looper, remaining_nodes)
     # Send some requests after view change
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
