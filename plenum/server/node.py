@@ -2415,11 +2415,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} popped {} from txn to batch seqNo map'.
                          format(self, old))
 
-        batch_committed_msg = BatchCommitted(tuple([req.as_dict for req in reqs]),
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
                                              ledger_id,
                                              pp_time,
                                              state_root,
-                                             txn_root)
+                                             txn_root,
+                                             first_txn_seq_no)
         self._observable.append_input(batch_committed_msg, self.name)
 
 

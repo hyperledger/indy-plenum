@@ -374,6 +374,7 @@ class BatchCommitted(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.SEQ_NO.nm, NonNegativeNumberField())
     )
 
 class ObservedData(MessageBase):

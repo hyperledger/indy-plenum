@@ -1,4 +1,6 @@
+import json
 from collections import deque
+from heapq import heappush, heappop
 from logging import getLogger
 
 from plenum.common.constants import BATCH, OBSERVER_PREFIX
@@ -17,9 +19,9 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
     def __init__(self, node) -> None:
         super().__init__()
         self._node = node
-        self._last_applied_ts = None
+        self._last_applied_seq_no = None
         self._batches = {}
-        self._batch_ts = deque()
+        self._batch_seq_no = []
 
     @property
     def policy_type(self) -> str:
@@ -40,34 +42,37 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         if self._can_apply(msg):
             self._do_apply_data(msg)
 
+        self._process_stashed_messages()
+
     @staticmethod
-    def pp_time(msg):
-        return msg.msg.ppTime
+    def seq_no(msg):
+        return msg.msg.seqNo
 
     def _can_process(self, msg):
-        if not self._last_applied_ts:
+        if not self._last_applied_seq_no:
             return True
 
-        if self._last_applied_ts >= self.pp_time(msg):
-            logger.debug("{} do not process BATCH with timestamp {} since last applied is {}"
-                         .format(OBSERVER_PREFIX, str(self.pp_time(msg)), str(self._last_applied_ts)))
+        if self._last_applied_seq_no >= self.seq_no(msg):
+            logger.debug("{} do not process BATCH with seqNo {} since last applied is {}"
+                         .format(OBSERVER_PREFIX, str(self.seq_no(msg)), str(self._last_applied_seq_no)))
             return False
 
         return True
 
     def _add_batch(self, msg, sender):
-        pp_time = self.pp_time(msg)
+        seq_no = self.seq_no(msg)
 
-        if pp_time not in self._batches:
-            self._batches[pp_time] = {}
-            self._batch_ts.append(pp_time)
+        if seq_no not in self._batches:
+            self._batches[seq_no] = {}
+            heappush(self._batch_seq_no, seq_no)
 
-        self._batches[pp_time][sender] = msg
+        self._batches[seq_no][sender] = msg
 
     def _can_apply(self, msg):
-        if self.pp_time(msg) != self._batch_ts[0]:
+        next_seq_no = self._batch_seq_no[0]
+        if self.seq_no(msg) != next_seq_no:
             logger.debug("{} can not apply BATCH with timestamp {} since next expected timestamp is {}"
-                         .format(OBSERVER_PREFIX, str(self.pp_time(msg)), str(self._batch_ts[0])))
+                         .format(OBSERVER_PREFIX, str(self.seq_no(msg)), str(next_seq_no)))
             return False
 
         if self.__can_apply_proved(msg):
@@ -82,18 +87,23 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
 
     def __can_apply_quorumed(self, msg):
         quorum = self._node.quorums.observer_data
-        batches_for_msg = self._batches[self.pp_time(msg)]  # {sender: msg}
+        batches_for_msg = self._batches[self.seq_no(msg)]  # {sender: msg}
         num_batches = len(batches_for_msg)
         if not quorum.is_reached(len(batches_for_msg)):
             logger.debug("{} can not apply BATCH with timestamp {} since no quorum yet ({} of {})"
-                         .format(OBSERVER_PREFIX, str(self.pp_time(msg)), num_batches, str(quorum.value)))
+                         .format(OBSERVER_PREFIX, str(self.seq_no(msg)), num_batches, str(quorum.value)))
             return False
 
-        result, freq = mostCommonElement(batches_for_msg.values())
+        msgs = [
+            json.dumps(
+                self._node.toDict(msg.msg), sort_keys=True)
+            for msg in batches_for_msg.values()
+        ]
+        result, freq = mostCommonElement(msgs)
         if not quorum.is_reached(freq):
             logger.debug(
                 "{} can not apply BATCH with timestamp {} since have just {} equal elements ({} needed for quorum)"
-                    .format(OBSERVER_PREFIX, str(self.pp_time(msg)), freq, str(quorum.value)))
+                    .format(OBSERVER_PREFIX, str(self.seq_no(msg)), freq, str(quorum.value)))
             return False
 
         return True
@@ -104,9 +114,9 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
 
         self._do_apply_batch(msg.msg)
 
-        del self._batches[self.pp_time(msg)]
-        self._batch_ts.popleft()
-        self._last_applied_ts = self.pp_time(msg)
+        del self._batches[self.seq_no(msg)]
+        heappop(self._batch_seq_no)
+        self._last_applied_seq_no = self.seq_no(msg)
 
     def _do_apply_batch(self, batch):
         reqs = [Request(**req_dict) for req_dict in batch.request]
@@ -118,3 +128,19 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
                                                 reqs,
                                                 batch.stateRootHash,
                                                 batch.txnRootHash)
+
+    def _process_stashed_messages(self):
+        while True:
+            if not self._batches:
+                break
+            if not self._batch_seq_no:
+                break
+
+            next_pp_time = self._batch_seq_no[0]
+            next_msg = next(iter(
+                self._batches[next_pp_time].values()))
+
+            if not self._can_apply(next_msg):
+                break
+
+            self._do_apply_data(next_msg)

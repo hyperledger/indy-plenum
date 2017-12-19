@@ -154,6 +154,16 @@ class MessageBase(Mapping, MessageValidator):
     def __hash__(self):
         h = 1
         for index, value in enumerate(list(self.__iter__())):
+            # if isinstance(value, tuple):
+            #     new_value = []
+            #     for v in value:
+            #         if isinstance(v, dict):
+            #             new_value.append(frozenset(v.items()))
+            #         else:
+            #             new_value.append(v)
+            #     value = tuple(new_value)
+            # elif isinstance(value, dict):
+            #     value = frozenset(value.items())
             h = h * (index + 1) * (hash(value) + 1)
         return h
 

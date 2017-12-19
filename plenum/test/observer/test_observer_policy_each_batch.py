@@ -10,15 +10,15 @@ from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import sdk_random_request_objects
 
 
-def create_observed_data(ts=None, req_num=1):
-    reqs = tuple([req.as_dict for req in sdk_random_request_objects(
-        req_num, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)])
-    ts = ts or get_utc_epoch()
+def create_observed_data(seq_no=1, req_num=1):
+    reqs = [req.as_dict for req in sdk_random_request_objects(
+        req_num, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     msg = BatchCommitted(reqs,
                          DOMAIN_LEDGER_ID,
-                         ts,
+                         get_utc_epoch(),
                          generate_state_root(),
-                         generate_state_root())
+                         generate_state_root(),
+                         seq_no)
     return ObservedData(BATCH, msg)
 
 
@@ -46,19 +46,50 @@ def test_policy_type(observer_policy):
 def test_can_process_batch(observer_policy):
     assert observer_policy._can_process(create_observed_data())
 
-    observer_policy._last_applied_ts = 1599906902
-    assert not observer_policy._can_process(create_observed_data(ts=1599906902))
-    assert not observer_policy._can_process(create_observed_data(ts=1599906901))
-    assert observer_policy._can_process(create_observed_data(ts=1599906903))
-    assert observer_policy._can_process(create_observed_data(ts=1599906904))
+    observer_policy._last_applied_seq_no = 5
+    assert not observer_policy._can_process(create_observed_data(seq_no=4))
+    assert not observer_policy._can_process(create_observed_data(seq_no=5))
+    assert observer_policy._can_process(create_observed_data(seq_no=6))
+    assert observer_policy._can_process(create_observed_data(seq_no=7))
 
 
-def test_apply_one_batch_quorum(observer_policy, observed_data_msg):
+def test_quorum_same_message(observer_policy, observed_data_msg):
     observer_policy.apply_data(observed_data_msg, "Node1")
     assert observer_policy.applied_num == 0
 
     observer_policy.apply_data(observed_data_msg, "Node2")
     assert observer_policy.applied_num == 1
+
+
+def test_quorum_diff_messages(observer_policy):
+    msg1 = create_observed_data()
+    msg2 = create_observed_data()
+    msg3 = create_observed_data()
+
+    observer_policy.apply_data(msg1, "Node1")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg2, "Node2")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg3, "Node3")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg1, "Node4")
+    assert observer_policy.applied_num == 1
+
+
+def test_no_quorum_diff_messages(observer_policy):
+    msg1 = create_observed_data()
+    msg2 = create_observed_data()
+    msg3 = create_observed_data()
+    msg4 = create_observed_data()
+
+    observer_policy.apply_data(msg1, "Node1")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg2, "Node2")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg3, "Node3")
+    assert observer_policy.applied_num == 0
+    observer_policy.apply_data(msg4, "Node4")
+    assert observer_policy.applied_num == 0
 
 
 def test_apply_one_batch_same_sender(observer_policy, observed_data_msg):
@@ -72,7 +103,7 @@ def test_apply_one_batch_same_sender(observer_policy, observed_data_msg):
     assert observer_policy.applied_num == 0
 
 
-def test_apply_processed_batch(observer_policy, observed_data_msg):
+def test_apply_already_processed_batch(observer_policy, observed_data_msg):
     observer_policy.apply_data(observed_data_msg, "Node1")
     observer_policy.apply_data(observed_data_msg, "Node2")
     assert observer_policy.applied_num == 1
@@ -83,21 +114,23 @@ def test_apply_processed_batch(observer_policy, observed_data_msg):
     assert observer_policy.applied_num == 1
     observer_policy.apply_data(observed_data_msg, "Node3")
     assert observer_policy.applied_num == 1
+    observer_policy.apply_data(observed_data_msg, "Node4")
+    assert observer_policy.applied_num == 1
 
 
 def test_apply_multiple_batches_sequentially(observer_policy):
-    msg1 = create_observed_data(ts=1599906903)
+    msg1 = create_observed_data(seq_no=1)
     observer_policy.apply_data(msg1, "Node1")
     observer_policy.apply_data(msg1, "Node2")
     assert observer_policy.applied_num == 1
 
-    msg2 = create_observed_data(ts=1599906904)
+    msg2 = create_observed_data(seq_no=2)
     observer_policy.apply_data(msg2, "Node1")
     observer_policy.apply_data(msg2, "Node2")
     assert observer_policy.applied_num == 2
 
-    msg3 = create_observed_data(ts=1599906905)
-    msg4 = create_observed_data(ts=1599906906)
+    msg3 = create_observed_data(seq_no=3)
+    msg4 = create_observed_data(seq_no=4)
     observer_policy.apply_data(msg3, "Node1")
     observer_policy.apply_data(msg4, "Node1")
     assert observer_policy.applied_num == 2
@@ -109,10 +142,10 @@ def test_apply_multiple_batches_sequentially(observer_policy):
     assert observer_policy.applied_num == 4
 
 
-def test_apply_multiple_batches_in_different_order(observer_policy):
-    msg1 = create_observed_data(ts=1599906903)
-    msg2 = create_observed_data(ts=1599906904)
-    msg3 = create_observed_data(ts=1599906905)
+def test_apply_multiple_batches_in_reverse_order(observer_policy):
+    msg1 = create_observed_data(seq_no=1)
+    msg2 = create_observed_data(seq_no=2)
+    msg3 = create_observed_data(seq_no=3)
 
     observer_policy.apply_data(msg3, "Node1")
     observer_policy.apply_data(msg2, "Node1")
@@ -127,3 +160,30 @@ def test_apply_multiple_batches_in_different_order(observer_policy):
 
     observer_policy.apply_data(msg1, "Node2")
     assert observer_policy.applied_num == 3
+
+
+def test_apply_multiple_batches_stashed(observer_policy):
+    msg1 = create_observed_data(seq_no=1)
+    msg2 = create_observed_data(seq_no=2)
+    msg3 = create_observed_data(seq_no=3)
+    msg4 = create_observed_data(seq_no=4)
+
+    observer_policy.apply_data(msg1, "Node1")
+    observer_policy.apply_data(msg2, "Node1")
+    observer_policy.apply_data(msg3, "Node1")
+    assert observer_policy.applied_num == 0
+
+    observer_policy.apply_data(msg1, "Node2")
+    assert observer_policy.applied_num == 1
+
+    observer_policy.apply_data(msg3, "Node2")
+    assert observer_policy.applied_num == 1
+
+    observer_policy.apply_data(msg4, "Node1")
+    assert observer_policy.applied_num == 1
+
+    observer_policy.apply_data(msg2, "Node2")
+    assert observer_policy.applied_num == 3
+
+    observer_policy.apply_data(msg4, "Node2")
+    assert observer_policy.applied_num == 4
