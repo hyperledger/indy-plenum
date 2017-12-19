@@ -10,7 +10,7 @@ from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import sdk_random_request_objects
 
 
-def create_observed_data(seq_no=1, req_num=1):
+def create_observed_data(seq_no=1, req_num=5):
     reqs = [req.as_dict for req in sdk_random_request_objects(
         req_num, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     msg = BatchCommitted(reqs,
@@ -25,6 +25,18 @@ def create_observed_data(seq_no=1, req_num=1):
 @pytest.fixture()
 def observed_data_msg():
     return create_observed_data()
+
+
+@pytest.fixture()
+def observed_data_transferred(node):
+    '''
+    Emulate the message as how it comes from otehr Nodes
+    '''
+    msg = node.nodestack.deserializeMsg(
+        node.nodestack.sign_and_serialize(
+            create_observed_data())
+    )
+    return ObservedData(**msg)
 
 
 @pytest.fixture()
@@ -43,21 +55,19 @@ def test_policy_type(observer_policy):
     assert observer_policy.policy_type == BATCH
 
 
-def test_can_process_batch(observer_policy):
-    assert observer_policy._can_process(create_observed_data())
-
-    observer_policy._last_applied_seq_no = 5
-    assert not observer_policy._can_process(create_observed_data(seq_no=4))
-    assert not observer_policy._can_process(create_observed_data(seq_no=5))
-    assert observer_policy._can_process(create_observed_data(seq_no=6))
-    assert observer_policy._can_process(create_observed_data(seq_no=7))
-
-
 def test_quorum_same_message(observer_policy, observed_data_msg):
     observer_policy.apply_data(observed_data_msg, "Node1")
     assert observer_policy.applied_num == 0
 
     observer_policy.apply_data(observed_data_msg, "Node2")
+    assert observer_policy.applied_num == 1
+
+
+def test_message_as_transferred(observer_policy, observed_data_transferred):
+    observer_policy.apply_data(observed_data_transferred, "Node1")
+    assert observer_policy.applied_num == 0
+
+    observer_policy.apply_data(observed_data_transferred, "Node2")
     assert observer_policy.applied_num == 1
 
 

@@ -1,10 +1,10 @@
 import json
-from collections import deque
 from heapq import heappush, heappop
 from logging import getLogger
 
 from plenum.common.constants import BATCH, OBSERVER_PREFIX
 from plenum.common.request import Request
+from plenum.common.types import f
 from plenum.common.util import mostCommonElement
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicy
 
@@ -34,6 +34,10 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         logger.debug("{} got BATCH {} from Observable Node {}"
                      .format(OBSERVER_PREFIX, msg, sender))
 
+        msg = msg.msg
+        if not isinstance(msg, dict):
+            msg = self._node.toDict(msg)
+
         if not self._can_process(msg):
             return
 
@@ -46,7 +50,7 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
 
     @staticmethod
     def seq_no(msg):
-        return msg.msg.seqNo
+        return msg[f.SEQ_NO.nm]
 
     def _can_process(self, msg):
         if not self._last_applied_seq_no:
@@ -94,11 +98,8 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
                          .format(OBSERVER_PREFIX, str(self.seq_no(msg)), num_batches, str(quorum.value)))
             return False
 
-        msgs = [
-            json.dumps(
-                self._node.toDict(msg.msg), sort_keys=True)
-            for msg in batches_for_msg.values()
-        ]
+        msgs = [json.dumps(msg, sort_keys=True)
+                for msg in batches_for_msg.values()]
         result, freq = mostCommonElement(msgs)
         if not quorum.is_reached(freq):
             logger.debug(
@@ -112,22 +113,27 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         logger.info("{} applying BATCH {}"
                     .format(OBSERVER_PREFIX, msg))
 
-        self._do_apply_batch(msg.msg)
+        self._do_apply_batch(msg)
 
         del self._batches[self.seq_no(msg)]
         heappop(self._batch_seq_no)
         self._last_applied_seq_no = self.seq_no(msg)
 
     def _do_apply_batch(self, batch):
-        reqs = [Request(**req_dict) for req_dict in batch.request]
+        reqs = [Request(**req_dict) for req_dict in batch[f.REQUEST.nm]]
+
+        pp_time = batch[f.PP_TIME.nm]
+        ledger_id = batch[f.LEDGER_ID.nm]
+        state_root = batch[f.STATE_ROOT.nm]
+        txn_root = batch[f.TXN_ROOT.nm]
 
         self._node.apply_reqs(reqs,
-                              batch.ppTime,
-                              batch.ledgerId)
-        self._node.get_executer(batch.ledgerId)(batch.ppTime,
-                                                reqs,
-                                                batch.stateRootHash,
-                                                batch.txnRootHash)
+                              pp_time,
+                              ledger_id)
+        self._node.get_executer(ledger_id)(pp_time,
+                                           reqs,
+                                           state_root,
+                                           txn_root)
 
     def _process_stashed_messages(self):
         while True:

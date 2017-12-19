@@ -31,7 +31,7 @@ def test_observer_node(txnPoolNodeSet,
     exclude_from_consensus(observer_node)
 
     for node in other_nodes:
-        node._observable.add_observer(observer_node.name, ObserverSyncPolicyType.EACH_BATCH)
+        node.add_observer(observer_node.name, ObserverSyncPolicyType.EACH_BATCH)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client,

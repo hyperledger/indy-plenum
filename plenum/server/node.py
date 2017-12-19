@@ -47,7 +47,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, BatchCommitted
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, BatchCommitted, ObservedData
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -78,6 +78,7 @@ from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_node import NodeObserver
+from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -325,7 +326,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ThreePCState,
             MessageReq,
             MessageRep,
-            CurrentState)
+            CurrentState,
+            ObservedData
+        )
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -347,7 +350,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
-            (CurrentState, self.process_current_state_message)
+            (CurrentState, self.process_current_state_message),
+            (ObservedData, self.sendToObserver)
         )
 
         self.clientMsgRouter = Router(
@@ -993,16 +997,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: the number of messages successfully serviced.
         """
-        msgCount = 0
+        msg_count = 0
         while True:
-            if limit and msgCount >= limit:
+            if limit and msg_count >= limit:
                 break
+
             msg = self._observable.get_output()
             if not msg:
                 break
-            msgCount += 1
-            self.send(msg)
-        return msgCount
+
+            msg_count += 1
+            msg, observer_ids = msg
+            # TODO: it's assumed that all Observers are connected the same way as Validators
+            self.sendToNodes(msg, observer_ids)
+        return msg_count
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -1392,6 +1400,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
             self.msgsToViewChanger.append((msg, frm))
+
+    def sendToObserver(self, msg, frm):
+        """
+        Send the message to the observer.
+
+        :param msg: the message to send
+        :param frm: the name of the node which sent this `msg`
+        """
+        logger.debug("{} sending message to observer: {}".
+                     format(self, (msg, frm)))
+        self._observer.append_input(msg, frm)
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
@@ -2837,3 +2856,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+    def add_observer(self, observer_remote_id: str,
+                     observer_policy_type: ObserverSyncPolicyType):
+        self._observable.add_observer(
+            observer_remote_id, observer_policy_type)
+
+    def remove_observer(self, observer_remote_id):
+        self._observable.remove_observer(observer_remote_id)
+
+    def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
+        return self._observable.get_observers(observer_policy_type)
