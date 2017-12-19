@@ -104,7 +104,7 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         if not quorum.is_reached(freq):
             logger.debug(
                 "{} can not apply BATCH with timestamp {} since have just {} equal elements ({} needed for quorum)"
-                    .format(OBSERVER_PREFIX, str(self.seq_no(msg)), freq, str(quorum.value)))
+                .format(OBSERVER_PREFIX, str(self.seq_no(msg)), freq, str(quorum.value)))
             return False
 
         return True

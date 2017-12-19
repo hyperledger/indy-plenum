@@ -353,18 +353,6 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
     f.PP_SEQ_NO
 ])
 
-class ObservedData(MessageBase):
-    """
-    Purpose: propagate data from Validators to Observers
-    """
-    # TODO: support other types
-    # TODO: support validation of Msg according to the type
-    allowed_types = {REPLY}
-    typename = OBSERVED_DATA
-    schema = (
-        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
-        (f.MSG.nm, AnyValueField())
-    )
 
 class BatchCommitted(MessageBase):
     typename = BATCH_COMMITTED
@@ -376,6 +364,7 @@ class BatchCommitted(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField()),
         (f.SEQ_NO.nm, NonNegativeNumberField())
     )
+
 
 class ObservedData(MessageBase):
     """

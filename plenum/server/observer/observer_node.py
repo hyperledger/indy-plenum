@@ -28,7 +28,7 @@ class NodeObserver(Observer, HasActionQueue, MessageProcessor):
     def observer_remote_id(self) -> str:
         return self._node.name
 
-    ### MESSAGES from/to Node
+    # MESSAGES from/to Node
 
     async def serviceQueues(self, limit=None) -> int:
         """

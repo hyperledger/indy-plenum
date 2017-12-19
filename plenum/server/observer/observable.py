@@ -22,7 +22,7 @@ class Observable(HasActionQueue, MessageProcessor):
             ObserverSyncPolicyType.EACH_BATCH: ObservableSyncPolicyEachBatch(self)
         }
 
-    #### ADD/REMOVE OBSERVERS (delegated to Policies)
+    # ADD/REMOVE OBSERVERS (delegated to Policies)
 
     def add_observer(self, observer_remote_id: str,
                      observer_policy_type: ObserverSyncPolicyType):
@@ -39,7 +39,7 @@ class Observable(HasActionQueue, MessageProcessor):
             return []
         return policy.get_observers()
 
-    ### MESSAGES from/to Node
+    # MESSAGES from/to Node
 
     async def serviceQueues(self, limit=None) -> int:
         """
@@ -57,7 +57,7 @@ class Observable(HasActionQueue, MessageProcessor):
     def get_output(self):
         return self._outbox.popleft() if self._outbox else None
 
-    ### PROCESS BatchCommitted from Node Actor (delegated to Policies)
+    # PROCESS BatchCommitted from Node Actor (delegated to Policies)
 
     def process_new_batch(self, msg: BatchCommitted, sender):
         for sync_policy in self.__sync_policies.values():
@@ -68,7 +68,7 @@ class Observable(HasActionQueue, MessageProcessor):
         # TODO: support other ways of connection to observers
         self._outbox.append((msg, observer_remote_ids))
 
-    ### PRIVATE
+    # PRIVATE
 
     def _get_policy(self, observer_policy_type: ObserverSyncPolicyType):
         if observer_policy_type not in self.__sync_policies:

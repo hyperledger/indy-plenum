@@ -2416,7 +2416,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.execute_hook(POST_REQUEST_COMMIT, txn=txn, pp_time=pp_time,
                               state_root=state_root, txn_root=txn_root)
 
-
         first_txn_seq_no = committedTxns[0][F.seqNo.name]
         last_txn_seq_no = committedTxns[-1][F.seqNo.name]
         if ledger_id not in self.txn_seq_range_to_3phase_key:
@@ -2441,7 +2440,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              txn_root,
                                              first_txn_seq_no)
         self._observable.append_input(batch_committed_msg, self.name)
-
 
     def updateSeqNoMap(self, committedTxns):
         if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
