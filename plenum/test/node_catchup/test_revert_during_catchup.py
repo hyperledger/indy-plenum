@@ -2,7 +2,7 @@ from itertools import combinations
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
-from plenum.test.delayers import cDelay, cqDelay
+from plenum.test.delayers import cDelay, cqDelay, cr_delay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     check_last_ordered_3pc
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
@@ -42,7 +42,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     slow_master_replica = slow_node.master_replica
 
     commit_delay = 150
-    catchup_req_delay = 15
+    catchup_rep_delay = 15
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
@@ -63,10 +63,9 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
     old_cn_count = is_catchup_needed_count()
 
-    # Other nodes are slow to respond to CatchupReq, so that `slow_node`
+    # Slow node is slow to receive CatchupRep, so that `slow_node`
     # gets a chance to order COMMITs
-    for n in other_nodes:
-        n.nodeIbStasher.delay(cqDelay(catchup_req_delay))
+    slow_node.nodeIbStasher.delay(cr_delay(catchup_rep_delay))
 
     ensure_view_change(looper, txnPoolNodeSet)
 
@@ -100,7 +99,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
         rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
         assert rv[0] == delay_batches
 
-    looper.run(eventually(chk3, retryWait=1, timeout=catchup_req_delay + 5))
+    looper.run(eventually(chk3, retryWait=1, timeout=catchup_rep_delay + 5))
 
     def chk4():
         # Catchup was done once

@@ -616,6 +616,7 @@ def looper_without_nodeset_for_func():
     with Looper() as looper:
         yield looper
 
+
 @pytest.fixture(scope="module")
 def poolTxnNodeNames(request, index=""):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
