@@ -13,10 +13,10 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-# Do not remove the next imports
-from plenum.test.batching_3pc.conftest import tconf
-
 Max3PCBatchSize = 2
+
+# Do not remove the next imports
+from plenum.test.batching_3pc.conftest import tconf # noqa
 
 
 def test_slow_node_reverts_unordered_state_during_catchup(looper,

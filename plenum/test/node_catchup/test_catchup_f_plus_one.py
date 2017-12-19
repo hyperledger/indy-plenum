@@ -15,7 +15,7 @@ txnCount = 5
 
 
 def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf,
-                            tdirWithPoolTxns, allPluginsPath):
+                            tdirWithPoolTxns, allPluginsPath, testNodeClass):
     """
     Check that f+1 nodes is enough for catchup
     """
@@ -48,7 +48,7 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf,
 
     logger.debug("Starting the stopped node0")
     nodeHa, nodeCHa = HA(*node0.nodestack.ha), HA(*node0.clientstack.ha)
-    node0 = TestNode(
+    node0 = testNodeClass(
         node0.name,
         ledger_dir=node0.ledger_dir,
         keys_dir=node0.keys_dir,

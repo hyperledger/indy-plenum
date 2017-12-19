@@ -3,8 +3,7 @@ import pytest
 from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
+    disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
