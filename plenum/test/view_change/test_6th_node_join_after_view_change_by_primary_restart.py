@@ -6,7 +6,6 @@ from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
-from plenum.test.helper import checkViewNoForNodes
 from plenum.test.pool_transactions.conftest import wallet1, client1,\
 client1Connected, looper, stewardAndWallet1, steward1, \
      stewardWallet
@@ -60,7 +59,7 @@ def test_6th_node_join_after_view_change_by_master_restart(
          allPluginsPath, steward1, stewardWallet,
          client_tdir, limitTestRunningTime):
     """
-    Test case:
+    Test steps:
     1. start pool of 4 nodes
     2. force 4 view change by restarting primary node
     3. now primary node must be Alpha, then add new node, named Epsilon
@@ -93,6 +92,9 @@ def test_6th_node_join_after_view_change_by_master_restart(
                                     allPluginsPath,
                                     name='Epsilon')
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
+    """
+    check that pool and domain ledgers for new node are in synced state
+    """
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(pool_of_nodes))
     for node in pool_of_nodes:
         looper.run(eventually(check_ledger_state, node, DOMAIN_LEDGER_ID,

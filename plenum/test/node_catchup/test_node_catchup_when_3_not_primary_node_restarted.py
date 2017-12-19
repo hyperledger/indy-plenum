@@ -32,8 +32,30 @@ def catchuped(node):
 def test_node_catchup_when_3_not_primary_node_restarted(
         looper, txnPoolNodeSet, tdir, tconf,
          allPluginsPath, steward1, stewardWallet, limitTestRunningTime):
+    """
+    Test case:
+    1. Create pool of 4 nodes
+    2. Stop not primary node
+    3. Send some txns
+    4. Start stopped node
+    5. Ensure, that restarted node got all txns which was sent during restart
+    6. Do step 2-5 for other not primary node in pool
+    """
 
     def start_stop_one_node(node_to_restart, pool_of_nodes):
+        """
+
+        :param node_to_restart: node, which would be restarted
+        :param pool_of_nodes: current pool
+        :return: new pool with restarted node
+        Node restart procedure consist of:
+        1. Calling stop()
+        2. Remove from looper and pool
+        3. Create new instance of node with the same ha, cliha and node_name
+        (also all path to data, keys and etc would be exactly as for stopped node)
+        4. Add new instance into looper and pool
+        5. Check, that other nodes accepted new instance and all pool has the same data
+        """
 
         remaining_nodes = list(set(pool_of_nodes) - {node_to_restart})
         disconnect_node_and_ensure_disconnected(looper,
