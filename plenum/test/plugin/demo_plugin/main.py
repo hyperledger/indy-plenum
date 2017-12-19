@@ -27,7 +27,7 @@ def update_node_obj(node):
                                  ledger,
                                  postTxnAddedToLedgerClbk=node.postTxnFromCatchupAddedToLedger)
     node.on_new_ledger_added(AUCTION_LEDGER_ID)
-    node.states[AUCTION_LEDGER_ID] = state
+    node.register_state(AUCTION_LEDGER_ID, state)
     auction_authnr = AuctionAuthNr(node.states[DOMAIN_LEDGER_ID])
     node.clientAuthNr.register_authenticator(auction_authnr)
     auction_req_handler = AuctionReqHandler(ledger, state)

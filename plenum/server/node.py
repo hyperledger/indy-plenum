@@ -175,7 +175,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
 
-        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -275,7 +275,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.msgsToViewChanger = deque()
 
         if self.poolLedger:
-            self.states[POOL_LEDGER_ID] = self.poolManager.state
+            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
 
         self.ledgerManager = self.get_new_ledger_manager()
 
@@ -421,7 +421,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.view_changer.view_change_in_progress)
 
     def init_config_state(self):
-        self.setup_config_state()
+        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
         self.setup_config_req_handler()
         self.initConfigState()
 
@@ -432,9 +432,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
-
-    def setup_config_state(self):
-        self.states[CONFIG_LEDGER_ID] = self.loadConfigState()
 
     def setup_config_req_handler(self):
         self.configReqHandler = self.getConfigReqHandler()
@@ -735,6 +732,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def on_new_ledger_added(self, ledger_id):
         # If a ledger was added after a replicas were created
         self.replicas.register_new_ledger(ledger_id)
+
+    def register_state(self, ledger_id, state):
+        self.states[ledger_id] = state
 
     def register_req_handler(self, ledger_id: int, req_handler: RequestHandler):
         self.ledger_to_req_handler[ledger_id] = req_handler
