@@ -369,7 +369,7 @@ class ObservedData(MessageBase):
 class BatchCommitted(MessageBase):
     typename = BATCH_COMMITTED
     schema = (
-        (f.REQUEST.nm, AnyValueField()),
+        (f.REQUEST.nm, IterableField(AnyValueField())),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),

@@ -62,7 +62,8 @@ def policy_each_reply(observable):
 
 @pytest.fixture()
 def fake_msg_batch_committed():
-    reqs = sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)
+    reqs = tuple(req.as_dict for req in
+            sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION))
     BatchCommitted(reqs,
                    DOMAIN_LEDGER_ID,
                    get_utc_epoch(),

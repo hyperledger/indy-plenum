@@ -6,7 +6,7 @@ from plenum.common.util import randomString
 from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.node_catchup.helper import checkNodeDataForEquality
+from plenum.test.node_catchup.helper import checkNodeDataForEquality, checkNodeDataForInequality
 from plenum.test.pool_transactions.helper import new_node
 from stp_core.network.port_dispenser import genHa
 
@@ -34,25 +34,43 @@ def fake_node(txnPoolNodeSet,
 
 
 @pytest.fixture(scope="module")
-def observed_data_msg(looper,
-                      txnPoolNodeSet,
-                      sdk_pool_handle, sdk_wallet_client):
+def observed_data_msgs(looper,
+                       txnPoolNodeSet,
+                       sdk_pool_handle, sdk_wallet_client):
     txnPoolNodeSet[0]._observable.add_observer("observer1", ObserverSyncPolicyType.EACH_BATCH)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client,
-                              1)
+                              10)
 
-    return txnPoolNodeSet[0]._observable.get_output()[0]
+    msgs = []
+    while True:
+        msg = txnPoolNodeSet[0]._observable.get_output()
+        if msg is None:
+            break
+        msgs.append(msg[0])
+    return msgs
+
 
 @pytest.fixture(scope="module")
 def fake_node_observer(fake_node):
     return NodeObserver(fake_node)
 
+
 def test_apply_data(fake_node,
                     fake_node_observer,
                     txnPoolNodeSet,
-                    observed_data_msg):
-    fake_node_observer.apply_data(observed_data_msg)
+                    observed_data_msgs):
+    # check that Observer is not synced with the pool
+    checkNodeDataForInequality(fake_node,
+                               *txnPoolNodeSet,
+                               exclude_from_check=['check_last_ordered_3pc', 'check_seqno_db'])
+
+    # emulate sending of ObserverData from each Node
+    for observed_data_msg in observed_data_msgs:
+        for node in txnPoolNodeSet:
+            fake_node_observer.apply_data(observed_data_msg, node.name)
+
+    # check that Observer is synced with the pool
     checkNodeDataForEquality(fake_node,
                              *txnPoolNodeSet,
                              exclude_from_check=['check_last_ordered_3pc'])

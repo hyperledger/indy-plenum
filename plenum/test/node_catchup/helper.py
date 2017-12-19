@@ -26,12 +26,12 @@ def checkNodeDataForEquality(node: TestNode,
                              exclude_from_check=None):
     # Checks for node's ledgers and state's to be equal
     for n in otherNodes:
-        if 'check_last_ordered_3pc' not in exclude_from_check:
+        if exclude_from_check and 'check_last_ordered_3pc' not in exclude_from_check:
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
-        if 'check_seqno_db' not in exclude_from_check:
+        if exclude_from_check and 'check_seqno_db' not in exclude_from_check:
             check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
         else:
             logger.debug("Excluding check_seqno_db_equality check")
@@ -46,10 +46,11 @@ def checkNodeDataForEquality(node: TestNode,
 
 
 def checkNodeDataForInequality(node: TestNode,
-                               *otherNodes: Iterable[TestNode]):
+                               *otherNodes: Iterable[TestNode],
+                               exclude_from_check=None):
     # Checks for node's ledgers and state's to be unequal
     with pytest.raises(AssertionError):
-        checkNodeDataForEquality(node, *otherNodes)
+        checkNodeDataForEquality(node, *otherNodes, exclude_from_check=exclude_from_check)
 
 
 def waitNodeDataEquality(looper,

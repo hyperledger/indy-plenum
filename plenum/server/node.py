@@ -77,6 +77,7 @@ from plenum.server.monitor import Monitor
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
 from plenum.server.observer.observable import Observable
+from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -403,6 +404,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         HookManager.__init__(self, NODE_HOOKS)
 
         self._observable = Observable()
+        self._observer = NodeObserver(self)
 
     @property
     def viewNo(self):
@@ -908,6 +910,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)
             c += await self.service_observable(limit)
+            c += await self.service_observer(limit)
             self.nodestack.flushOutBoxes()
         if self.isGoing():
             self.nodestack.serviceLifecycle()
@@ -973,6 +976,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         o = self._service_observable_out_box(limit)
         i = await self._observable.serviceQueues(limit)
         return o + i
+
+    async def service_observer(self, limit) -> int:
+        """
+        Service the observer's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        return await self._observer.serviceQueues(limit)
 
     def _service_observable_out_box(self, limit: int=None) -> int:
         """
@@ -2402,7 +2415,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} popped {} from txn to batch seqNo map'.
                          format(self, old))
 
-        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+        batch_committed_msg = BatchCommitted(tuple([req.as_dict for req in reqs]),
                                              ledger_id,
                                              pp_time,
                                              state_root,
