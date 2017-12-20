@@ -2379,7 +2379,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return i
 
     def update_watermark_from_3pc(self):
-        if self.last_ordered_3pc is not None:
+        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
             logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc[1]))
             self.h = self.last_ordered_3pc[1]
         else:
