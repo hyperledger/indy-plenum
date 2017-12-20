@@ -9,6 +9,10 @@ logger = getLogger()
 
 
 class ObservableSyncPolicyEachBatch(ObservableSyncPolicy):
+    '''
+    A simple policy propagating each committed batch to Observers
+    '''
+
     def __init__(self, observable) -> None:
         super().__init__(observable)
 

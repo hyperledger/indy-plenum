@@ -5,6 +5,12 @@ logger = getLogger()
 
 
 class Observer(metaclass=ABCMeta):
+    '''
+    The abstract Observer interface.
+    A number of observer strategies (policies) can be attached which deal with the
+    incoming ObservedData messages (in fact, the policies should match ObservedData msg type and ObservableSyncPolicies)
+    '''
+
     def __init__(self, sync_policies) -> None:
         self.__sync_policies = {policy.policy_type: policy for policy in sync_policies}
 

@@ -64,9 +64,10 @@ def policy_each_reply(observable):
 def fake_msg_batch_committed():
     reqs = [req.as_dict for req in
             sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
-    BatchCommitted(reqs,
-                   DOMAIN_LEDGER_ID,
-                   get_utc_epoch(),
-                   generate_state_root(),
-                   generate_state_root(),
-                   1)
+    return BatchCommitted(reqs,
+                          DOMAIN_LEDGER_ID,
+                          get_utc_epoch(),
+                          generate_state_root(),
+                          generate_state_root(),
+                          1,
+                          10)

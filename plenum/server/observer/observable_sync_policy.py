@@ -5,6 +5,12 @@ from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 
 
 class ObservableSyncPolicy(metaclass=ABCMeta):
+    '''
+    The abstract Strategy (policy) on how Observable can keep Observers in sync.
+    Subclasses must implement `can_process` and  `process_new_batch` methods.
+    `process_new_batch` method defines the custom logic of the policy when each batch is committed
+     (whether to send the batch to Observers immediataley and as is, or stash them and send by timeouts, etc.)
+    '''
     def __init__(self, observable) -> None:
         self._observable = observable
         self._observers = []

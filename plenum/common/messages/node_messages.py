@@ -357,12 +357,14 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
 class BatchCommitted(MessageBase):
     typename = BATCH_COMMITTED
     schema = (
-        (f.REQUEST.nm, IterableField(AnyValueField())),
+        (f.REQUESTS.nm,
+         IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),
-        (f.SEQ_NO.nm, NonNegativeNumberField())
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField())
     )
 
 
@@ -378,3 +380,14 @@ class ObservedData(MessageBase):
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
         (f.MSG.nm, AnyValueField())
     )
+
+    def _validate_message(self, dct):
+        msg = dct[f.MSG.nm]
+        # TODO: support other types
+        expected_type_cls = BatchCommitted
+        if isinstance(msg, expected_type_cls):
+            return None
+        if (isinstance(msg, dict)):
+            expected_type_cls(**msg)
+            return None
+        self._raise_invalid_fields(f.MSG.nm, msg, "The message type must be {} ".format(expected_type_cls.typename))

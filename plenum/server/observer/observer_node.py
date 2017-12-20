@@ -12,6 +12,12 @@ logger = getLogger()
 
 
 class NodeObserver(Observer, HasActionQueue, MessageProcessor):
+    '''
+    An observer attached to each Node.
+    As of now, it supports the simplest policy when each committed batch by Validators
+    is propagated and applied to Observers.
+    '''
+
     def __init__(self, node) -> None:
         self._node = node
         super().__init__(

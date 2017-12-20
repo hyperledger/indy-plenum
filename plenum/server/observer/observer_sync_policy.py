@@ -9,6 +9,11 @@ class ObserverSyncPolicyType(Enum):
 
 
 class ObserverSyncPolicy(metaclass=ABCMeta):
+    '''
+    Abstract policy defining how to process incoming ObservedData messages
+    (in fact, the policies should match ObservedData msg type and ObservableSyncPolicies)
+    '''
+
     def __init__(self) -> None:
         pass
 

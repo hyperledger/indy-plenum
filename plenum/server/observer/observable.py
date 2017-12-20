@@ -9,6 +9,17 @@ from plenum.server.router import Router
 
 
 class Observable(HasActionQueue, MessageProcessor):
+    '''
+    Observable part of the Node needed to keep Observers in sync.
+    It can have multiple strategies (policies) on how to notify Observers.
+    As of now, just one simple policy is supported - Notify all Observers after each batch is committed.
+
+    - Node sends BatchCommitted message to Observable (puts to inbox)
+    - Observable creates ObservedData message depending on the strategy and puts to outbox
+    - Node gets ObservedData message from outbox and sends to the specified Observers
+    - As of now it's assumed that all Observers are nodes connected in the nodestack (as other Validators)
+     '''
+
     def __init__(self) -> None:
         HasActionQueue.__init__(self)
         self._inbox = deque()
@@ -48,7 +59,6 @@ class Observable(HasActionQueue, MessageProcessor):
         :param limit: the maximum number of messages to service
         :return: the number of messages successfully processed
         """
-
         return await self._inbox_router.handleAll(self._inbox, limit)
 
     def append_input(self, msg, sender):
