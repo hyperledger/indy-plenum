@@ -355,6 +355,10 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
 
 
 class BatchCommitted(MessageBase):
+    """
+    Purpose: pass to Observable after each batch is committed
+    (so that Observable can propagate the data to Observers using ObservedData msg)
+    """
     typename = BATCH_COMMITTED
     schema = (
         (f.REQUESTS.nm,

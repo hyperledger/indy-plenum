@@ -351,7 +351,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
             (CurrentState, self.process_current_state_message),
-            (ObservedData, self.sendToObserver)
+            (ObservedData, self.send_to_observer)
         )
 
         self.clientMsgRouter = Router(
@@ -981,19 +981,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self._observable.serviceQueues(limit)
         return o + i
 
-    async def service_observer(self, limit) -> int:
-        """
-        Service the observer's inBox and outBox
-
-        :return: the number of messages successfully serviced
-        """
-        if not self.isReady():
-            return 0
-        return await self._observer.serviceQueues(limit)
-
     def _service_observable_out_box(self, limit: int=None) -> int:
         """
-        Service at most `limit` number of messages from the view_changer's outBox.
+        Service at most `limit` number of messages from the observable's outBox.
 
         :return: the number of messages successfully serviced.
         """
@@ -1011,6 +1001,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: it's assumed that all Observers are connected the same way as Validators
             self.sendToNodes(msg, observer_ids)
         return msg_count
+
+    async def service_observer(self, limit) -> int:
+        """
+        Service the observer's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        return await self._observer.serviceQueues(limit)
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -1401,7 +1401,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          format(self, (msg, frm)))
             self.msgsToViewChanger.append((msg, frm))
 
-    def sendToObserver(self, msg, frm):
+    def send_to_observer(self, msg, frm):
         """
         Send the message to the observer.
 
@@ -2509,8 +2509,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            reply = Reply(txn)
-            self.sendReplyToClient(reply,
+            self.sendReplyToClient(Reply(txn),
                                    (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
 
     def sendReplyToClient(self, reply, reqKey):

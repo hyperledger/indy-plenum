@@ -53,6 +53,11 @@ def observer_policy(node):
     return policy
 
 
+'''
+In all the tests we assume that consensus quorum to apply ObservedData is f+1=2
+'''
+
+
 def test_policy_type(observer_policy):
     assert observer_policy.policy_type == BATCH
 
@@ -113,6 +118,9 @@ def test_apply_one_batch_same_sender(observer_policy, observed_data_msg):
 
     observer_policy.apply_data(observed_data_msg, "Node1")
     assert observer_policy.applied_num == 0
+
+    observer_policy.apply_data(observed_data_msg, "Node2")
+    assert observer_policy.applied_num == 1
 
 
 def test_apply_already_processed_batch(observer_policy, observed_data_msg):
