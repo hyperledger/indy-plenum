@@ -1617,11 +1617,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # request
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
-                for reqKey in pp.reqIdr[:pp.discarded]:
-                    req = self.requests[reqKey].finalised
-                    self.node.applyReq(req, pp.ppTime)
-                state_root = self.stateRootHash(pp.ledgerId, to_str=False)
-                self.node.onBatchCreated(pp.ledgerId, state_root)
+                self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
+                                             pp.ppTime,
+                                             pp.ledgerId)
 
             self.stashingWhileCatchingUp.remove(key)
 

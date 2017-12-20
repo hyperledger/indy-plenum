@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TXN_TYPE, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, \
+    GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NODE_HOOKS, PRE_STATIC_VALIDATION, \
     POST_STATIC_VALIDATION, \
@@ -47,7 +47,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, BatchCommitted, ObservedData
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -76,6 +76,9 @@ from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
+from plenum.server.observer.observable import Observable
+from plenum.server.observer.observer_node import NodeObserver
+from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -323,7 +326,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ThreePCState,
             MessageReq,
             MessageRep,
-            CurrentState)
+            CurrentState,
+            ObservedData
+        )
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -345,7 +350,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
-            (CurrentState, self.process_current_state_message)
+            (CurrentState, self.process_current_state_message),
+            (ObservedData, self.send_to_observer)
         )
 
         self.clientMsgRouter = Router(
@@ -400,6 +406,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._last_performance_check_data = {}
 
         HookManager.__init__(self, NODE_HOOKS)
+
+        self._observable = Observable()
+        self._observer = NodeObserver(self)
 
     @property
     def viewNo(self):
@@ -903,7 +912,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self._serviceActions()
             c += self.ledgerManager.service()
             c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger()
+            c += await self.serviceViewChanger(limit)
+            c += await self.service_observable(limit)
+            c += await self.service_observer(limit)
             self.nodestack.flushOutBoxes()
         if self.isGoing():
             self.nodestack.serviceLifecycle()
@@ -944,7 +955,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    async def serviceViewChanger(self) -> int:
+    async def serviceViewChanger(self, limit) -> int:
         """
         Service the view_changer's inBox, outBox and action queues.
 
@@ -952,11 +963,54 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if not self.isReady():
             return 0
-        o = self.serviceViewChangerOutBox()
-        i = await self.serviceViewChangerInbox()
+        o = self.serviceViewChangerOutBox(limit)
+        i = await self.serviceViewChangerInbox(limit)
         # TODO: Why is protected method accessed here?
         a = self.view_changer._serviceActions()
         return o + i + a
+
+    async def service_observable(self, limit) -> int:
+        """
+        Service the observable's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        o = self._service_observable_out_box(limit)
+        i = await self._observable.serviceQueues(limit)
+        return o + i
+
+    def _service_observable_out_box(self, limit: int=None) -> int:
+        """
+        Service at most `limit` number of messages from the observable's outBox.
+
+        :return: the number of messages successfully serviced.
+        """
+        msg_count = 0
+        while True:
+            if limit and msg_count >= limit:
+                break
+
+            msg = self._observable.get_output()
+            if not msg:
+                break
+
+            msg_count += 1
+            msg, observer_ids = msg
+            # TODO: it's assumed that all Observers are connected the same way as Validators
+            self.sendToNodes(msg, observer_ids)
+        return msg_count
+
+    async def service_observer(self, limit) -> int:
+        """
+        Service the observer's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        return await self._observer.serviceQueues(limit)
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -1346,6 +1400,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
             self.msgsToViewChanger.append((msg, frm))
+
+    def send_to_observer(self, msg, frm):
+        """
+        Send the message to the observer.
+
+        :param msg: the message to send
+        :param frm: the name of the node which sent this `msg`
+        """
+        logger.debug("{} sending message to observer: {}".
+                     format(self, (msg, frm)))
+        self._observer.append_input(msg, frm)
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
@@ -1844,6 +1909,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
+    def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
+        requests = []
+        for req_key in request_ids:
+            requests.append(self.requests[req_key].finalised)
+        self.apply_reqs(requests, cons_time, ledger_id)
+
+    def apply_reqs(self, requests, cons_time: int, ledger_id):
+        for req in requests:
+            self.applyReq(req, cons_time)
+        state_root = self.stateRootHash(ledger_id, isCommitted=False)
+        self.onBatchCreated(ledger_id, state_root)
+
     def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
@@ -2319,41 +2396,51 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
             )
             raise
-        else:
-            if committedTxns:
-                # TODO is it possible to get len(committedTxns) != len(reqs)
-                # someday
-                for request in reqs:
-                    self.requests.mark_as_executed(request)
-                logger.info(
-                    "{} committed batch request, view no {}, ppSeqNo {}, "
-                    "ledger {}, state root {}, txn root {}, requests: {}".
-                    format(self, view_no, pp_seq_no, ledger_id, state_root,
-                           txn_root,
-                           [(req.identifier, req.reqId) for req in reqs])
-                )
+
+        if not committedTxns:
+            return
+
+        # TODO is it possible to get len(committedTxns) != len(reqs)
+        # someday
+        for request in reqs:
+            self.requests.mark_as_executed(request)
+        logger.info(
+            "{} committed batch request, view no {}, ppSeqNo {}, "
+            "ledger {}, state root {}, txn root {}, requests: {}".
+            format(self, view_no, pp_seq_no, ledger_id, state_root,
+                   txn_root,
+                   [(req.identifier, req.reqId) for req in reqs])
+        )
 
         for txn in committedTxns:
             self.execute_hook(POST_REQUEST_COMMIT, txn=txn, pp_time=pp_time,
                               state_root=state_root, txn_root=txn_root)
 
-        if committedTxns:
-            first_txn_seq_no = committedTxns[0][F.seqNo.name]
-            last_txn_seq_no = committedTxns[-1][F.seqNo.name]
-            if ledger_id not in self.txn_seq_range_to_3phase_key:
-                self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
-            # adding one to end of range since its exclusive
-            intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-            intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
-            logger.debug('{} storing 3PC key {} for ledger {} range {}'.
-                         format(self, (view_no, pp_seq_no), ledger_id,
-                                (first_txn_seq_no, last_txn_seq_no)))
-            if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
-                # Remove the first element from the interval tree
-                old = intrv_tree[intrv_tree.begin()].pop()
-                intrv_tree.remove(old)
-                logger.debug('{} popped {} from txn to batch seqNo map'.
-                             format(self, old))
+        first_txn_seq_no = committedTxns[0][F.seqNo.name]
+        last_txn_seq_no = committedTxns[-1][F.seqNo.name]
+        if ledger_id not in self.txn_seq_range_to_3phase_key:
+            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+        # adding one to end of range since its exclusive
+        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
+        intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
+        logger.debug('{} storing 3PC key {} for ledger {} range {}'.
+                     format(self, (view_no, pp_seq_no), ledger_id,
+                            (first_txn_seq_no, last_txn_seq_no)))
+        if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
+            # Remove the first element from the interval tree
+            old = intrv_tree[intrv_tree.begin()].pop()
+            intrv_tree.remove(old)
+            logger.debug('{} popped {} from txn to batch seqNo map'.
+                         format(self, old))
+
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+                                             ledger_id,
+                                             pp_time,
+                                             state_root,
+                                             txn_root,
+                                             first_txn_seq_no,
+                                             last_txn_seq_no)
+        self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns):
         if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
@@ -2422,8 +2509,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn), (idr_from_req_data(txn),
-                                                txn[f.REQ_ID.nm]))
+            self.sendReplyToClient(Reply(txn),
+                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
@@ -2510,11 +2597,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
-                for reqKey in msg.reqIdr:
-                    req = self.requests[reqKey].finalised
-                    self.applyReq(req, msg.ppTime)
-                state_root = self.stateRootHash(msg.ledgerId, isCommitted=False)
-                self.onBatchCreated(msg.ledgerId, state_root)
+                self.apply_stashed_reqs(msg.reqIdr,
+                                        msg.ppTime,
+                                        msg.ledgerId)
 
             self.processOrdered(msg)
             i += 1
@@ -2769,3 +2854,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+    def add_observer(self, observer_remote_id: str,
+                     observer_policy_type: ObserverSyncPolicyType):
+        self._observable.add_observer(
+            observer_remote_id, observer_policy_type)
+
+    def remove_observer(self, observer_remote_id):
+        self._observable.remove_observer(observer_remote_id)
+
+    def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
+        return self._observable.get_observers(observer_policy_type)

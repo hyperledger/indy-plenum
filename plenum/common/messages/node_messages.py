@@ -3,7 +3,7 @@ from typing import TypeVar, NamedTuple
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
     POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
@@ -352,3 +352,46 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
     f.VIEW_NO,
     f.PP_SEQ_NO
 ])
+
+
+class BatchCommitted(MessageBase):
+    """
+    Purpose: pass to Observable after each batch is committed
+    (so that Observable can propagate the data to Observers using ObservedData msg)
+    """
+    typename = BATCH_COMMITTED
+    schema = (
+        (f.REQUESTS.nm,
+         IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField())
+    )
+
+
+class ObservedData(MessageBase):
+    """
+    Purpose: propagate data from Validators to Observers
+    """
+    # TODO: support other types
+    # TODO: support validation of Msg according to the type
+    allowed_types = {BATCH}
+    typename = OBSERVED_DATA
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
+        (f.MSG.nm, AnyValueField())
+    )
+
+    def _validate_message(self, dct):
+        msg = dct[f.MSG.nm]
+        # TODO: support other types
+        expected_type_cls = BatchCommitted
+        if isinstance(msg, expected_type_cls):
+            return None
+        if (isinstance(msg, dict)):
+            expected_type_cls(**msg)
+            return None
+        self._raise_invalid_fields(f.MSG.nm, msg, "The message type must be {} ".format(expected_type_cls.typename))

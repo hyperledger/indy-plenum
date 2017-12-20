@@ -119,16 +119,32 @@ def start_newly_added_node(
         auto_start,
         plugin_path,
         nodeClass):
+    node = new_node(node_name=node_name,
+                    tdir=tdir,
+                    node_ha=node_ha,
+                    client_ha=client_ha,
+                    tconf=tconf,
+                    plugin_path=plugin_path,
+                    nodeClass=nodeClass)
+    if auto_start:
+        looper.add(node)
+    return node
+
+def new_node(
+        node_name,
+        tdir,
+        node_ha,
+        client_ha,
+        tconf,
+        plugin_path,
+        nodeClass):
     config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
     node = nodeClass(node_name,
                      config_helper=config_helper,
                      config=tconf,
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
-    if auto_start:
-        looper.add(node)
     return node
-
 
 def addNewSteward(looper, client_tdir,
                   creatorClient, creatorWallet, stewardName,
