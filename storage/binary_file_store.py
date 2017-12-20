@@ -63,17 +63,4 @@ class BinaryFileStore(SingleFileStore):
                 if len(line.strip(self.lineSep)) != 0)
 
     def _append_new_line_if_req(self):
-        try:
-            logging.debug("new line check for file: {}".format(self.db_path))
-            with open(self.db_path, 'a+b') as f:
-                size = f.tell()
-                if size > 0:
-                    f.seek(-len(self.lineSep), 2)  # last character in file
-                    if f.read() != self.lineSep:
-                        linesep = self.lineSep if isinstance(
-                            self.lineSep, bytes) else self.lineSep.encode()
-                        f.write(linesep)
-                        logging.debug(
-                            "new line added for file: {}".format(self.db_path))
-        except FileNotFoundError:
-            pass
+        pass

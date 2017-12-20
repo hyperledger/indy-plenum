@@ -119,19 +119,32 @@ def start_newly_added_node(
         auto_start,
         plugin_path,
         nodeClass):
-    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
-    node = nodeClass(node_name,
-                     ledger_dir=config_helper.ledger_dir,
-                     keys_dir=config_helper.keys_dir,
-                     genesis_dir=config_helper.genesis_dir,
-                     plugins_dir=config_helper.plugins_dir,
-                     config=tconf,
-                     ha=node_ha, cliha=client_ha,
-                     pluginPaths=plugin_path)
+    node = new_node(node_name=node_name,
+                    tdir=tdir,
+                    node_ha=node_ha,
+                    client_ha=client_ha,
+                    tconf=tconf,
+                    plugin_path=plugin_path,
+                    nodeClass=nodeClass)
     if auto_start:
         looper.add(node)
     return node
 
+def new_node(
+        node_name,
+        tdir,
+        node_ha,
+        client_ha,
+        tconf,
+        plugin_path,
+        nodeClass):
+    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+    node = nodeClass(node_name,
+                     config_helper=config_helper,
+                     config=tconf,
+                     ha=node_ha, cliha=client_ha,
+                     pluginPaths=plugin_path)
+    return node
 
 def addNewSteward(looper, client_tdir,
                   creatorClient, creatorWallet, stewardName,
@@ -225,10 +238,7 @@ def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
     looper.removeProdable(name=node.name)
     config_helper = PNodeConfigHelper(node_alias, tconf, chroot=tdir)
     restartedNode = TestNode(node_alias,
-                             ledger_dir=config_helper.ledger_dir,
-                             keys_dir=config_helper.keys_dir,
-                             genesis_dir=config_helper.genesis_dir,
-                             plugins_dir=config_helper.plugins_dir,
+                             config_helper=config_helper,
                              config=tconf,
                              ha=HA(node_ip, node_port),
                              cliha=HA(client_ip, client_port))

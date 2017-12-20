@@ -119,7 +119,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         return True
 
     @property
-    def is_propagated_view_change_completed(self):
+    def _is_propagated_view_change_completed(self):
         if not self._propagated_view_change_completed and \
                 self.node.poolLedger is not None and \
                 self.propagate_primary:
@@ -165,7 +165,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if not self._has_acceptable_view_change_quorum:
             self._has_acceptable_view_change_quorum = (
                 self._hasViewChangeQuorum and
-                (self.is_propagated_view_change_completed or
+                (self._is_propagated_view_change_completed or
                  self.has_view_change_from_primary)
             )
         return self._has_acceptable_view_change_quorum
@@ -235,7 +235,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def on_catchup_complete(self):
         if self.node.is_synced and self.node.master_replica.isPrimary is None and \
-                not self.is_propagated_view_change_completed:
+                not self._is_propagated_view_change_completed:
             self._send_view_change_done_message()
 
         self._start_selection()
@@ -411,7 +411,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
         # malicious nodes sending messages early on
-        can, whyNot = self.canViewChange(view_no)
+        can, whyNot = self._canViewChange(view_no)
         if can:
             logger.info("{}{} initiating a view change to {} from {}".
                         format(VIEW_CHANGE_PREFIX, self, view_no, self.view_no))
@@ -433,7 +433,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             return True
         return False
 
-    def canViewChange(self, proposedViewNo: int) -> (bool, str):
+    def _canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
         number and its view is less than or equal to the proposed view
@@ -493,7 +493,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             rv = self.get_sufficient_same_view_change_done_messages()
             if rv is None:
                 error = "there are not sufficient same ViewChangeDone messages"
-            elif not (self.is_propagated_view_change_completed or
+            elif not (self._is_propagated_view_change_completed or
                       self._verify_primary(*rv)):
                 error = "failed to verify primary"
 
@@ -514,7 +514,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         nodeReg = None
         # in case of already completed view change
         # use node registry actual for the moment when it happened
-        if self.is_propagated_view_change_completed:
+        if self._is_propagated_view_change_completed:
             assert self._accepted_view_change_done_message is not None
             ledger_summary = self._accepted_view_change_done_message[1]
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]

@@ -60,10 +60,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
     # start node with new HA
     config_helper = PNodeConfigHelper(subjectedNode.name, tconf, chroot=tdir)
     restartedNode = TestNode(subjectedNode.name,
-                             ledger_dir=config_helper.ledger_dir,
-                             keys_dir=config_helper.keys_dir,
-                             genesis_dir=config_helper.genesis_dir,
-                             plugins_dir=config_helper.plugins_dir,
+                             config_helper=config_helper,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)
