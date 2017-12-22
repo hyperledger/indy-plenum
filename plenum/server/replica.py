@@ -493,9 +493,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # if this is a Primary that is re-connected (that is view change is not actually changed,
         # we just propagate it, then make sure that we don;t break the sequence
         # of ppSeqNo
+        self.update_watermark_from_3pc()
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-            self.update_watermark_from_3pc()
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -1617,11 +1617,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # request
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
-                for reqKey in pp.reqIdr[:pp.discarded]:
-                    req = self.requests[reqKey].finalised
-                    self.node.applyReq(req, pp.ppTime)
-                state_root = self.stateRootHash(pp.ledgerId, to_str=False)
-                self.node.onBatchCreated(pp.ledgerId, state_root)
+                self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
+                                             pp.ppTime,
+                                             pp.ledgerId)
 
             self.stashingWhileCatchingUp.remove(key)
 
@@ -2379,7 +2377,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return i
 
     def update_watermark_from_3pc(self):
-        if self.last_ordered_3pc:
+        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
             logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc[1]))
             self.h = self.last_ordered_3pc[1]
         else:
