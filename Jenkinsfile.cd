@@ -5,6 +5,16 @@
 
 def name = 'indy-plenum'
 
+properties([
+    [$class: 'BuildDiscarderProperty', strategy: [
+        $class: 'LogRotator',
+        artifactDaysToKeepStr: '7',
+        artifactNumToKeepStr: '',
+        daysToKeepStr: '7',
+        numToKeepStr: ''
+    ]]
+]);
+
 def plenumTestUbuntu = { offset, increment ->
     try {
         echo 'Ubuntu Test: Checkout csm'
