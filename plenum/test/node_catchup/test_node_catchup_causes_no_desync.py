@@ -22,11 +22,6 @@ txnCount = 5
 
 def make_master_replica_lag(node):
 
-    # class AbysmalBox(list):
-    #     def append(self, object) -> None:
-    #         pass
-    #
-    # node.replicas._master_replica.inBox = AbysmalBox()
     node.nodeIbStasher.delay(ppDelay(1200, 0))
     node.nodeIbStasher.delay(pDelay(1200, 0))
     node.nodeIbStasher.delay(cDelay(1200, 0))

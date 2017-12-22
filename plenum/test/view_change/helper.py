@@ -95,10 +95,11 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     """
     old_view_no = checkViewNoForNodes(nodes)
 
-    old_meths = {}
+    old_meths = {node.name: {} for node in nodes}
     view_changes = {}
     for node in nodes:
-        old_meths[node.name] = node.monitor.isMasterDegraded
+        old_meths[node.name]['isMasterDegraded'] = node.monitor.isMasterDegraded
+        old_meths[node.name]['_update_new_ordered_reqs_count'] = node._update_new_ordered_reqs_count
         view_changes[node.name] = node.monitor.totalViewChanges
 
         def slow_master(self):
@@ -110,6 +111,8 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
 
         node.monitor.isMasterDegraded = types.MethodType(
             slow_master, node.monitor)
+        node._update_new_ordered_reqs_count = types.MethodType(
+            lambda self: True, node)
 
     perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
     timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
@@ -122,7 +125,8 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
 
     logger.debug('Patching back perf check for all nodes')
     for node in nodes:
-        node.monitor.isMasterDegraded = old_meths[node.name]
+        node.monitor.isMasterDegraded = old_meths[node.name]['isMasterDegraded']
+        node._update_new_ordered_reqs_count = old_meths[node.name]['_update_new_ordered_reqs_count']
     return old_view_no + 1
 
 

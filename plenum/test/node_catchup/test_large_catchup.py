@@ -29,6 +29,18 @@ def decrease_max_request_size(node):
     node.nodestack.prepare_for_sending = prepare_for_sending
 
 
+@pytest.fixture(scope="module")
+def tconf(request, tconf):
+    old_size = tconf.CLIENT_REPLY_TIMEOUT
+    tconf.CLIENT_REPLY_TIMEOUT = 60
+
+    def reset():
+        tconf.CLIENT_REPLY_TIMEOUT = old_size
+
+    request.addfinalizer(reset)
+    return tconf
+
+@pytest.mark.skip()
 def test_large_catchup(tdir, tconf,
                        looper,
                        testNodeClass,

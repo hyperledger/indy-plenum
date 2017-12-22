@@ -31,8 +31,8 @@ def looper(txnPoolNodesLooper):
 
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(looper, testNodeClass, txnPoolNodeSet,
-                             tdir, tdirWithClientPoolTxns, poolTxnStewardData, tconf,
-                             allPluginsPath, request):
+                             tdir, tdirWithClientPoolTxns, poolTxnStewardData,
+                             tconf, allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithClientPoolTxns,
                                               clientClass=TestClient)
@@ -47,7 +47,8 @@ def nodeCreatedAfterSomeTxns(looper, testNodeClass, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, client, wallet, newStewardName, newNodeName,
-        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True)
     yield looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet
 

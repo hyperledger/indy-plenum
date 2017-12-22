@@ -2220,10 +2220,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             raise RuntimeError("unhandled replica-escalated exception") from ex
 
-    def checkPerformance(self):
+    def _update_new_ordered_reqs_count(self):
+        """
+        Checks if any requests have been ordered since last performance check
+        and updates the performance check data store if needed.
+        :return: True if new ordered requests, False otherwise
+        """
+        last_num_ordered = self._last_performance_check_data.get('num_ordered')
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        if num_ordered != last_num_ordered:
+            self._last_performance_check_data['num_ordered'] = num_ordered
+            return True
+        else:
+            return False
+
+    def checkPerformance(self) -> Optional[bool]:
         """
         Check if master instance is slow and send an instance change request.
-        :returns True if master performance is OK, otherwise False
+        :returns True if master performance is OK, False if performance
+        degraded, None if the check was needed
         """
         logger.trace("{} checking its performance".format(self))
 
@@ -2232,13 +2247,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isParticipating:
             return
 
-        last_num_ordered = self._last_performance_check_data.get('num_ordered')
-        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
-        nothing_changed = num_ordered == last_num_ordered
-        if nothing_changed:
+        if not self._update_new_ordered_reqs_count():
+            logger.trace("{} ordered no new requests".format(self))
             return
-
-        self._last_performance_check_data['num_ordered'] = num_ordered
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
