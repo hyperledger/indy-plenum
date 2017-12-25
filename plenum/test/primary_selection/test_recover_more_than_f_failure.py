@@ -11,7 +11,7 @@ from plenum.test.pool_transactions.helper import \
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.view_change.helper import start_stopped_node, ensure_several_view_change
+from plenum.test.view_change.helper import start_stopped_node
 
 
 # Do not remove these imports
