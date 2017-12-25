@@ -2005,17 +2005,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
-        reqDict = msg.request
 
+        reqDict = msg.request
         request = self._client_request_class(**reqDict)
 
         clientName = msg.senderClient
 
         if not self.isProcessingReq(*request.key):
+            if self.seqNoDB.get(request.identifier, request.reqId) is not None:
+                logger.debug("{} ignoring propagated request {} "
+                             "since it has been already ordered"
+                             .format(self.name, msg))
+                return
+
             self.startedProcessingReq(*request.key, clientName)
-        elif clientName is not None and not self.is_sender_known_for_req(*request.key):
-            # Since some propagates might not include the client name
-            self.set_sender_for_req(*request.key, clientName)
+
+        else:
+            if clientName is not None and \
+                    not self.is_sender_known_for_req(*request.key):
+                # Since some propagates might not include the client name
+                self.set_sender_for_req(*request.key, clientName)
 
         self.requests.add_propagate(request, frm)
 
