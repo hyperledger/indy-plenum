@@ -241,7 +241,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._start_selection()
 
     def on_future_view_vchd_msg(self, view_no, frm):
-        assert view_no > self.view_no
+        assert view_no >= self.view_no
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = set()
         self._next_view_indications[view_no].add(frm)

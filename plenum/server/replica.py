@@ -489,12 +489,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_prepared_before_view_change = None
 
     def on_propagate_primary_done(self):
+        logger.debug("@@!!@@ 2 {}".format(self))
         assert self.isMaster
         # if this is a Primary that is re-connected (that is view change is not actually changed,
         # we just propagate it, then make sure that we don;t break the sequence
         # of ppSeqNo
         self.update_watermark_from_3pc()
-        if self.isPrimary:
+        if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
 
     def get_lowest_probable_prepared_certificate_in_view(
@@ -2378,7 +2379,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def update_watermark_from_3pc(self):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
-            logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc[1]))
+            logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
             self.h = self.last_ordered_3pc[1]
         else:
             logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is None")
