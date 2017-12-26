@@ -27,7 +27,15 @@ def _set_ppseqno(nodes, new_ppsn):
 @pytest.mark.parametrize('do_view_change', [0, 3, 5])
 def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, steward1,
                                                         stewardWallet, tdir, client_tdir, allPluginsPath):
+    """
+    Adding a node to the pool while ppSeqNo is big caused a node to stash all the
+    requests because of incorrect watermarks limits set.
+    The case of view_no == 0 is special.
+    The test emulates big ppSeqNo number, adds a node and checks all the pool nodes
+    are functional. The test is run with several starting view_no, including 0
+    """
 
+    # TODO: for now this test will use old client api, after moving node txn to sdk it will be rewritten
     ensure_several_view_change(looper, txnPoolNodeSet, do_view_change)
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, numReqs=3)
 
