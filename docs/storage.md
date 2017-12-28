@@ -15,7 +15,9 @@ More ledgers can added by plugins. Each correct node should have exactly the sam
 A ledger is associated with a [compact merkle tree](https://github.com/google/certificate-transparency/blob/master/python/ct/crypto/merkle.py). 
 Each new transaction is added to the ledger (log) and is also hashed (sha256) and this hash becomes a new leaf of the merkle tree which also 
 results in a new merkle root. Thus for each transaction a merkle proof of presence, called `inclusion proof` or `audit_path` can be created by 
-using the root hash a few (`O(lgn)`, `n` being the total number of leaves/transactions in the tree/ledger) intermediate hashes. Hash of all the 
+using the root hash a few (`O(lgn)`, `n` being the total number of leaves/transactions in the tree/ledger) intermediate hashes. 
+
+Hashes of all the 
 leaves and intermediate nodes of the tree are stored in a `HashStore`, enabling the creating of inclusion proofs and subset proofs. A subset proof 
 proves that a particular merkle tree is a subset of another (usually larger) merkle tree; more on this in the Catchup doc. The `HashStore` has 2 separate storages for storing leaves 
 and intermediate nodes, each leaf or node of the tree is 32 bytes. Each of these storages can be a binary file or a key value store. 
@@ -23,9 +25,9 @@ The leaf or node hashes are queried by their number. When a client write request
 the transaction is returned with its inclusion proof. 
 
 Relevant code:
-Ledger: `plenum/common/ledger.py` and `ledger/ledger.py`
-Compact Merkle Tree: `ledger/compact_merkle_tree.py`
-HashStore: `ledger/hash_stores/hash_store.py`
+- Ledger: `plenum/common/ledger.py` and `ledger/ledger.py`
+- Compact Merkle Tree: `ledger/compact_merkle_tree.py`
+- HashStore: `ledger/hash_stores/hash_store.py`
 
 
 #### 2. State
@@ -37,21 +39,32 @@ keys will result in the same root hash and same inclusion proof. The underlying 
 The state is built from a ledger, hence each ledger will usually have a corresponding state. State can be reconstructed from the Ledger.
 
 Relevant code:
-State: `state/pruning_state.py`
-Merkle Patricia Trie: `state/trie/pruning_trie.py`
+- State: `state/pruning_state.py`
+- Merkle Patricia Trie: `state/trie/pruning_trie.py`
 
 
-#### 3. Storage abstractions
+#### 3. Seq No database
+Each client request is uniquely identified by a 2-tuple `identifier` and `reqId`. When this request is ordered (consensus successfully completes), 
+it is stored in the ledger and assigned a sequence number. This database stores the mapping `(identifier, reqId) -> seq_no` in a key value store.  
+One use case is that the client can ask any node to give it the transaction corresponding to a request key `identifier` and `reqId`, the node will 
+then use this database to get the sequence number and then use the sequence number of get the transaction from the ledger. 
+This database is currently maintained only for domain ledger.
+ 
+Relevant code:
+- ReqIdrToTxn: `plenum/persistence/req_id_to_txn.py`
+
+
+#### Common Storage abstractions
 The data structures used in the code use some abstractions like a `KeyValueStorage` interface which has a LevelDB implementation 
 `KeyValueStorageLeveldb` and a planned RocksDB implementation, a `SingleFileStore` interface which has a `TextFileStore` and `BinaryFileStore`, 
 a `KeyValueStorageFile` interface with a `ChunkedFileStore` implementation and a `DirectoryStore`
 
 Relevant code:
-KeyValueStorage: `storage/kv_store.py`
-KeyValueStorageLeveldb: `storage/kv_store_leveldb.py`
-KeyValueStorageFile: `storage/kv_store_file.py`
-SingleFileStore: `storage/kv_store_single_file.py`
-BinaryFileStore: `storage/binary_file_store.py`
-TextFileStore: `storage/text_file_store.py`
-ChunkedFileStore: `storage/chunked_file_store.py`
-DirectoryStore: `storage/directory_store.py`
+- KeyValueStorage: `storage/kv_store.py`
+- KeyValueStorageLeveldb: `storage/kv_store_leveldb.py`
+- KeyValueStorageFile: `storage/kv_store_file.py`
+- SingleFileStore: `storage/kv_store_single_file.py`
+- BinaryFileStore: `storage/binary_file_store.py`
+- TextFileStore: `storage/text_file_store.py`
+- ChunkedFileStore: `storage/chunked_file_store.py`
+- DirectoryStore: `storage/directory_store.py`
