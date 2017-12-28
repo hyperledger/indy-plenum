@@ -1046,6 +1046,16 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     return ret
 
 
+def sdk_check_reply(req_res):
+    req, res = req_res
+    if res is None:
+        raise AssertionError("Got no confirmed result for request {}"
+                             .format(req))
+    if isinstance(res, ErrorCode):
+        raise AssertionError("Got an error with code {} for request {}"
+                             .format(res, req))
+
+
 def sdk_eval_timeout(req_count: int, node_count: int,
                      customTimeoutPerReq: float = None, add_delay_to_timeout: float = 0):
     timeout_per_request = customTimeoutPerReq or waits.expectedTransactionExecutionTime(node_count)
@@ -1063,7 +1073,10 @@ def sdk_send_and_check(signed_reqs, looper, txnPoolNodeSet, pool_h, timeout=None
     if not timeout:
         timeout = sdk_eval_timeout(len(signed_reqs), len(txnPoolNodeSet))
     results = sdk_send_signed_requests(pool_h, signed_reqs)
-    sdk_get_replies(looper, results, timeout=timeout)
+    sdk_replies = sdk_get_replies(looper, results, timeout=timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
 
 
 def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, count,
@@ -1074,8 +1087,10 @@ def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, coun
         total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet),
                                          customTimeoutPerReq=customTimeoutPerReq,
                                          add_delay_to_timeout=add_delay_to_timeout)
-    sdk_repl = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
-    return sdk_repl
+    sdk_replies = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
 
 
 def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
@@ -1084,15 +1099,15 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
-    sdk_resps = []
+    sdk_replies = []
     for _ in range(num_batches - 1):
-        sdk_resps.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
                                                    num_reqs // num_batches, **kwargs))
     rem = num_reqs % num_batches
     if rem == 0:
         rem = num_reqs // num_batches
-    sdk_resps.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
-    return sdk_resps
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+    return sdk_replies
 
 
 def sdk_sign_request_from_dict(looper, sdk_wallet, op):
