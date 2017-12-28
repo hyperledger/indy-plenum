@@ -18,9 +18,11 @@ Glossary
    
    Request: A message sent by the client to write to or query from the ledger. Each request has a field called `operation` which is the payload of the request. The `operation` contains a field `type` which indicates the intent of the request.
    
-   Request Digest: A sha256 hash of the serialised request data
+   Request Digest: A sha256 hash of the serialised request data.
    
-   Transaction: A write request successfully processed (achieved consensus) by the pool. Each transaction has a field called `type` which indicates the intent of the transaction.
+   Request ordering: Successful completion of consensus process over a request.
+   
+   Transaction: A write request successfully processed (ordered) by the pool. Each transaction has a field called `type` which indicates the intent of the transaction.
    
    Ledger: An ordered log of transactions. Each node hosts several ledgers which serve different purposes. Each ledger is uniquely identified by a ledger id. Each correct node hosts the same ledger as any other correct node. The ledger assigns each transaction a unique monotonically increasing positive integer called sequence number.
    
