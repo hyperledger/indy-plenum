@@ -489,7 +489,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_prepared_before_view_change = None
 
     def on_propagate_primary_done(self):
-        logger.debug("@@!!@@ 2 {}".format(self))
         assert self.isMaster
         # if this is a Primary that is re-connected (that is view change is not actually changed,
         # we just propagate it, then make sure that we don;t break the sequence
