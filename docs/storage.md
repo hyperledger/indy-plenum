@@ -1,4 +1,4 @@
-# Plenum storage components
+# Storage components
 
 #### 1. Ledger
 The ledger is an ordered log of transactions with each transaction assigned a unique monotonically increasing positive integer called sequence number.
