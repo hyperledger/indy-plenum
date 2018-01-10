@@ -66,7 +66,7 @@ class KeyValueStorage(metaclass=ABCMeta):
         c = 0
         for _ in self.iterator():
             c += 1
-        return sum(1 for _ in self.iterator())
+        return c
 
     def _has_key(self, key):
         try:
