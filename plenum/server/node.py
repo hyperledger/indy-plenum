@@ -1371,9 +1371,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
                 self.view_changer.on_future_view_vchd_msg(view_no, frm)
-        # elif isinstance(msg, ViewChangeDone) and view_no == 0 and view_no == self.viewNo:
-        #     self.view_changer.on_future_view_vchd_msg(view_no, frm)
-        #     return True
         else:
             return True
         return False

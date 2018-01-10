@@ -441,7 +441,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # decided.
                 return
             self._gc_before_new_view()
-            self._reset_watermarks_before_new_view()
+            if self.viewNo > 0:
+                self._reset_watermarks_before_new_view()
             self._stateChanged()
 
     def compact_primary_names(self):
