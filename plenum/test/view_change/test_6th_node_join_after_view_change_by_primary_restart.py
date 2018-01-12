@@ -29,6 +29,13 @@ def limitTestRunningTime():
     return 600
 
 
+@pytest.fixture(scope="module", autouse=True)
+def tconf(tconf):
+    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 0
+    tconf.VIEW_CHANGE_TIMEOUT = 15
+    return tconf
+
+
 def catchuped(node):
     assert node.mode == Mode.participating
 
