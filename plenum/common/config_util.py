@@ -48,8 +48,8 @@ def extend_with_default_external_config(extendee: object,
 
     # fail if network is not set
     if not extendee.NETWORK_NAME:
-        return
-        # raise Exception('NETWORK_NAME must be set')
+        raise Exception('NETWORK_NAME must be set in {}'.format(
+            os.path.join(extendee.GENERAL_CONFIG_DIR, extendee.GENERAL_CONFIG_FILE)))
 
     network_config_dir = os.path.join(extendee.GENERAL_CONFIG_DIR,
                                       extendee.NETWORK_NAME)
