@@ -31,7 +31,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     This test checks that checkpointing and garbage collection works correctly
     no matter if view change happened before a checkpoint or after a checkpoint
     """
-    batch_size = 2
+    batch_size = chkFreqPatched.Max3PCBatchSize
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          batch_size * sent_batches, sent_batches)
 
