@@ -29,6 +29,19 @@ def limitTestRunningTime():
     return 600
 
 
+@pytest.fixture(scope="module", autouse=True)
+def tconf(tconf):
+    old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    old_max_reconnect_retry = tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET
+    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 0
+    tconf.VIEW_CHANGE_TIMEOUT = 15
+
+    yield tconf
+
+    tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
+    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = old_max_reconnect_retry
+
+
 def catchuped(node):
     assert node.mode == Mode.participating
 
@@ -54,6 +67,7 @@ def add_new_node(looper, nodes, steward, steward_wallet,
     return new_node
 
 
+@pytest.mark.skip(reason='INDY-1084')
 def test_6th_node_join_after_view_change_by_master_restart(
          looper, txnPoolNodeSet, tdir, tconf,
          allPluginsPath, steward1, stewardWallet,

@@ -130,6 +130,49 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     return old_view_no + 1
 
 
+def ensure_several_view_change(looper, nodes, vc_count=1,
+                               exclude_from_check=None, custom_timeout=None):
+   """
+   This method patches the master performance check to return False and thus
+   ensures that all given nodes do a view change
+   Also, this method can do several view change.
+   If you try do several view_change by calling ensure_view_change,
+   than monkeypatching method isMasterDegraded would work unexpectedly.
+   Therefore, we return isMasterDegraded only after doing view_change needed count
+   """
+   old_meths = {}
+   view_changes = {}
+   expected_view_no = None
+   for node in nodes:
+       old_meths[node.name] = node.monitor.isMasterDegraded
+
+   for __ in range(vc_count):
+       old_view_no = checkViewNoForNodes(nodes)
+       expected_view_no = old_view_no + 1
+
+       for node in nodes:
+           view_changes[node.name] = node.monitor.totalViewChanges
+
+           def slow_master(self):
+               # Only allow one view change
+               rv = self.totalViewChanges == view_changes[self.name]
+               if rv:
+                   logger.info('{} making master look slow'.format(self))
+               return rv
+
+           node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+
+       perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
+       timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + perf_check_freq
+       nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes if n not in exclude_from_check]
+       logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
+       looper.run(eventually(checkViewNoForNodes, nodes_to_check, expected_view_no, retryWait=1, timeout=timeout))
+       ensureElectionsDone(looper=looper, nodes=nodes, customTimeout=timeout)
+       ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=timeout, exclude_from_check=exclude_from_check)
+
+   return expected_view_no
+
+
 def ensure_view_change_by_primary_restart(
         looper, nodes,
         tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None):

@@ -5,6 +5,13 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.batching_3pc.conftest import tconf
 
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_btch_sz = tconf.Max3PCBatchSize
+    tconf.Max3PCBatchSize = 1
+    yield tconf
+    tconf.Max3PCBatchSize = old_btch_sz
+
 
 @pytest.fixture(scope="module")
 def chkFreqPatched(tconf, request):
