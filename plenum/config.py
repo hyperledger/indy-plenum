@@ -140,7 +140,11 @@ ToleratePrimaryDisconnection = 2
 ConsistencyProofsTimeout = 5
 
 # Timeout factor after which a node starts requesting transactions
-CatchupTransactionsTimeout = 5
+# We assume, that making consistency proof + iterate over all transactions (getAllTxn)
+# will take a little time (0.003 sec for making cp for 10 000 txns +
+#                          0.2 sec for getAllTxn for 10 000 txn)
+# Therefore, node communication is the most cost operation
+CatchupTransactionsTimeout = 20
 
 
 # Log configuration
