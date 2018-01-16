@@ -16,7 +16,6 @@ from indy.ledger import sign_request
 from indy import signus, wallet
 from stp_core.loop.looper import Looper
 
-
 config = getConfig()
 
 
@@ -46,6 +45,7 @@ def sdk_reqToTxn(sdk_req, cons_time=None):
     }
     res.update(data[OPERATION])
     return res
+
 
 async def get_wallet_and_pool():
     pool_name = 'pool' + randomString(3)
@@ -110,13 +110,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     path_to_save = os.path.realpath(args.outfpath)
 
-
     with ExitStack() as exit_stack:
         with Looper() as looper:
-            wallet, did = looper.loop.run_until_complete(get_wallet_and_pool())
+            sdk_wallet, did = looper.loop.run_until_complete(get_wallet_and_pool())
             with open(path_to_save, 'w') as outpath:
                 for _ in range(args.count):
-                    req = sdk_signed_random_requests(looper, (wallet, did), 1)[0]
+                    req = sdk_signed_random_requests(looper, (sdk_wallet, did), 1)[0]
                     txn = sdk_reqToTxn(req, int(time.time()))
                     outpath.write(json.dumps(txn))
                     outpath.write(os.linesep)

@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import argparse
 
 from stp_core.types import HA
 from indy_common.config_util import getConfig
@@ -12,7 +13,7 @@ from plenum.common.constants import TXN_TIME
 from indy_common.config_helper import NodeConfigHelper
 
 config = getConfig()
-import argparse
+
 
 def get_ha_cliha_node_name(path_to_env):
     node_name_key = 'NODE_NAME'
