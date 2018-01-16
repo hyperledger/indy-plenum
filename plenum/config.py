@@ -144,7 +144,8 @@ ConsistencyProofsTimeout = 5
 # will take a little time (0.003 sec for making cp for 10 000 txns +
 #                          0.2 sec for getAllTxn for 10 000 txn)
 # Therefore, node communication is the most cost operation
-CatchupTransactionsTimeout = 30
+# Timeout for pool catchuping would be nodeCount * CatchupTransactionsTimeout
+CatchupTransactionsTimeout = 6
 
 
 # Log configuration
