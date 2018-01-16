@@ -8,8 +8,6 @@ import argparse
 from stp_core.types import HA
 from indy_common.config_util import getConfig
 from plenum.server.node import Node
-from plenum.common.types import f, OPERATION
-from plenum.common.constants import TXN_TIME
 from indy_common.config_helper import NodeConfigHelper
 
 config = getConfig()
@@ -32,36 +30,6 @@ def get_ha_cliha_node_name(path_to_env):
             elif line.find(node_clien_port_key) != -1:
                 node_clieint_port = int(line.split('=')[1].strip())
     return node_name, node_port, node_clieint_port
-
-
-def sdk_reqToTxn(sdk_req, cons_time=None):
-    """
-    Transform a client request such that it can be stored in the ledger.
-    Also this is what will be returned to the client in the reply
-    :param req:
-    :param cons_time: UTC epoch at which consensus was reached
-    :return:
-    """
-    # TODO: we should not reformat transaction this way
-    # When refactor keep in mind thought about back compatibility
-
-    if isinstance(sdk_req, dict):
-        data = sdk_req
-    elif isinstance(sdk_req, str):
-        data = json.loads(sdk_req)
-    else:
-        raise TypeError(
-            "Expected dict or str as input, but got: {}".format(type(sdk_req)))
-
-    res = {
-        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
-        f.REQ_ID.nm: data[f.REQ_ID.nm],
-        f.SIG.nm: data.get(f.SIG.nm, None),
-        f.SIGS.nm: data.get(f.SIGS.nm, None),
-        TXN_TIME: cons_time or data.get(TXN_TIME)
-    }
-    res.update(data[OPERATION])
-    return res
 
 
 if __name__ == "__main__":

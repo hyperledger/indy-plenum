@@ -8,43 +8,15 @@ import argparse
 import random
 from typing import Sequence
 from plenum.common.request import Request
-from plenum.common.types import f, OPERATION
-from plenum.common.constants import TXN_TIME, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
+from plenum.common.txn_util import sdk_reqToTxn
 from indy.ledger import sign_request
 from indy import signus, wallet
 from stp_core.loop.looper import Looper
 
 config = getConfig()
-
-
-def sdk_reqToTxn(sdk_req, cons_time=None):
-    """
-    Transform a client request such that it can be stored in the ledger.
-    Also this is what will be returned to the client in the reply
-    :param req:
-    :param cons_time: UTC epoch at which consensus was reached
-    :return:
-    """
-
-    if isinstance(sdk_req, dict):
-        data = sdk_req
-    elif isinstance(sdk_req, str):
-        data = json.loads(sdk_req)
-    else:
-        raise TypeError(
-            "Expected dict or str as input, but got: {}".format(type(sdk_req)))
-
-    res = {
-        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
-        f.REQ_ID.nm: data[f.REQ_ID.nm],
-        f.SIG.nm: data.get(f.SIG.nm, None),
-        f.SIGS.nm: data.get(f.SIGS.nm, None),
-        TXN_TIME: cons_time or data.get(TXN_TIME)
-    }
-    res.update(data[OPERATION])
-    return res
 
 
 async def get_wallet_and_pool():
