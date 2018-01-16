@@ -104,9 +104,7 @@ def expectedPoolCatchupTime(nodeCount):
     To: each of the Nodes finished the the catchup procedure
     """
     config = getConfig()
-    nodeCatchupTimeout = __Peer2PeerRequestExchangeTime + \
-        config.CatchupTransactionsTimeout
-    return nodeCount * nodeCatchupTimeout
+    return config.CatchupTransactionsTimeout
 
 
 def expectedPoolGetReadyTimeout(nodeCount):
