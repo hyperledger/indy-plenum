@@ -1,5 +1,5 @@
-from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
@@ -14,7 +14,7 @@ logger = getlogger()
 txnCount = 5
 
 
-def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf,
+def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf, tdir,
                             tdirWithPoolTxns, allPluginsPath, testNodeClass):
     """
     Check that f+1 nodes is enough for catchup
@@ -48,16 +48,11 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf,
 
     logger.debug("Starting the stopped node0")
     nodeHa, nodeCHa = HA(*node0.nodestack.ha), HA(*node0.clientstack.ha)
-    node0 = testNodeClass(
-        node0.name,
-        ledger_dir=node0.ledger_dir,
-        keys_dir=node0.keys_dir,
-        genesis_dir=node0.genesis_dir,
-        plugins_dir=node0.plugins_dir,
-        config=tconf,
-        ha=nodeHa,
-        cliha=nodeCHa,
-        pluginPaths=allPluginsPath)
+    config_helper = PNodeConfigHelper(node0.name, tconf, chroot=tdir)
+    node0 = testNodeClass(node0.name,
+                          config_helper=config_helper,
+                          ha=nodeHa, cliha=nodeCHa,
+                          config=tconf, pluginPaths=allPluginsPath)
     looper.add(node0)
 
     logger.debug("Waiting for the node0 to catch up")
