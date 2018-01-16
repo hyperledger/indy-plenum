@@ -844,7 +844,7 @@ class LedgerManager(HasActionQueue):
                             .format(CATCH_UP_PREFIX, self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
-        return numRequest * (self.config.CatchupTransactionsTimeout)
+        return numRequest * (self.config.TimeoutForCatchupReply)
 
     def catchupCompleted(self, ledgerId: int, last_3PC: Tuple=(0, 0)):
         if ledgerId not in self.ledgerRegistry:
