@@ -31,8 +31,8 @@ def test_node_catchup_after_checkpoints(
 
     logger.info("Step 1: The node misses quite a lot requests")
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=chk_freq_patched + 1,
-                                           num_batches=chk_freq_patched + 1,
+                                           num_reqs=chk_freq_patched - 1,
+                                           num_batches=chk_freq_patched - 1,
                                            )
     waitNodeDataInequality(looper, broken_node, *other_nodes)
 
