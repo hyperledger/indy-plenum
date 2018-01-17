@@ -115,9 +115,9 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
 
-    return start_newly_added_node(looper, newNodeName, tdir, sigseed,
-                                  (nodeIp, nodePort), (clientIp, clientPort),
-                                  tconf, autoStart, allPluginsPath, nodeClass)
+    return create_and_start_new_node(looper, newNodeName, tdir, sigseed,
+                                      (nodeIp, nodePort), (clientIp, clientPort),
+                                      tconf, autoStart, allPluginsPath, nodeClass)
 
 
 def start_not_added_node(looper,
@@ -130,10 +130,10 @@ def start_not_added_node(looper,
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, newNodeName)
 
-    new_node = start_newly_added_node(looper, newNodeName,
-                                      tdir, randomString(32).encode(),
-                                      (nodeIp, nodePort), (clientIp, clientPort),
-                                      tconf, True, allPluginsPath, TestNode)
+    new_node = create_and_start_new_node(looper, newNodeName,
+                                          tdir, randomString(32).encode(),
+                                          (nodeIp, nodePort), (clientIp, clientPort),
+                                          tconf, True, allPluginsPath, TestNode)
     return sigseed, bls_key, new_node
 
 
@@ -170,7 +170,7 @@ def add_started_node(looper,
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
 
-def start_newly_added_node(
+def create_and_start_new_node(
         looper,
         node_name,
         tdir,

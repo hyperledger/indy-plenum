@@ -26,7 +26,7 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
         client_tdir):
     """
     Test steps:
-    1. create a new node, but don't add it to the pool 9so not send NODE txn), so that the node is not ready.
+    1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
     2. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
     3. make sure no InstanceChange sent by the new node
     4. add the node to the pool (send NODE txn) and make sure that the node is ready now.
@@ -34,7 +34,7 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     6. make sure no InstanceChange sent by the new node
     """
 
-    # 1. create a new node, but don't add it to the pool 9so not send NODE txn), so that the node is not ready.
+    # 1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
     sigseed, bls_key, new_node = start_not_added_node(looper,
                                                       tdir, tconf, allPluginsPath,
                                                       "TestTheta")
