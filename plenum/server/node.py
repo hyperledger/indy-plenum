@@ -409,12 +409,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HookManager.__init__(self, NodeHooks.get_all_vals())
 
+        self._observable = Observable()
+        self._observer = NodeObserver(self)
+
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
         self.init_config_state()
-
-        self._observable = Observable()
-        self._observer = NodeObserver(self)
 
     @property
     def viewNo(self):
