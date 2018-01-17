@@ -20,6 +20,9 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
 
 
+CLIENT_CONNECTIONS_LIMIT = 15360
+
+
 class TestNetworkSetup:
     @staticmethod
     def getNumberFromName(name: str) -> int:
@@ -45,7 +48,8 @@ class TestNetworkSetup:
         contents = [
             'NODE_NAME={}'.format(name),
             'NODE_PORT={}'.format(nPort),
-            'NODE_CLIENT_PORT={}'.format(cPort)
+            'NODE_CLIENT_PORT={}'.format(cPort),
+            'CLIENT_CONNECTIONS_LIMIT={}'.format(CLIENT_CONNECTIONS_LIMIT)
         ]
         with open(filePath, 'w') as f:
             f.writelines(os.linesep.join(contents))

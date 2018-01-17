@@ -10,6 +10,7 @@ class LevelDbHashStore(HashStore):
         self.dataDir = dataDir
         self.nodesDb = None
         self.leavesDb = None
+        self._leafCount = 0
         self.nodes_db_name = fileNamePrefix + '_merkleNodes'
         self.leaves_db_name = fileNamePrefix + '_merkleLeaves'
         self.open()
@@ -58,7 +59,7 @@ class LevelDbHashStore(HashStore):
 
     @property
     def leafCount(self) -> int:
-        return self.leavesDb.size
+        return self._leafCount
 
     @property
     def nodeCount(self) -> int:
@@ -78,6 +79,7 @@ class LevelDbHashStore(HashStore):
         self.nodesDb = KeyValueStorageLeveldb(self.dataDir, self.nodes_db_name)
         self.leavesDb = KeyValueStorageLeveldb(
             self.dataDir, self.leaves_db_name)
+        self._leafCount = self.leavesDb.size
 
     def close(self):
         self.nodesDb.close()
