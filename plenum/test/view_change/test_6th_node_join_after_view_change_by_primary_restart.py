@@ -67,7 +67,6 @@ def add_new_node(looper, nodes, steward, steward_wallet,
     return new_node
 
 
-@pytest.mark.skip(reason='INDY-1084')
 def test_6th_node_join_after_view_change_by_master_restart(
          looper, txnPoolNodeSet, tdir, tconf,
          allPluginsPath, steward1, stewardWallet,
