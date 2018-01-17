@@ -11,7 +11,7 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj,\
+from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj, \
     sdk_get_reply
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
@@ -56,12 +56,31 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
 def sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
                    transformOpFunc=None):
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, newNodeName)
+    return send_new_node_txn(sigseed,
+                             nodeIp, nodePort, clientIp, clientPort,
+                             bls_key,
+                             newNodeName, stewardClient, stewardWallet,
+                             transformOpFunc)
+
+
+def prepare_new_node_data(tconf, tdir,
+                          newNodeName):
     sigseed = randomString(32).encode()
-    nodeSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
     _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
                                                    sigseed, override=True)
+    return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort
+
+
+def send_new_node_txn(sigseed,
+                      nodeIp, nodePort, clientIp, clientPort,
+                      bls_key,
+                      newNodeName, stewardClient, stewardWallet,
+                      transformOpFunc=None):
+    nodeSigner = SimpleSigner(seed=sigseed)
     op = {
         TXN_TYPE: NODE,
         TARGET_NYM: nodeSigner.identifier,
@@ -81,9 +100,9 @@ def sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
     return req, \
-        op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
-        op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
-        sigseed
+           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
+           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
+           sigseed
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
@@ -96,16 +115,59 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
 
-    # initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
-    # node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
-    #                  ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
-    #                  pluginPaths=allPluginsPath)
-    # if autoStart:
-    #     looper.add(node)
-    # return node
     return start_newly_added_node(looper, newNodeName, tdir, sigseed,
                                   (nodeIp, nodePort), (clientIp, clientPort),
                                   tconf, autoStart, allPluginsPath, nodeClass)
+
+
+def start_not_added_node(looper,
+                         tdir, tconf, allPluginsPath,
+                         newNodeName):
+    '''
+    Creates and starts a new node, but doesn't add it to the Pool
+    (so, NODE txn is not sent).
+    '''
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, newNodeName)
+
+    new_node = start_newly_added_node(looper, newNodeName,
+                                      tdir, randomString(32).encode(),
+                                      (nodeIp, nodePort), (clientIp, clientPort),
+                                      tconf, True, allPluginsPath, TestNode)
+    return sigseed, bls_key, new_node
+
+
+def add_started_node(looper,
+                     new_node,
+                     txnPoolNodeSet,
+                     client_tdir,
+                     stewardClient, stewardWallet,
+                     sigseed,
+                     bls_key):
+    '''
+    Adds already created node to the pool,
+    that is sends NODE txn.
+    Makes sure that node is actually added and connected to all otehr nodes.
+    '''
+    newSteward, newStewardWallet = addNewSteward(looper, client_tdir,
+                                                 stewardClient, stewardWallet,
+                                                 "Steward" + new_node.name,
+                                                 clientClass=TestClient)
+    node_name = new_node.name
+    send_new_node_txn(sigseed,
+                      new_node.poolManager.nodeReg[node_name][0],
+                      new_node.poolManager.nodeReg[node_name][1],
+                      new_node.poolManager.cliNodeReg[node_name + "C"][0],
+                      new_node.poolManager.cliNodeReg[node_name + "C"][1],
+                      bls_key,
+                      node_name,
+                      newSteward, newStewardWallet)
+
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward, *txnPoolNodeSet)
+
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
 
 def start_newly_added_node(
@@ -130,6 +192,7 @@ def start_newly_added_node(
         looper.add(node)
     return node
 
+
 def new_node(
         node_name,
         tdir,
@@ -145,6 +208,7 @@ def new_node(
                      ha=node_ha, cliha=client_ha,
                      pluginPaths=plugin_path)
     return node
+
 
 def addNewSteward(looper, client_tdir,
                   creatorClient, creatorWallet, stewardName,
@@ -165,7 +229,6 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                          newNodeName, tdir, client_tdir, tconf, allPluginsPath=None,
                          autoStart=True, nodeClass=TestNode,
                          clientClass=TestClient, transformNodeOpFunc=None):
-
     newSteward, newStewardWallet = addNewSteward(looper, client_tdir, creatorClient,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
