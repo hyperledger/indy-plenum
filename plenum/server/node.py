@@ -2240,7 +2240,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
-        if self.lost_primary_at and self.nodestack.isConnectedTo(self.master_primary_name):
+        if not self.lost_primary_at:
+            return
+        if self.nodestack.isConnectedTo(self.master_primary_name) or \
+                self.master_primary_name == self.name:
             self.lost_primary_at = None
 
     def propose_view_change(self):
