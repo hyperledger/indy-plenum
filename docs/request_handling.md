@@ -45,7 +45,7 @@ a node runs each registered authenticator over the request and if any authentica
 A node has atleast 1 authenticator called `CoreAuthNr` whose `authenticate` method is called over the serialised request data to verify signature.
 
 
-Relevant code: ``
+Relevant code:
 - Node: `plenum/server/node.py`
 - Replica: `plenum/server/replica.py`
 - Propagator: `plenum/server/propagator.py`
