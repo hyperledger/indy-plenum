@@ -2252,6 +2252,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          'so view change will not be proposed'.format(self))
             return
 
+        if not self.isReady():
+            logger.trace('{} The node is not ready yet '
+                         'so view change will not be proposed'.format(self))
+            return
+
         disconnected_time = time.perf_counter() - self.lost_primary_at
         if disconnected_time >= self.config.ToleratePrimaryDisconnection:
             logger.info("{} primary has been disconnected for too long"
