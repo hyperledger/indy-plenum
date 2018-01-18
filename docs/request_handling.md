@@ -18,7 +18,7 @@ There are 2 types of requests a client can send:
 Below is a description of how a request is processed.
 A node on receiving a client request in  `validateClientMsg`: 
 -   The node performs static validation checks (validation that does not require any state, like mandatory fields are present, etc), it uses `ClientMessageValidator` and 
-    `RequestHandler`'s `doStaticValidation` for this
+    `RequestHandler`'s `doStaticValidation` for this.
 -   If the static validation passes, it checks if the signature check is required (not required for queries) and does that if needed in `verifySignature`. More on this later.
 -   Checks if it's a generic transaction query (`GET_TXN`). If it is then query the ledger for that particular sequence number and return the result. A `REQNACK` might be sent if the query is not correctly constructed. 
 -   Checks if it's a specific query (needs a specific `RequestHandler`), if it is then it uses `process_query` that uses the specific `RequestHandler` to respond to the query. A `REQNACK` might be sent if the query is not correctly constructed.
