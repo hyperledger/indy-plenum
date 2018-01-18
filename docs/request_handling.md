@@ -1,4 +1,4 @@
-# Request handling.
+# Request handling
 
 To handle requests sent by client, the nodes require a ledger and/or a state as a data store. Request handling logic is written in `RequestHandler`. 
 `RequestHandler` is extended by new classes to support new requests. A node provides methods `register_new_ledger` to register new `Ledger` and `register_req_handler` to register new `RequestHandler`s.
@@ -16,11 +16,12 @@ There are 2 types of requests a client can send:
 
 #### Request handling
 Below is a description of how a request is processed.
-A node on receiving a client request in  `validateClientMsg`:
--   The node performs static validation checks (validation that does not require any state, like mandatory fields are present, etc), it calls `RequestHandler`'s `doStaticValidation`
--   If the static validation passes, it checks if the signature check is required and does that if needed in `verifySignature`. More on this later.
--   Checks if it a generic transaction query (`GET_TXN`). If it is then query the ledger for that particular sequence number and return the result. A `REQNACK` might be sent if the query is not correctly constructed. 
--   Checks if it a specific query (needs a specific `RequestHandler`), if it is then it uses `process_query` that uses the specific `RequestHandler` to respond to the query. A `REQNACK` might be sent if the query is not correctly constructed.
+A node on receiving a client request in  `validateClientMsg`: 
+-   The node performs static validation checks (validation that does not require any state, like mandatory fields are present, etc), it uses `ClientMessageValidator` and 
+    `RequestHandler`'s `doStaticValidation` for this
+-   If the static validation passes, it checks if the signature check is required (not required for queries) and does that if needed in `verifySignature`. More on this later.
+-   Checks if it's a generic transaction query (`GET_TXN`). If it is then query the ledger for that particular sequence number and return the result. A `REQNACK` might be sent if the query is not correctly constructed. 
+-   Checks if it's a specific query (needs a specific `RequestHandler`), if it is then it uses `process_query` that uses the specific `RequestHandler` to respond to the query. A `REQNACK` might be sent if the query is not correctly constructed.
 -   If it is a write, then node checks if it has already processed the request before by checking the uniqueness of `identifier` and `reqId` fields of the Request.
     -   If it has already processed the request, then it sends the corresponding `Reply` to the client
     -   If the `Request` is already in process, then it sends an acknowledgement to the client as a `REQACK`
@@ -45,10 +46,12 @@ A node has atleast 1 authenticator called `CoreAuthNr` whose `authenticate` meth
 
 
 Relevant code: ``
-Node: `plenum/server/node.py`
-Replica: `plenum/server/replica.py`
-Propogator: `plenum/server/propagator.py`
-RequestHandler: `plenum/server/req_handler.py`
-Request Authenticator: `plenum/server/req_authenticator.py`
-Core Authenticator: `plenum/server/client_authn.py`
-Quorums: `plenum/server/quorums.py`
+- Node: `plenum/server/node.py`
+- Replica: `plenum/server/replica.py`
+- Propagator: `plenum/server/propagator.py`
+- Request: `plenum/common/request.py`
+- Request structure validation: `plenum/common/messages/client_request.py`
+- RequestHandler: `plenum/server/req_handler.py`
+- Request Authenticator: `plenum/server/req_authenticator.py`
+- Core Authenticator: `plenum/server/client_authn.py`
+- Quorums: `plenum/server/quorums.py`
