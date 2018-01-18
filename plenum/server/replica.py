@@ -1770,7 +1770,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
-        # TODO: what if len(ckState.receivedDigests) > 2 * f?
         if self.quorums.checkpoint.is_reached(len(ckState.receivedDigests)):
             self.markCheckPointStable(ckState.seqNo)
             return True

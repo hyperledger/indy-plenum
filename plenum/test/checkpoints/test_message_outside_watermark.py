@@ -17,9 +17,9 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, loo
     nodes 3 phase messages older than their stable checkpoint so they should
     discard them.
     """
-    delay = 45
+    delay = 15
     instId = 1
-    reqsToSend = 100 * reqs_for_logsize + 2
+    reqsToSend = reqs_for_logsize + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     slowReplica = npr[0]
     slowNode = slowReplica.node
