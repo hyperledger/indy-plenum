@@ -19,7 +19,13 @@ def stop_node(node_to_stop, looper, pool_nodes):
     looper.removeProdable(node_to_stop)
 
 
-def test_pool_reaches_quorum_after_more_than_f_plus_1_nodes_turned_off_and_later_on(
+def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
+    with pytest.raises(AssertionError):
+        waitForSufficientRepliesForRequests(looper, client, requests=[request])
+    check_request_is_not_returned_to_nodes(looper, nodes, request)
+
+
+def test_pool_reaches_quorum_after_f_plus_2_nodes_turned_off_and_later_on(
         looper, allPluginsPath, tdir, tconf,
         txnPoolNodeSet, wallet1, client1, client1Connected):
 
@@ -42,26 +48,20 @@ def test_pool_reaches_quorum_after_more_than_f_plus_1_nodes_turned_off_and_later
     checkViewNoForNodes(nodes[2:], initial_view_no + 1)
 
     request = sendRandomRequest(wallet1, client1)
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client1, requests=[request])
-    check_request_is_not_returned_to_nodes(looper, nodes, request)
+    verify_request_not_replied_and_not_ordered(request, looper, client1, nodes)
 
     stop_node(nodes[2], looper, nodes)
     looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
     checkViewNoForNodes(nodes[3:], initial_view_no + 1)
 
     request = sendRandomRequest(wallet1, client1)
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client1, requests=[request])
-    check_request_is_not_returned_to_nodes(looper, nodes, request)
+    verify_request_not_replied_and_not_ordered(request, looper, client1, nodes)
 
     nodes[2] = start_stopped_node(nodes[2], looper, tconf, tdir, allPluginsPath)
     looper.runFor(waits.expectedPoolElectionTimeout(len(nodes)))
 
     request = sendRandomRequest(wallet1, client1)
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client1, requests=[request])
-    check_request_is_not_returned_to_nodes(looper, nodes, request)
+    verify_request_not_replied_and_not_ordered(request, looper, client1, nodes)
 
     nodes[1] = start_stopped_node(nodes[1], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes[1:],
