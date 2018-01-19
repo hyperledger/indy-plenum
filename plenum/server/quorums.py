@@ -27,7 +27,7 @@ class Quorums:
         self.same_consistency_proof = Quorum(f + 1)
         self.consistency_proof = Quorum(f + 1)
         self.ledger_status = Quorum(n - f - 1)
-        self.checkpoint = Quorum(2 * f)
+        self.checkpoint = Quorum(n - f - 1)
         self.timestamp = Quorum(f + 1)
         self.bls_signatures = Quorum(n - f)
         self.observer_data = Quorum(f + 1)

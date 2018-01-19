@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import json
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
@@ -107,3 +108,34 @@ def idr_from_req_data(data):
         return data[f.IDENTIFIER.nm]
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
+
+
+def sdk_reqToTxn(sdk_req, cons_time=None):
+    """
+    Transform a client request such that it can be stored in the ledger.
+    Also this is what will be returned to the client in the reply
+
+    :param sdk_req: sdk request in str or dict type
+    :param cons_time: UTC epoch at which consensus was reached
+    :return:
+    """
+    # TODO: we should not reformat transaction this way
+    # When refactor keep in mind thought about back compatibility
+
+    if isinstance(sdk_req, dict):
+        data = sdk_req
+    elif isinstance(sdk_req, str):
+        data = json.loads(sdk_req)
+    else:
+        raise TypeError(
+            "Expected dict or str as input, but got: {}".format(type(sdk_req)))
+
+    res = {
+        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
+        f.REQ_ID.nm: data[f.REQ_ID.nm],
+        f.SIG.nm: data.get(f.SIG.nm, None),
+        f.SIGS.nm: data.get(f.SIGS.nm, None),
+        TXN_TIME: cons_time or data.get(TXN_TIME)
+    }
+    res.update(data[OPERATION])
+    return res
