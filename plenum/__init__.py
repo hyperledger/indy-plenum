@@ -22,6 +22,7 @@ PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 
 def setup_plugins():
+    # TODO: Should have a check to make sure no plugin defines any conflicting ledger id or request field
     global PLUGIN_LEDGER_IDS
     global PLUGIN_CLIENT_REQUEST_FIELDS
 

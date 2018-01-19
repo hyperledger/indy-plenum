@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from plenum import setup_plugins, PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.pkg_util import update_module_vars
-from plenum.test.plugin.demo_plugin.main import update_node_obj
+from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
 
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper, stewardAndWallet1, \
@@ -40,6 +40,7 @@ def tconf(tconf, request):
     importlib.reload(plenum.server.node)
     importlib.reload(plenum.server.view_change.view_changer)
     importlib.reload(plenum.server.message_handlers)
+    importlib.reload(plenum.server.observer.observable)
     importlib.reload(plenum.common.ledger_manager)
 
     def reset():
@@ -61,7 +62,7 @@ def tconf(tconf, request):
 def do_post_node_creation():
     # Integrate plugin into each node.
     def _post_node_creation(node):
-        update_node_obj(node)
+        integrate_plugin_in_node(node)
 
     return _post_node_creation
 

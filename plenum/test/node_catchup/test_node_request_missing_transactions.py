@@ -16,7 +16,7 @@ from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
-TestRunningTimeLimitSec = 170
+TestRunningTimeLimitSec = 180
 
 
 @pytest.fixture(scope="module")

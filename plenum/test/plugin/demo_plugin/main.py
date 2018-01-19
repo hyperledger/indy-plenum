@@ -7,12 +7,7 @@ from plenum.test.plugin.demo_plugin.storage import get_auction_hash_store, \
     get_auction_ledger, get_auction_state
 
 
-def update_node_class(node_class):
-    node_class.ledger_ids += [AUCTION_LEDGER_ID, ]
-    return node_class
-
-
-def update_node_obj(node):
+def integrate_plugin_in_node(node):
     node.config = get_config(node.config)
     hash_store = get_auction_hash_store(node.dataLocation)
     ledger = get_auction_ledger(node.dataLocation,

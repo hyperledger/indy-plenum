@@ -392,7 +392,9 @@ class ObservedData(MessageBase):
         expected_type_cls = BatchCommitted
         if isinstance(msg, expected_type_cls):
             return None
-        if (isinstance(msg, dict)):
+        if isinstance(msg, dict):
             expected_type_cls(**msg)
             return None
-        self._raise_invalid_fields(f.MSG.nm, msg, "The message type must be {} ".format(expected_type_cls.typename))
+        self._raise_invalid_fields(
+            f.MSG.nm, msg,
+            "The message type must be {} ".format(expected_type_cls.typename))
