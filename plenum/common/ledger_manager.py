@@ -305,6 +305,13 @@ class LedgerManager(HasActionQueue):
         # post sending this ledger status
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
+
+        if self.isLedgerSame(ledgerStatus) \
+                and ledgerStatus.viewNo is not None \
+                and ledgerStatus.ppSeqNo is not None:
+            ledgerInfo.last_txn_3PC_key = \
+                (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
+
         if self.has_ledger_status_quorum(
                 len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
             logger.debug("{} found out from {} that its "
@@ -316,14 +323,10 @@ class LedgerManager(HasActionQueue):
                 # If this node's ledger is same as the ledger status (which is
                 #  also the majority of the pool), then set the last ordered
                 # 3PC key
-                key = (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
                 self.do_pre_catchup(ledgerId)
-                if self.isLedgerSame(ledgerStatus) and key != (None, None):
-                    # Any state cleaup that is part of pre-catchup should be
-                    # done
-                    self.catchupCompleted(ledgerId, key)
-                else:
-                    self.catchupCompleted(ledgerId)
+                # Any state cleanup that is part of pre-catchup should be
+                # done
+                self.catchupCompleted(ledgerId, ledgerInfo.last_txn_3PC_key)
             else:
                 # Ledger was already synced
                 self.mark_ledger_synced(ledgerId)
@@ -846,7 +849,7 @@ class LedgerManager(HasActionQueue):
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * self.config.CatchupTransactionsTimeout
 
-    def catchupCompleted(self, ledgerId: int, last_3PC: Tuple=(0, 0)):
+    def catchupCompleted(self, ledgerId: int, last_3PC: Optional[Tuple]=None):
         if ledgerId not in self.ledgerRegistry:
             logger.error("{}{} called catchup completed for ledger {}".
                          format(CATCH_UP_PREFIX, self, ledgerId))
@@ -855,7 +858,8 @@ class LedgerManager(HasActionQueue):
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
-        if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
+        if last_3PC is not None \
+                and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
 
         self.mark_ledger_synced(ledgerId)
