@@ -1957,6 +1957,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledgerId = self.ledger_id_for_request(request)
         ledger = self.getLedger(ledgerId)
 
+        if self.is_query(request.operation[TXN_TYPE]):
+            self.process_query(request, frm)
+            return
+
         reply = self.getReplyFromLedger(ledger, request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
@@ -1964,10 +1968,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, frm)
             return
 
-        if self.is_query(request.operation[TXN_TYPE]):
-            self.process_query(request, frm)
-            return
-
+        # If the node is not already processing the request
         if not self.isProcessingReq(*request.key):
             self.startedProcessingReq(*request.key, frm)
         # If not already got the propagate request(PROPAGATE) for the
@@ -2249,6 +2250,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self.propose_view_change)
         if not self.lost_primary_at:
             logger.trace('{} The primary is already connected '
+                         'so view change will not be proposed'.format(self))
+            return
+
+        if not self.isReady():
+            logger.trace('{} The node is not ready yet '
                          'so view change will not be proposed'.format(self))
             return
 

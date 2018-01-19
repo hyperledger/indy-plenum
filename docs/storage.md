@@ -17,8 +17,7 @@ Each new transaction is added to the ledger (log) and is also hashed (sha256) an
 results in a new merkle root. Thus for each transaction a merkle proof of presence, called `inclusion proof` or `audit_path` can be created by 
 using the root hash a few (`O(lgn)`, `n` being the total number of leaves/transactions in the tree/ledger) intermediate hashes. 
 
-Hashes of all the 
-leaves and intermediate nodes of the tree are stored in a `HashStore`, enabling the creating of inclusion proofs and subset proofs. A subset proof 
+Hashes of all the leaves and intermediate nodes of the tree are stored in a `HashStore`, enabling the creating of inclusion proofs and subset proofs. A subset proof 
 proves that a particular merkle tree is a subset of another (usually larger) merkle tree; more on this in the Catchup doc. The `HashStore` has 2 separate storages for storing leaves 
 and intermediate nodes, each leaf or node of the tree is 32 bytes. Each of these storages can be a binary file or a key value store. 
 The leaf or node hashes are queried by their number. When a client write request completes or it requests a transaction with a particular sequence number from a ledger, 
