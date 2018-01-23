@@ -38,8 +38,12 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     old_count_recv_req = get_count(faulty_node, faulty_node.processRequest)
     old_count_request_propagates = get_count(
         faulty_node, faulty_node.request_propagates)
-    old_sum_of_sent_batches = faulty_node.replicas[0].lastPrePrepareSeqNo + \
-                              faulty_node.replicas[1].lastPrePrepareSeqNo
+
+    def sum_of_sent_batches():
+        return faulty_node.replicas[0].lastPrePrepareSeqNo + \
+               faulty_node.replicas[1].lastPrePrepareSeqNo
+
+    old_sum_of_sent_batches = sum_of_sent_batches()
 
     sent_reqs = 5
     sdk_send_random_and_check(looper,
@@ -60,10 +64,9 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     # Attempt to request PROPAGATEs was made as many number of times as the
     # number of sent batches in both replicas since both replicas
     # independently request PROPAGATEs
-    sum_of_sent_batches = faulty_node.replicas[0].lastPrePrepareSeqNo + \
-                              faulty_node.replicas[1].lastPrePrepareSeqNo
     assert get_count(faulty_node, faulty_node.request_propagates) - \
-        old_count_request_propagates == (sum_of_sent_batches - old_sum_of_sent_batches)
+        old_count_request_propagates == (sum_of_sent_batches() -
+                                         old_sum_of_sent_batches)
 
     requested_propagate_counts = getAllReturnVals(
         faulty_node, faulty_node.request_propagates)
