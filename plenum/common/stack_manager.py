@@ -279,7 +279,7 @@ class TxnStackManager(metaclass=ABCMeta):
         srvs = dict()
         for _, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE:
-                srvs.update({txn[TARGET_NYM]:txn[DATA][SERVICES]})
+                srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
         return srvs
 
     @staticmethod
