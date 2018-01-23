@@ -274,6 +274,14 @@ class TxnStackManager(metaclass=ABCMeta):
             self.updateNodeTxns(info, txn)
         return nodeTxnSeqNos, info
 
+    def getNodesServices(self):
+        # Returns services for each node
+        srvs = dict()
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE:
+                srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
+        return srvs
+
     @staticmethod
     def updateNodeTxns(oldTxn, newTxn):
         updateNestedDict(oldTxn, newTxn, nestedKeysToUpdate=[DATA, ])
