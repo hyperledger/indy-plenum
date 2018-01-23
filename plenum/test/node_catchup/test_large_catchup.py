@@ -40,7 +40,9 @@ def tconf(request, tconf):
     request.addfinalizer(reset)
     return tconf
 
-@pytest.mark.skip()
+
+# TODO: Unskip
+@pytest.mark.skip('temporary')
 def test_large_catchup(tdir, tconf,
                        looper,
                        testNodeClass,

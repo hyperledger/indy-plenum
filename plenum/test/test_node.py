@@ -191,10 +191,10 @@ class TestNodeCore(StackedTester):
                                    TestNode.checkPerformance)
         self.actionQueueStasher.delay(delayerCheckPerf(delay))
 
-    def resetDelays(self):
+    def resetDelays(self, *names):
         logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
-        self.nodeIbStasher.resetDelays()
+        self.nodeIbStasher.resetDelays(*names)
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
@@ -204,11 +204,11 @@ class TestNodeCore(StackedTester):
         self.clientstack.resetDelays()
         self.clientIbStasher.resetDelays()
 
-    def force_process_delayeds(self):
-        c = self.nodestack.force_process_delayeds()
-        c += self.nodeIbStasher.force_unstash()
+    def force_process_delayeds(self, *names):
+        c = self.nodestack.force_process_delayeds(*names)
+        c += self.nodeIbStasher.force_unstash(*names)
         for r in self.replicas:
-            c += r.outBoxTestStasher.force_unstash()
+            c += r.outBoxTestStasher.force_unstash(*names)
         logger.debug("{} forced processing of delayed messages, "
                      "{} processed in total".format(self, c))
         return c
@@ -220,9 +220,9 @@ class TestNodeCore(StackedTester):
                      "{} processed in total".format(self, c))
         return c
 
-    def reset_delays_and_process_delayeds(self):
-        self.resetDelays()
-        self.force_process_delayeds()
+    def reset_delays_and_process_delayeds(self, *names):
+        self.resetDelays(*names)
+        self.force_process_delayeds(*names)
 
     def reset_delays_and_process_delayeds_for_clients(self):
         self.resetDelaysClient()

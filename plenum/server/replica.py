@@ -841,7 +841,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg wirh 3PC key not greater than last prepared one's
+        # Commit msg with 3PC key not greater than last prepared one's
         r = isinstance(msg, Commit) and \
             self.last_prepared_before_view_change and \
             compare_3PC_keys((msg.viewNo, msg.ppSeqNo),

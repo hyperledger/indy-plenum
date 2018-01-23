@@ -38,8 +38,9 @@ It then reloads some modules which defines input validation objects and schemas,
 
 ### Demo plugin
 The Demo plugin serves as an example of how a plugin should be written, though it does some extra setup actions that an actual plugin will not do.
-The reason for those extra actions is that by the time the plugin tests are loaded, the configuration has already been loaded, several other objects 
-have already been initialised. The demo plugin is located at `plenum/test/plugin/demo_plugin`. The demo plugin models a very trivial auction functionality.
+Since the configuration has been already loaded completely and the input validation objects have been initialised, the changes made by this plugin need to be reflected in them.
+Therefore after updating the loaded config in `tconf` in `plenum/test/plugin/demo_plugin/conftest.py`, in the `do_plugin_initialisation_for_tests`, all such modules are reloaded and `do_plugin_initialisation_for_tests` is called after the plugin is setup (`setup_plugins`) 
+The demo plugin is located at `plenum/test/plugin/demo_plugin`. The demo plugin models a very trivial auction functionality.
 1. The plugin defines new transaction in `plenum/test/plugin/demo_plugin/transactions.py`
 2. The plugin defines constants denoting transaction types in `plenum/test/plugin/demo_plugin/constants.py`
 3. The demo plugin defines a new ledger for which it declares the ledger id `AUCTION_LEDGER_ID` in `plenum/test/plugin/demo_plugin/__init__.py`. 
@@ -51,8 +52,8 @@ have already been initialised. The demo plugin is located at `plenum/test/plugin
 7. An authenticator `AuctionAuthNr` is defined in `plenum/test/plugin/demo_plugin/client_authnr.py`, that specifies the query and write types.
 8. The integration of this plugin happens in `integrate_plugin_in_node` in `plenum/test/plugin/demo_plugin/main.py` which takes the node as an argument. In this integration method:
     -   Update the node's config with the plugin's config
-    -   Initialise the plusin's ledger, state and other storage components
+    -   Initialise the plugin's ledger, state and other storage components
     -   Register the storage components in the node.
     -   Initialise the authenticator and register it with the node
-    -   Initialise and regsiter the request handler with the node.
+    -   Initialise and register the request handler with the node.
 9. Now the above method can be called on any initialised node. For the tests, the `TestNode`s are updated in the fixture `do_post_node_creation` in `plenum/test/plugin/demo_plugin/conftest.py`

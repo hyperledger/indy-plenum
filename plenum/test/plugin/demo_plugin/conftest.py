@@ -12,6 +12,21 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     stewardWallet, steward1
 
 
+def do_plugin_initialisation_for_tests():
+    # The next imports and reloading are needed only in tests, since in
+    # production none of these modules would be loaded before plugins are
+    # setup (not initialised)
+    import plenum.server
+    import plenum.common
+
+    importlib.reload(plenum.server.replica)
+    importlib.reload(plenum.server.node)
+    importlib.reload(plenum.server.view_change.view_changer)
+    importlib.reload(plenum.server.message_handlers)
+    importlib.reload(plenum.server.observer.observable)
+    importlib.reload(plenum.common.ledger_manager)
+
+
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
     global PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
@@ -29,19 +44,7 @@ def tconf(tconf, request):
     PLUGIN_LEDGER_IDS = set()
     PLUGIN_CLIENT_REQUEST_FIELDS = {}
     setup_plugins()
-
-    # The next imports and reloading are needed only in tests, since in
-    # production none of these modules would be loaded before plugins are
-    # setup (not initialised)
-    import plenum.server
-    import plenum.common
-
-    importlib.reload(plenum.server.replica)
-    importlib.reload(plenum.server.node)
-    importlib.reload(plenum.server.view_change.view_changer)
-    importlib.reload(plenum.server.message_handlers)
-    importlib.reload(plenum.server.observer.observable)
-    importlib.reload(plenum.common.ledger_manager)
+    do_plugin_initialisation_for_tests()
 
     def reset():
         global PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
