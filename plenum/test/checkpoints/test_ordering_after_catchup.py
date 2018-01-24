@@ -7,7 +7,7 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test import waits
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def tconf(tconf):
     old_chk_freq = tconf.CHK_FREQ
     old_log_size = tconf.LOG_SIZE
@@ -41,9 +41,13 @@ def add_new_node(looper, nodes, steward, steward_wallet,
     return new_node
 
 
-def test_checkpoint_quorum(looper, txnPoolNodeSet, tdir, tconf,
+def test_ordering_after_catchup(looper, txnPoolNodeSet, tdir, tconf,
                         allPluginsPath, steward1, stewardWallet,
                         client_tdir):
+    """
+    This test checks, that checkpoints has predictable borders after catchup and
+    watermarks would changed when ppSeqNo > right_border_of_checkpoint.
+    """
     num_requests = 40
     for _ in range(2):
         add_new_node(looper,
