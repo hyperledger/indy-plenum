@@ -40,7 +40,9 @@ def initNodeKeysForBothStacks(name, keys_dir, sigseed, *, use_bls=True, override
 
     node_stack_name = name
     client_stack_name = node_stack_name + CLIENT_STACK_SUFFIX
+    print("Init local keys for client-stack")
     initLocalKeys(client_stack_name, keys_dir, sigseed, use_bls=False, override=override)
+    print("Init local keys for node-stack")
     keys = initLocalKeys(node_stack_name, keys_dir, sigseed, use_bls=use_bls, override=override)
     return keys
 
