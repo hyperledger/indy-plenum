@@ -33,6 +33,15 @@ With a state proof support, we can create additional rings of Observer Nodes tha
         - Helps to avoid attacks on Primary
         - Helps to reduce the number of connections for Validators
         - Helps to improve availability of Validators
+        
+- Goal10: Stand DoS from clients
+    - The core ring(s) need to be able to stand DoS from clients.
+    Some observers may fail, but the system in general should be working, especially Validator rings. 
+    
+- Goal11: Stand DoS from nodes        
+    - The Validator ring needs to be able to stand DoS from other Validator Nodes and Gatekeeper rings.
+
+
 
 ## Architecture
 ![Observer Architecture](Observer Architecture.jpg)
@@ -144,8 +153,7 @@ Reduce Catch-up load
     1. Catch-up BLS store by all Nodes (in fact the latest BLS store is needed)
     1. Catch-up seqNo store by all Nodes
 - Goal4: Reduce Write load
-    1. Support Write State Proofs 
-    1. Make sure that a valid Reply with State Proof is sent for already processed reqId  
+    1. Make sure that a valid Reply with Audit Proof is sent for already processed reqId  
     1. Support receiving of Write Requests by Gatekeepers and propagate them to Validators with processing Replies back 
 - Goal5: Promotion
     1. Define auth rules on who can change Node’s service (promotion to Validators) 
@@ -173,6 +181,15 @@ Reduce Catch-up load
     1. Connect Observers to Gatekeepers only
     1. Propagate write requests on Observers to Gatekeepers
 
+- Goal10: Stand DoS from clients
+    1. Load balancing for Observer nodes (Nginx?)
+    1. Change client-to-node communication from ZMQ to something else (http+authcrypt?)
+    
+- Goal11: Stand DoS from nodes
+    1. Blacklist malicious nodes
+    1. Make communication and consensus levels separate in nodes
+    
+
 ###Indy-sdk
 - Goals 1,2,5: \
  Read Load, \
@@ -191,7 +208,7 @@ Reduce Catch-up load
     1. [Optional] Validate catch-up correctness sending LEDGER_STATUS to Validators
     
 - Goal4: Reduce Write Load
-    1. Verify state proof on write requests
+    1. Verify audit proof on write requests
     1. Send write requests to Gatekeepers Nodes
         - Can send both reads and writes to the same Gatekeeper Node with the same fallback rules
         - It’s essential that re-sending must be done with the same reqId
