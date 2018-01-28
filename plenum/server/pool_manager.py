@@ -17,7 +17,6 @@ from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
 from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
-from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode

@@ -56,7 +56,7 @@ from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys, get_utc_epoch, SortedDict
+    compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn

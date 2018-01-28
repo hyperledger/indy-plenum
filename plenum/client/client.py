@@ -42,8 +42,7 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import f
-from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
-    rawToFriendly, mostCommonElement
+from plenum.common.util import getMaxFailures, rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
