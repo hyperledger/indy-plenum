@@ -51,9 +51,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         6 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, other_nodes)
-    print('111111111')
     waitNodeDataInequality(looper, slow_node, *other_nodes)
-    print('2222')
 
     # Make the slow node receive txns for a smaller ledger so it still finds
     # the need to catchup

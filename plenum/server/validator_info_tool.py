@@ -170,5 +170,3 @@ class ValidatorNodeInfoTool:
         path = os.path.join(self.__node_info_dir, file_name)
         with open(path, 'w') as fd:
             json.dump(self.info, fd)
-        # TODO: Next line is temporary, remove it
-        logger.trace('Info file dumped')
