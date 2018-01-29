@@ -97,7 +97,7 @@ class LedgerManager(HasActionQueue):
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
-        quorum = Quorums(self.owner.totalNodes - 1)
+        quorum = Quorums(self.owner.totalNodes)
         proofs = ledgerInfo.recvdConsistencyProofs
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
         if quorum.same_consistency_proof.is_reached(null_proofs_count):
@@ -402,7 +402,7 @@ class LedgerManager(HasActionQueue):
     def checkLedgerIsOutOfSync(self, ledgerInfo) -> bool:
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         # Consider an f value when this node had not been added
-        adjustedQuorum = Quorums(self.owner.totalNodes - 1)
+        adjustedQuorum = Quorums(self.owner.totalNodes)
         equal_state_proofs = self.__get_equal_state_proofs_count(
             recvdConsProof)
         return not adjustedQuorum.same_consistency_proof.is_reached(
@@ -697,7 +697,7 @@ class LedgerManager(HasActionQueue):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         # Consider an f value when this node was not connected
-        adjustedQuorum = Quorums(self.owner.totalNodes - 1)
+        adjustedQuorum = Quorums(self.owner.totalNodes)
         if len(recvdConsProof) == adjustedQuorum.f + 1:
             # At least once correct node believes that this node is behind.
 
@@ -759,7 +759,7 @@ class LedgerManager(HasActionQueue):
         return recvdPrf, nullProofs
 
     def _reliableProofs(self, groupedProofs):
-        adjustedQuorum = Quorums(self.owner.totalNodes - 1)
+        adjustedQuorum = Quorums(self.owner.totalNodes)
         result = {}
         for (start, end), val in groupedProofs.items():
             for (view_no, lastPpSeqNo, oldRoot,
