@@ -8,7 +8,6 @@ from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
 
 
-
 def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
                                 sdk_wallet_client):
     """

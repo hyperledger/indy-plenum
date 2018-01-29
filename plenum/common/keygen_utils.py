@@ -29,7 +29,8 @@ def init_bls_keys(keys_dir, node_name, seed=None):
     return stored_pk
 
 
-def initNodeKeysForBothStacks(name, keys_dir, sigseed, *, use_bls=True, override=False):
+def initNodeKeysForBothStacks(name, keys_dir, sigseed, *, use_bls=True,
+                              override=False):
     # `sigseed` is initialised to keep the seed same for both stacks.
     # Both node and client stacks need to have same keys
     if not sigseed:

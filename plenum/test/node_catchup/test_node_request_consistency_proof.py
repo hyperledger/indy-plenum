@@ -19,6 +19,7 @@ logger = getlogger()
 # So that `three_phase_key_for_txn_seq_no` always works, it makes the test
 # easy as the requesting node selects a random size for the ledger
 Max3PCBatchSize = 1
+TestRunningTimeLimitSec = 150
 
 
 def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
@@ -67,7 +68,6 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         'Domain Ledger status sender of {} patched'.format(newNode))
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here

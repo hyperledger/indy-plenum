@@ -1,2 +1,3 @@
 Outline of the system
-Node 
+# TODO
+
