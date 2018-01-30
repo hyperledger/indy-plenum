@@ -42,3 +42,8 @@ def check_deps(dependencies, parent=""):
         meta = getPackageMeta(pkg)
         deps = meta.__dependencies__
         check_deps(deps)
+
+
+def update_module_vars(module_path, **kwargs):
+    module = import_module(module_path)
+    module.__dict__.update(kwargs)

@@ -3,7 +3,8 @@ from copy import copy
 
 import base58
 
-from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
+from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits

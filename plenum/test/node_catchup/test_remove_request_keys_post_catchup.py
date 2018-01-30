@@ -1,7 +1,9 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import delay_3pc_messages, pDelay, cDelay, ppDelay
+from plenum.common.messages.node_messages import CatchupRep
+from plenum.test.delayers import delay_3pc_messages, pDelay, cDelay, ppDelay, \
+    cr_delay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
     check_last_ordered_3pc
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -14,6 +16,9 @@ def setup(request, looper, txnPoolNodeSet, client1, wallet1,
           client1Connected):
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[1].node
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
+    # Delay catchup reply so that the test gets time to make the check,
+    # this delay is reset after the check
+    slow_node.nodeIbStasher.delay(cr_delay(100))
     slow_node.nodeIbStasher.delay(pDelay(100, 0))
     slow_node.nodeIbStasher.delay(cDelay(100, 0))
     if request.param == 'all':
@@ -44,9 +49,15 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
         chk(req.key, fast_nodes, False)
         chk(req.key, [slow_node], True)
 
+    # Reset catchup reply delay so that  catchup can complete
+    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CatchupRep.typename)
+
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     for req in reqs:
         chk(req.key, txnPoolNodeSet, False)
+
+    # Needed for the next run due to the parametrised fixture
+    slow_node.reset_delays_and_process_delayeds()

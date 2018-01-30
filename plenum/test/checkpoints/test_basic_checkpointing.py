@@ -1,5 +1,3 @@
-import pytest
-
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints

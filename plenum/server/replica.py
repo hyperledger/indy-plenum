@@ -12,7 +12,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    REPLICA_HOOKS, CREATE_PPR, CREATE_PR, CREATE_CM, CREATE_ORD
+    ReplicaHooks
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -290,7 +290,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
-        HookManager.__init__(self, REPLICA_HOOKS)
+        HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -736,7 +736,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         pre_prepare = PrePrepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_PPR, pre_prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
             pre_prepare = rv if rv is not None else pre_prepare
 
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -843,7 +843,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg wirh 3PC key not greater than last prepared one's
+        # Commit msg with 3PC key not greater than last prepared one's
         r = isinstance(msg, Commit) and \
             self.last_prepared_before_view_change and \
             compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
@@ -1062,7 +1062,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         prepare = Prepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_PR, prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
@@ -1088,7 +1088,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         commit = Commit(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_CM, commit)
+            rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
             commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
@@ -1608,7 +1608,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_ORD, ordered)
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
             ordered = rv if rv is not None else ordered
 
         # TODO: Should not order or add to checkpoint while syncing

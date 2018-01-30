@@ -1,7 +1,7 @@
 import os
 
 
-class PConfigHelper():
+class PConfigHelper:
 
     def __init__(self, config, *, chroot=None):
         assert config is not None
@@ -47,4 +47,5 @@ class PNodeConfigHelper(PConfigHelper):
 
     @property
     def ledger_dir(self):
-        return self.chroot_if_needed(os.path.join(self.config.LEDGER_DIR, self.name))
+        return self.chroot_if_needed(os.path.join(self.config.LEDGER_DIR,
+                                                  self.name))

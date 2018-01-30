@@ -1,7 +1,6 @@
 from plenum.common.types import f
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    getRepliesFromClientInbox, \
-    send_signed_requests, \
+    getRepliesFromClientInbox, send_signed_requests, \
     waitForSufficientRepliesForRequests
 from plenum.common.constants import GET_TXN, DATA, TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Ordered

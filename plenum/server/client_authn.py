@@ -6,7 +6,7 @@ from typing import Dict
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import VERKEY, ROLE, NODE, NYM, GET_TXN
+from plenum.common.constants import VERKEY, ROLE, GET_TXN
 from plenum.common.exceptions import EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \

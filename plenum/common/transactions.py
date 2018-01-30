@@ -1,7 +1,6 @@
-from enum import Enum, unique
+from enum import Enum
 
 
-@unique
 class Transactions(Enum):
     def __str__(self):
         return self.name

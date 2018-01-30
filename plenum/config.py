@@ -39,14 +39,16 @@ USER_CONFIG_FILE = 'plenum_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
+config_transactions_file_base = 'config_transactions'
 genesis_file_suffix = '_genesis'
 
 poolTransactionsFile = pool_transactions_file_base
 domainTransactionsFile = domain_transactions_file_base
-
+configTransactionsFile = config_transactions_file_base
 
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
+configStateDbName = 'config_state'
 
 stateSignatureDbName = 'state_signature'
 
@@ -64,6 +66,7 @@ primaryStorage = None
 
 domainStateStorage = KeyValueStorageType.Leveldb
 poolStateStorage = KeyValueStorageType.Leveldb
+configStateStorage = KeyValueStorageType.Leveldb
 reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 stateSignatureStorage = KeyValueStorageType.Leveldb
@@ -248,4 +251,5 @@ BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
 
+PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []
