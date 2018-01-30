@@ -76,7 +76,7 @@ def reqToTxn(req: Request, cons_time=None):
         data = req.as_dict
 
     res = {
-        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
+        f.IDENTIFIER.nm: data.get(f.IDENTIFIER.nm),
         f.REQ_ID.nm: data[f.REQ_ID.nm],
         f.SIG.nm: data.get(f.SIG.nm, None),
         f.SIGS.nm: data.get(f.SIGS.nm, None),
