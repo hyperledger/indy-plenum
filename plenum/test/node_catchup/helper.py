@@ -43,11 +43,12 @@ def checkNodeDataForEquality(node: TestNode,
         else:
             logger.debug("Excluding check_seqno_db_equality check")
 
-        chk_ledger_and_state(node, n, DOMAIN_LEDGER_ID)
-        chk_ledger_and_state(node, n, CONFIG_LEDGER_ID)
-
-        if n.poolLedger:
-            chk_ledger_and_state(node, n, POOL_LEDGER_ID)
+        for ledger_id in n.ledgerManager.ledgerRegistry:
+            chk_ledger_and_state(node, n, ledger_id)
+        # chk_ledger_and_state(node, n, CONFIG_LEDGER_ID)
+        #
+        # if n.poolLedger:
+        #     chk_ledger_and_state(node, n, POOL_LEDGER_ID)
 
 
 def checkNodeDataForInequality(node: TestNode,
