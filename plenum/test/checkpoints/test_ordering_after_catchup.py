@@ -6,7 +6,7 @@ from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 
-CHK_FREQ = 10
+CHK_FREQ = 6
 LOG_SIZE = 3 * CHK_FREQ
 
 
@@ -46,6 +46,6 @@ def test_ordering_after_more_than_f_nodes_caught_up(
                      tdir, client_tdir, tconf, allPluginsPath)
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 40)
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
