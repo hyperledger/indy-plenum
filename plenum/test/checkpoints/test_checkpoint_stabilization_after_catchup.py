@@ -20,8 +20,9 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     txnPoolNodeSet.append(epsilon)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, epsilon, *txnPoolNodeSet[:-1])
-    # Epsilon did not participate in ordering of the batch with the steward NYM
-    # transaction and the batch with Epsilon NODE transaction.
+    # Epsilon did not participate in ordering of the batch with EpsilonSteward
+    # NYM transaction and the batch with Epsilon NODE transaction.
+    # Epsilon got these transactions via catch-up.
 
     for replica in epsilon.replicas:
         assert len(replica.checkpoints) == 0

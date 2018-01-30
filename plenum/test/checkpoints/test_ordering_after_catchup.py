@@ -1,70 +1,51 @@
-import pytest
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    checkViewNoForNodes
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    ensure_all_nodes_have_same_data
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test import waits
+
+CHK_FREQ = 10
+LOG_SIZE = 3 * CHK_FREQ
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_chk_freq = tconf.CHK_FREQ
-    old_log_size = tconf.LOG_SIZE
-    tconf.CHK_FREQ = 10
-    tconf.LOG_SIZE = 30
+def add_new_node(looper, pool_nodes, steward, steward_wallet,
+                 tdir, client_tdir, tconf, all_plugins_path):
 
-    yield tconf
+    name = randomString(6)
+    node_name = "Node-" + name
+    new_steward_name = "Steward-" + name
 
-    tconf.CHK_FREQ = old_chk_freq
-    tconf.LOG_SIZE = old_log_size
+    _, _, new_node = addNewStewardAndNode(looper, steward, steward_wallet,
+                                          new_steward_name, node_name,
+                                          tdir, client_tdir, tconf,
+                                          all_plugins_path)
+    pool_nodes.append(new_node)
+    looper.run(checkNodesConnected(pool_nodes))
+    waitNodeDataEquality(looper, new_node, *pool_nodes[:-1])
+    # The new node did not participate in ordering of the batch with
+    # the new steward NYM transaction and the batch with the new NODE
+    # transaction. The new node got these transactions via catch-up.
 
-
-def add_new_node(looper, nodes, steward, steward_wallet,
-                tdir, client_tdir, tconf, all_plugins_path, name=None):
-    node_name = name or randomString(5)
-    new_steward_name = "testClientSteward" + randomString(3)
-    new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
-                                                                     steward,
-                                                                     steward_wallet,
-                                                                     new_steward_name,
-                                                                     node_name,
-                                                                     tdir,
-                                                                     client_tdir,
-                                                                     tconf,
-                                                                     all_plugins_path)
-    nodes.append(new_node)
-    looper.run(checkNodesConnected(nodes))
-    timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
-    waitNodeDataEquality(looper, new_node, *nodes[:-1],
-                         customTimeout=timeout)
     return new_node
 
 
-def test_ordering_after_catchup(looper, txnPoolNodeSet, tdir, tconf,
-                        allPluginsPath, steward1, stewardWallet,
-                        client_tdir):
+def test_ordering_after_more_than_f_nodes_caught_up(
+        chkFreqPatched, looper, txnPoolNodeSet, steward1, stewardWallet,
+        tdir, client_tdir, tconf, allPluginsPath):
     """
-    This test checks, that checkpoints has predictable borders after catchup and
-    watermarks would changed when ppSeqNo > right_border_of_checkpoint.
+    Verifies that more than LOG_SIZE batches can be ordered in one view
+    after more than f nodes caught up in this view when some 3PC-batches
+    had already been ordered in this view.
     """
-    num_requests = 40
-    for _ in range(2):
-        add_new_node(looper,
-                     txnPoolNodeSet,
-                     steward1,
-                     stewardWallet,
-                     tdir,
-                     client_tdir,
-                     tconf,
-                     allPluginsPath)
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        stewardWallet,
-                                        steward1,
-                                        num_requests,
-                                        total_timeout=waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
-    waitNodeDataEquality(looper,
-                         txnPoolNodeSet[-1],
-                         *txnPoolNodeSet[:-1],
-                         customTimeout=waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
+    initial_view_no = txnPoolNodeSet[0].viewNo
 
+    for _ in range(2):
+        add_new_node(looper, txnPoolNodeSet, steward1, stewardWallet,
+                     tdir, client_tdir, tconf, allPluginsPath)
+    checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
+
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 40)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
