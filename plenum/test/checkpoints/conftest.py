@@ -21,7 +21,8 @@ def chkFreqPatched(tconf, request):
     oldLogSize = tconf.LOG_SIZE
 
     tconf.CHK_FREQ = getValueFromModule(request, "CHK_FREQ", 2)
-    tconf.LOG_SIZE = 2 * tconf.CHK_FREQ
+    tconf.LOG_SIZE = getValueFromModule(request, "LOG_SIZE",
+                                        2 * tconf.CHK_FREQ)
 
     def reset():
         tconf.CHK_FREQ = oldChkFreq
