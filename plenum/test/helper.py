@@ -172,8 +172,7 @@ def send_reqs_batches_and_get_suff_replies(
                     looper,
                     wallet,
                     client,
-                    num_reqs //
-                    num_batches,
+                    num_reqs // num_batches,
                     **kwargs))
         rem = num_reqs % num_batches
         if rem == 0:
@@ -278,22 +277,6 @@ def setupClients(count: int,
         clients[client.name] = client
         wallets[client.name] = wallet
     return clients, wallets
-
-
-# noinspection PyIncorrectDocstring
-async def aSetupClient(looper: Looper,
-                       nodes: Sequence[TestNode] = None,
-                       nodeReg=None,
-                       tmpdir=None):
-    """
-    async version of above
-    """
-    client1 = genTestClient(nodes=nodes,
-                            nodeReg=nodeReg,
-                            tmpdir=tmpdir)
-    looper.add(client1)
-    await client1.ensureConnectedToNodes()
-    return client1
 
 
 def randomOperation():
@@ -964,35 +947,53 @@ def wait_for_requests_ordered(looper, nodes, requests):
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=total_timeout))
 
 
+def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
+                         tdir, plugin_paths):
+    config_helper = node_config_helper_class(name, conf, chroot=tdir)
+    return test_node_class(name,
+                           config_helper=config_helper,
+                           config=conf,
+                           pluginPaths=plugin_paths)
+
+
 # ####### SDK
 
 
-def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION, identifier=None):
+def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
+                    identifier=None, **kwargs):
+    # Question: Why this method is called sdk_gen_request? It does not use
+    # the indy-sdk
     return Request(operation=operation, reqId=random.randint(10, 100000),
-                   protocolVersion=protocol_version, identifier=identifier)
+                   protocolVersion=protocol_version, identifier=identifier,
+                   **kwargs)
 
 
-def sdk_random_request_objects(count, protocol_version, identifier=None):
+def sdk_random_request_objects(count, protocol_version, identifier=None,
+                               **kwargs):
     ops = random_requests(count)
-    return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
-
+    return [sdk_gen_request(op, protocol_version=protocol_version,
+                            identifier=identifier, **kwargs) for op in ops]
 
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
-    resp = [looper.loop.run_until_complete(sign_request(wallet_h, did, req)) for req in reqs_str]
-    return resp
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
 
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
-    reqs_obj = sdk_random_request_objects(count, identifier=did, protocol_version=CURRENT_PROTOCOL_VERSION)
+    reqs_obj = sdk_random_request_objects(count, identifier=did,
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
     return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
-    return [(json.loads(req), asyncio.ensure_future(submit_request(pool_h, req))) for req in signed_reqs]
+    return [(json.loads(req),
+             asyncio.ensure_future(submit_request(pool_h, req)))
+            for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
@@ -1007,7 +1008,8 @@ def sdk_send_random_request(looper, pool_h, sdk_wallet):
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
-    return json.loads(req), asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+    return json.loads(req), asyncio.ensure_future(
+        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):

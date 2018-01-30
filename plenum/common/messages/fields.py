@@ -9,7 +9,7 @@ from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.common.error import error
+from common.error import error
 from plenum.config import BLS_MULTI_SIG_LIMIT
 
 
@@ -283,10 +283,15 @@ class MessageField(FieldBase):
 
 class LedgerIdField(ChooseField):
     _base_types = (int,)
-    ledger_ids = VALID_LEDGER_IDS + tuple(PLUGIN_LEDGER_IDS)
+    ledger_ids = VALID_LEDGER_IDS
 
     def __init__(self, **kwargs):
+        self.ledger_ids = self.update_with_plugin_ledger_ids()
         super().__init__(self.ledger_ids, **kwargs)
+
+    @staticmethod
+    def update_with_plugin_ledger_ids():
+        return VALID_LEDGER_IDS + tuple(PLUGIN_LEDGER_IDS)
 
 
 class Base58Field(FieldBase):

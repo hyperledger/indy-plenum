@@ -5,6 +5,7 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
+
 def test_req_id_key_error(testNode, wallet1):
     #create random transactions
     count_of_txn = 3

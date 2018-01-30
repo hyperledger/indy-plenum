@@ -1,12 +1,10 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.replica import Replica
-from plenum.common.util import mostCommonElement
 
 logger = getlogger()
 

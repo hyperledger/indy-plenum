@@ -11,15 +11,12 @@ from typing import Dict, Tuple, List
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
-from plenum.common.exceptions import UnsupportedOperation, \
-    InvalidClientRequest
-from plenum.common.request import Request
+from plenum.common.exceptions import UnsupportedOperation
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
 from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
-from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
@@ -278,7 +275,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.node_about_to_be_disconnected(nodeName)
 
     def nodeKeysChanged(self, txn):
@@ -300,7 +296,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackKeysChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.node_about_to_be_disconnected(nodeName)
 
     def nodeServicesChanged(self, txn):

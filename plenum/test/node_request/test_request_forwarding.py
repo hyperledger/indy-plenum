@@ -45,9 +45,9 @@ def test_all_replicas_hold_request_keys(
     req_resps = sdk_send_signed_requests(sdk_pool_handle, reqs)
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
-    sdk_get_replies(looper, req_resps, timeout=sdk_eval_timeout(tconf.Max3PCBatchSize-1,
-                                                                len(txnPoolNodeSet),
-                                                                add_delay_to_timeout=delay_3pc))
+    sdk_get_replies(looper, req_resps, timeout=sdk_eval_timeout(
+        tconf.Max3PCBatchSize-1, len(txnPoolNodeSet),
+        add_delay_to_timeout=delay_3pc))
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
     # have processed it.
