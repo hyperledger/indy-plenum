@@ -9,6 +9,8 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode
 CHK_FREQ = 6
 LOG_SIZE = 3 * CHK_FREQ
 
+nodeCount = 4
+
 
 def add_new_node(looper, pool_nodes, steward, steward_wallet,
                  tdir, client_tdir, tconf, all_plugins_path):
