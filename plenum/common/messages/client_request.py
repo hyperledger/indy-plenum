@@ -1,15 +1,17 @@
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
-from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
+from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
+    CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
 from plenum.common.messages.fields import NetworkIpAddressField, \
-    NetworkPortField, NonEmptyStringField, IterableField, \
+    NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
-from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
+from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
+    SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
 
 
 class ClientNodeOperationData(MessageValidator):
@@ -82,12 +84,12 @@ class ClientOperationField(MessageValidator):
         if not isinstance(dct, dict):
             # TODO this check should be in side of the validator not here
             self._raise_invalid_fields('', dct, 'wrong type')
-        schema_type = dct.get(TXN_TYPE, None)
-        if not schema_type:
+        txn_type = dct.get(TXN_TYPE)
+        if txn_type is None:
             self._raise_missed_fields(TXN_TYPE)
-        if schema_type in self.operations:
+        if txn_type in self.operations:
             # check only if the schema is defined
-            op = self.operations[schema_type]
+            op = self.operations[txn_type]
             op.validate(dct)
 
 
@@ -110,7 +112,7 @@ class ClientMessageValidator(MessageValidator):
         super().__init__(*args, **kwargs)
         # Following code is for support of non-strict schema
         # TODO: refactor this
-        # TODO: this (and all related functionality) can be removed
+        # TODO: this (and all related functionality) can be removed when
         # when fixed problem with transaction serialization (INDY-338)
         strict = operation_schema_is_strict
         # Adding fields from enabled plugins to schema.

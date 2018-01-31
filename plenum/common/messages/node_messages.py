@@ -288,7 +288,8 @@ class ViewChangeDone(MessageBase):
         # name is nullable because this message can be sent when
         # there were no view changes and instance has no primary yet
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT, nullable=True)),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT,
+                                             nullable=True)),
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
     )
 
@@ -391,7 +392,9 @@ class ObservedData(MessageBase):
         expected_type_cls = BatchCommitted
         if isinstance(msg, expected_type_cls):
             return None
-        if (isinstance(msg, dict)):
+        if isinstance(msg, dict):
             expected_type_cls(**msg)
             return None
-        self._raise_invalid_fields(f.MSG.nm, msg, "The message type must be {} ".format(expected_type_cls.typename))
+        self._raise_invalid_fields(
+            f.MSG.nm, msg,
+            "The message type must be {} ".format(expected_type_cls.typename))

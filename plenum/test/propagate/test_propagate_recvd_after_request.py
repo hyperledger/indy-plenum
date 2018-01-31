@@ -1,9 +1,9 @@
 import pytest
 
+from plenum.common.constants import PROPAGATE
 from stp_core.loop.eventually import eventually
-from plenum.common.messages.node_messages import Propagate, MessageRep
-from plenum.test import waits
-from plenum.test.delayers import delay
+from plenum.common.messages.node_messages import Propagate
+from plenum.test.delayers import delay, msg_rep_delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate
 from plenum.test.test_node import TestNode
@@ -18,7 +18,7 @@ def setup(nodeSet):
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
-    delay(MessageRep, frm=[B, C, D], to=A, howlong=10 * howlong)
+    A.nodeIbStasher.delay(msg_rep_delay(10*howlong, [PROPAGATE, ]))
 
 
 def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):

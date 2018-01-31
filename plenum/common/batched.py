@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Iterable
+from typing import Any, Iterable, Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.prepare_batch import split_messages_on_batches
@@ -117,8 +117,8 @@ class Batched(MessageProcessor):
                                 timeout=self.messageTimeout,
                                 serialized=True)
                     else:
-                        logger.warning("Cannot create batch(es) for {}".format(
-                            self, dest))
+                        logger.warning("{} cannot create batch(es) for {}"
+                                       .format(self, dest))
                 else:
                     while msgs:
                         msg = msgs.popleft()

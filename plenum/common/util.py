@@ -16,6 +16,7 @@ from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
 from datetime import datetime, timezone
+from enum import unique, IntEnum
 from math import floor
 from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -30,7 +31,7 @@ from sortedcontainers import SortedDict as _SortedDict
 
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
-from plenum.common.error import error
+from common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
@@ -631,3 +632,10 @@ else:
             """
             key = self._list[index]
             return key, self[key]
+
+
+@unique
+class UniqueSet(IntEnum):
+    @classmethod
+    def get_all_vals(cls):
+        return [i.value for i in cls.__members__.values()]

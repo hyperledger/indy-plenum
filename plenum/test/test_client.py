@@ -9,7 +9,7 @@ from stp_core.types import HA, Identifier
 
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
-from plenum.common.error import error
+from common.error import error
 from stp_core.common.log import getlogger
 from plenum.common.constants import REQACK, REQNACK, REPLY, TXN_TYPE
 from plenum.common.types import f

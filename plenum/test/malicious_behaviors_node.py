@@ -2,7 +2,7 @@ import random
 import types
 from functools import partial
 
-
+import common.error
 import plenum.common.error
 from plenum.common.types import f
 
@@ -115,7 +115,7 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     elif msgType == Commit:
         replica.doCommit = evilMethod
     else:
-        plenum.common.error.error("Not a 3 phase message")
+        common.error.error("Not a 3 phase message")
 
 
 def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):

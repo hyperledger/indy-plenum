@@ -22,7 +22,7 @@ authenticator.
 """
 from collections import Iterable
 
-from plenum.common.error import error
+from common.error import error
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -32,7 +32,8 @@ acceptableTypes = (str, int, float, list, dict, type(None))
 
 
 class SigningSerializer:
-    def serialize(self, obj, level=0, objname=None, topLevelKeysToIgnore=None, toBytes=True):
+    def serialize(self, obj, level=0, objname=None, topLevelKeysToIgnore=None,
+                  toBytes=True):
         """
         Create a string representation of the given object.
 

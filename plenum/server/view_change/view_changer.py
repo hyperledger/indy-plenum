@@ -1,5 +1,3 @@
-import asyncio
-import time
 from collections import deque
 from typing import List, Optional, Tuple
 
@@ -7,9 +5,10 @@ from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
 from plenum.common.throttler import Throttler
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
+    VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
-from plenum.common.util import mostCommonElement, SortedDict, pop_keys
+from plenum.common.util import mostCommonElement, SortedDict
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.has_action_queue import HasActionQueue

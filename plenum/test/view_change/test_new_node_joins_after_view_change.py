@@ -20,6 +20,7 @@ from plenum.test.primary_selection.conftest import nodeThetaAdded, \
 from stp_core.common.log import getlogger
 logger = getlogger()
 
+
 @pytest.fixture(scope='module')
 def all_nodes_view_change(
         looper,

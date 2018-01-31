@@ -4,6 +4,7 @@ from enum import IntEnum, unique
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
+from plenum.common.util import UniqueSet
 
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"
@@ -144,8 +145,10 @@ class KeyValueStorageType(IntEnum):
 @unique
 class LedgerState(IntEnum):
     not_synced = 1  # Still gathering consistency proofs
-    syncing = 2  # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
-    synced = 3  # Got replies for all catchup requests, indicating catchup complete for the ledger
+    syncing = 2  # Got sufficient consistency proofs, will be sending catchup
+    # requests and waiting for their replies
+    synced = 3  # Got replies for all catchup requests, indicating catchup
+    # complete for the ledger
 
 
 OP_FIELD_NAME = "op"
@@ -165,36 +168,31 @@ HS_LEVELDB = 'leveldb'
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
+CONFIG_LEDGER_ID = 2
 
-VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
+VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID)
 
 CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
 
-PRE_STATIC_VALIDATION = 1
-POST_STATIC_VALIDATION = 2
-PRE_SIG_VERIFICATION = 3
-POST_SIG_VERIFICATION = 4
-PRE_DYNAMIC_VALIDATION = 5
-POST_DYNAMIC_VALIDATION = 6
-PRE_REQUEST_APPLICATION = 7
-POST_REQUEST_APPLICATION = 8
-PRE_REQUEST_COMMIT = 9
-POST_REQUEST_COMMIT = 10
 
-NODE_HOOKS = [PRE_STATIC_VALIDATION, POST_STATIC_VALIDATION,
-              PRE_SIG_VERIFICATION, POST_SIG_VERIFICATION,
-              PRE_DYNAMIC_VALIDATION, POST_DYNAMIC_VALIDATION,
-              PRE_REQUEST_APPLICATION, POST_REQUEST_APPLICATION,
-              PRE_REQUEST_COMMIT, POST_REQUEST_COMMIT]
+class NodeHooks(UniqueSet):
+    PRE_STATIC_VALIDATION = 1
+    POST_STATIC_VALIDATION = 2
+    PRE_SIG_VERIFICATION = 3
+    POST_SIG_VERIFICATION = 4
+    PRE_DYNAMIC_VALIDATION = 5
+    POST_DYNAMIC_VALIDATION = 6
+    PRE_REQUEST_APPLICATION = 7
+    POST_REQUEST_APPLICATION = 8
+    PRE_REQUEST_COMMIT = 9
+    POST_REQUEST_COMMIT = 10
 
 
-CREATE_PPR = 1
-CREATE_PR = 2
-CREATE_CM = 3
-CREATE_ORD = 4
-RECV_PPR = 5
-RECV_PR = 6
-RECV_CM = 7
-
-REPLICA_HOOKS = [CREATE_PPR, CREATE_PR, CREATE_CM, CREATE_ORD, RECV_PPR,
-                 RECV_PR, RECV_CM]
+class ReplicaHooks(UniqueSet):
+    CREATE_PPR = 1
+    CREATE_PR = 2
+    CREATE_CM = 3
+    CREATE_ORD = 4
+    RECV_PPR = 5
+    RECV_PR = 6
+    RECV_CM = 7
