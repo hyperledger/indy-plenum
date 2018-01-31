@@ -4,6 +4,8 @@ from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable
 
+import math
+
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -1709,14 +1711,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.node.start_catchup()
             self.h = max_pp_seq_no
 
-    def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
-        s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
-        logger.debug("{} adding new checkpoint state for {}".
-                     format(self, (s, e)))
-        state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
-        self.checkpoints[s, e] = state
-        return state
-
     def addToCheckpoint(self, ppSeqNo, digest):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
@@ -1726,22 +1720,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.checkpoints[s, e] = state
                 break
         else:
-            state = self._newCheckpointState(ppSeqNo, digest)
-            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
-
-        if len(state.digests) == self.config.CHK_FREQ:
-            # TODO CheckpointState/Checkpoint is not a namedtuple anymore
-            # 1. check if updateNamedTuple works for the new message type
-            # 2. choose another name
-            state = updateNamedTuple(state,
-                                     digest=sha256(
-                                         serialize_msg_for_signing(
-                                             state.digests)
-                                     ).hexdigest(),
-                                     digests=[])
+            s, e = ppSeqNo, math.ceil(ppSeqNo / self.config.CHK_FREQ) \
+                * self.config.CHK_FREQ
+            logger.debug("{} adding new checkpoint state for {}".
+                         format(self, (s, e)))
+            state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
             self.checkpoints[s, e] = state
-            self.send(Checkpoint(self.instId, self.viewNo, s, e,
-                                 state.digest))
+
+        if state.seqNo == e:
+            if len(state.digests) == self.config.CHK_FREQ:
+                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+                # 1. check if updateNamedTuple works for the new message type
+                # 2. choose another name
+                state = updateNamedTuple(state,
+                                         digest=sha256(
+                                             serialize_msg_for_signing(
+                                                 state.digests)
+                                         ).hexdigest(),
+                                         digests=[])
+                self.checkpoints[s, e] = state
+                self.send(Checkpoint(self.instId, self.viewNo, s, e,
+                                     state.digest))
             self.processStashedCheckpoints((s, e))
 
     def markCheckPointStable(self, seqNo):
