@@ -2,7 +2,6 @@ from functools import partial
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from stp_raet.rstack import RStack
 from stp_zmq.zstack import ZStack
 from stp_core.types import HA
 
@@ -17,10 +16,7 @@ from plenum.config import UseZStack
 logger = getlogger()
 
 
-if UseZStack:
-    BaseStackClass = ZStack
-else:
-    BaseStackClass = RStack
+BaseStackClass = ZStack
 
 
 class TestStack(BaseStackClass):
@@ -135,7 +131,7 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
             set(state._asdict().items())
 
 
-def checkRemoteExists(frm: RStack,
+def checkRemoteExists(frm: ZStack,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)

@@ -55,7 +55,7 @@ setup(
                       'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
-                      'portalocker==0.5.7', 'pyzmq', 'raet',
+                      'portalocker==0.5.7', 'pyzmq',
                       'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
     setup_requires=['pytest-runner'],
     extras_require={
@@ -67,8 +67,8 @@ setup(
     scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
-             'scripts/gen_steward_key', 'scripts/gen_node',
-             'scripts/export-gen-txns', 'scripts/get_keys',
+             'scripts/gen_steward_key',
+             'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
              'scripts/init_bls_keys']

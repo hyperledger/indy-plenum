@@ -78,7 +78,6 @@ def stpTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml"])
         }
     }
