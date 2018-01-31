@@ -90,10 +90,10 @@ def waitNodeDataInequality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    looper.run(eventually(checkNodeDataForInequality,
+    kwargs = {'exclude_from_check': exclude_from_check}
+    looper.run(eventually(partial(checkNodeDataForInequality, **kwargs),
                           referenceNode,
                           *otherNodes,
-                          exclude_from_check,
                           retryWait=1, timeout=timeout))
 
 
