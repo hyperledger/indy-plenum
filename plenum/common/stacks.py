@@ -39,8 +39,7 @@ class ClientZStack(SimpleZStack, MessageProcessor):
         :param msg: a message
         :param remoteName: the name of the remote
         """
-        # At this time, nodes are not signing messages to clients, beyond what
-        # happens inherently with RAET
+        
         payload = self.prepForSending(msg)
         try:
             if isinstance(remoteName, str):

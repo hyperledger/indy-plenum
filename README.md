@@ -30,8 +30,7 @@ mechanism that Plenum needs.
     - state storage using python 3 version of Ethereum's Patricia Trie
 - stp:
     - secure transport abstraction
-    - it has two implementations: RAET and ZeroMQ
-    - Although RAET implementation is there, it's not supported anymore, and [ZeroMQ](http://zeromq.org/) is the default secure transport in plenum. 
+    - it has ZeroMQ implementations
 - storage:
     - key-value storage abstractions
     - contains [leveldb](http://leveldb.org/) implementation as the main key-valued storage used in Plenum (for ledger, state, etc.)
