@@ -51,7 +51,7 @@ def some_demo_txns(looper, sdk_wallet_steward, sdk_pool_handle):
         successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_disconnected_node_catchup_config_ledger_txns(looper,
+def test_disconnected_node_catchup_plugin_ledger_txns(looper,
                                                       txnPoolNodeSet,
                                                       sdk_wallet_client,
                                                       sdk_pool_handle,
