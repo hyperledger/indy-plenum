@@ -39,7 +39,6 @@ class ClientZStack(SimpleZStack, MessageProcessor):
         :param msg: a message
         :param remoteName: the name of the remote
         """
-        
         payload = self.prepForSending(msg)
         try:
             if isinstance(remoteName, str):
@@ -79,6 +78,7 @@ class NodeZStack(Batched, KITZStack):
         logger.info("{}{} listening for other nodes at {}:{}".
                     format(CONNECTION_PREFIX, self, *self.ha),
                     extra={"tags": ["node-listening"]})
+
 
 nodeStackClass = NodeZStack
 clientStackClass = ClientZStack

@@ -171,9 +171,6 @@ EnsureLedgerDurability = False
 
 log_override_tags = dict(cli={}, demo={})
 
-# TODO needs to be refactored to use a transport protocol abstraction
-UseZStack = True
-
 
 # Number of messages zstack accepts at once
 LISTENER_MESSAGE_QUOTA = 100
