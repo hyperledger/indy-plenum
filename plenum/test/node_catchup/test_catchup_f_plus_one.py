@@ -42,7 +42,9 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf, tdir,
     looper.removeProdable(node1)
 
     # Make sure new node got out of sync
-    waitNodeDataInequality(looper, node0, *txnPoolNodeSet[:-2])
+    # Excluding state check since the node is stopped hence the state db is closed
+    waitNodeDataInequality(looper, node0, *txnPoolNodeSet[:-2],
+                           exclude_from_check=['check_state'])
 
     # TODO: Check if the node has really stopped processing requests?
 

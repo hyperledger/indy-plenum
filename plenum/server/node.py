@@ -1617,8 +1617,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return None
 
         needStaticValidation = False
-        if all(attr in msg.keys()
-               for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
+        if all([msg.get(OPERATION), msg.get(f.REQ_ID.nm),
+                idr_from_req_data(msg)]):
             cls = self._client_request_class
             needStaticValidation = True
         elif OP_FIELD_NAME in msg:

@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.test.helper import waitReqNackFromPoolWithReason, \
     send_signed_requests, sign_requests, \
@@ -84,12 +86,10 @@ def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_request_handling(nodeSet, looper, stewardWallet,
+@pytest.fixture(scope="module")
+def some_requests(nodeSet, looper, stewardWallet,
                                  steward1, client1Connected,
                                  sdk_wallet_steward, sdk_pool_handle):
-    """
-    Check that plugin requests are applied and change plugin's internal state
-    """
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'pqr'}
@@ -123,3 +123,10 @@ def test_plugin_request_handling(nodeSet, looper, stewardWallet,
         DATA: {'id': 'pqr'}
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
+
+
+def test_plugin_request_handling(some_requests):
+    """
+    Check that plugin requests are applied and change plugin's internal state
+    """
+    pass
