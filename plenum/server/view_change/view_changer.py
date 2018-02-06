@@ -530,7 +530,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             # then we should delete all INSTANCE_CHANGE messages with current (already changed)
             # view_no (which used in corresponded INSTANCE_CHANGE messages)
             # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-            for view_number in self.instanceChanges.keys():
+            for view_number in list(self.instanceChanges.keys()):
                 if view_number <= self.view_no:
                     self.instanceChanges.pop(view_number, None)
             self.previous_master_primary = None
