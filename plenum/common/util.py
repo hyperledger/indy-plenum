@@ -115,7 +115,7 @@ def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
 
     _elements = (_Hashable(el) for el in elements)
     most_common, counter = Counter(_elements).most_common(n=1)[0]
-    return (most_common.orig, counter)
+    return most_common.orig, counter
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):

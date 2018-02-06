@@ -81,7 +81,6 @@ def test_node_catchup_when_3_not_primary_node_restarted(
         looper.run(eventually(catchuped, node_to_restart, timeout=2 * timeout))
         return pool_of_nodes
 
-
     nodes_names = sorted([n.name for n in txnPoolNodeSet], reverse=True)
     pool_of_nodes = txnPoolNodeSet
     for __ in range(3):

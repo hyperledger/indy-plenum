@@ -46,7 +46,7 @@ class ClientNYMOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(NYM)),
         (ALIAS, LimitedLengthStringField(max_length=ALIAS_FIELD_LIMIT, optional=True)),
-        (VERKEY, VerkeyField(optional=True)),
+        (VERKEY, VerkeyField(optional=True, nullable=True)),
         (TARGET_NYM, DestNymField()),
         (ROLE, RoleField(optional=True)),
         # TODO: validate role using ChooseField,
