@@ -17,6 +17,7 @@ from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.request import Request, ReqKey
@@ -933,15 +934,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # PREPARE and PRE-PREPARE contain a combined digest
             self.node.request_propagates(non_fin_reqs)
         elif why_not == PP_CHECK_NOT_NEXT:
+            pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
             last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
-            logger.warning("{} missing PRE-PREPAREs between {} and {}, "
-                           "going to request"
-                           .format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no,
-                                                       pp_seq_no,
-                                                       last_pp_view_no,
-                                                       pre_prepare.viewNo)
+            if pp_view_no >= last_pp_view_no:
+                seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
+                seq_to = pp_seq_no - 1
+                if seq_frm <= seq_to:
+                    logger.warning("{} missing PRE-PREPAREs from {} to {}, "
+                                   "going to request"
+                                   .format(self, seq_frm, seq_to))
+                    self._request_missing_three_phase_messages(
+                        pp_view_no, seq_frm, seq_to)
             self._setup_for_non_master()
             self.enqueue_pre_prepare(pre_prepare, sender)
         elif why_not == PP_CHECK_WRONG_TIME:
@@ -1366,10 +1370,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return self.prePrepares[key]
         return None
 
-    def get_prepare(self, viewNo, ppSeqNo):
+    def get_sent_prepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
         if key in self.prepares:
-            return self.prepares[key].msg
+            prepare = self.prepares[key].msg
+            if self.prepares.hasPrepareFrom(prepare, self.name):
+                return prepare
         return None
 
     @property
@@ -2127,17 +2133,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_missing_three_phase_messages(self, seq_frm: int, seq_to: int, view_frm: int, view_to: int) -> None:
-        for pp_seq_no in range(seq_frm + 1, seq_to + 1):
-            for view_no in range(view_frm, view_to + 1):
-                request_data = (view_no, pp_seq_no)
-                self._request_pre_prepare(request_data)
-                self._request_prepare(request_data)
+    def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
+        for pp_seq_no in range(seq_frm, seq_to + 1):
+            key = (view_no, pp_seq_no)
+            self._request_pre_prepare(key)
+            self._request_prepare(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
                                  msg_type: str,
-                                 recipients: List[str]=None,
+                                 recipients: Optional[List[str]]=None,
                                  stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         if three_pc_key in stash:
             logger.debug('{} not requesting {} since already '
@@ -2225,9 +2230,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                               if state == acceptable})
 
     def _process_requested_three_phase_msg(self, msg: object,
+                                           sender: List[str],
                                            stash: Dict[int, int],
-                                           get_saved: Callable[[int, int], None],
-                                           sender: List[str] = None):
+                                           get_saved: Optional[Callable[[int, int], Optional[MessageBase]]]=None):
         if msg is None:
             logger.debug('{} received null from {}'.
                          format(self, sender))
@@ -2244,7 +2249,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             logger.debug(
                 '{} has already ordered msg ({})'.format(self, key))
             return
-        if get_saved(*key):
+        if get_saved and get_saved(*key):
             logger.debug(
                 '{} has already received msg ({})'.format(self, key))
             return
@@ -2260,10 +2265,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                      logMethod=logger.warning)
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        return self._process_requested_three_phase_msg(pp, self.requested_pre_prepares, self.getPrePrepare, sender)
+        return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares, self.getPrePrepare)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
-        return self._process_requested_three_phase_msg(prepare, self.requested_prepares, self.get_prepare, sender)
+        return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """
