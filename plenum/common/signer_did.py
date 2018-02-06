@@ -16,10 +16,13 @@ class DidIdentity:
 
     def __init__(self, identifier, verkey=None, rawVerkey=None):
         self.abbreviated = None
-        if verkey is None and rawVerkey is None:
+        if (verkey is None or verkey == '') and (rawVerkey is None or rawVerkey == ''):
             if identifier:
                 self._identifier = identifier
-                self._verkey = None
+                if (verkey is None and rawVerkey is None):
+                    self._verkey = None
+                else:
+                    self._verkey = ''
                 return
 
         assert (verkey or rawVerkey) and not (verkey and rawVerkey)
