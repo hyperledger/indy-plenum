@@ -25,11 +25,13 @@ logger = getlogger()
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
                              exclude_from_check=None):
+
     def chk_ledger_and_state(first_node, second_node, ledger_id):
         checkLedgerEquality(first_node.getLedger(ledger_id),
                             second_node.getLedger(ledger_id))
-        checkStateEquality(first_node.getState(ledger_id),
-                           second_node.getState(ledger_id))
+        if not exclude_from_check or 'check_state' not in exclude_from_check:
+            checkStateEquality(first_node.getState(ledger_id),
+                               second_node.getState(ledger_id))
 
     # Checks for node's ledgers and state's to be equal
     for n in otherNodes:
@@ -43,11 +45,8 @@ def checkNodeDataForEquality(node: TestNode,
         else:
             logger.debug("Excluding check_seqno_db_equality check")
 
-        chk_ledger_and_state(node, n, DOMAIN_LEDGER_ID)
-        chk_ledger_and_state(node, n, CONFIG_LEDGER_ID)
-
-        if n.poolLedger:
-            chk_ledger_and_state(node, n, POOL_LEDGER_ID)
+        for ledger_id in n.ledgerManager.ledgerRegistry:
+            chk_ledger_and_state(node, n, ledger_id)
 
 
 def checkNodeDataForInequality(node: TestNode,
@@ -81,6 +80,7 @@ def waitNodeDataEquality(looper,
 def waitNodeDataInequality(looper,
                            referenceNode: TestNode,
                            *otherNodes: TestNode,
+                           exclude_from_check=None,
                            customTimeout=None):
     """
     Wait for node ledger to become equal
@@ -90,7 +90,8 @@ def waitNodeDataInequality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    looper.run(eventually(checkNodeDataForInequality,
+    kwargs = {'exclude_from_check': exclude_from_check}
+    looper.run(eventually(partial(checkNodeDataForInequality, **kwargs),
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))

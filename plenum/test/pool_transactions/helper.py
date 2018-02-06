@@ -1,6 +1,6 @@
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
 from stp_core.types import HA
-from typing import Iterable, Union
+from typing import Iterable, Union, Callable
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
@@ -107,7 +107,7 @@ def send_new_node_txn(sigseed,
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-               transformOpFunc=None):
+               transformOpFunc=None, do_post_node_creation: Callable=None):
     nodeClass = nodeClass or TestNode
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
         = sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
@@ -116,8 +116,10 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                                         requests=[req])
 
     return create_and_start_new_node(looper, newNodeName, tdir, sigseed,
-                                      (nodeIp, nodePort), (clientIp, clientPort),
-                                      tconf, autoStart, allPluginsPath, nodeClass)
+                                     (nodeIp, nodePort), (clientIp, clientPort),
+                                     tconf, autoStart, allPluginsPath,
+                                     nodeClass,
+                                     do_post_node_creation=do_post_node_creation)
 
 
 def start_not_added_node(looper,
@@ -180,7 +182,8 @@ def create_and_start_new_node(
         tconf,
         auto_start,
         plugin_path,
-        nodeClass):
+        nodeClass,
+        do_post_node_creation: Callable=None):
     node = new_node(node_name=node_name,
                     tdir=tdir,
                     node_ha=node_ha,
@@ -188,6 +191,8 @@ def create_and_start_new_node(
                     tconf=tconf,
                     plugin_path=plugin_path,
                     nodeClass=nodeClass)
+    if do_post_node_creation:
+        do_post_node_creation(node)
     if auto_start:
         looper.add(node)
     return node
@@ -228,7 +233,8 @@ def addNewSteward(looper, client_tdir,
 def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                          newNodeName, tdir, client_tdir, tconf, allPluginsPath=None,
                          autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient, transformNodeOpFunc=None):
+                         clientClass=TestClient, transformNodeOpFunc=None,
+                         do_post_node_creation: Callable=None):
     newSteward, newStewardWallet = addNewSteward(looper, client_tdir, creatorClient,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
@@ -243,7 +249,8 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
         allPluginsPath,
         autoStart=autoStart,
         nodeClass=nodeClass,
-        transformOpFunc=transformNodeOpFunc)
+        transformOpFunc=transformNodeOpFunc,
+        do_post_node_creation=do_post_node_creation)
     return newSteward, newStewardWallet, newNode
 
 

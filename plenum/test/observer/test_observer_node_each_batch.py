@@ -20,7 +20,8 @@ def fake_node(txnPoolNodeSet,
     newNodeName = "NewTestNode"
     sigseed = randomString(32).encode()
     config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
+    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName,
+                                                   config_helper.keys_dir,
                                                    sigseed, override=True)
     node = new_node(node_name=newNodeName,
                     tdir=tdir,
@@ -37,7 +38,8 @@ def fake_node(txnPoolNodeSet,
 def observed_data_msgs(looper,
                        txnPoolNodeSet,
                        sdk_pool_handle, sdk_wallet_client):
-    txnPoolNodeSet[0]._observable.add_observer("observer1", ObserverSyncPolicyType.EACH_BATCH)
+    txnPoolNodeSet[0]._observable.add_observer("observer1",
+                                               ObserverSyncPolicyType.EACH_BATCH)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client,
                               10)
@@ -69,7 +71,8 @@ def test_apply_data(fake_node,
     # check that Observer is not synced with the pool
     checkNodeDataForInequality(fake_node,
                                *txnPoolNodeSet,
-                               exclude_from_check=['check_last_ordered_3pc', 'check_seqno_db'])
+                               exclude_from_check=['check_last_ordered_3pc',
+                                                   'check_seqno_db'])
 
     # emulate sending of ObserverData from each Node
     for observed_data_msg in observed_data_msgs:
