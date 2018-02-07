@@ -939,7 +939,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
             if pp_view_no >= last_pp_view_no:
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
-                seq_to = pp_seq_no - 1
+                seq_to = pp_seq_no
                 if seq_frm <= seq_to:
                     logger.warning("{} missing PRE-PREPAREs from {} to {}, "
                                    "going to request"
