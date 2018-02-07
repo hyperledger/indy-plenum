@@ -524,7 +524,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self.view_change_in_progress:
             self.view_change_in_progress = False
             self.node.on_view_change_complete()
-            self.instanceChanges.pop(self.view_no - 1, None)
+            # when we had INSTANCE_CHANGE message, they added into instanceChanges
+            # by msg.view_no. When view change was occured and view_no is changed,
+            # then we should delete all INSTANCE_CHANGE messages with current (already changed)
+            # view_no (which used in corresponded INSTANCE_CHANGE messages)
+            # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
+            for view_number in list(self.instanceChanges.keys()):
+                if view_number <= self.view_no:
+                    self.instanceChanges.pop(view_number, None)
             self.previous_master_primary = None
             self.propagate_primary = False
 
