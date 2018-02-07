@@ -392,7 +392,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self._ordered_node_ids[nodeNym] = nodeName
             logger.info("{} sets node {} ({}) order to {}".format(
                         self.name, nodeName, nodeNym,
-                len(self._ordered_node_ids[nodeNym])))
+                        len(self._ordered_node_ids[nodeNym])))
         elif curName != nodeName:
             msg = ("{} is trying to order already ordered node {} ({}) "
                    "with other alias {}".format(self.name, curName, nodeNym, nodeName))
