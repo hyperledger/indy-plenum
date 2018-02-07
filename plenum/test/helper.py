@@ -1044,6 +1044,8 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         return resp
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if len(pend) > 0:
+        raise Exception("At least one transaction was not complete")
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
@@ -1056,6 +1058,16 @@ def sdk_check_reply(req_res):
     if isinstance(res, ErrorCode):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
+    if res['op'] == REQNACK:
+        raise AssertionError("Query is not correctly constructed. {}"
+                             .format(req))
+    if res['op'] == REQACK:
+        raise AssertionError("Already in process for request {}"
+                             .format(req))
+    if res['op'] == REJECT:
+        raise AssertionError("Dynamic validation failed for request {}"
+                             .format(req))
+
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,
