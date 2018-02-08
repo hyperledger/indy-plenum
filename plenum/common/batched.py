@@ -129,7 +129,7 @@ class Batched(MessageProcessor):
                             "{} sending msg {} to {}".format(self, msg, dest))
 
         for rid in removedRemotes:
-            logger.warning("{}{} rid {} has been removed"
+            logger.warning("{}{} has removed rid {}"
                            .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
