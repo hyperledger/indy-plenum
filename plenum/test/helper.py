@@ -1044,8 +1044,8 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         return resp
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
-    if len(pend) > 0:
-        raise Exception("At least one transaction was not complete")
+    if pend:
+        raise AssertionError("At least one transaction was not complete")
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
@@ -1059,14 +1059,12 @@ def sdk_check_reply(req_res):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
     if res['op'] == REQNACK:
-        raise AssertionError("Query is not correctly constructed. {}"
-                             .format(req))
-    if res['op'] == REQACK:
-        raise AssertionError("Already in process for request {}"
-                             .format(req))
+        raise AssertionError("Request with id {} failed. Reason: {}"
+                             .format(req['reqId'],res['reason']))
     if res['op'] == REJECT:
-        raise AssertionError("Dynamic validation failed for request {}"
-                             .format(req))
+        raise AssertionError("Dynamic validation for request with id {}"
+                             "failed. Reason: {}"
+                             .format(req['reqId'],res['reason']))
 
 
 
@@ -1147,3 +1145,11 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
         coros.append(c)
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
+
+def sdk_json_to_request_object(json_req):
+    return Request(identifier=json_req['identifier'],
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'],
+                   protocolVersion=CURRENT_PROTOCOL_VERSION)
