@@ -2,7 +2,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual, sdk_send_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
@@ -11,7 +11,7 @@ nodeCount = 7
 logger = getlogger()
 
 
-def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
+def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,):
     """
     Scenario -> A client sends requests, some nodes delay COMMITs to few
     specific nodes such some nodes achieve commit quorum later for those
@@ -19,8 +19,8 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     order of ppSeqNos
     https://www.pivotaltracker.com/n/projects/1889887/stories/133655009
     """
-    pr, replicas = getPrimaryReplica(nodeSet, instId=0), \
-        getNonPrimaryReplicas(nodeSet, instId=0)
+    pr, replicas = getPrimaryReplica(txnPoolNodeSet, instId=0), \
+        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
     assert len(replicas) == 6
 
     rep0 = pr
@@ -61,15 +61,17 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    requests = sendRandomRequests(wallet1, client1, requestCount)
-    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
+    #  requests = sendRandomRequests(wallet1, client1, requestCount)
+    # waitForSufficientRepliesForRequests(looper, client1, requests=requests)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, requestCount)
 
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(ensureSlowNodesHaveAllTxns,
                           retryWait=1, timeout=timeout))
 
@@ -78,8 +80,8 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
                                                    node5, node6)))
 
     for node in (node1, node2):
-        for n in nodeSet:
+        for n in txnPoolNodeSet:
             if n != node:
                 checkLedgerEquality(node.domainLedger, n.domainLedger)
 
-    checkAllLedgersEqual((n.domainLedger for n in nodeSet))
+    checkAllLedgersEqual((n.domainLedger for n in txnPoolNodeSet))

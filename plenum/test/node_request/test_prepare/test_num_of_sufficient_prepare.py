@@ -16,9 +16,9 @@ logger = getlogger()
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
-    G = startedNodes.Gamma
-    Z = startedNodes.Zeta
+def setup(txnPoolNodeSet):
+    G = txnPoolNodeSet[-2]
+    Z = txnPoolNodeSet[-1]
     for node in G, Z:
         makeNodeFaulty(node,
                        partial(delaysPrePrepareProcessing, delay=60))
@@ -28,14 +28,14 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary
 
 
-def testNumOfSufficientPrepare(afterElection, prepared1, nodeSet: TestNodeSet):
-    for n in nodeSet:
+def testNumOfSufficientPrepare(afterElection, prepared1, txnPoolNodeSet):
+    for n in txnPoolNodeSet:
         for r in n.replicas:
             if r.isPrimary:
                 logger.info("{} is primary".format(r))

@@ -1045,7 +1045,8 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pend:
-        raise AssertionError("At least one transaction was not complete")
+        raise AssertionError("{} transactions are still pending"
+                             .format(len(pend)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
@@ -1059,11 +1060,10 @@ def sdk_check_reply(req_res):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
     if res['op'] == REQNACK:
-        raise AssertionError("Request with id {} failed. Reason: {}"
+        raise AssertionError("ReqNack of id {}. Reason: {}"
                              .format(req['reqId'],res['reason']))
     if res['op'] == REJECT:
-        raise AssertionError("Dynamic validation for request with id {}"
-                             "failed. Reason: {}"
+        raise AssertionError("Reject of id {}. Reason: {}"
                              .format(req['reqId'],res['reason']))
 
 
