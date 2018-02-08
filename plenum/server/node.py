@@ -1732,6 +1732,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         # Process any Ordered requests. This causes less transactions to be
