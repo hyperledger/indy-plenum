@@ -10,37 +10,37 @@ nodes_wth_bls = 0
 # As we use tests with Module scope, results from previous tests are accumulated, so
 # rotating BLS keys one by one, eventually we will have all keys changed
 
-def test_add_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                             poolTxnClientData,
-                             stewards_and_wallets):
+def test_add_bls_one_node(looper, txnPoolNodeSet, client_tdir,
+                          poolTxnClientData, stewards_and_wallets):
     '''
     Added BLS key for 1st Node;
     do not expect that BLS multi-sigs are applied since no consensus (n-f)
     '''
     check_update_bls_key(node_num=0,
                          saved_multi_sigs_count=0,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_add_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                              poolTxnClientData,
-                              stewards_and_wallets):
+
+def test_add_bls_two_nodes(looper, txnPoolNodeSet, client_tdir,
+                           poolTxnClientData, stewards_and_wallets):
     '''
     Added BLS key for 1st and 2d Nodes;
     do not expect that BLS multi-sigs are applied since no consensus (n-f)
     '''
     check_update_bls_key(node_num=1,
                          saved_multi_sigs_count=0,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_add_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                poolTxnClientData,
-                                stewards_and_wallets):
+def test_add_bls_three_nodes(looper, txnPoolNodeSet, client_tdir,
+                             poolTxnClientData, stewards_and_wallets):
     '''
     Added BLS key for 1st, 2d and 3d Nodes;
     expect that BLS multi-sigs are applied since we have consensus now (3=n-f)
@@ -51,20 +51,21 @@ def test_add_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         node.quorums.commit = Quorum(nodeCount)
     check_update_bls_key(node_num=2,
                          saved_multi_sigs_count=4,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets)
 
 
-def test_add_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                              poolTxnClientData,
-                              stewards_and_wallets):
+def test_add_bls_all_nodes(looper, txnPoolNodeSet, client_tdir,
+                           poolTxnClientData, stewards_and_wallets):
     '''
     Eventually added BLS key for all Nodes;
     expect that BLS multi-sigs are applied since we have consensus now (4 > n-f)
     '''
     check_update_bls_key(node_num=3,
                          saved_multi_sigs_count=4,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets)

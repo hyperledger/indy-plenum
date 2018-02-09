@@ -1,9 +1,7 @@
 from typing import Iterable
-
 from stp_core.common.log import getlogger
-from plenum.server.node import Node
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import sdk_send_random_and_check
 
 
 nodeCount = 4
@@ -11,15 +9,14 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testThroughput(looper, nodeSet: Iterable[Node], wallet1, client1):
+def testThroughput(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     """
     Checking if the throughput is being set
     """
     for i in range(5):
-        req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)
         logger.debug("Master throughput: {}. Avg. backup throughput: {}".

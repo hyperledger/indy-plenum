@@ -1,4 +1,4 @@
-
+from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
@@ -17,8 +17,8 @@ whitelist = ['found legacy entry']  # warnings
 
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
-                                          newNodeCaughtUp, tdirWithPoolTxns,
-                                          tconf, allPluginsPath):
+                                          newNodeCaughtUp,
+                                          allPluginsPath):
     """
     Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)
@@ -47,7 +47,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
         viewNo,
         10,
         get_utc_epoch(),
-        [[wallet.defaultId, wallet._getIdData().lastReqId + 1]],
+        [[wallet.defaultId, Request.gen_req_id()]],
         1,
         "random digest",
         DOMAIN_LEDGER_ID,

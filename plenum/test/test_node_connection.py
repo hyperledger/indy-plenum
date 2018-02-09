@@ -7,14 +7,13 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks, tellKeysToOthe
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from stp_core.loop.looper import Looper
-from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
 from plenum.test import waits
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
-    checkProtocolInstanceSetup, ensureElectionsDone
+    ensureElectionsDone
 from stp_core.network.port_dispenser import genHa
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
@@ -32,34 +31,30 @@ def nodeReg():
     }
 
 
-def initLocalKeys(tdir, nodeReg):
+def initLocalKeys(tdir_for_func, tconf_for_func, nodeReg):
     for nName in nodeReg.keys():
         sigseed = randomString(32).encode()
-        initNodeKeysForBothStacks(nName, tdir, sigseed, override=True)
+        config_helper = PNodeConfigHelper(nName, tconf_for_func, chroot=tdir_for_func)
+        initNodeKeysForBothStacks(nName, config_helper.keys_dir, sigseed, override=True)
         logger.debug('Created keys for {}'.format(nName))
 
 
-# Its a function fixture, deliberately
-@pytest.yield_fixture()
-def tdirAndLooper(nodeReg):
-    with SafeTemporaryDirectory() as td:
-        logger.debug("temporary directory: {}".format(td))
-        with Looper() as looper:
-            yield td, looper
-
-
 @pytest.mark.skip(reason='INDY-109. Intermittent failures')
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_func,
+                                       looper_without_nodeset_for_func,
                                        nodeReg):
-    tdir, looper = tdirAndLooper
-    initLocalKeys(tdir, nodeReg)
+    looper = looper_without_nodeset_for_func
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     nodes = []
     names = list(nodeReg.keys())
     logger.debug("Node names: {}".format(names))
 
     def create(name):
-        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+        node = TestNode(name, nodeReg,
+                        config_helper=config_helper,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
         return node
@@ -89,15 +84,19 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_for_func,
+                                           looper_without_nodeset_for_func,
                                            nodeReg):
-    tdir, looper = tdirAndLooper
+    looper = looper_without_nodeset_for_func
     nodes = []
 
-    initLocalKeys(tdir, nodeReg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     for name in nodeReg:
-        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+        node = TestNode(name, nodeReg,
+                        config_helper=config_helper,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -113,13 +112,14 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_func,
+                                      looper_without_nodeset_for_func,
                                       nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    tdir, looper = tdirAndLooper
+    looper = looper_without_nodeset_for_func
 
-    initLocalKeys(tdir, nodeReg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
 
     nodes = []
 
@@ -130,7 +130,10 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     rwaits = [randint(1, 10) for _ in names]
 
     for name in names:
-        node = TestNode(name, nodeReg, basedirpath=tdir, base_data_dir=tdir,
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+        node = TestNode(name, nodeReg,
+                        config_helper=config_helper,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -161,18 +164,23 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
+                       looper_without_nodeset_for_func,
+                       nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    tdir, looper = tdirAndLooper
+    looper = looper_without_nodeset_for_func
     names = ["Alpha", "Beta"]
     nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir, nrg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
 
     logger.debug(names)
     nodes = []
     for name in names:
-        node = TestNode(name, nrg, basedirpath=tdir, base_data_dir=tdir,
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+        node = TestNode(name, nrg,
+                        config_helper=config_helper,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -194,21 +202,26 @@ def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
     stopNodes([A, B], looper)
 
 
-def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
+def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
+                                looper_without_nodeset_for_func,
+                                nodeReg):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
     """
 
-    tdir, looper = tdirAndLooper
+    looper = looper_without_nodeset_for_func
     names = ["Alpha", "Beta"]
     nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir, nrg)
+    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
     logger.debug(names)
 
     nodes = []
     for name in names:
-        node = TestNode(name, nrg, basedirpath=tdir, base_data_dir=tdir,
+        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+        node = TestNode(name, nrg,
+                        config_helper=config_helper,
+                        config=tconf_for_func,
                         pluginPaths=allPluginsPath)
         nodes.append(node)
 
@@ -220,9 +233,13 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
         looper.add(node)
     looper.run(checkNodesConnected(nodes))
 
-    initLocalKeys(tdir, {"Gamma": nodeReg["Gamma"]})
-    C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
-                 basedirpath=tdir, base_data_dir=tdir, pluginPaths=allPluginsPath)
+    name = "Gamma"
+    initLocalKeys(tdir_for_func, tconf_for_func, {name: nodeReg[name]})
+    config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
+    C = TestNode(name, {**nrg, **{name: nodeReg[name]}},
+                 config_helper=config_helper,
+                 config=tconf_for_func,
+                 pluginPaths=allPluginsPath)
     for node in nodes:
         tellKeysToOthers(node, [C, ])
 

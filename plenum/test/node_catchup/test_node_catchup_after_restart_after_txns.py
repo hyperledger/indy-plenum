@@ -18,6 +18,7 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
+from plenum.common.config_helper import PNodeConfigHelper
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -35,9 +36,9 @@ txnCount = 5
 def test_node_catchup_after_restart_with_txns(
         newNodeCaughtUp,
         txnPoolNodeSet,
+        tdir,
         tconf,
         nodeSetWithNodeAddedAfterSomeTxns,
-        tdirWithPoolTxns,
         allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
@@ -61,10 +62,10 @@ def test_node_catchup_after_restart_with_txns(
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
     logger.debug("Starting the stopped node, {}".format(newNode))
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
     newNode = TestNode(
         newNode.name,
-        basedirpath=tdirWithPoolTxns,
-        base_data_dir=tdirWithPoolTxns,
+        config_helper=config_helper,
         config=tconf,
         ha=nodeHa,
         cliha=nodeCHa,
@@ -73,6 +74,8 @@ def test_node_catchup_after_restart_with_txns(
     txnPoolNodeSet[-1] = newNode
 
     # Delay catchup reply processing so LedgerState does not change
+    # TODO fix delay, sometimes it's not enough and loweer 'check_ledger_state'
+    # fails because newNode's domain ledger state is 'synced'
     delay_catchup_reply = 5
     newNode.nodeIbStasher.delay(cr_delay(delay_catchup_reply))
     looper.run(checkNodesConnected(txnPoolNodeSet))

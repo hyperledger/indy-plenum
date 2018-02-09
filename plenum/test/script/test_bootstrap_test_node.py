@@ -20,19 +20,19 @@ def params(tconf):
     return steward_defs, node_defs, client_defs, trustee_def, nodeParamsFile
 
 
-def testBootstrapTestNode(params, tconf):
+def testBootstrapTestNode(params, tdir, tconf):
     # TODO: Need to add some asserts
 
     steward_defs, node_defs, client_defs, trustee_def, nodeParamsFile = params
     TestNetworkSetup.bootstrapTestNodesCore(
-        config=tconf, envName="test", appendToLedgers=False,
+        config=tconf, network="test", appendToLedgers=False,
         domainTxnFieldOrder=getTxnOrderedFields(),
         trustee_def=trustee_def, steward_defs=steward_defs,
         node_defs=node_defs, client_defs=client_defs, localNodes=1,
-        nodeParamsFileName=nodeParamsFile)
+        nodeParamsFileName=nodeParamsFile, chroot=tdir)
 
 
-def test_check_valid_ip_host(params, tconf):
+def test_check_valid_ip_host(params, tdir, tconf):
     _, _, client_defs, trustee_def, nodeParamsFile = params
 
     valid = [
@@ -55,11 +55,11 @@ def test_check_valid_ip_host(params, tconf):
         steward_defs, node_defs = TestNetworkSetup.gen_defs(
             ips=None, nodeCount=2, starting_port=portsStart)
         TestNetworkSetup.bootstrapTestNodesCore(
-            config=tconf, envName="test", appendToLedgers=False,
+            config=tconf, network="test", appendToLedgers=False,
             domainTxnFieldOrder=getTxnOrderedFields(),
             trustee_def=trustee_def, steward_defs=steward_defs,
             node_defs=node_defs, client_defs=client_defs, localNodes=1,
-            nodeParamsFileName=nodeParamsFile)
+            nodeParamsFileName=nodeParamsFile, chroot=tdir)
 
     for v in invalid:
         with pytest.raises(ArgumentTypeError):

@@ -6,14 +6,16 @@ from typing import Dict
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import VERKEY, ROLE
-from plenum.common.exceptions import InvalidSignature, EmptySignature, \
+from plenum.common.constants import VERKEY, ROLE, GET_TXN
+from plenum.common.exceptions import EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \
-    SigningException, InvalidSignatureFormat, UnknownIdentifier
+    InvalidSignatureFormat, UnknownIdentifier, \
+    InsufficientSignatures, InsufficientCorrectSignatures
 from plenum.common.types import f
-from plenum.common.verifier import DidVerifier
+from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.pool_req_handler import PoolRequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -41,6 +43,18 @@ class ClientAuthNr:
         """
 
     @abstractmethod
+    def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
+                           threshold: int = None):
+        """
+        :param msg:
+        :param signatures: A mapping from identifiers to signatures.
+        :param threshold: The number of successful signature verification
+        required. By default all signatures are required to be verified.
+        :return: returns the identifiers whose signature was matched and
+        correct; a SigningException is raised if threshold was not met
+        """
+
+    @abstractmethod
     def addIdr(self, identifier, verkey, role=None):
         """
         Adding an identifier should be an auditable and authenticated action.
@@ -64,47 +78,38 @@ class ClientAuthNr:
 
 
 class NaclAuthNr(ClientAuthNr):
-    def authenticate(self,
-                     msg: Dict,
-                     identifier: str = None,
-                     signature: str = None) -> str:
-        try:
-            if not signature:
-                try:
-                    signature = msg[f.SIG.nm]
-                    if not signature:
-                        raise EmptySignature(msg.get(f.IDENTIFIER.nm),
-                                             msg.get(f.REQ_ID.nm))
-                except KeyError:
-                    raise MissingSignature(msg.get(f.IDENTIFIER.nm),
-                                           msg.get(f.REQ_ID.nm))
-            if not identifier:
-                try:
-                    identifier = msg[f.IDENTIFIER.nm]
-                    if not identifier:
-                        raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
-                except KeyError:
-                    raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
+
+    def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
+                           threshold: int=None, verifier: Verifier=DidVerifier):
+        num_sigs = len(signatures)
+        if threshold is not None:
+            if num_sigs < threshold:
+                raise InsufficientSignatures(num_sigs, threshold)
+        else:
+            threshold = num_sigs
+        correct_sigs_from = []
+        for idr, sig in signatures.items():
             try:
-                sig = base58.b58decode(signature)
+                sig = base58.b58decode(sig)
             except Exception as ex:
                 raise InvalidSignatureFormat from ex
-            ser = self.serializeForSig(msg, topLevelKeysToIgnore=[f.SIG.nm])
-            verkey = self.getVerkey(identifier)
+
+            ser = self.serializeForSig(msg, identifier=idr)
+            verkey = self.getVerkey(idr)
 
             if verkey is None:
                 raise CouldNotAuthenticate(
-                    'Can not find verkey for DID {}'.format(identifier))
+                    'Can not find verkey for {}'.format(idr))
 
-            vr = DidVerifier(verkey, identifier=identifier)
-            isVerified = vr.verify(sig, ser)
-            if not isVerified:
-                raise InvalidSignature
-        except SigningException as e:
-            raise e
-        except Exception as ex:
-            raise CouldNotAuthenticate from ex
-        return identifier
+            vr = verifier(verkey, identifier=idr)
+            if vr.verify(sig, ser):
+                correct_sigs_from.append(idr)
+                if len(correct_sigs_from) == threshold:
+                    break
+        else:
+            raise InsufficientCorrectSignatures(len(correct_sigs_from),
+                                                threshold)
+        return correct_sigs_from
 
     @abstractmethod
     def addIdr(self, identifier, verkey, role=None):
@@ -114,7 +119,7 @@ class NaclAuthNr(ClientAuthNr):
     def getVerkey(self, identifier):
         pass
 
-    def serializeForSig(self, msg, topLevelKeysToIgnore=None):
+    def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
         return serialize_msg_for_signing(
             msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
@@ -152,3 +157,98 @@ class SimpleAuthNr(NaclAuthNr):
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)
+
+    def authenticate(self,
+                     msg: Dict,
+                     identifier: str = None,
+                     signature: str = None):
+        signatures = {identifier: signature}
+        return self.authenticate_multi(msg,
+                                       signatures=signatures)
+
+
+class CoreAuthMixin:
+    # TODO: This should know a list of valid fields rather than excluding
+    # hardcoded fields
+    excluded_from_signing = {f.SIG.nm, f.SIGS.nm}
+    write_types = PoolRequestHandler.write_types.union(
+        DomainRequestHandler.write_types
+    )
+    query_types = {GET_TXN, }.union(
+        PoolRequestHandler.query_types
+    ).union(
+        DomainRequestHandler.query_types
+    )
+
+    @classmethod
+    def is_query(cls, typ):
+        return typ in cls.query_types
+
+    @classmethod
+    def is_write(cls, typ):
+        return typ in cls.write_types
+
+    @staticmethod
+    def _extract_signature(msg):
+        if f.SIG.nm not in msg:
+            raise MissingSignature
+        if not msg[f.SIG.nm]:
+            raise EmptySignature
+        return msg[f.SIG.nm]
+
+    @staticmethod
+    def _extract_identifier(msg):
+        if f.IDENTIFIER.nm not in msg:
+            raise MissingIdentifier
+        if not msg[f.IDENTIFIER.nm]:
+            raise EmptyIdentifier
+        return msg[f.IDENTIFIER.nm]
+
+    def authenticate(self, req_data, identifier: str=None,
+                     signature: str=None, verifier: Verifier=DidVerifier):
+        """
+        Prepares the data to be serialised for signing and then verifies the
+        signature
+        :param req_data:
+        :param identifier:
+        :param signature:
+        :param verifier:
+        :return:
+        """
+        to_serialize = {k: v for k, v in req_data.items()
+                        if k not in self.excluded_from_signing}
+        if req_data.get(f.SIG.nm) is None and \
+                req_data.get(f.SIGS.nm) is None and \
+                signature is None:
+            raise MissingSignature
+        if req_data.get(f.IDENTIFIER.nm) and (req_data.get(f.SIG.nm) or
+                                              signature):
+            try:
+                # if not identifier:
+                identifier = identifier or self._extract_identifier(req_data)
+
+                # if not signature:
+                signature = signature or self._extract_signature(req_data)
+
+                signatures = {identifier: signature}
+            except Exception as ex:
+                if ex in (MissingSignature, EmptySignature, MissingIdentifier,
+                          EmptyIdentifier):
+                    ex = ex(req_data.get(f.IDENTIFIER.nm), req_data.get(f.SIG.nm))
+                raise ex
+        else:
+            signatures = req_data[f.SIGS.nm]
+        return self.authenticate_multi(to_serialize,
+                                       signatures=signatures, verifier=verifier)
+
+    def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
+        if not msg.get(f.IDENTIFIER.nm):
+            msg = {**msg, f.IDENTIFIER.nm: identifier}
+        return serialize_msg_for_signing(
+            msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
+
+
+class CoreAuthNr(CoreAuthMixin, SimpleAuthNr):
+    def __init__(self, state=None):
+        SimpleAuthNr.__init__(self, state)
+        CoreAuthMixin.__init__(self)

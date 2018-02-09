@@ -37,13 +37,19 @@ def extend_with_external_config(extendee: object, extender: Tuple[str, str], req
     return extendee
 
 
-def extend_with_default_external_config(extendee: object, user_config_dir: str = None) -> object:
+def extend_with_default_external_config(extendee: object,
+                                        general_config_dir: str = None,
+                                        user_config_dir: str = None) -> object:
+    if (general_config_dir):
+        extendee.GENERAL_CONFIG_DIR = general_config_dir
+    if not extendee.GENERAL_CONFIG_DIR:
+        raise Exception('GENERAL_CONFIG_DIR must be set')
     extend_with_external_config(extendee, (extendee.GENERAL_CONFIG_DIR, extendee.GENERAL_CONFIG_FILE))
 
     # fail if network is not set
     if not extendee.NETWORK_NAME:
-        return
-        # raise Exception('NETWORK_NAME must be set')
+        raise Exception('NETWORK_NAME must be set in {}'.format(
+            os.path.join(extendee.GENERAL_CONFIG_DIR, extendee.GENERAL_CONFIG_FILE)))
 
     network_config_dir = os.path.join(extendee.GENERAL_CONFIG_DIR,
                                       extendee.NETWORK_NAME)
@@ -59,27 +65,42 @@ def extend_with_default_external_config(extendee: object, user_config_dir: str =
                                  extendee.USER_CONFIG_FILE))
 
 
-def getConfig(user_config_dir=None):
+def _getConfig(general_config_dir: str = None):
     """
     Reads a file called config.py in the project directory
 
     :raises: FileNotFoundError
     :return: the configuration as a python object
     """
+    stp_config = STPConfig()
+    plenum_config = import_module("plenum.config")
+    config = stp_config
+    config.__dict__.update(plenum_config.__dict__)
+
+    if general_config_dir:
+        config.GENERAL_CONFIG_DIR = general_config_dir
+
+    if not config.GENERAL_CONFIG_DIR:
+        raise Exception('GENERAL_CONFIG_DIR must be set')
+
+    extend_with_external_config(config, (config.GENERAL_CONFIG_DIR,
+                                         config.GENERAL_CONFIG_FILE))
+
+    # "unsafe" is a set of attributes that can set certain behaviors that
+    # are not safe, for example, 'disable_view_change' disables view changes
+    # from happening. This might be useful in testing scenarios, but never
+    # in a live network.
+    if not hasattr(config, 'unsafe'):
+        setattr(config, 'unsafe', set())
+    return config
+
+
+def getConfig(general_config_dir: str = None):
     global CONFIG
     if not CONFIG:
-        stp_config = STPConfig(user_config_dir)
-        plenum_config = import_module("plenum.config")
-        config = stp_config
-        config.__dict__.update(plenum_config.__dict__)
-
-        extend_with_default_external_config(config, user_config_dir)
-
-        # "unsafe" is a set of attributes that can set certain behaviors that
-        # are not safe, for example, 'disable_view_change' disables view changes
-        # from happening. This might be useful in testing scenarios, but never
-        # in a live network.
-        if not hasattr(config, 'unsafe'):
-            setattr(config, 'unsafe', set())
-        CONFIG = config
+        CONFIG = _getConfig(general_config_dir)
     return CONFIG
+
+
+def getConfigOnce(general_config_dir: str = None):
+    return _getConfig(general_config_dir)

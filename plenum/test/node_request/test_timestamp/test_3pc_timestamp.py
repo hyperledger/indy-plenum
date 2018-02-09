@@ -1,20 +1,24 @@
 from collections import defaultdict
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_TIME
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.instances.helper import recvd_prepares
 from plenum.test.node_request.test_timestamp.helper import \
     get_timestamp_suspicion_count, make_clock_faulty
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 
+from plenum.test.helper import sdk_send_random_and_check
 
-def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
-                               wallet1, client1Connected):
+
+def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     # Check that each replica's PREPARE time is same as the PRE-PREPARE time
     sent_batches = 5
     for i in range(sent_batches):
-        send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+        sdk_send_random_and_check(looper,
+                                  txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_client,
+                                  count=2)
         looper.runFor(1)
 
     for node in txnPoolNodeSet:
@@ -41,13 +45,18 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
                             seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
 
 
-def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
-                                              wallet1, client1Connected):
+def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
+                                              sdk_wallet_client, sdk_pool_handle):
     """
     One of the non-primary has an in-correct clock so it thinks PRE-PREPARE
     has incorrect time
     """
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+    sdk_send_random_and_check(looper,
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              count=2)
+    # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     # The replica having the bad clock
     confused_npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1]
 
@@ -56,7 +65,11 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
     old_acceptable_rvs = getAllReturnVals(
         confused_npr, confused_npr.is_pre_prepare_time_acceptable)
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+    sdk_send_random_and_check(looper,
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              count=2)
 
     assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count
 

@@ -2,7 +2,7 @@ from collections import OrderedDict, defaultdict
 
 from typing import Tuple, Union
 
-from orderedset._orderedset import OrderedSet
+from orderedset import OrderedSet
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey

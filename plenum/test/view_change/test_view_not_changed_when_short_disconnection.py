@@ -1,17 +1,13 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
-
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 
 
 def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
-                                                   wallet1, client1,
-                                                   client1Connected, tconf):
+                                                   sdk_pool_handle, sdk_wallet_client, tconf):
     """
     When primary is disconnected but not long enough to trigger the timeout,
     view change should not happen
@@ -28,7 +24,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         if node != pr_node}
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.processInstanceChange.__name__) for node in txnPoolNodeSet
+        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
         if node != pr_node}
 
     def chk1():
@@ -46,7 +42,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
             if node != pr_node:
                 assert node.spylog.count(node.propose_view_change.__name__) \
                     > prp_inst_chg_calls[node.name]
-                assert node.spylog.count(node.processInstanceChange.__name__) \
+                assert node.view_changer.spylog.count(node.view_changer.process_instance_change_msg.__name__) \
                     == recv_inst_chg_calls[node.name]
 
     # Disconnect master's primary
@@ -72,4 +68,4 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
     looper.run(eventually(chk3, retryWait=1, timeout=10))
 
     # Send some requests and make sure the request execute
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)

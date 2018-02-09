@@ -9,11 +9,9 @@ from common.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.test.conftest import orderedFields
 from ledger.test.helper import NoTransactionRecoveryLedger, \
-    check_ledger_generator, create_ledger_text_file_storage, create_ledger_chunked_file_storage, \
-    create_ledger_leveldb_file_storage, create_default_ledger, random_txn
+    check_ledger_generator, create_ledger_text_file_storage, create_default_ledger, random_txn
 from ledger.test.test_file_hash_store import generateHashes
 from ledger.util import ConsistencyVerificationFailed, F
-from storage.text_file_store import TextFileStore
 
 
 def b64e(s):
@@ -89,25 +87,11 @@ creation of Signed Tree Heads? I think I don't really understand what STHs are)
 """
 
 
-def test_recover_merkle_tree_from_txn_log_text_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
-    check_recover_merkle_tree_from_txn_log(create_ledger_text_file_storage,
-                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
-
-
-def test_recover_merkle_tree_from_txn_log_chunked_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
-    check_recover_merkle_tree_from_txn_log(create_ledger_chunked_file_storage,
-                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
-
-
-def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
-    check_recover_merkle_tree_from_txn_log(create_ledger_leveldb_file_storage,
-                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
-
-
-def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_serializer, hash_serializer, genesis_txn_file):
-    ledger = create_ledger_func(
+def test_recover_merkle_tree_from_txn_log(create_ledger_callable, tempdir,
+                                          txn_serializer, hash_serializer, genesis_txn_file):
+    ledger = create_ledger_callable(
         txn_serializer, hash_serializer, tempdir, genesis_txn_file)
-    for d in range(100):
+    for d in range(5):
         ledger.add(random_txn(d))
     # delete hash store, so that the only option for recovering is txn log
     ledger.tree.hashStore.reset()
@@ -119,8 +103,8 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_seri
     root_hash_before = ledger.root_hash
     hashes_before = ledger.tree.hashes
 
-    restartedLedger = create_ledger_func(
-        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    restartedLedger = create_ledger_callable(txn_serializer,
+                                             hash_serializer, tempdir, genesis_txn_file)
 
     assert size_before == restartedLedger.size
     assert root_hash_before == restartedLedger.root_hash
@@ -129,18 +113,23 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_seri
     assert tree_size_before == restartedLedger.tree.tree_size
 
 
-def test_recover_merkle_tree_from_hash_store(tempdir):
-    ledger = create_default_ledger(tempdir)
-    for d in range(100):
+def test_recover_merkle_tree_from_hash_store(create_ledger_callable, tempdir,
+                                             txn_serializer, hash_serializer, genesis_txn_file):
+    ledger = create_ledger_callable(
+        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    for d in range(5):
         ledger.add(random_txn(d))
     ledger.stop()
+
     size_before = ledger.size
     tree_root_hash_before = ledger.tree.root_hash
     tree_size_before = ledger.tree.tree_size
     root_hash_before = ledger.root_hash
     hashes_before = ledger.tree.hashes
 
-    restartedLedger = create_default_ledger(tempdir)
+    restartedLedger = create_ledger_callable(txn_serializer,
+                                             hash_serializer, tempdir, genesis_txn_file)
+
     assert size_before == restartedLedger.size
     assert root_hash_before == restartedLedger.root_hash
     assert hashes_before == restartedLedger.tree.hashes
@@ -151,7 +140,7 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
     ledger = create_ledger_text_file_storage(
         CompactSerializer(orderedFields), None, tempdir)
-    for d in range(100):
+    for d in range(5):
         ledger.add(random_txn(d))
     updatedTree = ledger.tree
     ledger.stop()
@@ -215,6 +204,68 @@ def test_consistency_verification_on_startup_case_2(tempdir):
     ledger.stop()
 
 
+def test_recover_merkle_tree_from_txn_log_if_hash_store_runs_ahead(create_ledger_callable, tempdir,
+                                                                   txn_serializer, hash_serializer,
+                                                                   genesis_txn_file):
+    '''
+    Check that tree can be recovered from txn log if recovering from hash store failed
+    (we have one more txn in hash store than in txn log, so consistency verification fails).
+    '''
+    ledger = create_ledger_callable(
+        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    for d in range(5):
+        ledger.add(random_txn(d))
+
+    size_before = ledger.size
+    tree_root_hash_before = ledger.tree.root_hash
+    tree_size_before = ledger.tree.tree_size
+    root_hash_before = ledger.root_hash
+    hashes_before = ledger.tree.hashes
+
+    # add to hash store only
+    ledger._addToTree(ledger.serialize_for_tree(random_txn(50)),
+                      serialized=True)
+    ledger.stop()
+
+    restartedLedger = create_ledger_callable(txn_serializer,
+                                             hash_serializer, tempdir, genesis_txn_file)
+
+    assert size_before == restartedLedger.size
+    assert root_hash_before == restartedLedger.root_hash
+    assert hashes_before == restartedLedger.tree.hashes
+    assert tree_root_hash_before == restartedLedger.tree.root_hash
+    assert tree_size_before == restartedLedger.tree.tree_size
+
+
+def test_recover_merkle_tree_from_txn_log_if_hash_store_lags_behind(create_ledger_callable, tempdir,
+                                                                    txn_serializer, hash_serializer,
+                                                                    genesis_txn_file):
+    '''
+    Check that tree can be recovered from txn log if recovering from hash store failed
+    (we have one more txn in txn log than in hash store, so consistency verification fails).
+    '''
+    ledger = create_ledger_callable(
+        txn_serializer, hash_serializer, tempdir, genesis_txn_file)
+    for d in range(100):
+        ledger.add(random_txn(d))
+
+    # add to txn log only
+    ledger._addToStore(ledger.serialize_for_txn_log(random_txn(50)),
+                       serialized=True)
+    ledger.stop()
+
+    size_before = ledger.size
+    tree_size_before = ledger.tree.tree_size
+
+    restartedLedger = create_ledger_callable(txn_serializer,
+                                             hash_serializer, tempdir, genesis_txn_file)
+
+    # root hashes will be not the same as before (since we recoverd based on txn log)
+    # the new size is 1 greater than before since we recovered from txn log which contained one more txn
+    assert size_before + 1 == restartedLedger.size
+    assert tree_size_before + 1 == restartedLedger.tree.tree_size
+
+
 def test_start_ledger_without_new_line_appended_to_last_record(tempdir, txn_serializer):
     if isinstance(txn_serializer, MsgPackSerializer):
         # MsgPack is a binary one, not compatible with TextFileStorage
@@ -269,29 +320,10 @@ def test_add_get_txns(ledger_no_genesis):
 
     check_ledger_generator(ledger)
 
-    for s, t in ledger.getAllTxn(frm=1, to=20):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3, to=8):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=5, to=17):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=6, to=10):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3, to=3):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(frm=3):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn(to=10):
-        assert txns[s - 1] == t
-
-    for s, t in ledger.getAllTxn():
-        assert txns[s - 1] == t
+    for frm, to in [(1, 20), (3, 8), (5, 17), (6, 10), (3, 3),
+                    (3, None), (None, 10), (None, None)]:
+        for s, t in ledger.getAllTxn(frm=frm, to=to):
+            assert txns[s - 1] == t
 
     # with pytest.raises(AssertionError):
     #     list(ledger.getAllTxn(frm=3, to=1))

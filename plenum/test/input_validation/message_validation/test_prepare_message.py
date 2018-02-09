@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LimitedLengthStringField, MerkleRootField, TimestampField
+    LimitedLengthStringField, MerkleRootField, TimestampField, AnyMapField
 from plenum.common.messages.node_messages import Prepare
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
@@ -11,6 +11,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("digest", LimitedLengthStringField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
+    ('plugin_fields', AnyMapField)
 ])
 
 

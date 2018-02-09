@@ -2,10 +2,11 @@ import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
 from stp_core.common.util import adict
-from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import waitForViewChange
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.spy_helpers import getAllReturnVals
+from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.pool_transactions.conftest import looper
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -23,20 +24,18 @@ Verify a view change happens
 """
 
 
-@pytest.fixture('module')
-def setup(looper, tconf, startedNodes, up, wallet1, client1):
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        wallet1,
-                                        client1,
-                                        numReqs=5)
-    # Get the master replica of the master protocol instance
-    P = getPrimaryReplica(startedNodes)
+@pytest.fixture()
+def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                          sdk_pool_handle, sdk_wallet_client, 5)
+    P = getPrimaryReplica(txnPoolNodeSet)
 
     # set LAMBDA smaller than the production config to make the test faster
     testLambda = 30
     delay_by = testLambda + 5
 
-    for node in startedNodes:
+    for node in txnPoolNodeSet:
         # Make `Delta` small enough so throughput check passes.
         node.monitor.Delta = .001
         node.monitor.Lambda = testLambda
@@ -55,14 +54,11 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
 
     P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
-    sendReqsToNodesAndVerifySuffReplies(
-        looper,
-        wallet1,
-        client1,
-        numReqs=5,
-        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                          sdk_pool_handle, sdk_wallet_client, 5,
+                          customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
-    return adict(nodes=startedNodes)
+    return adict(nodes=txnPoolNodeSet)
 
 
 def testInstChangeWithMoreReqLat(looper, setup):

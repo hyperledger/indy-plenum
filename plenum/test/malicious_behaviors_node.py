@@ -2,7 +2,7 @@ import random
 import types
 from functools import partial
 
-
+import common.error
 import plenum.common.error
 from plenum.common.types import f
 
@@ -11,13 +11,11 @@ from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Bat
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
     Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
-from plenum.common.request import Request, ReqDigest
+from plenum.common.request import Request
 
-from plenum.common import util
 from plenum.common.util import updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
-from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.test.delayers import ppDelay, cDelay
@@ -36,10 +34,10 @@ def changesRequest(node):
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
-        request.digest = request.getDigest()
+        request._digest = request.getDigest()
         if isinstance(identifier, bytes):
             identifier = identifier.decode()
-        return Propagate(request.__getstate__(), identifier)
+        return Propagate(request.as_dict, identifier)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
@@ -117,7 +115,7 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     elif msgType == Commit:
         replica.doCommit = evilMethod
     else:
-        plenum.common.error.error("Not a 3 phase message")
+        common.error.error("Not a 3 phase message")
 
 
 def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
@@ -154,7 +152,6 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         self.send(prepare, TPCStat.PrepareSent)
 
     def evilSendCommit(self, request):
-        digest = "random"
         commit = Commit(self.instId,
                         request.viewNo,
                         request.ppSeqNo)

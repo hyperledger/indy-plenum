@@ -47,4 +47,4 @@ def test_6_nodes_pool_cannot_reach_quorum_with_2_faulty(afterElection, looper,
     reqs = signed_random_requests(wallet1, 1)
     with pytest.raises(AssertionError):
         send_and_check(reqs, looper, nodeSet, client1)
-    check_request_is_not_returned_to_nodes(looper, nodeSet, reqs[0])
+    check_request_is_not_returned_to_nodes(nodeSet, reqs[0])

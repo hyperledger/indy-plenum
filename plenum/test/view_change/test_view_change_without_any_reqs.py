@@ -5,22 +5,20 @@ from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds
-from plenum.test.helper import sendRandomRequests, waitForViewChange, \
-    send_reqs_to_nodes_and_verify_all_replies
+from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, sdk_send_random_requests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node
 
 Max3PCBatchSize = 3
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
+from plenum.test.pool_transactions.conftest import looper
 
 
 TestRunningTimeLimitSec = 200
 
 
-def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
-                              client1, client1Connected):
+def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
+                              sdk_pool_handle, sdk_wallet_client):
     """
     Do view change on a without any requests
     """
@@ -30,8 +28,8 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
     delay_3pc = 10
     delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
     sent_batches = 2
-    sendRandomRequests(wallet1, client1,
-                       sent_batches * tconf.Max3PCBatchSize)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+                             sent_batches * tconf.Max3PCBatchSize)
 
     def chk1():
         t_root, s_root = check_uncommitteds_equal(other_nodes)
@@ -48,7 +46,6 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
     check_uncommitteds_equal(txnPoolNodeSet)
 
     reset_delays_and_process_delayeds(txnPoolNodeSet)
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
-                                              2 * Max3PCBatchSize,
-                                              add_delay_to_timeout=delay_3pc)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                              2 * Max3PCBatchSize, add_delay_to_timeout=delay_3pc)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

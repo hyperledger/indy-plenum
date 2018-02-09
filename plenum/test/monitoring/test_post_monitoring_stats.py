@@ -1,18 +1,16 @@
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually
-from stp_core.loop.looper import Looper
 from plenum.server.monitor import Monitor
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import TestNodeSet
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import sdk_send_random_and_check
 
-config = getConfig()
 
 
 def testPostingThroughput(postingStatsEnabled,
                           decreasedMonitoringTimeouts,
-                          looper: Looper,
-                          nodeSet: TestNodeSet,
-                          wallet1, client1):
+                          looper,
+                          txnPoolNodeSet,
+                          sdk_wallet_client, sdk_pool_handle):
     """
     The throughput after `DashboardUpdateFreq` seconds and before sending any
     requests should be zero.
@@ -22,22 +20,24 @@ def testPostingThroughput(postingStatsEnabled,
     Test `totalRequests` too.
     """
 
+    config = decreasedMonitoringTimeouts
+
     # We are sleeping for this window size, because we need to clear previous
     # values that were being stored for this much time in tests
     looper.runFor(config.ThroughputWindowSize)
 
     reqCount = 10
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         assert node.monitor.highResThroughput == 0
         assert node.monitor.totalRequests == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        wallet1,
-                                        client1,
-                                        reqCount,
-                                        nodeSet.f)
+    sdk_send_random_and_check(looper,
+                          txnPoolNodeSet,
+                          sdk_pool_handle,
+                          sdk_wallet_client,
+                          reqCount)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
         assert node.monitor.totalRequests == reqCount
@@ -47,7 +47,7 @@ def testPostingThroughput(postingStatsEnabled,
 
     looper.runFor(config.DashboardUpdateFreq)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.monitor.spylog.count(Monitor.sendThroughput.__name__) > 0
 
     # Run for latency window duration so that `orderedRequestsInLast`
@@ -55,7 +55,7 @@ def testPostingThroughput(postingStatsEnabled,
     looper.runFor(config.ThroughputWindowSize)
 
     def chk():
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             assert len(node.monitor.orderedRequestsInLast) == 0
             assert node.monitor.highResThroughput == 0
             assert node.monitor.totalRequests == reqCount
@@ -66,9 +66,9 @@ def testPostingThroughput(postingStatsEnabled,
 
 def testPostingLatency(postingStatsEnabled,
                        decreasedMonitoringTimeouts,
-                       looper: Looper,
-                       nodeSet: TestNodeSet,
-                       wallet1, client1):
+                       looper,
+                       txnPoolNodeSet,
+                       sdk_wallet_client, sdk_pool_handle):
     """
     The latencies (master as well as average of backups) after
     `DashboardUpdateFreq` seconds and before sending any requests should be zero.
@@ -76,27 +76,30 @@ def testPostingLatency(postingStatsEnabled,
     latency till `LatencyWindowSize` should consider those `n` requests.
     After `LatencyWindowSize` seconds the latencies should be zero
     """
+
+    config = decreasedMonitoringTimeouts
+
     # Run for latency window duration so that `latenciesByMasterInLast` and
     # `latenciesByBackupsInLast` become empty
     looper.runFor(config.LatencyWindowSize)
     reqCount = 10
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         assert node.monitor.masterLatency == 0
         assert node.monitor.avgBackupLatency == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        wallet1,
-                                        client1,
-                                        reqCount,
-                                        nodeSet.f)
+    sdk_send_random_and_check(looper,
+                          txnPoolNodeSet,
+                          sdk_pool_handle,
+                          sdk_wallet_client,
+                          reqCount)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         assert node.monitor.masterLatency > 0
         assert node.monitor.avgBackupLatency > 0
 
     looper.runFor(config.DashboardUpdateFreq)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.monitor.spylog.count(Monitor.sendLatencies.__name__) > 0
 
     # Run for latency window duration so that `latenciesByMasterInLast` and
@@ -104,7 +107,7 @@ def testPostingLatency(postingStatsEnabled,
     looper.runFor(config.LatencyWindowSize)
 
     def chk():
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             assert node.monitor.masterLatency == 0
             assert node.monitor.avgBackupLatency == 0
 
