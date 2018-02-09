@@ -5,9 +5,10 @@ from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
 
 
 @pytest.fixture()
-def bls_crypto_factory(tempdir):
-    os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsFactoryIndyCrypto(tempdir, 'Node1')
+def bls_crypto_factory(tdir_for_func):
+    dir = os.path.join(tdir_for_func, 'Node1')
+    os.mkdir(dir)
+    return BlsFactoryIndyCrypto(dir)
 
 
 def create_crypto_signer(bls_crypto_factory):

@@ -7,9 +7,10 @@ from sys import argv
 from plenum.common.script_helper import isNodeType, exportNodeGenTxn, exportStewardGenTxn, buildKeepDirIfNotExists
 from plenum.common.config_util import getConfig
 
-config = getConfig()
 
 if __name__ == "__main__":
+    config = getConfig()
+
     buildKeepDirIfNotExists(config.baseDir)
 
     parser = argparse.ArgumentParser(

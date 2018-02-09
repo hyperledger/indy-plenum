@@ -9,6 +9,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 from plenum.test.test_node import checkNodesConnected, TestNode
+from plenum.common.config_helper import PNodeConfigHelper
 from stp_core.types import HA
 
 TestRunningTimeLimitSec = 200
@@ -20,8 +21,8 @@ def test_state_regenerated_from_ledger(
         client1,
         wallet1,
         client1Connected,
+        tdir,
         tconf,
-        tdirWithPoolTxns,
         allPluginsPath):
     """
     Node loses its state database but recreates it from ledger after start
@@ -43,7 +44,9 @@ def test_state_regenerated_from_ledger(
 
     shutil.rmtree(state_db_path)
 
-    restarted_node = TestNode(node_to_stop.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+    config_helper = PNodeConfigHelper(node_to_stop.name, tconf, chroot=tdir)
+    restarted_node = TestNode(node_to_stop.name,
+                              config_helper=config_helper,
                               config=tconf, ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
     looper.add(restarted_node)

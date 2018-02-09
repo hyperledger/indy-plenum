@@ -10,9 +10,8 @@ nodes_wth_bls = 4
 # As we use tests with Module scope, results from previous tests are accumulated, so
 # rotating BLS keys one by one, eventually we will have all keys changed
 
-def test_update_incorrect_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                    poolTxnClientData,
-                                    stewards_and_wallets):
+def test_update_incorrect_bls_one_node(looper, txnPoolNodeSet, client_tdir,
+                                       poolTxnClientData, stewards_and_wallets):
     '''
     Updated with wrong BLS key for 1st Node;
     Expect that BLS multi-sigs are applied since we have 3 correct signatures
@@ -23,52 +22,53 @@ def test_update_incorrect_bls_one_node(looper, txnPoolNodeSet, tdirWithPoolTxns,
         node.quorums.commit = Quorum(nodeCount)
     check_update_bls_key(node_num=0,
                          saved_multi_sigs_count=4,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets,
                          add_wrong=True)
 
 
-def test_update_incorrect_bls_two_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                              poolTxnClientData,
-                              stewards_and_wallets):
+def test_update_incorrect_bls_two_nodes(looper, txnPoolNodeSet, client_tdir,
+                                        poolTxnClientData, stewards_and_wallets):
     '''
     Updated with wrong BLS key for 1st and 2d Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
     check_update_bls_key(node_num=1,
                          saved_multi_sigs_count=0,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets,
                          add_wrong=True)
 
 
-def test_update_incorrect_bls_three_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                poolTxnClientData,
-                                stewards_and_wallets):
+def test_update_incorrect_bls_three_nodes(looper, txnPoolNodeSet, client_tdir,
+                                          poolTxnClientData, stewards_and_wallets):
     '''
     Updated with wrong BLS keys 1-3 Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
     check_update_bls_key(node_num=2,
                          saved_multi_sigs_count=0,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets,
                          add_wrong=True)
 
 
-def test_update_incorrect_bls_all_nodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                              poolTxnClientData,
-                              stewards_and_wallets):
+def test_update_incorrect_bls_all_nodes(looper, txnPoolNodeSet, client_tdir,
+                                        poolTxnClientData, stewards_and_wallets):
     '''
     Updated with wrong BLS keys all Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
     check_update_bls_key(node_num=3,
                          saved_multi_sigs_count=0,
-                         looper=looper, txnPoolNodeSet=txnPoolNodeSet, tdirWithPoolTxns=tdirWithPoolTxns,
+                         looper=looper, txnPoolNodeSet=txnPoolNodeSet,
+                         client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets,
                          add_wrong=True)

@@ -13,7 +13,7 @@ from stp_zmq.zstack import ZStack
 
 
 def genKeys(baseDir, names):
-    bdir = os.path.join(baseDir, "keys")
+    bdir = os.path.join(baseDir)
     generate_certificates(bdir, *names, clean=True)
     for n in names:
         d = os.path.join(bdir, n)

@@ -7,9 +7,10 @@ from stp_zmq.test.helper import get_file_permission_mask
 
 
 @pytest.fixture()
-def bls_key_manager_file(tempdir):
-    os.mkdir(os.path.join(tempdir, 'Node1'))
-    return BlsKeyManagerFile(tempdir, 'Node1')
+def bls_key_manager_file(tdir_for_func):
+    dir = os.path.join(tdir_for_func, 'Node1')
+    os.mkdir(dir)
+    return BlsKeyManagerFile(dir)
 
 
 def test_key_dir(bls_key_manager_file):

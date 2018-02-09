@@ -19,13 +19,18 @@ logger = getlogger()
 
 class DomainRequestHandler(RequestHandler):
     stateSerializer = domain_state_serializer
+    write_types = {NYM, }
 
-    def __init__(self, ledger, state, reqProcessors, bls_store):
+    def __init__(self, ledger, state, config, reqProcessors, bls_store):
         super().__init__(ledger, state)
+        self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store
 
-    def validate(self, req: Request, config=None):
+    def doStaticValidation(self, request: Request):
+        pass
+
+    def validate(self, req: Request):
         if req.operation.get(TXN_TYPE) == NYM:
             origin = req.identifier
             error = None
@@ -33,10 +38,10 @@ class DomainRequestHandler(RequestHandler):
                                   origin, isCommitted=False):
                 error = "Only Steward is allowed to do these transactions"
             if req.operation.get(ROLE) == STEWARD:
-                if self.stewardThresholdExceeded(config):
+                if self.stewardThresholdExceeded(self.config):
                     error = "New stewards cannot be added by other stewards " \
                             "as there are already {} stewards in the system".\
-                            format(config.stewardThreshold)
+                            format(self.config.stewardThreshold)
             if error:
                 raise UnauthorizedClientRequest(req.identifier,
                                                 req.reqId,
@@ -47,7 +52,6 @@ class DomainRequestHandler(RequestHandler):
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
-
         return txn
 
     def apply(self, req: Request, cons_time: int):
@@ -55,7 +59,7 @@ class DomainRequestHandler(RequestHandler):
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
-        return txn
+        return start, txn
 
     @staticmethod
     def transform_txn_for_ledger(txn):
@@ -120,30 +124,34 @@ class DomainRequestHandler(RequestHandler):
         self.state.set(key, val)
         return existingData
 
-    def hasNym(self, nym, isCommitted: bool = True):
+    def hasNym(self, nym, isCommitted: bool=True):
         key = self.nym_to_state_key(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
     @staticmethod
-    def getSteward(state, nym, isCommitted: bool = True):
+    def get_role(state, nym, role, isCommitted: bool=True):
         nymData = DomainRequestHandler.getNymDetails(state, nym, isCommitted)
         if not nymData:
             return {}
         else:
-            if nymData.get(ROLE) == STEWARD:
+            if nymData.get(ROLE) == role:
                 return nymData
             else:
                 return {}
 
     @staticmethod
-    def isSteward(state, nym, isCommitted: bool = True):
+    def getSteward(state, nym, isCommitted: bool=True):
+        return DomainRequestHandler.get_role(state, nym, STEWARD, isCommitted)
+
+    @staticmethod
+    def isSteward(state, nym, isCommitted: bool=True):
         return bool(DomainRequestHandler.getSteward(state,
                                                     nym,
                                                     isCommitted))
 
     @staticmethod
-    def getNymDetails(state, nym, isCommitted: bool = True):
+    def getNymDetails(state, nym, isCommitted: bool=True):
         key = DomainRequestHandler.nym_to_state_key(nym)
         data = state.get(key, isCommitted)
         if not data:

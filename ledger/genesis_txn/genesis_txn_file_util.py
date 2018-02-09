@@ -1,16 +1,14 @@
 import os
 
-from plenum.common.config_util import getConfig
-
-config = getConfig()
+import plenum.config as plenum_config
 
 
 def genesis_txn_file(transaction_file):
-    return transaction_file + config.genesis_file_suffix
+    return transaction_file + plenum_config.genesis_file_suffix
 
 
-def genesis_txn_path(base_dir, transaction_file):
-    return os.path.join(base_dir, genesis_txn_file(transaction_file))
+def genesis_txn_path(genesis_dir, transaction_file):
+    return os.path.join(genesis_dir, genesis_txn_file(transaction_file))
 
 
 def create_genesis_txn_init_ledger(data_dir, txn_file):

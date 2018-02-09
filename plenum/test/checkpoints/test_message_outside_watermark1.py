@@ -4,10 +4,10 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
-from plenum.test.delayers import ppDelay, pDelay, icDelay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
+from plenum.test.helper import sdk_send_random_and_check
 
 
 TestRunningTimeLimitSec = 300
@@ -18,11 +18,8 @@ logger = getlogger()
 whitelist = ['received an incorrect digest']
 
 
-def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
-                                                   chkFreqPatched, looper,
-                                                   txnPoolNodeSet, client1,
-                                                   wallet1, client1Connected,
-                                                   reqs_for_logsize):
+def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFreqPatched, looper, txnPoolNodeSet,
+                                                         sdk_pool_handle, sdk_wallet_client, reqs_for_logsize):
     """
     One of the primary starts getting lot of requests, more than his log size
     and queues up requests since they will go beyond its watermarks. This
@@ -45,13 +42,12 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
         r.node.nodeIbStasher.delay(pDelay(delay, instId))
 
-    tm_exec_1_batch = waits.expectedTransactionExecutionTime(
-        len(txnPoolNodeSet))
+    tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     batch_count = math.ceil(reqs_to_send / tconf.Max3PCBatchSize)
     total_timeout = (tm_exec_1_batch + delay) * batch_count
 
     def chk():
         assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqs_to_send)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
     looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

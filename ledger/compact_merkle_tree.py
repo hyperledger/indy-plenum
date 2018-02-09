@@ -6,8 +6,8 @@ import ledger.merkle_tree as merkle_tree
 from ledger.hash_stores.hash_store import HashStore
 from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.tree_hasher import TreeHasher
-from ledger.util import count_bits_set, lowest_bit_set
 from ledger.util import ConsistencyVerificationFailed
+from ledger.util import count_bits_set, lowest_bit_set
 
 
 class CompactMerkleTree(merkle_tree.MerkleTree):
@@ -249,7 +249,7 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
                 return self._path(m - k, start_n + k, end_n) + [
                     (start_n, start_n + k)]
 
-    def get_tree_head(self, seq: int=None):
+    def get_tree_head(self, seq: int = None):
         if seq is None:
             seq = self.tree_size
         if seq > self.tree_size:
@@ -288,3 +288,8 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
         if self.get_expected_node_count(self.leafCount) != self.nodeCount:
             raise ConsistencyVerificationFailed()
         return True
+
+    def reset(self):
+        self.hashStore.reset()
+        self._update(tree_size=0,
+                     hashes=())

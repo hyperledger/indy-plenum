@@ -22,11 +22,6 @@ txnCount = 5
 
 def make_master_replica_lag(node):
 
-    # class AbysmalBox(list):
-    #     def append(self, object) -> None:
-    #         pass
-    #
-    # node.replicas._master_replica.inBox = AbysmalBox()
     node.nodeIbStasher.delay(ppDelay(1200, 0))
     node.nodeIbStasher.delay(pDelay(1200, 0))
     node.nodeIbStasher.delay(cDelay(1200, 0))
@@ -50,11 +45,8 @@ def replicas_synced(node):
     assert compare_last_ordered_3pc(node) == 0
 
 
-def test_node_catchup_causes_no_desync(looper,
-                                       txnPoolNodeSet,
-                                       client1,
-                                       wallet1,
-                                       client1Connected):
+def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
+                                       wallet1, client1Connected, monkeypatch):
     """
     Checks that transactions received by catchup do not
     break performance monitoring
@@ -66,6 +58,9 @@ def test_node_catchup_causes_no_desync(looper,
 
     # Make master replica lagging by hiding all messages sent to it
     make_master_replica_lag(lagging_node)
+    monkeypatch.setattr(lagging_node.master_replica,
+                        '_request_missing_three_phase_messages',
+                        lambda *x, **y: None)
 
     # Send some requests and check that all replicas except master executed it
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)

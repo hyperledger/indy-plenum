@@ -10,6 +10,9 @@ from plenum.test.test_client import TestClient
 from stp_core.loop.eventually import eventually
 
 
+TestRunningTimeLimitSec = 125
+
+
 def chk_if_equal_txn_to_3pc(nodes, count=None):
     txn_to_tpc = []
     for node in nodes:
@@ -32,11 +35,11 @@ def tconf(tconf, request):
 
 
 @pytest.fixture("module")
-def pre_check(tconf, looper, txnPoolNodeSet, tdirWithPoolTxns,
+def pre_check(tconf, looper, txnPoolNodeSet, tdirWithClientPoolTxns,
               poolTxnStewardData):
     # TODO: Maybe this needs to be extracted in another fixture
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())

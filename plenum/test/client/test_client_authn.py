@@ -1,6 +1,7 @@
 import pytest
 
-from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
+from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate, \
+    InsufficientCorrectSignatures
 from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
@@ -58,7 +59,7 @@ def testMessageModified(sa, cli, msg, sig):
     # slight modification to the message
     msg2['myMsg'] = msg2['myMsg'][:-1] + '!'
 
-    with pytest.raises(InvalidSignature):
+    with pytest.raises(InsufficientCorrectSignatures):
         sa.authenticate(msg2, idr, sig)
 
 

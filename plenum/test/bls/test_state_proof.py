@@ -1,5 +1,5 @@
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN_TYPE, DATA, TXN_TIME, STATE_PROOF, \
-    MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
+    DOMAIN_LEDGER_ID, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
     MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
@@ -17,15 +17,16 @@ nodes_wth_bls = 4
 
 def check_result(txnPoolNodeSet, req, client, should_have_proof):
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier)
-        proof = node.reqHandler.make_proof(key)
+        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
+        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
+        proof = req_handler.make_proof(key)
 
         txn_time = get_utc_epoch()
-        result = node.reqHandler.make_result(req,
-                                             {TXN_TYPE: "buy"},
-                                             2,
-                                             txn_time,
-                                             proof)
+        result = req_handler.make_result(req,
+                                         {TXN_TYPE: "buy"},
+                                         2,
+                                         txn_time,
+                                         proof)
         assert result
         assert result[DATA] == {TXN_TYPE: "buy"}
         assert result[f.IDENTIFIER.nm] == req.identifier
@@ -47,9 +48,9 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        key = node.reqHandler.prepare_buy_key(req.identifier)
-        proof = node.reqHandler.make_proof(key)
-
+        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
+        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
+        proof = req_handler.make_proof(key)
         assert proof
         assert ROOT_HASH in proof
         assert MULTI_SIGNATURE in proof
@@ -68,8 +69,10 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
         assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
         # check that multi sig values are in order
         value_keys = list(multi_sig_value.keys())
-        assert [MULTI_SIGNATURE_VALUE_LEDGER_ID, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT,
-                MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TIMESTAMP,
+        assert [MULTI_SIGNATURE_VALUE_LEDGER_ID,
+                MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT,
+                MULTI_SIGNATURE_VALUE_STATE_ROOT,
+                MULTI_SIGNATURE_VALUE_TIMESTAMP,
                 MULTI_SIGNATURE_VALUE_TXN_ROOT] == value_keys
 
         assert client1.validate_multi_signature(proof)
@@ -96,8 +99,11 @@ def test_make_result_no_protocol_version(looper, txnPoolNodeSet,
     check_result(txnPoolNodeSet, request, client1, False)
 
 
-def test_make_result_protocol_version_less_than_state_proof(looper, txnPoolNodeSet,
-                                                            client1, client1Connected, wallet1):
+def test_make_result_protocol_version_less_than_state_proof(looper,
+                                                            txnPoolNodeSet,
+                                                            client1,
+                                                            client1Connected,
+                                                            wallet1):
     request = SafeRequest(identifier="1" * 16,
                           reqId=1,
                           operation=randomOperation(),
@@ -106,8 +112,11 @@ def test_make_result_protocol_version_less_than_state_proof(looper, txnPoolNodeS
     check_result(txnPoolNodeSet, request, client1, False)
 
 
-def test_make_result_no_protocol_version_in_request_by_default(looper, txnPoolNodeSet,
-                                                               client1, client1Connected, wallet1):
+def test_make_result_no_protocol_version_in_request_by_default(looper,
+                                                               txnPoolNodeSet,
+                                                               client1,
+                                                               client1Connected,
+                                                               wallet1):
     request = SafeRequest(identifier="1" * 16,
                           reqId=1,
                           operation=randomOperation(),
@@ -157,7 +166,8 @@ def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
     reqs = sendRandomRequests(wallet1, client1, 1)
     wait_for_requests_ordered(looper, txnPoolNodeSet, reqs)
     req = reqs[0]
-    key = txnPoolNodeSet[0].reqHandler.prepare_buy_key(req.identifier)
+    req_handler = txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
+    key = req_handler.prepare_buy_key(req.identifier, req.reqId)
 
     for node in txnPoolNodeSet:
         node.states[DOMAIN_LEDGER_ID].set(key, b'somevalue')

@@ -14,6 +14,7 @@ Field = namedtuple("Field", ["nm", "tp"])
 
 class f:  # provides a namespace for reusable field constants
     REQUEST = Field('request', 'Request')
+    REQUESTS = Field('requests', List[Any])
     MSG = Field('msg', str)
     NODE_NAME = Field('nodeName', str)
     NAME = Field("name", str)
@@ -24,6 +25,8 @@ class f:  # provides a namespace for reusable field constants
     DIGESTS = Field('digests', List[str])
     RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
     SEQ_NO = Field('seqNo', int)
+    SEQ_NO_START = Field('seqNoStart', int)
+    SEQ_NO_END = Field('seqNoEnd', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
     # Last ordered seq no of each protocol instance, sent during view change
@@ -68,6 +71,8 @@ class f:  # provides a namespace for reusable field constants
     MSG_TYPE = Field("msg_type", str)
     PARAMS = Field("params", dict)
     PRIMARY = Field("primary", dict)
+    SIGS = Field('signatures', dict)
+    PLUGIN_FIELDS = Field('plugin_fields', dict)
 
 
 OPERATION = 'operation'
@@ -76,6 +81,7 @@ OPERATION = 'operation'
 PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
 PLUGIN_TYPE_PROCESSING = "PROCESSING"
 PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
+PLUGIN_TYPE_AUTHENTICATOR = 'AUTHENTICATOR'
 
 EVENT_REQ_ORDERED = "req_ordered"
 EVENT_NODE_STARTED = "node_started"
