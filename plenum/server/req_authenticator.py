@@ -1,7 +1,7 @@
 from typing import Optional
 
 from plenum.common.constants import TXN_TYPE
-from plenum.common.error import error
+from common.error import error
 from plenum.common.exceptions import NoAuthenticatorFound
 from plenum.common.types import OPERATION
 from plenum.server.client_authn import ClientAuthNr

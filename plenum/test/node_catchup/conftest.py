@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.test.spy_helpers import getAllReturnVals
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
@@ -31,9 +30,9 @@ def looper(txnPoolNodesLooper):
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
-                             tdir, tdirWithClientPoolTxns, poolTxnStewardData, tconf,
-                             allPluginsPath, request):
+def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
+                             txnPoolNodeSet, tdir, tdirWithClientPoolTxns,
+                             poolTxnStewardData, tconf, allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithClientPoolTxns,
                                               clientClass=TestClient)
@@ -48,7 +47,9 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, client, wallet, newStewardName, newNodeName,
-        tdir, tdirWithClientPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=do_post_node_creation)
     yield looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet
 

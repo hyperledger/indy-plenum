@@ -1,6 +1,6 @@
 from typing import Callable, Dict, List
 
-from plenum.common.error import error
+from common.error import error
 
 
 class HookManager:

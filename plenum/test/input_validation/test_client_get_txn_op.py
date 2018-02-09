@@ -11,7 +11,7 @@ from plenum.common.messages.client_request import ClientGetTxnOperation, \
 op_get_txn = ClientGetTxnOperation()
 
 
-def test_no_ledgerId_fails():
+def test_no_ledgerId_passes():
     op_get_txn.validate({
         TXN_TYPE: GET_TXN,
         DATA: TEST_SEQ_NORMAL

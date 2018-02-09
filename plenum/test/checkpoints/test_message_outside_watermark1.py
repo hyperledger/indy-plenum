@@ -4,7 +4,7 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
-from plenum.test.delayers import ppDelay, pDelay, icDelay
+from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_random_and_check

@@ -47,7 +47,7 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY
+    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY, TRUSTEE
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, getMaxFailures
@@ -55,7 +55,8 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs
+    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
+    create_new_test_node
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -70,6 +71,16 @@ logger = getlogger()
 #config = getConfig()
 
 GENERAL_CONFIG_DIR='etc/indy'
+
+
+def get_data_for_role(pool_txn_data, role):
+    name_and_seeds = []
+    for txn in pool_txn_data['txns']:
+        if txn.get(ROLE) == role:
+            name = txn[ALIAS]
+            name_and_seeds.append((name, pool_txn_data['seeds'][name]))
+    return name_and_seeds
+
 
 @pytest.mark.firstresult
 def pytest_xdist_make_scheduler(config, log):
@@ -328,6 +339,7 @@ def nodeSet(request, tdir, tconf, nodeReg, allPluginsPath, patchPluginManager):
 
 def _tdir(tdir_fact):
     return tdir_fact.mktemp('').strpath
+
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory):
@@ -613,6 +625,7 @@ def looper_without_nodeset_for_func():
     with Looper() as looper:
         yield looper
 
+
 @pytest.fixture(scope="module")
 def poolTxnNodeNames(request, index=""):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
@@ -677,6 +690,20 @@ def poolTxnData(request):
             data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)
+
+    # Add 4 Trustees
+    for i in range(4):
+        trustee_name = 'Trs' + str(i)
+        data['seeds'][trustee_name] = trustee_name + '0' * (
+                32 - len(trustee_name))
+        t_sgnr = DidSigner(seed=data['seeds'][trustee_name].encode())
+        data['txns'].append({
+            TXN_TYPE: NYM,
+            ROLE: TRUSTEE,
+            ALIAS: trustee_name,
+            TARGET_NYM: t_sgnr.identifier,
+            VERKEY: t_sgnr.verkey
+        })
 
     more_data_seeds = \
         {
@@ -758,6 +785,7 @@ def tdirWithNodeKeepInited(tdir, tconf, node_config_helper_class, poolTxnData, p
         config_helper = node_config_helper_class(nName, tconf, chroot=tdir)
         initNodeKeysForBothStacks(nName, config_helper.keys_dir, seed, use_bls=use_bls, override=True)
 
+
 @pytest.fixture(scope="module")
 def poolTxnClientData(poolTxnClientNames, poolTxnData):
     name = poolTxnClientNames[0]
@@ -776,6 +804,11 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 def pool_txn_stewards_data(poolTxnStewardNames, poolTxnData):
     return [(name, poolTxnData["seeds"][name].encode())
             for name in poolTxnStewardNames]
+
+
+@pytest.fixture(scope="module")
+def trustee_data(poolTxnData):
+    return get_data_for_role(poolTxnData, TRUSTEE)
 
 
 @pytest.fixture(scope="module")
@@ -819,6 +852,19 @@ def txnPoolNodesLooper():
 
 
 @pytest.fixture(scope="module")
+def do_post_node_creation():
+    """
+    This fixture is used to do any changes on the newly created node. To use
+    this, override this fixture in test module or conftest and define the
+    changes in the function `_post_node_creation`
+    """
+    def _post_node_creation(node):
+        pass
+
+    return _post_node_creation
+
+
+@pytest.fixture(scope="module")
 def txnPoolNodeSet(node_config_helper_class,
                    patchPluginManager,
                    txnPoolNodesLooper,
@@ -829,16 +875,15 @@ def txnPoolNodeSet(node_config_helper_class,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
-                   testNodeClass):
+                   testNodeClass,
+                   do_post_node_creation):
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
-            config_helper = node_config_helper_class(nm, tconf, chroot=tdir)
-            node = exitStack.enter_context(
-                testNodeClass(nm,
-                              config_helper=config_helper,
-                              config=tconf,
-                              pluginPaths=allPluginsPath))
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
             txnPoolNodesLooper.add(node)
             nodes.append(node)
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
@@ -971,7 +1016,8 @@ async def _gen_pool_handler(work_dir, name):
 
 @pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
-    pool_handle = looper.loop.run_until_complete(_gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
+    pool_handle = looper.loop.run_until_complete(
+        _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
     looper.loop.run_until_complete(close_pool_ledger(pool_handle))
 
@@ -984,7 +1030,8 @@ async def _gen_wallet_handler(pool_name, wallet_name):
 
 @pytest.fixture(scope='module')
 def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
-    wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+    wallet_handle = looper.loop.run_until_complete(
+        _gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 
@@ -1009,27 +1056,36 @@ def sdk_new_client_seed():
 @pytest.fixture(scope='module')
 def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
     (steward_did, steward_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_steward_seed})))
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({'seed': sdk_steward_seed})))
     return sdk_wallet_handle, steward_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     (client_did, _) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle, json.dumps({"seed": sdk_client_seed})))
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({'seed': sdk_client_seed})))
     return sdk_wallet_handle, client_did
 
 
-async def _gen_named_wallet(pool_handle, wallet_steward, named_seed):
-    wh, steward_did = wallet_steward
-    (named_did, named_verkey) = await create_and_store_my_did(wh, json.dumps({"seed": named_seed, 'cid': True}))
-    nym_request = await build_nym_request(steward_did, named_did, named_verkey, None, None)
+async def _gen_named_wallet(pool_handle, wallet, named_seed):
+    wh, steward_did = wallet
+    (named_did, named_verkey) = await create_and_store_my_did(wh,
+                                                              json.dumps({
+                                                                  'seed': named_seed,
+                                                                  'cid': True})
+                                                              )
+    nym_request = await build_nym_request(steward_did, named_did, named_verkey,
+                                          None, None)
     await sign_and_submit_request(pool_handle, wh, steward_did, nym_request)
     return wh, named_did
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed):
+def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
+                          sdk_new_client_seed):
     wh, client_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward, sdk_new_client_seed))
+        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward,
+                          sdk_new_client_seed))
     return wh, client_did

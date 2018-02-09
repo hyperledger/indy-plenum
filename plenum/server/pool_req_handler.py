@@ -1,8 +1,8 @@
 from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
-    SERVICES
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request

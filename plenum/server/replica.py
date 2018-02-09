@@ -4,17 +4,20 @@ from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable
 
+import math
+
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    REPLICA_HOOKS, CREATE_PPR, CREATE_PR, CREATE_CM, CREATE_ORD
+    ReplicaHooks
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.request import Request, ReqKey
@@ -288,7 +291,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
-        HookManager.__init__(self, REPLICA_HOOKS)
+        HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -441,7 +444,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # decided.
                 return
             self._gc_before_new_view()
-            self._reset_watermarks_before_new_view()
+            if self.viewNo > 0:
+                self._reset_watermarks_before_new_view()
             self._stateChanged()
 
     def compact_primary_names(self):
@@ -493,9 +497,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # if this is a Primary that is re-connected (that is view change is not actually changed,
         # we just propagate it, then make sure that we don;t break the sequence
         # of ppSeqNo
-        if self.isPrimary:
+        self.update_watermark_from_3pc()
+        if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-            self.h = self.last_ordered_3pc[1]
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -733,7 +737,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         pre_prepare = PrePrepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_PPR, pre_prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
             pre_prepare = rv if rv is not None else pre_prepare
 
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
@@ -840,7 +844,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg wirh 3PC key not greater than last prepared one's
+        # Commit msg with 3PC key not greater than last prepared one's
         r = isinstance(msg, Commit) and \
             self.last_prepared_before_view_change and \
             compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
@@ -930,15 +934,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # PREPARE and PRE-PREPARE contain a combined digest
             self.node.request_propagates(non_fin_reqs)
         elif why_not == PP_CHECK_NOT_NEXT:
+            pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
             last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
-            logger.warning("{} missing PRE-PREPAREs between {} and {}, "
-                           "going to request"
-                           .format(self, pp_seq_no, last_pp_seq_no))
-            self._request_missing_three_phase_messages(last_pp_seq_no,
-                                                       pp_seq_no,
-                                                       last_pp_view_no,
-                                                       pre_prepare.viewNo)
+            if pp_view_no >= last_pp_view_no:
+                seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
+                seq_to = pp_seq_no
+                if seq_frm <= seq_to:
+                    logger.warning("{} missing PRE-PREPAREs from {} to {}, "
+                                   "going to request"
+                                   .format(self, seq_frm, seq_to))
+                    self._request_missing_three_phase_messages(
+                        pp_view_no, seq_frm, seq_to)
             self._setup_for_non_master()
             self.enqueue_pre_prepare(pre_prepare, sender)
         elif why_not == PP_CHECK_WRONG_TIME:
@@ -1059,7 +1066,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         prepare = Prepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_PR, prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
@@ -1085,7 +1092,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         commit = Commit(*params)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_CM, commit)
+            rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
             commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
@@ -1363,10 +1370,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return self.prePrepares[key]
         return None
 
-    def get_prepare(self, viewNo, ppSeqNo):
+    def get_sent_prepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
         if key in self.prepares:
-            return self.prepares[key].msg
+            prepare = self.prepares[key].msg
+            if self.prepares.hasPrepareFrom(prepare, self.name):
+                return prepare
         return None
 
     @property
@@ -1605,7 +1614,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash)
         if self.isMaster:
-            rv = self.execute_hook(CREATE_ORD, ordered)
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
             ordered = rv if rv is not None else ordered
 
         # TODO: Should not order or add to checkpoint while syncing
@@ -1617,11 +1626,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # request
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
-                for reqKey in pp.reqIdr[:pp.discarded]:
-                    req = self.requests[reqKey].finalised
-                    self.node.applyReq(req, pp.ppTime)
-                state_root = self.stateRootHash(pp.ledgerId, to_str=False)
-                self.node.onBatchCreated(pp.ledgerId, state_root)
+                self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
+                                             pp.ppTime,
+                                             pp.ledgerId)
 
             self.stashingWhileCatchingUp.remove(key)
 
@@ -1710,14 +1717,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.node.start_catchup()
             self.h = max_pp_seq_no
 
-    def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
-        s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
-        logger.debug("{} adding new checkpoint state for {}".
-                     format(self, (s, e)))
-        state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
-        self.checkpoints[s, e] = state
-        return state
-
     def addToCheckpoint(self, ppSeqNo, digest):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
@@ -1727,22 +1726,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.checkpoints[s, e] = state
                 break
         else:
-            state = self._newCheckpointState(ppSeqNo, digest)
-            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
-
-        if len(state.digests) == self.config.CHK_FREQ:
-            # TODO CheckpointState/Checkpoint is not a namedtuple anymore
-            # 1. check if updateNamedTuple works for the new message type
-            # 2. choose another name
-            state = updateNamedTuple(state,
-                                     digest=sha256(
-                                         serialize_msg_for_signing(
-                                             state.digests)
-                                     ).hexdigest(),
-                                     digests=[])
+            s, e = ppSeqNo, math.ceil(ppSeqNo / self.config.CHK_FREQ) \
+                * self.config.CHK_FREQ
+            logger.debug("{} adding new checkpoint state for {}".
+                         format(self, (s, e)))
+            state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
             self.checkpoints[s, e] = state
-            self.send(Checkpoint(self.instId, self.viewNo, s, e,
-                                 state.digest))
+
+        if state.seqNo == e:
+            if len(state.digests) == self.config.CHK_FREQ:
+                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+                # 1. check if updateNamedTuple works for the new message type
+                # 2. choose another name
+                state = updateNamedTuple(state,
+                                         digest=sha256(
+                                             serialize_msg_for_signing(
+                                                 state.digests)
+                                         ).hexdigest(),
+                                         digests=[])
+                self.checkpoints[s, e] = state
+                self.send(Checkpoint(self.instId, self.viewNo, s, e,
+                                     state.digest))
             self.processStashedCheckpoints((s, e))
 
     def markCheckPointStable(self, seqNo):
@@ -1771,8 +1775,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
-        # TODO: what if len(ckState.receivedDigests) > 2 * f?
-        if len(ckState.receivedDigests) == self.quorums.checkpoint.value:
+        if self.quorums.checkpoint.is_reached(len(ckState.receivedDigests)):
             self.markCheckPointStable(ckState.seqNo)
             return True
         else:
@@ -2130,17 +2133,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
-    def _request_missing_three_phase_messages(self, seq_frm: int, seq_to: int, view_frm: int, view_to: int) -> None:
-        for pp_seq_no in range(seq_frm + 1, seq_to + 1):
-            for view_no in range(view_frm, view_to + 1):
-                request_data = (view_no, pp_seq_no)
-                self._request_pre_prepare(request_data)
-                self._request_prepare(request_data)
+    def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
+        for pp_seq_no in range(seq_frm, seq_to + 1):
+            key = (view_no, pp_seq_no)
+            self._request_pre_prepare(key)
+            self._request_prepare(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
                                  msg_type: str,
-                                 recipients: List[str]=None,
+                                 recipients: Optional[List[str]]=None,
                                  stash_data: Optional[Tuple[int, int, int]]=None) -> bool:
         if three_pc_key in stash:
             logger.debug('{} not requesting {} since already '
@@ -2228,9 +2230,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                               if state == acceptable})
 
     def _process_requested_three_phase_msg(self, msg: object,
+                                           sender: List[str],
                                            stash: Dict[int, int],
-                                           get_saved: Callable[[int, int], None],
-                                           sender: List[str] = None):
+                                           get_saved: Optional[Callable[[int, int], Optional[MessageBase]]]=None):
         if msg is None:
             logger.debug('{} received null from {}'.
                          format(self, sender))
@@ -2247,7 +2249,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             logger.debug(
                 '{} has already ordered msg ({})'.format(self, key))
             return
-        if get_saved(*key):
+        if get_saved and get_saved(*key):
             logger.debug(
                 '{} has already received msg ({})'.format(self, key))
             return
@@ -2263,10 +2265,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                      logMethod=logger.warning)
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        return self._process_requested_three_phase_msg(pp, self.requested_pre_prepares, self.getPrePrepare, sender)
+        return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares, self.getPrePrepare)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
-        return self._process_requested_three_phase_msg(prepare, self.requested_prepares, self.get_prepare, sender)
+        return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """
@@ -2378,10 +2380,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 break
         return i
 
+    def update_watermark_from_3pc(self):
+        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
+            logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
+            self.h = self.last_ordered_3pc[1]
+        else:
+            logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is None")
+
     def caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
+        self.update_watermark_from_3pc()
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """

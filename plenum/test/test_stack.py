@@ -42,8 +42,8 @@ class TestStack(BaseStackClass):
     def resetDelays(self):
         self.stasher.resetDelays()
 
-    def force_process_delayeds(self):
-        return self.stasher.force_unstash()
+    def force_process_delayeds(self, *names):
+        return self.stasher.force_unstash(*names)
 
 
 class StackedTester:

@@ -9,6 +9,8 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
+
+import pytest
 from psutil import Popen
 import json
 import asyncio
@@ -172,8 +174,7 @@ def send_reqs_batches_and_get_suff_replies(
                     looper,
                     wallet,
                     client,
-                    num_reqs //
-                    num_batches,
+                    num_reqs // num_batches,
                     **kwargs))
         rem = num_reqs % num_batches
         if rem == 0:
@@ -278,22 +279,6 @@ def setupClients(count: int,
         clients[client.name] = client
         wallets[client.name] = wallet
     return clients, wallets
-
-
-# noinspection PyIncorrectDocstring
-async def aSetupClient(looper: Looper,
-                       nodes: Sequence[TestNode] = None,
-                       nodeReg=None,
-                       tmpdir=None):
-    """
-    async version of above
-    """
-    client1 = genTestClient(nodes=nodes,
-                            nodeReg=nodeReg,
-                            tmpdir=tmpdir)
-    looper.add(client1)
-    await client1.ensureConnectedToNodes()
-    return client1
 
 
 def randomOperation():
@@ -482,19 +467,19 @@ def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
     assert not requestReturnedToNode(node, identifier, reqId, instId)
 
 
-def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+def check_request_is_not_returned_to_nodes(nodeSet, request):
     instances = range(getNoInstances(len(nodeSet)))
-    coros = []
     for node, inst_id in itertools.product(nodeSet, instances):
-        c = partial(checkRequestNotReturnedToNode,
-                    node=node,
-                    identifier=request.identifier,
-                    reqId=request.reqId,
-                    instId=inst_id
-                    )
-        coros.append(c)
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+        checkRequestNotReturnedToNode(node,
+                                      request.identifier,
+                                      request.reqId,
+                                      inst_id)
+
+
+def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
+    with pytest.raises(AssertionError):
+        waitForSufficientRepliesForRequests(looper, client, requests=[request])
+    check_request_is_not_returned_to_nodes(nodes, request)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
@@ -654,7 +639,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     assert len(viewNos) == 1
     vNo, = viewNos
     if expectedViewNo is not None:
-        assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
+        assert vNo >= expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
             node.name, node.monitor.masterThroughputRatio()) for node in nodes])
     return vNo
 
@@ -964,35 +949,53 @@ def wait_for_requests_ordered(looper, nodes, requests):
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=total_timeout))
 
 
+def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
+                         tdir, plugin_paths):
+    config_helper = node_config_helper_class(name, conf, chroot=tdir)
+    return test_node_class(name,
+                           config_helper=config_helper,
+                           config=conf,
+                           pluginPaths=plugin_paths)
+
+
 # ####### SDK
 
 
-def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION, identifier=None):
+def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
+                    identifier=None, **kwargs):
+    # Question: Why this method is called sdk_gen_request? It does not use
+    # the indy-sdk
     return Request(operation=operation, reqId=random.randint(10, 100000),
-                   protocolVersion=protocol_version, identifier=identifier)
+                   protocolVersion=protocol_version, identifier=identifier,
+                   **kwargs)
 
 
-def sdk_random_request_objects(count, protocol_version, identifier=None):
+def sdk_random_request_objects(count, protocol_version, identifier=None,
+                               **kwargs):
     ops = random_requests(count)
-    return [sdk_gen_request(op, protocol_version=protocol_version, identifier=identifier) for op in ops]
-
+    return [sdk_gen_request(op, protocol_version=protocol_version,
+                            identifier=identifier, **kwargs) for op in ops]
 
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
-    resp = [looper.loop.run_until_complete(sign_request(wallet_h, did, req)) for req in reqs_str]
-    return resp
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
 
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
-    reqs_obj = sdk_random_request_objects(count, identifier=did, protocol_version=CURRENT_PROTOCOL_VERSION)
+    reqs_obj = sdk_random_request_objects(count, identifier=did,
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
     return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
-    return [(json.loads(req), asyncio.ensure_future(submit_request(pool_h, req))) for req in signed_reqs]
+    return [(json.loads(req),
+             asyncio.ensure_future(submit_request(pool_h, req)))
+            for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
@@ -1007,7 +1010,8 @@ def sdk_send_random_request(looper, pool_h, sdk_wallet):
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
-    return json.loads(req), asyncio.ensure_future(sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+    return json.loads(req), asyncio.ensure_future(
+        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
@@ -1046,6 +1050,16 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     return ret
 
 
+def sdk_check_reply(req_res):
+    req, res = req_res
+    if res is None:
+        raise AssertionError("Got no confirmed result for request {}"
+                             .format(req))
+    if isinstance(res, ErrorCode):
+        raise AssertionError("Got an error with code {} for request {}"
+                             .format(res, req))
+
+
 def sdk_eval_timeout(req_count: int, node_count: int,
                      customTimeoutPerReq: float = None, add_delay_to_timeout: float = 0):
     timeout_per_request = customTimeoutPerReq or waits.expectedTransactionExecutionTime(node_count)
@@ -1063,7 +1077,10 @@ def sdk_send_and_check(signed_reqs, looper, txnPoolNodeSet, pool_h, timeout=None
     if not timeout:
         timeout = sdk_eval_timeout(len(signed_reqs), len(txnPoolNodeSet))
     results = sdk_send_signed_requests(pool_h, signed_reqs)
-    sdk_get_replies(looper, results, timeout=timeout)
+    sdk_replies = sdk_get_replies(looper, results, timeout=timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
 
 
 def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, count,
@@ -1074,8 +1091,10 @@ def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, coun
         total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet),
                                          customTimeoutPerReq=customTimeoutPerReq,
                                          add_delay_to_timeout=add_delay_to_timeout)
-    sdk_repl = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
-    return sdk_repl
+    sdk_replies = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
 
 
 def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
@@ -1084,15 +1103,15 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
-    sdk_resps = []
+    sdk_replies = []
     for _ in range(num_batches - 1):
-        sdk_resps.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
                                                    num_reqs // num_batches, **kwargs))
     rem = num_reqs % num_batches
     if rem == 0:
         rem = num_reqs // num_batches
-    sdk_resps.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
-    return sdk_resps
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+    return sdk_replies
 
 
 def sdk_sign_request_from_dict(looper, sdk_wallet, op):

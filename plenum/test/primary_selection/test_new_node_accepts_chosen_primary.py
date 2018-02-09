@@ -13,6 +13,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 logger = getlogger()
 
+
 class TestViewChangerWithAdjustedViewNo(TestViewChanger):
     def __init__(self, *args, **kwargs):
         self.__view_no = 3
@@ -29,7 +30,6 @@ class TestViewChangerWithAdjustedViewNo(TestViewChanger):
 
 
 class TestNodeWithAdjustedViewNo(TestNode):
-
     def newViewChanger(self):
         return TestViewChangerWithAdjustedViewNo(self)
 

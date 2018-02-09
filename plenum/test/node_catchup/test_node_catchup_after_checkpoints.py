@@ -13,6 +13,8 @@ from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getLogger()
 
+TestRunningTimeLimitSec = 200
+
 
 def test_node_catchup_after_checkpoints(
         looper,
@@ -46,9 +48,10 @@ def test_node_catchup_after_checkpoints(
                                            num_batches=2 * chk_freq_patched
                                            )
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-    # check if there was a catchup
+
+    # check if there was at least 1 catchup
     completed_catchups_after = get_number_of_completed_catchups(repaired_node)
-    assert completed_catchups_after == completed_catchups_before + 1
+    assert completed_catchups_after >= completed_catchups_before + 1
 
     logger.info("Step 3: Check if the node is able to process requests")
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
@@ -67,15 +70,6 @@ def broken_node_and_others(txnPoolNodeSet):
     def brokenSendToReplica(msg, frm):
         logger.warning(
             "{} is broken. 'sendToReplica' does nothing".format(node.name))
-
-    node.nodeMsgRouter.remove(
-        (
-            (PrePrepare, node.sendToReplica),
-            (Prepare, node.sendToReplica),
-            (Commit, node.sendToReplica),
-            (Checkpoint, node.sendToReplica),
-        )
-    )
 
     node.nodeMsgRouter.extend(
         (

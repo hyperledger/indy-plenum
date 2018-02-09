@@ -14,7 +14,8 @@ from stp_core.loop.eventually import eventually
 
 
 def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
-                                            tdir, tdirWithClientPoolTxns, tconf,
+                                            testNodeClass, tdir,
+                                            tdirWithClientPoolTxns, tconf,
                                             steward1, stewardWallet,
                                             allPluginsPath):
     """
@@ -45,10 +46,11 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, steward1, stewardWallet, newStewardName, newNodeName,
-        tdir, tdirWithClientPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True)
     txnPoolNodeSet.append(newNode)
     looper.runFor(2)
-    sendRandomRequests(stewardWallet, steward1, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
     # TODO select or create a timeout for this case in 'waits'
     looper.run(eventually(checkNodeDataForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=80))

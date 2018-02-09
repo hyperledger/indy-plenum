@@ -144,6 +144,7 @@ class Looper:
 
         :return: the sum of the number of events executed successfully
         """
+        # TODO: looks like limit is always None???
         limit = None
         s = 0
         for n in self.prodables:

@@ -38,7 +38,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, loo
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqsToSend)
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
-    looper.run(eventually(checkNodeDataForEquality, slowNode, *[_ for _ in txnPoolNodeSet if _ != slowNode],
+    looper.run(eventually(checkNodeDataForEquality, slowNode, *[n for n in txnPoolNodeSet if n != slowNode],
                           retryWait=1, timeout=timeout))
     newStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
     assert newStashCount > oldStashCount

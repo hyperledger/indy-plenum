@@ -1,3 +1,4 @@
+
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import start_stopped_node
@@ -48,7 +49,7 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
 
     txnPoolNodeSet = remaining_nodes + [old_pr_node]
     looper.run(eventually(checkViewNoForNodes,
-                          txnPoolNodeSet, old_view_no + 1, timeout=10))
+                          txnPoolNodeSet, old_view_no + 1, timeout=tconf.VIEW_CHANGE_TIMEOUT))
     assert len(getAllReturnVals(old_pr_node.view_changer,
                                 old_pr_node.view_changer._start_view_change_if_possible,
                                 compare_val_to=True)) > 0

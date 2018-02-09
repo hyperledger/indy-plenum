@@ -20,6 +20,9 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
 
 
+CLIENT_CONNECTIONS_LIMIT = 15360
+
+
 class TestNetworkSetup:
     @staticmethod
     def getNumberFromName(name: str) -> int:
@@ -45,7 +48,8 @@ class TestNetworkSetup:
         contents = [
             'NODE_NAME={}'.format(name),
             'NODE_PORT={}'.format(nPort),
-            'NODE_CLIENT_PORT={}'.format(cPort)
+            'NODE_CLIENT_PORT={}'.format(cPort),
+            'CLIENT_CONNECTIONS_LIMIT={}'.format(CLIENT_CONNECTIONS_LIMIT)
         ]
         with open(filePath, 'w') as f:
             f.writelines(os.linesep.join(contents))
@@ -204,12 +208,14 @@ class TestNetworkSetup:
         client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
 
-        # edit NETWORK_NAME in config
-        for line in fileinput.input(['/etc/indy/indy_config.py'], inplace=True):
-            if 'NETWORK_NAME' not in line:
-                print(line, end="")
-        with open('/etc/indy/indy_config.py', 'a') as cfgfile:
-            cfgfile.write("NETWORK_NAME = '{}'".format(args.network))
+        if args.nodeNum:
+            # update network during node generation only
+            # edit NETWORK_NAME in config
+            for line in fileinput.input(['/etc/indy/indy_config.py'], inplace=True):
+                if 'NETWORK_NAME' not in line:
+                    print(line, end="")
+            with open('/etc/indy/indy_config.py', 'a') as cfgfile:
+                cfgfile.write("NETWORK_NAME = '{}'".format(args.network))
 
         for n_num in node_num:
             cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,

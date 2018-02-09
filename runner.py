@@ -40,7 +40,8 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
         first_level_tests.add(p)
     first_level_tests = sorted(list(first_level_tests))
     test_list_sliced = first_level_tests[test_slice[0] - 1::test_slice[1]]
-    log("Found {} tests in {} modules, sliced {} test modules".format(len(testList), len(first_level_tests), len(test_list_sliced)))
+    log("Found {} tests in {} modules, sliced {} test modules".
+        format(len(testList), len(first_level_tests), len(test_list_sliced)))
     if not testList:
         m = re.search("errors during collection", collectedData)
         if m:

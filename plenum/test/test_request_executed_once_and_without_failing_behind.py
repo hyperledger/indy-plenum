@@ -1,3 +1,4 @@
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.test.helper import \
     send_signed_requests, \
@@ -51,5 +52,5 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
     expected = [request.reqId for request in requests]
     for node in nodeSet:
         real_ledger_state = [txn[1]["reqId"]
-                             for txn in node.ledgers[0].getAllTxn()]
+                             for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn()]
         assert expected == real_ledger_state
