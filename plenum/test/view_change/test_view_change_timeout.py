@@ -109,4 +109,4 @@ def delay_view_change_msg(nodes):
 
 def start_view_change(nodes, next_view_no):
     for node in nodes:
-        node.startViewChange(next_view_no)
+        node.view_changer.startViewChange(next_view_no)

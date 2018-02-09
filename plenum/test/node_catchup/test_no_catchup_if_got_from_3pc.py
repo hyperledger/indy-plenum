@@ -28,7 +28,7 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
 
     delay_cm = 30
-    delat_cp = 40
+    delat_cp = 100
     slow_node.nodeIbStasher.delay(cDelay(delay_cm))
     # The slow node receives consistency proofs after some delay, this delay
     # gives the opportunity to deliver all 3PC messages
@@ -51,12 +51,12 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
     waitNodeDataInequality(looper, slow_node, *other_nodes)
 
     # Unstash only COMMIT messages
-    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(Commit.__name__)
+    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(Commit.typename)
 
     looper.runFor(2)
 
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(
-        ConsistencyProof.__name__)
+        ConsistencyProof.typename)
 
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 

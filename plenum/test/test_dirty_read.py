@@ -1,8 +1,8 @@
+from plenum.common.types import f
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    getRepliesFromClientInbox, \
-    send_signed_requests, \
+    getRepliesFromClientInbox, send_signed_requests, \
     waitForSufficientRepliesForRequests
-from plenum.common.constants import GET_TXN, DATA
+from plenum.common.constants import GET_TXN, DATA, TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Ordered
 from stp_core.common.log import getlogger
 
@@ -40,7 +40,11 @@ def test_dirty_read(looper, nodeSet, client1, wallet1):
                                                 reqId=set_request.reqId)
 
     seq_no = received_replies[0]["result"]["seqNo"]
-    get_request = [wallet1.signOp({"type": GET_TXN, DATA: seq_no})]
+    get_request = [wallet1.signOp({
+        TXN_TYPE: GET_TXN,
+        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
+        DATA: seq_no
+    })]
     send_signed_requests(client1, get_request)
     waitForSufficientRepliesForRequests(looper,
                                         client1,

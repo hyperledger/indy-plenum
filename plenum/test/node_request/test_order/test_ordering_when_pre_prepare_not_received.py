@@ -4,19 +4,20 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay
-from plenum.test.helper import sendRandomRequest
+from plenum.test.helper import sdk_send_random_request
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.pool_transactions.conftest import looper
 
 
-def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
-                                          wallet1):
+def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
+                                          sdk_wallet_client, sdk_pool_handle):
     """
     Send commits but delay pre-prepare and prepares such that enough
     commits are received, now the request should not be ordered until
     pre-prepare is received and ordering should just happen once,
     """
     delay = 10
-    non_prim_reps = getNonPrimaryReplicas(nodeSet, 0)
+    non_prim_reps = getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     slow_rep = non_prim_reps[0]
     slow_node = slow_rep.node
@@ -42,8 +43,8 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     def chk1():
         assert len(slow_rep.commitsWaitingForPrepare) > 0
 
-    sendRandomRequest(wallet1, client1)
-    timeout = waits.expectedPrePrepareTime(len(nodeSet)) + delay
+    sdk_send_random_request(looper,sdk_pool_handle, sdk_wallet_client)
+    timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delay
     looper.run(eventually(chk1, retryWait=1, timeout=timeout))
 
     for m, s in stash_pp:

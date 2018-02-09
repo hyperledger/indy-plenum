@@ -10,12 +10,13 @@ from plenum.test.helper import checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
 def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
         txnPoolNodeSet, stewardAndWalletForMasterNode, txnPoolMasterNodes,
-        tconf, tdirWithPoolTxns):
+        tdir, tconf):
     """
     Demote primary and restart the pool.
     Pool should select new primary and have viewNo=0 after restart.
@@ -47,7 +48,9 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     # what happens when starting the node with script
     restartedNodes = []
     for node in txnPoolNodeSet:
-        restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
+        config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
+        restartedNode = TestNode(node.name,
+                                 config_helper=config_helper,
                                  config=tconf, ha=node.nodestack.ha,
                                  cliha=node.clientstack.ha)
         looper.add(restartedNode)

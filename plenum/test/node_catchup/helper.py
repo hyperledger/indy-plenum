@@ -1,10 +1,12 @@
 import types
+from functools import partial
 
 from plenum.common.util import check_if_all_equal_in_list
 from stp_core.common.log import getlogger
 from typing import Iterable
 
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
+    CONFIG_LEDGER_ID
 from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
@@ -21,31 +23,45 @@ logger = getlogger()
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
 def checkNodeDataForEquality(node: TestNode,
-                             *otherNodes: Iterable[TestNode]):
+                             *otherNodes: TestNode,
+                             exclude_from_check=None):
+
+    def chk_ledger_and_state(first_node, second_node, ledger_id):
+        checkLedgerEquality(first_node.getLedger(ledger_id),
+                            second_node.getLedger(ledger_id))
+        if not exclude_from_check or 'check_state' not in exclude_from_check:
+            checkStateEquality(first_node.getState(ledger_id),
+                               second_node.getState(ledger_id))
+
     # Checks for node's ledgers and state's to be equal
     for n in otherNodes:
-        check_last_ordered_3pc(node, n)
-        check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
-        checkLedgerEquality(node.domainLedger, n.domainLedger)
-        checkStateEquality(node.getState(DOMAIN_LEDGER_ID),
-                           n.getState(DOMAIN_LEDGER_ID))
-        if n.poolLedger:
-            checkLedgerEquality(node.poolLedger, n.poolLedger)
-            checkStateEquality(node.getState(POOL_LEDGER_ID),
-                               n.getState(POOL_LEDGER_ID))
+        if exclude_from_check and 'check_last_ordered_3pc' not in exclude_from_check:
+            check_last_ordered_3pc(node, n)
+        else:
+            logger.debug("Excluding check_last_ordered_3pc check")
+
+        if exclude_from_check and 'check_seqno_db' not in exclude_from_check:
+            check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
+        else:
+            logger.debug("Excluding check_seqno_db_equality check")
+
+        for ledger_id in n.ledgerManager.ledgerRegistry:
+            chk_ledger_and_state(node, n, ledger_id)
 
 
 def checkNodeDataForInequality(node: TestNode,
-                               *otherNodes: Iterable[TestNode]):
+                               *otherNodes: TestNode,
+                               exclude_from_check=None):
     # Checks for node's ledgers and state's to be unequal
     with pytest.raises(AssertionError):
-        checkNodeDataForEquality(node, *otherNodes)
+        checkNodeDataForEquality(node, *otherNodes, exclude_from_check=exclude_from_check)
 
 
 def waitNodeDataEquality(looper,
                          referenceNode: TestNode,
-                         *otherNodes: Iterable[TestNode],
-                         customTimeout=None):
+                         *otherNodes: TestNode,
+                         customTimeout=None,
+                         exclude_from_check=None):
     """
     Wait for node ledger to become equal
 
@@ -54,7 +70,8 @@ def waitNodeDataEquality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    looper.run(eventually(checkNodeDataForEquality,
+    kwargs = {'exclude_from_check': exclude_from_check}
+    looper.run(eventually(partial(checkNodeDataForEquality, **kwargs),
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))
@@ -62,7 +79,8 @@ def waitNodeDataEquality(looper,
 
 def waitNodeDataInequality(looper,
                            referenceNode: TestNode,
-                           *otherNodes: Iterable[TestNode],
+                           *otherNodes: TestNode,
+                           exclude_from_check=None,
                            customTimeout=None):
     """
     Wait for node ledger to become equal
@@ -72,17 +90,20 @@ def waitNodeDataInequality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    looper.run(eventually(checkNodeDataForInequality,
+    kwargs = {'exclude_from_check': exclude_from_check}
+    looper.run(eventually(partial(checkNodeDataForInequality, **kwargs),
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))
 
 
-def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None):
+def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
+                                    exclude_from_check=None):
     node = next(iter(nodes))
     other_nodes = [n for n in nodes if n != node]
     waitNodeDataEquality(looper, node, *other_nodes,
-                         customTimeout=custom_timeout)
+                         customTimeout=custom_timeout,
+                         exclude_from_check=exclude_from_check)
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
@@ -92,14 +113,14 @@ def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
 
 
 def checkClientPoolLedgerSameAsNodes(client: TestClient,
-                                     *nodes: Iterable[TestNode]):
+                                     *nodes: TestNode):
     for n in nodes:
         checkLedgerEquality(client.ledger, n.poolLedger)
 
 
 def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
                                                   client: TestClient,
-                                                  *nodes: Iterable[TestNode]):
+                                                  *nodes: TestNode):
     looper.run(client.ensureConnectedToNodes())
     timeout = waits.expectedPoolGetReadyTimeout(len(nodes))
     looper.run(eventually(checkClientPoolLedgerSameAsNodes,

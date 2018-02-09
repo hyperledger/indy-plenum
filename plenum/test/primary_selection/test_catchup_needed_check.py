@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
 from plenum.test.spy_helpers import getAllReturnVals
@@ -17,18 +17,12 @@ from plenum.test.batching_3pc.conftest import tconf
 Max3PCBatchSize = 2
 
 
-def test_caught_up_for_current_view_check(looper,
-                                          txnPoolNodeSet,
-                                          client1,
-                                          wallet1,
-                                          client1Connected):
+def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     One of the node experiences poor network and loses 3PC messages. It has to
     do multiple rounds of catchup to be caught up
     """
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        3 * Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
@@ -44,8 +38,7 @@ def test_caught_up_for_current_view_check(looper,
     bad_node.master_replica.dispatchThreePhaseMsg = types.MethodType(
         bad_method, bad_node.master_replica)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        6 * Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6 * Max3PCBatchSize)
     waitNodeDataInequality(looper, bad_node, *other_nodes)
 
     # Patch all nodes to return ConsistencyProof of a smaller ledger to the

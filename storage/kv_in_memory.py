@@ -35,6 +35,15 @@ class KeyValueStorageInMemory(KeyValueStorage):
         for key, value in batch:
             self.put(key, value)
 
+    def do_ops_in_batch(self, batch: Iterable[Tuple]):
+        for op, key, value in batch:
+            if op == self.WRITE_OP:
+                self.put(key, value)
+            elif op == self.REMOVE_OP:
+                self.remove(key)
+            else:
+                raise ValueError('Unknown operation')
+
     def open(self):
         pass
 

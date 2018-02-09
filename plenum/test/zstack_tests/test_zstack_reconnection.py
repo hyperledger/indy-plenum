@@ -8,6 +8,7 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes, \
     send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.test_node import TestNode, ensureElectionsDone
+from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
@@ -16,13 +17,13 @@ TestRunningTimeLimitSec = 300
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdirWithPoolTxns):
-    conf.UseZStack = True
-    return conf
+def tconf(tconf):
+    tconf.UseZStack = True
+    return tconf
 
 
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
-                               tdirWithPoolTxns, client1Connected):
+                               tdir, client1Connected):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
 
     npr = [n for n in txnPoolNodeSet if not n.hasPrimary]
@@ -47,10 +48,10 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=60))
 
     looper.runFor(1)
+    config_helper = PNodeConfigHelper(nodeToCrash.name, tconf, chroot=tdir)
     node = TestNode(
         nodeToCrash.name,
-        basedirpath=tdirWithPoolTxns,
-        base_data_dir=tdirWithPoolTxns,
+        config_helper=config_helper,
         config=tconf,
         ha=nodeToCrash.nodestack.ha,
         cliha=nodeToCrash.clientstack.ha)

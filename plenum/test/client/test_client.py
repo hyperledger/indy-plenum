@@ -60,14 +60,13 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
     """
-
     async def go(ctx):
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(
             nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
         for node in ctx.nodeset:
             stack = node.nodestack
-            args = (client1.name, stack.name, ctx.tmpdir, stack.verhex, True)
+            args = (client1.name, stack.name, client1.keys_dir, stack.verhex, True)
             initRemoteKeys(*args)
 
         ctx.looper.add(client1)
@@ -226,7 +225,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
 
 # noinspection PyIncorrectDocstring
-def testReplyMatchesRequest(looper, nodeSet, tdir, up):
+def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
     '''
     This tests does check following things:
       - wallet works correctly when used by multiple clients
@@ -235,7 +234,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
     def makeClient(id):
         client, wallet = genTestClient(nodeSet,
-                                       tmpdir=tdir,
+                                       tmpdir=client_tdir,
                                        name="client-{}".format(id))
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
@@ -294,9 +293,9 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             assert replies[0] == sentAmount
 
 
-def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
+def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, client_tdir,
                                                 client1, wallet1):
-    newClient, _ = genTestClient(nodeSet, tmpdir=tdir)
+    newClient, _ = genTestClient(nodeSet, tmpdir=client_tdir)
     looper.add(newClient)
     looper.run(newClient.ensureConnectedToNodes())
     client1InboxSize = len(client1.inBox)

@@ -9,7 +9,7 @@ from stp_core.types import HA, Identifier
 
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
-from plenum.common.error import error
+from common.error import error
 from stp_core.common.log import getlogger
 from plenum.common.constants import REQACK, REQNACK, REPLY, TXN_TYPE
 from plenum.common.types import f
@@ -45,6 +45,7 @@ class TestClient(Client, StackedTester):
             from plenum.test.test_node import TestDomainRequestHandler
             key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
             return key, value
+
 
 def genTestClient(nodes=None,
                   nodeReg=None,
@@ -84,7 +85,7 @@ def genTestClient(nodes=None,
     if not usePoolLedger and nodes:
         for node in nodes:
             stack = node.clientstack
-            initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
+            initRemoteKeys(tc.name, stack.name, tc.keys_dir, stack.verhex,
                            override=True)
 
     w = None  # type: Wallet

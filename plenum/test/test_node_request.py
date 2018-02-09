@@ -23,8 +23,8 @@ whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()
 
 
-def testReqExecWhenReturnedByMaster(tdir_for_func):
-    with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
+def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
+    with TestNodeSet(tconf_for_func, count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,

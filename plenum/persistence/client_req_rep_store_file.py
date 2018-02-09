@@ -16,12 +16,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     LinePrefixes = namedtuple(
         'LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
-    def __init__(self, name, baseDir):
-        self.baseDir = baseDir
-        self.dataDir = "data/clients"
-        self.name = name
-        HasFileStorage.__init__(self, name=self.name, baseDir=baseDir,
-                                dataDir=self.dataDir)
+    def __init__(self, dataLocation):
+        assert dataLocation is not None
+        HasFileStorage.__init__(self, dataLocation)
         if not os.path.exists(self.dataLocation):
             os.makedirs(self.dataLocation)
         self.reqStore = DirectoryStore(self.dataLocation, "Requests")
@@ -31,13 +28,21 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     @property
     def lastReqId(self) -> int:
-        reqIds = self.reqStore.keys
+        reqIds = [self.items_from_key(key)[1] for key in self.reqStore.keys]
         return max(map(int, reqIds)) if reqIds else 0
+
+    @staticmethod
+    def create_key(idr, req_id):
+        return "{},{}".format(idr, req_id)
+
+    @staticmethod
+    def items_from_key(key):
+        return key.split(',')
 
     def addRequest(self, req: Request):
         idr = req.identifier
         reqId = req.reqId
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.Request,
                                            self.delimiter,
@@ -46,7 +51,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addAck(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.REQACK,
                                            self.delimiter, sender))
@@ -54,7 +59,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addNack(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REQNACK,
@@ -64,7 +69,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addReject(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REJECT,
@@ -74,7 +79,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> int:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
-        key = "{}{}".format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         self.reqStore.appendToValue(key,
                                     "{}{}{}{}{}".
                                     format(self.linePrefixes.REPLY,
@@ -83,7 +88,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return len(self._getSerializedReplies(identifier, reqId))
 
     def hasRequest(self, identifier: str, reqId: int) -> bool:
-        key = '{}{}'.format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         return self.reqStore.exists(key)
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
@@ -138,7 +143,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def _getLinesWithPrefix(self, identifier: str, reqId: int,
                             prefix: str) -> List[str]:
-        key = '{}{}'.format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         data = self.reqStore.get(key)
         return [line for line in data.splitlines()
                 if line.startswith(prefix)] if data else []

@@ -1,8 +1,8 @@
 from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
-    SERVICES
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
@@ -18,12 +18,16 @@ logger = getlogger()
 
 
 class PoolRequestHandler(RequestHandler):
+    write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
                  domainState: State):
         super().__init__(ledger, state)
         self.domainState = domainState
         self.stateSerializer = pool_state_serializer
+
+    def doStaticValidation(self, request: Request):
+        pass
 
     def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)
@@ -44,7 +48,7 @@ class PoolRequestHandler(RequestHandler):
             txn = reqToTxn(req, cons_time)
             (start, end), _ = self.ledger.appendTxns([txn])
             self.updateState(txnsWithSeqNo(start, end, [txn]))
-            return txn
+            return start, txn
         else:
             logger.debug(
                 'Cannot apply request of type {} to state'.format(typ))
