@@ -3,7 +3,8 @@ from copy import copy
 
 import base58
 
-from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
+from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
@@ -32,10 +33,10 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # reaches it
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
-                                        stewardWallet, tdirWithPoolTxns, tconf,
+                                        stewardWallet, tdir, tconf,
                                         allPluginsPath):
     newNodeName = "Epsilon"
-    sendAddNewNode(tdirWithPoolTxns, newNodeName, steward1, stewardWallet)
+    sendAddNewNode(tdir, tconf, newNodeName, steward1, stewardWallet)
 
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, steward1,
@@ -44,10 +45,10 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
 
 
 def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected, tdirWithPoolTxns,
+                                wallet1, client1Connected, tdir,
                                 tconf, allPluginsPath):
     newNodeName = "Epsilon"
-    sendAddNewNode(tdirWithPoolTxns, newNodeName, client1, wallet1)
+    sendAddNewNode(tdir, tconf, newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
         waitRejectWithReason(
             looper, client1, 'is not a steward so cannot add a '
@@ -57,7 +58,8 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
 def testClientConnectsToNewNode(
         looper,
         txnPoolNodeSet,
-        tdirWithPoolTxns,
+        tdir,
+        client_tdir,
         tconf,
         steward1,
         stewardWallet,
@@ -71,8 +73,8 @@ def testClientConnectsToNewNode(
     newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
                                                                  steward1, stewardWallet,
                                                                  newStewardName, newNodeName,
-                                                                 tdirWithPoolTxns, tconf,
-                                                                 allPluginsPath)
+                                                                 tdir, client_tdir,
+                                                                 tconf, allPluginsPath)
     txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     logger.debug("{} connected to the pool".format(newNode))
@@ -89,13 +91,13 @@ def testClientConnectsToNewNode(
                                                   *txnPoolNodeSet)
 
 
-def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
+def testAdd2NewNodes(looper, txnPoolNodeSet, tdir, client_tdir, tconf, steward1,
                      stewardWallet, allPluginsPath):
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
     new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
-                            tdirWithPoolTxns, tconf, allPluginsPath)
+                            tdir, client_tdir, tconf, allPluginsPath)
     for n in new_nodes:
         logger.debug("{} connected to the pool".format(n))
 
@@ -111,7 +113,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
 
-def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
+def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                  txnPoolNodeSet,
                                                  newAdHocSteward):
     """
@@ -129,7 +131,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
         op[DATA].update({NODE_PORT + ' ': op[DATA][NODE_PORT]})
         del op[DATA][NODE_PORT]
 
-    sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
+    sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_renameNodePortField)
     waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
                                   "unknown field")
@@ -137,7 +139,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         def _tnf(op): del op[DATA][fn]
 
-        sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
+        sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
@@ -162,13 +164,14 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
 
     def chk():
         for node in txnPoolNodeSet:
-            assert wallet.defaultId in node.clientAuthNr.clients
+            assert wallet.defaultId in \
+                   node.clientAuthNr.core_authenticator.clients
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
-def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
+def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                 txnPoolNodeSet,
                                                 newAdHocSteward):
     """
@@ -192,13 +195,13 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
         op[TARGET_NYM] = hexVerKey
         return op
 
-    sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
+    sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_setHexVerkey)
     waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
                                   'should not contain the following chars')
 
 
-def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
+def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                           txnPoolNodeSet,
                                           newAdHocSteward):
     """
@@ -226,7 +229,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
         # create a transform function for each test
         def _tnf(op): op[DATA].update({field: value})
 
-        sendAddNewNode(tdir, newNodeName, newSteward, newStewardWallet,
+        sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases

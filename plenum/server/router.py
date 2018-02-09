@@ -64,6 +64,7 @@ class Router:
         """
         # If a plain python tuple and not a named tuple, a better alternative
         # would be to create a named entity with the 3 characteristics below
+        # TODO: non-obvious tuple, re-factor!
         if isinstance(msg, tuple) and len(
                 msg) == 2 and not hasattr(msg, '_field_types'):
             return self.getFunc(msg[0])(*msg)

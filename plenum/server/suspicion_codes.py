@@ -67,8 +67,6 @@ class Suspicions:
                                             'in time')
     PPR_BLS_MULTISIG_WRONG = \
         Suspicion(29, "Pre-Prepare message has invalid BLS multi-signature")
-    PPR_NO_BLS_MULTISIG_STATE = \
-        Suspicion(30, "Pre-Prepare message has BLS multi-signature, but not corresponded state root specified")
     CM_BLS_SIG_WRONG = \
         Suspicion(31, "Commit message has invalid BLS signature")
     PR_BLS_SIG_WRONG = \

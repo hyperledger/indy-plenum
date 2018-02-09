@@ -5,14 +5,12 @@ import pytest
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 
 
 def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
-        txnPoolNodeSet, looper, wallet1, client1, client1Connected):
+        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     """
     Less than quorum nodes lose connection with primary, this should not
     trigger view change as the protocol can move ahead
@@ -26,7 +24,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         partitioned_node.lost_master_primary.__name__)
 
     recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.processInstanceChange.__name__) for node in txnPoolNodeSet
+        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
         if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
@@ -52,8 +50,8 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
             partitioned_node.lost_master_primary.__name__) > lost_pr_calls
         for node in txnPoolNodeSet:
             if node != partitioned_node and node != pr_node:
-                assert node.spylog.count(
-                    node.processInstanceChange.__name__) > recv_inst_chg_calls[node.name]
+                assert node.view_changer.spylog.count(
+                    node.view_changer.process_instance_change_msg.__name__) > recv_inst_chg_calls[node.name]
 
     looper.run(eventually(chk1, retryWait=1, timeout=10))
 
@@ -64,14 +62,14 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
 
     looper.run(eventually(chk2, retryWait=1, timeout=10))
     # Send some requests and make sure the request execute
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     # Repair the connection so the node is no longer partitioned
     partitioned_node.nodestack.retryDisconnected = types.MethodType(
         orig_retry_meth, partitioned_node.nodestack)
 
     # Send some requests and make sure the request execute
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     # Partitioned node should have the same ledger and state as others
     # eventually

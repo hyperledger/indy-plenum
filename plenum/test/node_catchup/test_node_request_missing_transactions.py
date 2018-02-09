@@ -16,20 +16,19 @@ from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
-TestRunningTimeLimitSec = 150
+TestRunningTimeLimitSec = 180
 
 
 @pytest.fixture(scope="module")
-def reduced_catchup_timeout_conf(conf, tdir, request):
-    defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
-    conf.baseDir = tdir
-    conf.CatchupTransactionsTimeout = 10
+def reduced_catchup_timeout_conf(tconf, request):
+    defaultCatchupTransactionsTimeout = tconf.CatchupTransactionsTimeout
+    tconf.CatchupTransactionsTimeout = 10
 
     def reset():
-        conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
+        tconf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
 
 
 def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
@@ -79,3 +78,5 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     assert old_size_others - \
         old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
     sendRandomRequests(wallet, client, 2)
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                         customTimeout=timeout)

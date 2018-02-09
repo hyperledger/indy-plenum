@@ -6,16 +6,15 @@ from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdir, request):
-    oldThreshold = conf.stewardThreshold
-    conf.baseDir = tdir
-    conf.stewardThreshold = 5
+def tconf(tconf, request):
+    oldThreshold = tconf.stewardThreshold
+    tconf.stewardThreshold = 5
 
     def reset():
-        conf.stewardThreshold = oldThreshold
+        tconf.stewardThreshold = oldThreshold
 
     request.addfinalizer(reset)
-    return conf
+    return tconf
 
 
 def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,

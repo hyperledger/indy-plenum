@@ -3,6 +3,8 @@ from typing import Tuple, Iterable
 
 
 class KeyValueStorage(metaclass=ABCMeta):
+    WRITE_OP = 1
+    REMOVE_OP = 2
 
     @abstractmethod
     def put(self, key, value):
@@ -18,6 +20,10 @@ class KeyValueStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def setBatch(self, batch: Iterable[Tuple]):
+        pass
+
+    @abstractmethod
+    def do_ops_in_batch(self, batch: Iterable[Tuple]):
         pass
 
     @abstractmethod
@@ -60,7 +66,7 @@ class KeyValueStorage(metaclass=ABCMeta):
         c = 0
         for _ in self.iterator():
             c += 1
-        return sum(1 for _ in self.iterator())
+        return c
 
     def _has_key(self, key):
         try:

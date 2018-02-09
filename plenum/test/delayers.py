@@ -243,6 +243,7 @@ def reset_delays_and_process_delayeds(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds()
 
+
 def reset_delays_and_process_delayeds_for_client(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds_for_clients()

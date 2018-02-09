@@ -20,5 +20,5 @@ def testInstChngMsgThrottling(nodeSet, looper, up, viewNo):
             lambda x: True, node.monitor)
     for node in (nodeA, nodeB):
         for i in range(5):
-            node.sendInstanceChange(viewNo)
+            node.view_changer.sendInstanceChange(viewNo)
         looper.runFor(.2)

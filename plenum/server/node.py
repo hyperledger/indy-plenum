@@ -2,9 +2,10 @@ import json
 import os
 import time
 from binascii import unhexlify
-from collections import deque, defaultdict
+from collections import deque
 from contextlib import closing
-from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
+from functools import partial
+from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
@@ -18,26 +19,32 @@ from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
-from plenum.common.constants import openTxns, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
+    CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, \
+    TXN_TYPE, LEDGER_STATUS, \
+    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
+    OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
+    GET_TXN, DATA, TXN_TIME, VERKEY, \
+    TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
+    NODE_IP, BLS_PREFIX, NodeHooks
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+    CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
+    ObservedData
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -45,26 +52,29 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.throttler import Throttler
+from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys, get_utc_epoch, SortedDict
+    compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
-from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
+from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr, CoreAuthNr
+from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
-from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
+from plenum.server.observer.observable import Observable
+from plenum.server.observer.observer_node import NodeObserver
+from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -73,25 +83,29 @@ from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
+from plenum.server.req_authenticator import ReqAuthenticator
+from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
+from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
-from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
+
+from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
 logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           HasPoolManager, PluginLoaderHelper, MessageReqProcessor):
+           HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
     A node in a plenum system.
     """
@@ -100,7 +114,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     keygenScript = "init_plenum_keys"
     _client_request_class = SafeRequest
     _info_tool_class = ValidatorNodeInfoTool
-    ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
+    # The order of ledger id in the following list determines the order in
+    # which those ledgers will be synced. Think carefully before changing the
+    # order.
+    ledger_ids = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
     _wallet_class = Wallet
 
     def __init__(self,
@@ -110,8 +127,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  ha: HA=None,
                  cliname: str=None,
                  cliha: HA=None,
-                 basedirpath: str=None,
-                 base_data_dir: str=None,
+                 config_helper=None,
+                 ledger_dir: str = None,
+                 keys_dir: str = None,
+                 genesis_dir: str = None,
+                 plugins_dir: str = None,
+                 node_info_dir: str = None,
+                 view_changer: ViewChanger = None,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
@@ -122,40 +144,42 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param nodeRegistry: names and host addresses of all nodes in the pool
         :param clientAuthNr: client authenticator implementation to be used
-        :param basedirpath: path to the base directory used by `nstack` and
-            `cstack`
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
         self.created = time.time()
         self.name = name
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.baseDir, self.config.NETWORK_NAME)
-        self.basedirpath = os.path.expanduser(self.basedirpath)
-        self.key_path = self.basedirpath
-        self.dataDir = self.config.nodeDataDir or "data/nodes"
-        self.base_data_dir = base_data_dir or os.path.join(self.config.NODE_BASE_DATA_DIR,
-                                                           self.config.NETWORK_NAME)
-        self.base_data_dir = os.path.expanduser(self.base_data_dir)
+
+        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
+
+        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
+        self.keys_dir = keys_dir or self.config_helper.keys_dir
+        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
+        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
+        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
-        HasFileStorage.__init__(self, name, baseDir=self.base_data_dir,
-                                dataDir=self.dataDir)
+        HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
                                                    PLUGIN_TYPE_PROCESSING)
 
-        self.requestExecuter = defaultdict(lambda: self.executeDomainTxns)
+        self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
+        self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
+        self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
+        self.requestExecuter = {}   # type: Dict[int, Callable]
 
         Motor.__init__(self)
 
-        self.primaryStorage = storage or self.getPrimaryStorage()
         self.states = {}  # type: Dict[int, State]
 
-        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+        self.primaryStorage = storage or self.getPrimaryStorage()
+
+        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -163,7 +187,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
-        self.reqHandler = self.getDomainReqHandler()
+        self.register_req_handler(DOMAIN_LEDGER_ID, self.getDomainReqHandler())
+        self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
+
         self.initDomainState()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
@@ -174,6 +200,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.mode = Mode.discovered
         else:
             self.mode = None  # type: Optional[Mode]
+            self.register_req_handler(POOL_LEDGER_ID, self.poolManager.reqHandler)
 
         self.nodeReg = self.poolManager.nodeReg
 
@@ -188,6 +215,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         kwargs = dict(
             stackParams=self.poolManager.cstack,
             msgHandler=self.handleOneClientMsg,
+            # TODO, Reject is used when dynamic validation fails, use Reqnack
             msgRejectHandler=self.reject_client_msg_handler)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
@@ -203,6 +231,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         MessageReqProcessor.__init__(self)
 
+        self.view_changer = view_changer
         self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
@@ -220,6 +249,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'data': {}
         }
 
+        self._view_changer = None  # type: ViewChanger
         self._elector = None  # type: PrimaryDecider
 
         self.instances = Instances()
@@ -245,17 +275,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
-        self.instanceChanges = InstanceChanges()
+        # Requests that are to be given to the view_changer by the node
+        self.msgsToViewChanger = deque()
 
-        self.viewNo = 0  # type: int
-
-        # Requests that are to be given to the elector by the node
-        self.msgsToElector = deque()
-
-        self.ledgerManager = self.getLedgerManager()
-        self.init_ledger_manager()
         if self.poolLedger:
-            self.states[POOL_LEDGER_ID] = self.poolManager.state
+            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
+
+        self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
         self.adjustReplicas()
@@ -273,8 +299,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             self.config
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
-
-        self.initInsChngThrottling()
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -300,7 +324,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ThreePCState,
             MessageReq,
             MessageRep,
-            CurrentState)
+            CurrentState,
+            ObservedData
+        )
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -309,7 +335,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # CurrentState
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
-            (InstanceChange, self.processInstanceChange),
+            (InstanceChange, self.sendToViewChanger),
+            (ViewChangeDone, self.sendToViewChanger),
             (MessageReq, self.process_message_req),
             (MessageRep, self.process_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -321,7 +348,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
-            (CurrentState, self.process_current_state_message)
+            (CurrentState, self.process_current_state_message),
+            (ObservedData, self.send_to_observer)
         )
 
         self.clientMsgRouter = Router(
@@ -348,7 +376,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # is lost until the primary is connected.
         self.lost_primary_at = time.perf_counter()
 
-        tp = loadPlugins(self.basedirpath)
+        plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
+        tp = loadPlugins(self.plugins_dir, plugins_to_load)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
@@ -362,26 +391,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
-        self._view_change_in_progress = False
-
-        # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
-        # or just propagating viewNo and Primary from `CurrentState` messages sent to a newly joined Node.
-        # TODO: separate real view change and Propagation of Primary
-        # TODO: separate catch-up, view-change and primary selection so that
-        # they are really independent.
-        self.propagate_primary = False
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
-
-        # Tracks if other nodes are indicating that this node is in lower view
-        # than others. Keeps a map of view no to senders
-        # TODO: Consider if sufficient ViewChangeDone for 2 different (and
-        # higher views) are received, should one view change be interrupted in
-        # between.
-        self._next_view_indications = SortedDict()
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
@@ -389,8 +403,80 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._last_performance_check_data = {}
 
-    def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor)
+        self.init_config_ledger_and_req_handler()
+
+        self.init_ledger_manager()
+
+        HookManager.__init__(self, NodeHooks.get_all_vals())
+
+        self._observable = Observable()
+        self._observer = NodeObserver(self)
+
+    def init_config_ledger_and_req_handler(self):
+        self.configLedger = self.getConfigLedger()
+        self.init_config_state()
+
+    @property
+    def viewNo(self):
+        return None if self.view_changer is None else self.view_changer.view_no
+
+    # TODO not sure that this should be allowed
+    @viewNo.setter
+    def viewNo(self, value):
+        self.view_changer.view_no = value
+
+    @property
+    def view_change_in_progress(self):
+        return (False if self.view_changer is None else
+                self.view_changer.view_change_in_progress)
+
+    def init_config_state(self):
+        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
+        self.setup_config_req_handler()
+        self.initConfigState()
+
+    def _add_config_ledger(self):
+        self.ledgerManager.addLedger(
+            CONFIG_LEDGER_ID,
+            self.configLedger,
+            postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.on_new_ledger_added(CONFIG_LEDGER_ID)
+
+    def setup_config_req_handler(self):
+        self.configReqHandler = self.getConfigReqHandler()
+        self.register_req_handler(CONFIG_LEDGER_ID, self.configReqHandler)
+
+    def getConfigLedger(self):
+        hashStore = LevelDbHashStore(
+            dataDir=self.dataLocation, fileNamePrefix='config')
+        return Ledger(CompactMerkleTree(hashStore=hashStore),
+                      dataDir=self.dataLocation,
+                      fileName=self.config.configTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability)
+
+    def loadConfigState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.configStateStorage,
+                self.dataLocation,
+                self.config.configStateDbName)
+        )
+
+    def initConfigState(self):
+        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
+                                 self.configLedger, self.configReqHandler)
+
+    def getConfigReqHandler(self):
+        return ConfigReqHandler(self.configLedger,
+                                self.states[CONFIG_LEDGER_ID])
+
+    def postConfigLedgerCaughtUp(self, **kwargs):
+        pass
+
+    @property
+    def configLedgerStatus(self):
+        return self.build_ledger_status(CONFIG_LEDGER_ID)
 
     def reject_client_msg_handler(self, reason, frm):
         self.transmitToClient(Reject("", "", reason), frm)
@@ -412,28 +498,74 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self._wallet
 
     @property
+    def ledger_summary(self):
+        return [li.ledger_summary for li in
+                self.ledgerManager.ledgerRegistry.values()]
+
+    @property
+    def view_changer(self) -> ViewChanger:
+        return self._view_changer
+
+    @view_changer.setter
+    def view_changer(self, value):
+        self._view_changer = value
+
+    @property
     def elector(self) -> PrimaryDecider:
         return self._elector
 
     @elector.setter
     def elector(self, value):
-        # clear old routes
-        if self._elector:
-            self.nodeMsgRouter.remove(self._elector.supported_msg_types)
         self._elector = value
-        # set up new routes
-        if self._elector:
-            self.nodeMsgRouter.extend(
-                (msgTyp, self.sendToElector) for msgTyp in
-                self._elector.supported_msg_types)
 
-    @property
-    def view_change_in_progress(self):
-        return self._view_change_in_progress
+    # EXTERNAL EVENTS
 
-    @view_change_in_progress.setter
-    def view_change_in_progress(self, value):
-        self._view_change_in_progress = value
+    def on_view_change_start(self):
+        """
+        Notifies node about the fact that view changed to let it
+        prepare for election
+        """
+        self.master_replica.on_view_change_start()
+        logger.debug("{} resetting monitor stats at view change start".
+                     format(self))
+        self.monitor.reset()
+        self.processStashedMsgsForView(self.viewNo)
+
+        for replica in self.replicas:
+            replica.primaryName = None
+
+        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
+        self.logNodeInfo()
+        # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
+        # prepared certificate the first PRE-PREPARE of the new view
+        logger.info('{}{} changed to view {}, will start catchup now'.
+                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
+
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=self._view_change_timeout)
+
+        # Set to 0 even when set to 0 in `on_view_change_complete` since
+        # catchup might be started due to several reasons.
+        self.catchup_rounds_without_txns = 0
+        self._catch_up_start_ts = time.perf_counter()
+
+    def on_view_change_complete(self):
+        """
+        View change completes for a replica when it has been decided which was
+        the last ppSeqno and state and txn root for previous view
+        """
+        # TODO VCH update method description
+
+        assert self.replicas.all_instances_have_primary
+
+        self._cancel(self._check_view_change_completed)
+
+        self.master_replica.on_view_change_done()
+        if self.view_changer.propagate_primary:  # TODO VCH
+            self.master_replica.on_propagate_primary_done()
+
+    def create_replicas(self) -> Replicas:
+        return Replicas(self, self.monitor, self.config)
 
     def utc_epoch(self) -> int:
         """
@@ -450,6 +582,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getDomainReqHandler(self):
         return DomainRequestHandler(self.domainLedger,
                                     self.states[DOMAIN_LEDGER_ID],
+                                    self.config,
                                     self.reqProcessors,
                                     self.bls_bft.bls_store)
 
@@ -545,10 +678,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This is usually an implementation of Ledger
         """
         if self.config.primaryStorage is None:
-            # TODO: add a place for initialization of all ledgers, so it's clear what ledgers we have,
-            # and how they are initialized
+            # TODO: add a place for initialization of all ledgers, so it's
+            # clear what ledgers we have and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.basedirpath, self.config.domainTransactionsFile)
+                self.genesis_dir, self.config.domainTransactionsFile)
             return Ledger(
                 CompactMerkleTree(
                     hashStore=self.getHashStore('domain')),
@@ -562,6 +695,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
                                dataDir=self.dataLocation,
                                config=self.config)
+
+    def _add_pool_ledger(self):
+        if isinstance(self.poolManager, TxnPoolManager):
+            self.ledgerManager.addLedger(
+                POOL_LEDGER_ID,
+                self.poolLedger,
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.on_new_ledger_added(POOL_LEDGER_ID)
+
+    def _add_domain_ledger(self):
+        self.ledgerManager.addLedger(
+            DOMAIN_LEDGER_ID,
+            self.domainLedger,
+            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.on_new_ledger_added(DOMAIN_LEDGER_ID)
 
     def getHashStore(self, name) -> HashStore:
         """
@@ -577,30 +727,49 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return MemoryHashStore()
 
-    def getLedgerManager(self) -> LedgerManager:
+    def get_new_ledger_manager(self) -> LedgerManager:
+        ledger_sync_order = self.ledger_ids
         return LedgerManager(self, ownedByNode=True,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-                             preCatchupClbk=self.preLedgerCatchUp)
+                             preCatchupClbk=self.preLedgerCatchUp,
+                             ledger_sync_order=ledger_sync_order)
 
     def init_ledger_manager(self):
-        # TODO: this and tons of akin stuff should be exterminated
-        self.ledgerManager.addLedger(
-            DOMAIN_LEDGER_ID,
-            self.domainLedger,
-            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-        self.on_new_ledger_added(DOMAIN_LEDGER_ID)
-        if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.addLedger(
-                POOL_LEDGER_ID,
-                self.poolLedger,
-                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-            self.on_new_ledger_added(POOL_LEDGER_ID)
+        self._add_pool_ledger()
+        self._add_config_ledger()
+        self._add_domain_ledger()
 
     def on_new_ledger_added(self, ledger_id):
         # If a ledger was added after a replicas were created
         self.replicas.register_new_ledger(ledger_id)
+
+    def register_state(self, ledger_id, state):
+        self.states[ledger_id] = state
+
+    def register_req_handler(self, ledger_id: int, req_handler: RequestHandler):
+        self.ledger_to_req_handler[ledger_id] = req_handler
+        for txn_type in req_handler.valid_txn_types:
+            if txn_type in self.txn_type_to_req_handler:
+                raise ValueError('{} already registered for {}'
+                                 .format(txn_type, self.txn_type_to_req_handler[txn_type]))
+            self.txn_type_to_req_handler[txn_type] = req_handler
+            self.txn_type_to_ledger_id[txn_type] = ledger_id
+
+    def register_executer(self, ledger_id: int, executer: Callable):
+        self.requestExecuter[ledger_id] = executer
+
+    def get_req_handler(self, ledger_id=None, txn_type=None) -> Optional[RequestHandler]:
+        if ledger_id is not None:
+            return self.ledger_to_req_handler.get(ledger_id)
+        if txn_type is not None:
+            return self.txn_type_to_req_handler.get(txn_type)
+
+    def get_executer(self, ledger_id):
+        executer = self.requestExecuter.get(ledger_id)
+        if executer:
+            return executer
+        else:
+            return partial(self.default_executer, ledger_id)
 
     def loadDomainState(self):
         return PruningState(
@@ -624,7 +793,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return bls_bft
 
     def update_bls_key(self, new_bls_key):
-        bls_crypto_factory = create_default_bls_crypto_factory(self.key_path, self.name)
+        bls_keys_dir = os.path.join(self.keys_dir, self.name)
+        bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
         self.bls_bft.bls_crypto_signer = None
 
         try:
@@ -647,13 +817,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{}BLS key is rotated/set for Node {}. "
                     "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
-    @classmethod
-    def ledgerIdForRequest(cls, request: Request):
-        assert request.operation[TXN_TYPE]
+    def ledger_id_for_request(self, request: Request):
+        assert request.operation[TXN_TYPE] is not None
         typ = request.operation[TXN_TYPE]
-        return cls.ledgerId(typ)
+        return self.txn_type_to_ledger_id[typ]
 
     def start(self, loop):
+        # Avoid calling stop and then start on the same node object as start
+        # does not re-initialise states
         oldstatus = self.status
         if oldstatus in Status.going():
             logger.debug("{} is already {}, so start has no effect".
@@ -668,7 +839,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodestack.start()
             self.clientstack.start()
 
+            self.view_changer = self.newViewChanger()
             self.elector = self.newPrimaryDecider()
+
             self._schedule(action=self.propose_view_change,
                            seconds=self._view_change_timeout)
 
@@ -682,9 +855,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.nodestack.maintainConnections(force=True)
 
             if isinstance(self.poolManager, RegistryPoolManager):
-                # Node not using pool ledger so start syncing domain ledger
+                # Node not using pool ledger so start syncing config ledger
                 self.mode = Mode.discovered
-                self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
+                self.ledgerManager.setLedgerCanSync(
+                    self.ledgerManager.ledger_sync_order[1], True)
             else:
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
@@ -695,7 +869,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def schedule_node_status_dump(self):
         # one-shot dump right after start
         self._schedule(action=self._info_tool.dump_json_file,
-                       seconds=3)
+                       seconds=self.config.DUMP_VALIDATOR_INFO_INIT_SEC)
         self.startRepeating(
             self._info_tool.dump_json_file,
             seconds=self.config.DUMP_VALIDATOR_INFO_PERIOD_SEC,
@@ -707,6 +881,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_name_by_rank(self, rank, nodeReg=None):
         return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
+
+    def newViewChanger(self):
+        if self.view_changer:
+            return self.view_changer
+        else:
+            return ViewChanger(self)
 
     def newPrimaryDecider(self):
         if self.primaryDecider:
@@ -725,10 +905,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def ledgers(self):
-        ledgers = [self.domainLedger]
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-        return ledgers
+        return [self.ledgerManager.ledgerRegistry[lid].ledger
+                for lid in self.ledger_ids if lid in self.ledgerManager.ledgerRegistry]
 
     def onStopping(self):
         """
@@ -755,11 +933,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.closeAllKVStores()
 
         self.mode = None
-        if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.setLedgerState(POOL_LEDGER_ID,
-                                              LedgerState.not_synced)
-        self.ledgerManager.setLedgerState(DOMAIN_LEDGER_ID,
-                                          LedgerState.not_synced)
+        self.ledgerManager.prepare_ledgers_for_sync()
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -786,6 +960,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.aqStash.clear()
         self.actionQueue.clear()
         self.elector = None
+        self.view_changer = None
 
     async def prod(self, limit: int=None) -> int:
         """.opened
@@ -803,7 +978,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self._serviceActions()
             c += self.ledgerManager.service()
             c += self.monitor._serviceActions()
-            c += await self.serviceElector()
+            c += await self.serviceViewChanger(limit)
+            c += await self.service_observable(limit)
+            c += await self.service_observer(limit)
             self.nodestack.flushOutBoxes()
         if self.isGoing():
             self.nodestack.serviceLifecycle()
@@ -844,19 +1021,62 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    async def serviceElector(self) -> int:
+    async def serviceViewChanger(self, limit) -> int:
         """
-        Service the elector's inBox, outBox and action queues.
+        Service the view_changer's inBox, outBox and action queues.
 
         :return: the number of messages successfully serviced
         """
         if not self.isReady():
             return 0
-        o = self.serviceElectorOutBox()
-        i = await self.serviceElectorInbox()
+        o = self.serviceViewChangerOutBox(limit)
+        i = await self.serviceViewChangerInbox(limit)
         # TODO: Why is protected method accessed here?
-        a = self.elector._serviceActions()
+        a = self.view_changer._serviceActions()
         return o + i + a
+
+    async def service_observable(self, limit) -> int:
+        """
+        Service the observable's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        o = self._service_observable_out_box(limit)
+        i = await self._observable.serviceQueues(limit)
+        return o + i
+
+    def _service_observable_out_box(self, limit: int=None) -> int:
+        """
+        Service at most `limit` number of messages from the observable's outBox.
+
+        :return: the number of messages successfully serviced.
+        """
+        msg_count = 0
+        while True:
+            if limit and msg_count >= limit:
+                break
+
+            msg = self._observable.get_output()
+            if not msg:
+                break
+
+            msg_count += 1
+            msg, observer_ids = msg
+            # TODO: it's assumed that all Observers are connected the same way as Validators
+            self.sendToNodes(msg, observer_ids)
+        return msg_count
+
+    async def service_observer(self, limit) -> int:
+        """
+        Service the observer's inBox and outBox
+
+        :return: the number of messages successfully serviced
+        """
+        if not self.isReady():
+            return 0
+        return await self._observer.serviceQueues(limit)
 
     def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
@@ -891,12 +1111,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for node in joined:
             self.send_ledger_status_to_newly_connected_node(node)
 
-    def _sync_ledger(self, ledger_id):
-        """
-        Sync specific ledger with other nodes
-        """
-        self.ledgerManager.setLedgerCanSync(ledger_id, True)
+    def request_ledger_status_from_nodes(self, ledger_id):
         for node_name in self.nodeReg:
+            if node_name == self.name:
+                continue
             try:
                 self._ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
@@ -916,21 +1134,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, node_name, ledger_id))
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
-        self.sendPoolLedgerStatus(node_name)
+        self.sendLedgerStatus(node_name,
+                              self.ledgerManager.ledger_sync_order[0])
         # Send the domain ledger status only when it has discovered enough
         # peers otherwise very few peers will know that this node is lagging
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
-        # if self.mode in (Mode.discovered, Mode.participating):
         if Mode.is_done_discovering(self.mode):
-            self.sendDomainLedgerStatus(node_name)
+            for lid in self.ledgerManager.ledger_sync_order[1:]:
+                self.sendLedgerStatus(node_name, lid)
 
     def nodeJoined(self, txn):
         logger.info("{} new node joined by txn {}".format(self, txn))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
-        if new_replicas > 0:
-            self.decidePrimaries()
+        if new_replicas > 0 and not self.view_changer.view_change_in_progress:
+            self.select_primaries()
 
     def nodeLeft(self, txn):
         logger.info("{} node left by txn {}".format(self, txn))
@@ -938,8 +1157,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.adjustReplicas()
 
     def sendPoolInfoToClients(self, txn):
-        logger.debug("{} sending new node info {} to all clients".format(self,
-                                                                         txn))
+        logger.debug("{} sending new node info {} to all clients".
+                     format(self, txn))
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(
             msg, list(self.clientstack.connectedClients))
@@ -957,9 +1176,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
-        election_messages = self.elector.get_msgs_for_lagged_nodes()
-        message = CurrentState(viewNo=self.viewNo,
-                               primary=election_messages)
+        vch_messages = self.view_changer.get_msgs_for_lagged_nodes()
+        message = CurrentState(viewNo=self.viewNo, primary=vch_messages)
 
         logger.debug("{} sending current state {} to lagged node {}".
                      format(self, message, nodeName))
@@ -976,7 +1194,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 # TODO DRY, view change done messages are managed by routes
-                self.sendToElector(message, frm)
+                self.sendToViewChanger(message, frm)
         except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
@@ -1023,8 +1241,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, (ElectionType, ViewChangeDone)):
-            self.sendToElector(msg, frm)
+        if isinstance(msg, (InstanceChange, ViewChangeDone)):
+            self.sendToViewChanger(msg, frm)
             return True
         elif isinstance(msg, ThreePhaseType):
             self.sendToReplica(msg, frm)
@@ -1061,13 +1279,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} processed {} stashed msgs for view no {}".
                      format(self, i, view_no))
 
-    def decidePrimaries(self):
-        """
-        Choose the primary replica for each protocol instance in the system
-        using a PrimaryDecider.
-        """
-        self.elector.decidePrimaries()
-
     def _check_view_change_completed(self):
         """
         This thing checks whether new primary was elected.
@@ -1075,18 +1286,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug('{} running the scheduled check for view change '
                      'completion'.format(self))
-        if not self.view_change_in_progress:
+        if not self.view_changer.view_change_in_progress:
             logger.debug('{} already completion view change'.format(self))
             return False
 
-        next_view_no = self.viewNo + 1
-        logger.info("view change to view {} is not completed in time, "
-                    "starting view change for view {}"
-                    .format(self.viewNo, next_view_no))
-        logger.info("{}{} initiating a view change to {} from {}".format(
-            VIEW_CHANGE_PREFIX, self, next_view_no, self.viewNo))
-        self.sendInstanceChange(next_view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        self.view_changer.on_view_change_not_completed_in_time()
         return True
 
     def service_replicas_outbox(self, limit: int=None) -> int:
@@ -1108,8 +1312,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     *reqKey,
                     self.reasonForClientFromException(
                         message.reason))
-                self.transmitToClient(reject, self.requestSender[reqKey])
-                self.doneProcessingReq(*reqKey)
+                # TODO: What the case when reqKey will be not in requestSender dict
+                if reqKey in self.requestSender:
+                    self.transmitToClient(reject, self.requestSender[reqKey])
+                    self.doneProcessingReq(*reqKey)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1118,39 +1324,35 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def serviceElectorOutBox(self, limit: int=None) -> int:
+    def serviceViewChangerOutBox(self, limit: int=None) -> int:
         """
-        Service at most `limit` number of messages from the elector's outBox.
+        Service at most `limit` number of messages from the view_changer's outBox.
 
         :return: the number of messages successfully serviced.
         """
         msgCount = 0
-        while self.elector.outBox and (not limit or msgCount < limit):
+        while self.view_changer.outBox and (not limit or msgCount < limit):
             msgCount += 1
-            msg = self.elector.outBox.popleft()
-            if isinstance(msg, (ElectionType, ViewChangeDone)):
+            msg = self.view_changer.outBox.popleft()
+            if isinstance(msg, (InstanceChange, ViewChangeDone)):
                 self.send(msg)
-            elif isinstance(msg, BlacklistMsg):
-                nodeName = getattr(msg, f.NODE_NAME.nm)
-                code = getattr(msg, f.SUSP_CODE.nm)
-                self.reportSuspiciousNode(nodeName, code=code)
             else:
                 logger.error("Received msg {} and don't know how to handle it".
                              format(msg))
         return msgCount
 
-    async def serviceElectorInbox(self, limit: int=None) -> int:
+    async def serviceViewChangerInbox(self, limit: int=None) -> int:
         """
-        Service at most `limit` number of messages from the elector's outBox.
+        Service at most `limit` number of messages from the view_changer's outBox.
 
         :return: the number of messages successfully serviced.
         """
         msgCount = 0
-        while self.msgsToElector and (not limit or msgCount < limit):
+        while self.msgsToViewChanger and (not limit or msgCount < limit):
             msgCount += 1
-            msg = self.msgsToElector.popleft()
-            self.elector.inBox.append(msg)
-        await self.elector.serviceQueues(limit)
+            msg = self.msgsToViewChanger.popleft()
+            self.view_changer.inBox.append(msg)
+        await self.view_changer.serviceQueues(limit)
         return msgCount
 
     @property
@@ -1232,10 +1434,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                if view_no not in self._next_view_indications:
-                    self._next_view_indications[view_no] = set()
-                self._next_view_indications[view_no].add(frm)
-                self._start_view_change_if_possible(view_no)
+                # TODO this is put of the msgs queue scope
+                self.view_changer.on_future_view_vchd_msg(view_no, frm)
         else:
             return True
         return False
@@ -1253,19 +1453,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.msgHasAcceptableViewNo(msg, frm):
                 self.replicas.pass_message((msg, frm), msg.instId)
 
-    def sendToElector(self, msg, frm):
+    def sendToViewChanger(self, msg, frm):
         """
-        Send the message to the intended elector.
+        Send the message to the intended view changer.
 
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if (isinstance(msg, ViewChangeDone) or
-                self.msgHasAcceptableInstId(msg, frm)) and \
-                self.msgHasAcceptableViewNo(msg, frm):
-            logger.debug("{} sending message to elector: {}".
+        if (isinstance(msg, InstanceChange) or
+                self.msgHasAcceptableViewNo(msg, frm)):
+            logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
-            self.msgsToElector.append((msg, frm))
+            self.msgsToViewChanger.append((msg, frm))
+
+    def send_to_observer(self, msg, frm):
+        """
+        Send the message to the observer.
+
+        :param msg: the message to send
+        :param frm: the name of the node which sent this `msg`
+        """
+        logger.debug("{} sending message to observer: {}".
+                     format(self, (msg, frm)))
+        self._observer.append_input(msg, frm)
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
@@ -1386,14 +1596,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         friendly = friendlyEx(ex)
         reason = self.reasonForClientFromException(ex)
         if isinstance(msg, Request):
-            msg = msg.__getstate__()
-        identifier = msg.get(f.IDENTIFIER.nm)
+            msg = msg.as_dict
+        identifier = idr_from_req_data(msg)
         reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
-        self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
+        self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
@@ -1409,8 +1619,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return None
 
         needStaticValidation = False
-        if all(attr in msg.keys()
-               for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
+        if all([msg.get(OPERATION), msg.get(f.REQ_ID.nm),
+                idr_from_req_data(msg)]):
             cls = self._client_request_class
             needStaticValidation = True
         elif OP_FIELD_NAME in msg:
@@ -1432,20 +1642,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                        msg.get(f.REQ_ID.nm)) from ex
 
         if needStaticValidation:
-            self.doStaticValidation(msg[f.IDENTIFIER.nm],
-                                    msg[f.REQ_ID.nm],
-                                    msg[OPERATION])
+            self.doStaticValidation(cMsg)
 
-        if self.isSignatureVerificationNeeded(msg):
-            self.verifySignature(cMsg)
-            # Suspicions should only be raised when lot of sig failures are
-            # observed
-            # try:
-            #     self.verifySignature(cMsg)
-            # except UnknownIdentifier as ex:
-            #     raise
-            # except Exception as ex:
-            #     raise SuspiciousClient from ex
+        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
+        self.verifySignature(cMsg)
+        self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
+        # Suspicions should only be raised when lot of sig failures are
+        # observed
+        # try:
+        #     self.verifySignature(cMsg)
+        # except UnknownIdentifier as ex:
+        #     raise
+        # except Exception as ex:
+        #     raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -1517,14 +1726,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Initialising node id in case where node's information was not present
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
-        self.catchup_next_ledger_after_pool()
-
-    def catchup_next_ledger_after_pool(self):
-        self.start_domain_ledger_sync()
-
-    def start_domain_ledger_sync(self):
-        self._sync_ledger(DOMAIN_LEDGER_ID)
-        self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
+        self.id
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -1532,6 +1734,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         # Process any Ordered requests. This causes less transactions to be
@@ -1565,13 +1768,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 ledger_id, (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
-        rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
-            rh = self.poolManager.reqHandler
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-            rh = self.reqHandler
+        rh = self.get_req_handler(ledgerId)
         return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
@@ -1624,11 +1825,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def caught_up_for_current_view(self) -> bool:
-        if not self.elector._hasViewChangeQuorum:
+        if not self.view_changer._hasViewChangeQuorum:
             logger.debug('{} does not have view change quorum for view {}'.
                          format(self, self.viewNo))
             return False
-        vc = self.elector.get_sufficient_same_view_change_done_messages()
+        vc = self.view_changer.get_sufficient_same_view_change_done_messages()
         if not vc:
             logger.debug('{} does not have acceptable ViewChangeDone for '
                          'view {}'.format(self, self.viewNo))
@@ -1674,7 +1875,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
         self.mode = Mode.synced
-        self.decidePrimaries()
+        self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
         # then set mode to participating, can happen if a catchup is triggered
@@ -1695,17 +1896,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn.get(TXN_TYPE) == NYM:
             self.addNewRole(txn)
 
-    def sendPoolLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
-
-    def sendDomainLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
-
     def getLedgerStatus(self, ledgerId: int):
-        if ledgerId == POOL_LEDGER_ID:
-            return self.poolLedgerStatus
-        if ledgerId == DOMAIN_LEDGER_ID:
-            return self.domainLedgerStatus
+        if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
+            # Since old style nodes don't know have pool ledger
+            return None
+        return self.build_ledger_status(ledgerId)
 
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):
         ledgerStatus = self.getLedgerStatus(ledgerId)
@@ -1715,44 +1910,66 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
 
-    def doStaticValidation(self, identifier, reqId, operation):
+    def doStaticValidation(self, request: Request):
+        identifier, req_id, operation = request.identifier, request.reqId, request.operation
         if TXN_TYPE not in operation:
-            raise InvalidClientRequest(identifier, reqId)
+            raise InvalidClientRequest(identifier, req_id)
 
-        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            self.poolManager.doStaticValidation(identifier, reqId, operation)
+        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
+        if operation[TXN_TYPE] != GET_TXN:
+            # GET_TXN is generic, needs no request handler
 
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(operation)
-            except Exception as ex:
-                raise InvalidClientRequest(identifier, reqId) from ex
+            req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+            if not req_handler:
+                if self.opVerifiers:
+                    try:
+                        for v in self.opVerifiers:
+                            v.verify(operation)
+                    except Exception as ex:
+                        raise InvalidClientRequest(identifier, req_id) from ex
+                else:
+                    raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
+                                               format(TXN_TYPE, operation[TXN_TYPE]))
+            else:
+                req_handler.doStaticValidation(request)
+
+        self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
     def doDynamicValidation(self, request: Request):
         """
         State based validation
         """
-        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
-            self.poolManager.doDynamicValidation(request)
-        else:
-            self.domainDynamicValidation(request)
+        self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
+        operation = request.operation
+        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+        req_handler.validate(request)
+        self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
         """
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
-        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
-            return self.poolManager.applyReq(request, cons_time)
-        else:
-            return self.domainRequestApplication(request, cons_time)
+        self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
+                          cons_time=cons_time)
+        req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
+        seq_no, txn = req_handler.apply(request, cons_time)
+        ledger_id = self.ledger_id_for_request(request)
+        self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
+                          cons_time=cons_time, ledger_id=ledger_id,
+                          seq_no=seq_no, txn=txn)
 
-    def domainDynamicValidation(self, request: Request):
-        self.reqHandler.validate(request, self.config)
+    def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
+        requests = []
+        for req_key in request_ids:
+            requests.append(self.requests[req_key].finalised)
+        self.apply_reqs(requests, cons_time, ledger_id)
 
-    def domainRequestApplication(self, request: Request, cons_time: int):
-        return self.reqHandler.apply(request, cons_time)
+    def apply_reqs(self, requests, cons_time: int, ledger_id):
+        for req in requests:
+            self.applyReq(req, cons_time)
+        state_root = self.stateRootHash(ledger_id, isCommitted=False)
+        self.onBatchCreated(ledger_id, state_root)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -1782,23 +1999,48 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: What if the reply was a REQNACK? Its not gonna be found in the
         # replies.
 
-        ledgerId = self.ledgerIdForRequest(request)
-        ledger = self.getLedger(ledgerId)
-
         if request.operation[TXN_TYPE] == GET_TXN:
             self.handle_get_txn_req(request, frm)
             self.total_read_request_number += 1
-        else:
-            reply = self.getReplyFromLedger(ledger, request)
-            if reply:
-                logger.debug("{} returning REPLY from already processed "
-                             "REQUEST: {}".format(self, request))
-                self.transmitToClient(reply, frm)
-            else:
-                if not self.isProcessingReq(*request.key):
-                    self.startedProcessingReq(*request.key, frm)
-                self.recordAndPropagate(request, frm)
-                self.send_ack_to_client(request.key, frm)
+            return
+
+        ledger_id = self.ledger_id_for_request(request)
+        ledger = self.getLedger(ledger_id)
+
+        if self.is_query(request.operation[TXN_TYPE]):
+            self.process_query(request, frm)
+            return
+
+        reply = self.getReplyFromLedger(ledger, request)
+        if reply:
+            logger.debug("{} returning REPLY from already processed "
+                         "REQUEST: {}".format(self, request))
+            self.transmitToClient(reply, frm)
+            return
+
+        # If the node is not already processing the request
+        if not self.isProcessingReq(*request.key):
+            self.startedProcessingReq(*request.key, frm)
+        # If not already got the propagate request(PROPAGATE) for the
+        # corresponding client request(REQUEST)
+        self.recordAndPropagate(request, frm)
+        self.send_ack_to_client(request.key, frm)
+
+    def is_query(self, txn_type) -> bool:
+        # Does the transaction type correspond to a read?
+        handler = self.get_req_handler(txn_type=txn_type)
+        return handler and handler.is_query(txn_type)
+
+    def process_query(self, request: Request, frm: str):
+        # Process a read request from client
+        handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
+        try:
+            handler.doStaticValidation(request)
+            self.send_ack_to_client(request.key, frm)
+        except Exception as ex:
+            self.send_nack_to_client(request.key, str(ex), frm)
+        result = handler.get_query_response(request)
+        self.transmitToClient(Reply(result), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
@@ -1814,17 +2056,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
-        reqDict = msg.request
 
+        reqDict = msg.request
         request = self._client_request_class(**reqDict)
 
         clientName = msg.senderClient
 
         if not self.isProcessingReq(*request.key):
+            if self.seqNoDB.get(request.identifier, request.reqId) is not None:
+                logger.debug("{} ignoring propagated request {} "
+                             "since it has been already ordered"
+                             .format(self.name, msg))
+                return
+
             self.startedProcessingReq(*request.key, clientName)
-        elif clientName is not None and not self.is_sender_known_for_req(*request.key):
-            # Since some propagates might not include the client name
-            self.set_sender_for_req(*request.key, clientName)
+
+        else:
+            if clientName is not None and \
+                    not self.is_sender_known_for_req(*request.key):
+                # Since some propagates might not include the client name
+                self.set_sender_for_req(*request.key, clientName)
 
         self.requests.add_propagate(request, frm)
 
@@ -1849,21 +2100,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_ack_to_client(self, req_key, to_client):
         self.transmitToClient(RequestAck(*req_key), to_client)
 
+    def send_nack_to_client(self, req_key, reason, to_client):
+        self.transmitToClient(RequestNack(*req_key, reason), to_client)
+
     def handle_get_txn_req(self, request: Request, frm: str):
         """
         Handle GET_TXN request
         """
+        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
+        if ledger_id not in self.ledger_to_req_handler:
+            self.send_nack_to_client(request.key,
+                                     'Invalid ledger id {}'.format(ledger_id),
+                                     frm)
+            return
+        seq_no = request.operation.get(DATA)
         self.send_ack_to_client(request.key, frm)
-        ledgerId = self.ledgerIdForRequest(request)
-        ledger = self.getLedger(ledgerId)
-        seq_no = request.operation[DATA]
+        ledger = self.getLedger(ledger_id)
         try:
             txn = self.getReplyFromLedger(ledger=ledger,
                                           seq_no=seq_no)
         except KeyError:
             logger.debug(
-                "{} can not handle GET_TXN request: ledger doesn't have txn with seqNo={}".format(
-                    self, str(seq_no)))
+                "{} can not handle GET_TXN request: ledger doesn't "
+                "have txn with seqNo={}". format(self, str(seq_no)))
             txn = None
 
         result = {
@@ -1974,83 +2233,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             raise RuntimeError("unhandled replica-escalated exception") from ex
 
-    def _on_verified_instance_change_msg(self, msg, frm):
-        view_no = msg.viewNo
-
-        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
-            self.instanceChanges.addVote(msg, frm)
-            if view_no > self.viewNo:
-                self.do_view_change_if_possible(view_no)
-
-    def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
+    def _update_new_ordered_reqs_count(self):
         """
-        Validate and process an instance change request.
-
-        :param instChg: the instance change request
-        :param frm: the name of the node that sent this `msg`
+        Checks if any requests have been ordered since last performance check
+        and updates the performance check data store if needed.
+        :return: True if new ordered requests, False otherwise
         """
-        logger.debug("{} received instance change request: {} from {}".
-                     format(self, instChg, frm))
-
-        # TODO: add sender to blacklist?
-        if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "{}field viewNo has incorrect type: {}".
-                         format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
-        elif instChg.viewNo <= self.viewNo:
-            self.discard(instChg,
-                         "Received instance change request with view no {} "
-                         "which is not more than its view no {}".
-                         format(instChg.viewNo, self.viewNo), logger.info)
-        else:
-            # Record instance changes for views but send instance change
-            # only when found master to be degraded. if quorum of view changes
-            #  found then change view even if master not degraded
-            self._on_verified_instance_change_msg(instChg, frm)
-
-            if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
-                logger.debug(
-                    "{} received instance change message {} but has already "
-                    "sent an instance change message".format(self, instChg))
-            elif not self.monitor.isMasterDegraded():
-                logger.debug(
-                    "{} received instance change message {} but did not "
-                    "find the master to be slow".format(self, instChg))
-            else:
-                logger.info(
-                    "{}{} found master degraded after receiving instance change"
-                    " message from {}".format(
-                        VIEW_CHANGE_PREFIX, self, frm))
-                self.sendInstanceChange(instChg.viewNo)
-
-    def do_view_change_if_possible(self, view_no):
-        # TODO: Need to handle skewed distributions which can arise due to
-        # malicious nodes sending messages early on
-        can, whyNot = self.canViewChange(view_no)
-        if can:
-            logger.info("{}{} initiating a view change to {} from {}".
-                        format(VIEW_CHANGE_PREFIX, self, view_no, self.viewNo))
-            self.propagate_primary = False
-            self.startViewChange(view_no)
-        else:
-            logger.debug(whyNot)
-        return can
-
-    def _start_view_change_if_possible(self, view_no) -> bool:
-        ind_count = len(self._next_view_indications[view_no])
-        if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.info(
-                '{}{} starting view change for {} after {} view change '
-                'indications from other nodes'.format(
-                    VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            self.propagate_primary = True
-            self.startViewChange(view_no)
+        last_num_ordered = self._last_performance_check_data.get('num_ordered')
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        if num_ordered != last_num_ordered:
+            self._last_performance_check_data['num_ordered'] = num_ordered
             return True
-        return False
+        else:
+            return False
 
-    def checkPerformance(self):
+    def checkPerformance(self) -> Optional[bool]:
         """
         Check if master instance is slow and send an instance change request.
-        :returns True if master performance is OK, otherwise False
+        :returns True if master performance is OK, False if performance
+        degraded, None if the check was needed
         """
         logger.trace("{} checking its performance".format(self))
 
@@ -2059,21 +2260,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isParticipating:
             return
 
-        last_num_ordered = self._last_performance_check_data.get('num_ordered')
-        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
-        nothing_changed = num_ordered == last_num_ordered
-        if nothing_changed:
+        if not self._update_new_ordered_reqs_count():
+            logger.trace("{} ordered no new requests".format(self))
             return
-
-        self._last_performance_check_data['num_ordered'] = num_ordered
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
-                self.sendInstanceChange(self.viewNo + 1)
-                logger.info('{} sent view change since performance degraded '
-                            'of master instance'.format(self))
-                self.do_view_change_if_possible(self.viewNo + 1)
+                logger.info(
+                    '{} master instance performance degraded'.format(self))
+                self.view_changer.on_master_degradation()
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -2101,76 +2297,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.config.SpikeEventsEnabled
         )
 
-    def _create_instance_change_msg(self, view_no, suspicion_code):
-        return InstanceChange(view_no, suspicion_code)
-
-    def sendInstanceChange(self, view_no: int,
-                           suspicion=Suspicions.PRIMARY_DEGRADED):
-        """
-        Broadcast an instance change request to all the remaining nodes
-
-        :param view_no: the view number when the instance change is requested
-        """
-
-        # If not found any sent instance change messages in last
-        # `ViewChangeWindowSize` seconds or the last sent instance change
-        # message was sent long enough ago then instance change message can be
-        # sent otherwise no.
-        canSendInsChange, cooldown = self.insChngThrottler.acquire()
-
-        if canSendInsChange:
-            logger.info(
-                "{}{} sending an instance change with view_no {}"
-                " since {}".format(
-                    VIEW_CHANGE_PREFIX,
-                    self,
-                    view_no,
-                    suspicion.reason))
-            logger.info("{}{} metrics for monitor: {}"
-                        .format(MONITORING_PREFIX, self,
-                                self.monitor.prettymetrics))
-            msg = self._create_instance_change_msg(view_no, suspicion.code)
-            self.send(msg)
-            # record instance change vote for self and try to change the view
-            # if quorum is reached
-            self._on_verified_instance_change_msg(msg, self.name)
-        else:
-            logger.debug(
-                "{} cannot send instance change sooner then {} seconds".format(
-                    self, cooldown))
-
-    # noinspection PyAttributeOutsideInit
-    def initInsChngThrottling(self):
-        windowSize = self.config.ViewChangeWindowSize
-        ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
-        self.insChngThrottler = Throttler(windowSize, ratchet.get)
-
     def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
-        if self.lost_primary_at and self.nodestack.isConnectedTo(self.master_primary_name):
+        if not self.lost_primary_at:
+            return
+        if self.nodestack.isConnectedTo(self.master_primary_name) or \
+                self.master_primary_name == self.name:
             self.lost_primary_at = None
-
-        if self.view_change_in_progress and \
-                self.replicas.all_instances_have_primary:
-            self.on_view_change_complete(self.viewNo)
-
-    def canViewChange(self, proposedViewNo: int) -> (bool, str):
-        """
-        Return whether there's quorum for view change for the proposed view
-        number and its view is less than or equal to the proposed view
-        """
-        msg = None
-        quorum = self.quorums.view_change.value
-        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
-            msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
-        elif not proposedViewNo > self.viewNo:
-            msg = '{} is in higher view more than {}'.format(
-                self, proposedViewNo)
-
-        return not bool(msg), msg
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
@@ -2180,16 +2316,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace('{} The primary is already connected '
                          'so view change will not be proposed'.format(self))
             return
+
+        if not self.isReady():
+            logger.trace('{} The node is not ready yet '
+                         'so view change will not be proposed'.format(self))
+            return
+
         disconnected_time = time.perf_counter() - self.lost_primary_at
-        disconnected_long_enough = \
-            disconnected_time >= self.config.ToleratePrimaryDisconnection
-        if disconnected_long_enough:
-            view_no = self.viewNo + 1
-            self.sendInstanceChange(view_no,
-                                    Suspicions.PRIMARY_DISCONNECTED)
-            logger.info('{} sent view change since was disconnected '
-                        'from primary for too long'.format(self))
-            self.do_view_change_if_possible(view_no)
+        if disconnected_time >= self.config.ToleratePrimaryDisconnection:
+            logger.info("{} primary has been disconnected for too long"
+                        "".format(self))
+            self.view_changer.on_primary_loss()
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
@@ -2205,59 +2342,40 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
-    def startViewChange(self, proposed_view_no: int):
-        """
-        Trigger the view change process.
+    def select_primaries(self, nodeReg: Dict[str, HA]=None):
+        for instance_id, replica in enumerate(self.replicas):
+            if replica.primaryName is not None:
+                logger.debug('{} already has a primary'.format(replica))
+                continue
+            new_primary_name = self.elector.next_primary_replica_name(
+                instance_id, nodeReg=nodeReg)
+            logger.display("{}{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX, replica,
+                                   new_primary_name, instance_id, self.viewNo),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
+            if instance_id == 0:
+                # The node needs to be set in participating mode since when
+                # the replica is made aware of the primary, it will start
+                # processing stashed requests and hence the node needs to be
+                # participating.
+                self.start_participating()
 
-        :param proposed_view_no: the new view number after view change.
-        """
-        # TODO: consider moving this to pool manager
-        # TODO: view change is a special case, which can have different
-        # implementations - we need to make this logic pluggable
+            replica.primaryChanged(new_primary_name)
+            self.primary_selected(instance_id)
 
-        for view_no in tuple(self._next_view_indications.keys()):
-            if view_no > proposed_view_no:
-                break
-            self._next_view_indications.pop(view_no)
-
-        self.view_change_in_progress = True
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=self._view_change_timeout)
-        self.master_replica.on_view_change_start()
-        self.viewNo = proposed_view_no
-        logger.debug("{} resetting monitor stats after view change".
-                     format(self))
-        self.monitor.reset()
-        self.processStashedMsgsForView(self.viewNo)
-        # Now communicate the view change to the elector which will
-        # contest primary elections across protocol all instances
-        self.elector.view_change_started(self.viewNo)
-        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
-        self.initInsChngThrottling()
-        self.logNodeInfo()
-        # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
-        # prepared certificate the first PRE-PREPARE of the new view
-        logger.info('{}{} changed to view {}, will start catchup now'.
-                    format(VIEW_CHANGE_PREFIX, self, self.viewNo))
-        # Set to 0 even when set to 0 in `on_view_change_complete` since
-        # catchup might be started due to several reasons.
-        self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = time.perf_counter()
-        self.start_catchup()
-
-    def on_view_change_complete(self, view_no):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqno and state and txn root for previous view
-        """
-        self.view_change_in_progress = False
-        self.instanceChanges.pop(view_no - 1, None)
-        self.master_replica.on_view_change_done()
-        if self.propagate_primary:
-            self.master_replica.on_propagate_primary_done()
-        self.propagate_primary = False
-        self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = 0
+            logger.display("{}{} declares view change {} as completed for "
+                           "instance {}, "
+                           "new primary is {}, "
+                           "ledger info is {}"
+                           .format(VIEW_CHANGE_PREFIX,
+                                   replica,
+                                   self.viewNo,
+                                   instance_id,
+                                   new_primary_name,
+                                   self.ledger_summary),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica
@@ -2275,13 +2393,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
-        ledger_id = DOMAIN_LEDGER_ID
-        if self._is_there_pool_ledger():
-            # Pool ledger should be synced first
-            # Sync up for domain ledger will be called in
-            # its post-syncup callback
-            ledger_id = POOL_LEDGER_ID
-        self._sync_ledger(ledger_id)
+        # Pool ledger should be synced first
+        ledger_id = POOL_LEDGER_ID if self._is_there_pool_ledger() else \
+            self.ledgerManager.ledger_sync_order[1]
+        self.ledgerManager.catchup_ledger(ledger_id)
 
     def _is_there_pool_ledger(self):
         # TODO isinstance is not OK
@@ -2302,7 +2417,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, self.authnWhitelist):
             return  # whitelisted message types rely on RAET for authn
         if isinstance(msg, Propagate):
-            typ = 'propagate '
+            typ = 'propagate'
             req = msg.request
         else:
             typ = ''
@@ -2311,21 +2426,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.as_dict
 
-        identifier = self.authNr(req).authenticate(req)
+        identifiers = self.authNr(req).authenticate(req)
         logger.debug("{} authenticated {} signature on {} request {}".
-                     format(self, identifier, typ, req['reqId']),
+                     format(self, identifiers, typ, req['reqId']),
                      extra={"cli": True,
                             "tags": ["node-msg-processing"]})
 
     def authNr(self, req):
         return self.clientAuthNr
-
-    def isSignatureVerificationNeeded(self, msg: Any):
-        op = msg.get(OPERATION)
-        if op:
-            if op.get(TXN_TYPE) in openTxns:
-                return False
-        return True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
         if ledger_id in self.txn_seq_range_to_3phase_key:
@@ -2348,9 +2456,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param pp_time: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
+        for req in reqs:
+            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
+                              pp_time=pp_time, state_root=state_root,
+                              txn_root=txn_root)
         try:
-            committedTxns = self.requestExecuter[ledger_id](
-                pp_time, reqs, state_root, txn_root)
+            committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
+                                                         state_root, txn_root)
         except Exception as exc:
             logger.warning(
                 "{} commit failed for batch request, error {}, view no {}, "
@@ -2361,41 +2473,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
             )
             raise
-        else:
-            if committedTxns:
-                # TODO is it possible to get len(committedTxns) != len(reqs)
-                # someday
-                for request in reqs:
-                    self.requests.mark_as_executed(request)
-                logger.info(
-                    "{} committed batch request, view no {}, ppSeqNo {}, "
-                    "ledger {}, state root {}, txn root {}, requests: {}".format(
-                        self, view_no, pp_seq_no, ledger_id, state_root, txn_root,
-                        [(req.identifier, req.reqId) for req in reqs]
-                    )
-                )
 
-        if committedTxns:
-            first_txn_seq_no = committedTxns[0][F.seqNo.name]
-            last_txn_seq_no = committedTxns[-1][F.seqNo.name]
-            if ledger_id not in self.txn_seq_range_to_3phase_key:
-                self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
-            # adding one to end of range since its exclusive
-            intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-            intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
-            logger.debug('{} storing 3PC key {} for ledger {} range {}'.
-                         format(self, (view_no, pp_seq_no), ledger_id,
-                                (first_txn_seq_no, last_txn_seq_no)))
-            if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
-                # Remove the first element from the interval tree
-                old = intrv_tree[intrv_tree.begin()].pop()
-                intrv_tree.remove(old)
-                logger.debug('{} popped {} from txn to batch seqNo map'.
-                             format(self, old))
+        if not committedTxns:
+            return
+
+        # TODO is it possible to get len(committedTxns) != len(reqs)
+        # someday
+        for request in reqs:
+            self.requests.mark_as_executed(request)
+        logger.info(
+            "{} committed batch request, view no {}, ppSeqNo {}, "
+            "ledger {}, state root {}, txn root {}, requests: {}".
+            format(self, view_no, pp_seq_no, ledger_id, state_root,
+                   txn_root,
+                   [(req.identifier, req.reqId) for req in reqs])
+        )
+
+        for txn in committedTxns:
+            self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
+                              pp_time=pp_time, state_root=state_root,
+                              txn_root=txn_root)
+
+        first_txn_seq_no = committedTxns[0][F.seqNo.name]
+        last_txn_seq_no = committedTxns[-1][F.seqNo.name]
+        if ledger_id not in self.txn_seq_range_to_3phase_key:
+            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+        # adding one to end of range since its exclusive
+        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
+        intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
+        logger.debug('{} storing 3PC key {} for ledger {} range {}'.
+                     format(self, (view_no, pp_seq_no), ledger_id,
+                            (first_txn_seq_no, last_txn_seq_no)))
+        if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
+            # Remove the first element from the interval tree
+            old = intrv_tree[intrv_tree.begin()].pop()
+            intrv_tree.remove(old)
+            logger.debug('{} popped {} from txn to batch seqNo map'.
+                         format(self, old))
+
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+                                             ledger_id,
+                                             pp_time,
+                                             state_root,
+                                             txn_root,
+                                             first_txn_seq_no,
+                                             last_txn_seq_no)
+        self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns):
-        self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
-                               txn[F.seqNo.name]) for txn in committedTxns)
+        if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
+            self.seqNoDB.addBatch((idr_from_req_data(txn), txn[f.REQ_ID.nm],
+                                   txn[F.seqNo.name]) for txn in committedTxns)
 
     def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
@@ -2406,59 +2534,66 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ppTime)
         return committedTxns
 
+    def default_executer(self, ledger_id, pp_time, reqs: List[Request],
+                         state_root, txn_root):
+        return self.commitAndSendReplies(
+            self.get_req_handler(ledger_id), pp_time, reqs, state_root,
+            txn_root)
+
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
-        committedTxns = self.commitAndSendReplies(
-            self.reqHandler, ppTime, reqs, stateRoot, txnRoot)
-        for txn in committedTxns:
+        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
+                                               stateRoot, txnRoot)
+
+        # Refactor: This is only needed for plenum as some old style tests
+        # require authentication based on an in-memory map. This would be
+        # removed later when we migrate old-style tests
+        for txn in committed_txns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
-        return committedTxns
 
-    def onBatchCreated(self, ledgerId, stateRoot):
+        return committed_txns
+
+    def onBatchCreated(self, ledger_id, state_root):
         """
         A batch of requests has been created and has been applied but
         committed to ledger and state.
-        :param ledgerId:
-        :param stateRoot: state root after the batch creation
+        :param ledger_id:
+        :param state_root: state root after the batch creation
         :return:
         """
-        if ledgerId == POOL_LEDGER_ID:
+        if ledger_id == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.poolManager.reqHandler.onBatchCreated(stateRoot)
-        elif ledgerId == DOMAIN_LEDGER_ID:
-            self.reqHandler.onBatchCreated(stateRoot)
+                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(state_root)
+        elif self.get_req_handler(ledger_id):
+            self.get_req_handler(ledger_id).onBatchCreated(state_root)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
-                         format(self, ledgerId))
+                         format(self, ledger_id))
 
-    def onBatchRejected(self, ledgerId):
+    def onBatchRejected(self, ledger_id):
         """
         A batch of requests has been rejected, if stateRoot is None, reject
         the current batch.
-        :param ledgerId:
+        :param ledger_id:
         :param stateRoot: state root after the batch was created
         :return:
         """
-        if ledgerId == POOL_LEDGER_ID:
+        if ledger_id == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.poolManager.reqHandler.onBatchRejected()
-        elif ledgerId == DOMAIN_LEDGER_ID:
-            self.reqHandler.onBatchRejected()
+                self.get_req_handler(POOL_LEDGER_ID).onBatchRejected()
+        elif self.get_req_handler(ledger_id):
+            self.get_req_handler(ledger_id).onBatchRejected()
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
-                         format(self, ledgerId))
-
-    @classmethod
-    def ledgerId(cls, txnType: str):
-        return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
+                         format(self, ledger_id))
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn), (txn[f.IDENTIFIER.nm],
-                                                txn[f.REQ_ID.nm]))
+            self.sendReplyToClient(Reply(txn),
+                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
@@ -2478,20 +2613,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Adds a new client or steward to this node based on transaction type.
         """
         # If the client authenticator is a simple authenticator then add verkey.
-        #  For a custom authenticator, handle appropriately
-        if isinstance(self.clientAuthNr, SimpleAuthNr):
+        #  For a custom authenticator, handle appropriately.
+        # NOTE: The following code should not be used in production
+        if isinstance(self.clientAuthNr.core_authenticator, SimpleAuthNr):
             identifier = txn[TARGET_NYM]
             verkey = txn.get(VERKEY)
             v = DidVerifier(verkey, identifier=identifier)
-            if identifier not in self.clientAuthNr.clients:
+            if identifier not in self.clientAuthNr.core_authenticator.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, TRUSTEE, None):
                     logger.debug("Role if present must be {} and not {}".
                                  format(Roles.STEWARD.name, role))
                     return
-                self.clientAuthNr.addIdr(identifier,
-                                         verkey=v.verkey,
-                                         role=role)
+                self.clientAuthNr.core_authenticator.addIdr(identifier,
+                                                            verkey=v.verkey,
+                                                            role=role)
 
     def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
         """
@@ -2509,7 +2645,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
-                                 self.domainLedger, self.reqHandler)
+                                 self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
@@ -2517,9 +2653,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
-    def defaultAuthNr(self):
+    def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
-        return SimpleAuthNr(state=state)
+        return CoreAuthNr(state=state)
+
+    def defaultAuthNr(self) -> ReqAuthenticator:
+        req_authnr = ReqAuthenticator()
+        req_authnr.register_authenticator(self.init_core_authenticator())
+        return req_authnr
 
     def processStashedOrderedReqs(self):
         i = 0
@@ -2536,17 +2677,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             self, msg, self.ledgerManager.last_caught_up_3PC))
                     continue
                 logger.debug(
-                    '{} applying stashed Ordered msg {}'.format(
-                        self, msg))
+                    '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
-                for reqKey in msg.reqIdr:
-                    req = self.requests[reqKey].finalised
-                    self.applyReq(req, msg.ppTime)
-                self.processOrdered(msg)
-            else:
-                self.processOrdered(msg)
+                self.apply_stashed_reqs(msg.reqIdr,
+                                        msg.ppTime,
+                                        msg.ledgerId)
+
+            self.processOrdered(msg)
             i += 1
+
         logger.debug(
             "{} processed {} stashed ordered requests".format(
                 self, i))
@@ -2560,9 +2700,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check whether the keys are setup in the local STP keep.
         Raises KeysNotFoundException if not found.
         """
-        name, baseDir = self.name, self.key_path
-        if not areKeysSetup(name, baseDir, self.config):
-            raise REx(REx.reason.format(name) + self.keygenScript)
+        if not areKeysSetup(self.name, self.keys_dir):
+            raise REx(REx.reason.format(self.name) + self.keygenScript)
 
     @staticmethod
     def reasonForClientFromException(ex: Exception):
@@ -2609,10 +2748,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_REJECT_WRONG,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG)):
-            self.sendInstanceChange(
-                self.viewNo + 1, Suspicions.get_by_code(code))
-            logger.info('{}{} sent instance change since suspicion code {}'
+            logger.info('{}{} got one of primary suspicions codes {}'
                         .format(VIEW_CHANGE_PREFIX, self, code))
+            self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.debug)
@@ -2727,7 +2865,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        return self.reqHandler.transform_txn_for_ledger(txn)
+        return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
+            transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
@@ -2755,7 +2894,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "view no                 : {}".format(self.viewNo),
             "rank                    : {}".format(self.rank),
             "msgs to replicas        : {}".format(self.replicas.sum_inbox_len),
-            "msgs to elector         : {}".format(len(self.msgsToElector)),
+            "msgs to view changer    : {}".format(len(self.msgsToViewChanger)),
             "action queue            : {} {}".format(len(self.actionQueue),
                                                      id(self.actionQueue)),
             "action queue stash      : {} {}".format(len(self.aqStash),
@@ -2778,7 +2917,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'rank': self.rank,
             'view': self.viewNo,
             'creationDate': self.created,
-            'baseDir': self.basedirpath,
+            'ledger_dir': self.ledger_dir,
+            'keys_dir': self.keys_dir,
+            'genesis_dir': self.genesis_dir,
+            'plugins_dir': self.plugins_dir,
+            'node_info_dir': self.node_info_dir,
             'portN': self.nodestack.ha[1],
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
@@ -2791,6 +2934,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.nodeInfo['data'] = self.collectNodeInfo()
 
-        with closing(open(os.path.join(self.basedirpath, 'node_info'), 'w')) \
+        with closing(open(os.path.join(self.ledger_dir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+    def add_observer(self, observer_remote_id: str,
+                     observer_policy_type: ObserverSyncPolicyType):
+        self._observable.add_observer(
+            observer_remote_id, observer_policy_type)
+
+    def remove_observer(self, observer_remote_id):
+        self._observable.remove_observer(observer_remote_id)
+
+    def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
+        return self._observable.get_observers(observer_policy_type)

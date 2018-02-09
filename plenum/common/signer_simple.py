@@ -63,7 +63,8 @@ class SimpleSigner(Signer):
         """
         Return a signature for the given message.
         """
-        ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm])
+        ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm,
+                                                                   f.SIGS.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

@@ -1,20 +1,16 @@
-
-from stp_core.loop.looper import Looper
+from plenum.test.pool_transactions.conftest import looper
 
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.delayers import ppDelay
-from plenum.test.test_node import TestReplica, TestNodeSet, \
-    getNonPrimaryReplicas
+from plenum.test.test_node import TestReplica, getNonPrimaryReplicas
 
 nodeCount = 7
 F = getMaxFailures(nodeCount)
 
 
 # noinspection PyIncorrectDocstring
-def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, wallet1,
-                       client1):
+def test_view_not_changed(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     Test that a view change is not done when the performance of master does
     not go down
@@ -28,11 +24,11 @@ def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, wallet1,
     # Delay PRE-PREPARE for all backup protocol instances so master performs
     # better
     for i in range(1, F + 1):
-        nonPrimReps = getNonPrimaryReplicas(nodeSet, i)
+        nonPrimReps = getNonPrimaryReplicas(txnPoolNodeSet, i)
         # type: Iterable[TestReplica]
         for r in nonPrimReps:
             r.node.nodeIbStasher.delay(ppDelay(10, i))
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
-    checkViewNoForNodes(nodeSet, expectedViewNo=0)
+    checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=0)

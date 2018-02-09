@@ -25,6 +25,13 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
     collectedData = open(testListFile).read()
     os.remove(testListFile)
     log("Collecting modules")
+
+    # check errors during collect
+    if re.findall("={5,} ERRORS ={5,}", collectedData):
+        log("Errors found during collection")
+        log(collectedData)
+        return -1
+
     testList = re.findall("<Module '(.+)'>", collectedData)
     # testList = list(set(os.path.dirname(t) for t in testList))
     first_level_tests = set()
@@ -33,7 +40,8 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
         first_level_tests.add(p)
     first_level_tests = sorted(list(first_level_tests))
     test_list_sliced = first_level_tests[test_slice[0] - 1::test_slice[1]]
-    log("Found {} tests in {} modules, sliced {} test modules".format(len(testList), len(first_level_tests), len(test_list_sliced)))
+    log("Found {} tests in {} modules, sliced {} test modules".
+        format(len(testList), len(first_level_tests), len(test_list_sliced)))
     if not testList:
         m = re.search("errors during collection", collectedData)
         if m:

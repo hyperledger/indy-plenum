@@ -20,10 +20,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         self.node = node
 
         self.name = node.name
-        self.f = node.f
         self.replicas = node.replicas
-        self.viewNo = node.viewNo
-        self.nodeNames = node.allNodeNames
         self.nodeCount = 0
         self.inBox = deque()
         self.outBox = deque()
@@ -38,6 +35,14 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
 
     def __repr__(self):
         return "{}".format(self.name)
+
+    @property
+    def viewNo(self) -> Optional[int]:
+        return self.node.viewNo
+
+    @viewNo.setter
+    def viewNo(self, value: int):
+        self.node.viewNo = value
 
     @property
     def rank(self) -> Optional[int]:
@@ -113,7 +118,6 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
                            " than the current view no {}"
                            .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
             return False
-        self.viewNo = viewNo
         self.previous_master_primary = self.node.master_primary_name
         for replica in self.replicas:
             replica.primaryName = None

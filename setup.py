@@ -30,6 +30,8 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
+tests_require = ['pytest', 'pytest-xdist', 'python3-indy']
+
 setup(
     name='indy-plenum',
     version=__version__,
@@ -54,13 +56,14 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.1.6'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
+    setup_requires=['pytest-runner'],
     extras_require={
+        'tests': tests_require,
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
-                    },
-    setup_requires=['pytest-runner'],
-    tests_require=['pytest', 'pytest-xdist'],
+    },
+    tests_require=tests_require,
     scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',

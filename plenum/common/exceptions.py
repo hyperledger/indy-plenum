@@ -75,6 +75,24 @@ class InvalidSignature(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class InsufficientSignatures(SigningException, ReqInfo):
+    code = 126
+    reason = 'insufficient signatures, {} provided but {} required'
+
+    def __init__(self, provided, required, *args, **kwargs):
+        self.reason = self.reason.format(provided, required)
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
+class InsufficientCorrectSignatures(SigningException, ReqInfo):
+    code = 127
+    reason = 'insufficient correct signatures, {} correct but {} required'
+
+    def __init__(self, valid, required, *args, **kwargs):
+        self.reason = self.reason.format(valid, required)
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
 class MissingIdentifier(SigningException):
     code = 130
     reason = 'missing identifier'
@@ -104,6 +122,10 @@ class InvalidIdentifier(SigningException, ReqInfo):
 class UnregisteredIdentifier(SigningException):
     code = 136
     reason = 'provided owner identifier not registered with agent'
+
+
+class NoAuthenticatorFound(SigningException):
+    code = 137
 
 
 class KeysNotFoundException(Exception):

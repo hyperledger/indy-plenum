@@ -28,9 +28,8 @@ from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 
 class BlsFactoryIndyCrypto(BlsFactoryCrypto):
-    def __init__(self, basedir=None, node_name=None):
-        self._basedir = basedir
-        self._node_name = node_name
+    def __init__(self, keys_dir=None):
+        self._keys_dir = keys_dir
 
     def _create_group_params_loader(self) -> BlsGroupParamsLoader:
         return BlsGroupParamsLoaderIndyCrypto()
@@ -45,17 +44,15 @@ class BlsFactoryIndyCrypto(BlsFactoryCrypto):
         return BlsCryptoVerifierIndyCrypto(group_params)
 
     def _create_key_manager(self, group_params) -> BlsKeyManager:
-        assert self._basedir
-        assert self._node_name
-        return BlsKeyManagerFile(self._basedir, self._node_name)
+        assert self._keys_dir
+        return BlsKeyManagerFile(self._keys_dir)
 
 
-def create_default_bls_crypto_factory(basedir=None, node_name=None):
+def create_default_bls_crypto_factory(keys_dir=None):
     '''
     Creates a default BLS factory to instantiate BLS crypto classes.
 
-    :param basedir: [optional] base dir; needed to save/load bls keys
-    :param node_name: [optional] node's name; needed to save/load bls keys
+    :param keys_dir: [optional] keys_dir; needed to save/load bls keys
     :return: BLS factory instance
     '''
-    return BlsFactoryIndyCrypto(basedir, node_name)
+    return BlsFactoryIndyCrypto(keys_dir)

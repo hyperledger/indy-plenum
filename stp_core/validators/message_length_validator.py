@@ -11,5 +11,5 @@ class MessageLenValidator:
             raise InvalidMessageExceedingSizeException(
                 self.max_allowed, has_len)
 
-    def is_len_less_than_limit(self, l):
-        return l <= self.max_allowed
+    def is_len_less_than_limit(self, ac_len):
+        return ac_len <= self.max_allowed

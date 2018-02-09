@@ -2,21 +2,22 @@ import functools
 
 from stp_core.loop.eventually import eventually
 
-from plenum.common.constants import STEWARD
+from plenum.common.constants import STEWARD, DOMAIN_LEDGER_ID
 
 from plenum.test.pool_transactions.conftest import looper, stewardAndWallet1, \
     steward1, stewardWallet, client1, clientAndWallet1, client1Connected
 from plenum.test.pool_transactions.helper import sendAddNewClient
 from plenum.test import waits
-from plenum.test.helper import ensureRejectsRecvd, \
-    check_sufficient_replies_received
+from plenum.test.helper import ensureRejectsRecvd, sdk_send_random_and_check
+
 
 ERORR_MSG = "something went wrong"
 whitelist = [ERORR_MSG]
 
 
 def testLoggingTxnStateForValidRequest(
-        looper, steward1, stewardWallet, logsearch):
+        looper, logsearch, txnPoolNodeSet,
+        sdk_pool_handle, sdk_wallet_client):
     logsPropagate, _ = logsearch(
         levels=['INFO'], files=['propagator.py'],
         funcs=['propagate'], msgs=['propagating.*request.*from client']
@@ -32,16 +33,10 @@ def testLoggingTxnStateForValidRequest(
         funcs=['executeBatch'], msgs=['committed batch request']
     )
 
-    req, wallet = sendAddNewClient(None, "name", steward1, stewardWallet)
-    nNodes = len(steward1.inBox)
+    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    req, _ = reqs[0]
 
-    timeout = waits.expectedTransactionExecutionTime(nNodes)
-
-    looper.run(eventually(check_sufficient_replies_received,
-                          steward1, req.identifier, req.reqId,
-                          retryWait=1, timeout=timeout))
-
-    reqId = str(req.reqId)
+    reqId = str(req['reqId'])
     assert any(reqId in record.getMessage() for record in logsPropagate)
     assert any(reqId in record.getMessage() for record in logsOrdered)
     assert any(reqId in record.getMessage() for record in logsCommited)
@@ -99,7 +94,8 @@ def testLoggingTxnStateWhenCommitFails(
         pass
 
     def commitPatched(node, commitOrig, *args, **kwargs):
-        node.reqHandler.commit = commitOrig
+        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
+        req_handler.commit = commitOrig
         raise SomeError(ERORR_MSG)
 
     excCounter = 0
@@ -118,8 +114,9 @@ def testLoggingTxnStateWhenCommitFails(
         return
 
     for node in txnPoolNodeSet:
-        node.reqHandler.commit = functools.partial(
-            commitPatched, node, node.reqHandler.commit
+        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
+        req_handler.commit = functools.partial(
+            commitPatched, node, req_handler.commit
         )
         node.executeBatch = functools.partial(
             executeBatchPatched, node, node.executeBatch

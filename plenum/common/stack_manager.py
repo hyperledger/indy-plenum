@@ -20,10 +20,10 @@ logger = getlogger()
 
 
 class TxnStackManager(metaclass=ABCMeta):
-    def __init__(self, name, basedirpath, isNode=True):
+    def __init__(self, name, genesis_dir, keys_dir, isNode=True):
         self.name = name
-        self.basedirpath = basedirpath
-        self.key_path = os.path.expanduser(basedirpath)
+        self.genesis_dir = genesis_dir
+        self.keys_dir = keys_dir
         self.isNode = isNode
 
     @property
@@ -50,7 +50,7 @@ class TxnStackManager(metaclass=ABCMeta):
     @lazy_field
     def ledger(self):
         data_dir = self.ledgerLocation
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath,
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.genesis_dir,
                                                             self.ledgerFile)
         tree = CompactMerkleTree(hashStore=self.hashStore)
         ledger = Ledger(tree,
@@ -150,10 +150,10 @@ class TxnStackManager(metaclass=ABCMeta):
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeys(self.name, remoteName, self.key_path,
-                               verkey, override=True)
-            except Exception:
-                logger.exception("Exception while initializing keep for remote")
+                initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
+            except Exception as ex:
+                logger.error("Exception while initializing keep for remote {}".
+                             format(ex))
 
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
@@ -200,7 +200,7 @@ class TxnStackManager(metaclass=ABCMeta):
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
-        initRemoteKeys(self.name, remoteName, self.key_path, verkey, override=True)
+        initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -231,7 +231,8 @@ class TxnStackManager(metaclass=ABCMeta):
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
                 # if self.isNode:
-                initRemoteKeys(self.name, remoteName, self.key_path, key, override=True)
+                initRemoteKeys(self.name, remoteName, self.keys_dir, key,
+                               override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
@@ -272,6 +273,14 @@ class TxnStackManager(metaclass=ABCMeta):
         for txn in txns:
             self.updateNodeTxns(info, txn)
         return nodeTxnSeqNos, info
+
+    def getNodesServices(self):
+        # Returns services for each node
+        srvs = dict()
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE:
+                srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
+        return srvs
 
     @staticmethod
     def updateNodeTxns(oldTxn, newTxn):

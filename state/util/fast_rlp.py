@@ -61,14 +61,14 @@ def consume_length_prefix(rlp, start):
         return (str, b0 - 128, start + 1)
     elif b0 < 192:  # long string
         ll = b0 - 128 - 56 + 1
-        l = big_endian_to_int(rlp[start + 1:start + 1 + ll])
-        return (str, l, start + 1 + ll)
+        l_idx = big_endian_to_int(rlp[start + 1:start + 1 + ll])
+        return (str, l_idx, start + 1 + ll)
     elif b0 < 192 + 56:  # short list
         return (list, b0 - 192, start + 1)
     else:  # long list
         ll = b0 - 192 - 56 + 1
-        l = big_endian_to_int(rlp[start + 1:start + 1 + ll])
-        return (list, l, start + 1 + ll)
+        l_idx = big_endian_to_int(rlp[start + 1:start + 1 + ll])
+        return (list, l_idx, start + 1 + ll)
 
 
 #

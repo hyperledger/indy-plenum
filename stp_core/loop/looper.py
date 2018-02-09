@@ -92,16 +92,16 @@ class Looper:
                 # if sys.platform == 'win32':
                 #    loop = asyncio.ProactorEventLoop()
                 #    asyncio.set_event_loop(loop)
-                l = asyncio.get_event_loop()
-                if l.is_closed():
+                evl = asyncio.get_event_loop()
+                if evl.is_closed():
                     raise RuntimeError("event loop was closed")
             except Exception as ex:
                 logger.debug("Looper could not get default event loop; "
                              "creating a new one: {}".format(ex))
                 # Trying out uvloop for linux
-                l = asyncio.new_event_loop()
-            asyncio.set_event_loop(l)
-            self.loop = l
+                evl = asyncio.new_event_loop()
+            asyncio.set_event_loop(evl)
+            self.loop = evl
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
@@ -144,6 +144,7 @@ class Looper:
 
         :return: the sum of the number of events executed successfully
         """
+        # TODO: looks like limit is always None???
         limit = None
         s = 0
         for n in self.prodables:

@@ -8,10 +8,11 @@ import copy
 import os
 import random
 import time
+import uuid
 from collections import deque, OrderedDict
 from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
-    Iterable
+    Iterable, Callable
 
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
@@ -39,9 +40,9 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
     MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
+from plenum.common.txn_util import idr_from_req_data
 from plenum.common.types import f
-from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, \
-    rawToFriendly, mostCommonElement
+from plenum.common.util import getMaxFailures, rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue
@@ -70,6 +71,10 @@ class Client(Motor,
                  nodeReg: Dict[str, HA] = None,
                  ha: Union[HA, Tuple[str, int]] = None,
                  basedirpath: str = None,
+                 genesis_dir: str = None,
+                 ledger_dir: str = None,
+                 keys_dir: str = None,
+                 plugins_dir: str = None,
                  config=None,
                  sighex: str = None):
         """
@@ -80,7 +85,9 @@ class Client(Motor,
         :param ha: tuple of host and port
         """
         self.config = config or getConfig()
-        self.basedirpath = basedirpath or os.path.join(self.config.CLI_NETWORK_DIR, self.config.NETWORK_NAME)
+
+        dataDir = self.config.clientDataDir or "data/clients"
+        self.basedirpath = basedirpath or self.config.CLI_BASE_DIR
         self.basedirpath = os.path.expanduser(self.basedirpath)
 
         signer = Signer(sighex)
@@ -93,11 +100,17 @@ class Client(Motor,
         # self.name = name
         self.name = self.stackName or 'Client~' + str(id(self))
 
+        self.genesis_dir = genesis_dir or self.basedirpath
+        self.ledger_dir = ledger_dir or os.path.join(self.basedirpath, dataDir, self.name)
+        self.plugins_dir = plugins_dir or self.basedirpath
+        _keys_dir = keys_dir or self.basedirpath
+        self.keys_dir = os.path.join(_keys_dir, "keys")
+
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.stackName, self.basedirpath):
+        if self.exists(self.stackName, self.keys_dir):
             cha = self.nodeStackClass.getHaFromLocal(
-                self.stackName, self.basedirpath)
+                self.stackName, self.keys_dir)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -108,9 +121,7 @@ class Client(Motor,
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
 
-        self.dataDir = self.config.clientDataDir or "data/clients"
-        HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
-                                dataDir=self.dataDir)
+        HasFileStorage.__init__(self, self.ledger_dir)
 
         # TODO: Find a proper name
         self.alias = name
@@ -139,7 +150,7 @@ class Client(Motor,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auth_mode=AuthMode.ALLOW_ANY.value)
-        stackargs['basedirpath'] = self.basedirpath
+        stackargs['basedirpath'] = self.keys_dir
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
@@ -188,7 +199,12 @@ class Client(Motor,
         # nodes which are expected to send REPLY
         self.expectingRepliesFor = {}
 
-        tp = loadPlugins(self.basedirpath)
+        self._observers = {}  # type Dict[str, Callable]
+        self._observerSet = set()  # makes it easier to guard against duplicates
+
+        plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
+        tp = loadPlugins(self.plugins_dir, plugins_to_load)
+
         logger.debug("total plugins loaded in client: {}".format(tp))
 
         self._multi_sig_verifier = self._create_multi_sig_verifier()
@@ -204,10 +220,10 @@ class Client(Motor,
         return verifier
 
     def getReqRepStore(self):
-        return ClientReqRepStoreFile(self.name, self.basedirpath)
+        return ClientReqRepStoreFile(self.ledger_dir)
 
     def getTxnLogStore(self):
-        return ClientTxnLog(self.name, self.basedirpath)
+        return ClientTxnLog(self.ledger_dir)
 
     def __repr__(self):
         return self.name
@@ -240,9 +256,9 @@ class Client(Motor,
                 self.minNodesToConnect, self.quorums))
 
     @staticmethod
-    def exists(name, basedirpath):
-        return os.path.exists(basedirpath) and \
-            os.path.exists(os.path.join(basedirpath, name))
+    def exists(name, base_dir):
+        return os.path.exists(base_dir) and \
+            os.path.exists(os.path.join(base_dir, name))
 
     @property
     def nodeStackClass(self) -> NetworkInterface:
@@ -258,7 +274,7 @@ class Client(Motor,
             self.nodestack.start()
             self.nodestack.maintainConnections(force=True)
             if self.ledger:
-                self.ledgerManager.setLedgerCanSync(0, True)
+                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
                 self.mode = Mode.starting
 
     async def prod(self, limit) -> int:
@@ -280,7 +296,7 @@ class Client(Motor,
             s += self.ledgerManager._serviceActions()
         return s
 
-    def submitReqs(self, *reqs: Request) -> List[Request]:
+    def submitReqs(self, *reqs: Request) -> Tuple[List[Request], List[str]]:
         requests = []
         errs = []
 
@@ -351,7 +367,7 @@ class Client(Motor,
                 self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
-                identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
+                identifier = idr_from_req_data(msg[f.RESULT.nm])
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
                 numReplies = self.reqRepStore.addReply(identifier,
                                                        reqId,
@@ -366,6 +382,18 @@ class Client(Motor,
             reply, _ = self.getReply(identifier, reqId)
             if reply:
                 self.txnLog.append(identifier, reqId, reply)
+                for name in self._observers:
+                    try:
+                        self._observers[name](name, reqId, frm, result,
+                                              numReplies)
+                    except Exception as ex:
+                        # TODO: All errors should not be shown on CLI, or maybe we
+                        # show errors with different color according to the
+                        # severity. Like an error occurring due to node sending
+                        # a malformed message should not result in an error message
+                        # being shown on the cli since the clients would anyway
+                        # collect enough replies from other nodes.
+                        logger.debug("Observer threw an exception", exc_info=ex)
                 return reply
             # Reply is not verified
             key = (identifier, reqId)
@@ -425,7 +453,7 @@ class Client(Motor,
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and
                 msg[f.RESULT.nm][f.REQ_ID.nm] == reqId and
-                msg[f.RESULT.nm][f.IDENTIFIER.nm] == identifier}
+                idr_from_req_data(msg[f.RESULT.nm]) == identifier}
 
     def hasConsensus(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
@@ -835,6 +863,23 @@ class Client(Motor,
                                            STH(tree_size=seqNo,
                                                sha256_root_hash=rootHash))
         return True
+
+    def registerObserver(self, observer: Callable, name=None):
+        if not name:
+            name = uuid.uuid4()
+        if name in self._observers or observer in self._observerSet:
+            raise RuntimeError("Observer {} already registered".format(name))
+        self._observers[name] = observer
+        self._observerSet.add(observer)
+
+    def deregisterObserver(self, name):
+        if name not in self._observers:
+            raise RuntimeError("Observer {} not registered".format(name))
+        self._observerSet.remove(self._observers[name])
+        del self._observers[name]
+
+    def hasObserver(self, observer):
+        return observer in self._observerSet
 
 
 class ClientProvider:

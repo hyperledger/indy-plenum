@@ -2,7 +2,6 @@ import pytest
 
 from stp_core.common.log import getlogger
 
-from plenum.common.config_util import getConfig
 from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
 
 from plenum.test.helper import checkViewNoForNodes, \
@@ -15,7 +14,6 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.helper import ensure_view_change_complete, \
     start_stopped_node
 
-config = getConfig()
 logger = getlogger()
 
 
@@ -29,7 +27,7 @@ def check_all_nodes_the_same_pool_list(nodes):
 
 def test_primary_selection_after_demoted_node_promotion(
         looper, txnPoolNodeSet, nodeThetaAdded,
-        tconf, tdirWithPoolTxns, allPluginsPath):
+        tconf, tdir, allPluginsPath):
     """
     Demote non-primary node
     Promote it again
@@ -94,7 +92,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     # start node
     restartedNode = start_stopped_node(stopped_node, looper, tconf,
-                                       tdirWithPoolTxns, allPluginsPath)
+                                       tdir, allPluginsPath)
     txnPoolNodeSet = remainingNodes + [restartedNode]
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     # ensure pool is working properly

@@ -121,7 +121,7 @@ set a fixture parameter to do so.
 """
 
 
-def test_high_load(tdir, looper, tconf):
+def test_high_load(set_info_log_level, tdir, looper, tconf):
     """
     Checks whether ZStack can cope with high message rate
     """
@@ -166,7 +166,7 @@ def test_high_load(tdir, looper, tconf):
                 received_messages[-1])
 
 
-def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
+def testZStackSendRecvHugeDataUnderLimit(set_info_log_level, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -203,7 +203,7 @@ def testZStackSendRecvHugeDataUnderLimit(tdir, looper, tconf):
     assert betaHandler[0] is True
 
 
-def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
+def testZStackSendHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
@@ -248,7 +248,7 @@ def testZStackSendHugeDataOverLimit(tdir, looper, tconf):
     assert betaHandlers[1] is False
 
 
-def testZStackRecvHugeDataOverLimit(tdir, looper, tconf):
+def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
 
