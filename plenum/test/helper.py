@@ -9,6 +9,8 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
+
+import pytest
 from psutil import Popen
 import json
 import asyncio
@@ -465,19 +467,19 @@ def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
     assert not requestReturnedToNode(node, identifier, reqId, instId)
 
 
-def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+def check_request_is_not_returned_to_nodes(nodeSet, request):
     instances = range(getNoInstances(len(nodeSet)))
-    coros = []
     for node, inst_id in itertools.product(nodeSet, instances):
-        c = partial(checkRequestNotReturnedToNode,
-                    node=node,
-                    identifier=request.identifier,
-                    reqId=request.reqId,
-                    instId=inst_id
-                    )
-        coros.append(c)
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+        checkRequestNotReturnedToNode(node,
+                                      request.identifier,
+                                      request.reqId,
+                                      inst_id)
+
+
+def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
+    with pytest.raises(AssertionError):
+        waitForSufficientRepliesForRequests(looper, client, requests=[request])
+    check_request_is_not_returned_to_nodes(nodes, request)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):

@@ -1312,8 +1312,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     *reqKey,
                     self.reasonForClientFromException(
                         message.reason))
-                self.transmitToClient(reject, self.requestSender[reqKey])
-                self.doneProcessingReq(*reqKey)
+                # TODO: What the case when reqKey will be not in requestSender dict
+                if reqKey in self.requestSender:
+                    self.transmitToClient(reject, self.requestSender[reqKey])
+                    self.doneProcessingReq(*reqKey)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1732,6 +1734,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         # Process any Ordered requests. This causes less transactions to be
