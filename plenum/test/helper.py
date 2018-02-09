@@ -1047,12 +1047,13 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pend:
-        raise AssertionError("{} transactions are still pending"
-                             .format(len(pend)))
+        raise AssertionError("{} transactions are still pending. Timeout: {}"
+                             .format(len(pend), timeout))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
 
+#TODO: Move sdk_check_reply fucntionality to sdk_get_replies. And check that noone use it separately.
 def sdk_check_reply(req_res):
     req, res = req_res
     if res is None:
@@ -1068,6 +1069,11 @@ def sdk_check_reply(req_res):
         raise AssertionError("Reject of id {}. Reason: {}"
                              .format(req['reqId'],res['reason']))
 
+
+def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+
+    for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
+        sdk_check_reply(req_res)
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,
@@ -1154,4 +1160,4 @@ def sdk_json_to_request_object(json_req):
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
                    signature=json_req['signature'],
-                   protocolVersion=CURRENT_PROTOCOL_VERSION)
+                   protocolVersion=json_req['protocolVersion'] if json_req['protocolVersion'] else None)

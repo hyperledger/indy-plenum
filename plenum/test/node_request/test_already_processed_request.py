@@ -60,6 +60,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
     # Reply for the first request, which is going to be sent again
     rep1 = client1.getReply(req1.identifier, req1.reqId)
 
+
     # Clear the client so that test waits for client getting reply
     client1.inBox.clear()
     client1.txnLog.reset()
