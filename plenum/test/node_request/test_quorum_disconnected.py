@@ -16,7 +16,6 @@ whitelist = ['InvalidSignature']
 
 
 def stop_nodes(looper, txnPoolNodeSet):
-
     faulties = nodes_by_rank(txnPoolNodeSet)[-faultyNodes:]
     for node in faulties:
         for r in node.replicas:

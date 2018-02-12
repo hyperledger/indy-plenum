@@ -1,22 +1,17 @@
 import logging
+import pytest
 
 from functools import partial
 
 from plenum.test import waits
-from plenum.common.util import getNoInstances
-
-import pytest
-from stp_core.common.log import getlogger, Logger
 from plenum.test.helper import checkLastClientReqForNode, \
     chk_all_funcs, sdk_json_to_request_object, sdk_send_random_requests
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared
 from plenum.test.node_request.node_request_helper import checkCommitted
-
 from plenum.test.pool_transactions.conftest import looper
 
-Logger.setLogLevel(logging.NOTSET)
-logger = getlogger()
+from plenum.common.util import getNoInstances
 
 
 @pytest.fixture(scope="module")

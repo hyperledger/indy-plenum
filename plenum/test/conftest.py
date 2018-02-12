@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
-from indy.signus import create_and_store_my_did
+from indy.did import create_and_store_my_did
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger

@@ -1047,7 +1047,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pend:
-        raise AssertionError("{} transactions are still pending. Timeout: {}"
+        raise AssertionError("{} transactions are still pending. Timeout: {}."
                              .format(len(pend), timeout))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
@@ -1160,7 +1160,7 @@ def sdk_json_to_request_object(json_req):
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
                    signature=json_req['signature'],
-                   protocolVersion=json_req['protocolVersion'] if json_req['protocolVersion'] else None)
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
 
 def sdk_json_couples_to_request_list(json_couples):
     req_list = []
