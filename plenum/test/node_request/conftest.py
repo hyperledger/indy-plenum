@@ -1,26 +1,16 @@
-import operator
-import importlib
-import inspect
-import itertools
 import logging
-import os
-import shutil
-import re
-import warnings
-import json
+
 from functools import partial
+
 from plenum.test import waits
 from plenum.common.util import getNoInstances
 
 import pytest
 from stp_core.common.log import getlogger, Logger
-from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
-    waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
-    create_new_test_node, sdk_send_random_request, sdk_json_to_request_object
+from plenum.test.helper import checkLastClientReqForNode, \
+    chk_all_funcs, sdk_json_to_request_object, sdk_send_random_requests
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
-     checkPropagated, checkPrepared
+    checkPropagated, checkPrepared
 from plenum.test.node_request.node_request_helper import checkCommitted
 
 from plenum.test.pool_transactions.conftest import looper
@@ -73,42 +63,30 @@ def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
 
     numerOfNodes = len(txnPoolNodeSet)
 
+    request = sdk_json_to_request_object(sent1[0][0])
+
     # Wait until request received by all nodes
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
-    coros = [partial(checkLastClientReqForNode, node, sent1)
+    coros = [partial(checkLastClientReqForNode, node, request)
              for node in txnPoolNodeSet]
-    # looper.run(eventuallyAll(*coros,
-    #                          totalTimeout=propTimeout,
-    #                          acceptableFails=faultyNodes))
     chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
                   timeout=propTimeout)
 
-    #TODO: check that sdk response fail when we don't have quorum for answer
-    #TODO: check sdk timeout for failed submit (if it more than 90 seconds in evilNodes fixture)
+    # TODO: check that sdk response fail when we don't have quorum for answer
+    # TODO: check sdk timeout for failed submit (if it more than 90 seconds in evilNodes fixture)
+    # total_timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
+    # sdk_replies = sdk_get_replies(looper, sent1, timeout=total_timeout)
+    # for req_res in sdk_replies:
+    #     sdk_check_reply(req_res)
+    return request
 
-    # # Wait until sufficient number of acks received
-    # coros2 = [
-    #     partial(
-    #         checkReqAck,
-    #         client1,
-    #         node,
-    #         sent1.identifier,
-    #         sent1.reqId) for node in txnPoolNodeSet]
-    # ackTimeout = waits.expectedReqAckQuorumTime()
-    # # looper.run(eventuallyAll(*coros2,
-    # #                          totalTimeout=ackTimeout,
-    # #                          acceptableFails=faultyNodes))
-    # chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes,
-    #               timeout=ackTimeout)
-    return sent1
 
 @pytest.fixture(scope="module")
 def sent1(looper, sdk_pool_handle,
           sdk_wallet_client):
-    json_request = sdk_send_random_request(
-        looper, sdk_pool_handle, sdk_wallet_client)[0]
-    request = sdk_json_to_request_object(json_request)
-    return request
+    request_couple_json = sdk_send_random_requests(
+        looper, sdk_pool_handle, sdk_wallet_client, 1)
+    return request_couple_json
 
 
 @pytest.fixture(scope="module")

@@ -10,7 +10,6 @@ from stp_core.common.util import adict
 from stp_core.common.log import getlogger
 
 from plenum.test.node_request.node_request_helper import checkPrePrepared
-from plenum.test.test_node import TestNodeSet
 
 nodeCount = 7
 # f + 1 faults, i.e, num of faults greater than system can tolerate

@@ -1161,3 +1161,9 @@ def sdk_json_to_request_object(json_req):
                    operation=json_req['operation'],
                    signature=json_req['signature'],
                    protocolVersion=json_req['protocolVersion'] if json_req['protocolVersion'] else None)
+
+def sdk_json_couples_to_request_list(json_couples):
+    req_list = []
+    for json_couple in json_couples:
+        req_list.append(sdk_json_to_request_object(json_couple[0]))
+    return req_list

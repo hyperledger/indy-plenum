@@ -1,22 +1,15 @@
 from functools import partial
-from itertools import product
 
 import pytest
 import json
 
-from plenum.common.util import getNoInstances
-from plenum.test.batching_3pc.helper import send_and_check
 from plenum.test.node_request.helper import nodes_by_rank
 from stp_core.common.util import adict
-from plenum.test import waits
-from plenum.test.helper import checkRequestReturnedToNode, checkRequestNotReturnedToNode, signed_random_requests, \
-    check_request_is_not_returned_to_nodes, sdk_send_and_check, sdk_json_to_request_object, \
-    sdk_signed_random_requests
-from plenum.test.node_request.node_request_helper import checkCommitted
+from plenum.test.helper import check_request_is_not_returned_to_nodes, \
+    sdk_send_and_check, sdk_json_to_request_object, sdk_signed_random_requests
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
-    changesRequest, delaysCommitProcessing
-from stp_core.loop.eventually import eventually, eventuallyAll
+    changesRequest
 
 
 nodeCount = 6
@@ -51,7 +44,7 @@ def test_6_nodes_pool_cannot_reach_quorum_with_2_faulty(afterElection, looper,
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
     with pytest.raises(AssertionError):
         # TODO: check that sdk_send_and_check throws error is test behaviour
-        # (it may throw error bacause of incorrect usage)
+        # (it may throw error because of incorrect usage)
         sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
     check_request_is_not_returned_to_nodes(
         txnPoolNodeSet, sdk_json_to_request_object(json.loads(reqs[0])))

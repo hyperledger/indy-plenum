@@ -3,7 +3,6 @@ from functools import partial
 import pytest
 
 from plenum.common.util import getNoInstances
-from plenum.test.node_request.helper import get_node_by_name
 from stp_core.common.util import adict
 from plenum.test.node_request.node_request_helper import checkCommitted
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
@@ -23,7 +22,7 @@ def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
     A = txnPoolNodeSet[-3]
     B = txnPoolNodeSet[-2]
-    G = txnPoolNodeSet[-1]#get_node_by_name(txnPoolNodeSet, 'Zeta')
+    G = txnPoolNodeSet[-1]
     for node in A, B, G:
         makeNodeFaulty(
             node, changesRequest, partial(

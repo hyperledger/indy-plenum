@@ -2,7 +2,6 @@ from functools import partial
 
 import pytest
 
-from plenum.test.node_request.helper import get_node_by_name
 from stp_core.common.util import adict
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
@@ -17,7 +16,7 @@ whitelist = ['cannot process incoming PREPARE']
 def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
     A = txnPoolNodeSet[-2]
-    B = txnPoolNodeSet[-1]#get_node_by_name(txnPoolNodeSet, 'Zeta')
+    B = txnPoolNodeSet[-1]
     # Delay processing of PRE-PREPARE messages by Alpha and Beta for 90
     # seconds since the timeout for checking sufficient commits is 60 seconds
     makeNodeFaulty(A, partial(delaysPrePrepareProcessing, delay=90))

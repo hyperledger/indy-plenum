@@ -1,12 +1,12 @@
 from functools import partial
 
 import pytest
+
 from plenum.common.util import getNoInstances
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, changesRequest
 from plenum.test.node_request.node_request_helper import checkCommitted
-
 from plenum.test.node_request.helper import nodes_by_rank
 
 nodeCount = 6
