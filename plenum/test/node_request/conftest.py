@@ -3,6 +3,8 @@ import pytest
 
 from functools import partial
 
+from plenum.test.conftest import getValueFromModule
+
 from plenum.test import waits
 from plenum.test.helper import checkLastClientReqForNode, \
     chk_all_funcs, sdk_json_to_request_object, sdk_send_random_requests
@@ -97,3 +99,7 @@ def noRetryReq(tconf, request):
 
     request.addfinalizer(reset)
     return tconf
+
+@pytest.fixture(scope="module")
+def faultyNodes(request):
+    return getValueFromModule(request, "faultyNodes", 0)

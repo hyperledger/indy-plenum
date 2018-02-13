@@ -1032,6 +1032,9 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     return req_json, resp
 
 
+#TODO: Check places where sdk_get_replies used without sdk_check_reply
+# We need to be sure that test behaviour don't need to check response
+# validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
 
@@ -1053,7 +1056,6 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     return ret
 
 
-#TODO: Move sdk_check_reply fucntionality to sdk_get_replies. And check that noone use it separately.
 def sdk_check_reply(req_res):
     req, res = req_res
     if res is None:
