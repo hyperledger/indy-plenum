@@ -114,7 +114,7 @@ class Looper:
         # signals = [item for item in dir(signal)
         #             if item.startswith("SIG") and item[3] != "_"]
 
-        signals = ["SIGINT"]
+        signals = ["SIGINT", "SIGTERM"]
 
         setSignal = \
             signal.signal if sys.platform == 'win32' \
@@ -273,7 +273,8 @@ class Looper:
                     extra={"cli": False})
         self.running = False
         start = time.perf_counter()
-        await self.runFut
+        if not self.runFut.done():
+            await self.runFut
         self.stopall()
         logger.info("Looper shut down in {:.3f} seconds.".
                     format(time.perf_counter() - start),
