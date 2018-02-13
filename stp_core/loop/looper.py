@@ -114,13 +114,13 @@ class Looper:
         # signals = [item for item in dir(signal)
         #             if item.startswith("SIG") and item[3] != "_"]
 
-        signals = ["SIGINT", "SIGTERM"]
+        self.signals = ["SIGINT", "SIGTERM"]
 
         setSignal = \
             signal.signal if sys.platform == 'win32' \
             else self.loop.add_signal_handler
 
-        for sigName in signals:
+        for sigName in self.signals:
             try:
                 logger.debug("Setting handler for {}".format(sigName))
                 sigNum = getattr(signal, sigName)
@@ -279,6 +279,11 @@ class Looper:
         logger.info("Looper shut down in {:.3f} seconds.".
                     format(time.perf_counter() - start),
                     extra={"cli": False})
+        # Unset signal handlers, bug: https://bugs.python.org/issue23548
+        for sig_name in self.signals:
+            logger.debug("Unsetting handler for {}".format(sig_name))
+            sig_num = getattr(signal, sig_name)
+            self.loop.remove_signal_handler(sig_num)
 
     def __enter__(self):
         return self
