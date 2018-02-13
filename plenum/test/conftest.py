@@ -15,6 +15,9 @@ from typing import Dict, Any
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
+
+#TODO: This made to run tests with stable libindy. Delete unused import when
+# master release
 try:
     from indy.signus import create_and_store_my_did
 except ImportError:
