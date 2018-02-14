@@ -6,8 +6,6 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
 from stp_core.common.util import adict
 from stp_core.common.log import getlogger
 
-from plenum.test.test_node import TestNodeSet
-
 nodeCount = 7
 faultyNodes = 2
 whitelist = ['cannot process incoming PREPARE']
