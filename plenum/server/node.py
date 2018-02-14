@@ -1105,7 +1105,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 '{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
         elif _prev_status == Status.starting and self.status == Status.started_hungry \
-                and self.lost_primary_at is not None:
+                and self.lost_primary_at is not None \
+                and self.master_primary_name is not None:
             """
             Such situation may occur if the pool has come back to reachable consensus but
             primary is still disconnected, so view change proposal makes sense now.
