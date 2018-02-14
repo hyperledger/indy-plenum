@@ -1032,6 +1032,9 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     return req_json, resp
 
 
+#TODO: Check places where sdk_get_replies used without sdk_check_reply
+# We need to be sure that test behaviour don't need to check response
+# validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
 
@@ -1046,6 +1049,9 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         return resp
 
     done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pend:
+        raise AssertionError("{} transactions are still pending. Timeout: {}."
+                             .format(len(pend), timeout))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
@@ -1058,6 +1064,18 @@ def sdk_check_reply(req_res):
     if isinstance(res, ErrorCode):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
+    if res['op'] == REQNACK:
+        raise AssertionError("ReqNack of id {}. Reason: {}"
+                             .format(req['reqId'],res['reason']))
+    if res['op'] == REJECT:
+        raise AssertionError("Reject of id {}. Reason: {}"
+                             .format(req['reqId'],res['reason']))
+
+
+def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+
+    for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
+        sdk_check_reply(req_res)
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,
@@ -1137,3 +1155,17 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
         coros.append(c)
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
+
+def sdk_json_to_request_object(json_req):
+    return Request(identifier=json_req['identifier'],
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'],
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+
+def sdk_json_couples_to_request_list(json_couples):
+    req_list = []
+    for json_couple in json_couples:
+        req_list.append(sdk_json_to_request_object(json_couple[0]))
+    return req_list
