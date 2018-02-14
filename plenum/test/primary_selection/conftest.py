@@ -19,6 +19,15 @@ def one_node_added(looper, txnPoolNodeSet, nodeThetaAdded):
     return new_node
 
 
+@pytest.fixture(scope='module')
+def sdk_one_node_added(looper, txnPoolNodeSet, sdk_node_theta_added):
+    # New node knows primary same primary as others and has rank greater
+    # than others
+    _, _, new_node = sdk_node_theta_added
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    check_newly_added_nodes(looper, txnPoolNodeSet, [new_node])
+    return new_node
+
 @pytest.fixture(scope="module")
 def txnPoolMasterNodes(txnPoolNodeSet):
     primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)

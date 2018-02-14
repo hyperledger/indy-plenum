@@ -1,5 +1,6 @@
 import pytest
 
+from indy.pool import refresh_pool_ledger
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
@@ -69,6 +70,29 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdir, client_tdir,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
+    return newSteward, newStewardWallet, newNode
+
+
+@pytest.fixture(scope='module')
+def sdk_node_theta_added(looper, txnPoolNodeSet, tdir, client_tdir,
+                   tconf, steward1, stewardWallet, allPluginsPath, testNodeClass=None,
+                   testClientClass=None, name=None):
+    newStewardName = "testClientSteward" + randomString(3)
+    newNodeName = name or "Theta"
+    newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
+                                                                 steward1,
+                                                                 stewardWallet,
+                                                                 newStewardName,
+                                                                 newNodeName,
+                                                                 tdir,
+                                                                 client_tdir,
+                                                                 tconf,
+                                                                 allPluginsPath,
+                                                                 nodeClass=testNodeClass,
+                                                                 clientClass=testClientClass)
+    txnPoolNodeSet.append(newNode)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    refresh_pool_ledger()
     return newSteward, newStewardWallet, newNode
 
 

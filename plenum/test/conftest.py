@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
-from indy.signus import create_and_store_my_did
+from indy.did import create_and_store_my_did
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
@@ -1037,6 +1037,12 @@ def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
 
 
 @pytest.fixture(scope='module')
+def sdk_trustee_seed(trustee_data):
+    seed = trustee_data[1]
+    return seed.decode()
+
+
+@pytest.fixture(scope='module')
 def sdk_steward_seed(poolTxnStewardData):
     _, seed = poolTxnStewardData
     return seed.decode()
@@ -1051,6 +1057,14 @@ def sdk_client_seed(poolTxnClientData):
 @pytest.fixture(scope='module')
 def sdk_new_client_seed():
     return "Client10000000000000000000000000"
+
+
+@pytest.fixture(scope='module')
+def sdk_wallet_trustee(looper, sdk_wallet_handle, sdk_trustee_seed):
+    (trustee_did, trustee_verkey) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({'seed': sdk_trustee_seed})))
+    return sdk_wallet_handle, trustee_did
 
 
 @pytest.fixture(scope='module')
