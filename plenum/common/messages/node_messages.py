@@ -8,7 +8,7 @@ from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField
+    LimitedLengthStringField, BlsMultiSignatureField, TupleField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -234,9 +234,12 @@ class LedgerStatus(MessageBase):
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
-        (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
+        # (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
+        # (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
+        (f.REPLICAS_THREE_PC_KEYS.nm, IterableField(
+            TupleField([NonNegativeNumberField, NonNegativeNumberField]),
+            optional=True))
     )
 
 

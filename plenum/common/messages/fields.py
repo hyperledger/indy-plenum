@@ -2,6 +2,7 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
+from typing import List
 
 import base58
 
@@ -187,16 +188,36 @@ class ConstantField(FieldBase):
 class IterableField(FieldBase):
     _base_types = (list, tuple)
 
-    def __init__(self, inner_field_type: FieldValidator, **kwargs):
-        assert inner_field_type
-        assert isinstance(inner_field_type, FieldValidator)
+    def __init__(self, item_type: FieldValidator, **kwargs):
+        assert item_type
+        assert isinstance(item_type, FieldValidator)
 
-        self.inner_field_type = inner_field_type
+        self.item_type = item_type
         super().__init__(**kwargs)
 
     def _specific_validation(self, val):
         for v in val:
-            check_er = self.inner_field_type.validate(v)
+            check_er = self.item_type.validate(v)
+            if check_er:
+                return check_er
+
+
+class TupleField(FieldBase):
+    _base_types = (tuple,)
+
+    def __init__(self, item_types: List[FieldValidator], **kwargs):
+        assert item_types
+        assert isinstance(item_types, list)
+        for item_type in item_types:
+            assert isinstance(item_type, FieldValidator)
+
+        self.item_types = item_types
+        super().__init__(**kwargs)
+
+    def _specific_validation(self, val):
+        assert len(val) == len(self.item_types)
+        for i in range(len(val)):
+            check_er = self.item_types[i].validate(val[i])
             if check_er:
                 return check_er
 

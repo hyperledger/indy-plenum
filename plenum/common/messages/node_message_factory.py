@@ -1,9 +1,11 @@
 import sys
 from importlib import import_module
 
+import copy
+
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
-from plenum.common.messages.fields import IterableField, MapField
+from plenum.common.messages.fields import IterableField, MapField, TupleField
 from plenum.common.messages.message_base import MessageBase
 
 
@@ -86,8 +88,15 @@ class MessageFactory:
     def _transform_field(self, field, old_field_type, new_field_type):
         if isinstance(field, old_field_type):
             return new_field_type()
-        elif self.__is_iterable_and_contains_type(field, old_field_type):
-            return IterableField(new_field_type())
+        elif isinstance(field, IterableField):
+            if isinstance(field.item_type, old_field_type):
+                return IterableField(new_field_type())
+        elif isinstance(field, TupleField):
+            item_types = copy.copy(field.item_types)
+            for i in range(len(item_types)):
+                if isinstance(item_types[i], old_field_type):
+                    item_types[i] = new_field_type()
+            return TupleField(item_types)
         elif isinstance(field, MapField):
             key = field.key_field
             val = field.value_field
@@ -97,11 +106,6 @@ class MessageFactory:
                 val = new_field_type()
             return MapField(key, val)
         return field
-
-    @staticmethod
-    def __is_iterable_and_contains_type(field, field_type):
-        return isinstance(field, IterableField) and \
-            isinstance(field.inner_field_type, field_type)
 
 
 class NodeMessageFactory(MessageFactory):
