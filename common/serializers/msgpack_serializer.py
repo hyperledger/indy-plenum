@@ -4,7 +4,7 @@ from typing import Dict
 
 import msgpack
 from common.serializers.mapping_serializer import MappingSerializer
-from storage.stream_serializer import StreamSerializer
+from common.serializers.stream_serializer import StreamSerializer
 
 
 def decode_to_sorted(obj):
