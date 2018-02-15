@@ -906,13 +906,11 @@ class LedgerManager(HasActionQueue):
             return
 
     def ledger_to_sync_after(self, ledger_id) -> Optional[int]:
-        if self.ledger_sync_order:
-            try:
-                idx = self.ledger_sync_order.index(ledger_id)
-                if idx < (len(self.ledger_sync_order) - 1):
-                    return self.ledger_sync_order[idx + 1]
-            except ValueError:
-                return None
+        if self.ledger_sync_order and (ledger_id in self.ledger_sync_order):
+            idx = self.ledger_sync_order.index(ledger_id)
+            return (idx + 1) % len(self.ledger_sync_order)
+        else:
+            return None
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
         # TODO: This needs to be optimised, there needs to be a minimum size
