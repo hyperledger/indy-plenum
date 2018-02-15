@@ -907,8 +907,8 @@ class LedgerManager(HasActionQueue):
 
     def ledger_to_sync_after(self, ledger_id) -> Optional[int]:
         if self.ledger_sync_order and (ledger_id in self.ledger_sync_order):
-            idx = self.ledger_sync_order.index(ledger_id)
-            return (idx + 1) % len(self.ledger_sync_order)
+            idx = (self.ledger_sync_order.index(ledger_id) + 1) % len(self.ledger_sync_order)
+            return self.ledger_sync_order[idx]
         else:
             return None
 
