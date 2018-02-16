@@ -57,6 +57,15 @@ PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
 BLS_PREFIX = "BLS: "
 OBSERVER_PREFIX = "OBSERVER: "
 
+ID = "id"
+TAG = "tag"
+CRED_DEF_ID = "credDefId"
+ISSUANCE_TYPE = "issuanceType"
+MAX_CRED_NUM = "maxCredNum"
+PUBLIC_KEYS = "publicKeys"
+TAILS_HASH = "tailsHash"
+TAILS_LOCATION = "tailsLocation"
+SUBMITTER_DID = "submitterDid"
 NAME = "name"
 VERSION = "version"
 IP = "ip"
@@ -98,6 +107,7 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+REQ_METADATA = "reqMetadata"
 
 # State proof fields
 STATE_PROOF = 'state_proof'
