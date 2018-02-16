@@ -6,8 +6,6 @@ from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getLogger()
 
-TestRunningTimeLimitSec = 200
-
 inst_id = 1
 
 CHK_FREQ = 5
@@ -30,9 +28,8 @@ def test_watermarks_restored_after_stable(
 
     # 2. send the number of requests which is less than a stable checkpoint,
     # but sufficient for one watermark change (on a non-broken replica).
-    num_batches = 9
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
-                                         num_reqs=1 * num_batches, num_batches=num_batches)
+                                         num_reqs=1 * 9, num_batches=9)
     assert broken_replica.last_ordered_3pc == (0, 0)
     assert broken_replica.h == 0
     assert broken_replica.H == 10
