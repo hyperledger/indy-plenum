@@ -730,7 +730,8 @@ def tdirWithPoolTxns(config_helper_class, poolTxnData, tdir, tconf):
                   format(getpass.getuser()))
 
     config_helper = config_helper_class(tconf, chroot=tdir)
-    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, tconf.poolTransactionsFile)
+    ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir,
+                                            tconf.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:

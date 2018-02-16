@@ -60,6 +60,11 @@ class KeyValueStorageLeveldb(KeyValueStorage):
         self._db.Delete(key)
 
     def setBatch(self, batch: Iterable[Tuple]):
+        """
+        Do multiple write operations in a batch (in one trip to the db)
+        :param batch: An iterable over the write operations
+        :return:
+        """
         b = leveldb.WriteBatch()
         for key, value in batch:
             if isinstance(key, str):
