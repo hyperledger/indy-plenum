@@ -98,7 +98,6 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
-REQ_METADATA = "reqMetadata"
 
 # State proof fields
 STATE_PROOF = 'state_proof'
