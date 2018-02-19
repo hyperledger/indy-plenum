@@ -6,7 +6,7 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
-    buildPoolClientAndWallet, addNewSteward
+    buildPoolClientAndWallet, addNewSteward, sdk_add_new_steward_and_node
 
 
 @pytest.fixture(scope="module")
@@ -75,25 +75,26 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdir, client_tdir,
 
 @pytest.fixture(scope='module')
 def sdk_node_theta_added(looper, txnPoolNodeSet, tdir, client_tdir,
-                   tconf, steward1, stewardWallet, allPluginsPath, testNodeClass=None,
-                   testClientClass=None, name=None):
+                         tconf, sdk_pool_handle, sdk_wallet_trustee,
+                         allPluginsPath, testNodeClass=None,
+                         testClientClass=None, name=None):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = name or "Theta"
-    newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-                                                                 steward1,
-                                                                 stewardWallet,
-                                                                 newStewardName,
-                                                                 newNodeName,
-                                                                 tdir,
-                                                                 client_tdir,
-                                                                 tconf,
-                                                                 allPluginsPath,
-                                                                 nodeClass=testNodeClass,
-                                                                 clientClass=testClientClass)
+    newStewardWallet, newNode = \
+        sdk_add_new_steward_and_node(looper,
+                                     sdk_pool_handle,
+                                     sdk_wallet_trustee,
+                                     newStewardName,
+                                     newNodeName,
+                                     tdir,
+                                     client_tdir,
+                                     tconf,
+                                     allPluginsPath,
+                                     nodeClass=testNodeClass)
     txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    refresh_pool_ledger()
-    return newSteward, newStewardWallet, newNode
+    refresh_pool_ledger(sdk_pool_handle)
+    return newStewardWallet, newNode
 
 
 @pytest.fixture(scope="module")

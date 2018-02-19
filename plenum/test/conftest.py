@@ -1045,8 +1045,8 @@ def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
 
 @pytest.fixture(scope='module')
 def sdk_trustee_seed(trustee_data):
-    seed = trustee_data[1]
-    return seed.decode()
+    _, seed = trustee_data[0]
+    return seed
 
 
 @pytest.fixture(scope='module')
@@ -1090,16 +1090,17 @@ def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     return sdk_wallet_handle, client_did
 
 
-async def _gen_named_wallet(pool_handle, wallet, named_seed):
-    wh, steward_did = wallet
+async def _gen_named_wallet(pool_handle, wallet, named_seed, alias = None,
+                            role = None):
+    wh, submitter_did = wallet
     (named_did, named_verkey) = await create_and_store_my_did(wh,
                                                               json.dumps({
                                                                   'seed': named_seed,
                                                                   'cid': True})
                                                               )
-    nym_request = await build_nym_request(steward_did, named_did, named_verkey,
-                                          None, None)
-    await sign_and_submit_request(pool_handle, wh, steward_did, nym_request)
+    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
+                                          alias, role)
+    await sign_and_submit_request(pool_handle, wh, submitter_did, nym_request)
     return wh, named_did
 
 
