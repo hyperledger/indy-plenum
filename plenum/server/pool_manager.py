@@ -411,6 +411,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             return None
         return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
 
+    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
+        for nym, nm in self._ordered_node_ids.items():
+            if name == nm:
+                return self.get_rank_of(nym, nodeReg)
+
     def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:
             nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
