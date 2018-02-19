@@ -68,8 +68,8 @@ setup(
     scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
-             'scripts/gen_steward_key',
-             'scripts/get_keys',
+             'scripts/gen_steward_key', 'scripts/gen_node',
+             'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
              'scripts/init_bls_keys']
