@@ -129,7 +129,7 @@ class Batched(MessageProcessor):
                             "{} sending msg {} to {}".format(self, msg, dest))
 
         for rid in removedRemotes:
-            logger.warning("{}{} rid {} has been removed"
+            logger.warning("{}{} has removed rid {}"
                            .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
@@ -141,8 +141,11 @@ class Batched(MessageProcessor):
             del self.outBoxes[rid]
 
     def _make_batch(self, msgs):
-        batch = Batch(msgs, None)
-        serialized_batch = self.sign_and_serialize(batch)
+        if len(msgs) > 1:
+            batch = Batch(msgs, None)
+            serialized_batch = self.sign_and_serialize(batch)
+        else:
+            serialized_batch = msgs[0]
         return serialized_batch
 
     def _test_batch_len(self, batch_len):

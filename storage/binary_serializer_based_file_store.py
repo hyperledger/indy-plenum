@@ -1,5 +1,5 @@
 from storage.binary_file_store import BinaryFileStore
-from storage.stream_serializer import StreamSerializer
+from common.serializers.stream_serializer import StreamSerializer
 
 
 class BinarySerializerBasedFileStore(BinaryFileStore):

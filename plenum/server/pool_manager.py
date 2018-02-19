@@ -218,7 +218,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             nodeName = txn[DATA][ALIAS]
             nodeNym = txn[TARGET_NYM]
 
-            self._order_node(nodeNym, nodeName)
+            self._set_node_order(nodeNym, nodeName)
 
             def _updateNode(txn):
                 if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
@@ -384,15 +384,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._ordered_node_ids = OrderedDict()
         for _, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE:
-                self._order_node(txn[TARGET_NYM], txn[DATA][ALIAS])
+                self._set_node_order(txn[TARGET_NYM], txn[DATA][ALIAS])
 
-    def _order_node(self, nodeNym, nodeName):
+    def _set_node_order(self, nodeNym, nodeName):
         curName = self._ordered_node_ids.get(nodeNym)
-
         if curName is None:
-            logger.info("{} node {} ordered, NYM {}".format(
-                        self.name, nodeName, nodeNym))
             self._ordered_node_ids[nodeNym] = nodeName
+            logger.info("{} sets node {} ({}) order to {}".format(
+                        self.name, nodeName, nodeNym,
+                        len(self._ordered_node_ids[nodeNym])))
         elif curName != nodeName:
             msg = ("{} is trying to order already ordered node {} ({}) "
                    "with other alias {}".format(self.name, curName, nodeNym, nodeName))

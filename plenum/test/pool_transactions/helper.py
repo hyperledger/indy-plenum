@@ -408,8 +408,9 @@ def disconnectPoolNode(poolNodes: Iterable,
     assert isinstance(disconnect, str)
 
     for node in poolNodes:
-        if node.name == disconnect and stopNode:
-            node.stop()
+        if node.name == disconnect:
+            if stopNode:
+                node.stop()
         else:
             node.nodestack.disconnectByName(disconnect)
 
