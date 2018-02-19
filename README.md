@@ -49,7 +49,7 @@ mechanism that Plenum needs.
     - state storage using python 3 version of Ethereum's Patricia Trie
 - stp:
     - secure transport abstraction
-    - it has ZeroMQ implementations
+    - it has [ZeroMQ](http://zeromq.org/) implementations
 - storage:
     - key-value storage abstractions
     - contains [leveldb](http://leveldb.org/) implementation as the main key-valued storage used in Plenum (for ledger, state, etc.)

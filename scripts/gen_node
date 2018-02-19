@@ -1,0 +1,62 @@
+#! /usr/bin/env python3
+
+import argparse
+
+from sys import argv
+
+from plenum.common.script_helper import getStewardKeyFromName, \
+    generateNodeGenesisTxn, buildKeepDirIfNotExists
+from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from stp_core.crypto.util import isHexKey
+from plenum.common.config_util import getConfig
+
+config = getConfig()
+
+if __name__ == "__main__":
+    buildKeepDirIfNotExists(config.baseDir)
+
+    parser = argparse.ArgumentParser(
+        description="Generate node key")
+
+    parser.add_argument('name', action="store")
+    parser.add_argument('--seed', required=False, type=str,
+                        help='seed for keypair')
+    parser.add_argument('--ip', required=False, type=str,
+                        help='node ip address')
+    parser.add_argument('--port', required=False, type=str, help='node port')
+    parser.add_argument('--clientip', required=False, type=str,
+                        help='client ip address')
+    parser.add_argument('--clientport', required=False, type=str,
+                        help='client port')
+    parser.add_argument('--steward', required=True,
+                        help="steward's verification key")
+    parser.add_argument('--print_gen_txn', help='overrides keys',
+                        action='store_true')
+    parser.add_argument('--force', help='prints genesis transactions',
+                        action='store_true')
+
+    args = parser.parse_args()
+    name = argv[1]
+
+    # Initialize node stack
+
+    stewardVerkey = None
+    try:
+        if isHexKey(args.steward):
+            stewardVerkey = args.steward
+        else:
+            stewardVerkey = getStewardKeyFromName(config.baseDir, args.steward)
+
+        print("Node-stack name is", args.name)
+        print("Client-stack name is", args.name + CLIENT_STACK_SUFFIX)
+
+        pubkey, verkey, blskey = initNodeKeysForBothStacks(args.name, config.baseDir, args.seed, override=args.force)
+        # Print genesis transaction commands
+        generateNodeGenesisTxn(config.baseDir, args.print_gen_txn, args.name,
+                               verkey,
+                               stewardVerkey, args.ip, args.port, args.clientip,
+                               args.clientport)
+    except Exception as ex:
+        print(ex)
+        exit(1)
