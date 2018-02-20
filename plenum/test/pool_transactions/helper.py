@@ -16,7 +16,8 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj, \
-    sdk_get_reply, sdk_eval_timeout, sdk_get_replies
+    sdk_get_reply, sdk_eval_timeout, sdk_get_replies, sdk_sign_request_objects, sdk_send_signed_requests, \
+    sdk_json_to_request_object
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
     ensure_node_disconnected, checkNodesConnected
@@ -326,6 +327,24 @@ def sdk_add_new_node(looper,
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
+
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(new_node_name, steward_did,
+                             clientIp, clientPort,
+                             nodeIp, nodePort,
+                             bls_key, sigseed))
+    looper.loop.run_until_complete(
+        sign_and_submit_request(sdk_pool_handle, new_steward_wallet,
+                                steward_did, node_request))
+    return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
+                                     (nodeIp, nodePort), (clientIp, clientPort),
+                                     tconf, autoStart, allPluginsPath,
+                                     nodeClass,
+                                     do_post_node_creation=do_post_node_creation)
+
+
+async def prepare_node_request(new_node_name, steward_did, clientIp,
+                               clientPort, nodeIp, nodePort, bls_key, sigseed):
     data = {
         'alias': new_node_name,
         'client_ip': clientIp,
@@ -335,26 +354,17 @@ def sdk_add_new_node(looper,
         'services': ["VALIDATOR"],
         'blskey': bls_key
     }
-
     nodeSigner = SimpleSigner(seed=sigseed)
     destination = nodeSigner.identifier
+    node_request = await build_node_request(steward_did, destination, json.dumps(data))
+    return node_request
 
-    looper.loop.run_until_complete(
-        gen_new_node(sdk_pool_handle, steward_did, new_steward_wallet,
-                     destination, json.dumps(data)))
-    return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
-                                     (nodeIp, nodePort), (clientIp, clientPort),
-                                     tconf, autoStart, allPluginsPath,
-                                     nodeClass,
-                                     do_post_node_creation=do_post_node_creation)
-
-
-async def gen_new_node(sdk_pool_handle, steward_did, stewardWallet,
-                       destination, data):
-    node_request = await build_node_request(steward_did, destination, data)
-    res = await sign_and_submit_request(sdk_pool_handle, stewardWallet,
-                                        steward_did, node_request)
-    return res
+def sdk_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, string_req):
+    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,
+                                           [sdk_json_to_request_object(
+                                               json.loads(string_req))])
+    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)[0]
+    return request_couple
 
 
 def sendUpdateNode(stewardClient, stewardWallet, node, node_data):

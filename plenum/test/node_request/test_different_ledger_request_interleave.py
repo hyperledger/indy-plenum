@@ -1,15 +1,10 @@
-import json
-
-from indy.ledger import build_node_request
-from plenum.common.signer_simple import SimpleSigner
-
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, \
-    sdk_eval_timeout, sdk_get_replies, sdk_check_reply, sdk_sign_request_objects, \
-    sdk_send_signed_requests, sdk_get_and_check_replies, sdk_json_to_request_object
+    sdk_eval_timeout, sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.helper import sdk_add_new_steward, prepare_new_node_data
+from plenum.test.pool_transactions.helper import sdk_add_new_steward, \
+    prepare_new_node_data, prepare_node_request, sdk_send_prepared_request
 from plenum.test.test_node import checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
 
@@ -36,7 +31,8 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     # Send domain ledger requests but don't wait for replies
-    requests = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 2)
+    requests = sdk_send_random_requests(looper, sdk_pool_handle,
+                                        sdk_wallet_client, 2)
 
     # Add another node by sending pool ledger request
     _, new_theta = sdk_node_theta_added(looper,
@@ -58,9 +54,7 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
 
     # Make sure all requests are completed
     total_timeout = sdk_eval_timeout(len(requests), len(txnPoolNodeSet))
-    sdk_replies = sdk_get_replies(looper, requests, timeout=total_timeout)
-    for req_res in sdk_replies:
-        sdk_check_reply(req_res)
+    sdk_get_and_check_replies(looper, requests, timeout=total_timeout)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                sdk_wallet_client, sdk_pool_handle)
     new_steward_wallet, steward_did = sdk_add_new_steward(looper,
@@ -72,13 +66,17 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     # request
     next_node_name = 'next_node'
 
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, next_node_name)
     node_req = looper.loop.run_until_complete(
-        build_request(tconf, tdir, next_node_name, steward_did))
+        prepare_node_request(next_node_name, steward_did, clientIp,
+                             clientPort, nodeIp, nodePort, bls_key,
+                             sigseed))
+
     sdk_wallet = (new_steward_wallet, steward_did)
-    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,
-                                           [sdk_json_to_request_object(
-                                               json.loads(node_req))])
-    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)[0]
+    request_couple = sdk_send_prepared_request(looper, sdk_wallet,
+                                               sdk_pool_handle,
+                                               node_req)
 
     # Send more domain ledger requests but don't wait for replies
     request_couples = [request_couple, *
@@ -86,26 +84,8 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
 
     # Make sure all requests are completed
     total_timeout = sdk_eval_timeout(len(request_couples), len(txnPoolNodeSet))
-    sdk_get_and_check_replies(looper, request_couples)
+    sdk_get_and_check_replies(looper, request_couples, timeout=total_timeout)
 
     # Make sure pool is functional
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                sdk_wallet_client, sdk_pool_handle)
-
-
-async def build_request(tconf, tdir, next_node_name, steward_did):
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
-        prepare_new_node_data(tconf, tdir, next_node_name)
-    data = {
-        'alias': next_node_name,
-        'client_ip': clientIp,
-        'client_port': clientPort,
-        'node_ip': nodeIp,
-        'node_port': nodePort,
-        'services': ["VALIDATOR"],
-        'blskey': bls_key
-    }
-    nodeSigner = SimpleSigner(seed=sigseed)
-    destination = nodeSigner.identifier
-    node_request = await build_node_request(steward_did, destination, json.dumps(data))
-    return node_request
