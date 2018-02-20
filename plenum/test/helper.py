@@ -1120,8 +1120,7 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op):
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
-    assert resp
-    return request
+    return json.loads(resp)
 
 
 def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
