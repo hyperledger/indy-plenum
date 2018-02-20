@@ -1,8 +1,10 @@
 import pytest
 
 from plenum.common.constants import STEWARD
-from plenum.test.helper import waitRejectWithReason
-from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient
+from plenum.common.util import randomString
+from plenum.test.helper import waitRejectWithReason, sdk_get_replies, sdk_eval_timeout, sdk_check_reply
+from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient, sdk_add_new_steward, \
+    prepare_nym_request, sdk_sign_and_send_prepared_request
 
 
 @pytest.fixture(scope="module")
@@ -19,19 +21,26 @@ def tconf(tconf, request):
 
 def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
                                          tdirWithPoolTxns, poolTxnClientData,
-                                         steward1, stewardWallet,
-                                         client1, wallet1, client1Connected):
-    addNewClient(STEWARD, looper, steward1, stewardWallet, "testSteward1")
+                                         sdk_pool_handle, sdk_wallet_steward,
+                                         sdk_wallet_client):
+    sdk_add_new_steward(looper, sdk_pool_handle, sdk_wallet_steward, 'testSteward1')
 
-    sendAddNewClient(STEWARD, "testSteward2", client1, wallet1)
-    for node in txnPoolNodeSet:
-        waitRejectWithReason(
-            looper,
-            client1,
-            'Only Steward is allowed to do these transactions',
-            node.clientstack.name)
+    seed = randomString(32)
+    wh, _ = sdk_wallet_client
+
+    nym_request, steward_did = looper.loop.run_until_complete(
+        prepare_nym_request(sdk_wallet_client, seed,
+                            'testSteward2', 'STEWARD'))
+
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
+                                                        sdk_pool_handle, nym_request)
+    total_timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
+    request_couple = sdk_get_replies(looper, [request_couple], total_timeout)[0]
+    with pytest.raises(AssertionError):
+        sdk_check_reply(request_couple)
 
 
+# !!! CHECK IF THIS TEST WORKS !!!
 def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
                                                       txnPoolNodeSet,
                                                       tdirWithPoolTxns,
