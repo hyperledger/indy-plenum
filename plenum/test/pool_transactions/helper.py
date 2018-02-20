@@ -111,7 +111,7 @@ def send_new_node_txn(sigseed,
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-               transformOpFunc=None, do_post_node_creation: Callable=None):
+               transformOpFunc=None, do_post_node_creation: Callable = None):
     nodeClass = nodeClass or TestNode
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
         = sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
@@ -137,9 +137,9 @@ def start_not_added_node(looper,
         prepare_new_node_data(tconf, tdir, newNodeName)
 
     new_node = create_and_start_new_node(looper, newNodeName,
-                                          tdir, randomString(32).encode(),
-                                          (nodeIp, nodePort), (clientIp, clientPort),
-                                          tconf, True, allPluginsPath, TestNode)
+                                         tdir, randomString(32).encode(),
+                                         (nodeIp, nodePort), (clientIp, clientPort),
+                                         tconf, True, allPluginsPath, TestNode)
     return sigseed, bls_key, new_node
 
 
@@ -187,7 +187,7 @@ def create_and_start_new_node(
         auto_start,
         plugin_path,
         nodeClass,
-        do_post_node_creation: Callable=None):
+        do_post_node_creation: Callable = None):
     node = new_node(node_name=node_name,
                     tdir=tdir,
                     node_ha=node_ha,
@@ -238,7 +238,7 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                          newNodeName, tdir, client_tdir, tconf, allPluginsPath=None,
                          autoStart=True, nodeClass=TestNode,
                          clientClass=TestClient, transformNodeOpFunc=None,
-                         do_post_node_creation: Callable=None):
+                         do_post_node_creation: Callable = None):
     newSteward, newStewardWallet = addNewSteward(looper, client_tdir, creatorClient,
                                                  creatorWallet, stewardName,
                                                  clientClass=clientClass)
@@ -269,16 +269,16 @@ def sdk_add_new_steward_and_node(looper,
                                  autoStart=True,
                                  nodeClass=TestNode,
                                  transformNodeOpFunc=None,
-                                 do_post_node_creation: Callable=None):
-    newStewardWallet, steward_did = sdk_add_new_steward(looper,
-                                           sdk_pool_handle,
-                                           sdk_wallet_steward,
-                                           new_steward_name)
+                                 do_post_node_creation: Callable = None):
+    new_steward_wallet, steward_did = sdk_add_new_steward(looper,
+                                                          sdk_pool_handle,
+                                                          sdk_wallet_steward,
+                                                          new_steward_name)
 
     newNode = sdk_add_new_node(
         looper,
         sdk_pool_handle,
-        newStewardWallet,
+        new_steward_wallet,
         new_node_name,
         steward_did,
         tdir,
@@ -288,22 +288,21 @@ def sdk_add_new_steward_and_node(looper,
         nodeClass=nodeClass,
         transformOpFunc=transformNodeOpFunc,
         do_post_node_creation=do_post_node_creation)
-    return newStewardWallet, newNode
+    return new_steward_wallet, newNode
 
 
 def sdk_add_new_steward(looper, sdk_pool_handle, creators_wallet, new_steward_name):
-    # randomString(32).encode('base58')
-    # TODO: make random
-    seed = '00000000000000000000000000000384'
+    seed = randomString(32)
     wh, steward_did = looper.loop.run_until_complete(
         _gen_named_wallet(looper, sdk_pool_handle, creators_wallet,
                           seed, alias=new_steward_name,
                           role='STEWARD'))
     return wh, steward_did
 
-# TODO: import this function from conftest
-async def _gen_named_wallet(looper, pool_handle, wallet, named_seed, alias = None,
-                            role = None):
+
+# TODO: import this function from conftest (strange error occurs)
+async def _gen_named_wallet(pool_handle, wallet, named_seed, alias=None,
+                            role=None):
     wh, submitter_did = wallet
     (named_did, named_verkey) = await create_and_store_my_did(wh,
                                                               json.dumps({
@@ -312,37 +311,36 @@ async def _gen_named_wallet(looper, pool_handle, wallet, named_seed, alias = Non
                                                               )
     nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
                                           alias, role)
-    res = await sign_and_submit_request(pool_handle, wh, submitter_did, nym_request)
-
-    # # TODO: make timeout depends on node count
-    # timeout = sdk_eval_timeout(1, 6)
-    # sdk_get_replies(looper, (res), timeout)
+    await sign_and_submit_request(pool_handle, wh, submitter_did, nym_request)
     return wh, named_did
+
 
 def sdk_add_new_node(looper,
                      sdk_pool_handle,
-                     stewardWallet,
+                     new_steward_wallet,
                      new_node_name,
                      steward_did,
                      tdir, tconf,
-               allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-               transformOpFunc=None, do_post_node_creation: Callable=None):
+                     allPluginsPath=None, autoStart=True, nodeClass=TestNode,
+                     transformOpFunc=None, do_post_node_creation: Callable = None):
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     data = {
         'alias': new_node_name,
         'client_ip': clientIp,
-     	'client_port': clientPort,
-     	'node_ip': nodeIp,
-     	'node_port': nodePort,
-     	'services': ["VALIDATOR"],
+        'client_port': clientPort,
+        'node_ip': nodeIp,
+        'node_port': nodePort,
+        'services': ["VALIDATOR"],
         'blskey': bls_key
     }
-    # TODO: make random
-    destination = '6HoV7DUEfNDiUP4ENnSC4yePja8w7JDQJ5uzVgyW4nL8'
+
+    nodeSigner = SimpleSigner(seed=sigseed)
+    destination = nodeSigner.identifier
+
     looper.loop.run_until_complete(
-        gen_new_node(sdk_pool_handle, steward_did, stewardWallet,
+        gen_new_node(sdk_pool_handle, steward_did, new_steward_wallet,
                      destination, json.dumps(data)))
     return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
                                      (nodeIp, nodePort), (clientIp, clientPort),
@@ -356,7 +354,7 @@ async def gen_new_node(sdk_pool_handle, steward_did, stewardWallet,
     node_request = await build_node_request(steward_did, destination, data)
     res = await sign_and_submit_request(sdk_pool_handle, stewardWallet,
                                         steward_did, node_request)
-    pass
+    return res
 
 
 def sendUpdateNode(stewardClient, stewardWallet, node, node_data):

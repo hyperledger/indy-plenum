@@ -74,27 +74,32 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdir, client_tdir,
 
 
 @pytest.fixture(scope='module')
-def sdk_node_theta_added(looper, txnPoolNodeSet, tdir, client_tdir,
-                         tconf, sdk_pool_handle, sdk_wallet_trustee,
-                         allPluginsPath, testNodeClass=None,
-                         testClientClass=None, name=None):
-    newStewardName = "testClientSteward" + randomString(3)
-    newNodeName = name or "Theta"
-    newStewardWallet, newNode = \
+def sdk_node_theta_added(looper,
+                         txnPoolNodeSet,
+                         tdir,
+                         tconf,
+                         sdk_pool_handle,
+                         sdk_wallet_steward,
+                         allPluginsPath,
+                         testNodeClass=None,
+                         name=None):
+    new_steward_name = "testClientSteward" + randomString(3)
+    new_node_name = name or "Theta"
+    new_steward_wallet, new_node = \
         sdk_add_new_steward_and_node(looper,
                                      sdk_pool_handle,
-                                     sdk_wallet_trustee,
-                                     newStewardName,
-                                     newNodeName,
+                                     sdk_wallet_steward,
+                                     new_steward_name,
+                                     new_node_name,
                                      tdir,
-                                     client_tdir,
                                      tconf,
                                      allPluginsPath,
                                      nodeClass=testNodeClass)
-    txnPoolNodeSet.append(newNode)
+    txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    refresh_pool_ledger(sdk_pool_handle)
-    return newStewardWallet, newNode
+    looper.loop.run_until_complete(
+        refresh_pool_ledger(sdk_pool_handle))
+    return new_steward_wallet, new_node
 
 
 @pytest.fixture(scope="module")
