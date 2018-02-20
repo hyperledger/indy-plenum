@@ -313,10 +313,9 @@ def test_get_msgs_for_lagged_nodes(tmpdir):
 
 def test_send_view_change_done_message(tmpdir):
     node = FakeNode(str(tmpdir))
-    instance_id = 0
     view_no = node.view_changer.view_no
-    new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_primary_id(
-        view_no, instance_id, node.totalNodes))
+    new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_master_primary_id(
+        view_no, node.totalNodes))
     node.view_changer._send_view_change_done_message()
 
     ledgerInfo = [

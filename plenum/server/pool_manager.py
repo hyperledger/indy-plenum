@@ -537,6 +537,9 @@ class RegistryPoolManager(PoolManager):
         # TODO node_id here has got another meaning
         return self._get_rank(node_id, self.node_names_ordered_by_rank(nodeReg))
 
+    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
+        return self.get_rank_of(name, nodeReg)
+
     def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:
             return self.node_names_ordered_by_rank(nodeReg)[rank]

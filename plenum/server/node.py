@@ -2369,8 +2369,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 for calculation of primaries for backup instances.
                 '''
                 if instance_id == 0:
-                    primary_rank = self.poolManager.get_rank_by_name(
-                        replica.primaryName.split(":", 1)[0], nodeReg)
+                    primary_rank = self.poolManager.get_rank_by_name(name, nodeReg)
 
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
