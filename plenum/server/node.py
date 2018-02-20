@@ -302,10 +302,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
-        # verification. These are still subject to RAET's signature verification
-        # but client signatures will not be checked on these. Expressly
-        # prohibited from being in this is ClientRequest and Propagation,
-        # which both require client signature verification
+        # verification. Expressly prohibited from being in this is
+        # ClientRequest and Propagation, which both require client
+        # signature verification
         self.authnWhitelist = (
             Nomination,
             Primary,
@@ -1088,6 +1087,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Check protocol instances. See `checkInstances()`
 
         """
+        _prev_status = self.status
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
@@ -1103,6 +1103,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info(
                 '{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
+        elif _prev_status == Status.starting and self.status == Status.started_hungry \
+                and self.lost_primary_at is not None \
+                and self.master_primary_name is not None:
+            """
+            Such situation may occur if the pool has come back to reachable consensus but
+            primary is still disconnected, so view change proposal makes sense now.
+            """
+            self._schedule_view_change()
+
         if self.isReady():
             self.checkInstances()
             for node in joined:
@@ -2328,19 +2337,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         "".format(self))
             self.view_changer.on_primary_loss()
 
+    def _schedule_view_change(self):
+        logger.debug('{} scheduling a view change in {} sec'.
+                     format(self, self.config.ToleratePrimaryDisconnection))
+        self._schedule(self.propose_view_change,
+                       self.config.ToleratePrimaryDisconnection)
+
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
         """
         Schedule an primary connection check which in turn can send a view
         change message
-        :return: whether view change started
         """
         self.lost_primary_at = time.perf_counter()
-
-        logger.debug('{} scheduling a view change in {} sec'.
-                     format(self, self.config.ToleratePrimaryDisconnection))
-        self._schedule(self.propose_view_change,
-                       self.config.ToleratePrimaryDisconnection)
+        self._schedule_view_change()
 
     def select_primaries(self, nodeReg: Dict[str, HA]=None):
         for instance_id, replica in enumerate(self.replicas):
@@ -2415,7 +2425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: None; raises an exception if the signature is not valid
         """
         if isinstance(msg, self.authnWhitelist):
-            return  # whitelisted message types rely on RAET for authn
+            return
         if isinstance(msg, Propagate):
             typ = 'propagate'
             req = msg.request

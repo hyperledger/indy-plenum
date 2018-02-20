@@ -6,6 +6,7 @@ from plenum.test.helper import sendRandomRequests, checkRejectWithReason, waitFo
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
+from plenum.common.request import Request
 
 
 def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
@@ -16,6 +17,7 @@ def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
     """
     node = txnPoolNodeSet[0]
     req = sdk_sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
+    req = Request(**req)
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 
