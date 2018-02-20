@@ -650,7 +650,7 @@ class LedgerManager(HasActionQueue):
         for k, catchupReps in ledgerInfo.recvdCatchupRepliesFrm.items():
             for rep in catchupReps:
                 txns = getattr(rep, f.TXNS.nm)
-                # Transfers of odcits in RAET converts integer keys to string
+
                 if str(seqNo) in txns:
                     return k, rep
 
