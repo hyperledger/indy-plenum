@@ -749,11 +749,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_req_handler(self, ledger_id: int, req_handler: RequestHandler):
         self.ledger_to_req_handler[ledger_id] = req_handler
         for txn_type in req_handler.valid_txn_types:
-            if txn_type in self.txn_type_to_req_handler:
-                raise ValueError('{} already registered for {}'
-                                 .format(txn_type, self.txn_type_to_req_handler[txn_type]))
-            self.txn_type_to_req_handler[txn_type] = req_handler
-            self.txn_type_to_ledger_id[txn_type] = ledger_id
+            # if txn_type in self.txn_type_to_req_handler:
+            #     raise ValueError('{} already registered for {}'
+            #                      .format(txn_type, self.txn_type_to_req_handler[txn_type]))
+            # self.txn_type_to_req_handler[txn_type] = req_handler
+            # self.txn_type_to_ledger_id[txn_type] = ledger_id
+            self.register_txn_type(txn_type, ledger_id, req_handler)
+
+    def register_txn_type(self, txn_type, ledger_id: int, req_handler: RequestHandler):
+        if txn_type in self.txn_type_to_req_handler:
+            raise ValueError('{} already registered for {}'
+                             .format(txn_type, self.txn_type_to_req_handler[txn_type]))
+        self.txn_type_to_req_handler[txn_type] = req_handler
+        self.txn_type_to_ledger_id[txn_type] = ledger_id
 
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
@@ -1921,6 +1929,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
             if not req_handler:
+                # TODO: This code should probably be removed.
                 if self.opVerifiers:
                     try:
                         for v in self.opVerifiers:

@@ -40,7 +40,8 @@ class KeyValueStorageLeveldb(KeyValueStorage):
         if end and isinstance(end, str):
             end = end.encode()
 
-        return self._db.RangeIter(key_from=start, key_to=end, include_value=include_value)
+        return self._db.RangeIter(key_from=start, key_to=end,
+                                  include_value=include_value)
 
     def put(self, key, value):
         if isinstance(key, str):

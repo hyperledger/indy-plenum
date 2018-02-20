@@ -392,9 +392,8 @@ class FullVerkeyField(FieldBase):
     _validator = Base58Field(byte_lengths=(32,))
 
     def _specific_validation(self, val):
-        if not val.startswith('~'):
-            # full base58
-            return self._validator.validate(val)
+        # full base58
+        return self._validator.validate(val)
 
 
 class AbbreviatedVerkeyField(FieldBase):

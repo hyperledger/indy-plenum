@@ -297,12 +297,12 @@ def random_request_objects(count, protocol_version):
     return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
 
 
-def sign_request_objects(wallet, reqs: Sequence):
-    return [wallet.signRequest(req) for req in reqs]
+def sign_request_objects(wallet, reqs: Sequence, identifier=None):
+    return [wallet.signRequest(req, identifier=identifier) for req in reqs]
 
 
-def sign_requests(wallet, reqs: Sequence):
-    return [wallet.signOp(req) for req in reqs]
+def sign_requests(wallet, reqs: Sequence, identifier=None):
+    return [wallet.signOp(req, identifier=identifier) for req in reqs]
 
 
 def signed_random_requests(wallet, count):

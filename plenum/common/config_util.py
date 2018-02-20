@@ -27,7 +27,8 @@ def getInstalledConfig(installDir, configFile):
     return config
 
 
-def extend_with_external_config(extendee: object, extender: Tuple[str, str], required: bool = False) -> object:
+def extend_with_external_config(extendee: object, extender: Tuple[str, str],
+                                required: bool = False) -> object:
     try:
         config = getInstalledConfig(*extender)
         extendee.__dict__.update(config.__dict__)
@@ -40,11 +41,12 @@ def extend_with_external_config(extendee: object, extender: Tuple[str, str], req
 def extend_with_default_external_config(extendee: object,
                                         general_config_dir: str = None,
                                         user_config_dir: str = None) -> object:
-    if (general_config_dir):
+    if general_config_dir:
         extendee.GENERAL_CONFIG_DIR = general_config_dir
     if not extendee.GENERAL_CONFIG_DIR:
         raise Exception('GENERAL_CONFIG_DIR must be set')
-    extend_with_external_config(extendee, (extendee.GENERAL_CONFIG_DIR, extendee.GENERAL_CONFIG_FILE))
+    extend_with_external_config(extendee, (extendee.GENERAL_CONFIG_DIR,
+                                           extendee.GENERAL_CONFIG_FILE))
 
     # fail if network is not set
     if not extendee.NETWORK_NAME:
