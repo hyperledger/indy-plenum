@@ -55,8 +55,9 @@ setup(
                       'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
-                      'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
+                      'portalocker==0.5.7', 'pyzmq', 'libnacl==1.6.1',
+                      'six==1.11.0', 'psutil', 'intervaltree',
+                      'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,
