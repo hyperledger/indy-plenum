@@ -28,10 +28,6 @@ def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet, tdirWithPoolTxns
     client.stop()
     looper.removeProdable(client)
 
-    # Removing RAET keep directory otherwise the client will use the same port
-    #  since it will a directory of its name in the keep
-    shutil.rmtree(keys_dir, ignore_errors=True)
-
     ha = genHa()
     client, _ = genTestClient(txnPoolNodeSet, identifier=wallet.defaultId,
                               ha=ha, tmpdir=tdirWithClientPoolTxns,
