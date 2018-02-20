@@ -294,7 +294,7 @@ def sdk_add_new_steward_and_node(looper,
 def sdk_add_new_steward(looper, sdk_pool_handle, creators_wallet, new_steward_name):
     seed = randomString(32)
     wh, steward_did = looper.loop.run_until_complete(
-        _gen_named_wallet(looper, sdk_pool_handle, creators_wallet,
+        _gen_named_wallet(sdk_pool_handle, creators_wallet,
                           seed, alias=new_steward_name,
                           role='STEWARD'))
     return wh, steward_did
