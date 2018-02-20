@@ -17,7 +17,7 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj, \
     sdk_get_reply, sdk_eval_timeout, sdk_get_replies, sdk_sign_request_objects, sdk_send_signed_requests, \
-    sdk_json_to_request_object
+    sdk_json_to_request_object, sdk_get_and_check_replies
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
     ensure_node_disconnected, checkNodesConnected
@@ -294,26 +294,23 @@ def sdk_add_new_steward_and_node(looper,
 
 def sdk_add_new_steward(looper, sdk_pool_handle, creators_wallet, new_steward_name):
     seed = randomString(32)
-    wh, steward_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, creators_wallet,
-                          seed, alias=new_steward_name,
-                          role='STEWARD'))
+    wh, _ = creators_wallet
+
+    # filling nym request and getting steward did
+    nym_request, steward_did = looper.loop.run_until_complete(
+        prepare_nym_request(creators_wallet, seed,
+                            new_steward_name, 'STEWARD'))
+
+    # sending request using 'sdk_' functions
+    request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
+                                                        sdk_pool_handle, nym_request)
+
+    # waitng for replies
+    # TODO: make node_count dynamic
+    node_count = 7
+    total_timeout = sdk_eval_timeout(1, node_count)
+    sdk_get_and_check_replies(looper, [request_couple], total_timeout)
     return wh, steward_did
-
-
-# TODO: import this function from conftest (strange error occurs)
-async def _gen_named_wallet(pool_handle, wallet, named_seed, alias=None,
-                            role=None):
-    wh, submitter_did = wallet
-    (named_did, named_verkey) = await create_and_store_my_did(wh,
-                                                              json.dumps({
-                                                                  'seed': named_seed,
-                                                                  'cid': True})
-                                                              )
-    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
-                                          alias, role)
-    await sign_and_submit_request(pool_handle, wh, submitter_did, nym_request)
-    return wh, named_did
 
 
 def sdk_add_new_node(looper,
@@ -328,19 +325,41 @@ def sdk_add_new_node(looper,
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
 
+    # filling node request
     node_request = looper.loop.run_until_complete(
         prepare_node_request(new_node_name, steward_did,
                              clientIp, clientPort,
                              nodeIp, nodePort,
                              bls_key, sigseed))
-    looper.loop.run_until_complete(
-        sign_and_submit_request(sdk_pool_handle, new_steward_wallet,
-                                steward_did, node_request))
+
+    # sending request using 'sdk_' functions
+    wallet_handle = (new_steward_wallet, steward_did)
+    request_couple = sdk_sign_and_send_prepared_request(looper, wallet_handle,
+                                                        sdk_pool_handle, node_request)
+
+    # waitng for replies
+    # TODO: make node_count dynamic
+    node_count = 7
+    total_timeout = sdk_eval_timeout(1, node_count)
+    sdk_get_and_check_replies(looper, [request_couple], total_timeout)
+
     return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
                                      (nodeIp, nodePort), (clientIp, clientPort),
                                      tconf, autoStart, allPluginsPath,
                                      nodeClass,
                                      do_post_node_creation=do_post_node_creation)
+
+
+async def prepare_nym_request(wallet, named_seed, alias, role):
+    wh, submitter_did = wallet
+    (named_did, named_verkey) = await create_and_store_my_did(wh,
+                                                              json.dumps({
+                                                                  'seed': named_seed,
+                                                                  'cid': True})
+                                                              )
+    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
+                                          alias, role)
+    return nym_request, named_did
 
 
 async def prepare_node_request(new_node_name, steward_did, clientIp,
@@ -359,7 +378,8 @@ async def prepare_node_request(new_node_name, steward_did, clientIp,
     node_request = await build_node_request(steward_did, destination, json.dumps(data))
     return node_request
 
-def sdk_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, string_req):
+
+def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, string_req):
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,
                                            [sdk_json_to_request_object(
                                                json.loads(string_req))])

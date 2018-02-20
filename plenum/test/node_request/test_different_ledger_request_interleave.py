@@ -4,7 +4,7 @@ from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_reques
     sdk_eval_timeout, sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_add_new_steward, \
-    prepare_new_node_data, prepare_node_request, sdk_send_prepared_request
+    prepare_new_node_data, prepare_node_request, sdk_sign_and_send_prepared_request
 from plenum.test.test_node import checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
 
@@ -74,9 +74,9 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
                              sigseed))
 
     sdk_wallet = (new_steward_wallet, steward_did)
-    request_couple = sdk_send_prepared_request(looper, sdk_wallet,
-                                               sdk_pool_handle,
-                                               node_req)
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet,
+                                                        sdk_pool_handle,
+                                                        node_req)
 
     # Send more domain ledger requests but don't wait for replies
     request_couples = [request_couple, *
