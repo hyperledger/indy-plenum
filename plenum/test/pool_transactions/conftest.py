@@ -1,11 +1,12 @@
 import pytest
 
+from indy.pool import refresh_pool_ledger
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
-    buildPoolClientAndWallet, addNewSteward
+    buildPoolClientAndWallet, addNewSteward, sdk_add_new_steward_and_node
 
 
 @pytest.fixture(scope="module")
@@ -70,6 +71,35 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdir, client_tdir,
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
     return newSteward, newStewardWallet, newNode
+
+
+@pytest.fixture(scope='module')
+def sdk_node_theta_added(looper,
+                         txnPoolNodeSet,
+                         tdir,
+                         tconf,
+                         sdk_pool_handle,
+                         sdk_wallet_steward,
+                         allPluginsPath,
+                         testNodeClass=None,
+                         name=None):
+    new_steward_name = "testClientSteward" + randomString(3)
+    new_node_name = name or "Theta"
+    new_steward_wallet, new_node = \
+        sdk_add_new_steward_and_node(looper,
+                                     sdk_pool_handle,
+                                     sdk_wallet_steward,
+                                     new_steward_name,
+                                     new_node_name,
+                                     tdir,
+                                     tconf,
+                                     allPluginsPath,
+                                     nodeClass=testNodeClass)
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.loop.run_until_complete(
+        refresh_pool_ledger(sdk_pool_handle))
+    return new_steward_wallet, new_node
 
 
 @pytest.fixture(scope="module")

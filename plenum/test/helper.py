@@ -21,7 +21,7 @@ from indy.error import ErrorCode, IndyError
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT,\
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
@@ -38,7 +38,6 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
-
 
 logger = getlogger()
 
@@ -551,8 +550,8 @@ def checkReplyCount(client, idr, reqId, count):
     senders = set()
     for msg, sdr in client.inBox:
         if msg[OP_FIELD_NAME] == REPLY and \
-                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
+                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
             senders.add(sdr)
     assertLength(senders, count)
 
@@ -1032,7 +1031,7 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     return req_json, resp
 
 
-#TODO: Check places where sdk_get_replies used without sdk_check_reply
+# TODO: Check places where sdk_get_replies used without sdk_check_reply
 # We need to be sure that test behaviour don't need to check response
 # validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
@@ -1066,14 +1065,13 @@ def sdk_check_reply(req_res):
                              .format(res, req))
     if res['op'] == REQNACK:
         raise AssertionError("ReqNack of id {}. Reason: {}"
-                             .format(req['reqId'],res['reason']))
+                             .format(req['reqId'], res['reason']))
     if res['op'] == REJECT:
         raise AssertionError("Reject of id {}. Reason: {}"
-                             .format(req['reqId'],res['reason']))
+                             .format(req['reqId'], res['reason']))
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
-
     for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
         sdk_check_reply(req_res)
 
@@ -1124,7 +1122,7 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     sdk_replies = []
     for _ in range(num_batches - 1):
         sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                   num_reqs // num_batches, **kwargs))
+                                                     num_reqs // num_batches, **kwargs))
     rem = num_reqs % num_batches
     if rem == 0:
         rem = num_reqs // num_batches
@@ -1160,8 +1158,9 @@ def sdk_json_to_request_object(json_req):
     return Request(identifier=json_req['identifier'],
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
-                   signature=json_req['signature'],
+                   signature=json_req['signature'] if 'signature' in json_req else None,
                    protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+
 
 def sdk_json_couples_to_request_list(json_couples):
     req_list = []

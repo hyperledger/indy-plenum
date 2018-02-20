@@ -13,6 +13,12 @@ def test_sdk_wallet_handle(sdk_wallet_handle):
     assert wh > 0
 
 
+def test_sdk_trustee_wallet(sdk_wallet_trustee):
+    wh, tr_did = sdk_wallet_trustee
+    assert wh > 0
+    assert tr_did
+
+
 def test_sdk_steward_wallet(sdk_wallet_steward):
     wh, st_did = sdk_wallet_steward
     assert wh > 0
@@ -29,6 +35,18 @@ def test_sdk_new_client_wallet(sdk_wallet_new_client):
     wh, cl_did = sdk_wallet_new_client
     assert wh > 0
     assert cl_did
+
+
+def test_sdk_new_trustee_wallet(sdk_wallet_new_steward):
+    wh, cl_did = sdk_wallet_new_steward
+    assert wh > 0
+    assert cl_did
+
+
+def test_sdk_trustee_send(looper, sdk_pool_handle, sdk_wallet_trustee):
+    resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_trustee)
+    _, j_resp = sdk_get_reply(looper, resp_task)
+    assert j_resp['result']
 
 
 def test_sdk_steward_send(looper, sdk_pool_handle, sdk_wallet_steward):
