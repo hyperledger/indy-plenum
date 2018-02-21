@@ -288,6 +288,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
+        # Dictionary of client requests that are being in 3PC process
+        # (were either sent or received as part of some 3PC Batch).
+        # Key of dictionary is a 2 element tuple (identifier, reqId),
+        # and value is accordant PrePrepare.
+        self.in3PCProcessRequests = {}
+
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
@@ -447,6 +453,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.viewNo > 0:
                 self._reset_watermarks_before_new_view()
             self._stateChanged()
+
+
+    def _addIn3PCProcessRequests(self, pp: PrePrepare):
+        for key in pp.reqIdr:
+            self.in3PCProcessRequests[tuple(key)] = pp
+
+    def _delIn3PCProcessRequests(self, key: Optional[Tuple[int, int]]=None,
+                                 pp: Optional[PrePrepare]=None):
+        if key:
+            self.in3PCProcessRequests.pop(tuple(key), None)
+        elif pp:
+            for key in pp.reqIdr:
+                assert self.in3PCProcessRequests[tuple(key)] == pp
+                self._delIn3PCProcessRequests(key)
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -753,6 +773,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+        self._addIn3PCProcessRequests(ppReq)
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, key: ReqKey):
@@ -897,7 +918,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
+        self._addIn3PCProcessRequests(pre_prepare)
+
         def report_suspicious(reason):
+            # TODO ambiguous case: is it suspicious or not finally?
+            if reason not in (Suspicions.PPR_TIME_WRONG,):
+                self._delIn3PCProcessRequests(pp=pre_prepare)
+
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
 
@@ -1797,13 +1824,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         to_remove = []
         for idx, (pp, _, _) in enumerate(self.prePreparesPendingFinReqs):
             if pp.viewNo < self.viewNo:
-                to_remove.insert(0, idx)
-        for idx in to_remove:
+                to_remove.insert(0, (idx, pp))
+        for (idx, pp) in to_remove:
             self.prePreparesPendingFinReqs.pop(idx)
+            self._delIn3PCProcessRequests(pp=pp)
 
-        for (v, p) in list(self.prePreparesPendingPrevPP.keys()):
+        for (v, p), pp in list(self.prePreparesPendingPrevPP.items()):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
+                self._delIn3PCProcessRequests(pp=pp)
 
     def _clear_prev_view_stashed_checkpoints(self):
         for view_no in list(self.stashedRecvdCheckpoints.keys()):
@@ -1889,6 +1918,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for request_key in reqKeys:
             self.requests.free(request_key)
+            self._delIn3PCProcessRequests(request_key)
             logger.debug('{} freed request {} from previous checkpoints'
                          .format(self, request_key))
 
