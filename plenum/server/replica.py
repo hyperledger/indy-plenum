@@ -920,13 +920,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
-        self._addIn3PCProcessRequests(pre_prepare)
-
         def report_suspicious(reason):
-            # TODO ambiguous case: is it suspicious or not finally?
-            if reason not in (Suspicions.PPR_TIME_WRONG,):
-                self._delIn3PCProcessRequests(pp=pre_prepare)
-
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
 
@@ -1257,18 +1251,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return PP_CHECK_TO_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
+        # TODO what about pended PrePrepares ?
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
         # Already ordered request found
         for key in pre_prepare.reqIdr:
-            # there are cases when we check the same PrePrepare several times
-            # e.g. in case of PrePrepare that has been pended by some reason
-            if (key in self.in3PCProcessRequests and
-                    self.in3PCProcessRequests[key] != pre_prepare):
-                return PP_CHECK_IN_3PC_PROCESS_REQUEST
-            elif self.node.seqNoDB.get(*key) is not None:
+            if self.node.seqNoDB.get(*key) is not None:
                 return PP_CHECK_COMMITTED_REQUEST
+            elif key in self.in3PCProcessRequests:
+                return PP_CHECK_IN_3PC_PROCESS_REQUEST
 
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
@@ -1307,6 +1299,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
+        self._addIn3PCProcessRequests(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeue_prepares(*key)
@@ -1850,12 +1843,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 to_remove.insert(0, (idx, pp))
         for (idx, pp) in to_remove:
             self.prePreparesPendingFinReqs.pop(idx)
-            self._delIn3PCProcessRequests(pp=pp)
 
         for (v, p), pp in list(self.prePreparesPendingPrevPP.items()):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
-                self._delIn3PCProcessRequests(pp=pp)
 
     def _clear_prev_view_stashed_checkpoints(self):
         for view_no in list(self.stashedRecvdCheckpoints.keys()):
@@ -1940,8 +1931,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 coll.pop(request_key, None)
 
         for request_key in reqKeys:
-            self.requests.free(request_key)
             self._delIn3PCProcessRequests(request_key)
+            self.requests.free(request_key)
             logger.debug('{} freed request {} from previous checkpoints'
                          .format(self, request_key))
 

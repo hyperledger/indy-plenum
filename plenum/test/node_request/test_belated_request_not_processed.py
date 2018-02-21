@@ -66,12 +66,14 @@ def test_belated_propagate_not_processed_if_already_ordered(
 def test_preprepare_not_processed_if_any_request_is_already_ordered(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
 
-    alpha = txnPoolNodeSet[0]
-    delta = txnPoolNodeSet[3]
-    assert alpha.has_master_primary
-    assert not delta.has_master_primary
+    nonPrNode = None
+    for node in txnPoolNodeSet:
+        if not node.has_master_primary:
+            break
 
-    initial_ledger_size = delta.domainLedger.size
+    nonPrNode = node
+
+    initial_ledger_size = nonPrNode.domainLedger.size
 
     one_req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
     sdk_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
@@ -79,8 +81,8 @@ def test_preprepare_not_processed_if_any_request_is_already_ordered(
     for node in txnPoolNodeSet:
         assert node.domainLedger.size - initial_ledger_size == 1
 
-    delta_m_replica = delta.master_replica
-    params = delta_m_replica.spylog.getLastParams(delta_m_replica.processPrePrepare)
+    nonPrNode_m_replica = nonPrNode.master_replica
+    params = nonPrNode_m_replica.spylog.getLastParams(nonPrNode_m_replica.processPrePrepare)
     assert params is not None
     ppPrevious = params["pre_prepare"]
     sender = params['sender']
@@ -89,13 +91,13 @@ def test_preprepare_not_processed_if_any_request_is_already_ordered(
     # ppTime, and root hashes for state and txn but we don't actually need that here
     ppWithDuplicateIdr = updateNamedTuple(ppPrevious, ppSeqNo=ppPrevious.ppSeqNo + 1)
 
-    count = delta.spylog.count(delta.reportSuspiciousNode)
-    delta_m_replica.processPrePrepare(ppWithDuplicateIdr, sender)
-    assert delta.spylog.count(delta.reportSuspiciousNode) == count + 1
+    count = nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode)
+    nonPrNode_m_replica.processPrePrepare(ppWithDuplicateIdr, sender)
+    assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
-    params = delta.spylog.getLastParams(delta.reportSuspiciousNode)
+    params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
     assert params is not None
-    assert params['nodeName'] == delta_m_replica.getNodeName(sender)
+    assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
     assert params['reason'] == Suspicions.PPR_INCLUDES_COMMITTED_REQUEST.reason
     assert params['code'] == Suspicions.PPR_INCLUDES_COMMITTED_REQUEST.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
@@ -194,12 +196,14 @@ def test_belated_propagate_not_processed_if_already_in_3pc_process(
 def test_preprepare_not_processed_if_any_request_is_already_in_3pc_process(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
 
-    alpha = txnPoolNodeSet[0]
-    delta = txnPoolNodeSet[3]
-    assert alpha.has_master_primary
-    assert not delta.has_master_primary
+    nonPrNode = None
+    for node in txnPoolNodeSet:
+        if not node.has_master_primary:
+            break
 
-    initial_ledger_size = delta.domainLedger.size
+    nonPrNode = node
+
+    initial_ledger_size = nonPrNode.domainLedger.size
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(300))
 
@@ -211,8 +215,8 @@ def test_preprepare_not_processed_if_any_request_is_already_in_3pc_process(
     for node in txnPoolNodeSet:
         assert node.domainLedger.size == initial_ledger_size
 
-    delta_m_replica = delta.master_replica
-    params = delta_m_replica.spylog.getLastParams(delta_m_replica.processPrePrepare)
+    nonPrNode_m_replica = nonPrNode.master_replica
+    params = nonPrNode_m_replica.spylog.getLastParams(nonPrNode_m_replica.processPrePrepare)
     assert params is not None
     ppPrevious = params["pre_prepare"]
     sender = params['sender']
@@ -221,13 +225,13 @@ def test_preprepare_not_processed_if_any_request_is_already_in_3pc_process(
     # ppTime, and root hashes for state and txn but we don't actually need that here
     ppWithDuplicateIdr = updateNamedTuple(ppPrevious, ppSeqNo=ppPrevious.ppSeqNo + 1)
 
-    count = delta.spylog.count(delta.reportSuspiciousNode)
-    delta_m_replica.processPrePrepare(ppWithDuplicateIdr, sender)
-    assert delta.spylog.count(delta.reportSuspiciousNode) == count + 1
+    count = nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode)
+    nonPrNode_m_replica.processPrePrepare(ppWithDuplicateIdr, sender)
+    assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
-    params = delta.spylog.getLastParams(delta.reportSuspiciousNode)
+    params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
     assert params is not None
-    assert params['nodeName'] == delta_m_replica.getNodeName(sender)
+    assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
     assert params['reason'] == Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST.reason
     assert params['code'] == Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
