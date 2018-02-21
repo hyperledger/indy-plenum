@@ -84,6 +84,9 @@ PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
 
+PP_CHECK_IN_3PC_PROCESS_REQUEST = 11
+PP_CHECK_COMMITTED_REQUEST = 12
+
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
@@ -947,6 +950,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_TO_PRIMARY)
         elif why_not == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+        elif why_not == PP_CHECK_IN_3PC_PROCESS_REQUEST:
+            report_suspicious(Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST)
+        elif why_not == PP_CHECK_COMMITTED_REQUEST:
+            report_suspicious(Suspicions.PPR_INCLUDES_COMMITTED_REQUEST)
         elif why_not == PP_CHECK_OLD:
             logger.debug("PRE-PREPARE {} has ppSeqNo lower "
                          "then the latest one - ignoring it"
@@ -1253,6 +1260,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Already has a PRE-PREPARE with same 3 phase key
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
+
+        # Already ordered request found
+        for key in pre_prepare.reqIdr:
+            # there are cases when we check the same PrePrepare several times
+            # e.g. in case of PrePrepare that has been pended by some reason
+            if (key in self.in3PCProcessRequests
+                    and self.in3PCProcessRequests[key] != pre_prepare):
+                return PP_CHECK_IN_3PC_PROCESS_REQUEST
+            elif self.node.seqNoDB.get(*key) is not None:
+                return PP_CHECK_COMMITTED_REQUEST
 
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
