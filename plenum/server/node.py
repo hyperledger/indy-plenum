@@ -1317,6 +1317,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, Reject):
+                # expected only from master replica
                 reqKey = (message.identifier, message.reqId)
                 reject = Reject(
                     *reqKey,
@@ -2093,7 +2094,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.tryForwarding(request)
 
     def startedProcessingReq(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+        self.set_sender_for_req(identifier, reqId, frm)
 
     def isProcessingReq(self, identifier, reqId) -> bool:
         return (identifier, reqId) in self.requestSender
