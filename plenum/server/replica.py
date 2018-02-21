@@ -457,7 +457,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self._reset_watermarks_before_new_view()
             self._stateChanged()
 
-
     def _addIn3PCProcessRequests(self, pp: PrePrepare):
         for key in pp.reqIdr:
             self.in3PCProcessRequests[tuple(key)] = pp
@@ -1265,8 +1264,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for key in pre_prepare.reqIdr:
             # there are cases when we check the same PrePrepare several times
             # e.g. in case of PrePrepare that has been pended by some reason
-            if (key in self.in3PCProcessRequests
-                    and self.in3PCProcessRequests[key] != pre_prepare):
+            if (key in self.in3PCProcessRequests and
+                    self.in3PCProcessRequests[key] != pre_prepare):
                 return PP_CHECK_IN_3PC_PROCESS_REQUEST
             elif self.node.seqNoDB.get(*key) is not None:
                 return PP_CHECK_COMMITTED_REQUEST
