@@ -2076,12 +2076,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isProcessingReq(*request.key):
             if self.seqNoDB.get(request.identifier, request.reqId) is not None:
                 logger.debug("{} ignoring propagated request {} "
-                             "since it has been already ordered"
+                             "since it has been already committed"
                              .format(self.name, msg))
                 return
 
             self.startedProcessingReq(*request.key, clientName)
-
         else:
             if clientName is not None and \
                     not self.is_sender_known_for_req(*request.key):
