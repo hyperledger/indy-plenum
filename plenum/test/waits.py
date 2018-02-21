@@ -182,7 +182,7 @@ def expectedPoolNextPerfCheck(nodes):
 def expectedPropagateTime(nodeCount):
     """
     From: the Client sent the requests
-    To: the requests are propageted
+    To: the requests are propagated
     """
     count = totalConnections(nodeCount)
     return expectedNodeToNodeMessageDeliveryTime() * count
@@ -190,7 +190,7 @@ def expectedPropagateTime(nodeCount):
 
 def expectedPrePrepareTime(nodeCount):
     """
-    From: the requests are propageted
+    From: the requests are propagated
     To: the requests are pre-prepared
     """
     count = totalConnections(nodeCount)
