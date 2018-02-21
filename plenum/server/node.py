@@ -882,6 +882,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_name_by_rank(self, rank, nodeReg=None):
         return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
 
+    def get_rank_by_name(self, name, nodeReg=None):
+        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg)
+
     def newViewChanger(self):
         if self.view_changer:
             return self.view_changer
@@ -2369,7 +2372,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 for calculation of primaries for backup instances.
                 '''
                 if instance_id == 0:
-                    primary_rank = self.poolManager.get_rank_by_name(name, nodeReg)
+                    primary_rank = self.get_rank_by_name(name, nodeReg)
 
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
@@ -2378,7 +2381,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if instance_id == 0:
                 new_primary_name, new_primary_instance_name =\
                     self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
-                primary_rank = self.poolManager.get_rank_by_name(
+                primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
             else:
                 assert primary_rank is not None

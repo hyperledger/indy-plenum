@@ -1,4 +1,5 @@
 from typing import Optional
+from contextlib import ExitStack
 
 import base58
 import pytest
@@ -12,7 +13,9 @@ from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.config_util import getConfig
+from plenum.common.config_util import getConfigOnce
+from plenum.test.helper import create_new_test_node
+from plenum.test.test_node import TestNode
 
 
 whitelist = ['but majority declared']
@@ -32,7 +35,7 @@ class FakeLedger:
 class FakeNode:
     ledger_ids = [0]
 
-    def __init__(self, tmpdir):
+    def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
         self.f = 1
@@ -44,10 +47,11 @@ class FakeNode:
         }
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
+        self.config = config or getConfigOnce()
         self.replicas = [
-            Replica(node=self, instId=0, isMaster=True),
-            Replica(node=self, instId=1, isMaster=False),
-            Replica(node=self, instId=2, isMaster=False),
+            Replica(node=self, instId=0, isMaster=True, config=self.config),
+            Replica(node=self, instId=1, isMaster=False, config=self.config),
+            Replica(node=self, instId=2, isMaster=False, config=self.config),
         ]
         self._found = False
         self.ledgerManager = LedgerManager(self, ownedByNode=True)
@@ -56,7 +60,6 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.config = getConfig() # TODO do we need fake object here?
         self.view_changer = ViewChanger(self)
         self.elector = PrimarySelector(self)
 
@@ -100,7 +103,7 @@ class FakeNode:
     def start_catchup(self):
         pass
 
-def test_has_view_change_quorum_number(tmpdir):
+def test_has_view_change_quorum_number(tconf, tdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have n-f ViewChangeDone
@@ -114,7 +117,7 @@ def test_has_view_change_quorum_number(tmpdir):
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     node.view_changer.view_change_in_progress = True
     node.view_changer.propagate_primary = False
 
@@ -138,7 +141,7 @@ def test_has_view_change_quorum_number(tmpdir):
     assert node.view_changer._hasViewChangeQuorum
 
 
-def test_has_view_change_quorum_must_contain_primary(tmpdir):
+def test_has_view_change_quorum_must_contain_primary(tconf, tdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have n-f ViewChangeDone including a VCD from the next Primary
@@ -152,7 +155,7 @@ def test_has_view_change_quorum_must_contain_primary(tmpdir):
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     node.view_changer.view_change_in_progress = True
     node.view_changer.propagate_primary = False
 
@@ -181,7 +184,7 @@ def test_has_view_change_quorum_must_contain_primary(tmpdir):
     assert node.view_changer.has_view_change_from_primary
 
 
-def test_has_view_change_quorum_number_propagate_primary(tmpdir):
+def test_has_view_change_quorum_number_propagate_primary(tconf, tdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have f+1 ViewChangeDone in the case of PrimaryPropagation
@@ -195,7 +198,7 @@ def test_has_view_change_quorum_number_propagate_primary(tmpdir):
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     node.view_changer.view_change_in_progress = True
     node.view_changer.propagate_primary = True
 
@@ -216,7 +219,7 @@ def test_has_view_change_quorum_number_propagate_primary(tmpdir):
     assert node.view_changer.has_view_change_from_primary
 
 
-def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tmpdir):
+def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tconf, tdir):
     """
     Checks method _hasViewChangeQuorum of SimpleSelector
     It must have f+1 ViewChangeDone and contain a VCD from the next Primary in the case of PrimaryPropagation
@@ -230,7 +233,7 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tm
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
 
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     node.view_changer.view_change_in_progress = True
     node.view_changer.propagate_primary = True
 
@@ -255,7 +258,7 @@ def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tm
     assert node.view_changer._hasViewChangeQuorum
 
 
-def test_process_view_change_done(tmpdir):
+def test_process_view_change_done(tdir, tconf):
     ledgerInfo = (
         # ledger id, ledger length, merkle root
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
@@ -264,7 +267,7 @@ def test_process_view_change_done(tmpdir):
     msg = ViewChangeDone(viewNo=0,
                          name='Node2',
                          ledgerInfo=ledgerInfo)
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     quorum = node.view_changer.quorum
     for i in range(quorum):
         node.view_changer.process_vchd_msg(msg, 'Node2')
@@ -285,7 +288,7 @@ def test_process_view_change_done(tmpdir):
     assert not node.view_changer._view_change_done
 
 
-def test_get_msgs_for_lagged_nodes(tmpdir):
+def test_get_msgs_for_lagged_nodes(tconf, tdir):
     ledgerInfo = (
         #  ledger id, ledger length, merkle root
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
@@ -302,7 +305,7 @@ def test_get_msgs_for_lagged_nodes(tmpdir):
             name='Node3',
             ledgerInfo=ledgerInfo),
          'Node2')]
-    node = FakeNode(str(tmpdir))
+    node = FakeNode(str(tdir), tconf)
     for message in messages:
         node.view_changer.process_vchd_msg(*message)
 
@@ -311,8 +314,8 @@ def test_get_msgs_for_lagged_nodes(tmpdir):
         m[0] for m in messages if m[1] == node.name}
 
 
-def test_send_view_change_done_message(tmpdir):
-    node = FakeNode(str(tmpdir))
+def test_send_view_change_done_message(tdir, tconf):
+    node = FakeNode(str(tdir), tconf)
     view_no = node.view_changer.view_no
     new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_master_primary_id(
         view_no, node.totalNodes))
@@ -333,3 +336,83 @@ def test_send_view_change_done_message(tmpdir):
     print(messages)
 
     assert list(node.view_changer.outBox) == messages
+
+
+nodeCount = 7
+
+
+@pytest.fixture(scope="function")
+def txnPoolNodeSetWithElector(node_config_helper_class,
+                              patchPluginManager,
+                              tdirWithPoolTxns,
+                              tdirWithDomainTxns,
+                              tdir,
+                              tconf,
+                              poolTxnNodeNames,
+                              allPluginsPath,
+                              tdirWithNodeKeepInited,
+                              testNodeClass,
+                              do_post_node_creation):
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
+            nodes.append(node)
+        for node in nodes:
+            node.view_changer = node.newViewChanger()
+            node.elector = node.newPrimaryDecider()
+        yield nodes
+
+
+def test_primaties_selection(txnPoolNodeSetWithElector):
+
+    def check_simple_case(node, view_no):
+        """
+        Check simple case when primaries for different instances
+        go one by one (emulation of view change).
+        """
+        master_primary_rank = None
+        primaries = set()
+        view_no_bak = node.elector.viewNo
+        node.elector.viewNo = view_no
+        for instance_id in range(0, node.replicas.num_replicas):
+            if node.elector._is_master_instance(instance_id):
+                assert instance_id == 0
+                name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
+                master_primary_rank = node.poolManager.get_rank_by_name(name)
+                primary_rank = master_primary_rank
+            else:
+                name, instance_name = node.elector.next_primary_replica_name_for_backup(
+                    instance_id, master_primary_rank, primaries)
+                primary_rank = node.poolManager.get_rank_by_name(name)
+            assert primary_rank == (node.elector.viewNo + instance_id) \
+                                   % len(node.nodeReg)
+            expected_name = txnPoolNodeSetWithElector[primary_rank].name
+            assert name == expected_name and \
+                   instance_name == expected_name + ":" + str(instance_id)
+            primaries.add(name)
+        node.elector.viewNo = view_no_bak
+
+    for node in txnPoolNodeSetWithElector:
+        assert node.replicas.num_replicas == 3
+        check_simple_case(node, 0)
+        check_simple_case(node, nodeCount - 1)
+        check_simple_case(node, nodeCount + 2)
+
+        """
+        Gaps between primary nodes may occur due to nodes demotion and promotion
+        with changed number of instances. These gaps should be filled by new
+        primaries during primary selection for new backup instances created as
+        a result of instances growing.
+        """
+        primary_0 = "Beta"
+        primary_1 = "Delta"
+        primaries = {primary_0, primary_1}
+        master_primary_rank = node.poolManager.get_rank_by_name(primary_0)
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            2, master_primary_rank, primaries)
+        assert name == "Gamma" and \
+            instance_name == "Gamma:2"
