@@ -29,7 +29,7 @@ txnCount = 5
 
 # TODO: This test passes but it is observed that PREPAREs are not received at
 # newly added node. If the stop and start steps are omitted then PREPAREs are
-# received. Conclusion is that due to node restart, RAET is losing messages
+# received. Conclusion is that due to node restart, ZMQ is losing messages
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273

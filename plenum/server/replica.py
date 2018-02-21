@@ -1752,14 +1752,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def __start_catchup_if_needed(self):
         quorums, max_pp_seq_no = self.stashed_checkpoints_with_quorum()
         is_stashed_enough = quorums > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
-        is_non_primary_master = self.isMaster and not self.isPrimary
-        if is_stashed_enough and is_non_primary_master:
+        if not is_stashed_enough:
+            return
+
+        logger.info(
+            '{} has stashed {} checkpoints with quorum '
+            'so updating watermarks to {}'.format(
+                self, quorums, max_pp_seq_no))
+        self.h = max_pp_seq_no
+
+        if self.isMaster and not self.isPrimary:
             logger.info(
                 '{} has stashed {} checkpoints with quorum '
                 'so the catchup procedure starts'.format(
                     self, quorums))
             self.node.start_catchup()
-            self.h = max_pp_seq_no
 
     def addToCheckpoint(self, ppSeqNo, digest):
         for (s, e) in self.checkpoints.keys():

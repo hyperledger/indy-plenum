@@ -541,11 +541,8 @@ class TestNodeSet(ExitStack):
         self.__dict__[name] = node
         return node
 
-    def removeNode(self, name, shouldClean):
+    def removeNode(self, name):
         self.nodes[name].stop()
-        if shouldClean:
-            self.nodes[name].nodestack.keep.clearAllDir()
-            self.nodes[name].clientstack.keep.clearAllDir()
         del self.nodes[name]
         del self.__dict__[name]
         # del self.nodeRegistry[name]
@@ -906,7 +903,7 @@ def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # Remove all the nodes
     for n in list(nodeSet.nodes.keys()):
         looper.removeProdable(nodeSet.nodes[n])
-        nodeSet.removeNode(n, shouldClean=False)
+        nodeSet.removeNode(n)
 
 
 def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):

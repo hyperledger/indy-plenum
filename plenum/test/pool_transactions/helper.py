@@ -271,11 +271,6 @@ def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
     req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
-    # TODO: Not needed in ZStack, remove once raet is removed
-    node.nodestack.clearLocalKeep()
-    node.nodestack.clearRemoteKeeps()
-    node.clientstack.clearLocalKeep()
-    node.clientstack.clearRemoteKeeps()
 
 
 def sdk_send_update_node(looper, sdk_pool, sdk_wallet_steward, node, node_data):
