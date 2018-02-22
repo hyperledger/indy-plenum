@@ -19,6 +19,16 @@ def one_node_added(looper, txnPoolNodeSet, nodeThetaAdded):
     return new_node
 
 
+@pytest.fixture(scope='module')
+def sdk_one_node_added(looper, txnPoolNodeSet, sdk_node_theta_added):
+    # New node knows primary same primary as others and has rank greater
+    # than others
+    _, new_node = sdk_node_theta_added
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    check_newly_added_nodes(looper, txnPoolNodeSet, [new_node])
+    return new_node
+
+
 @pytest.fixture(scope="module")
 def txnPoolMasterNodes(txnPoolNodeSet):
     primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)
@@ -27,14 +37,14 @@ def txnPoolMasterNodes(txnPoolNodeSet):
 
 @pytest.fixture(scope="module")
 def stewardAndWalletForMasterNode(looper, poolTxnData, poolTxnStewardNames,
-        tdirWithClientPoolTxns, txnPoolNodeSet, txnPoolMasterNodes):
+                                  tdirWithClientPoolTxns, txnPoolNodeSet, txnPoolMasterNodes):
     primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)
     master_node = txnPoolMasterNodes[0]
     stewardName = poolTxnStewardNames[primariesIdxs[0]]
     stewardsSeed = poolTxnData["seeds"][stewardName].encode()
 
     stewardClient, stewardWallet = buildPoolClientAndWallet(
-            (stewardName, stewardsSeed), tdirWithClientPoolTxns)
+        (stewardName, stewardsSeed), tdirWithClientPoolTxns)
     looper.add(stewardClient)
     looper.run(stewardClient.ensureConnectedToNodes())
 
