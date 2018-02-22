@@ -334,7 +334,7 @@ def sdk_add_new_node(looper,
 
     # filling node request
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(new_node_name, steward_did,
+        prepare_node_request(steward_did, new_node_name,
                              clientIp, clientPort,
                              nodeIp, nodePort,
                              bls_key, sigseed))
@@ -368,19 +368,23 @@ async def prepare_nym_request(wallet, named_seed, alias, role):
     return nym_request, named_did
 
 
-async def prepare_node_request(new_node_name, steward_did, clientIp,
-                               clientPort, nodeIp, nodePort, bls_key, sigseed):
-    data = {
-        'alias': new_node_name,
-        'client_ip': clientIp,
-        'client_port': clientPort,
-        'node_ip': nodeIp,
-        'node_port': nodePort,
-        'services': ["VALIDATOR"],
-        'blskey': bls_key
-    }
+async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
+                               clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
+                               sigseed=None, destination=None):
+    if (sigseed is None and destination is None):
+        raise ImportError
+    data = {}
+    if new_node_name is None: data['alias'] = new_node_name
+    if clientIp is None: data['client_ip'] = clientIp
+    if clientPort is None:    data['client_port'] = clientPort
+    if nodeIp is None:  data['node_ip'] = nodeIp
+    if nodePort is None:  data['node_port'] = nodePort
+    if bls_key is None:  data['blskey'] = bls_key
+    data['services'] = ["VALIDATOR"]
+
     nodeSigner = SimpleSigner(seed=sigseed)
     destination = nodeSigner.identifier
+
     node_request = await build_node_request(steward_did, destination, json.dumps(data))
     return node_request
 
@@ -406,6 +410,29 @@ def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
     return req
 
 
+def sdk_send_update_node(looper, sdk_submitter_wallet, sdk_pool_handle,
+                         new_node_name, steward_did, clientIp,
+                         clientPort, nodeIp, nodePort, bls_key, sigseed,
+                         node_count=None):
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(steward_did,
+                             new_node_name,
+                             clientIp,
+                             clientPort,
+                             nodeIp,
+                             nodePort,
+                             bls_key,
+                             sigseed))
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
+                                                        sdk_pool_handle, node_request)
+
+    node_count = node_count or 7
+    total_timeout = sdk_eval_timeout(1, node_count)
+    sdk_get_and_check_replies(looper, [request_couple], total_timeout)
+    pass
+
+
 def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
     req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
     waitForSufficientRepliesForRequests(looper, stewardClient,
@@ -421,12 +448,6 @@ def sdk_send_update_node(looper, sdk_pool, sdk_wallet_steward, node, node_data):
     }
     req_obj = sdk_gen_request(op, identifier=sdk_wallet_steward[1])
     return sdk_sign_and_submit_req_obj(looper, sdk_pool, sdk_wallet_steward, req_obj)
-
-
-def sdk_update_node_data(looper, sdk_pool, sdk_wallet_steward, node, node_data):
-    node_req = sdk_send_update_node(sdk_wallet_steward, node, node_data)
-    _, j_resp = sdk_get_reply(looper, node_req)
-    assert j_resp['result']
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
