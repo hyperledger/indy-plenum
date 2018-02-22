@@ -341,7 +341,7 @@ def test_send_view_change_done_message(tdir, tconf):
 nodeCount = 7
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def txnPoolNodeSetWithElector(node_config_helper_class,
                               patchPluginManager,
                               tdirWithPoolTxns,
@@ -361,49 +361,117 @@ def txnPoolNodeSetWithElector(node_config_helper_class,
                 allPluginsPath))
             do_post_node_creation(node)
             nodes.append(node)
+        assert len(nodes) == 7
         for node in nodes:
             node.view_changer = node.newViewChanger()
             node.elector = node.newPrimaryDecider()
         yield nodes
 
 
-def test_primaties_selection(txnPoolNodeSetWithElector):
-
-    def check_simple_case(node, view_no):
-        """
-        Check simple case when primaries for different instances
-        go one by one (emulation of view change).
-        """
-        master_primary_rank = None
-        primaries = set()
-        view_no_bak = node.elector.viewNo
-        node.elector.viewNo = view_no
-        for instance_id in range(0, node.replicas.num_replicas):
-            if node.elector._is_master_instance(instance_id):
-                assert instance_id == 0
-                name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
-                master_primary_rank = node.poolManager.get_rank_by_name(name)
-                primary_rank = master_primary_rank
-            else:
-                name, instance_name = node.elector.next_primary_replica_name_for_backup(
-                    instance_id, master_primary_rank, primaries)
-                primary_rank = node.poolManager.get_rank_by_name(name)
-            assert primary_rank == (node.elector.viewNo + instance_id) \
-                                   % len(node.nodeReg)
-            expected_name = txnPoolNodeSetWithElector[primary_rank].name
-            assert name == expected_name and \
-                   instance_name == expected_name + ":" + str(instance_id)
-            primaries.add(name)
-        node.elector.viewNo = view_no_bak
+def test_primaries_selection_viewno_0(txnPoolNodeSetWithElector):
+    view_no = 0
 
     for node in txnPoolNodeSetWithElector:
         assert node.replicas.num_replicas == 3
-        check_simple_case(node, 0)
-        check_simple_case(node, nodeCount - 1)
-        check_simple_case(node, nodeCount + 2)
+        primaries = set()
+        view_no_bak = node.elector.viewNo
+        node.elector.viewNo = view_no
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
+        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        assert master_primary_rank == 0
+        assert name == "Alpha" and instance_name == "Alpha:0"
+        primaries.add(name)
 
+        instance_id = 1
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 1
+        assert name == "Beta" and instance_name == "Beta:1"
+        primaries.add(name)
+
+        instance_id = 2
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 2
+        assert name == "Gamma" and instance_name == "Gamma:2"
+        primaries.add(name)
+
+        node.elector.viewNo = view_no_bak
+
+
+def test_primaries_selection_viewno_5(txnPoolNodeSetWithElector):
+    view_no = 5
+
+    for node in txnPoolNodeSetWithElector:
+        assert node.replicas.num_replicas == 3
+        primaries = set()
+        view_no_bak = node.elector.viewNo
+        node.elector.viewNo = view_no
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
+        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        assert master_primary_rank == 5
+        assert name == "Zeta" and instance_name == "Zeta:0"
+        primaries.add(name)
+
+        instance_id = 1
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 6
+        assert name == "Eta" and instance_name == "Eta:1"
+        primaries.add(name)
+
+        instance_id = 2
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 0
+        assert name == "Alpha" and instance_name == "Alpha:2"
+        primaries.add(name)
+
+        node.elector.viewNo = view_no_bak
+
+
+def test_primaries_selection_viewno_9(txnPoolNodeSetWithElector):
+    view_no = 9
+
+    for node in txnPoolNodeSetWithElector:
+        assert node.replicas.num_replicas == 3
+        primaries = set()
+        view_no_bak = node.elector.viewNo
+        node.elector.viewNo = view_no
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
+        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        assert master_primary_rank == 2
+        assert name == "Gamma" and instance_name == "Gamma:0"
+        primaries.add(name)
+
+        instance_id = 1
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 3
+        assert name == "Delta" and instance_name == "Delta:1"
+        primaries.add(name)
+
+        instance_id = 2
+        name, instance_name = node.elector.next_primary_replica_name_for_backup(
+            instance_id, master_primary_rank, primaries)
+        primary_rank = node.poolManager.get_rank_by_name(name)
+        assert primary_rank == 4
+        assert name == "Epsilon" and instance_name == "Epsilon:2"
+        primaries.add(name)
+
+        node.elector.viewNo = view_no_bak
+
+
+def test_primaries_selection_gaps(txnPoolNodeSetWithElector):
+    for node in txnPoolNodeSetWithElector:
+        assert node.replicas.num_replicas == 3
         """
-        Gaps between primary nodes may occur due to nodes demotion and promotion
+        The gaps between primary nodes may occur due to nodes demotion and promotion
         with changed number of instances. These gaps should be filled by new
         primaries during primary selection for new backup instances created as
         a result of instances growing.
