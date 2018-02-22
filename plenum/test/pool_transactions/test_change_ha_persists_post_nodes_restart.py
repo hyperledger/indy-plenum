@@ -1,15 +1,14 @@
-from plenum.common.constants import ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
+from plenum.test.helper import sdk_send_random_and_check
+
+from plenum.common.util import hexToFriendly
 from stp_core.common.log import getlogger
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import updateNodeData, \
-    buildPoolClientAndWallet
+from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
-
 
 whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
              "missing", "conflicts", "matches", "nodeReg",
@@ -17,24 +16,20 @@ whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
 
 
 def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithPoolTxns,
-                                         tdirWithClientPoolTxns, tconf, steward1,
-                                         stewardWallet, nodeThetaAdded,
-                                         poolTxnClientData):
-    newSteward, newStewardWallet, newNode = nodeThetaAdded
-    nodeNewHa, clientNewHa = genHa(2)
-    logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
-                                                   clientNewHa))
+                                         tdirWithClientPoolTxns, tconf,
+                                         sdk_node_theta_added, sdk_pool_handle,
+                                         sdk_wallet_client):
+    new_steward_wallet, new_node = sdk_node_theta_added
+    node_new_ha, client_new_ha = genHa(2)
+    logger.debug("{} changing HAs to {} {}".format(new_node, node_new_ha,
+                                                   client_new_ha))
 
     # Making the change HA txn an confirming its succeeded
-    op = {
-        ALIAS: newNode.name,
-        NODE_IP: nodeNewHa.host,
-        NODE_PORT: nodeNewHa.port,
-        CLIENT_IP: clientNewHa.host,
-        CLIENT_PORT: clientNewHa.port,
-    }
-    updateNodeData(looper, newSteward, newStewardWallet, newNode,
-                   op)
+    node_dest = hexToFriendly(new_node.nodestack.verhex)
+    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
+                             node_dest, new_node.name,
+                             node_new_ha.host, node_new_ha.port,
+                             client_new_ha.host, client_new_ha.port)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:
@@ -54,11 +49,11 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithP
         restartedNodes.append(restartedNode)
 
     # Starting the node whose HA was changed
-    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
-    node = TestNode(newNode.name,
+    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
+    node = TestNode(new_node.name,
                     config_helper=config_helper,
                     config=tconf,
-                    ha=nodeNewHa, cliha=clientNewHa)
+                    ha=node_new_ha, cliha=client_new_ha)
     looper.add(node)
     restartedNodes.append(node)
 
@@ -67,8 +62,5 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet, tdir, tdirWithP
 
     # Building a new client that reads from the genesis txn file
     # but is able to connect to all nodes
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithClientPoolTxns)
-    looper.add(client)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
-                                                  *restartedNodes)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 1)
