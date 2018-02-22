@@ -525,7 +525,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
-        self.master_replica.on_view_change_start()
+        for replica in self.replicas:
+            replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
                      format(self))
         self.monitor.reset()
