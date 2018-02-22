@@ -1,5 +1,5 @@
 from plenum.test.helper import sdk_send_random_requests, sdk_eval_timeout, \
-    sdk_get_replies, sdk_check_reply
+    sdk_get_and_check_replies
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 
@@ -25,14 +25,8 @@ def test_msg_max_length_check_node_to_node(looper,
     reqs2 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client2, N)
 
     total_timeout = sdk_eval_timeout(N, len(txnPoolNodeSet))
-
-    sdk_replies = sdk_get_replies(looper, reqs1, timeout=total_timeout)
-    for req_res in sdk_replies:
-        sdk_check_reply(req_res)
-
-    sdk_replies = sdk_get_replies(looper, reqs2, timeout=total_timeout)
-    for req_res in sdk_replies:
-        sdk_check_reply(req_res)
+    sdk_get_and_check_replies(looper, reqs1, timeout=total_timeout)
+    sdk_get_and_check_replies(looper, reqs2, timeout=total_timeout)
 
 
 def patch_msg_len_validators(max_len_limit, txnPoolNodeSet):

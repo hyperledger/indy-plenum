@@ -15,15 +15,7 @@ from typing import Dict, Any
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
-
-# TODO: This made to run tests with stable libindy. Delete unused import when
-# master release
-try:
-    from indy.signus import create_and_store_my_did
-except ImportError:
-    from indy.did import create_and_store_my_did
-
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
+from indy.did import create_and_store_my_did
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
@@ -40,7 +32,7 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
+from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -57,7 +49,7 @@ from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY, TRUSTEE
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances, getMaxFailures, randomString
+from plenum.common.util import getNoInstances
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
@@ -74,7 +66,6 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
-# config = getConfig()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
 
@@ -1062,6 +1053,13 @@ def sdk_client_seed(poolTxnClientData):
 
 
 @pytest.fixture(scope='module')
+def sdk_client_seed2(poolTxnClientNames, poolTxnData):
+    name = poolTxnClientNames[1]
+    seed = poolTxnData["seeds"][name]
+    return seed
+
+
+@pytest.fixture(scope='module')
 def sdk_new_client_seed():
     return "Client10000000000000000000000000"
 
@@ -1090,33 +1088,27 @@ def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     return sdk_wallet_handle, client_did
 
 
-async def _gen_named_wallet(pool_handle, wallet, named_seed, alias=None,
-                            role=None):
-    wh, submitter_did = wallet
-    (named_did, named_verkey) = await create_and_store_my_did(wh,
-                                                              json.dumps({
-                                                                  'seed': named_seed,
-                                                                  'cid': True})
-                                                              )
-    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
-                                          alias, role)
-    await sign_and_submit_request(pool_handle, wh, submitter_did, nym_request)
-    return wh, named_did
+@pytest.fixture(scope='module')
+def sdk_wallet_client2(looper, sdk_wallet_handle, sdk_client_seed2):
+    (client_did, _) = looper.loop.run_until_complete(
+        create_and_store_my_did(sdk_wallet_handle,
+                                json.dumps({'seed': sdk_client_seed2})))
+    return sdk_wallet_handle, client_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
                           sdk_new_client_seed):
-    wh, client_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward,
-                          sdk_new_client_seed))
+    wh, client_did = sdk_add_new_nym(looper, sdk_pool_handle,
+                                     sdk_wallet_steward,
+                                     seed=sdk_new_client_seed)
     return wh, client_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_new_steward(looper, sdk_pool_handle, sdk_wallet_steward):
-    seed = randomString(32)
-    wh, client_did = looper.loop.run_until_complete(
-        _gen_named_wallet(sdk_pool_handle, sdk_wallet_steward,
-                          seed, alias='newSteward1233', role='STEWARD'))
+    wh, client_did = sdk_add_new_nym(looper, sdk_pool_handle,
+                                     sdk_wallet_steward,
+                                     alias='new_steward_qwerty',
+                                     role='STEWARD')
     return wh, client_did

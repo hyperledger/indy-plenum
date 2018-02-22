@@ -1072,8 +1072,11 @@ def sdk_check_reply(req_res):
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    rets = []
     for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
         sdk_check_reply(req_res)
+        rets.append(req_res)
+    return rets
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,

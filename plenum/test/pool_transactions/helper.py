@@ -1,8 +1,10 @@
 import json
 
 from indy.did import create_and_store_my_did
-from indy.ledger import build_node_request, sign_and_submit_request, build_nym_request
-from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from indy.ledger import build_node_request, build_nym_request
+from indy.pool import refresh_pool_ledger
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    ensureClientConnectedToNodesAndPoolLedgerSame
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
@@ -15,11 +17,12 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj, \
-    sdk_get_reply, sdk_eval_timeout, sdk_get_replies, sdk_sign_request_objects, sdk_send_signed_requests, \
+from plenum.test.helper import waitForSufficientRepliesForRequests, \
+    sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply, \
+    sdk_eval_timeout, sdk_sign_request_objects, sdk_send_signed_requests, \
     sdk_json_to_request_object, sdk_get_and_check_replies
 from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, check_node_disconnected_from, \
+from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -271,10 +274,11 @@ def sdk_add_new_steward_and_node(looper,
                                  nodeClass=TestNode,
                                  transformNodeOpFunc=None,
                                  do_post_node_creation: Callable = None):
-    new_steward_wallet, steward_did = sdk_add_new_steward(looper,
-                                                          sdk_pool_handle,
-                                                          sdk_wallet_steward,
-                                                          new_steward_name)
+    new_steward_wallet, steward_did = sdk_add_new_nym(looper,
+                                                      sdk_pool_handle,
+                                                      sdk_wallet_steward,
+                                                      alias=new_steward_name,
+                                                      role='STEWARD')
 
     newNode = sdk_add_new_node(
         looper,
@@ -292,25 +296,27 @@ def sdk_add_new_steward_and_node(looper,
     return new_steward_wallet, newNode
 
 
-def sdk_add_new_steward(looper, sdk_pool_handle, creators_wallet, new_steward_name):
-    seed = randomString(32)
+def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
+                    alias=None, role=None, node_count=None,
+                    seed=None):
+    seed = seed or randomString(32)
     wh, _ = creators_wallet
 
     # filling nym request and getting steward did
-    nym_request, steward_did = looper.loop.run_until_complete(
+    # if role == None, we are adding client
+    nym_request, new_did = looper.loop.run_until_complete(
         prepare_nym_request(creators_wallet, seed,
-                            new_steward_name, 'STEWARD'))
+                            alias, role))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
                                                         sdk_pool_handle, nym_request)
 
     # waitng for replies
-    # TODO: make node_count dynamic
-    node_count = 7
+    node_count = node_count or 7
     total_timeout = sdk_eval_timeout(1, node_count)
     sdk_get_and_check_replies(looper, [request_couple], total_timeout)
-    return wh, steward_did
+    return wh, new_did
 
 
 def sdk_add_new_node(looper,
@@ -320,7 +326,8 @@ def sdk_add_new_node(looper,
                      steward_did,
                      tdir, tconf,
                      allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-                     transformOpFunc=None, do_post_node_creation: Callable = None):
+                     transformOpFunc=None, do_post_node_creation: Callable = None,
+                     node_count=None):
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
@@ -338,8 +345,7 @@ def sdk_add_new_node(looper,
                                                         sdk_pool_handle, node_request)
 
     # waitng for replies
-    # TODO: make node_count dynamic
-    node_count = 7
+    node_count = node_count or 7
     total_timeout = sdk_eval_timeout(1, node_count)
     sdk_get_and_check_replies(looper, [request_couple], total_timeout)
 
@@ -421,6 +427,11 @@ def sdk_update_node_data(looper, sdk_pool, sdk_wallet_steward, node, node_data):
     node_req = sdk_send_update_node(sdk_wallet_steward, node, node_data)
     _, j_resp = sdk_get_reply(looper, node_req)
     assert j_resp['result']
+
+
+def sdk_pool_refresh(looper, sdk_pool_handle):
+    looper.loop.run_until_complete(
+        refresh_pool_ledger(sdk_pool_handle))
 
 
 def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
