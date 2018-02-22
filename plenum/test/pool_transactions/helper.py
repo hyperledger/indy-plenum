@@ -279,7 +279,6 @@ def sdk_add_new_steward_and_node(looper,
                                       sdk_wallet_steward,
                                       alias=new_steward_name,
                                       role='STEWARD')
-
     newNode = sdk_add_new_node(
         looper,
         sdk_pool_handle,
@@ -313,9 +312,7 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
                                                         sdk_pool_handle, nym_request)
 
     # waitng for replies
-    node_count = node_count or 7
-    total_timeout = sdk_eval_timeout(1, node_count)
-    sdk_get_and_check_replies(looper, [request_couple], total_timeout)
+    sdk_get_and_check_replies(looper, [request_couple])
     return wh, new_did
 
 
@@ -349,9 +346,7 @@ def sdk_add_new_node(looper,
                                                         sdk_pool_handle, node_request)
 
     # waitng for replies
-    node_count = node_count or 7
-    total_timeout = sdk_eval_timeout(1, node_count)
-    sdk_get_and_check_replies(looper, [request_couple], total_timeout)
+    sdk_get_and_check_replies(looper, [request_couple])
 
     return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
                                      (nodeIp, nodePort), (clientIp, clientPort),
@@ -444,6 +439,11 @@ def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
     req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
+
+
+def sdk_pool_refresh(looper, sdk_pool_handle):
+    looper.loop.run_until_complete(
+        refresh_pool_ledger(sdk_pool_handle))
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
