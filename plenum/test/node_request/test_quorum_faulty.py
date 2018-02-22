@@ -11,7 +11,6 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
     changesRequest
 
-
 nodeCount = 6
 # f + 1 faults, i.e, num of faults greater than system can tolerate
 faultyNodes = 2
@@ -43,8 +42,6 @@ def test_6_nodes_pool_cannot_reach_quorum_with_2_faulty(afterElection, looper,
                                                         sdk_wallet_client, sdk_pool_handle):
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
     with pytest.raises(AssertionError):
-        # TODO: check that sdk_send_and_check throws error is test behaviour
-        # (it may throw error because of incorrect usage)
         sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
     check_request_is_not_returned_to_nodes(
         txnPoolNodeSet, sdk_json_to_request_object(json.loads(reqs[0])))

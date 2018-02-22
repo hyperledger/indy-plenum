@@ -1,4 +1,3 @@
-import logging
 import pytest
 
 from functools import partial
@@ -57,7 +56,6 @@ def propagated1(looper,
 
 @pytest.fixture(scope="module")
 def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
-
     numerOfNodes = len(txnPoolNodeSet)
 
     request = sdk_json_to_request_object(sent1[0][0])
@@ -68,13 +66,6 @@ def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
              for node in txnPoolNodeSet]
     chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
                   timeout=propTimeout)
-
-    # TODO: check that sdk response fail when we don't have quorum for answer
-    # TODO: check sdk timeout for failed submit (if it more than 90 seconds in evilNodes fixture)
-    # total_timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
-    # sdk_replies = sdk_get_replies(looper, sent1, timeout=total_timeout)
-    # for req_res in sdk_replies:
-    #     sdk_check_reply(req_res)
     return request
 
 
@@ -99,6 +90,7 @@ def noRetryReq(tconf, request):
 
     request.addfinalizer(reset)
     return tconf
+
 
 @pytest.fixture(scope="module")
 def faultyNodes(request):
