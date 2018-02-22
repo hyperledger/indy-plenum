@@ -482,11 +482,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 ((viewNo, ppSeqNo) not in self.stashingWhileCatchingUp))
 
     def on_view_change_start(self):
-        assert self.isMaster
-        lst = self.last_prepared_certificate_in_view()
-        self.last_prepared_before_view_change = lst
-        logger.debug(
-            '{} setting last prepared for master to {}'.format(self, lst))
+        if self.isMaster:
+            lst = self.last_prepared_certificate_in_view()
+            self.last_prepared_before_view_change = lst
+            logger.debug(
+                '{} setting last prepared for master to {}'.format(self, lst))
+        # It can be that last_ordered_3pc was set for the previous view, since it's set during catch-up
+        # Example: a Node has last_ordered = (1, 300), and then the whole pool except this node restarted
+        # The new viewNo is 0, but last_ordered is (1, 300), so all new requests will be discarded by this Node
+        # if we don't reset last_ordered_3pc
+        if self.viewNo <= self.last_ordered_3pc[0]:
+            self.last_ordered_3pc = (self.viewNo, 0)
 
     def on_view_change_done(self):
         assert self.isMaster
