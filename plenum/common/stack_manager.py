@@ -278,7 +278,8 @@ class TxnStackManager(metaclass=ABCMeta):
         # Returns services for each node
         srvs = dict()
         for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE:
+            if txn[TXN_TYPE] == NODE and \
+                    txn.get(DATA, {}).get(SERVICES) is not None:
                 srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
         return srvs
 

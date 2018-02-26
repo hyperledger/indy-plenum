@@ -302,10 +302,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
-        # verification. These are still subject to RAET's signature verification
-        # but client signatures will not be checked on these. Expressly
-        # prohibited from being in this is ClientRequest and Propagation,
-        # which both require client signature verification
+        # verification. Expressly prohibited from being in this is
+        # ClientRequest and Propagation, which both require client
+        # signature verification
         self.authnWhitelist = (
             Nomination,
             Primary,
@@ -525,7 +524,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
-        self.master_replica.on_view_change_start()
+        for replica in self.replicas:
+            replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
                      format(self))
         self.monitor.reset()
@@ -2455,7 +2455,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: None; raises an exception if the signature is not valid
         """
         if isinstance(msg, self.authnWhitelist):
-            return  # whitelisted message types rely on RAET for authn
+            return
         if isinstance(msg, Propagate):
             typ = 'propagate'
             req = msg.request
