@@ -177,7 +177,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value)
-        nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
         if not cliha:
@@ -186,7 +185,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value)
-        cliNodeReg[cliname] = HA(*cliha)
 
         if keys_dir:
             nstack['basedirpath'] = keys_dir
@@ -253,10 +251,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]
         if nodeName == self.name:
-            logger.debug("{} not adding itself to node registry".
+            logger.debug("{} adding itself to node registry".
                          format(self.name))
-            return
-        self.connectNewRemote(txn, nodeName, self.node)
+            nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
+            cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+            self.node.nodeReg[nodeName] = HA(*nodeHa)
+            self.node.cliNodeReg[nodeName +
+                                 CLIENT_STACK_SUFFIX] = HA(*cliHa)
+        else:
+            self.connectNewRemote(txn, nodeName, self.node, nodeName != self.name)
         self.node.nodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
