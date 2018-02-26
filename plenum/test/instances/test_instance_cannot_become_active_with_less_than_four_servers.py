@@ -71,7 +71,7 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
             logger.debug("Remove all the nodes")
             for n in nodeNames:
                 looper.removeProdable(nodeSet.nodes[n])
-                nodeSet.removeNode(n, shouldClean=False)
+                nodeSet.removeNode(n)
 
             looper.runFor(10)
 

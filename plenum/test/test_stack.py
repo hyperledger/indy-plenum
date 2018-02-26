@@ -2,7 +2,6 @@ from functools import partial
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from stp_raet.rstack import RStack
 from stp_zmq.zstack import ZStack
 from stp_core.types import HA
 
@@ -12,15 +11,11 @@ from stp_core.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
 from plenum.test import waits
-from plenum.config import UseZStack
 
 logger = getlogger()
 
 
-if UseZStack:
-    BaseStackClass = ZStack
-else:
-    BaseStackClass = RStack
+BaseStackClass = ZStack
 
 
 class TestStack(BaseStackClass):
@@ -102,27 +97,16 @@ def getTestableStack(stack: NetworkInterface):
 
 
 # TODO: move to stp
-if UseZStack:
-    RemoteState = NamedTuple("RemoteState", [
-        ('isConnected', Optional[bool])
-    ])
+RemoteState = NamedTuple("RemoteState", [
+    ('isConnected', Optional[bool])
+])
 
-    CONNECTED = RemoteState(isConnected=True)
-    NOT_CONNECTED = RemoteState(isConnected=False)
-    # TODO this is to allow imports to pass until we create abstractions for
-    # RAET and ZMQ
-    JOINED_NOT_ALLOWED = RemoteState(isConnected=False)
-    JOINED = RemoteState(isConnected=False)
-else:
-    RemoteState = NamedTuple("RemoteState", [
-        ('joined', Optional[bool]),
-        ('allowed', Optional[bool]),
-        ('alived', Optional[bool])])
-
-    CONNECTED = RemoteState(joined=True, allowed=True, alived=True)
-    NOT_CONNECTED = RemoteState(joined=None, allowed=None, alived=None)
-    JOINED_NOT_ALLOWED = RemoteState(joined=True, allowed=None, alived=None)
-    JOINED = RemoteState(joined=True, allowed='N/A', alived='N/A')
+CONNECTED = RemoteState(isConnected=True)
+NOT_CONNECTED = RemoteState(isConnected=False)
+# TODO this is to allow imports to pass until we create abstractions for
+# ZMQ
+JOINED_NOT_ALLOWED = RemoteState(isConnected=False)
+JOINED = RemoteState(isConnected=False)
 
 
 def checkState(state: RemoteState, obj: Any, details: str=None):
@@ -134,7 +118,7 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
         assert actualState == state, '{} has unexpected state'.format(details)
 
 
-def checkRemoteExists(frm: BaseStackClass,
+def checkRemoteExists(frm: ZStack,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)

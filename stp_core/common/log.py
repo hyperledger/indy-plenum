@@ -38,14 +38,6 @@ class Logger(metaclass=Singleton):
         self._format = logging.Formatter(fmt=self._config.logFormat,
                                          style=self._config.logFormatStyle)
 
-        self._default_raet_verbosity = \
-            getRAETLogLevelFromConfig("RAETLogLevel",
-                                      Console.Wordage.terse,
-                                      self._config)
-
-        self._default_raet_log_file = \
-            getRAETLogFilePath("RAETLogFilePath", self._config)
-
         if self._config.enableStdOutLogging:
             self.enableStdLogging()
 
@@ -66,19 +58,6 @@ class Logger(metaclass=Singleton):
     @staticmethod
     def setLogLevel(log_level):
         logging.root.setLevel(log_level)
-
-    def setupRaet(self, raet_log_level=None, raet_log_file=None):
-        console = getConsole()
-
-        verbosity = raet_log_level \
-            if raet_log_level is not None \
-            else self._default_raet_verbosity
-        file = raet_log_file or self._default_raet_log_file
-
-        logging.debug("Setting RAET log level {}".format(verbosity),
-                      extra={"cli": False})
-
-        console.reinit(verbosity=verbosity, path=file, flushy=True)
 
     def enableStdLogging(self):
         # only enable if CLI is not
@@ -141,22 +120,3 @@ class Logger(metaclass=Singleton):
                 self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
 
         logging.Logger.display = display
-
-
-def getRAETLogLevelFromConfig(paramName, defaultValue, config):
-    try:
-        defaultVerbosity = config.__getattribute__(paramName)
-        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    except AttributeError:
-        defaultVerbosity = defaultValue
-        logging.debug("Ignoring RAET log level {} from config and using {} "
-                      "instead".format(paramName, defaultValue))
-    return defaultVerbosity
-
-
-def getRAETLogFilePath(paramName, config):
-    try:
-        filePath = config.__getattribute__(paramName)
-    except AttributeError:
-        filePath = None
-    return filePath
