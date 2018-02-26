@@ -1,42 +1,39 @@
 import heapq
+import math
 import operator
-from collections import Callable
+import time
+from collections import Callable, Counter
 from functools import partial
 from random import shuffle
 from typing import Any, List, Dict, Tuple
-import math
 from typing import Optional
 
-import time
-from plenum.common.ledger import Ledger
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
-
-from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
-    ConsistencyProof, f, CatchupReq
+from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF, CATCH_UP_PREFIX
-from plenum.common.util import compare_3PC_keys, SortedDict
-from plenum.common.config_util import getConfig
+from plenum.common.ledger import Ledger
+from plenum.common.ledger_info import LedgerInfo
+from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
+    ConsistencyProof, f, CatchupReq
+from plenum.common.txn_util import reqToTxn
+from plenum.common.util import compare_3PC_keys, SortedDict, mostCommonElement, min_3PC_key
+from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
-from plenum.server.has_action_queue import HasActionQueue
-from plenum.common.ledger_info import LedgerInfo
-from plenum.common.txn_util import reqToTxn
-
 
 logger = getlogger()
 
 
 class LedgerManager(HasActionQueue):
-
     def __init__(self,
                  owner,
-                 ownedByNode: bool=True,
-                 postAllLedgersCaughtUp: Optional[Callable]=None,
-                 preCatchupClbk: Optional[Callable]=None,
-                 ledger_sync_order: Optional[List]=None):
+                 ownedByNode: bool = True,
+                 postAllLedgersCaughtUp: Optional[Callable] = None,
+                 preCatchupClbk: Optional[Callable] = None,
+                 ledger_sync_order: Optional[List] = None):
         # If ledger_sync_order is not provided (is None), it is assumed that
         # `postCatchupCompleteClbk` of the LedgerInfo will be used
         self.owner = owner
@@ -52,7 +49,7 @@ class LedgerManager(HasActionQueue):
 
         # Holds ledgers of different types with
         # their info like callbacks, state, etc
-        self.ledgerRegistry = {}   # type: Dict[int, LedgerInfo]
+        self.ledgerRegistry = {}  # type: Dict[int, LedgerInfo]
 
         # Largest 3 phase key received during catchup.
         # This field is needed to discard any stashed 3PC messages or
@@ -67,11 +64,11 @@ class LedgerManager(HasActionQueue):
         return self._serviceActions()
 
     def addLedger(self, iD: int, ledger: Ledger,
-                  preCatchupStartClbk: Callable=None,
-                  postCatchupStartClbk: Callable=None,
-                  preCatchupCompleteClbk: Callable=None,
-                  postCatchupCompleteClbk: Callable=None,
-                  postTxnAddedToLedgerClbk: Callable=None):
+                  preCatchupStartClbk: Callable = None,
+                  postCatchupStartClbk: Callable = None,
+                  preCatchupCompleteClbk: Callable = None,
+                  postCatchupCompleteClbk: Callable = None,
+                  postTxnAddedToLedgerClbk: Callable = None):
 
         if iD in self.ledgerRegistry:
             logger.error("{} already present in ledgers "
@@ -257,7 +254,7 @@ class LedgerManager(HasActionQueue):
         ledgerStatus = LedgerStatus(*status)
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence number "
-                         "from {}".format(frm),
+                                        "from {}".format(frm),
                          logMethod=logger.warning)
             return
         ledgerId = getattr(status, f.LEDGER_ID.nm)
@@ -309,10 +306,8 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
 
-        if self.isLedgerSame(ledgerStatus) \
-                and ledgerStatus.viewNo is not None \
-                and ledgerStatus.ppSeqNo is not None:
-            ledgerInfo.last_txn_3PC_key = \
+        if self.isLedgerSame(ledgerStatus):
+            ledgerInfo.last_txn_3PC_key[frm] = \
                 (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
 
         if self.has_ledger_status_quorum(
@@ -329,10 +324,29 @@ class LedgerManager(HasActionQueue):
                 self.do_pre_catchup(ledgerId)
                 # Any state cleanup that is part of pre-catchup should be
                 # done
-                self.catchupCompleted(ledgerId, ledgerInfo.last_txn_3PC_key)
+                last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
+                self.catchupCompleted(ledgerId, last_3PC_key)
             else:
                 # Ledger was already synced
                 self.mark_ledger_synced(ledgerId)
+
+    def _get_last_txn_3PC_key(self, ledgerInfo):
+        quorum = Quorums(self.owner.totalNodes)
+        quorumed_3PC_keys = \
+            [
+                most_common_element
+                for most_common_element, freq in
+                Counter(ledgerInfo.last_txn_3PC_key.values()).most_common()
+                if quorum.ledger_status_last_3PC.is_reached(freq) and
+                most_common_element[0] is not None and
+                most_common_element[1] is not None
+            ]
+
+        if len(quorumed_3PC_keys) == 0:
+            return None
+
+        min_quorumed_3PC_key = min_3PC_key(quorumed_3PC_keys)
+        return min_quorumed_3PC_key
 
     @staticmethod
     def has_ledger_status_quorum(leger_status_num, total_nodes):
@@ -577,7 +591,7 @@ class LedgerManager(HasActionQueue):
         # Certain transactions might need to be
         # transformed to certain format before applying to the ledger
         txn = reqToTxn(txn)
-        z = txn if not self.ownedByNode else  \
+        z = txn if not self.ownedByNode else \
             self.owner.transform_txn_for_ledger(txn)
         return z
 
@@ -636,7 +650,7 @@ class LedgerManager(HasActionQueue):
         for k, catchupReps in ledgerInfo.recvdCatchupRepliesFrm.items():
             for rep in catchupReps:
                 txns = getattr(rep, f.TXNS.nm)
-                # Transfers of odcits in RAET converts integer keys to string
+
                 if str(seqNo) in txns:
                     return k, rep
 
@@ -726,7 +740,7 @@ class LedgerManager(HasActionQueue):
 
         logger.debug(
             "{} cannot start catchup since received only {} "
-            "consistency proofs but need at least {}". format(
+            "consistency proofs but need at least {}".format(
                 self,
                 len(recvdConsProof),
                 adjustedQuorum.consistency_proof.value))
@@ -852,7 +866,7 @@ class LedgerManager(HasActionQueue):
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * self.config.CatchupTransactionsTimeout
 
-    def catchupCompleted(self, ledgerId: int, last_3PC: Optional[Tuple]=None):
+    def catchupCompleted(self, ledgerId: int, last_3PC: Optional[Tuple] = None):
         if ledgerId not in self.ledgerRegistry:
             logger.error("{}{} called catchup completed for ledger {}".
                          format(CATCH_UP_PREFIX, self, ledgerId))
@@ -975,7 +989,7 @@ class LedgerManager(HasActionQueue):
                                 key=operator.itemgetter(0)))
 
     def getConsistencyProof(self, status: LedgerStatus):
-        ledger = self.getLedgerForMsg(status)    # type: Ledger
+        ledger = self.getLedgerForMsg(status)  # type: Ledger
         ledgerId = getattr(status, f.LEDGER_ID.nm)
         seqNoStart = getattr(status, f.TXN_SEQ_NO.nm)
         seqNoEnd = ledger.size

@@ -923,28 +923,6 @@ class ZStack(NetworkInterface):
     def clearAllDir(self):
         shutil.rmtree(self.homeDir)
 
-    # TODO: Members below are just for the time till RAET replacement is
-    # complete, they need to be removed then.
-    @property
-    def nameRemotes(self):
-        logger.debug('{} proxy method used on {}'.
-                     format(inspect.stack()[0][3], self))
-        return self.remotes
-
-    @property
-    def keep(self):
-        logger.debug('{} proxy method used on {}'.
-                     format(inspect.stack()[0][3], self))
-        if not hasattr(self, '_keep'):
-            self._keep = DummyKeep(self)
-        return self._keep
-
-    def clearLocalKeep(self):
-        pass
-
-    def clearRemoteKeeps(self):
-        pass
-
     def prepare_to_send(self, msg: Any):
         msg_bytes = self.serializeMsg(msg)
         self.msgLenVal.validate(msg_bytes)

@@ -15,8 +15,8 @@ from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
 
 
 # This code is unclear, refactor
-def checkPropagated(looper, nodeSet, request, faultyNodes=0):
-    nodesSize = len(list(nodeSet.nodes))
+def checkPropagated(looper, txnPoolNodeSet, request, faultyNodes=0):
+    nodesSize = len(list(txnPoolNodeSet))
 
     # noinspection PyIncorrectDocstring
     def g(node: TestNode):
@@ -41,22 +41,22 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
                           numOfMsgsWithZFN,
                           numOfMsgsWithFaults)
 
-    timeout = waits.expectedPropagateTime(len(nodeSet))
-    funcs = [partial(g, node) for node in nodeSet]
+    timeout = waits.expectedPropagateTime(len(txnPoolNodeSet))
+    funcs = [partial(g, node) for node in txnPoolNodeSet]
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def checkPrePrepared(looper,
-                     nodeSet,
+                     txnPoolNodeSet,
                      propagated1,
                      instIds,
                      faultyNodes=0,
                      timeout=30):
-    nodesSize = len(list(nodeSet))
+    nodesSize = len(list(txnPoolNodeSet))
 
     def g(instId):
-        primary = getPrimaryReplica(nodeSet, instId)
-        nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+        primary = getPrimaryReplica(txnPoolNodeSet, instId)
+        nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
 
         def primarySeesCorrectNumberOfPREPREPAREs():
             """
@@ -177,15 +177,15 @@ def checkPrePrepared(looper,
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
-def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
+def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                   timeout=30):
-    nodeCount = len(list(nodeSet.nodes))
+    nodeCount = len(list(txnPoolNodeSet))
     quorums = Quorums(nodeCount)
 
     def g(instId):
-        allReplicas = getAllReplicas(nodeSet, instId)
-        primary = getPrimaryReplica(nodeSet, instId)
-        nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+        allReplicas = getAllReplicas(txnPoolNodeSet, instId)
+        primary = getPrimaryReplica(txnPoolNodeSet, instId)
+        nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
 
         def primaryDontSendAnyPREPAREs():
             """
@@ -287,14 +287,14 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
-def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
-    timeout = waits.expectedCommittedTime(len(nodeSet))
-    nodeCount = len((list(nodeSet)))
+def checkCommitted(looper, txnPoolNodeSet, prepared1, instIds, faultyNodes=0):
+    timeout = waits.expectedCommittedTime(len(txnPoolNodeSet))
+    nodeCount = len((list(txnPoolNodeSet)))
     quorums = Quorums(nodeCount)
 
     def g(instId):
-        allReplicas = getAllReplicas(nodeSet, instId)
-        primaryReplica = getPrimaryReplica(nodeSet, instId)
+        allReplicas = getAllReplicas(txnPoolNodeSet, instId)
+        primaryReplica = getPrimaryReplica(txnPoolNodeSet, instId)
 
         def replicas_gets_correct_num_of_COMMITs():
             """

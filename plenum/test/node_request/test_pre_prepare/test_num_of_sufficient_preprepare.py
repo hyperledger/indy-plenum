@@ -12,9 +12,9 @@ whitelist = ['cannot process incoming PREPARE']
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
-    A = startedNodes.Gamma
-    B = startedNodes.Zeta
+def setup(txnPoolNodeSet):
+    A = txnPoolNodeSet[-2]
+    B = txnPoolNodeSet[-1]
     for node in A, B:
         makeNodeFaulty(node,
                        partial(delaysPrePrepareProcessing, delay=60))
@@ -23,7 +23,7 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary

@@ -44,7 +44,8 @@ build_from_pypi base58 0.2.4
 build_from_pypi prompt-toolkit 0.57
 build_from_pypi rlp 0.5.1
 build_from_pypi sha3 0.2.1
-build_from_pypi raet 0.6.6
+build_from_pypi libnacl 1.6.1
+build_from_pypi six 1.11.0
 build_from_pypi pyzmq 16.0.2
 build_from_pypi intervaltree 2.1.0
 build_from_pypi portalocker 0.5.7

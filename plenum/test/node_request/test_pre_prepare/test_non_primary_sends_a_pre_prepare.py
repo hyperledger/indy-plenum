@@ -24,19 +24,19 @@ whitelist = [Suspicions.PPR_FRM_NON_PRIMARY.reason,
 
 
 @pytest.fixture(scope="module")
-def setup(nodeSet, up):
+def setup(txnPoolNodeSet):
     def dontSendPrePrepareRequest(self, pp_req: PrePrepare):
         logger.debug("EVIL: {} not sending pre-prepare message for request {}".
                      format(self.name, pp_req))
         return
 
-    pr = getPrimaryReplica(nodeSet, instId)
+    pr = getPrimaryReplica(txnPoolNodeSet, instId)
     evilMethod = types.MethodType(dontSendPrePrepareRequest, pr)
     pr.sendPrePrepare = evilMethod
 
 
-def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
-    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+def testNonPrimarySendsAPrePrepare(looper, txnPoolNodeSet, setup, propagated1):
+    nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     firstNpr = nonPrimaryReplicas[0]
     remainingNpr = nonPrimaryReplicas[1:]
 
@@ -59,7 +59,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1
 
-    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
+    timeout = waits.expectedClientRequestPropagationTime(len(txnPoolNodeSet))
     looper.run(eventually(chk,
                           retryWait=.5, timeout=timeout))
 
