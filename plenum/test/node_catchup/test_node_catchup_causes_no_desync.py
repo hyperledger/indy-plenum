@@ -73,9 +73,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
                                             txnPoolNodeSet,
                                             lagging_node,
                                             stopNode=False)
-    looper.removeProdable(lagging_node)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    looper.add(lagging_node)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, lagging_node)
 
     # Check that catchup done

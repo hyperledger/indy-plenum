@@ -20,7 +20,6 @@ def stop_nodes(looper, nodeSet):
             assert not r.isPrimary
         disconnect_node_and_ensure_disconnected(
             looper, nodeSet, node, stopNode=False)
-        looper.removeProdable(node)
     return adict(faulties=faulties)
 
 

@@ -131,11 +131,10 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
         for key, s in state._asdict().items():
             checkedItems[key] = 'N/A' if s == 'N/A' else getattr(obj, key)
         actualState = RemoteState(**checkedItems)
-        assert actualState == state, set(actualState._asdict().items()) - \
-            set(state._asdict().items())
+        assert actualState == state, '{} has unexpected state'.format(details)
 
 
-def checkRemoteExists(frm: RStack,
+def checkRemoteExists(frm: BaseStackClass,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)

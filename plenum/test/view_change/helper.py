@@ -2,8 +2,7 @@ import types
 
 from stp_core.types import HA
 
-from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds, \
-    icDelay
+from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies, send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.pool_transactions.helper import \
@@ -32,13 +31,6 @@ def start_stopped_node(stopped_node, looper, tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
     looper.add(restarted_node)
-
-    # Even after reconnection INSTANCE_CHANGE messages are received,
-    # delay them enough to simulate real disconnection. This needs to fixed
-    # soon when simulating a disconnection drains the transport queues
-    # TODO is it still actual?
-    if delay_instance_change_msgs:
-        restarted_node.nodeIbStasher.delay(icDelay(200))
     return restarted_node
 
 

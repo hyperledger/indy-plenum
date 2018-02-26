@@ -54,7 +54,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     # stopped
     txnPoolNodeSet[-1] = node
 
-    looper.run(checkNodesConnected(stacks=txnPoolNodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)

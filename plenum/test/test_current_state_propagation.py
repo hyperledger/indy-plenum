@@ -8,11 +8,14 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
     steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
     client1Connected
+from plenum.test.test_node import checkNodesConnected
+from plenum.test.view_change.helper import start_stopped_node
 
 
 def test_current_state_propagation(newNodeCaughtUp,
                                    txnPoolNodeSet,
-                                   nodeSetWithNodeAddedAfterSomeTxns):
+                                   nodeSetWithNodeAddedAfterSomeTxns,
+                                   tconf, tdir, allPluginsPath):
     """
     Checks that nodes send CurrentState to lagged nodes.
     """
@@ -21,16 +24,17 @@ def test_current_state_propagation(newNodeCaughtUp,
     looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
 
     # 2. Stop one node
-    lagging_node = new_node
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
-                                            lagging_node,
+                                            new_node,
                                             stopNode=True)
     looper.removeProdable(new_node)
 
     # 3. Start it again
-    looper.add(new_node)
-    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, new_node)
+    restarted_node = start_stopped_node(new_node, looper, tconf, tdir,
+                                        allPluginsPath)
+    txnPoolNodeSet[-1] = restarted_node
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.runFor(5)
 
     # 4. Check that all nodes sent CurrentState
@@ -41,6 +45,6 @@ def test_current_state_propagation(newNodeCaughtUp,
     looper.runFor(5)
 
     # 5. Check that it received CurrentState messages
-    received_times = lagging_node.spylog.count(
-        lagging_node.process_current_state_message.__name__)
+    received_times = restarted_node.spylog.count(
+        restarted_node.process_current_state_message.__name__)
     assert received_times != 0

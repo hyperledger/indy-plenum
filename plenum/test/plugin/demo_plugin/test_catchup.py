@@ -63,7 +63,6 @@ def test_disconnected_node_catchup_plugin_ledger_txns(looper,
     new_node = newNodeCaughtUp
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)
-    looper.removeProdable(new_node)
 
     # Do some demo txns;
     some_demo_txns(looper, sdk_wallet_client, sdk_pool_handle)
@@ -71,6 +70,5 @@ def test_disconnected_node_catchup_plugin_ledger_txns(looper,
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])
 
-    looper.add(new_node)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, new_node)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])

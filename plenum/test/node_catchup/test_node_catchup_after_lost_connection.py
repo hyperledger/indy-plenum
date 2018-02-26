@@ -1,5 +1,6 @@
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
+    disconnect_node_and_ensure_disconnected, \
+    reconnect_node_and_ensure_connected
 from plenum.test.test_node import ensure_node_disconnected
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
@@ -28,7 +29,6 @@ def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
                  format(newNode, newNode.domainLedger.size))
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode,
                                             stopNode=False)
-    looper.removeProdable(newNode)
 
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
@@ -41,7 +41,7 @@ def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
 
     logger.debug("Connecting the node {} back, ledger size {}".
                  format(newNode, newNode.domainLedger.size))
-    looper.add(newNode)
+    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, newNode)
 
     logger.debug("Waiting for the node to catch up, {}".format(newNode))
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])

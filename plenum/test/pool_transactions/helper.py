@@ -1,4 +1,5 @@
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
@@ -14,9 +15,8 @@ from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests, sdk_gen_request, sdk_sign_and_submit_req_obj, \
     sdk_get_reply
 from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, check_node_disconnected_from, \
-    ensure_node_disconnected, checkNodesConnected
-from stp_core.loop.eventually import eventually
+from plenum.test.test_node import TestNode, ensure_node_disconnected, \
+    checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
@@ -406,7 +406,8 @@ def new_client(looper, poolTxnClientData, txnPoolNodeSet, client_tdir):
     return client, wallet
 
 
-def disconnectPoolNode(poolNodes: Iterable,
+def disconnectPoolNode(looper: Looper,
+                       poolNodes: Iterable,
                        disconnect: Union[str, TestNode], stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
@@ -416,7 +417,17 @@ def disconnectPoolNode(poolNodes: Iterable,
         if node.name == disconnect:
             if stopNode:
                 node.stop()
-        else:
+            else:
+                node.clientstack.close()
+                node.nodestack.close()
+            break
+    else:
+        raise AssertionError('The node {} which should be disconnected '
+                             'is not found in the passed pool node list {}'
+                             .format(disconnect, poolNodes))
+
+    for node in poolNodes:
+        if node.name != disconnect:
             node.nodestack.disconnectByName(disconnect)
 
 
@@ -428,24 +439,45 @@ def reconnectPoolNode(poolNodes: Iterable,
 
     for node in poolNodes:
         if node.name == connect:
-            node.start(looper)
-        else:
+            if node.isGoing():
+                node.nodestack.open()
+                node.clientstack.open()
+                node.nodestack.maintainConnections(force=True)
+            else:
+                node.start(looper)
+            break
+    else:
+        raise AssertionError('The node {} which should be reconnected '
+                             'is not found in the passed pool node list {}'
+                             .format(connect, poolNodes))
+
+    for node in poolNodes:
+        if node.name != connect:
             node.nodestack.reconnectRemoteWithName(connect)
 
 
-def disconnect_node_and_ensure_disconnected(looper, poolNodes,
+def disconnect_node_and_ensure_disconnected(looper: Looper,
+                                            poolNodes: Iterable[TestNode],
                                             disconnect: Union[str, TestNode],
                                             timeout=None,
                                             stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
-    disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
-    ensure_node_disconnected(looper, disconnect, poolNodes,
+
+    matches = [n for n in poolNodes if n.name == disconnect]
+    assert len(matches) == 1
+    node_to_disconnect = matches[0]
+
+    disconnectPoolNode(looper, poolNodes, disconnect, stopNode=stopNode)
+    ensure_node_disconnected(looper,
+                             node_to_disconnect,
+                             set(poolNodes) - {node_to_disconnect},
                              timeout=timeout)
 
 
-def reconnect_node_and_ensure_connected(looper, poolNodes,
+def reconnect_node_and_ensure_connected(looper: Looper,
+                                        poolNodes: Iterable[TestNode],
                                         connect: Union[str, TestNode],
                                         timeout=None):
     if isinstance(connect, TestNode):
