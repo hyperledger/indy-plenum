@@ -1,129 +1,122 @@
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, TXN_TYPE, LedgerState, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
-    POOL_TXN_TYPES, GET_TXN, DATA, MONITORING_PREFIX, TXN_TIME, VERKEY, TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, CURRENT_PROTOCOL_VERSION
+import json
+
+import pytest
+
+from indy.ledger import build_get_txn_request
 from random import randint
 
-from plenum.common.types import f
-from plenum.test.pool_transactions.helper import sendAddNewClient
+from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, \
+    prepare_nym_request
 from stp_core.loop.eventually import eventually
-from plenum.test import waits
-from plenum.test.helper import check_sufficient_replies_received, \
-    waitReqNackWithReason
-from plenum.common.util import getMaxFailures
-from plenum.common.request import Request
+from plenum.test.helper import sdk_get_and_check_replies
+from plenum.common.util import getMaxFailures, randomString
 
 c_delay = 10
 fValue = getMaxFailures(4)
 
 
 def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
-                                       steward1, stewardWallet):
-    op = {
-        TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: 5908,
-        DATA: 1
-    }
-    req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION)
-    steward1.submitReqs(req)
-    for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1, 'expected one of',
-                              node.clientstack.name)
+                                       sdk_wallet_steward,
+                                       sdk_pool_handle):
+    _, steward_did = sdk_wallet_steward
+    request = looper.loop.run_until_complete(
+        build_get_txn_request(steward_did, 1))
+
+    # setting incorrect Ledger_ID
+    request_json = json.loads(request)
+    request_json['operation']['ledgerId'] = 5908
+    request = json.dumps(request_json)
+
+    request_couple = \
+        sdk_sign_and_send_prepared_request(looper,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle,
+                                           request)
+    with pytest.raises(AssertionError):
+        sdk_get_and_check_replies(looper, [request_couple])
 
 
 def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
-                                    steward1, stewardWallet):
-    op = {
-        TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-        DATA: -23
-    }
-    req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION)
-    steward1.submitReqs(req)
-    for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1, 'cannot be smaller',
-                              node.clientstack.name)
+                                    sdk_wallet_steward,
+                                    sdk_pool_handle):
+    _, steward_did = sdk_wallet_steward
+
+    # setting incorrect data
+    request = looper.loop.run_until_complete(
+        build_get_txn_request(steward_did, -23))
+
+    request_couple = \
+        sdk_sign_and_send_prepared_request(looper, txnPoolNodeSet,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle)
+    with pytest.raises(AssertionError):
+        sdk_get_and_check_replies(looper, [request_couple])
 
 
-def test_get_txn_for_existing_seq_no(looper, steward1, stewardWallet):
-    op = {
-        TXN_TYPE: GET_TXN,
-        DATA: 1
-    }
+def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,
+                                     sdk_wallet_steward,
+                                     sdk_pool_handle):
+    _, steward_did = sdk_wallet_steward
+    for i in range(2):
+        request = looper.loop.run_until_complete(
+            build_get_txn_request(steward_did, 1))
 
-    def chk():
-        nonlocal op
-        req = Request(identifier=stewardWallet.defaultId,
-                      operation=op, reqId=Request.gen_req_id(),
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-        steward1.submitReqs(req)
+        # Check with and without ledger id
+        request_json = json.loads(request)
+        if i: request_json['operation']['ledgerId'] = 1
+        request = json.dumps(request_json)
 
-        timeout = waits.expectedTransactionExecutionTime(
-            len(steward1.inBox)) + c_delay
-        get_txn_response = \
-            looper.run(eventually(check_sufficient_replies_received,
-                                  steward1, req.identifier, req.reqId,
-                                  retryWait=1, timeout=timeout))
-
-        assert get_txn_response[DATA]
-
-    # Check with and without ledger id
-    chk()
-    op[f.LEDGER_ID.nm] = DOMAIN_LEDGER_ID
-    chk()
+        sdk_sign_and_send_prepared_request(looper,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle,
+                                           request)
 
 
-def test_get_txn_for_non_existing_seq_no(looper, steward1, stewardWallet):
-    op = {
-        TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-        DATA: randint(100, 1000)
-    }
-    req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION)
-    steward1.submitReqs(req)
+def test_get_txn_for_non_existing_seq_no(looper, txnPoolNodeSet,
+                                         sdk_wallet_steward,
+                                         sdk_pool_handle):
+    _, steward_did = sdk_wallet_steward
 
-    timeout = waits.expectedTransactionExecutionTime(
-        len(steward1.inBox)) + c_delay
-    get_txn_response = \
-        looper.run(eventually(check_sufficient_replies_received,
-                              steward1, req.identifier, req.reqId,
-                              retryWait=1, timeout=timeout))
+    # setting incorrect data
+    request = looper.loop.run_until_complete(
+        build_get_txn_request(steward_did, randint(100, 1000)))
 
-    assert not get_txn_response[DATA]
+    request_couple = \
+        sdk_sign_and_send_prepared_request(looper,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle,
+                                           request)
+    with pytest.raises(AssertionError):
+        sdk_get_and_check_replies(looper, [request_couple])
 
 
-def test_get_txn_response_as_expected(looper, steward1, stewardWallet):
-    req, wallet = sendAddNewClient(STEWARD, "name", steward1, stewardWallet)
+def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
+                                      sdk_pool_handle,
+                                      sdk_wallet_steward):
+    seed = randomString(32)
+    wh, _ = sdk_wallet_steward
 
-    timeout = waits.expectedTransactionExecutionTime(
-        len(steward1.inBox)) + c_delay
-    nym_response = \
-        looper.run(eventually(check_sufficient_replies_received,
-                              steward1, req.identifier, req.reqId,
-                              retryWait=1, timeout=timeout))
-    op = {
-        TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-        DATA: nym_response['seqNo']
-    }
-    req = Request(identifier=stewardWallet.defaultId,
-                  operation=op, reqId=Request.gen_req_id(),
-                  protocolVersion=CURRENT_PROTOCOL_VERSION)
-    steward1.submitReqs(req)
+    # filling nym request and getting steward did
+    # if role == None, we are adding client
+    nym_request, new_did = looper.loop.run_until_complete(
+        prepare_nym_request(sdk_wallet_steward, seed,
+                            None, None))
 
-    get_txn_response = \
-        looper.run(eventually(check_sufficient_replies_received,
-                              steward1, req.identifier, req.reqId,
-                              retryWait=1, timeout=timeout))
+    # sending request using 'sdk_' functions
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
+                                                        sdk_pool_handle, nym_request)
 
-    nym_response.pop('txnTime', None)
-    get_txn_response[DATA].pop('txnTime', None)
+    result1 = sdk_get_and_check_replies(looper, [request_couple])[0][1]['result']
+    seqNo = result1['seqNo']
 
-    assert nym_response == get_txn_response[DATA]
+    _, steward_did = sdk_wallet_steward
+    request = looper.loop.run_until_complete(
+        build_get_txn_request(steward_did, seqNo))
+
+    request_couple = \
+        sdk_sign_and_send_prepared_request(looper,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle,
+                                           request)
+    result2 = sdk_get_and_check_replies(looper, [request_couple])[0][1]['result']
+    assert result1 == result2['data']

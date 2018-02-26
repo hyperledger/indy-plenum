@@ -446,11 +446,6 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
         refresh_pool_ledger(sdk_pool_handle))
 
 
-def sdk_pool_refresh(looper, sdk_pool_handle):
-    looper.loop.run_until_complete(
-        refresh_pool_ledger(sdk_pool_handle))
-
-
 def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
                                node_data, tdir, tconf, txnPoolNodeSet):
     updateNodeData(looper, steward, stewardWallet, node, node_data)
