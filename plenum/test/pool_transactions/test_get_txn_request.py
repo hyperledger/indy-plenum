@@ -5,6 +5,7 @@ import pytest
 from indy.ledger import build_get_txn_request
 from random import randint
 
+from plenum.common.constants import INVALID_LEDGER_ID, INVALID_SEQ_NO
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, \
     prepare_nym_request
 from stp_core.loop.eventually import eventually
@@ -24,7 +25,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
 
     # setting incorrect Ledger_ID
     request_json = json.loads(request)
-    request_json['operation']['ledgerId'] = 5908
+    request_json['operation']['ledgerId'] = INVALID_LEDGER_ID
     request = json.dumps(request_json)
 
     request_couple = \
@@ -43,12 +44,13 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
 
     # setting incorrect data
     request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, -23))
+        build_get_txn_request(steward_did, INVALID_SEQ_NO))
 
     request_couple = \
-        sdk_sign_and_send_prepared_request(looper, txnPoolNodeSet,
+        sdk_sign_and_send_prepared_request(looper,
                                            sdk_wallet_steward,
-                                           sdk_pool_handle)
+                                           sdk_pool_handle,
+                                           request)
     with pytest.raises(AssertionError):
         sdk_get_and_check_replies(looper, [request_couple])
 
@@ -63,7 +65,8 @@ def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,
 
         # Check with and without ledger id
         request_json = json.loads(request)
-        if i: request_json['operation']['ledgerId'] = 1
+        if i:
+            request_json['operation']['ledgerId'] = 1
         request = json.dumps(request_json)
 
         sdk_sign_and_send_prepared_request(looper,
@@ -78,16 +81,19 @@ def test_get_txn_for_non_existing_seq_no(looper, txnPoolNodeSet,
     _, steward_did = sdk_wallet_steward
 
     # setting incorrect data
+    def generate_non_existing_seq_no():
+        return randint(500, 1000)
+
     request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, randint(100, 1000)))
+        build_get_txn_request(steward_did, generate_non_existing_seq_no()))
 
     request_couple = \
         sdk_sign_and_send_prepared_request(looper,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    with pytest.raises(AssertionError):
-        sdk_get_and_check_replies(looper, [request_couple])
+    reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
+    assert reply['result']['data'] is None
 
 
 def test_get_txn_response_as_expected(looper, txnPoolNodeSet,

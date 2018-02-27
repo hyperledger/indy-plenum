@@ -369,12 +369,14 @@ async def prepare_nym_request(wallet, named_seed, alias, role):
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
-                               sigseed=None, destination=None):
-    if (sigseed is None and destination is None):
+                               sigseed=None, destination=None, services=['VALIDATOR']):
+    use_sigseed = sigseed is not None
+    use_dest = destination is not None
+    if (not use_sigseed) and (not use_dest):
         raise AttributeError('You must specify destination directly or using sigseed')
-    if (sigseed is not None and destination is not None):
-        raise AttributeError('You must use only one of: sigseed or destination')
-    if (sigseed is not None):
+    if use_sigseed and use_dest:
+        raise AttributeError('You should provide one of: sigseed or destination')
+    if use_sigseed:
         nodeSigner = SimpleSigner(seed=sigseed)
         destination = nodeSigner.identifier
 
@@ -385,7 +387,7 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
     if nodeIp is not None: data['node_ip'] = nodeIp
     if nodePort is not None: data['node_port'] = nodePort
     if bls_key is not None: data['blskey'] = bls_key
-    data['services'] = ["VALIDATOR"]
+    data['services'] = services
 
     node_request = await build_node_request(steward_did, destination, json.dumps(data))
     return node_request
