@@ -212,7 +212,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return committedTxns
 
     def onPoolMembershipChange(self, txn):
-        if txn[TXN_TYPE] == NODE:
+        if txn[TXN_TYPE] == NODE and DATA in txn:
             nodeName = txn[DATA][ALIAS]
             nodeNym = txn[TARGET_NYM]
 
@@ -273,16 +273,31 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # new HA is different.
         if nodeName == self.name:
             # Update itself in node registry if needed
+            ha_changed = False
             (ip, port) = self.node.nodeReg[nodeName]
-            if ip != txn[DATA][NODE_IP] or port != txn[DATA][NODE_PORT]:
-                self.node.nodeReg[nodeName] = HA(txn[DATA][NODE_IP],
-                                                 txn[DATA][NODE_PORT])
+            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
+                ip = txn[DATA][NODE_IP]
+                ha_changed = True
 
+            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
+                port = txn[DATA][NODE_PORT]
+                ha_changed = True
+
+            if ha_changed:
+                self.node.nodeReg[nodeName] = HA(ip, port)
+
+            ha_changed = False
             (ip, port) = self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-            if ip != txn[DATA][CLIENT_IP] or port != txn[DATA][CLIENT_PORT]:
-                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = \
-                    HA(txn[DATA][CLIENT_IP],
-                       txn[DATA][CLIENT_PORT])
+            if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
+                ip = txn[DATA][CLIENT_IP]
+                ha_changed = True
+
+            if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
+                port = txn[DATA][CLIENT_PORT]
+                ha_changed = True
+
+            if ha_changed:
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(ip, port)
 
             self.node.nodestack.onHostAddressChanged()
             self.node.clientstack.onHostAddressChanged()
