@@ -2,6 +2,7 @@ import itertools
 from copy import copy
 
 import base58
+import pytest
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
@@ -10,10 +11,10 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitRejectWithReason, \
-    waitReqNackFromPoolWithReason
+    waitReqNackFromPoolWithReason, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, \
-    addNewStewardAndNode, sendAddNewNode, add_2_nodes
+    addNewStewardAndNode, sendAddNewNode, add_2_nodes, sdk_add_new_node, sdk_add_2_nodes, sdk_pool_refresh
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
 from stp_core.common.log import getlogger
@@ -32,72 +33,58 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # initialised a connection for a new node by the time the new node's message
 # reaches it
 
-def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
-                                        stewardWallet, tdir, tconf,
+def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
+                                        sdk_wallet_steward, tdir, tconf,
                                         allPluginsPath):
-    newNodeName = "Epsilon"
-    sendAddNewNode(tdir, tconf, newNodeName, steward1, stewardWallet)
-
-    for node in txnPoolNodeSet:
-        waitRejectWithReason(looper, steward1,
-                             'already has a node',
-                             node.clientstack.name)
-
-
-def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected, tdir,
-                                tconf, allPluginsPath):
-    newNodeName = "Epsilon"
-    sendAddNewNode(tdir, tconf, newNodeName, client1, wallet1)
-    for node in txnPoolNodeSet:
-        waitRejectWithReason(
-            looper, client1, 'is not a steward so cannot add a '
-            'new node', node.clientstack.name)
+    new_node_name = "Epsilon"
+    with pytest.raises(AssertionError):
+        sdk_add_new_node(looper,
+                         sdk_pool_handle,
+                         sdk_wallet_steward,
+                         new_node_name,
+                         tdir,
+                         tconf,
+                         allPluginsPath)
+    sdk_pool_refresh(looper, sdk_pool_handle)
 
 
-def testClientConnectsToNewNode(
-        looper,
-        txnPoolNodeSet,
-        tdir,
-        client_tdir,
-        tconf,
-        steward1,
-        stewardWallet,
-        allPluginsPath):
+def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
+                                sdk_wallet_client, tdir, tconf,
+                                allPluginsPath):
+    new_node_name = "Epsilon"
+    with pytest.raises(AssertionError):
+        sdk_add_new_node(looper,
+                         sdk_pool_handle,
+                         sdk_wallet_client,
+                         new_node_name,
+                         tdir,
+                         tconf,
+                         allPluginsPath)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+
+
+def testClientConnectsToNewNode(looper,
+                                sdk_pool_handle,
+                                txnPoolNodeSet,
+                                sdk_node_theta_added,
+                                sdk_wallet_client):
     """
     A client should be able to connect to a newly added node
     """
-    newStewardName = "testClientSteward" + randomString(3)
-    newNodeName = "Epsilon"
-    oldNodeReg = copy(steward1.nodeReg)
-    newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-                                                                 steward1, stewardWallet,
-                                                                 newStewardName, newNodeName,
-                                                                 tdir, client_tdir,
-                                                                 tconf, allPluginsPath)
-    txnPoolNodeSet.append(newNode)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    logger.debug("{} connected to the pool".format(newNode))
-
-    def chkNodeRegRecvd():
-        assert (len(steward1.nodeReg) - len(oldNodeReg)) == 1
-        assert (newNode.name + CLIENT_STACK_SUFFIX) in steward1.nodeReg
-
-    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
-    looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=timeout))
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
-                                                  *txnPoolNodeSet)
+    _, new_node = sdk_node_theta_added
+    logger.debug("{} connected to the pool".format(new_node))
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
 
-def testAdd2NewNodes(looper, txnPoolNodeSet, tdir, client_tdir, tconf, steward1,
-                     stewardWallet, allPluginsPath):
+def testAdd2NewNodes(looper, txnPoolNodeSet,
+                     sdk_pool_handle, sdk_wallet_steward,
+                     tdir, tconf, allPluginsPath):
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
-    new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
-                            tdir, client_tdir, tconf, allPluginsPath)
+    new_nodes = sdk_add_2_nodes(looper, txnPoolNodeSet,
+                                sdk_pool_handle, sdk_wallet_steward,
+                                tdir, tconf, allPluginsPath)
     for n in new_nodes:
         logger.debug("{} connected to the pool".format(n))
 
@@ -111,6 +98,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdir, client_tdir, tconf, steward1,
     timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkFValue, retryWait=1, timeout=timeout))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
+    sdk_pool_refresh(looper, sdk_pool_handle)
 
 
 def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
