@@ -253,11 +253,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if nodeName == self.name:
             logger.debug("{} adding itself to node registry".
                          format(self.name))
-            nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-            cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
-            self.node.nodeReg[nodeName] = HA(*nodeHa)
-            self.node.cliNodeReg[nodeName +
-                                 CLIENT_STACK_SUFFIX] = HA(*cliHa)
+            self.node.nodeReg[nodeName] = HA(txn[DATA][NODE_IP],
+                                             txn[DATA][NODE_PORT])
+            self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = \
+                HA(txn[DATA][CLIENT_IP],
+                   txn[DATA][CLIENT_PORT])
         else:
             self.connectNewRemote(txn, nodeName, self.node, nodeName != self.name)
         self.node.nodeJoined(txn)
@@ -272,6 +272,18 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
+            # Update itself in node registry if needed
+            (ip, port) = self.node.nodeReg[nodeName]
+            if ip != txn[DATA][NODE_IP] or port != txn[DATA][NODE_PORT]:
+                self.node.nodeReg[nodeName] = HA(txn[DATA][NODE_IP],
+                                                 txn[DATA][NODE_PORT])
+
+            (ip, port) = self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+            if ip != txn[DATA][CLIENT_IP] or port != txn[DATA][CLIENT_PORT]:
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = \
+                    HA(txn[DATA][CLIENT_IP],
+                       txn[DATA][CLIENT_PORT])
+
             self.node.nodestack.onHostAddressChanged()
             self.node.clientstack.onHostAddressChanged()
         else:
