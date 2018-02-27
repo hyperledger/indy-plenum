@@ -541,9 +541,9 @@ def new_client(looper, poolTxnClientData, txnPoolNodeSet, client_tdir):
     return client, wallet
 
 
-def disconnectPoolNode(looper: Looper,
-                       poolNodes: Iterable,
-                       disconnect: Union[str, TestNode], stopNode=True):
+def disconnectPoolNode(poolNodes: Iterable,
+                       disconnect: Union[str, TestNode],
+                       stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
@@ -566,8 +566,9 @@ def disconnectPoolNode(looper: Looper,
             node.nodestack.disconnectByName(disconnect)
 
 
-def reconnectPoolNode(poolNodes: Iterable,
-                      connect: Union[str, TestNode], looper):
+def reconnectPoolNode(looper: Looper,
+                      poolNodes: Iterable,
+                      connect: Union[str, TestNode]):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
@@ -604,7 +605,7 @@ def disconnect_node_and_ensure_disconnected(looper: Looper,
     assert len(matches) == 1
     node_to_disconnect = matches[0]
 
-    disconnectPoolNode(looper, poolNodes, disconnect, stopNode=stopNode)
+    disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
     ensure_node_disconnected(looper,
                              node_to_disconnect,
                              set(poolNodes) - {node_to_disconnect},
@@ -619,7 +620,7 @@ def reconnect_node_and_ensure_connected(looper: Looper,
         connect = connect.name
     assert isinstance(connect, str)
 
-    reconnectPoolNode(poolNodes, connect, looper)
+    reconnectPoolNode(looper, poolNodes, connect)
     looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))
 
 
