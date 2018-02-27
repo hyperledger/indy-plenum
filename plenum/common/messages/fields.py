@@ -103,6 +103,13 @@ class BooleanField(FieldBase):
         return
 
 
+class IntegerField(FieldBase):
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        return
+
+
 class NonEmptyStringField(FieldBase):
     _base_types = (str,)
 

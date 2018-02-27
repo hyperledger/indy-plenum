@@ -128,7 +128,6 @@ def staticCodeValidation() {
 
 def tests = [
     stp: { python ->
-        test(testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml", python: python)
         test(testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml", python: python)
     },
     ledger: { python ->

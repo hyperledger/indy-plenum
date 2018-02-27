@@ -17,8 +17,8 @@ Num of PROPAGATE messages must be less than sufficient (faultyNodes + 1)
 # behavior and should be chose randomly later.
 
 @pytest.fixture(scope="module")
-def evil_node(nodeSet):
-    makeNodeFaulty(nodeSet.Alpha, changesRequest)
+def evil_node(txnPoolNodeSet):
+    makeNodeFaulty(txnPoolNodeSet[0], changesRequest)
 
 
 def testNumOfPropagateWithOneFault(evil_node, propagated1):

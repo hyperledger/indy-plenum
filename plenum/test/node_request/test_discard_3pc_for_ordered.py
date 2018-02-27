@@ -1,10 +1,8 @@
 from plenum.test.delayers import delay_3pc_messages
-from plenum.test.helper import countDiscarded, \
-    send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.node_request_helper import \
     chk_commits_prepares_recvd
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_batches_of_random_and_check
