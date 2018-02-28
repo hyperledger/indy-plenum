@@ -10,6 +10,7 @@ from stp_core.common.log import getlogger
 from plenum.common.util import updateNamedTuple
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.propagator import TPCReqState
 
 logger = getlogger()
 
@@ -96,10 +97,12 @@ def test_preprepare_not_processed_if_any_request_is_already_ordered(
     assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
     params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
+    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE(
+        tuple(ppWithDuplicateIdr.reqIdr[0]), TPCReqState.Ordered)
     assert params is not None
     assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
-    assert params['reason'] == Suspicions.PPR_INCLUDES_ORDERED_REQUEST.reason
-    assert params['code'] == Suspicions.PPR_INCLUDES_ORDERED_REQUEST.code
+    assert params['reason'] == expectedSuspicion.reason
+    assert params['code'] == expectedSuspicion.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
     assert params['offendingMsg'].ppSeqNo == ppWithDuplicateIdr.ppSeqNo
 
@@ -230,12 +233,15 @@ def test_preprepare_not_processed_if_any_request_is_already_in_3pc_process(
     assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
     params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
+    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE(
+        tuple(ppWithDuplicateIdr.reqIdr[0]), TPCReqState.In3PC)
     assert params is not None
     assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
-    assert params['reason'] == Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST.reason
-    assert params['code'] == Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST.code
+    assert params['reason'] == expectedSuspicion.reason
+    assert params['code'] == expectedSuspicion.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
     assert params['offendingMsg'].ppSeqNo == ppWithDuplicateIdr.ppSeqNo
+
 
 
 
