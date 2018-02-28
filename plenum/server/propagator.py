@@ -274,7 +274,11 @@ class TPCRequest(Stateful):
 
     def __repr__(self):
         return "{}, rbftRequest: {}, instId: {}".format(
-            Stateful.__repr__(self), repr(self.rbftRequest.key), self.instId)
+            Stateful.__repr__(self), repr(self.key), self.instId)
+
+    @property
+    def key(self):
+        return self.rbftRequest.key
 
     # EVENTS
 
@@ -387,10 +391,8 @@ class Propagator:
 
         # TODO why sender wan't checked in propagates before and
         # ovewrite was allowed/expected in the past
-        if not (sender is None or
-                self.requests.hasPropagate(request, sender)):
-
-            rbftRequest.onPropagate(request, sender)
+        if not (sender is None or rbftRequest.hasPropagate(sender)):
+            rbftRequest.onPropagate(request, sender, self.quorums.propagate)
             reason = None
 
             # try forwarding
@@ -408,7 +410,7 @@ class Propagator:
                 logger.debug("{} not forwarding request {} to its replicas "
                              "since {}".format(self, request.key, reason))
 
-        if self.requests.hasPropagate(request, self.name):
+        if rbftRequest.hasPropagate(self.name):
             logger.trace("{} already propagated {}".format(self, request))
         else:
             propagate = self.createPropagate(request, rbftRequest.clientName)
