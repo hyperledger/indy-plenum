@@ -10,7 +10,7 @@ from stp_core.common.log import getlogger
 from plenum.common.util import updateNamedTuple
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.propagator import TPCReqState
+from plenum.server.rbftrequest import TPCReqState
 
 logger = getlogger()
 

@@ -3,7 +3,7 @@ import pytest
 from plenum.common.constants import TXN_TYPE, NYM, NODE
 from plenum.common.request import Request
 from plenum.server.stateful import TransitionError
-from plenum.server.propagator import (
+from plenum.server.rbftrequest import (
         RBFTRequest,
         RBFTReqState,
         TPCRequest,

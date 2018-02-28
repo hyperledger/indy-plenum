@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.propagator import (
+from plenum.server.rbftrequest import (
         TPCRequest,
         TPCReqState
 )

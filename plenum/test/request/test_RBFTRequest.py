@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.request import Request
 from plenum.server.quorums import Quorum
-from plenum.server.propagator import (
+from plenum.server.rbftrequest import (
         RBFTRequest,
         RBFTReqState
 )
