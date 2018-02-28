@@ -9,6 +9,7 @@ from plenum.server.stateful import Stateful, TransitionError
 
 logger = getlogger()
 
+
 @unique
 class RBFTReqState(IntEnum):
     Propagation = 0     # propagating and waiting for consesus
@@ -67,17 +68,17 @@ class RBFTRequest(Stateful):
 
     def _isRejectable(self):
         return (self.state() == RBFTReqState.Forwarded and
-                    self.tpcRequests[self.masterInstId].wasState(TPCReqState.Rejected))
+                self.tpcRequests[self.masterInstId].wasState(TPCReqState.Rejected))
 
     def _isCommittable(self):
         return (self.state() == RBFTReqState.Forwarded and
-                    self.tpcRequests[self.masterInstId].wasState(TPCReqState.Ordered))
+                self.tpcRequests[self.masterInstId].wasState(TPCReqState.Ordered))
 
     def _isDetachable(self):
         return (
             self.state() == RBFTReqState.Executed and
             not len([tpcReq for tpcReq in self.tpcRequests.values()
-                if tpcReq.state() != TPCReqState.Cleaned])
+                    if tpcReq.state() != TPCReqState.Cleaned])
         )
 
     def _finalize(self, sender: str):
