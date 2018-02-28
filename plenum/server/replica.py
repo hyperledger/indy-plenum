@@ -920,7 +920,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             why_not = self._can_process_pre_prepare(pre_prepare, sender)
         except TransitionError as ex:
             report_suspicious(Suspicions.PPR_REQUEST_IN_WRONG_STATE(
-                ex.request.key, ex.request.state(self.instId)))
+                ex.stateful.key, ex.stateful.state()))
             return
 
         if why_not is None:
@@ -1268,7 +1268,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return PP_CHECK_REQUEST_NOT_FINALIZED
             else:
                 # TODO finalized doesn't guarantee forwarded
-                rbftRequest.tryTPCState(TPCReqState.In3PC)
+                rbftRequest.tryTPCState(TPCReqState.In3PC, self.instId)
 
         if not self.is_pre_prepare_time_acceptable(pre_prepare):
             return PP_CHECK_WRONG_TIME
