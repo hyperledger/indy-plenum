@@ -74,7 +74,7 @@ class Suspicions:
 
     def _s33(reqKey, state):
         return Suspicion(33,
-                         "PRE-PREPARE includes request {} that is in"
+                         "PRE-PREPARE includes request {} that is in "
                          "wrong state: {}".format(reqKey, state))
     PPR_REQUEST_IN_WRONG_STATE = _s33
 

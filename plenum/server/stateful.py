@@ -18,9 +18,9 @@ class TransitionError(Exception):
         super().__init__(*args, **kwargs)
 
     def __str__(self):
-        return repr(
-            ("stateful: {}, desired state: {}").format(
-                self.stateful, self.state)
+        return (
+            "stateful: {}, desired state: {}"
+            .format(repr(self.stateful), repr(self.state))
         )
 
 
