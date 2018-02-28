@@ -179,17 +179,28 @@ def testAddNewClient(looper, txnPoolNodeSet, sdk_wallet_new_client):
 
 def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                 txnPoolNodeSet,
-                                                newAdHocSteward):
+                                                sdk_pool_handle,
+                                                sdk_wallet_new_steward):
     """
     The Case:
         Steward accidentally sends the NODE txn with a non base58 verkey.
     The expected result:
         Steward gets NAck response from the pool.
     """
-    # create a new steward
-    newSteward, newStewardWallet = newAdHocSteward
+    new_node_name = "Epsilon"
 
-    newNodeName = "Epsilon"
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, new_node_name)
+    _, steward_did = sdk_wallet_new_steward
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(steward_did,
+                             new_node_name=new_node_name,
+                             clientIp=clientIp,
+                             clientPort=clientPort,
+                             nodeIp=nodeIp,
+                             nodePort=nodePort,
+                             bls_key=bls_key,
+                             sigseed=sigseed))
 
     # get hex VerKey
     sigseed = randomString(32).encode()
@@ -197,29 +208,41 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
     b = base58.b58decode(nodeSigner.identifier)
     hexVerKey = bytearray(b).hex()
 
-    def _setHexVerkey(op):
-        op[TARGET_NYM] = hexVerKey
-        return op
+    request_json = json.loads(node_request)
+    request_json['operation'][TARGET_NYM] = hexVerKey
+    node_request = json.dumps(request_json)
 
-    sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
-                   transformOpFunc=_setHexVerkey)
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  'should not contain the following chars')
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
+                                                        sdk_pool_handle, node_request)
+    with pytest.raises(AssertionError):
+        sdk_get_and_check_replies(looper, [request_couple])
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                           txnPoolNodeSet,
-                                          newAdHocSteward):
+                                          sdk_wallet_new_steward,
+                                          sdk_pool_handle):
     """
     The case:
         Steward accidentally sends the NODE txn with an invalid HA.
     The expected result:
         Steward gets NAck response from the pool.
     """
-    newNodeName = "Epsilon"
+    new_node_name = "Epsilon"
 
-    newSteward, newStewardWallet = newAdHocSteward
-
+    newSteward, newStewardWallet = sdk_wallet_new_steward
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, new_node_name)
+    _, steward_did = sdk_wallet_new_steward
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(steward_did,
+                             new_node_name=new_node_name,
+                             clientIp=clientIp,
+                             clientPort=clientPort,
+                             nodeIp=nodeIp,
+                             nodePort=nodePort,
+                             bls_key=bls_key,
+                             sigseed=sigseed))
     # a sequence of the test cases for each field
     tests = itertools.chain(
         itertools.product(
@@ -235,9 +258,12 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
         # create a transform function for each test
         def _tnf(op): op[DATA].update({field: value})
 
-        sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
-                       transformOpFunc=_tnf)
+        request_json = json.loads(node_request)
+        request_json['operation'][DATA][field] = value
+        node_request1 = json.dumps(request_json)
+        request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
+                                                            sdk_pool_handle, node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
-        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "invalid network ip address")
+        with pytest.raises(AssertionError):
+            sdk_get_and_check_replies(looper, [request_couple])
