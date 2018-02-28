@@ -144,7 +144,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     @property
     def has_view_change_from_primary(self) -> bool:
         if not self._has_view_change_from_primary:
-            next_primary_name = self.node.elector.next_primary_node_name(0)
+            next_primary_name = self.node.elector._next_primary_node_name_for_master()
 
             if next_primary_name not in self._view_change_done:
                 logger.debug(
@@ -579,7 +579,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
         """
-        expected_primary = self.node.elector.next_primary_node_name(0)
+        expected_primary = self.node.elector._next_primary_node_name_for_master()
         if new_primary != expected_primary:
             logger.error("{}{} expected next primary to be {}, but majority "
                          "declared {} instead for view {}"
@@ -595,7 +595,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         Sends ViewChangeDone message to other protocol participants
         """
-        new_primary_name = self.node.elector.next_primary_node_name(0)
+        new_primary_name = self.node.elector._next_primary_node_name_for_master()
         ledger_summary = self.node.ledger_summary
         message = ViewChangeDone(self.view_no,
                                  new_primary_name,
