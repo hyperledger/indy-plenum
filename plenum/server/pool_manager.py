@@ -210,7 +210,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             # try to avoid this kind of strictness
             pop_merkle_info(t)
             self.onPoolMembershipChange(t)
-        self.node.sendRepliesToClients(committedTxns, ppTime)
         return committedTxns
 
     def onPoolMembershipChange(self, txn):

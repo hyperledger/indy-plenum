@@ -2434,6 +2434,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param pp_time: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
+        # COMMIT
         for req in reqs:
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
                               pp_time=pp_time, state_root=state_root,
@@ -2452,10 +2453,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
+        # TODO is it possible to get len(committedTxns) != len(reqs) someday?
+        assert len(committedTxns) == len(reqs)
+        for request in reqs:
+            self.requests[request.key].onCommitted()
+
+        # TODO what is the case here?
         if not committedTxns:
             return
 
-        # TODO is it possible to get len(committedTxns) != len(reqs) someday
+        # REPLY TO CLIENT
+        self.sendRepliesToClients(
+            map(self.update_txn_with_extra_data, committedTxns),
+            pp_time)
+
         for request in reqs:
             self.requests.executed(request.key)
 
@@ -2507,9 +2518,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              stateRoot, txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
-        self.sendRepliesToClients(
-            map(self.update_txn_with_extra_data, committedTxns),
-            ppTime)
         return committedTxns
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
