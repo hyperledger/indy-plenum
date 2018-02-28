@@ -96,7 +96,7 @@ def test_view_change_timeout_next_primary_is_disconnected(nodeSet, looper, up, s
 
 
 def stop_next_primary(nodes):
-    m_next_primary_name = nodes[0]._elector.next_primary_node_name(0)
+    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master()
     nodes[m_next_primary_name].stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes

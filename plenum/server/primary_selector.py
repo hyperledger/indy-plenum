@@ -38,30 +38,50 @@ class PrimarySelector(PrimaryDecider):
         # Instance 0 is always master
         return instance_id == 0
 
-    def _get_primary_id(self, view_no, instance_id, total_nodes):
-        return (view_no + instance_id) % total_nodes
+    def _get_master_primary_id(self, view_no, total_nodes):
+        return view_no % total_nodes
 
-    def next_primary_node_name(self, instance_id, nodeReg=None):
+    def _next_primary_node_name_for_master(self, nodeReg=None):
         if nodeReg is None:
             nodeReg = self.node.nodeReg
-        rank = self._get_primary_id(self.viewNo, instance_id, len(nodeReg))
+        rank = self._get_master_primary_id(self.viewNo, len(nodeReg))
         name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
 
-        logger.trace("{} selected {} as next primary node for instId {}, "
+        assert name, "{} failed to get next primary node name for master instance".format(self)
+        logger.trace("{} selected {} as next primary node for master instance, "
                      "viewNo {} with rank {}, nodeReg {}".format(
-                         self, name, instance_id, self.viewNo, rank, nodeReg))
-        assert name, "{} failed to get next primary node name".format(self)
-
+                         self, name, self.viewNo, rank, nodeReg))
         return name
 
-    def next_primary_replica_name(self, instance_id, nodeReg=None):
+    def next_primary_replica_name_for_master(self, nodeReg=None):
         """
-        Returns name of the next node which is supposed to be a new Primary
-        in round-robin fashion
+        Returns name and corresponding instance name of the next node which
+        is supposed to be a new Primary. In fact it is not round-robin on
+        this abstraction layer as currently the primary of master instance is
+        pointed directly depending on view number, instance id and total
+        number of nodes.
+        But since the view number is incremented by 1 before primary selection
+        then current approach may be treated as round robin.
         """
-        return Replica.generateName(
-            nodeName=self.next_primary_node_name(instance_id, nodeReg=nodeReg),
-            instId=instance_id)
+        name = self._next_primary_node_name_for_master(nodeReg)
+        return name, Replica.generateName(nodeName=name, instId=0)
+
+    def next_primary_replica_name_for_backup(self, instance_id, master_primary_rank,
+                                             primaries, nodeReg=None):
+        """
+        Returns name and corresponding instance name of the next node which
+        is supposed to be a new Primary for backup instance in round-robin
+        fashion starting from primary of master instance.
+        """
+        if nodeReg is None:
+            nodeReg = self.node.nodeReg
+        total_nodes = len(nodeReg)
+        rank = (master_primary_rank + 1) % total_nodes
+        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+        while name in primaries:
+            rank = (rank + 1) % total_nodes
+            name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+        return name, Replica.generateName(nodeName=name, instId=instance_id)
 
     # overridden method of PrimaryDecider
     def start_election_for_instance(self, instance_id):
