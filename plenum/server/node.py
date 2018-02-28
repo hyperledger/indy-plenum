@@ -327,10 +327,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ObservedData
         )
 
-        # Map of request identifier, request id to client name. Used for
-        # dispatching the processed requests to the correct client remote
-        self.requestSender = {}  # Dict[Tuple[str, int], str]
-
         # CurrentState
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
@@ -1320,12 +1316,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 reqKey = (message.identifier, message.reqId)
                 reject = Reject(
                     *reqKey,
-                    self.reasonForClientFromException(
-                        message.reason))
-                # TODO: What the case when reqKey will be not in requestSender dict
-                if reqKey in self.requestSender:
-                    self.transmitToClient(reject, self.requestSender[reqKey])
-                    self.doneProcessingReq(*reqKey)
+                    self.reasonForClientFromException(message.reason)
+                )
+                rbftRequest = self.requests[reqKey]
+                self.transmitToClient(reject, rbftRequest.clientName)
+                rbftRequest.onReplyed()
+                self.requests.executed(reqKey)  # TODO why didn't do that before
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -2028,12 +2024,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, frm)
             return
 
-        # If the node is not already processing the request
-        if not self.isProcessingReq(*request.key):
-            self.startedProcessingReq(*request.key, frm)
         # If not already got the propagate request(PROPAGATE) for the
         # corresponding client request(REQUEST)
-        self.recordAndPropagate(request, frm)
+        self.propagate(request, None, frm)
         self.send_ack_to_client(request.key, frm)
 
     def is_query(self, txn_type) -> bool:
@@ -2067,44 +2060,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
 
-        reqDict = msg.request
-        request = self._client_request_class(**reqDict)
+        request = self._client_request_class(**msg.request)
 
-        clientName = msg.senderClient
-
-        if not self.isProcessingReq(*request.key):
-            if self.seqNoDB.get(request.identifier, request.reqId) is not None:
-                logger.debug("{} ignoring propagated request {} "
-                             "since it has been already committed"
-                             .format(self.name, msg))
-                return
-
-            self.startedProcessingReq(*request.key, clientName)
+        if not (request.key in self.requests or
+                self.seqNoDB.get(*request.key) is None):
+            logger.debug(
+                "{} ignoring propagated request {} since it has been already "
+                "committed".format(self.name, msg)
+            )
         else:
-            if clientName is not None and \
-                    not self.is_sender_known_for_req(*request.key):
-                # Since some propagates might not include the client name
-                self.set_sender_for_req(*request.key, clientName)
-
-        self.requests.add_propagate(request, frm)
-
-        self.propagate(request, clientName)
-        self.tryForwarding(request)
-
-    def startedProcessingReq(self, identifier, reqId, frm):
-        self.set_sender_for_req(identifier, reqId, frm)
-
-    def isProcessingReq(self, identifier, reqId) -> bool:
-        return (identifier, reqId) in self.requestSender
-
-    def doneProcessingReq(self, identifier, reqId):
-        self.requestSender.pop((identifier, reqId))
-
-    def is_sender_known_for_req(self, identifier, reqId):
-        return self.requestSender.get((identifier, reqId)) is not None
-
-    def set_sender_for_req(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+            self.propagate(request, frm, msg.senderClient)
 
     def send_ack_to_client(self, req_key, to_client):
         self.transmitToClient(RequestAck(*req_key), to_client)
@@ -2171,10 +2136,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
-        requests = [self.requests[request_id].finalised
-                    for request_id in ordered.reqIdr
-                    if request_id in self.requests and
-                    self.requests[request_id].finalised]
+
+        # TODO all reqKeys have to be in self.requests, if not we should
+        # review and verify all data come from replicas
+        requests = [
+            self.requests[reqKey].finalised for reqKey in ordered.reqIdr
+            if self.requests[reqKey].finalised
+        ]
 
         if len(requests) != len(ordered.reqIdr):
             logger.warning('{} did not find {} finalized '
@@ -2487,10 +2455,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not committedTxns:
             return
 
-        # TODO is it possible to get len(committedTxns) != len(reqs)
-        # someday
+        # TODO is it possible to get len(committedTxns) != len(reqs) someday
         for request in reqs:
-            self.requests.mark_as_executed(request)
+            self.requests.executed(request.key)
+
         logger.info(
             "{} committed batch request, view no {}, ppSeqNo {}, "
             "ledger {}, state root {}, txn root {}, requests: {}".
@@ -2602,21 +2570,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn),
-                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
-
-    def sendReplyToClient(self, reply, reqKey):
-        if self.isProcessingReq(*reqKey):
-            sender = self.requestSender[reqKey]
-            if sender:
-                logger.debug(
-                    '{} sending reply for {} to client'.format(
-                        self, reqKey))
-                self.transmitToClient(reply, self.requestSender[reqKey])
+            reqKey = (idr_from_req_data(txn), txn[f.REQ_ID.nm])
+            rbftRequest = self.requests.get(reqKey)
+            if rbftRequest is not None:
+                self._sendReplyToClient(Reply(txn), rbftRequest)
             else:
-                logger.info('{} not sending reply for {}, since do not '
-                            'know client'.format(self, reqKey))
-            self.doneProcessingReq(*reqKey)
+                logger.warning(
+                    "{} rbft request with key {} wasn't found, txn: {}"
+                    .format(self, reqKey, txn))
+
+    def _sendReplyToClient(self, reply, rbftRequest):
+        logger.debug(
+            "{} sending reply for {} to client {}"
+            .format(self, rbftRequest.key, rbftRequest.clientName))
+        self.transmitToClient(reply, rbftRequest.clientName)
+        rbftRequest.onReplyed()
 
     def addNewRole(self, txn):
         """

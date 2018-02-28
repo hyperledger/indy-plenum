@@ -128,6 +128,8 @@ class Request:
             self.signatures = {}
         self.signatures[identifier] = signature
 
+    # TODO FIXME _eq_ uses another set of properties (__dict__ vs as_dict)
+    # thus will likely be wrong for child classes. Is it actually needed?
     def __hash__(self):
         return hash(self.serialized())
 

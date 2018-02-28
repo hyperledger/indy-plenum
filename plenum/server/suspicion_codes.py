@@ -71,12 +71,12 @@ class Suspicions:
         Suspicion(31, "Commit message has invalid BLS signature")
     PR_BLS_SIG_WRONG = \
         Suspicion(32, "Prepare message has invalid BLS signature")
-    PPR_INCLUDES_IN_3PC_PROCESS_REQUEST = \
-        Suspicion(33,
-                  "PRE-PREPARE includes request that is already "
-                  "being processed as part of some 3PC batch")
-    PPR_INCLUDES_COMMITTED_REQUEST = \
-        Suspicion(34, "PRE-PREPARE includes already committed request")
+
+    def _s33(reqKey, state):
+        return Suspicion(33,
+                         "PRE-PREPARE includes request {} that is in"
+                         "wrong state: {}".format(reqKey, state))
+    PPR_REQUEST_IN_WRONG_STATE = _s33
 
     @classmethod
     def get_list(cls):

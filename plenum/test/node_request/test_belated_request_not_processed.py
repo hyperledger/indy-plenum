@@ -98,8 +98,8 @@ def test_preprepare_not_processed_if_any_request_is_already_ordered(
     params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
     assert params is not None
     assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
-    assert params['reason'] == Suspicions.PPR_INCLUDES_COMMITTED_REQUEST.reason
-    assert params['code'] == Suspicions.PPR_INCLUDES_COMMITTED_REQUEST.code
+    assert params['reason'] == Suspicions.PPR_INCLUDES_ORDERED_REQUEST.reason
+    assert params['code'] == Suspicions.PPR_INCLUDES_ORDERED_REQUEST.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
     assert params['offendingMsg'].ppSeqNo == ppWithDuplicateIdr.ppSeqNo
 

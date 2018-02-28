@@ -123,7 +123,7 @@ class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
         (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
-        (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT, nullable=True)),
+        (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT)),
     )
 
 

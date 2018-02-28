@@ -28,8 +28,11 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.stateful import TransitionError
+from plenum.server.propagator import TPCReqState
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
+
 
 logger = getlogger()
 
@@ -84,8 +87,9 @@ PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
 
-PP_CHECK_IN_3PC_PROCESS_REQUEST = 11
-PP_CHECK_COMMITTED_REQUEST = 12
+PP_CHECK_DUPLICATE_REQUEST = 11
+PP_CHECK_ORDERED_REQUEST = 12
+PP_CHECK_REJECTED_REQUEST = 13
 
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
@@ -291,12 +295,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
-        # Dictionary of client requests that are being in 3PC process
-        # (were either sent or received as part of some 3PC Batch).
-        # Key of dictionary is a 2 element tuple (identifier, reqId),
-        # and value is accordant PrePrepare.
-        self.in3PCProcessRequests = {}
-
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
@@ -457,18 +455,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self._reset_watermarks_before_new_view()
             self._stateChanged()
 
-    def _addIn3PCProcessRequests(self, pp: PrePrepare):
-        for key in pp.reqIdr:
-            self.in3PCProcessRequests[tuple(key)] = pp
+    def _markRequestsIn3PC(self, pp: PrePrepare):
+        # mark both valid and invalid (discarded) requests as In3PC
+        for reqKey in pp.reqIdr[:pp.discarded]:
+            self.requests[reqKey].onTPCPp(self.instId)
 
-    def _delIn3PCProcessRequests(self, key: Optional[Tuple[int, int]]=None,
-                                 pp: Optional[PrePrepare]=None):
-        if key:
-            self.in3PCProcessRequests.pop(tuple(key), None)
-        elif pp:
-            for key in pp.reqIdr:
-                assert self.in3PCProcessRequests[tuple(key)] == pp
-                self._delIn3PCProcessRequests(key)
+        for reqKey in pp.reqIdr[pp.discarded:]:
+            self.requests[reqKey].onTPCRejected(self.instId)
+
+    def _markRequestsOrdered(self, ordered: Ordered):
+        for reqKey in ordered.reqIdr:
+            self.requests[reqKey].onTPCOrdered(self.instId)
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -728,14 +725,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
-            if key in self.requests:
-                fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(
-                    fin_req, tm, validReqs, inValidReqs, rejects)
-            else:
-                logger.debug('{} found {} in its request queue but the '
-                             'corresponding request was removed'.
-                             format(self, key))
+            assert key in self.requests
+            fin_req = self.requests[key].finalised
+            self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
 
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
@@ -775,8 +767,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
-        self._addIn3PCProcessRequests(ppReq)
         self.send(ppReq, TPCStat.PrePrepareSent)
+        self._markRequestsIn3PC(ppReq)
 
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key].finalised
@@ -924,7 +916,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
 
-        why_not = self._can_process_pre_prepare(pre_prepare, sender)
+        try:
+            why_not = self._can_process_pre_prepare(pre_prepare, sender)
+        except TransitionError as ex:
+            report_suspicious(Suspicions.PPR_REQUEST_IN_WRONG_STATE(
+                ex.request.key, ex.request.state(self.instId)))
+            return
+
         if why_not is None:
             why_not_applied = \
                 self._process_valid_preprepare(pre_prepare, sender)
@@ -943,10 +941,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_TO_PRIMARY)
         elif why_not == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
-        elif why_not == PP_CHECK_IN_3PC_PROCESS_REQUEST:
-            report_suspicious(Suspicions.PPR_INCLUDES_IN_3PC_PROCESS_REQUEST)
-        elif why_not == PP_CHECK_COMMITTED_REQUEST:
-            report_suspicious(Suspicions.PPR_INCLUDES_COMMITTED_REQUEST)
         elif why_not == PP_CHECK_OLD:
             logger.debug("PRE-PREPARE {} has ppSeqNo lower "
                          "then the latest one - ignoring it"
@@ -1255,13 +1249,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
-        # Already ordered request found
-        for key in pre_prepare.reqIdr:
-            if self.node.seqNoDB.get(*key) is not None:
-                return PP_CHECK_COMMITTED_REQUEST
-            elif key in self.in3PCProcessRequests:
-                return PP_CHECK_IN_3PC_PROCESS_REQUEST
-
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
             # TODO: The next processed pre-prepare needs to take consider if
@@ -1273,8 +1260,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                             self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
 
-        if self.nonFinalisedReqs(pre_prepare.reqIdr):
-            return PP_CHECK_REQUEST_NOT_FINALIZED
+        for key in pre_prepare.reqIdr:
+            rbftRequest = self.requests.get(key)
+            # check if not finalized
+            # TODO refactor: not finalized is just one more possible state
+            if rbftRequest is None or rbftRequest.finalised is None:
+                return PP_CHECK_REQUEST_NOT_FINALIZED
+            else:
+                # TODO finalized doesn't guarantee forwarded
+                rbftRequest.tryTPCState(TPCReqState.In3PC)
 
         if not self.is_pre_prepare_time_acceptable(pre_prepare):
             return PP_CHECK_WRONG_TIME
@@ -1299,7 +1293,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
-        self._addIn3PCProcessRequests(pp)
+        self._markRequestsIn3PC(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeue_prepares(*key)
@@ -1669,8 +1663,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stashingWhileCatchingUp.remove(key)
 
         self._discard_ordered_req_keys(pp)
+        self._markRequestsOrdered(ordered)
 
         self.send(ordered, TPCStat.OrderSent)
+
         logger.info(
             "{} ordered batch request, view no {}, ppSeqNo {}, "
             "ledger {}, state root {}, txn root {}, requests ordered {}, "
@@ -1931,8 +1927,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 coll.pop(request_key, None)
 
         for request_key in reqKeys:
-            self._delIn3PCProcessRequests(request_key)
-            self.requests.free(request_key)
+            self.requests.clean(request_key, self.instId)
             logger.debug('{} freed request {} from previous checkpoints'
                          .format(self, request_key))
 
@@ -2141,6 +2136,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          " view no {} and seq no {}".
                          format(self, i, viewNo, ppSeqNo))
 
+    # TODO actually not used for now
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
         digest = self.requests.digest(reqKey)

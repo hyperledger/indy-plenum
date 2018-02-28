@@ -109,7 +109,6 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
     from pympler import tracker
     tr = tracker.SummaryTracker()
     node_methods_to_capture = [TestNode.executeBatch,
-                               TestNode.recordAndPropagate,
                                TestNode.domainDynamicValidation,
                                TestNode.domainRequestApplication]
     times = {n.name: {meth.__name__: [] for meth in node_methods_to_capture}

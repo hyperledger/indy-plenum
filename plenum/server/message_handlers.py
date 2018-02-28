@@ -196,12 +196,12 @@ class PropagateHandler(BaseHandler):
         return ppg
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
-        req_key = (params['identifier'], params['req_id'])
-        if req_key in self.node.requests and self.node.requests[req_key].finalised:
-            sender_client = self.node.requestSender.get(req_key)
-            req = self.node.requests[req_key].finalised
-            return self.node.createPropagate(req, sender_client)
-        return None
+        rbftRequest = self.node.requests.get(
+            (params['identifier'], params['req_id'])
+        )
+        return (None if rbftRequest is None else
+                self.node.createPropagate(
+                    rbftRequest.finalised, rbftRequest.clientName))
 
     def processor(self, validated_msg: Propagate, params: Dict[str, Any], frm: str) -> None:
         self.node.processPropagate(validated_msg, frm)
