@@ -422,7 +422,8 @@ def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
 def sdk_send_update_node_HAs(looper, sdk_submitter_wallet, sdk_pool_handle,
                              destination, alias,
                              node_ip, node_port,
-                             client_ip, client_port):
+                             client_ip, client_port,
+                             services=[VALIDATOR]):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -432,7 +433,8 @@ def sdk_send_update_node_HAs(looper, sdk_submitter_wallet, sdk_pool_handle,
                              clientPort=client_port,
                              nodeIp=node_ip,
                              nodePort=node_port,
-                             destination=destination))
+                             destination=destination,
+                             services=services))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
@@ -506,6 +508,30 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
 
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req])
+
+    node.nodestack.clearLocalRoleKeep()
+    node.nodestack.clearRemoteRoleKeeps()
+    node.nodestack.clearAllDir()
+    node.clientstack.clearLocalRoleKeep()
+    node.clientstack.clearRemoteRoleKeeps()
+    node.clientstack.clearAllDir()
+
+
+def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verkey):
+    _, steward_did = sdk_wallet_steward
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(steward_did,
+                             new_node_name=node.name,
+                             destination=node_dest))
+
+    request_json = json.loads(node_request)
+    request_json['operation'][VERKEY] = verkey
+    node_request1 = json.dumps(request_json)
+
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
+                                                        sdk_pool_handle, node_request1)
+    sdk_get_and_check_replies(looper, [request_couple])
 
     node.nodestack.clearLocalRoleKeep()
     node.nodestack.clearRemoteRoleKeeps()

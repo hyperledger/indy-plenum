@@ -230,7 +230,6 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
     """
     new_node_name = "Epsilon"
 
-    newSteward, newStewardWallet = sdk_wallet_new_steward
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     _, steward_did = sdk_wallet_new_steward
@@ -256,8 +255,6 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
 
     for field, value in tests:
         # create a transform function for each test
-        def _tnf(op): op[DATA].update({field: value})
-
         request_json = json.loads(node_request)
         request_json['operation'][DATA][field] = value
         node_request1 = json.dumps(request_json)

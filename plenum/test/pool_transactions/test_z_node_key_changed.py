@@ -2,6 +2,8 @@ import pytest
 import base58
 import types
 
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.common import stack_manager
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, \
     initRemoteKeys
@@ -28,13 +30,13 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
-                        tconf, steward1, nodeThetaAdded,
+                        tconf, sdk_node_theta_added,
                         allPluginsPath=None):
-    newSteward, newStewardWallet, newNode = nodeThetaAdded
+    new_steward_wallet, new_node = sdk_node_theta_added
 
-    newNode.stop()
-    looper.removeProdable(name=newNode.name)
-    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    new_node.stop()
+    looper.removeProdable(name=new_node.name)
+    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
@@ -56,10 +58,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
 
     looper.run(checkNodesConnected(stacks=txnPoolNodeSet))
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
-                                                  *txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
 
 def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
