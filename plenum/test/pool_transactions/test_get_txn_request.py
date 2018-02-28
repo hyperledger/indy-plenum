@@ -5,7 +5,7 @@ import pytest
 from indy.ledger import build_get_txn_request
 from random import randint
 
-from plenum.common.constants import INVALID_LEDGER_ID, INVALID_SEQ_NO
+from plenum.common.constants import INVALID_LEDGER_ID, INVALID_SEQ_NO, DATA
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, \
     prepare_nym_request
 from stp_core.loop.eventually import eventually
@@ -93,7 +93,7 @@ def test_get_txn_for_non_existing_seq_no(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            request)
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
-    assert reply['result']['data'] is None
+    assert reply['result'][DATA] is None
 
 
 def test_get_txn_response_as_expected(looper, txnPoolNodeSet,

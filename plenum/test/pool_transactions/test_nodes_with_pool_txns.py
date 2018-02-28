@@ -1,8 +1,10 @@
 import itertools
+import json
 from copy import copy
 
 import base58
 import pytest
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
@@ -11,10 +13,11 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitRejectWithReason, \
-    waitReqNackFromPoolWithReason, sdk_send_random_and_check
+    waitReqNackFromPoolWithReason, sdk_send_random_and_check, sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, \
-    addNewStewardAndNode, sendAddNewNode, add_2_nodes, sdk_add_new_node, sdk_add_2_nodes, sdk_pool_refresh
+    addNewStewardAndNode, sendAddNewNode, add_2_nodes, sdk_add_new_node, sdk_add_2_nodes, sdk_pool_refresh, \
+    sdk_add_new_nym, prepare_new_node_data, prepare_node_request, sdk_sign_and_send_prepared_request
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
 from stp_core.common.log import getlogger
@@ -103,56 +106,71 @@ def testAdd2NewNodes(looper, txnPoolNodeSet,
 
 def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                  txnPoolNodeSet,
-                                                 newAdHocSteward):
+                                                 sdk_pool_handle,
+                                                 sdk_wallet_steward):
     """
     The case:
         Steward accidentally sends the NODE txn without full fields set.
     The expected result:
         Steward gets NAck response from the pool.
     """
-    newNodeName = "Epsilon"
+    new_node_name = "Epsilon"
 
-    newSteward, newStewardWallet = newAdHocSteward
+    new_steward_wallet_handle = sdk_add_new_nym(looper,
+                                                sdk_pool_handle,
+                                                sdk_wallet_steward,
+                                                alias='New steward' + randomString(3),
+                                                role='STEWARD')
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+        prepare_new_node_data(tconf, tdir, new_node_name)
+    _, steward_did = new_steward_wallet_handle
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(steward_did,
+                             new_node_name=new_node_name,
+                             clientIp=clientIp,
+                             clientPort=clientPort,
+                             nodeIp=nodeIp,
+                             nodePort=nodePort,
+                             bls_key=bls_key,
+                             sigseed=sigseed))
 
     # case from the ticket
-    def _renameNodePortField(op):
-        op[DATA].update({NODE_PORT + ' ': op[DATA][NODE_PORT]})
-        del op[DATA][NODE_PORT]
+    request_json = json.loads(node_request)
+    request_json['operation'][DATA][NODE_PORT + ' '] = request_json['operation'][DATA][NODE_PORT]
+    del request_json['operation'][DATA][NODE_PORT]
+    node_request1 = json.dumps(request_json)
 
-    sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
-                   transformOpFunc=_renameNodePortField)
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  "unknown field")
+    request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
+                                                        sdk_pool_handle, node_request1)
+    with pytest.raises(AssertionError):
+        sdk_get_and_check_replies(looper, [request_couple])
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
-        def _tnf(op): del op[DATA][fn]
-
-        sendAddNewNode(tdir, tconf, newNodeName, newSteward, newStewardWallet,
-                       transformOpFunc=_tnf)
+        request_json = json.loads(node_request)
+        del request_json['operation'][DATA][fn]
+        node_request2 = json.dumps(request_json)
+        request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
+                                                            sdk_pool_handle, node_request2)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "unknown field")
+        with pytest.raises(AssertionError):
+            sdk_get_and_check_replies(looper, [request_couple])
 
 
 def testNodesConnect(txnPoolNodeSet):
     pass
 
 
-def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
-                               client1Connected):
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
-                                                  *txnPoolNodeSet)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
 
 
-def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
-    wallet = addNewClient(None, looper, steward1,
-                          stewardWallet, randomString())
+def testAddNewClient(looper, txnPoolNodeSet, sdk_wallet_new_client):
+    _, did = sdk_wallet_new_client
 
     def chk():
         for node in txnPoolNodeSet:
-            assert wallet.defaultId in \
+            assert did in \
                    node.clientAuthNr.core_authenticator.clients
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))

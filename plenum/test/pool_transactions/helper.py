@@ -274,7 +274,7 @@ def sdk_add_new_steward_and_node(looper,
                                  nodeClass=TestNode,
                                  transformNodeOpFunc=None,
                                  do_post_node_creation: Callable = None,
-                                 services=['VALIDATOR']):
+                                 services=[VALIDATOR]):
     new_steward_wallet_handle = sdk_add_new_nym(looper,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
@@ -297,8 +297,7 @@ def sdk_add_new_steward_and_node(looper,
 
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
-                    alias=None, role=None, node_count=None,
-                    seed=None):
+                    alias=None, role=None, seed=None):
     seed = seed or randomString(32)
     wh, _ = creators_wallet
 
@@ -324,7 +323,7 @@ def sdk_add_new_node(looper,
                      tdir, tconf,
                      allPluginsPath=None, autoStart=True, nodeClass=TestNode,
                      transformOpFunc=None, do_post_node_creation: Callable = None,
-                     services=['VALIDATOR']):
+                     services=[VALIDATOR]):
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
@@ -370,25 +369,30 @@ async def prepare_nym_request(wallet, named_seed, alias, role):
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
-                               sigseed=None, destination=None, services=['VALIDATOR']):
+                               sigseed=None, destination=None, services=[VALIDATOR]):
     use_sigseed = sigseed is not None
     use_dest = destination is not None
-    if (not use_sigseed) and (not use_dest):
-        raise AttributeError('You must specify destination directly or using sigseed')
-    if use_sigseed and use_dest:
-        raise AttributeError('You should provide one of: sigseed or destination')
+    if use_sigseed == use_dest:
+        raise AttributeError('You should provide only one of: sigseed or destination')
     if use_sigseed:
         nodeSigner = SimpleSigner(seed=sigseed)
         destination = nodeSigner.identifier
 
     data = {}
-    if new_node_name is not None: data['alias'] = new_node_name
-    if clientIp is not None: data['client_ip'] = clientIp
-    if clientPort is not None: data['client_port'] = clientPort
-    if nodeIp is not None: data['node_ip'] = nodeIp
-    if nodePort is not None: data['node_port'] = nodePort
-    if bls_key is not None: data['blskey'] = bls_key
-    data['services'] = services
+    if new_node_name is not None:
+        data['alias'] = new_node_name
+    if clientIp is not None:
+        data['client_ip'] = clientIp
+    if clientPort is not None:
+        data['client_port'] = clientPort
+    if nodeIp is not None:
+        data['node_ip'] = nodeIp
+    if nodePort is not None:
+        data['node_port'] = nodePort
+    if bls_key is not None:
+        data['blskey'] = bls_key
+    if services is not None:
+        data['services'] = services
 
     node_request = await build_node_request(steward_did, destination, json.dumps(data))
     return node_request
@@ -451,25 +455,22 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
 
 
 def update_node_data_and_reconnect(looper, txnPoolNodeSet,
-                                   new_steward_wallet,
+                                   steward_wallet,
                                    sdk_pool_handle,
                                    node,
+                                   node_ip, node_port,
+                                   client_ip, client_port,
                                    tdir, tconf):
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
+    sdk_send_update_node_HAs(looper, steward_wallet, sdk_pool_handle,
                              node_dest, node.name,
-                             None, None,
-                             None, None)
+                             node_ip, node_port,
+                             client_ip, client_port)
     # restart the Node with new HA
     node.stop()
-    node_alias = node.name
-    node_ip = node.nodestack.ha.host
-    node_port = node.nodestack.ha.port
-    client_ip = node.clientstack.ha.host
-    client_port = node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    config_helper = PNodeConfigHelper(node_alias, tconf, chroot=tdir)
-    restartedNode = TestNode(node_alias,
+    config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
+    restartedNode = TestNode(node.name,
                              config_helper=config_helper,
                              config=tconf,
                              ha=HA(node_ip, node_port),
@@ -485,6 +486,7 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
+    sdk_pool_refresh(looper, sdk_pool_handle)
     return restartedNode
 
 

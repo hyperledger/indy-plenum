@@ -1,4 +1,5 @@
 import pytest
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, SERVICES, VALIDATOR
@@ -15,12 +16,6 @@ from stp_core.common.log import getlogger
 from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
-
-# logged errors to ignore
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message',
-             'got error while verifying message']
 
 
 # Whitelisting "got error while verifying message" since a node while not have
@@ -64,7 +59,8 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
 def testNodePortChanged(looper, txnPoolNodeSet,
                         sdk_wallet_steward,
                         sdk_pool_handle,
-                        sdk_node_theta_added):
+                        sdk_node_theta_added,
+                        tdir, tconf):
     """
     An running node's port is changed
     """
@@ -75,18 +71,14 @@ def testNodePortChanged(looper, txnPoolNodeSet,
     node_ha = txnPoolNodeSet[0].nodeReg[new_node.name]
     cli_ha = txnPoolNodeSet[0].cliNodeReg[new_node.name + CLIENT_STACK_SUFFIX]
 
-    node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                             node_dest, new_node.name,
-                             node_ha.host, new_port,
-                             cli_ha.host, cli_ha.port)
-
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 1)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              new_steward_wallet, 1)
+    update_node_data_and_reconnect(looper, txnPoolNodeSet,
+                                              new_steward_wallet,
+                                              sdk_pool_handle,
+                                              new_node,
+                                              node_ha.host, new_port,
+                                              cli_ha.host, cli_ha.port,
+                                              tdir, tconf)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
 
 # !!! THIS TEST DON'T WORK WHEN STARTED WITH ALL TESTS IN THIS FILE
@@ -111,9 +103,15 @@ def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet,
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
-    update_node_data_and_reconnect(looper, txnPoolNodeSet + [new_node],
+    txnPoolNodeSet.append(new_node)
+    node_ha = new_node.nodeReg[new_node.name]
+    cli_ha = new_node.cliNodeReg[new_node.name + CLIENT_STACK_SUFFIX]
+    new_node = update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    new_steward_wallet,
                                    sdk_pool_handle,
                                    new_node,
+                                   node_ha.host, node_ha.port,
+                                   cli_ha.host, cli_ha.port,
                                    tdir, tconf)
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    # txnPoolNodeSet.append(new_node)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
