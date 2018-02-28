@@ -8,6 +8,13 @@ from plenum.server.propagator import (
 )
 from plenum.test.request.helper import checkTransitions
 
+# TODO tests for:
+#   - onTPC... events
+#   - tryTPCState
+#   - onForwarded
+#   - onExecuted
+#   - and other API
+
 # FIXTURES
 @pytest.fixture
 def rbftRequestPropagation(rbftRequest):
