@@ -24,9 +24,9 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
         return get_method_call_count(
             next(iter(txnPoolNodeSet)).getReplyFromLedger)
 
-    def get_recordAndPropagate_call_count():
+    def get_process_write_request_call_count():
         return get_method_call_count(
-            next(iter(txnPoolNodeSet)).recordAndPropagate)
+            next(iter(txnPoolNodeSet)).process_write_request)
 
     def get_last_returned_val():
         rvs = []
@@ -39,21 +39,21 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
 
     # Send a request
     rlc1 = get_getReplyFromLedger_call_count()
-    rpc1 = get_recordAndPropagate_call_count()
+    rpc1 = get_process_write_request_call_count()
     req1, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     rlc2 = get_getReplyFromLedger_call_count()
-    rpc2 = get_recordAndPropagate_call_count()
+    rpc2 = get_process_write_request_call_count()
     assert rlc2 - rlc1 == 1     # getReplyFromLedger was called
-    assert rpc2 - rpc1 == 1     # recordAndPropagate was called
+    assert rpc2 - rpc1 == 1     # process_write_request was called
     r1 = get_last_returned_val()
     assert r1 is None       # getReplyFromLedger returned None since had not seen request
 
     req2, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     assert req2.reqId != req1.reqId
     rlc3 = get_getReplyFromLedger_call_count()
-    rpc3 = get_recordAndPropagate_call_count()
+    rpc3 = get_process_write_request_call_count()
     assert rlc3 - rlc2 == 1     # getReplyFromLedger was called again
-    assert rpc3 - rpc2 == 1     # recordAndPropagate was called again
+    assert rpc3 - rpc2 == 1     # process_write_request was called again
     r2 = get_last_returned_val()
     assert r2 is None       # getReplyFromLedger returned None since had not seen request
 
@@ -69,9 +69,9 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
     waitForSufficientRepliesForRequests(looper, client1, requests=[req3, ])
     assert req3.reqId == req1.reqId
     rlc4 = get_getReplyFromLedger_call_count()
-    rpc4 = get_recordAndPropagate_call_count()
+    rpc4 = get_process_write_request_call_count()
     assert rlc4 - rlc3 == 1     # getReplyFromLedger was called again
-    assert rpc4 - rpc3 == 0     # recordAndPropagate was not called
+    assert rpc4 - rpc3 == 0     # process_write_request was not called
     r3 = get_last_returned_val()
     # getReplyFromLedger did not return None this time since had seen request
     assert r3 is not None

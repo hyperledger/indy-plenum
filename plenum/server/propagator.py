@@ -93,8 +93,11 @@ class Propagator:
             client_name = client_name.decode()
         return Propagate(request, client_name)
 
+    def process_write_request(self, request: Request, clientName: str):
+        self.propagate(request, None, clientName)
+
     # noinspection PyUnresolvedReferences
-    def propagate(self, request: Request, sender: str, clientName):
+    def propagate(self, request: Request, sender: str, clientName: str):
         """
         Broadcast a PROPAGATE to all other nodes
 

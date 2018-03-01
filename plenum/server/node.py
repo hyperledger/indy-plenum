@@ -2024,9 +2024,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, frm)
             return
 
-        # If not already got the propagate request(PROPAGATE) for the
-        # corresponding client request(REQUEST)
-        self.propagate(request, None, frm)
+        self.process_write_request(request, frm)
         self.send_ack_to_client(request.key, frm)
 
     def is_query(self, txn_type) -> bool:
