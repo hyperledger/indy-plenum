@@ -24,7 +24,7 @@ def node_doesnt_propagate(startedNodes):
     def evilProcessPropagate(self, msg, frm):
         logger.info("TEST: Evil {} is not processing PROPAGATE".format(self))
 
-    def evilPropagateRequest(self, request, clientName):
+    def evilPropagateRequest(self, request, frm, clientName):
         logger.info("TEST: Evil {} is not PROPAGATing client request".
                     format(self))
 
