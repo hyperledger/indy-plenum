@@ -20,4 +20,4 @@ def recvdRequest(node: TestNode):
 
 def forwardedRequest(node: TestNode):
     return getAllArgs(node,
-                      TestNode.forward)
+                      TestNode._forward)
