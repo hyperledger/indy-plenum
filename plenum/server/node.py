@@ -2712,8 +2712,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param nodeName: name of the node to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.warning("{} raised suspicion on node {} for {}; suspicion code "
-                       "is {}".format(self, nodeName, reason, code))
+        logger.warning("{} raised suspicion on node {}, code {} "
+                       "reason {}".format(self, nodeName, code, reason))
         # TODO need a more general solution here
 
         # TODO: Should not blacklist client on a single InvalidSignature.

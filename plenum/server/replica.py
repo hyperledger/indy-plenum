@@ -912,15 +912,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
-        def report_suspicious(reason):
-            ex = SuspiciousNode(sender, reason, pre_prepare)
+        def report_suspicious(reason, addInfo=None):
+            ex = SuspiciousNode(sender, reason, pre_prepare, addInfo)
             self.node.reportSuspiciousNodeEx(ex)
 
         try:
             why_not = self._can_process_pre_prepare(pre_prepare, sender)
         except TransitionError as ex:
-            report_suspicious(Suspicions.PPR_REQUEST_IN_WRONG_STATE(
-                ex.stateful.key, ex.stateful.state()))
+            report_suspicious(
+                Suspicions.PPR_REQUEST_IN_WRONG_STATE,
+                "request {} state {!r}".format(ex.stateful.key, ex.stateful.state())
+            )
             return
 
         if why_not is None:

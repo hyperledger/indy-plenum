@@ -97,14 +97,14 @@ def test_preprepare_not_processed_if_any_request_is_already_ordered(
     assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
     params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
-    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE(
-        tuple(ppWithDuplicateIdr.reqIdr[0]), TPCReqState.Ordered)
+    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE
     assert params is not None
     assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
-    assert params['reason'] == expectedSuspicion.reason
     assert params['code'] == expectedSuspicion.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
     assert params['offendingMsg'].ppSeqNo == ppWithDuplicateIdr.ppSeqNo
+    assert format(tuple(ppWithDuplicateIdr.reqIdr[0])) in params['reason']
+    assert repr(TPCReqState.Ordered) in params['reason']
 
 
 def test_repeated_request_not_processed_if_already_in_3pc_process(
@@ -233,16 +233,14 @@ def test_preprepare_not_processed_if_any_request_is_already_in_3pc_process(
     assert nonPrNode.spylog.count(nonPrNode.reportSuspiciousNode) == count + 1
 
     params = nonPrNode.spylog.getLastParams(nonPrNode.reportSuspiciousNode)
-    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE(
-        tuple(ppWithDuplicateIdr.reqIdr[0]), TPCReqState.In3PC)
+    expectedSuspicion = Suspicions.PPR_REQUEST_IN_WRONG_STATE
     assert params is not None
     assert params['nodeName'] == nonPrNode_m_replica.getNodeName(sender)
-    assert params['reason'] == expectedSuspicion.reason
     assert params['code'] == expectedSuspicion.code
     assert params['offendingMsg'].viewNo == ppWithDuplicateIdr.viewNo
     assert params['offendingMsg'].ppSeqNo == ppWithDuplicateIdr.ppSeqNo
-
-
+    assert format(tuple(ppWithDuplicateIdr.reqIdr[0])) in params['reason']
+    assert repr(TPCReqState.In3PC) in params['reason']
 
 
 def test_repeated_request_not_processed_after_view_change(

@@ -140,14 +140,20 @@ class InvalidKey(Exception):
 
 
 class SuspiciousNode(BaseExc):
-    def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
+    def __init__(self, node: str, suspicion: Suspicion, offendingMsg, addInfo: str=None):
         node = node.decode() if isinstance(node, bytes) else node
         self.code = suspicion.code if suspicion else None
-        self.reason = suspicion.reason if suspicion else None
+        self._reason = suspicion.reason if suspicion else None
         p = compile(r'(\b\w+)(:(\d+))?')
         m = p.match(node)
         self.node = m.groups()[0] if m else node
         self.offendingMsg = offendingMsg
+        self.addInfo = addInfo
+
+    @property
+    def reason(self):
+        return ("{}".format(self._reason) +
+                ", {}".format(self.addInfo) if self.addInfo else "")
 
     def __repr__(self):
         return "Error code: {}. {}".format(self.code, self.reason)

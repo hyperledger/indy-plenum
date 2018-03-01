@@ -17,7 +17,7 @@ class TransitionError(Exception):
         self.state = kwargs.pop('state')
         super().__init__(*args, **kwargs)
 
-    def __str__(self):
+    def __repr__(self):
         return (
             "stateful: {}, desired state: {}"
             .format(repr(self.stateful), repr(self.state))

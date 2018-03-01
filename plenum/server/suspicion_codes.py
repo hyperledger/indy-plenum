@@ -72,11 +72,9 @@ class Suspicions:
     PR_BLS_SIG_WRONG = \
         Suspicion(32, "Prepare message has invalid BLS signature")
 
-    def _s33(reqKey, state):
-        return Suspicion(33,
-                         "PRE-PREPARE includes request {} that is in "
-                         "wrong state: {}".format(reqKey, state))
-    PPR_REQUEST_IN_WRONG_STATE = _s33
+    PPR_REQUEST_IN_WRONG_STATE = \
+        Suspicion(33, "PRE-PREPARE includes request that is not in "
+                  "appropriate state")
 
     @classmethod
     def get_list(cls):
