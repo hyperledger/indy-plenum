@@ -91,11 +91,14 @@ class LedgerManager(HasActionQueue):
         if ledgerInfo.consistencyProofsTimer is None:
             return
 
+        proofs = ledgerInfo.recvdConsistencyProofs
+        # there is no any received ConsistencyProofs
+        if not proofs:
+            return
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
         quorum = Quorums(self.owner.totalNodes)
-        proofs = ledgerInfo.recvdConsistencyProofs
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
         if quorum.same_consistency_proof.is_reached(null_proofs_count):
             return
