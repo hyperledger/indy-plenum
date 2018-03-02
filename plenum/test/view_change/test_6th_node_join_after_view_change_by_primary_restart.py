@@ -33,16 +33,13 @@ def limitTestRunningTime():
 def tconf(tconf):
     old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
     old_max_reconnect_retry = tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET
-    old_retry_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
     tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 0
     tconf.VIEW_CHANGE_TIMEOUT = 15
-    tconf.RETRY_TIMEOUT_RESTRICTED = 5
 
     yield tconf
 
     tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
     tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = old_max_reconnect_retry
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_retry_timeout
 
 
 def catchuped(node):
