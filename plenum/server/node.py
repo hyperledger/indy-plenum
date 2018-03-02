@@ -302,10 +302,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
-        # verification. These are still subject to RAET's signature verification
-        # but client signatures will not be checked on these. Expressly
-        # prohibited from being in this is ClientRequest and Propagation,
-        # which both require client signature verification
+        # verification. Expressly prohibited from being in this is
+        # ClientRequest and Propagation, which both require client
+        # signature verification
         self.authnWhitelist = (
             Nomination,
             Primary,
@@ -525,7 +524,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
-        self.master_replica.on_view_change_start()
+        for replica in self.replicas:
+            replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
                      format(self))
         self.monitor.reset()
@@ -882,6 +882,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_name_by_rank(self, rank, nodeReg=None):
         return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
 
+    def get_rank_by_name(self, name, nodeReg=None):
+        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg)
+
     def newViewChanger(self):
         if self.view_changer:
             return self.view_changer
@@ -1088,6 +1091,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Check protocol instances. See `checkInstances()`
 
         """
+        _prev_status = self.status
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
@@ -1103,6 +1107,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info(
                 '{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
+        elif _prev_status == Status.starting and self.status == Status.started_hungry \
+                and self.lost_primary_at is not None \
+                and self.master_primary_name is not None:
+            """
+            Such situation may occur if the pool has come back to reachable consensus but
+            primary is still disconnected, so view change proposal makes sense now.
+            """
+            self._schedule_view_change()
+
         if self.isReady():
             self.checkInstances()
             for node in joined:
@@ -2328,30 +2341,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         "".format(self))
             self.view_changer.on_primary_loss()
 
-    # TODO: consider moving this to pool manager
-    def lost_master_primary(self):
-        """
-        Schedule an primary connection check which in turn can send a view
-        change message
-        :return: whether view change started
-        """
-        self.lost_primary_at = time.perf_counter()
-
+    def _schedule_view_change(self):
         logger.debug('{} scheduling a view change in {} sec'.
                      format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
+    # TODO: consider moving this to pool manager
+    def lost_master_primary(self):
+        """
+        Schedule an primary connection check which in turn can send a view
+        change message
+        """
+        self.lost_primary_at = time.perf_counter()
+        self._schedule_view_change()
+
     def select_primaries(self, nodeReg: Dict[str, HA]=None):
+        primaries = set()
+        primary_rank = None
+        '''
+        Build a set of names of primaries, it is needed to avoid
+        duplicates of primary nodes for different replicas.
+        '''
+        for instance_id, replica in enumerate(self.replicas):
+            if replica.primaryName is not None:
+                name = replica.primaryName.split(":", 1)[0]
+                primaries.add(name)
+                '''
+                Remember the rank of primary of master instance, it is needed
+                for calculation of primaries for backup instances.
+                '''
+                if instance_id == 0:
+                    primary_rank = self.get_rank_by_name(name, nodeReg)
+
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
-            new_primary_name = self.elector.next_primary_replica_name(
-                instance_id, nodeReg=nodeReg)
+            if instance_id == 0:
+                new_primary_name, new_primary_instance_name =\
+                    self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
+                primary_rank = self.get_rank_by_name(
+                    new_primary_name, nodeReg)
+            else:
+                assert primary_rank is not None
+                new_primary_name, new_primary_instance_name =\
+                    self.elector.next_primary_replica_name_for_backup(
+                        instance_id, primary_rank, primaries, nodeReg=nodeReg)
+            primaries.add(new_primary_name)
             logger.display("{}{} selected primary {} for instance {} (view {})"
                            .format(PRIMARY_SELECTION_PREFIX, replica,
-                                   new_primary_name, instance_id, self.viewNo),
+                                   new_primary_instance_name, instance_id, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
             if instance_id == 0:
@@ -2361,7 +2401,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # participating.
                 self.start_participating()
 
-            replica.primaryChanged(new_primary_name)
+            replica.primaryChanged(new_primary_instance_name)
             self.primary_selected(instance_id)
 
             logger.display("{}{} declares view change {} as completed for "
@@ -2372,7 +2412,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                    replica,
                                    self.viewNo,
                                    instance_id,
-                                   new_primary_name,
+                                   new_primary_instance_name,
                                    self.ledger_summary),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
@@ -2415,7 +2455,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: None; raises an exception if the signature is not valid
         """
         if isinstance(msg, self.authnWhitelist):
-            return  # whitelisted message types rely on RAET for authn
+            return
         if isinstance(msg, Propagate):
             typ = 'propagate'
             req = msg.request

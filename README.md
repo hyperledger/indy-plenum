@@ -1,14 +1,33 @@
-# Plenum Byzantine Fault Tolerant Protocol    
+![logo](indy-logo.png)
+
+* [Plenum Byzantine Fault Tolerant Protocol](#plenum-byzantine-fault-tolerant-protocol)
+* [Technical Overview of Indy](#technical-overview-of-indy)
+* [Other Documentation](#other-documentation)
+* [Indy Plenum Repository Structure](#indy-plenum-repository-structure)
+* [Dependencies](#dependencies)
+* [Contact Us](#contact-us)
+* [How to Contribute](#how-to-contribute)
+* [How to Start Working with the Code](#how-to-start-working-with-the-code)
+* [Try Plenum Locally](#try-plenum-locally)
+
+## Plenum Byzantine Fault Tolerant Protocol    
 
 Plenum is the heart of the distributed ledger technology inside Hyperledger
 Indy. As such, it provides features somewhat similar in scope to those
 found in Fabric. However, it is special-purposed for use in an identity
 system, whereas Fabric is general purpose.
 
+## Technical Overview of Indy
+
+Please find the general overview of the system in [Overview of the system](docs/main.md).
+
+More documentation can be found in [docs](docs).
+
 ## Other Documentation
 
 - Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).
 - Please have a look at aggregated documentation at [indy-node-documentation](https://github.com/hyperledger/indy-node/blob/master/README.md) which describes workflows and setup scripts common for both projects. 
+
 
 ## Indy Plenum Repository Structure
 
@@ -30,8 +49,7 @@ mechanism that Plenum needs.
     - state storage using python 3 version of Ethereum's Patricia Trie
 - stp:
     - secure transport abstraction
-    - it has two implementations: RAET and ZeroMQ
-    - Although RAET implementation is there, it's not supported anymore, and [ZeroMQ](http://zeromq.org/) is the default secure transport in plenum. 
+    - it has [ZeroMQ](http://zeromq.org/) implementations
 - storage:
     - key-value storage abstractions
     - contains [leveldb](http://leveldb.org/) implementation as the main key-valued storage used in Plenum (for ledger, state, etc.)
@@ -49,7 +67,7 @@ separately.
     - In particular, it contains BLS multi-signature crypto needed for state proofs support in Indy.
 
 
-## Contact us
+## Contact Us
 
 - Bugs, stories, and backlog for this codebase are managed in [Hyperledger's Jira](https://jira.hyperledger.org).
 Use project name `INDY`.
@@ -67,7 +85,7 @@ Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/
 It contains common setup for both indy-plenum and indy-node.
 
 
-## Installing Plenum
+## Try Plenum Locally
 
 #### Install from pypi
 

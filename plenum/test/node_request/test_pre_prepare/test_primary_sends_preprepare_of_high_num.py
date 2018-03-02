@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.common.util import get_utc_epoch
