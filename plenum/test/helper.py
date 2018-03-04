@@ -1023,8 +1023,6 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
-    except asyncio.TimeoutError:
-        resp = None
     except IndyError as e:
         resp = e.error_code
 
@@ -1047,19 +1045,17 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             resp = None
         return resp
 
-    done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
-    if pend:
-        raise AssertionError("{} transactions are still pending. Timeout: {}."
-                             .format(len(pend), timeout))
+    done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pending:
+        for task in pending:
+            task.cancel()
+        raise TimeoutError("{} requests timed out".format(len(pending)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
 
 def sdk_check_reply(req_res):
     req, res = req_res
-    if res is None:
-        raise AssertionError("Got no confirmed result for request {}"
-                             .format(req))
     if isinstance(res, ErrorCode):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
