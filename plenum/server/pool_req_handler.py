@@ -83,6 +83,13 @@ class PoolRequestHandler(RequestHandler):
         if self.isNodeDataConflicting(operation.get(DATA, {})):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))
+        nodeNym = request.operation.get(TARGET_NYM)
+        nodeAlias = request.operation.get(DATA).get(ALIAS)
+        for curNodeNym, curNodeData in self.state.as_dict.items():
+            curNodeData = self.stateSerializer.deserialize(curNodeData)
+            if nodeAlias == curNodeData.get(
+                    ALIAS) and nodeNym.encode() != curNodeNym:
+                return "Alias " + curNodeData.get(ALIAS) + " already exists"
 
     def authErrorWhileUpdatingNode(self, request):
         # Check if steward of the node is updating it and its data does not
@@ -203,3 +210,4 @@ class PoolRequestHandler(RequestHandler):
         if self.isNodeDataConflicting(data, nodeNym):
             return "existing data has conflicts with " \
                    "request data {}".format(data)
+
