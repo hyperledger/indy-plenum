@@ -5,9 +5,10 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
-from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, sdk_send_random_requests, sdk_send_random_and_check
-from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test.helper import sdk_send_random_requests, \
+    sdk_send_random_and_check
+from plenum.test.test_node import getNonPrimaryReplicas, \
+    getPrimaryReplica
 
 
 @pytest.fixture(scope="module")
