@@ -18,12 +18,6 @@ from stp_core.types import HA
 
 logger = getlogger()
 
-# logged errors to ignore
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message',
-             'got error while verifying message']
-
 
 # Whitelisting "got error while verifying message" since a node while not have
 # initialised a connection for a new node by the time the new node's message

@@ -12,10 +12,6 @@ from plenum.test.pool_transactions.helper import suspendNode, \
     buildPoolClientAndWallet, cancelNodeSuspension
 from plenum.test.test_node import TestNode, checkNodesConnected
 
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message']
-
 
 def checkNodeNotInNodeReg(nodeOrClient, nodeName):
     if isinstance(nodeOrClient, Node):

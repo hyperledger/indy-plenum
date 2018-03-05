@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import STEWARD_STRING
+from plenum.common.exceptions import RejectError
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_get_replies, sdk_eval_timeout, sdk_check_reply
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, \
@@ -38,7 +39,7 @@ def testOnlyAStewardCanAddAnotherSteward(looper,
                                                         sdk_pool_handle, nym_request)
     total_timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
     request_couple = sdk_get_replies(looper, [request_couple], total_timeout)[0]
-    with pytest.raises(AssertionError):
+    with pytest.raises(RejectError):
         sdk_check_reply(request_couple)
 
 
@@ -48,6 +49,6 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper,
                                                       sdk_wallet_steward):
     sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
                     alias='testSteward' + randomString(3), role=STEWARD_STRING)
-    with pytest.raises(AssertionError):
+    with pytest.raises(RejectError):
         sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
                         alias='testSteward' + randomString(3), role=STEWARD_STRING)

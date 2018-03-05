@@ -1,6 +1,6 @@
 from plenum.common.util import hexToFriendly
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
@@ -27,23 +27,23 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet,
     correct_node_ha = genHa(1)
 
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                             node_dest, new_node.name,
-                             correct_node_ha.host, correct_node_ha.port,
-                             client_ha.host, client_ha.port)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         correct_node_ha.host, correct_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # step 2: set 'wrong' HA
     wrong_node_ha = genHa(1)
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                             node_dest, new_node.name,
-                             wrong_node_ha.host, wrong_node_ha.port,
-                             client_ha.host, client_ha.port)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         wrong_node_ha.host, wrong_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # step 3: set 'correct' HA back
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                             node_dest, new_node.name,
-                             correct_node_ha.host, correct_node_ha.port,
-                             client_ha.host, client_ha.port)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         correct_node_ha.host, correct_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # In order to save the time the pool connection is not maintaining
     # during the steps, only the final result is checked.

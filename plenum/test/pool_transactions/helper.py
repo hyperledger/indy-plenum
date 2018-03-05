@@ -421,11 +421,11 @@ def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
     return req
 
 
-def sdk_send_update_node_HAs(looper, sdk_submitter_wallet, sdk_pool_handle,
-                             destination, alias,
-                             node_ip, node_port,
-                             client_ip, client_port,
-                             services=[VALIDATOR]):
+def sdk_send_update_node(looper, sdk_submitter_wallet, sdk_pool_handle,
+                         destination, alias,
+                         node_ip, node_port,
+                         client_ip, client_port,
+                         services=[VALIDATOR]):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -468,10 +468,10 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     node_ha = node.nodeReg[node.name]
     cli_ha = node.cliNodeReg[node.name + CLIENT_STACK_SUFFIX]
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, steward_wallet, sdk_pool_handle,
-                             node_dest, node.name,
-                             new_node_ip, new_node_port,
-                             new_client_ip, new_client_port)
+    sdk_send_update_node(looper, steward_wallet, sdk_pool_handle,
+                         node_dest, node.name,
+                         new_node_ip, new_node_port,
+                         new_client_ip, new_client_port)
     # restart the Node with new HA
     node.stop()
     looper.removeProdable(name=node.name)

@@ -23,6 +23,7 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
+from plenum.common.exceptions import ReqNackError, RejectError
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
@@ -1060,10 +1061,10 @@ def sdk_check_reply(req_res):
         raise AssertionError("Got an error with code {} for request {}"
                              .format(res, req))
     if res['op'] == REQNACK:
-        raise AssertionError("ReqNack of id {}. Reason: {}"
+        raise ReqNackError("ReqNack of id {}. Reason: {}"
                              .format(req['reqId'], res['reason']))
     if res['op'] == REJECT:
-        raise AssertionError("Reject of id {}. Reason: {}"
+        raise RejectError("Reject of id {}. Reason: {}"
                              .format(req['reqId'], res['reason']))
 
 

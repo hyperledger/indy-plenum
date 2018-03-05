@@ -280,3 +280,11 @@ class InvalidMessageExceedingSizeException(InvalidMessageException):
         ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
             actLen, expLen)
         super().__init__(ex_txt, *args, **kwargs)
+
+
+class ReqNackError(Exception):
+    pass
+
+
+class RejectError(Exception):
+    pass

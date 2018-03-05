@@ -1,19 +1,14 @@
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
 from plenum.common.util import hexToFriendly, randomString
 from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs, sdk_pool_refresh, \
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh, \
     sdk_add_new_steward_and_node
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
-
-whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
-             "missing", "conflicts", "matches", "nodeReg",
-             "conflicting address", "got error while verifying message"]
 
 
 def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
@@ -39,10 +34,10 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
 
     # Making the change HA txn an confirming its succeeded
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                             node_dest, new_node.name,
-                             node_new_ha.host, node_new_ha.port,
-                             client_new_ha.host, client_new_ha.port)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         node_new_ha.host, node_new_ha.port,
+                         client_new_ha.host, client_new_ha.port)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:
@@ -73,6 +68,4 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     looper.run(checkNodesConnected(restartedNodes))
     waitNodeDataEquality(looper, node, *restartedNodes[:-1])
     sdk_pool_refresh(looper, sdk_pool_handle)
-    # Building a new client that reads from the genesis txn file
-    # but is able to connect to all nodes
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

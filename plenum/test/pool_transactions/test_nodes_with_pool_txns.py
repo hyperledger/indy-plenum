@@ -3,6 +3,8 @@ import json
 
 import base58
 import pytest
+
+from plenum.common.exceptions import RejectError, ReqNackError
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import DATA, TARGET_NYM, \
@@ -20,12 +22,6 @@ from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 
-# logged errors to ignore
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message',
-             'got error while verifying message']
-
 
 # Whitelisting "got error while verifying message" since a node while not have
 # initialised a connection for a new node by the time the new node's message
@@ -35,7 +31,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                         sdk_wallet_steward, tdir, tconf,
                                         allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(AssertionError):
+    with pytest.raises(RejectError):
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_steward,
@@ -50,7 +46,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                 sdk_wallet_client, tdir, tconf,
                                 allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(AssertionError):
+    with pytest.raises(RejectError):
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_client,
@@ -137,7 +133,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
                                                         sdk_pool_handle, node_request1)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ReqNackError):
         sdk_get_and_check_replies(looper, [request_couple])
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
@@ -148,7 +144,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request2)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        with pytest.raises(AssertionError):
+        with pytest.raises(ReqNackError):
             sdk_get_and_check_replies(looper, [request_couple])
 
 
@@ -209,7 +205,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
                                                         sdk_pool_handle, node_request)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ReqNackError):
         sdk_get_and_check_replies(looper, [request_couple])
 
 
@@ -257,5 +253,5 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
-        with pytest.raises(AssertionError):
+        with pytest.raises(ReqNackError):
             sdk_get_and_check_replies(looper, [request_couple])

@@ -1,9 +1,11 @@
 import pytest
+
+from plenum.common.exceptions import RejectError
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs, \
+from plenum.test.pool_transactions.helper import sdk_send_update_node, \
     sdk_add_new_steward_and_node, sdk_pool_refresh, \
     update_node_data_and_reconnect
 from plenum.test.test_node import checkNodesConnected
@@ -28,11 +30,11 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
     logger.debug("{} changing HAs to {} {}".format(new_node, node_new_ha,
                                                    client_new_ha))
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(AssertionError):
-        sdk_send_update_node_HAs(looper, sdk_wallet_steward, sdk_pool_handle,
-                                 node_dest, new_node.name,
-                                 node_new_ha.host, node_new_ha.port,
-                                 client_new_ha.host, client_new_ha.port)
+    with pytest.raises(RejectError):
+        sdk_send_update_node(looper, sdk_wallet_steward, sdk_pool_handle,
+                             node_dest, new_node.name,
+                             node_new_ha.host, node_new_ha.port,
+                             client_new_ha.host, client_new_ha.port)
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -44,11 +46,11 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
     """
     new_steward_wallet, new_node = sdk_node_theta_added
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(AssertionError):
-        sdk_send_update_node_HAs(looper, new_steward_wallet, sdk_pool_handle,
-                                 node_dest, 'foo',
-                                 None, None,
-                                 None, None)
+    with pytest.raises(RejectError):
+        sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                             node_dest, 'foo',
+                             None, None,
+                             None, None)
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
