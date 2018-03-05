@@ -2,15 +2,14 @@ import types
 import pytest
 from plenum.common.exceptions import UnauthorizedClientRequest, RejectError
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import sendRandomRequests, checkRejectWithReason, waitForSufficientRepliesForRequests, \
-    sdk_send_random_requests, sdk_get_and_check_replies
+from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
 from plenum.common.request import Request
 
 
-def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
+def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
                                 sdk_wallet_client):
     """
     Check that for requests which fail static validation, REQNACK is sent
