@@ -6,22 +6,18 @@ from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
 from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests
+    waitForSufficientRepliesForRequests, sdk_send_random_requests, sdk_send_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
 @pytest.fixture(scope="module")
-def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
+def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+                 getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=reqs,
-        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, tconf.Max3PCBatchSize)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr.create3PCBatch
@@ -36,7 +32,8 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
         return pp
 
     pr.create3PCBatch = types.MethodType(badMethod, pr)
-    sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+                             tconf.Max3PCBatchSize)
     return pr, otherR, stateRoot
 
 
@@ -75,15 +72,13 @@ def testViewChangeAfterBatchRejected(viewChanged):
     """
 
 
-def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
-                                             client, tconf, looper):
+def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged,
+                                             txnPoolNodeSet,
+                                             sdk_pool_handle, sdk_wallet_client,
+                                             tconf, looper):
     """
     After retrying discarded batches, new batches are sent
     :return:
     """
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=reqs,
-        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, tconf.Max3PCBatchSize)
