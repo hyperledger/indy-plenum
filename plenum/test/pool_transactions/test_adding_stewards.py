@@ -1,9 +1,9 @@
 import pytest
 
-from plenum.common.constants import STEWARD
+from plenum.common.constants import STEWARD_STRING
 from plenum.common.util import randomString
-from plenum.test.helper import waitRejectWithReason, sdk_get_replies, sdk_eval_timeout, sdk_check_reply
-from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient, sdk_add_new_steward, \
+from plenum.test.helper import sdk_get_replies, sdk_eval_timeout, sdk_check_reply
+from plenum.test.pool_transactions.helper import sdk_add_new_nym, \
     prepare_nym_request, sdk_sign_and_send_prepared_request
 
 
@@ -19,11 +19,13 @@ def tconf(tconf, request):
     return tconf
 
 
-def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
-                                         tdirWithPoolTxns, poolTxnClientData,
-                                         sdk_pool_handle, sdk_wallet_steward,
+def testOnlyAStewardCanAddAnotherSteward(looper,
+                                         txnPoolNodeSet,
+                                         sdk_pool_handle,
+                                         sdk_wallet_steward,
                                          sdk_wallet_client):
-    sdk_add_new_steward(looper, sdk_pool_handle, sdk_wallet_steward, 'testSteward1')
+    sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
+                    alias='testSteward' + randomString(3), role=STEWARD_STRING)
 
     seed = randomString(32)
     wh, _ = sdk_wallet_client
@@ -40,19 +42,12 @@ def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
         sdk_check_reply(request_couple)
 
 
-# !!! CHECK IF THIS TEST WORKS !!!
-def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
+def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper,
                                                       txnPoolNodeSet,
-                                                      tdirWithPoolTxns,
-                                                      poolTxnStewardData,
-                                                      steward1, stewardWallet):
-    addNewClient(STEWARD, looper, steward1, stewardWallet, "testSteward3")
-
-    sendAddNewClient(STEWARD, "testSteward4", steward1, stewardWallet)
-    for node in txnPoolNodeSet:
-        waitRejectWithReason(looper, steward1,
-                             'New stewards cannot be added by other '
-                             'stewards as there are already {} '
-                             'stewards in the system'.format(
-                                 tconf.stewardThreshold),
-                             node.clientstack.name)
+                                                      sdk_pool_handle,
+                                                      sdk_wallet_steward):
+    sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
+                    alias='testSteward' + randomString(3), role=STEWARD_STRING)
+    with pytest.raises(AssertionError):
+        sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
+                        alias='testSteward' + randomString(3), role=STEWARD_STRING)

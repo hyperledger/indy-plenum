@@ -1,9 +1,8 @@
 import pytest
 from plenum.common.util import hexToFriendly
 
-from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, ALIAS, SERVICES, CLIENT_STACK_SUFFIX
-from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node_HAs
-from plenum.test.primary_selection.conftest import stewardAndWalletForMasterNode, txnPoolMasterNodes
+from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, CLIENT_STACK_SUFFIX
+from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs
 
 nodeCount = 7
 nodes_wth_bls = 0
@@ -39,10 +38,9 @@ def test_get_nym_by_name_demoted(txnPoolNodeSet, pool_node_txns,
     check_get_nym_by_name(txnPoolNodeSet, pool_node_txns)
 
 
-def demote_node(node,
-                looper, steward_wallet, sdk_pool_handle):
+def demote_node(node, looper, sdk_steward_wallet, sdk_pool_handle):
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node_HAs(looper, steward_wallet, sdk_pool_handle,
+    sdk_send_update_node_HAs(looper, sdk_steward_wallet, sdk_pool_handle,
                              node_dest, node.name,
                              None, None,
                              None, None,

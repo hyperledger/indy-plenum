@@ -4,8 +4,6 @@ from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.common.constants import NYM, ROLE, STEWARD
 from plenum.common.constants import TXN_TYPE
 from plenum.test.helper import assertEquality
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 
 nodeCount = 8
 

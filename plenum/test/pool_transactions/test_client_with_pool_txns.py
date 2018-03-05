@@ -1,3 +1,5 @@
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.test.pool_transactions.helper import sdk_pool_refresh
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -39,4 +41,4 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet,
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_new_client, 1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_new_client, sdk_pool_handle)

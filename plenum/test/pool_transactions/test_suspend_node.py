@@ -36,7 +36,6 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             nodeThetaAdded,
                             poolTxnStewardData,
                             allPluginsPath):
-
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     newNodeNym = hexToFriendly(newNode.nodestack.verhex)
     suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)

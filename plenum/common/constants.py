@@ -117,6 +117,7 @@ MULTI_SIGNATURE_VALUE_TIMESTAMP = 'timestamp'
 # ROLES
 STEWARD = Roles.STEWARD.value
 TRUSTEE = Roles.TRUSTEE.value
+STEWARD_STRING = 'STEWARD'
 
 # TXNs
 NODE = PlenumTransactions.NODE.value

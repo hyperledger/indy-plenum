@@ -1,7 +1,6 @@
 from plenum.common.util import hexToFriendly
 
-from plenum.common.constants import ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
-from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node_HAs
+from plenum.test.pool_transactions.helper import sdk_send_update_node_HAs
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper

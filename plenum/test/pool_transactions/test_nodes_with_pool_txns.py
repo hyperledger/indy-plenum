@@ -1,25 +1,20 @@
 import itertools
 import json
-from copy import copy
 
 import base58
 import pytest
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
-from plenum.common.constants import CLIENT_STACK_SUFFIX, DATA, TARGET_NYM, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
+from plenum.common.constants import DATA, TARGET_NYM, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, STEWARD_STRING
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    waitRejectWithReason, \
-    waitReqNackFromPoolWithReason, sdk_send_random_and_check, sdk_get_and_check_replies
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import addNewClient, \
-    addNewStewardAndNode, sendAddNewNode, add_2_nodes, sdk_add_new_node, sdk_add_2_nodes, sdk_pool_refresh, \
-    sdk_add_new_nym, prepare_new_node_data, prepare_node_request, sdk_sign_and_send_prepared_request
-from plenum.test.test_node import checkNodesConnected, \
-    checkProtocolInstanceSetup
+from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
+from plenum.test.pool_transactions.helper import sdk_add_new_node, \
+    sdk_add_2_nodes, sdk_pool_refresh, sdk_add_new_nym, prepare_new_node_data, \
+    prepare_node_request, sdk_sign_and_send_prepared_request
+from plenum.test.test_node import checkProtocolInstanceSetup
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -120,7 +115,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
                                                 alias='New steward' + randomString(3),
-                                                role='STEWARD')
+                                                role=STEWARD_STRING)
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     _, steward_did = new_steward_wallet_handle

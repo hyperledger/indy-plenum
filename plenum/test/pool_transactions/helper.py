@@ -12,14 +12,13 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, BLS_KEY
+    VALIDATOR, BLS_KEY, CLIENT_STACK_SUFFIX, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
-    sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply, \
-    sdk_eval_timeout, sdk_sign_request_objects, sdk_send_signed_requests, \
+    sdk_sign_request_objects, sdk_send_signed_requests, \
     sdk_json_to_request_object, sdk_get_and_check_replies
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
@@ -279,7 +278,7 @@ def sdk_add_new_steward_and_node(looper,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
                                                 alias=new_steward_name,
-                                                role='STEWARD')
+                                                role=STEWARD_STRING)
     newNode = sdk_add_new_node(
         looper,
         sdk_pool_handle,
@@ -460,14 +459,16 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    steward_wallet,
                                    sdk_pool_handle,
                                    node,
-                                   node_ip, node_port,
-                                   client_ip, client_port,
+                                   new_node_ip, new_node_port,
+                                   new_client_ip, new_client_port,
                                    tdir, tconf):
+    node_ha = node.nodeReg[node.name]
+    cli_ha = node.cliNodeReg[node.name + CLIENT_STACK_SUFFIX]
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node_HAs(looper, steward_wallet, sdk_pool_handle,
                              node_dest, node.name,
-                             node_ip, node_port,
-                             client_ip, client_port)
+                             new_node_ip, new_node_port,
+                             new_client_ip, new_client_port)
     # restart the Node with new HA
     node.stop()
     looper.removeProdable(name=node.name)
@@ -475,8 +476,10 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     restartedNode = TestNode(node.name,
                              config_helper=config_helper,
                              config=tconf,
-                             ha=HA(node_ip, node_port),
-                             cliha=HA(client_ip, client_port))
+                             ha=HA(new_node_ip or node_ha.host,
+                                   new_node_port or node_ha.port),
+                             cliha=HA(new_client_ip or cli_ha.host,
+                                      new_client_port or cli_ha.port))
     looper.add(restartedNode)
 
     # replace node in txnPoolNodeSet
