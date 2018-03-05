@@ -144,11 +144,13 @@ def start_not_added_node(looper,
                                          tdir, randomString(32).encode(),
                                          (nodeIp, nodePort), (clientIp, clientPort),
                                          tconf, True, allPluginsPath, TestNode)
-    return sigseed, bls_key, new_node
+    return sigseed, bls_key, new_node, (nodeIp, nodePort), (clientIp, clientPort)
 
 
 def add_started_node(looper,
                      new_node,
+                     node_ha,
+                     client_ha,
                      txnPoolNodeSet,
                      client_tdir,
                      stewardClient, stewardWallet,
@@ -165,10 +167,10 @@ def add_started_node(looper,
                                                  clientClass=TestClient)
     node_name = new_node.name
     send_new_node_txn(sigseed,
-                      new_node.poolManager.nodeReg[node_name][0],
-                      new_node.poolManager.nodeReg[node_name][1],
-                      new_node.poolManager.cliNodeReg[node_name + "C"][0],
-                      new_node.poolManager.cliNodeReg[node_name + "C"][1],
+                      node_ha[0],
+                      node_ha[1],
+                      client_ha[0],
+                      client_ha[1],
                       bls_key,
                       node_name,
                       newSteward, newStewardWallet)
