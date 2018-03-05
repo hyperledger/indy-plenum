@@ -22,7 +22,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, \
-    TXN_TYPE, LEDGER_STATUS, \
+    HS_ROCKSDB, TXN_TYPE, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
@@ -59,6 +59,7 @@ from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
+from plenum.persistence.rocksdb_hash_store import RocksDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
 from plenum.server.blacklister import Blacklister
@@ -724,6 +725,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif hsConfig == HS_LEVELDB:
             return LevelDbHashStore(dataDir=self.dataLocation,
                                     fileNamePrefix=name)
+        elif hsConfig == HS_ROCKSDB:
+            return RocksDbHashStore(dataDir=self.dataLocation,
+                                    fileNamePrefix=name)
         else:
             return MemoryHashStore()
 
@@ -940,7 +944,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
-        logger.debug("{} closing level dbs".format(self), extra={"cli": False})
+        logger.debug("{} closing level/rocks dbs".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgerRegistry:
             state = self.getState(ledgerId)
             if state:

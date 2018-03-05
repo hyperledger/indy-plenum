@@ -6,6 +6,7 @@ from plenum.common.messages.node_messages import Reply
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 from storage.text_file_store import TextFileStore
 
 
@@ -31,6 +32,8 @@ def initKeyValueStorage(keyValueType, dataLocation,
                         keyValueStorageName) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
         return KeyValueStorageLeveldb(dataLocation, keyValueStorageName)
+    if keyValueType == KeyValueStorageType.Rocksdb:
+        return KeyValueStorageRocksdb(dataLocation, keyValueStorageName)
     elif keyValueType == KeyValueStorageType.Memory:
         return KeyValueStorageInMemory()
     else:
