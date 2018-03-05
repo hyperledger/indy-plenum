@@ -1,4 +1,3 @@
-import os
 import pytest
 
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
@@ -9,7 +8,7 @@ i = 0
 @pytest.yield_fixture(scope="function")
 def kv(tempdir) -> KeyValueStorageRocksdb:
     global i
-    kv = KeyValueStorageRocksdb(os.path.join(tempdir, 'kv{}'.format(i)))
+    kv = KeyValueStorageRocksdb(tempdir, 'kv{}'.format(i))
     i += 1
     yield kv
     kv.close()
