@@ -35,9 +35,10 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     """
 
     # 1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
-    sigseed, bls_key, new_node = start_not_added_node(looper,
-                                                      tdir, tconf, allPluginsPath,
-                                                      "TestTheta")
+    sigseed, bls_key, new_node, node_ha, client_ha = \
+        start_not_added_node(looper,
+                             tdir, tconf, allPluginsPath,
+                             "TestTheta")
 
     # 2. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
     looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)
@@ -48,6 +49,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     # 4. add the node to the pool (send NODE txn) and make sure that the node is ready now.
     add_started_node(looper,
                      new_node,
+                     node_ha,
+                     client_ha,
                      txnPoolNodeSet,
                      client_tdir,
                      steward1, stewardWallet,
