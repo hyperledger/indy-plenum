@@ -21,5 +21,7 @@ class KeyValueStorageRocksdbIntKeys(KeyValueStorageRocksdb):
         return 0
 
     def open(self):
-        self._db = rocksdb.DB(self.db_path, comparator=(
-            'IntegerComparator', self.compare))
+        opts = rocksdb.Options()
+        opts.create_if_missing = True
+        opts.comparator = self.compare
+        self._db = rocksdb.DB(self._db_path, opts)

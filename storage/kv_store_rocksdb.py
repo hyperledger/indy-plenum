@@ -22,7 +22,9 @@ class KeyValueStorageRocksdb(KeyValueStorage):
             self.open()
 
     def open(self):
-        self._db = rocksdb.DB(self._db_path, rocksdb.Options(create_if_missing=True))
+        opts = rocksdb.Options()
+        opts.create_if_missing = True
+        self._db = rocksdb.DB(self._db_path, opts)
 
     def __repr__(self):
         return self._db_path
@@ -73,13 +75,20 @@ class KeyValueStorageRocksdb(KeyValueStorage):
         self.drop()
         self.open()
 
-    def iter(self, start=None, end=None, include_value=True):
+    def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if not include_value:
             itr = self._db.iterkeys()
         else:
             itr = self._db.iteritems()
         itr.seek_to_first()
         return itr
+
+    def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
+        pass
+
+    @property
+    def is_byte(self) -> bool:
+        return True
 
     def has_key(self, key):
         if isinstance(key, str):
