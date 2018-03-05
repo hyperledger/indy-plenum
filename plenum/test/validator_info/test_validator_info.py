@@ -144,7 +144,7 @@ def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPool
     assert info['pool']['total-count'] == nodeCount
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
-    disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, others, disconnected)
+    disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, txnPoolNodeSet, disconnected)
     latest_info = load_latest_info()
 
     assert latest_info['pool']['reachable']['count'] == nodeCount - 1

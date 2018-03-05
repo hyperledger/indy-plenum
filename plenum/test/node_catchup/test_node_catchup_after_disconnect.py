@@ -27,7 +27,6 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
                  format(newNode, newNode.poolManager.txnSeqNo))
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, newNode, stopNode=False)
-    looper.removeProdable(newNode)
 
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
@@ -36,7 +35,6 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
     waitNodeDataInequality(looper, newNode, *txnPoolNodeSet[:-1])
 
     logger.debug("Starting the stopped node, {}".format(newNode))
-    looper.add(newNode)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, newNode)
 
     logger.debug("Waiting for the node to catch up, {}".format(newNode))

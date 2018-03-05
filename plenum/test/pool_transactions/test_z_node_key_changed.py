@@ -58,7 +58,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     # stopped
     txnPoolNodeSet[-1] = node
 
-    looper.run(checkNodesConnected(stacks=txnPoolNodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
