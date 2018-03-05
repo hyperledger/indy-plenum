@@ -13,14 +13,14 @@ class TransitionError(Exception):
     :param state: new/desired RBFTRequest state (RBFTReqState)
     """
     def __init__(self, *args, **kwargs):
-        self.stateful = kwargs.pop('stateful')
-        self.state = kwargs.pop('state')
+        self.stateful = kwargs.pop('stateful', None)
+        self.state = kwargs.pop('state', None)
         super().__init__(*args, **kwargs)
 
     def __repr__(self):
         return (
-            "stateful: {}, desired state: {}"
-            .format(repr(self.stateful), repr(self.state))
+            "stateful: {!r}, desired state: {!r}"
+            .format(self.stateful, self.state)
         )
 
 
@@ -59,6 +59,8 @@ class Stateful:
                 raise
         else:
             self.states.append(state)
+            logger.trace("{!r} changed state from {!r} to {!r}"
+                         .format(self, self.state(), state))
 
     def state(self):
         return self.states[-1]
