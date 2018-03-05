@@ -153,7 +153,7 @@ class SuspiciousNode(BaseExc):
     @property
     def reason(self):
         return ("{}".format(self._reason) +
-                ", {}".format(self.addInfo) if self.addInfo else "")
+                (", {}".format(self.addInfo) if self.addInfo else ""))
 
     def __repr__(self):
         return "Error code: {}. {}".format(self.code, self.reason)
