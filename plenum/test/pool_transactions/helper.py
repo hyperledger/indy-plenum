@@ -5,6 +5,7 @@ from indy.ledger import build_node_request, build_nym_request
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
+from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
@@ -543,7 +544,8 @@ def new_client(looper, poolTxnClientData, txnPoolNodeSet, client_tdir):
 
 
 def disconnectPoolNode(poolNodes: Iterable,
-                       disconnect: Union[str, TestNode], stopNode=True):
+                       disconnect: Union[str, TestNode],
+                       stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
@@ -552,43 +554,75 @@ def disconnectPoolNode(poolNodes: Iterable,
         if node.name == disconnect:
             if stopNode:
                 node.stop()
-        else:
+            else:
+                node.clientstack.close()
+                node.nodestack.close()
+            break
+    else:
+        raise AssertionError('The node {} which should be disconnected '
+                             'is not found in the passed pool node list {}'
+                             .format(disconnect, poolNodes))
+
+    for node in poolNodes:
+        if node.name != disconnect:
             node.nodestack.disconnectByName(disconnect)
 
 
-def reconnectPoolNode(poolNodes: Iterable,
-                      connect: Union[str, TestNode], looper):
+def reconnectPoolNode(looper: Looper,
+                      poolNodes: Iterable,
+                      connect: Union[str, TestNode]):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
 
     for node in poolNodes:
         if node.name == connect:
-            node.start(looper)
-        else:
+            if node.isGoing():
+                node.nodestack.open()
+                node.clientstack.open()
+                node.nodestack.maintainConnections(force=True)
+            else:
+                node.start(looper)
+            break
+    else:
+        raise AssertionError('The node {} which should be reconnected '
+                             'is not found in the passed pool node list {}'
+                             .format(connect, poolNodes))
+
+    for node in poolNodes:
+        if node.name != connect:
             node.nodestack.reconnectRemoteWithName(connect)
 
 
-def disconnect_node_and_ensure_disconnected(looper, poolNodes,
+def disconnect_node_and_ensure_disconnected(looper: Looper,
+                                            poolNodes: Iterable[TestNode],
                                             disconnect: Union[str, TestNode],
                                             timeout=None,
                                             stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
+
+    matches = [n for n in poolNodes if n.name == disconnect]
+    assert len(matches) == 1
+    node_to_disconnect = matches[0]
+
     disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
-    ensure_node_disconnected(looper, disconnect, poolNodes,
+    ensure_node_disconnected(looper,
+                             node_to_disconnect,
+                             set(poolNodes) - {node_to_disconnect},
                              timeout=timeout)
 
 
-def reconnect_node_and_ensure_connected(looper, poolNodes,
+def reconnect_node_and_ensure_connected(looper: Looper,
+                                        poolNodes: Iterable[TestNode],
                                         connect: Union[str, TestNode],
                                         timeout=None):
     if isinstance(connect, TestNode):
         connect = connect.name
     assert isinstance(connect, str)
 
-    reconnectPoolNode(poolNodes, connect, looper)
+    reconnectPoolNode(looper, poolNodes, connect)
     looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))
 
 
