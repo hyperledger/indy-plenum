@@ -57,7 +57,7 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
                                 sdk_pool_handle,
                                 sdk_wallet_client,
                                 count=2)
-        looper.runFor(.2)
+        looper.runFor(2.)
 
     def chk():
         for node in [n for n in txnPoolNodeSet if n != faulty_node]:
