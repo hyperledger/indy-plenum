@@ -64,9 +64,9 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
             # Each non faulty node raises suspicion
             assert get_timestamp_suspicion_count(node) > susp_counts[node.name]
             # Ledger does not change
-            assert node.domainLedger.size == ledger_sizes[node.name]
+            assert (node.viewNo > old_view_no) or (node.domainLedger.size == ledger_sizes[node.name])
 
-        assert faulty_node.domainLedger.size == ledger_sizes[faulty_node.name]
+        assert (faulty_node.viewNo > old_view_no) or (faulty_node.domainLedger.size == ledger_sizes[faulty_node.name])
 
     looper.run(eventually(chk, retryWait=1))
 
