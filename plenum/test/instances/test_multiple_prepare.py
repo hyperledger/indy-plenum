@@ -12,15 +12,11 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
-whitelist = [Suspicions.DUPLICATE_PR_SENT.reason,
-             'Invalid prepare message received',
-             'cannot process incoming PREPARE']
-
 
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     # A non primary replica sends duplicate PREPARE requests to all other
     # replicas
@@ -34,7 +30,7 @@ def setup(nodeSet, up):
     # want to check for a particular suspicion
 
     whitelistNode(faultyRep.node.name,
-                  [node for node in nodeSet if node != faultyRep.node],
+                  [node for node in txnPoolNodeSet if node != faultyRep.node],
                   Suspicions.DUPLICATE_PR_SENT.code)
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
@@ -50,7 +46,7 @@ def testMultiplePrepare(setup, looper, sent1):
     """
 
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-        setup.nonPrimaryReps, setup.faultyRep
+                                            setup.nonPrimaryReps, setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):

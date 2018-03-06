@@ -68,6 +68,7 @@ TXN_ID = "txnId"
 ORIGIN = "origin"
 # Use f.IDENTIFIER.nm
 IDENTIFIER = "identifier"
+REQ_ID = 'reqId'
 TARGET_NYM = "dest"
 DATA = "data"
 RAW = "raw"

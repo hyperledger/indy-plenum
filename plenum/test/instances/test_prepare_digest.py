@@ -12,7 +12,6 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
-
 whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
              'Invalid prepare message received',
              'cannot process incoming PREPARE',
@@ -21,9 +20,9 @@ whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
 
 
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     # A non primary replica sends PREPARE messages with incorrect digest
 
@@ -44,8 +43,8 @@ def testPrepareDigest(setup, looper, sent1):
     """
 
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-        setup.nonPrimaryReps, \
-        setup.faultyRep
+                                            setup.nonPrimaryReps, \
+                                            setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):
