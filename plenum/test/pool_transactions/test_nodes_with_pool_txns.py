@@ -4,7 +4,7 @@ import json
 import base58
 import pytest
 
-from plenum.common.exceptions import RejectError, ReqNackError
+from plenum.common.exceptions import RequestRejectedException, RequestNackedException
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import DATA, TARGET_NYM, \
@@ -31,7 +31,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                         sdk_wallet_steward, tdir, tconf,
                                         allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_steward,
@@ -47,7 +47,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                 sdk_wallet_client, tdir, tconf,
                                 allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_client,
@@ -135,7 +135,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
                                                         sdk_pool_handle, node_request1)
-    with pytest.raises(ReqNackError) as e:
+    with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
     assert 'unknown field' in e._excinfo[1].args[0]
 
@@ -147,7 +147,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request2)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        with pytest.raises(ReqNackError) as e:
+        with pytest.raises(RequestNackedException) as e:
             sdk_get_and_check_replies(looper, [request_couple])
         assert 'missed fields' in e._excinfo[1].args[0]
 
@@ -209,7 +209,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
                                                         sdk_pool_handle, node_request)
-    with pytest.raises(ReqNackError) as e:
+    with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
     assert 'should not contain the following chars' in e._excinfo[1].args[0]
 
@@ -258,7 +258,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
-        with pytest.raises(ReqNackError) as e:
+        with pytest.raises(RequestNackedException) as e:
             sdk_get_and_check_replies(looper, [request_couple])
         assert 'invalid network ip address' in e._excinfo[1].args[0] or \
                'expected types' in e._excinfo[1].args[0] or \

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.exceptions import RejectError
+from plenum.common.exceptions import RequestRejectedException
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
@@ -30,7 +30,7 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
     logger.debug("{} changing HAs to {} {}".format(new_node, node_new_ha,
                                                    client_new_ha))
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_send_update_node(looper, sdk_wallet_steward, sdk_pool_handle,
                              node_dest, new_node.name,
                              node_new_ha.host, node_new_ha.port,
@@ -47,7 +47,7 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
     """
     new_steward_wallet, new_node = sdk_node_theta_added
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
                              node_dest, 'foo',
                              None, None,
