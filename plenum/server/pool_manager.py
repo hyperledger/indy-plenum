@@ -14,7 +14,7 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
 from plenum.common.exceptions import UnsupportedOperation
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
-from plenum.persistence.storage import initKeyValueStorage
+from storage.helper import initKeyValueStorage
 from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 from state.pruning_state import PruningState

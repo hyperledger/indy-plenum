@@ -1,8 +1,8 @@
 from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.common.ledger import Ledger
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
-from plenum.persistence.storage import initKeyValueStorage
 from state.pruning_state import PruningState
+from storage.helper import initKeyValueStorage
 
 
 def get_auction_hash_store(data_dir):

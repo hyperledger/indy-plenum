@@ -1,11 +1,10 @@
 from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
-import os
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.tools import lazy_field
-from plenum.persistence.leveldb_hash_store import LevelDbHashStore
+from storage.helper import initHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
@@ -43,8 +42,7 @@ class TxnStackManager(metaclass=ABCMeta):
 
     @lazy_field
     def hashStore(self):
-        return LevelDbHashStore(dataDir=self.ledgerLocation,
-                                fileNamePrefix='pool')
+        return initHashStore(self.ledgerLocation, 'pool', self.config)
 
     # noinspection PyTypeChecker
     @lazy_field
