@@ -1,6 +1,6 @@
 import types
 import pytest
-from plenum.common.exceptions import UnauthorizedClientRequest, RejectError
+from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedException
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
 from stp_core.loop.eventually import eventually
@@ -86,7 +86,7 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
                                     sdk_wallet_client,
                                     tconf.Max3PCBatchSize)
     sdk_get_and_check_replies(looper, reqs[:-1])
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_get_and_check_replies(looper, reqs[-1:])
 
     assert 'Simulated rejection' in e._excinfo[1].args[0]
