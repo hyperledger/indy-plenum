@@ -92,8 +92,7 @@ def sdk_node_theta_added(looper,
                                      new_node_name,
                                      tdir,
                                      tconf,
-                                     allPluginsPath,
-                                     nodeClass=testNodeClass)
+                                     allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
