@@ -73,10 +73,13 @@ def test_node_catchup_after_restart_with_txns(
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode
 
+    # Make sure ledger is not synced initially
+    check_ledger_state(newNode, DOMAIN_LEDGER_ID, LedgerState.not_synced)
+
     # Delay catchup reply processing so LedgerState does not change
-    # TODO fix delay, sometimes it's not enough and loweer 'check_ledger_state'
+    # TODO fix delay, sometimes it's not enough and lower 'check_ledger_state'
     # fails because newNode's domain ledger state is 'synced'
-    delay_catchup_reply = 5
+    delay_catchup_reply = 10
     newNode.nodeIbStasher.delay(cr_delay(delay_catchup_reply))
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
