@@ -31,7 +31,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                         sdk_wallet_steward, tdir, tconf,
                                         allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(RejectError):
+    with pytest.raises(RejectError) as e:
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_steward,
@@ -39,6 +39,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
                          tdir,
                          tconf,
                          allPluginsPath)
+    assert 'already has a node' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -46,7 +47,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
                                 sdk_wallet_client, tdir, tconf,
                                 allPluginsPath):
     new_node_name = "Epsilon"
-    with pytest.raises(RejectError):
+    with pytest.raises(RejectError) as e:
         sdk_add_new_node(looper,
                          sdk_pool_handle,
                          sdk_wallet_client,
@@ -54,6 +55,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
                          tdir,
                          tconf,
                          allPluginsPath)
+    assert 'is not a steward so cannot add a ' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -133,8 +135,9 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
                                                         sdk_pool_handle, node_request1)
-    with pytest.raises(ReqNackError):
+    with pytest.raises(ReqNackError) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'unknown field' in e._excinfo[1].args[0]
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         request_json = json.loads(node_request)
@@ -144,8 +147,9 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request2)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        with pytest.raises(ReqNackError):
+        with pytest.raises(ReqNackError) as e:
             sdk_get_and_check_replies(looper, [request_couple])
+        assert 'missed fields' in e._excinfo[1].args[0]
 
 
 def testNodesConnect(txnPoolNodeSet):
@@ -205,8 +209,9 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
                                                         sdk_pool_handle, node_request)
-    with pytest.raises(ReqNackError):
+    with pytest.raises(ReqNackError) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'should not contain the following chars' in e._excinfo[1].args[0]
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
@@ -253,5 +258,8 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                                             sdk_pool_handle, node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
-        with pytest.raises(ReqNackError):
+        with pytest.raises(ReqNackError) as e:
             sdk_get_and_check_replies(looper, [request_couple])
+        assert 'invalid network ip address' in e._excinfo[1].args[0] or \
+               'expected types' in e._excinfo[1].args[0] or \
+               'network port out of the range' in e._excinfo[1].args[0]

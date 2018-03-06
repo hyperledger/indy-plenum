@@ -6,7 +6,7 @@ from indy.ledger import build_get_txn_request
 from random import randint
 
 from plenum.common.constants import INVALID_LEDGER_ID, INVALID_SEQ_NO, DATA
-from plenum.common.exceptions import RejectError
+from plenum.common.exceptions import RejectError, ReqNackError
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, \
     prepare_nym_request
 from stp_core.loop.eventually import eventually
@@ -34,8 +34,9 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    with pytest.raises(RejectError):
+    with pytest.raises(ReqNackError) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'expected one of' in e._excinfo[1].args[0]
 
 
 def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
@@ -52,8 +53,9 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    with pytest.raises(RejectError):
+    with pytest.raises(ReqNackError) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'cannot be smaller' in e._excinfo[1].args[0]
 
 
 def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,

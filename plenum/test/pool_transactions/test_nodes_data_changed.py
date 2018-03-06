@@ -30,11 +30,12 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
     logger.debug("{} changing HAs to {} {}".format(new_node, node_new_ha,
                                                    client_new_ha))
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(RejectError):
+    with pytest.raises(RejectError) as e:
         sdk_send_update_node(looper, sdk_wallet_steward, sdk_pool_handle,
                              node_dest, new_node.name,
                              node_new_ha.host, node_new_ha.port,
                              client_new_ha.host, client_new_ha.port)
+    assert 'is not a steward of node' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -46,11 +47,12 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
     """
     new_steward_wallet, new_node = sdk_node_theta_added
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    with pytest.raises(RejectError):
+    with pytest.raises(RejectError) as e:
         sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
                              node_dest, 'foo',
                              None, None,
                              None, None)
+    assert 'data has conflicts with request data' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
