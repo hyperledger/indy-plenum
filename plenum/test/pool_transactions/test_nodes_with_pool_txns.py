@@ -4,7 +4,8 @@ import json
 import base58
 import pytest
 
-from plenum.common.exceptions import RequestRejectedException, RequestNackedException
+from plenum.common.exceptions import RequestRejectedException, \
+    RequestNackedException
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import DATA, TARGET_NYM, \
@@ -12,7 +13,8 @@ from plenum.common.constants import DATA, TARGET_NYM, \
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
+from plenum.test.helper import sdk_send_random_and_check, \
+    sdk_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_add_new_node, \
     sdk_add_2_nodes, sdk_pool_refresh, sdk_add_new_nym, prepare_new_node_data, \
     prepare_node_request, sdk_sign_and_send_prepared_request
@@ -27,7 +29,33 @@ logger = getlogger()
 # initialised a connection for a new node by the time the new node's message
 # reaches it
 
-def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, sdk_pool_handle,
+def test_add_node_with_not_unique_alias(looper,
+                                        tdir,
+                                        tconf,
+                                        sdk_pool_handle,
+                                        sdk_wallet_steward,
+                                        allPluginsPath):
+    new_node_name = "Alpha"
+    new_steward_wallet, steward_did = sdk_add_new_nym(looper,
+                                                      sdk_pool_handle,
+                                                      sdk_wallet_steward,
+                                                      alias="TEST_STEWARD1",
+                                                      role='STEWARD')
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_add_new_node(looper,
+                         sdk_pool_handle,
+                         (new_steward_wallet, steward_did),
+                         new_node_name,
+                         tdir,
+                         tconf,
+                         allPluginsPath)
+    assert 'existing data has conflicts with request data' in \
+           e._excinfo[1].args[0]
+    sdk_pool_refresh(looper, sdk_pool_handle)
+
+
+def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
+                                        sdk_pool_handle,
                                         sdk_wallet_steward, tdir, tconf,
                                         allPluginsPath):
     new_node_name = "Epsilon"
@@ -69,7 +97,8 @@ def testClientConnectsToNewNode(looper,
     """
     _, new_node = sdk_node_theta_added
     logger.debug("{} connected to the pool".format(new_node))
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 1)
 
 
 def testAdd2NewNodes(looper, txnPoolNodeSet,
@@ -112,7 +141,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
     new_steward_wallet_handle = sdk_add_new_nym(looper,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
-                                                alias='New steward' + randomString(3),
+                                                alias='New steward' + randomString(
+                                                    3),
                                                 role=STEWARD_STRING)
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, new_node_name)
@@ -129,12 +159,15 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
 
     # case from the ticket
     request_json = json.loads(node_request)
-    request_json['operation'][DATA][NODE_PORT + ' '] = request_json['operation'][DATA][NODE_PORT]
+    request_json['operation'][DATA][NODE_PORT + ' '] = \
+        request_json['operation'][DATA][NODE_PORT]
     del request_json['operation'][DATA][NODE_PORT]
     node_request1 = json.dumps(request_json)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
-                                                        sdk_pool_handle, node_request1)
+    request_couple = sdk_sign_and_send_prepared_request(looper,
+                                                        new_steward_wallet_handle,
+                                                        sdk_pool_handle,
+                                                        node_request1)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
     assert 'unknown field' in e._excinfo[1].args[0]
@@ -143,8 +176,10 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
         request_json = json.loads(node_request)
         del request_json['operation'][DATA][fn]
         node_request2 = json.dumps(request_json)
-        request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
-                                                            sdk_pool_handle, node_request2)
+        request_couple = sdk_sign_and_send_prepared_request(looper,
+                                                            new_steward_wallet_handle,
+                                                            sdk_pool_handle,
+                                                            node_request2)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
@@ -156,8 +191,10 @@ def testNodesConnect(txnPoolNodeSet):
     pass
 
 
-def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, sdk_wallet_client,
+                               sdk_pool_handle):
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client,
+                               sdk_pool_handle)
 
 
 def testAddNewClient(looper, txnPoolNodeSet, sdk_wallet_new_client):
@@ -207,8 +244,10 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
     request_json['operation'][TARGET_NYM] = hexVerKey
     node_request = json.dumps(request_json)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
-                                                        sdk_pool_handle, node_request)
+    request_couple = sdk_sign_and_send_prepared_request(looper,
+                                                        sdk_wallet_new_steward,
+                                                        sdk_pool_handle,
+                                                        node_request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
     assert 'should not contain the following chars' in e._excinfo[1].args[0]
@@ -254,8 +293,10 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
         request_json = json.loads(node_request)
         request_json['operation'][DATA][field] = value
         node_request1 = json.dumps(request_json)
-        request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_new_steward,
-                                                            sdk_pool_handle, node_request1)
+        request_couple = sdk_sign_and_send_prepared_request(looper,
+                                                            sdk_wallet_new_steward,
+                                                            sdk_pool_handle,
+                                                            node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
