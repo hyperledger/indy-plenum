@@ -419,16 +419,8 @@ def nodeReg(request) -> Dict[str, HA]:
 
 
 @pytest.yield_fixture(scope="module")
-def unstartedLooper(nodeSet):
-    with Looper(nodeSet, autoStart=False) as l:
-        yield l
-
-
-@pytest.fixture(scope="module")
-def looper(unstartedLooper):
-    unstartedLooper.autoStart = True
-    unstartedLooper.startall()
-    return unstartedLooper
+def looper(txnPoolNodesLooper):
+    yield txnPoolNodesLooper
 
 
 @pytest.fixture(scope="function")

@@ -76,22 +76,3 @@ def sent1(looper, sdk_pool_handle,
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 
-
-@pytest.fixture(scope="module")
-def noRetryReq(tconf, request):
-    oldRetryAck = tconf.CLIENT_MAX_RETRY_ACK
-    oldRetryReply = tconf.CLIENT_MAX_RETRY_REPLY
-    tconf.CLIENT_MAX_RETRY_ACK = 0
-    tconf.CLIENT_MAX_RETRY_REPLY = 0
-
-    def reset():
-        tconf.CLIENT_MAX_RETRY_ACK = oldRetryAck
-        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
-
-    request.addfinalizer(reset)
-    return tconf
-
-
-@pytest.fixture(scope="module")
-def faultyNodes(request):
-    return getValueFromModule(request, "faultyNodes", 0)
