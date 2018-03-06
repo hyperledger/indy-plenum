@@ -1,7 +1,7 @@
 import json
 
 from indy.did import create_and_store_my_did
-from indy.ledger import build_node_request, build_nym_request
+from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
@@ -458,6 +458,12 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
         refresh_pool_ledger(sdk_pool_handle))
 
 
+def sdk_build_get_txn_request(looper, steward_did, data):
+    request = looper.loop.run_until_complete(
+        build_get_txn_request(steward_did, data))
+    return request
+
+
 def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    steward_wallet,
                                    sdk_pool_handle,
@@ -465,8 +471,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    new_node_ip, new_node_port,
                                    new_client_ip, new_client_port,
                                    tdir, tconf):
-    node_ha = node.nodeReg[node.name]
-    cli_ha = node.cliNodeReg[node.name + CLIENT_STACK_SUFFIX]
+    node_ha = node.nodestack.ha
+    cli_ha = node.clientstack.ha
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, steward_wallet, sdk_pool_handle,
                          node_dest, node.name,
