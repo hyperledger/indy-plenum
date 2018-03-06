@@ -183,11 +183,11 @@ class NetworkPortField(TestFieldBase):
 
     @property
     def negative_test_cases(self):
-        return -1, 65535 + 1
+        return 0, -1, 65535 + 1
 
     @property
     def positive_test_cases(self):
-        return 0, 9700, 65535
+        return 0 + 1, 9700, 65535
 
 
 class NetworkIpAddressField(TestFieldBase):
