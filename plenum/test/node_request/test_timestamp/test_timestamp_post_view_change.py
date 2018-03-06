@@ -7,6 +7,7 @@ from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests
+from plenum.test.delayers import icDelay
 
 Max3PCBatchSize = 4
 
@@ -51,24 +52,37 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
 
     old_view_no = txnPoolNodeSet[0].viewNo
 
+    # Delay parameters
+    malicious_batch_count = 5
+    malicious_batch_interval = 2
+    instance_change_delay = 1.5 * malicious_batch_count * malicious_batch_interval
+
+    # Delay instance change so view change doesn't happen in the middle of this test
+    for node in txnPoolNodeSet:
+        node.nodeIbStasher.delay(icDelay(instance_change_delay))
+
     # Requests are sent
-    for _ in range(5):
+    for _ in range(malicious_batch_count):
         sdk_send_random_requests(looper,
                                 sdk_pool_handle,
                                 sdk_wallet_client,
                                 count=2)
-        looper.runFor(2.)
+        looper.runFor(malicious_batch_interval)
 
     def chk():
         for node in [n for n in txnPoolNodeSet if n != faulty_node]:
             # Each non faulty node raises suspicion
             assert get_timestamp_suspicion_count(node) > susp_counts[node.name]
             # Ledger does not change
-            assert (node.viewNo > old_view_no) or (node.domainLedger.size == ledger_sizes[node.name])
+            assert node.domainLedger.size == ledger_sizes[node.name]
 
-        assert (faulty_node.viewNo > old_view_no) or (faulty_node.domainLedger.size == ledger_sizes[faulty_node.name])
+        assert faulty_node.domainLedger.size == ledger_sizes[faulty_node.name]
 
     looper.run(eventually(chk, retryWait=1))
+
+    # Clear delays
+    for node in txnPoolNodeSet:
+        node.nodeIbStasher.resetDelays()
 
     # Eventually another view change happens
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, old_view_no + 1,
