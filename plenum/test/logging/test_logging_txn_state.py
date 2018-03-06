@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from plenum.common.exceptions import RejectError
+from plenum.common.exceptions import RequestRejectedException
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 
@@ -70,7 +70,7 @@ def testLoggingTxnStateForInvalidRequest(
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
                                                         sdk_pool_handle, nym_request)
 
-    with pytest.raises(RejectError) as e:
+    with pytest.raises(RequestRejectedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
 
     assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
