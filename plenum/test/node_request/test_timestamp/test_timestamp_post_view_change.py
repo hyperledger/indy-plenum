@@ -70,6 +70,9 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
         looper.runFor(malicious_batch_interval)
 
     def chk():
+        for node in txnPoolNodeSet:
+            assert node.viewNo == old_view_no
+
         for node in [n for n in txnPoolNodeSet if n != faulty_node]:
             # Each non faulty node raises suspicion
             assert get_timestamp_suspicion_count(node) > susp_counts[node.name]
