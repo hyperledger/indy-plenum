@@ -5,7 +5,8 @@ from collections import OrderedDict
 
 import logging
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
+    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -59,7 +60,7 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_FILE
+    "type": HS_ROCKSDB
 }
 
 primaryStorage = None
