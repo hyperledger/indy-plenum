@@ -2,13 +2,14 @@ import json
 
 import pytest
 
-from indy.ledger import build_get_txn_request
 from random import randint
 
-from plenum.common.constants import INVALID_LEDGER_ID, INVALID_SEQ_NO, DATA
-from plenum.common.exceptions import RejectError
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, \
-    prepare_nym_request
+from plenum.common.constants import INVALID_LEDGER_ID, \
+    INVALID_SEQ_NO, DATA
+from plenum.common.exceptions import RequestNackedException
+from plenum.test.pool_transactions.helper import \
+    sdk_sign_and_send_prepared_request, prepare_nym_request, \
+    sdk_build_get_txn_request
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_get_and_check_replies
 from plenum.common.util import getMaxFailures, randomString
@@ -21,8 +22,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                                        sdk_wallet_steward,
                                        sdk_pool_handle):
     _, steward_did = sdk_wallet_steward
-    request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, 1))
+    request = sdk_build_get_txn_request(looper, steward_did, 1)
 
     # setting incorrect Ledger_ID
     request_json = json.loads(request)
@@ -34,8 +34,9 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    with pytest.raises(RejectError):
+    with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'expected one of' in e._excinfo[1].args[0]
 
 
 def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
@@ -44,16 +45,17 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
     _, steward_did = sdk_wallet_steward
 
     # setting incorrect data
-    request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, INVALID_SEQ_NO))
+    request = sdk_build_get_txn_request(looper, steward_did,
+                                        INVALID_SEQ_NO)
 
     request_couple = \
         sdk_sign_and_send_prepared_request(looper,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    with pytest.raises(RejectError):
+    with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
+    assert 'cannot be smaller' in e._excinfo[1].args[0]
 
 
 def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,
@@ -61,8 +63,7 @@ def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,
                                      sdk_pool_handle):
     _, steward_did = sdk_wallet_steward
     for i in range(2):
-        request = looper.loop.run_until_complete(
-            build_get_txn_request(steward_did, 1))
+        request = sdk_build_get_txn_request(looper, steward_did, 1)
 
         # Check with and without ledger id
         request_json = json.loads(request)
@@ -85,8 +86,8 @@ def test_get_txn_for_non_existing_seq_no(looper, txnPoolNodeSet,
     def generate_non_existing_seq_no():
         return randint(500, 1000)
 
-    request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, generate_non_existing_seq_no()))
+    request = sdk_build_get_txn_request(looper, steward_did,
+                                        generate_non_existing_seq_no())
 
     request_couple = \
         sdk_sign_and_send_prepared_request(looper,
@@ -110,20 +111,22 @@ def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
                             None, None))
 
     # sending request using 'sdk_' functions
-    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
-                                                        sdk_pool_handle, nym_request)
+    request_couple = sdk_sign_and_send_prepared_request(
+        looper, sdk_wallet_steward,
+        sdk_pool_handle, nym_request)
 
-    result1 = sdk_get_and_check_replies(looper, [request_couple])[0][1]['result']
+    result1 = sdk_get_and_check_replies(looper,
+                                        [request_couple])[0][1]['result']
     seqNo = result1['seqNo']
 
     _, steward_did = sdk_wallet_steward
-    request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, seqNo))
+    request = sdk_build_get_txn_request(looper, steward_did, seqNo)
 
     request_couple = \
         sdk_sign_and_send_prepared_request(looper,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    result2 = sdk_get_and_check_replies(looper, [request_couple])[0][1]['result']
+    result2 = sdk_get_and_check_replies(looper,
+                                        [request_couple])[0][1]['result']
     assert result1 == result2['data']

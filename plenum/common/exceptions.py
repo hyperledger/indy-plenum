@@ -282,9 +282,25 @@ class InvalidMessageExceedingSizeException(InvalidMessageException):
         super().__init__(ex_txt, *args, **kwargs)
 
 
+<<<<<<< HEAD
 class ReqNackError(Exception):
     pass
 
 
 class RejectError(Exception):
+=======
+class RequestNackedException(Exception):
+    pass
+
+
+class RequestRejectedException(Exception):
+    pass
+
+
+class CommonSdkIOException(Exception):
+    pass
+
+
+class PoolLedgerTimeoutException(Exception):
+>>>>>>> base/master
     pass
