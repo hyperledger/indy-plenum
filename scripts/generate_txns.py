@@ -13,7 +13,7 @@ from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
 from plenum.common.txn_util import sdk_reqToTxn
 from indy.ledger import sign_request
-from indy import signus, wallet
+from indy import did, wallet
 from stp_core.loop.looper import Looper
 
 config = getConfig()
@@ -31,12 +31,12 @@ async def get_wallet_and_pool():
     await wallet.create_wallet(pool_name, their_wallet_name, None, None, None)
     their_wallet_handle = await wallet.open_wallet(their_wallet_name, None, None)
 
-    await signus.create_and_store_my_did(my_wallet_handle, "{}")
+    await did.create_and_store_my_did(my_wallet_handle, "{}")
 
-    (their_did, their_verkey) = await signus.create_and_store_my_did(their_wallet_handle,
+    (their_did, their_verkey) = await did.create_and_store_my_did(their_wallet_handle,
                                                                      json.dumps({"seed": seed_trustee1}))
 
-    await signus.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
+    await did.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
 
     return their_wallet_handle, their_did
 

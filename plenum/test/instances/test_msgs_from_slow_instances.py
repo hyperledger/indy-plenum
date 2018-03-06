@@ -7,22 +7,21 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.test_node import TestNode
 from plenum.test import waits
 
-
 nodeCount = 4
 
 faultyNodes = 1
 
 
 @pytest.fixture()
-def configNodeSet(nodeSet):
-    A, B, C, D = nodeSet.nodes.values()
+def configNodeSet(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet.nodes.values()
     # Nodes C and D delay Commit request from node A for protocol instance 0
     for n in [C, D]:
         n.nodeIbStasher.delay(delayerMsgTuple(30,
                                               Commit,
                                               senderFilter=A.name,
                                               instFilter=0))
-    return nodeSet
+    return txnPoolNodeSet
 
 
 def testMsgFromInstanceDelay(configNodeSet, looper, prepared1):

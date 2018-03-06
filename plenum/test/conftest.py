@@ -55,7 +55,7 @@ from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
-    create_new_test_node
+    create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -493,39 +493,26 @@ def request1(wallet1):
 
 
 @pytest.fixture(scope="module")
-def sent1(client1, request1):
-    return client1.submitReqs(request1)[0][0]
+def sent1(looper, sdk_pool_handle,
+          sdk_wallet_client):
+    request_couple_json = sdk_send_random_requests(
+        looper, sdk_pool_handle, sdk_wallet_client, 1)
+    return request_couple_json
 
 
 @pytest.fixture(scope="module")
-def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
-    numerOfNodes = len(nodeSet)
+def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
+    numerOfNodes = len(txnPoolNodeSet)
+
+    request = sdk_json_to_request_object(sent1[0][0])
 
     # Wait until request received by all nodes
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
-    coros = [partial(checkLastClientReqForNode, node, sent1)
-             for node in nodeSet]
-    # looper.run(eventuallyAll(*coros,
-    #                          totalTimeout=propTimeout,
-    #                          acceptableFails=faultyNodes))
+    coros = [partial(checkLastClientReqForNode, node, request)
+             for node in txnPoolNodeSet]
     chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
                   timeout=propTimeout)
-
-    # Wait until sufficient number of acks received
-    coros2 = [
-        partial(
-            checkReqAck,
-            client1,
-            node,
-            sent1.identifier,
-            sent1.reqId) for node in nodeSet]
-    ackTimeout = waits.expectedReqAckQuorumTime()
-    # looper.run(eventuallyAll(*coros2,
-    #                          totalTimeout=ackTimeout,
-    #                          acceptableFails=faultyNodes))
-    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes,
-                  timeout=ackTimeout)
-    return sent1
+    return request
 
 
 @pytest.fixture(scope="module")
@@ -550,40 +537,39 @@ def faultyNodes(request):
 
 @pytest.fixture(scope="module")
 def propagated1(looper,
-                nodeSet,
-                up,
+                txnPoolNodeSet,
                 reqAcked1,
                 faultyNodes):
-    checkPropagated(looper, nodeSet, reqAcked1, faultyNodes)
+    checkPropagated(looper, txnPoolNodeSet, reqAcked1, faultyNodes)
     return reqAcked1
 
 
 @pytest.fixture(scope="module")
-def preprepared1(looper, nodeSet, propagated1, faultyNodes):
+def preprepared1(looper, txnPoolNodeSet, propagated1, faultyNodes):
     checkPrePrepared(looper,
-                     nodeSet,
+                     txnPoolNodeSet,
                      propagated1,
-                     range(getNoInstances(len(nodeSet))),
+                     range(getNoInstances(len(txnPoolNodeSet))),
                      faultyNodes)
     return propagated1
 
 
 @pytest.fixture(scope="module")
-def prepared1(looper, nodeSet, client1, preprepared1, faultyNodes):
+def prepared1(looper, txnPoolNodeSet, preprepared1, faultyNodes):
     checkPrepared(looper,
-                  nodeSet,
+                  txnPoolNodeSet,
                   preprepared1,
-                  range(getNoInstances(len(nodeSet))),
+                  range(getNoInstances(len(txnPoolNodeSet))),
                   faultyNodes)
     return preprepared1
 
 
 @pytest.fixture(scope="module")
-def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
+def committed1(looper, txnPoolNodeSet, prepared1, faultyNodes):
     checkCommitted(looper,
-                   nodeSet,
+                   txnPoolNodeSet,
                    prepared1,
-                   range(getNoInstances(len(nodeSet))),
+                   range(getNoInstances(len(txnPoolNodeSet))),
                    faultyNodes)
     return prepared1
 
