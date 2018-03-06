@@ -7,6 +7,7 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
+from plenum.test.pool_transactions.conftest import looper
 
 logger = getlogger()
 
@@ -16,7 +17,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          sdk_wallet_steward):
-    new_steward_wallet, new_node = new_steward_wallet, new_node = \
+    new_steward_wallet, new_node = \
         sdk_add_new_steward_and_node(looper,
                                      sdk_pool_handle,
                                      sdk_wallet_steward,
@@ -68,4 +69,4 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     looper.run(checkNodesConnected(restartedNodes))
     waitNodeDataEquality(looper, node, *restartedNodes[:-1])
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, restartedNodes, sdk_wallet_client, sdk_pool_handle)

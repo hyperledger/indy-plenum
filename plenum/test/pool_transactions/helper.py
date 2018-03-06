@@ -471,8 +471,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    new_node_ip, new_node_port,
                                    new_client_ip, new_client_port,
                                    tdir, tconf):
-    node_ha = node.nodeReg[node.name]
-    cli_ha = node.cliNodeReg[node.name + CLIENT_STACK_SUFFIX]
+    node_ha = node.nodestack.ha
+    cli_ha = node.clientstack.ha
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, steward_wallet, sdk_pool_handle,
                          node_dest, node.name,
