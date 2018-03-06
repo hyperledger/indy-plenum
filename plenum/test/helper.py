@@ -23,6 +23,8 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
+from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
+    PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
@@ -1057,14 +1059,18 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 def sdk_check_reply(req_res):
     req, res = req_res
     if isinstance(res, ErrorCode):
-        raise AssertionError("Got an error with code {} for request {}"
-                             .format(res, req))
+        if res == 307:
+            raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
+                                             .format(req))
+        else:
+            raise CommonSdkIOException('Got an error with code {} for request {}'
+                                       .format(res, req))
     if res['op'] == REQNACK:
-        raise AssertionError("ReqNack of id {}. Reason: {}"
-                             .format(req['reqId'], res['reason']))
+        raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                     .format(req['reqId'], res['reason']))
     if res['op'] == REJECT:
-        raise AssertionError("Reject of id {}. Reason: {}"
-                             .format(req['reqId'], res['reason']))
+        raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                       .format(req['reqId'], res['reason']))
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
