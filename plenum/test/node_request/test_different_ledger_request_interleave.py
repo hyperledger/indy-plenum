@@ -70,7 +70,7 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
         prepare_new_node_data(tconf, tdir, next_node_name)
     node_req = looper.loop.run_until_complete(
-        prepare_node_request(next_node_name, steward_did, clientIp,
+        prepare_node_request(steward_did, next_node_name, clientIp,
                              clientPort, nodeIp, nodePort, bls_key,
                              sigseed))
 
