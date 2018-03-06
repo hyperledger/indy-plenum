@@ -4,11 +4,7 @@ import json
 import base58
 import pytest
 
-<<<<<<< HEAD
-from plenum.common.exceptions import RejectError, ReqNackError
-=======
 from plenum.common.exceptions import RequestRejectedException, RequestNackedException
->>>>>>> base/master
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import DATA, TARGET_NYM, \

@@ -1,11 +1,7 @@
 import pytest
 
 from plenum.common.constants import STEWARD_STRING
-<<<<<<< HEAD
-from plenum.common.exceptions import RejectError
-=======
 from plenum.common.exceptions import RequestRejectedException
->>>>>>> base/master
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_get_replies, sdk_eval_timeout, sdk_check_reply
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, \
