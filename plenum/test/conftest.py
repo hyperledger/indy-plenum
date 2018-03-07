@@ -1081,6 +1081,19 @@ def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
 
 
 @pytest.fixture(scope='module')
+def sdk_wallet_stewards(looper, sdk_wallet_handle, poolTxnStewardNames, poolTxnData):
+    stewards = []
+    for name in poolTxnStewardNames:
+        seed = poolTxnData["seeds"][name]
+        (steward_did, steward_verkey) = looper.loop.run_until_complete(
+            create_and_store_my_did(sdk_wallet_handle,
+                                    json.dumps({'seed': seed})))
+        stewards.append((sdk_wallet_handle, steward_did))
+
+    yield stewards
+
+
+@pytest.fixture(scope='module')
 def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     (client_did, _) = looper.loop.run_until_complete(
         create_and_store_my_did(sdk_wallet_handle,
