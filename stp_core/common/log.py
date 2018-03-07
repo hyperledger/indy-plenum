@@ -33,18 +33,7 @@ class Logger(metaclass=Singleton):
         self._config = config or getConfig()
         self._addTraceToLogging()
         self._addDisplayToLogging()
-
-        self._handlers = {}
-        self._format = logging.Formatter(fmt=self._config.logFormat,
-                                         style=self._config.logFormatStyle)
-
-        if self._config.enableStdOutLogging:
-            self.enableStdLogging()
-
-        logLevel = logging.INFO
-        if hasattr(self._config, "logLevel"):
-            logLevel = self._config.logLevel
-        self.setLogLevel(logLevel)
+        self.apply_config(self._config)
 
     @staticmethod
     def getlogger(name=None):
@@ -58,6 +47,23 @@ class Logger(metaclass=Singleton):
     @staticmethod
     def setLogLevel(log_level):
         logging.root.setLevel(log_level)
+
+    def apply_config(self, config):
+        assert config
+
+        self._config = config
+        self._handlers = {}
+        self._clearAllHandlers()
+        self._format = logging.Formatter(fmt=self._config.logFormat,
+                                         style=self._config.logFormatStyle)
+
+        if self._config.enableStdOutLogging:
+            self.enableStdLogging()
+
+        logLevel = logging.INFO
+        if hasattr(self._config, "logLevel"):
+            logLevel = self._config.logLevel
+        self.setLogLevel(logLevel)
 
     def enableStdLogging(self):
         # only enable if CLI is not
@@ -100,6 +106,10 @@ class Logger(metaclass=Singleton):
         old = self._handlers.get(typ)
         if old:
             logging.root.removeHandler(old)
+
+    def _clearAllHandlers(self):
+        for hdlr in logging.root.handlers:
+            logging.root.removeHandler(hdlr)
 
     @staticmethod
     def _addTraceToLogging():
