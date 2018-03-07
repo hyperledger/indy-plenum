@@ -1,4 +1,5 @@
 from collections import Iterable
+from abc import abstractmethod, ABCMeta
 from typing import Dict
 
 from stp_core.common.log import getlogger
@@ -28,10 +29,16 @@ class Stateful:
     """
     Base class for states
     """
-    def __init__(self, initialState, transitions: Dict, name: str=None):
+    def __init__(self,
+            initialState,
+            transitions: Dict,
+            name: str=None,
+            stateful_event_class=None):
+
         self.transitions = transitions
         self.states = [initialState]
         self.name = name
+        self.stateful_event_class = stateful_event_class
 
     def __repr__(self):
         return "{}: states: {}".format(
@@ -68,3 +75,25 @@ class Stateful:
 
     def wasState(self, state):
         return state in self.states
+
+    def event(self, event):
+        if self.stateful_event_class is None:
+            # TODO use custom exception
+            raise RuntimeError("{} doesn't support any events processing, got object "
+                               "of type {}: {}".format(
+                                 self, self.stateful_event_class, type(event), event))
+        elif not isinstance(event, self.stateful_event_class):
+            raise TypeError("{} expects {} for events but got object "
+                             "of type {}: {}".format(
+                                 self, self.stateful_event_class, type(event), event))
+
+        logger.trace("{!r} processing new event {!r}".format(self, event))
+
+        event.react(self)
+
+
+class StatefulEvent(metaclass=ABCMeta):
+
+    @abstractmethod
+    def react(self, stateful: Stateful):
+        pass

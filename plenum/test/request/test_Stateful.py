@@ -2,7 +2,8 @@ import pytest
 
 from plenum.server.stateful import (
     TransitionError,
-    Stateful
+    Stateful,
+    StatefulEvent
 )
 
 def testInitialState():
@@ -48,3 +49,27 @@ def testStateHistory():
     assert stateful.wasState(2)
     stateful.setState(4)
     assert stateful.wasState(2)
+
+class BaseEvent(StatefulEvent):
+    pass
+
+class EventOk(BaseEvent):
+    def react(self, stateful):
+        pass
+
+class EventWrong:
+    pass
+
+def testNoEventsExpected():
+    with pytest.raises(RuntimeError) as excinfo:
+        Stateful(1, {}).event(EventOk())
+    assert "doesn't support any events processing" in str(excinfo.value)
+
+def testNotSupportedEvent():
+    with pytest.raises(TypeError) as excinfo:
+        Stateful(1, {}, stateful_event_class=BaseEvent).event(EventWrong())
+    assert ("expects {} for events but got object of type {}"
+            .format(BaseEvent, EventWrong) in str(excinfo.value))
+
+def testSupportedEvent():
+    Stateful(1, {}, stateful_event_class=BaseEvent).event(EventOk())
