@@ -254,6 +254,11 @@ class TPCReqState(IntEnum):
     Cleaned = 5     # was cleaned (no more referenced)
 
 
+class TPCReqEvent(StatefulEvent):
+    """ Base class for event expected by TPCRequest """
+    pass
+
+
 class TPCRequest(Stateful):
     """
     3PC request
@@ -285,7 +290,8 @@ class TPCRequest(Stateful):
                 TPCReqState.Rejected: self._isRejectable,
                 TPCReqState.Cancelled: self._isCancellable,
                 TPCReqState.Cleaned: self._isCleanable
-            }
+            },
+            stateful_event_class=TPCReqEvent
         )
 
     def __repr__(self):
@@ -365,35 +371,45 @@ class TPCRequest(Stateful):
         return self.wasState(TPCReqState.Rejected)
 
     # EVENTS
-    def onApply(self):
-        self._setTxnState(TransactionState.Applied)
+    class Apply(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq._setTxnState(TransactionState.Applied)
 
-    def onCommit(self):
-        self._setTxnState(TransactionState.Committed)
+    class Commit(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq._setTxnState(TransactionState.Committed)
 
-    def onRevert(self):
-        self._setTxnState(TransactionState.NotApplied)
+    class Revert(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq._setTxnState(TransactionState.NotApplied)
 
     # received or sent inside some PP
-    def onPP(self, tpcKey: Tuple[int, int], valid: bool):
-        self.tpcKey = tpcKey
-        self.setState(TPCReqState.In3PC if valid else TPCReqState.Rejected)
+    class PP(TPCReqEvent):
+        def __init__(self, tpcKey: Tuple[int, int], valid: bool):
+            self.tpcKey = tpcKey
+            self.valid = valid
 
-    def onOrder(self):
-        self.setState(TPCReqState.Ordered)
+        def react(self, tpcReq):
+            tpcReq.tpcKey = self.tpcKey
+            tpcReq.setState(TPCReqState.In3PC if self.valid else TPCReqState.Rejected)
 
-    def onCancel(self):
-        self.setState(TPCReqState.Cancelled)
+    class Order(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq.setState(TPCReqState.Ordered)
 
-    def onClean(self):
-        self.setState(TPCReqState.Cleaned)
+    class Cancel(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq.setState(TPCReqState.Cancelled)
 
-    def onReset(self):
-        self.setState(TPCReqState.Forwarded)
-        # transition rules guarantees that tpcKey is not None here
-        assert self.tpcKey is not None
-        tpcKey = tuple(self.tpcKey)
-        self.tpcKey = None
-        self.old_rounds[tpcKey] = self.states[:-1]
-        del self.states[:-1]
-    # --- EVENTS
+    class Clean(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq.setState(TPCReqState.Cleaned)
+
+    class Reset(TPCReqEvent):
+        def react(self, tpcReq):
+            tpcReq.setState(TPCReqState.Forwarded)
+            # transition rules guarantees that tpcKey is not None here
+            assert tpcReq.tpcKey is not None
+            tpcReq.old_rounds[tuple(tpcReq.tpcKey)] = list(tpcReq.states)
+            tpcReq.tpcKey = None
+            tpcReq.states[:] = [TPCReqState.Forwarded]

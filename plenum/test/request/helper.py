@@ -3,7 +3,7 @@ import pytest
 from typing import Iterable
 from plenum.server.stateful import TransitionError
 
-def checkTransitions(stateful, states: Iterable, expected: Iterable):
+def check_transitions(stateful, states: Iterable, expected: Iterable):
     for st in states:
         if st in expected:
             stateful.tryState(st)
