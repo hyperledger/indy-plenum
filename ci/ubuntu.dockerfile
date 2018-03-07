@@ -12,6 +12,48 @@ RUN apt-get update -y && apt-get install -y \
 
 RUN indy_ci_add_user $uid $user $venv
 
+####### FIXME: this code of rocksdb and python-rocksdb installation should be re-factored #######
+RUN apt-get update -y && apt-get install -y \
+    autoconf \
+    build-essential \
+    libtool-bin \
+    zlib1g-dev \
+    libbz2-dev \
+    pkg-config \
+    python3-dev
+
+RUN pip install -U Cython
+
+USER $user
+WORKDIR /home/indy
+RUN git clone https://github.com/evernym/snappy.git
+WORKDIR /home/indy/snappy
+RUN ./autogen.sh && ./configure && cat ./README.md > ./README
+RUN make
+
+USER root
+RUN make install
+
+USER $user
+WORKDIR /home/indy
+RUN git clone https://github.com/evernym/rocksdb.git
+WORKDIR /home/indy/rocksdb
+RUN make EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" static_lib
+
+USER root
+RUN make install
+
+USER $user
+WORKDIR /home/indy
+RUN git clone https://github.com/evernym/python-rocksdb.git
+WORKDIR /home/indy/python-rocksdb
+RUN python setup.py build
+USER root
+RUN python setup.py install
+RUN ldconfig
+
+####### FIXME end #######
+
 RUN indy_image_clean
 
 USER $user
