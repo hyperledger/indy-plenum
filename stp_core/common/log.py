@@ -26,6 +26,14 @@ def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 
+class ReplicaFilter(logging.Filter):
+
+    def filter(self, record):
+        if record.module == "replica":
+            record.msg = "REPLICA:({}) {}".format(self.name, record.msg)
+        return record
+
+
 class Logger(metaclass=Singleton):
     def __init__(self, config=None):
 
