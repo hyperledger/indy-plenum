@@ -34,5 +34,8 @@ def backupInstId(masterInstId):
 @pytest.fixture
 def rbftRequest(operation1, masterInstId):
     return RBFTRequest(
-        Request('123', 123, operation1), masterInstId=masterInstId
+        Request('123', 123, operation1),
+        'nodeName',
+        'clientName',
+        masterInstId=masterInstId
     )

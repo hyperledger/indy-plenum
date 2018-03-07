@@ -1,6 +1,6 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from enum import unique, IntEnum
-from typing import Iterable
+from typing import Iterable, Tuple
 
 from stp_core.common.log import getlogger
 from plenum.common.request import Request
@@ -28,10 +28,15 @@ class RBFTRequest(Stateful):
     """
     Client request with additional logic to hold RBFT related things
     """
-    def __init__(self, origRequest: Request, clientName: str=None, masterInstId: int=0):
+    def __init__(self,
+                 origRequest: Request,
+                 nodeName: str,
+                 clientName: str,
+                 masterInstId: int=0):
 
         self.origRequest = origRequest
         self._clientName = clientName
+        self._nodeName = nodeName
         self.masterInstId = masterInstId
 
         self.propagates = {}
@@ -58,8 +63,9 @@ class RBFTRequest(Stateful):
         )
 
     def __repr__(self):
-        return ("{}, origRequest: {}, clientName: {}, masterInstId: {}, "
+        return ("{} {}, origRequest: {}, clientName: {}, masterInstId: {}, "
                 "tpcRequests: {}".format(
+                    self.nodeName,
                     Stateful.__repr__(self),
                     repr(self.origRequest),
                     self.clientName,
@@ -111,9 +117,9 @@ class RBFTRequest(Stateful):
     def clientName(self):
         return self._clientName
 
-    @clientName.setter
-    def clientName(self, value):
-        self._clientName = value
+    @property
+    def nodeName(self):
+        return self._nodeName
 
     @property
     def executed(self):
@@ -205,19 +211,16 @@ class RBFTRequest(Stateful):
         self.setState(RBFTReqState.Detached, expectTrError=True)
 
     # a group of events as wrappers for managed TPCRequests
-    def onTPCRejected(self, instId: int):
-        self.tpcRequests[instId].onRejected()
-        if instId == self.masterInstId:
+    def onTPCPp(self, instId: int, tpcKey: Tuple[int, int], valid: bool):
+        self.tpcRequests[instId].onPP(tpcKey, valid)
+        if not valid and instId == self.masterInstId:
             self.setState(RBFTReqState.Rejected)
 
-    def onTPCPp(self, instId: int):
-        self.tpcRequests[instId].onPP()
+    def onTPCOrder(self, instId: int):
+        self.tpcRequests[instId].onOrder()
 
-    def onTPCOrdered(self, instId: int):
-        self.tpcRequests[instId].onOrdered()
-
-    def onTPCCleaned(self, instId: int):
-        self.tpcRequests[instId].onCleaned()
+    def onTPCClean(self, instId: int):
+        self.tpcRequests[instId].onClean()
         self.setState(RBFTReqState.Detached, expectTrError=True)
 
     def tryTPCState(self, state, instId: int):
@@ -235,11 +238,19 @@ class RBFTRequest(Stateful):
 
 
 @unique
+class TransactionState(IntEnum):
+    NotApplied = 0  # initial state
+    Applied = 1     # applied but not committed
+    Committed = 2   # committed
+
+
+@unique
 class TPCReqState(IntEnum):
-    Forwarded = 1   # was forwarded to replica, waiting for 3PC routine
-    Rejected = 2    # was was rejected during 3PC batch creation
-    In3PC = 3       # was added to (received in) some PrePrepare
-    Ordered = 4     # was ordered
+    Forwarded = 0   # was forwarded to replica, waiting for 3PC routine
+    In3PC = 1       # was added to (received in) some PrePrepare
+    Ordered = 2     # was ordered
+    Rejected = 3    # was rejected during 3PC batch creation
+    Cancelled = 4   # was cancelled, no further activity except cleaning
     Cleaned = 5     # was cleaned (no more referenced)
 
 
@@ -251,42 +262,138 @@ class TPCRequest(Stateful):
 
         self.rbftRequest = rbftRequest
         self.instId = instId
+        self.tpcKey = None
+        self.old_rounds = OrderedDict()
+
+        self.txn_state = Stateful(
+            initialState=TransactionState.NotApplied,
+            transitions={
+                TransactionState.NotApplied: TransactionState.Applied,
+                TransactionState.Applied: self._isApplicable,
+                TransactionState.Committed: self._isCommittable
+            },
+            name='TxnState'
+        )
+
         Stateful.__init__(
             self,
             initialState=TPCReqState.Forwarded,
             transitions={
-                TPCReqState.Rejected: TPCReqState.Forwarded,
+                TPCReqState.Forwarded: self._isResettable,
                 TPCReqState.In3PC: TPCReqState.Forwarded,
                 TPCReqState.Ordered: TPCReqState.In3PC,
-                TPCReqState.Cleaned: (
-                    TPCReqState.Forwarded,
-                    TPCReqState.Rejected,
-                    TPCReqState.In3PC,
-                    TPCReqState.Ordered
-                )
+                TPCReqState.Rejected: self._isRejectable,
+                TPCReqState.Cancelled: self._isCancellable,
+                TPCReqState.Cleaned: self._isCleanable
             }
         )
 
     def __repr__(self):
-        return "{}, rbftRequest: {}, instId: {}".format(
-            Stateful.__repr__(self), repr(self.key), self.instId)
+        return "{}:{} {}, {}, request: {}, tpcKey: {!r}, old_rounds: {!r}".format(
+            self.rbftRequest.nodeName, self.instId,
+            Stateful.__repr__(self), repr(self.txn_state),
+            repr(self.key), self.tpcKey, self.old_rounds)
 
+    # rules for transaction state
+    def _isApplicable(self):
+        return ((self.txn_state.state() == TransactionState.NotApplied) and
+                self.state() in (
+                    TPCReqState.Forwarded,
+                    TPCReqState.In3PC,
+                    TPCReqState.Ordered))
+
+    def _isCommittable(self):
+        return ((self.txn_state.state() == TransactionState.Applied) and
+                (self.state() == TPCReqState.Ordered))
+
+    # rules for 3PC state
+    def _isRejectable(self):
+        # catch-up can cause that)
+        return (self.state() == TPCReqState.Forwarded) and not self.isApplied()
+
+    def _isResettable(self):
+        # catch-up can cause that)
+        # TODO what if cleaned rejected requests are started processing
+        # in new 3PC round, thus Cleaned->Forwarded is possible
+        return ((self.state() == TPCReqState.Rejected) or
+                ((self.state() == TPCReqState.In3PC) and not self.isApplied()))
+
+    def _isCancellable(self):
+        # TODO what about ordered but not committed yet
+        return (not (self.isApplied() or self.isCommitted()) and
+                self.state() in (
+                    TPCReqState.Forwarded,
+                    TPCReqState.In3PC,
+                    TPCReqState.Ordered))
+
+    def _isCleanable(self):
+        _state = self.state()
+        if _state in (TPCReqState.Rejected, TPCReqState.Cancelled):
+            return True
+        elif self.isCommitted():
+            return True
+        elif not self.isApplied():
+            return _state in (TPCReqState.Forwarded,
+                              TPCReqState.In3PC,
+                              TPCReqState.Ordered)
+
+    # non-public methods
+    def _setTxnState(self, state: TransactionState):
+        try:
+            self.txn_state.setState(state)
+        except TransitionError as ex:
+            ex.stateful = self
+            raise ex
+
+    # API
     @property
     def key(self):
         return self.rbftRequest.key
 
+    def txnState(self):
+        return self.txn_state.state()
+
+    def isApplied(self):
+        return self.txn_state.state() == TransactionState.Applied
+
+    def isCommitted(self):
+        return self.txn_state.state() == TransactionState.Committed
+
+    def isRejected(self):
+        # TODO as of now Rejected could be reset to Forwarded
+        # and won't be as rejected in next 3CP round
+        return self.wasState(TPCReqState.Rejected)
+
     # EVENTS
+    def onApply(self):
+        self._setTxnState(TransactionState.Applied)
 
-    def onPP(self):
-        self.setState(TPCReqState.In3PC)
+    def onCommit(self):
+        self._setTxnState(TransactionState.Committed)
 
-    def onOrdered(self):
+    def onRevert(self):
+        self._setTxnState(TransactionState.NotApplied)
+
+    # received or sent inside some PP
+    def onPP(self, tpcKey: Tuple[int, int], valid: bool):
+        self.tpcKey = tpcKey
+        self.setState(TPCReqState.In3PC if valid else TPCReqState.Rejected)
+
+    def onOrder(self):
         self.setState(TPCReqState.Ordered)
 
-    def onRejected(self):
-        self.setState(TPCReqState.Rejected)
+    def onCancel(self):
+        self.setState(TPCReqState.Cancelled)
 
-    def onCleaned(self):
+    def onClean(self):
         self.setState(TPCReqState.Cleaned)
 
+    def onReset(self):
+        self.setState(TPCReqState.Forwarded)
+        # transition rules guarantees that tpcKey is not None here
+        assert self.tpcKey is not None
+        tpcKey = tuple(self.tpcKey)
+        self.tpcKey = None
+        self.old_rounds[tpcKey] = self.states[:-1]
+        del self.states[:-1]
     # --- EVENTS
