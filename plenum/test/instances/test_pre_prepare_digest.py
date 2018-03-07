@@ -4,7 +4,6 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.common.util import adict
 from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
