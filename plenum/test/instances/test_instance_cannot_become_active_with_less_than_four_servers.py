@@ -60,6 +60,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
 
                 timeout = waits.expectedNodeStartUpTimeout() + \
                     waits.expectedPoolInterconnectionTime(len(nodeSet))
+                # TODO: Probably it's better to modify waits.* functions
+                timeout *= 1.5
                 looper.run(eventually(checkNodeStatusRemotesAndF,
                                       expectedStatus,
                                       nodeIdx,
