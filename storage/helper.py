@@ -6,8 +6,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import KeyValueStorageType, HS_FILE, HS_LEVELDB, HS_ROCKSDB
 from plenum.common.exceptions import KeyValueStorageConfigNotFound
 
-from plenum.persistence.leveldb_hash_store import LevelDbHashStore
-from plenum.persistence.rocksdb_hash_store import RocksDbHashStore
+from plenum.persistence.db_hash_store import DbHashStore
 
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
@@ -36,11 +35,9 @@ def initHashStore(data_dir, name, config=None) -> HashStore:
     if hsConfig == HS_FILE:
         return FileHashStore(dataDir=data_dir,
                              fileNamePrefix=name)
-    elif hsConfig == HS_LEVELDB:
-        return LevelDbHashStore(dataDir=data_dir,
-                                fileNamePrefix=name)
-    elif hsConfig == HS_ROCKSDB:
-        return RocksDbHashStore(dataDir=data_dir,
-                                fileNamePrefix=name)
+    elif hsConfig == HS_LEVELDB or hsConfig == HS_ROCKSDB:
+        return DbHashStore(dataDir=data_dir,
+                           fileNamePrefix=name,
+                           db_type=hsConfig)
     else:
         return MemoryHashStore()
