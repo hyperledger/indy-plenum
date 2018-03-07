@@ -85,7 +85,7 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
 
     # Clear delays
     for node in txnPoolNodeSet:
-        node.nodeIbStasher.resetDelays()
+        node.nodeIbStasher.reset_delays_and_process_delayeds()
 
     # Eventually another view change happens
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, old_view_no + 1,
