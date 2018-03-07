@@ -384,14 +384,25 @@ class TPCRequest(Stateful):
             tpcReq._setTxnState(TransactionState.NotApplied)
 
     # received or sent inside some PP
-    class PP(TPCReqEvent):
-        def __init__(self, tpcKey: Tuple[int, int], valid: bool):
+    class PP(TPCReqEvent, metaclass=ABCMeta):
+        def __init__(self, tpcKey: Tuple[int, int]):
             self.tpcKey = tpcKey
-            self.valid = valid
+
+        @abstractmethod
+        def new_state(self):
+            pass
 
         def react(self, tpcReq):
+            tpcReq.setState(self.new_state())
             tpcReq.tpcKey = self.tpcKey
-            tpcReq.setState(TPCReqState.In3PC if self.valid else TPCReqState.Rejected)
+
+    class Accept(PP):
+        def new_state(self):
+            return TPCReqState.In3PC
+
+    class Reject(PP):
+        def new_state(self):
+            return TPCReqState.Rejected
 
     class Order(TPCReqEvent):
         def react(self, tpcReq):

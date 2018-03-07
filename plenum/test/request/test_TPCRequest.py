@@ -29,13 +29,13 @@ def tpcr_forwarded_applied(tpc_request):
 @pytest.fixture
 def tpcr_in_3pc(tpcr_forwarded):
     tpcr = deepcopy(tpcr_forwarded)
-    tpcr.event(TPCRequest.PP((0, 1), True))
+    tpcr.event(TPCRequest.Accept((0, 1)))
     return tpcr
 
 @pytest.fixture
 def tpcr_in_3pc_applied(tpcr_forwarded_applied):
     tpcr = deepcopy(tpcr_forwarded_applied)
-    tpcr.event(TPCRequest.PP((0, 1), True))
+    tpcr.event(TPCRequest.Accept((0, 1)))
     return tpcr
 
 @pytest.fixture
@@ -59,7 +59,7 @@ def tpcr_committed(tpcr_ordered_applied):
 @pytest.fixture
 def tpcr_rejected(tpcr_forwarded):
     tpcr = deepcopy(tpcr_forwarded)
-    tpcr.event(TPCRequest.PP((0, 1), False))
+    tpcr.event(TPCRequest.Reject((0, 1)))
     return tpcr
 
 @pytest.fixture
@@ -267,7 +267,7 @@ def test_pP(tpcr_forwarded,
             tpcr_forwarded,
             tpcr_forwarded_applied):
         txnState = tpcr.txnState()
-        tpcr.event(TPCRequest.PP(tpcKey, True))
+        tpcr.event(TPCRequest.Accept(tpcKey))
         assert tpcr.tpcKey == tpcKey
         assert tpcr.state() == TPCReqState.In3PC
         assert tpcr.txnState() == txnState
@@ -282,7 +282,7 @@ def test_pP(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.PP(tpcKey, True))
+            tpcr.event(TPCRequest.Accept(tpcKey))
 
 def test_pPRejected(tpcr_forwarded,
                      tpcr_forwarded_applied,
@@ -300,7 +300,7 @@ def test_pPRejected(tpcr_forwarded,
     for tpcr in (
             tpcr_forwarded,):
         txnState = tpcr.txnState()
-        tpcr.event(TPCRequest.PP(tpcKey, False))
+        tpcr.event(TPCRequest.Reject(tpcKey))
         assert tpcr.tpcKey == tpcKey
         assert tpcr.state() == TPCReqState.Rejected
         assert tpcr.txnState() == txnState
@@ -316,7 +316,7 @@ def test_pPRejected(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.PP(tpcKey, False))
+            tpcr.event(TPCRequest.Reject(tpcKey))
 
 def test_order(tpcr_forwarded,
                 tpcr_forwarded_applied,
