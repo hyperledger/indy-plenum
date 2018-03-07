@@ -80,7 +80,16 @@ class KeyValueStorageRocksdb(KeyValueStorage):
             itr = self._db.iterkeys()
         else:
             itr = self._db.iteritems()
-        itr.seek_to_first()
+
+        if start and isinstance(start, int):
+            start = str(start)
+        if start and isinstance(start, str):
+            start = start.encode()
+
+        if start:
+            itr.seek(start)
+        else:
+            itr.seek_to_first()
         return itr
 
     def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
