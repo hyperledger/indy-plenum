@@ -15,14 +15,10 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
 
-whitelist = [Suspicions.PPR_DIGEST_WRONG.reason,
-             'cannot process incoming PRE-PREPARE']
-
-
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     # The primary replica would send PRE-PREPARE messages with incorrect digest
     makeNodeFaulty(primaryRep.node, partial(send3PhaseMsgWithIncorrectDigest,
