@@ -28,13 +28,14 @@ class Stateful:
     """
     Base class for states
     """
-    def __init__(self, initialState, transitions: Dict):
+    def __init__(self, initialState, transitions: Dict, name: str=None):
         self.transitions = transitions
         self.states = [initialState]
+        self.name = name
 
     def __repr__(self):
         return "{}: states: {}".format(
-            self.__class__.__name__,
+            self.__class__.__name__ if self.name is None else self.name,
             self.states)
 
     def tryState(self, state):
