@@ -23,6 +23,8 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
+from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
+    PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
@@ -635,11 +637,11 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1
+    assert len(viewNos) == 1, 'Expected 1, but got {}'.format(len(viewNos))
     vNo, = viewNos
     if expectedViewNo is not None:
-        assert vNo >= expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
-            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
+        assert vNo >= expectedViewNo, \
+            'Expected at least {}, but got {}'.format(expectedViewNo, vNo)
     return vNo
 
 
@@ -1023,8 +1025,6 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
-    except asyncio.TimeoutError:
-        resp = None
     except IndyError as e:
         resp = e.error_code
 
@@ -1047,28 +1047,30 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             resp = None
         return resp
 
-    done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
-    if pend:
-        raise AssertionError("{} transactions are still pending. Timeout: {}."
-                             .format(len(pend), timeout))
+    done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pending:
+        for task in pending:
+            task.cancel()
+        raise TimeoutError("{} requests timed out".format(len(pending)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
 
 def sdk_check_reply(req_res):
     req, res = req_res
-    if res is None:
-        raise AssertionError("Got no confirmed result for request {}"
-                             .format(req))
     if isinstance(res, ErrorCode):
-        raise AssertionError("Got an error with code {} for request {}"
-                             .format(res, req))
+        if res == 307:
+            raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
+                                             .format(req))
+        else:
+            raise CommonSdkIOException('Got an error with code {} for request {}'
+                                       .format(res, req))
     if res['op'] == REQNACK:
-        raise AssertionError("ReqNack of id {}. Reason: {}"
-                             .format(req['reqId'], res['reason']))
+        raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                     .format(req['reqId'], res['reason']))
     if res['op'] == REJECT:
-        raise AssertionError("Reject of id {}. Reason: {}"
-                             .format(req['reqId'], res['reason']))
+        raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                       .format(req['reqId'], res['reason']))
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
