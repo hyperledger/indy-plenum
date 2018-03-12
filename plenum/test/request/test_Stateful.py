@@ -11,11 +11,14 @@ from plenum.server.stateful import (
 class StEvTest(StatefulEvent):
     pass
 
+
 class StEvTest2(StatefulEvent):
     pass
 
+
 class StEvTest3(StatefulEvent):
     pass
+
 
 class StatefulNoEvent(metaclass=StatefulMeta):
     pass
@@ -35,13 +38,13 @@ class StatefulChild(StatefulBase):
     def _on(self, ev, dry=False):
         self.last_event = (ev, dry)
 
-def testMetaNoEvent():
+
+def test_meta_no_event():
     with pytest.raises(RuntimeError) as excinfo:
         StatefulNoEvent().on(StEvTest)
     assert "doesn't support any events" in str(excinfo.value)
 
-
-def testMetaNotReady():
+def test_meta_not_ready():
     assert set(getattr(StatefulBase, 'supported_events')) == set((StEvTest,))
     assert getattr(StatefulBase, 'on_event1')
 
@@ -49,66 +52,65 @@ def testMetaNotReady():
         StatefulBase().on_event1()
     assert "method '_on'" in str(excinfo.value)
 
-def testMetaReady():
+def test_meta_ready():
     assert set(getattr(StatefulChild, 'supported_events')) == set((StEvTest, StEvTest2))
     assert getattr(StatefulChild, 'on_event1')
     assert getattr(StatefulChild, 'on_event2')
     assert getattr(StatefulChild, 'on_event_3')
 
-    stTest = StatefulChild()
-    assert stTest.last_event is None
+    st_test = StatefulChild()
+    assert st_test.last_event is None
 
-    stTest.on_event1()
-    assert stTest.last_event is not None
-    assert type(stTest.last_event[0]) is StEvTest
-    stTest.last_event[1] == False
+    st_test.on_event1()
+    assert st_test.last_event is not None
+    assert type(st_test.last_event[0]) is StEvTest
+    st_test.last_event[1] == False
 
-    stTest.on_event_3()
-    assert type(stTest.last_event[0]) is StEvTest2
-    stTest.last_event[1] == False
+    st_test.on_event_3()
+    assert type(st_test.last_event[0]) is StEvTest2
+    st_test.last_event[1] == False
 
-    stTest.on_event2(dry=True)
-    assert type(stTest.last_event[0]) is StEvTest
-    stTest.last_event[1] == True
+    st_test.on_event2(dry=True)
+    assert type(st_test.last_event[0]) is StEvTest
+    st_test.last_event[1] == True
 
-def testMetaUnkownEvent():
+def test_meta_unkown_event():
     with pytest.raises(TypeError) as excinfo:
         StatefulChild().on(StEvTest3())
     assert ("expects one of {} events but got object of type {}"
             .format(StatefulChild.supported_events, StEvTest3))
 
-
-def testInitialState():
+def test_initial_state():
     Stateful(1, {}).state() == 1
 
-def testNoTransitionRule():
+def test_no_transition_rule():
     with pytest.raises(TransitionError):
         Stateful(1, {}).tryState(2)
 
-def testTransitionError():
+def test_transition_error():
     stateful = Stateful(1, {})
     with pytest.raises(TransitionError) as excinfo:
         stateful.tryState(2)
     assert excinfo.value.stateful is stateful
     assert excinfo.value.state == 2
 
-def testNonIterableTransitionRule():
+def test_non_iterable_transition_rule():
     Stateful(1, {2: 1}).tryState(2)
 
-def testIterableTransitionRule():
+def test_iterable_transition_rule():
     Stateful(1, {2: (1,)}).tryState(2)
 
-def testCallableTransitionRule():
+def test_callable_transition_rule():
     Stateful(1, {2: lambda: True}).tryState(2)
     with pytest.raises(TransitionError):
         assert Stateful(1, {2: lambda: False}).tryState(2)
 
-def testSetStateDry():
+def test_set_state_dry():
     stateful = Stateful(1, {2: lambda: True})
     stateful.setState(2, dry=True)
     assert stateful.state() == 1
 
-def testState():
+def test_state():
     stateful = Stateful(1, {2: lambda: True})
     stateful.setState(2)
     assert stateful.state() == 2
@@ -117,7 +119,7 @@ def testState():
     stateful.setState(3, expectTrError=True)
     assert stateful.state() == 2
 
-def testStateHistory():
+def test_state_history():
     stateful = Stateful(1, {2: 1, 4: 2})
     assert stateful.wasState(1)
     assert not stateful.wasState(2)
