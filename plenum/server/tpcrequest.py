@@ -30,11 +30,61 @@ class TPCReqEvent(StatefulEvent):
     """ Base class for event expected by TPCRequest """
     pass
 
+class TPCReqApply(TPCReqEvent):
+    pass
+
+class TPCReqCommit(TPCReqEvent):
+    pass
+
+class TPCReqRevert(TPCReqEvent):
+    pass
+
+# received or sent inside some PP
+class TPCReqPP(TPCReqEvent, metaclass=ABCMeta):
+    def __init__(self, tpcKey: Tuple[int, int]):
+        self.tpcKey = tpcKey
+
+    @abstractmethod
+    def new_state(self):
+        pass
+
+class TPCReqAccept(TPCReqPP):
+    def new_state(self):
+        return TPCReqState.In3PC
+
+class TPCReqReject(TPCReqPP):
+    def new_state(self):
+        return TPCReqState.Rejected
+
+class TPCReqOrder(TPCReqEvent):
+    pass
+
+class TPCReqCancel(TPCReqEvent):
+    pass
+
+class TPCReqClean(TPCReqEvent):
+    pass
+
+class TPCReqReset(TPCReqEvent):
+    pass
+
 
 class TPCRequest(Stateful):
     """
     3PC request
     """
+
+    # events
+    Apply = TPCReqApply
+    Commit = TPCReqCommit
+    Revert = TPCReqRevert
+    Accept = TPCReqAccept
+    Reject = TPCReqReject
+    Order = TPCReqOrder
+    Cancel = TPCReqCancel
+    Clean = TPCReqClean
+    Reset = TPCReqReset
+
     # TODO do we need RBFTRequest instance here
     def __init__(self, rbftRequest, instId: int):
 
@@ -63,8 +113,7 @@ class TPCRequest(Stateful):
                 TPCReqState.Rejected: self._isRejectable,
                 TPCReqState.Cancelled: self._isCancellable,
                 TPCReqState.Cleaned: self._isCleanable
-            },
-            stateful_event_class=TPCReqEvent
+            }
         )
 
     def __repr__(self):
@@ -146,58 +195,30 @@ class TPCRequest(Stateful):
         return self.state() == TPCReqState.Cleaned
 
     # EVENTS
-    class Apply(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq._setTxnState(TransactionState.Applied, dry)
-
-    class Commit(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq._setTxnState(TransactionState.Committed, dry)
-
-    class Revert(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq._setTxnState(TransactionState.NotApplied, dry)
-
-    # received or sent inside some PP
-    class PP(TPCReqEvent, metaclass=ABCMeta):
-        def __init__(self, tpcKey: Tuple[int, int]):
-            self.tpcKey = tpcKey
-
-        @abstractmethod
-        def new_state(self):
-            pass
-
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq.setState(self.new_state(), dry)
+    def _on(self, ev, dry=False):
+        if type(ev) == TPCReqApply:
+            self._setTxnState(TransactionState.Applied, dry)
+        elif type(ev) == TPCReqCommit:
+            self._setTxnState(TransactionState.Committed, dry)
+        elif type(ev) == TPCReqRevert:
+            self._setTxnState(TransactionState.NotApplied, dry)
+        elif isinstance(ev, TPCReqPP):
+            self.setState(ev.new_state(), dry)
             if not dry:
-                tpcReq.tpcKey = self.tpcKey
-
-    class Accept(PP):
-        def new_state(self):
-            return TPCReqState.In3PC
-
-    class Reject(PP):
-        def new_state(self):
-            return TPCReqState.Rejected
-
-    class Order(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq.setState(TPCReqState.Ordered, dry)
-
-    class Cancel(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq.setState(TPCReqState.Cancelled, dry)
-
-    class Clean(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq.setState(TPCReqState.Cleaned, dry)
-
-    class Reset(TPCReqEvent):
-        def react(self, tpcReq, dry: bool=False):
-            tpcReq.setState(TPCReqState.Forwarded, dry)
+                self.tpcKey = ev.tpcKey
+        elif type(ev) == TPCReqOrder:
+            self.setState(TPCReqState.Ordered, dry)
+        elif type(ev) == TPCReqCancel:
+            self.setState(TPCReqState.Cancelled, dry)
+        elif type(ev) == TPCReqClean:
+            self.setState(TPCReqState.Cleaned, dry)
+        elif type(ev) == TPCReqReset:
+            self.setState(TPCReqState.Forwarded, dry)
             if not dry:
                 # transition rules guarantees that tpcKey is not None here
-                assert tpcReq.tpcKey is not None
-                tpcReq.old_rounds[tuple(tpcReq.tpcKey)] = list(tpcReq.states)
-                tpcReq.tpcKey = None
-                tpcReq.states[:] = [TPCReqState.Forwarded]
+                assert self.tpcKey is not None
+                self.old_rounds[tuple(self.tpcKey)] = list(self.states)
+                self.tpcKey = None
+                self.states[:] = [TPCReqState.Forwarded]
+        else:
+            logger.warning("{} unexpected event type: {}".format(self, type(ev)))

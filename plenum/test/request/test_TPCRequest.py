@@ -23,55 +23,55 @@ def tpcr_forwarded(tpc_request):
 @pytest.fixture
 def tpcr_forwarded_applied(tpc_request):
     tpcr = deepcopy(tpc_request)
-    tpcr.event(TPCRequest.Apply())
+    tpcr.on_apply()
     return tpcr
 
 @pytest.fixture
 def tpcr_in_3pc(tpcr_forwarded):
     tpcr = deepcopy(tpcr_forwarded)
-    tpcr.event(TPCRequest.Accept((0, 1)))
+    tpcr.on_accept((0, 1))
     return tpcr
 
 @pytest.fixture
 def tpcr_in_3pc_applied(tpcr_forwarded_applied):
     tpcr = deepcopy(tpcr_forwarded_applied)
-    tpcr.event(TPCRequest.Accept((0, 1)))
+    tpcr.on_accept((0, 1))
     return tpcr
 
 @pytest.fixture
 def tpcr_ordered(tpcr_in_3pc):
     tpcr = deepcopy(tpcr_in_3pc)
-    tpcr.event(TPCRequest.Order())
+    tpcr.on_order()
     return tpcr
 
 @pytest.fixture
 def tpcr_ordered_applied(tpcr_in_3pc_applied):
     tpcr = deepcopy(tpcr_in_3pc_applied)
-    tpcr.event(TPCRequest.Order())
+    tpcr.on_order()
     return tpcr
 
 @pytest.fixture
 def tpcr_committed(tpcr_ordered_applied):
     tpcr = deepcopy(tpcr_ordered_applied)
-    tpcr.event(TPCRequest.Commit())
+    tpcr.on_commit()
     return tpcr
 
 @pytest.fixture
 def tpcr_rejected(tpcr_forwarded):
     tpcr = deepcopy(tpcr_forwarded)
-    tpcr.event(TPCRequest.Reject((0, 1)))
+    tpcr.on_reject((0, 1))
     return tpcr
 
 @pytest.fixture
 def tpcr_cancelled(tpcr_forwarded):
     tpcr = deepcopy(tpcr_forwarded)
-    tpcr.event(TPCRequest.Cancel())
+    tpcr.on_cancel()
     return tpcr
 
 @pytest.fixture
 def tpcr_cleaned(tpcr_rejected):
     tpcr = deepcopy(tpcr_rejected)
-    tpcr.event(TPCRequest.Clean())
+    tpcr.on_clean()
     return tpcr
 
 # TESTS
@@ -171,7 +171,7 @@ def test_apply(tpcr_forwarded,
             tpcr_forwarded,
             tpcr_in_3pc,
             tpcr_ordered):
-        tpcr.event(TPCRequest.Apply())
+        tpcr.on_apply()
         assert tpcr.txnState() == TransactionState.Applied
         assert tpcr.isApplied()
         assert not tpcr.isCommitted()
@@ -185,7 +185,7 @@ def test_apply(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Apply())
+            tpcr.on_apply()
 
 
 def test_commit(tpcr_forwarded,
@@ -200,7 +200,7 @@ def test_commit(tpcr_forwarded,
                 tpcr_cleaned):
 
     for tpcr in (tpcr_ordered_applied,):
-        tpcr.event(TPCRequest.Commit())
+        tpcr.on_commit()
         assert tpcr.txnState() == TransactionState.Committed
         assert not tpcr.isApplied()
         assert tpcr.isCommitted()
@@ -216,7 +216,7 @@ def test_commit(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Commit())
+            tpcr.on_commit()
 
 def test_revert(tpcr_forwarded,
                 tpcr_forwarded_applied,
@@ -233,7 +233,7 @@ def test_revert(tpcr_forwarded,
             tpcr_forwarded_applied,
             tpcr_in_3pc_applied,
             tpcr_ordered_applied):
-        tpcr.event(TPCRequest.Revert())
+        tpcr.on_revert()
         assert tpcr.txnState() == TransactionState.NotApplied
         assert not tpcr.isApplied()
         assert not tpcr.isCommitted()
@@ -247,7 +247,7 @@ def test_revert(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Revert())
+            tpcr.on_revert()
 
 
 def test_accept(tpcr_forwarded,
@@ -267,7 +267,7 @@ def test_accept(tpcr_forwarded,
             tpcr_forwarded,
             tpcr_forwarded_applied):
         txnState = tpcr.txnState()
-        tpcr.event(TPCRequest.Accept(tpcKey))
+        tpcr.on_accept(tpcKey)
         assert tpcr.tpcKey == tpcKey
         assert tpcr.state() == TPCReqState.In3PC
         assert tpcr.txnState() == txnState
@@ -282,7 +282,7 @@ def test_accept(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Accept(tpcKey))
+            tpcr.on_accept(tpcKey)
 
 def test_reject(tpcr_forwarded,
                      tpcr_forwarded_applied,
@@ -300,7 +300,7 @@ def test_reject(tpcr_forwarded,
     for tpcr in (
             tpcr_forwarded,):
         txnState = tpcr.txnState()
-        tpcr.event(TPCRequest.Reject(tpcKey))
+        tpcr.on_reject(tpcKey)
         assert tpcr.tpcKey == tpcKey
         assert tpcr.state() == TPCReqState.Rejected
         assert tpcr.txnState() == txnState
@@ -317,7 +317,7 @@ def test_reject(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Reject(tpcKey))
+            tpcr.on_reject(tpcKey)
 
 def test_order(tpcr_forwarded,
                 tpcr_forwarded_applied,
@@ -333,7 +333,7 @@ def test_order(tpcr_forwarded,
     for tpcr in (
             tpcr_in_3pc,
             tpcr_in_3pc_applied):
-        tpcr.event(TPCRequest.Order())
+        tpcr.on_order()
         assert tpcr.state() == TPCReqState.Ordered
 
     for tpcr in (
@@ -346,7 +346,7 @@ def test_order(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Order())
+            tpcr.on_order()
 
 def test_cancel(tpcr_forwarded,
                 tpcr_forwarded_applied,
@@ -363,7 +363,7 @@ def test_cancel(tpcr_forwarded,
             tpcr_forwarded,
             tpcr_in_3pc,
             tpcr_ordered):
-        tpcr.event(TPCRequest.Cancel())
+        tpcr.on_cancel()
         assert tpcr.state() == TPCReqState.Cancelled
 
     for tpcr in (
@@ -375,7 +375,7 @@ def test_cancel(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Cancel())
+            tpcr.on_cancel()
 
 def test_clean(tpcr_forwarded,
                 tpcr_forwarded_applied,
@@ -395,7 +395,7 @@ def test_clean(tpcr_forwarded,
             tpcr_committed,
             tpcr_rejected,
             tpcr_cancelled):
-        tpcr.event(TPCRequest.Clean())
+        tpcr.on_clean()
         assert tpcr.state() == TPCReqState.Cleaned
         assert tpcr.isCleaned()
 
@@ -405,7 +405,7 @@ def test_clean(tpcr_forwarded,
             tpcr_ordered_applied,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Clean())
+            tpcr.on_clean()
 
 def test_reset(tpcr_forwarded,
                 tpcr_forwarded_applied,
@@ -423,7 +423,7 @@ def test_reset(tpcr_forwarded,
             tpcr_rejected):
         tpcKey = tuple(tpcr.tpcKey)
         states = list(tpcr.states)
-        tpcr.event(TPCRequest.Reset())
+        tpcr.on_reset()
         assert tpcr.state() == TPCReqState.Forwarded
         assert tpcr.tpcKey is None
         assert tpcr.states == [TPCReqState.Forwarded]
@@ -439,4 +439,4 @@ def test_reset(tpcr_forwarded,
             tpcr_cancelled,
             tpcr_cleaned):
         with pytest.raises(TransitionError):
-            tpcr.event(TPCRequest.Reset())
+            tpcr.on_reset()
