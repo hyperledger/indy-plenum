@@ -8,41 +8,32 @@ from plenum.test.stasher import Stasher
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def test_delay():
-    x = deque()
-    s = Stasher(x, "my-stasher")
-    x.append(1)
-    x.append(2)
-    x.append(3)
+    q = deque([1,2,3])
+    s = Stasher(q, "my-stasher")
 
-    def delayTwos(item):
+    def delay_twos(item):
         if item == 2:
             return 2
 
-    s.delay(delayTwos)
-
+    # Check that relevant items are stashed from deque
+    s.delay(delay_twos)
     s.process()
-    r1 = x.popleft()
-    assert r1 == 1
+    assert list(q) == [1, 3]
 
-    r2 = x.popleft()
-    assert r2 == 3
+    # Pretend that we processed items that are not stashed
+    q.clear()
 
-    with pytest.raises(IndexError):
-        x.popleft()
-
+    # Check that nothing happened after one second
     time.sleep(1)
     s.process()
+    assert list(q) == []
 
-    with pytest.raises(IndexError):
-        x.popleft()
-
+    # Check that stashed items returned to deque after one more second
     time.sleep(1)
     s.process()
+    assert list(q) == [2]
 
-    r3 = x.popleft()
-    assert r3 == 2
-
-    x.append(2)
+    # Check that items are no longer stashed when delays are reset
     s.resetDelays()
     s.process()
-    assert 2 == x.popleft()
+    assert list(q) == [2]
