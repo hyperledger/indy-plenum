@@ -59,16 +59,17 @@ class Stateful:
 
         return None
 
-    def setState(self, state, expectTrError=False):
+    def setState(self, state, dry: bool=False, expectTrError=False):
         try:
             self.tryState(state)
         except TransitionError:
             if not expectTrError:
                 raise
         else:
-            self.states.append(state)
-            logger.trace("{!r} changed state from {!r} to {!r}"
-                         .format(self, self.state(), state))
+            if not dry:
+                self.states.append(state)
+                logger.trace("{!r} changed state from {!r} to {!r}"
+                             .format(self, self.state(), state))
 
     def state(self):
         return self.states[-1]
@@ -76,7 +77,7 @@ class Stateful:
     def wasState(self, state):
         return state in self.states
 
-    def event(self, event):
+    def event(self, event, dry: bool=False):
         if self.stateful_event_class is None:
             # TODO use custom exception
             raise RuntimeError(
@@ -90,10 +91,13 @@ class Stateful:
 
         logger.trace("{!r} processing new event {!r}".format(self, event))
 
-        event.react(self)
+        event.react(self, dry)
 
 
 class StatefulEvent(metaclass=ABCMeta):
+    def __repr__(self):
+        return "{}".format(self.__class__.__name__)
+
     @abstractmethod
-    def react(self, stateful: Stateful):
+    def react(self, stateful: Stateful, dry: bool=False):
         pass

@@ -31,6 +31,11 @@ def testCallableTransitionRule():
     with pytest.raises(TransitionError):
         assert Stateful(1, {2: lambda: False}).tryState(2)
 
+def testSetStateDry():
+    stateful = Stateful(1, {2: lambda: True})
+    stateful.setState(2, dry=True)
+    assert stateful.state() == 1
+
 def testState():
     stateful = Stateful(1, {2: lambda: True})
     stateful.setState(2)
@@ -54,7 +59,7 @@ class BaseEvent(StatefulEvent):
     pass
 
 class EventOk(BaseEvent):
-    def react(self, stateful):
+    def react(self, stateful, dry: bool=False):
         pass
 
 class EventWrong:
