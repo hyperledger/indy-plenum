@@ -15,20 +15,21 @@ class KeyValueStorageLeveldb(KeyValueStorage):
     def __init__(self, db_dir, db_name, open=True):
         if 'leveldb' not in globals():
             raise RuntimeError('Leveldb is needed to use this class')
-        self.db_path = os.path.join(db_dir, db_name)
+        self._db_path = os.path.join(db_dir, db_name)
         self._db = None
         if open:
             self.open()
 
     def __repr__(self):
-        return self.db_path
+        return self._db_path
 
     @property
     def is_byte(self) -> bool:
         return True
 
+    @property
     def db_path(self) -> str:
-        return self.db_path
+        return self._db_path
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if start and isinstance(start, int):

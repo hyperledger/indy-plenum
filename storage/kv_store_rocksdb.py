@@ -29,6 +29,7 @@ class KeyValueStorageRocksdb(KeyValueStorage):
     def __repr__(self):
         return self._db_path
 
+    @property
     def db_path(self) -> str:
         return self._db_path
 
