@@ -370,6 +370,9 @@ class TPCRequest(Stateful):
         # and won't be as rejected in next 3CP round
         return self.wasState(TPCReqState.Rejected)
 
+    def isCleaned(self):
+        return self.state() == TPCReqState.Cleaned
+
     # EVENTS
     class Apply(TPCReqEvent):
         def react(self, tpcReq, dry: bool=False):

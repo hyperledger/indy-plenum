@@ -250,7 +250,7 @@ def test_revert(tpcr_forwarded,
             tpcr.event(TPCRequest.Revert())
 
 
-def test_pP(tpcr_forwarded,
+def test_accept(tpcr_forwarded,
                 tpcr_forwarded_applied,
                 tpcr_in_3pc,
                 tpcr_in_3pc_applied,
@@ -284,7 +284,7 @@ def test_pP(tpcr_forwarded,
         with pytest.raises(TransitionError):
             tpcr.event(TPCRequest.Accept(tpcKey))
 
-def test_pPRejected(tpcr_forwarded,
+def test_reject(tpcr_forwarded,
                      tpcr_forwarded_applied,
                      tpcr_in_3pc,
                      tpcr_in_3pc_applied,
@@ -304,6 +304,7 @@ def test_pPRejected(tpcr_forwarded,
         assert tpcr.tpcKey == tpcKey
         assert tpcr.state() == TPCReqState.Rejected
         assert tpcr.txnState() == txnState
+        assert tpcr.isRejected()
 
     for tpcr in (
             tpcr_forwarded_applied,
@@ -396,6 +397,7 @@ def test_clean(tpcr_forwarded,
             tpcr_cancelled):
         tpcr.event(TPCRequest.Clean())
         assert tpcr.state() == TPCReqState.Cleaned
+        assert tpcr.isCleaned()
 
     for tpcr in (
             tpcr_forwarded_applied,
