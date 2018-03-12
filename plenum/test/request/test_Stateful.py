@@ -9,8 +9,12 @@ from plenum.server.stateful import (
 
 
 class StEvTest(StatefulEvent):
-    pass
+    def __init__(self, value):
+        self.value = value
 
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__)
+                    and self.__dict__ == other.__dict__)
 
 class StEvTest2(StatefulEvent):
     pass
@@ -39,29 +43,35 @@ class StatefulChild(StatefulBase):
         self.last_event = (ev, dry)
 
 
+def test_meta_api():
+    assert set(getattr(StatefulBase, 'supported_events')) == set((StEvTest,))
+    assert getattr(StatefulBase, 'event1')
+    assert getattr(StatefulBase, 'on_event1')
+
+    assert set(getattr(StatefulChild, 'supported_events')) == set((StEvTest, StEvTest2))
+    assert getattr(StatefulChild, 'event1')
+    assert getattr(StatefulChild, 'on_event1')
+    assert getattr(StatefulChild, 'Event2')
+    assert getattr(StatefulChild, 'on_event2')
+    assert getattr(StatefulChild, 'EveNt_3')
+    assert getattr(StatefulChild, 'on_event_3')
+
+
 def test_meta_no_event():
     with pytest.raises(RuntimeError) as excinfo:
-        StatefulNoEvent().on(StEvTest)
+        StatefulNoEvent().on(StEvTest2())
     assert "doesn't support any events" in str(excinfo.value)
 
 def test_meta_not_ready():
-    assert set(getattr(StatefulBase, 'supported_events')) == set((StEvTest,))
-    assert getattr(StatefulBase, 'on_event1')
-
     with pytest.raises(NotImplementedError) as excinfo:
-        StatefulBase().on_event1()
+        StatefulBase().on_event1(5)
     assert "method '_on'" in str(excinfo.value)
 
 def test_meta_ready():
-    assert set(getattr(StatefulChild, 'supported_events')) == set((StEvTest, StEvTest2))
-    assert getattr(StatefulChild, 'on_event1')
-    assert getattr(StatefulChild, 'on_event2')
-    assert getattr(StatefulChild, 'on_event_3')
-
     st_test = StatefulChild()
     assert st_test.last_event is None
 
-    st_test.on_event1()
+    st_test.on_event1(1)
     assert st_test.last_event is not None
     assert type(st_test.last_event[0]) is StEvTest
     st_test.last_event[1] == False
@@ -70,9 +80,21 @@ def test_meta_ready():
     assert type(st_test.last_event[0]) is StEvTest2
     st_test.last_event[1] == False
 
-    st_test.on_event2(dry=True)
+    st_test.on_event2(2, dry=True)
     assert type(st_test.last_event[0]) is StEvTest
     st_test.last_event[1] == True
+
+def test_meta_api_alternative():
+    st_test = StatefulChild()
+    test_event = StEvTest(2)
+
+    st_test.on_event2(2, dry=True)
+    assert st_test.last_event[0] is not test_event
+    assert st_test.last_event[0] == test_event
+
+    st_test.on(test_event, dry=True)
+    assert st_test.last_event[0] is test_event
+    assert st_test.last_event[0] == test_event
 
 def test_meta_unkown_event():
     with pytest.raises(TypeError) as excinfo:
