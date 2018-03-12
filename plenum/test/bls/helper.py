@@ -236,10 +236,12 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          node_dest, node.name,
                          None, None,
                          None, None,
-                         bls_key=key_in_txn)
+                         bls_key=key_in_txn,
+                         services=None)
     sdk_pool_refresh(looper, sdk_pool_handle)
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    if not add_wrong:
+        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
@@ -265,6 +267,7 @@ def check_bls_key(blskey, node, nodes, add_wrong=False):
 def check_update_bls_key(node_num, saved_multi_sigs_count,
                          looper, txnPoolNodeSet,
                          sdk_wallet_stewards,
+                         sdk_wallet_client,
                          sdk_pool_handle,
                          add_wrong=False):
     # 1. Change BLS key for a specified NODE
@@ -280,8 +283,6 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
     check_bls_key(new_blspk, node, txnPoolNodeSet, add_wrong)
 
     # 3. Check that we can send new requests and have correct multisigs
-    sdk_wallet_new_client = sdk_add_new_nym(looper, sdk_pool_handle,
-                                            sdk_wallet_steward)
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_new_client,
+                                       sdk_pool_handle, sdk_wallet_client,
                                        saved_multi_sigs_count)
