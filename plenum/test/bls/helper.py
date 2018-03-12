@@ -222,10 +222,11 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        node,
                        sdk_pool_handle,
                        sdk_wallet_steward,
-                       add_wrong=False):
+                       add_wrong=False,
+                       new_bls=None):
     new_blspk = init_bls_keys(node.keys_dir, node.name)
 
-    key_in_txn = new_blspk \
+    key_in_txn = new_bls or new_blspk \
         if not add_wrong \
         else ''.join(random_from_alphabet(32, base58.alphabet))
 
