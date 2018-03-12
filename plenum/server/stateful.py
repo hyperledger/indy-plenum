@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 from typing import Dict
+import inspect
 from collections import Iterable
 
 from stp_core.common.log import getlogger
@@ -25,20 +26,73 @@ class TransitionError(Exception):
         )
 
 
-class Stateful:
+class StatefulEvent(metaclass=ABCMeta):
+    def __repr__(self):
+        return "{}".format(self.__class__.__name__)
+
+
+class StatefulMeta(type):
+
+    def __new__(cls, name, bases, attrs, **kwargs):
+        EV_METHOD_PREFIX = 'on_'
+
+        def _on(self, ev, dry: bool=False):
+            raise NotImplementedError("{}: method '_on'".format(self))
+
+        def on(self, ev, dry: bool=False):
+            if not self.supported_events:
+                raise RuntimeError(
+                    "{} doesn't support any events, got object of type {}: {}"
+                    .format(self, type(ev), ev))
+            elif type(ev) not in self.supported_events:
+                raise TypeError(
+                    "{} expects one of {} events but got object of type {}: {}"
+                    .format(self, self.supported_events, type(ev), ev))
+
+            logger.trace("{!r} processing new event {!r}, dry: {}".format(self, ev, dry))
+            self._on(ev, dry)
+
+        def on_ev_wrapper(ev_cls):
+            def on_ev(self, *args, **kwargs):
+                dry = kwargs.pop('dry', False)
+                ev = ev_cls(*args, **kwargs)
+                return self.on(ev, dry=dry)
+            return on_ev
+
+        result = type.__new__(cls, name, bases, attrs, **kwargs)
+
+        _supported_events = set()
+        for k, v in attrs.items():
+            if inspect.isclass(v) and issubclass(v, StatefulEvent):
+                ev_method_name = "{}{}".format(EV_METHOD_PREFIX, k.lower())
+                if not hasattr(result, ev_method_name):
+                    setattr(result, ev_method_name, on_ev_wrapper(v))
+                    _supported_events.add(v)
+
+        if hasattr(result, 'supported_events'):
+            _supported_events |= set(result.supported_events)
+        setattr(result, "supported_events", tuple(_supported_events))
+
+        if not hasattr(result, '_on'):
+            setattr(result, "_on", _on)
+        if not hasattr(result, 'on'):
+            setattr(result, "on", on)
+
+        return result
+
+
+class Stateful(metaclass=StatefulMeta):
     """
     Base class for states
     """
     def __init__(self,
                  initialState,
                  transitions: Dict,
-                 name: str=None,
-                 stateful_event_class=None):
+                 name: str=None):
 
         self.transitions = transitions
         self.states = [initialState]
         self.name = name
-        self.stateful_event_class = stateful_event_class
 
     def __repr__(self):
         return "{}: states: {}".format(
@@ -76,28 +130,3 @@ class Stateful:
 
     def wasState(self, state):
         return state in self.states
-
-    def event(self, event, dry: bool=False):
-        if self.stateful_event_class is None:
-            # TODO use custom exception
-            raise RuntimeError(
-                "{} doesn't support any events processing, got object "
-                "of type {}: {}"
-                .format(self, self.stateful_event_class, type(event), event))
-        elif not isinstance(event, self.stateful_event_class):
-            raise TypeError(
-                "{} expects {} for events but got object of type {}: {}"
-                .format(self, self.stateful_event_class, type(event), event))
-
-        logger.trace("{!r} processing new event {!r}".format(self, event))
-
-        event.react(self, dry)
-
-
-class StatefulEvent(metaclass=ABCMeta):
-    def __repr__(self):
-        return "{}".format(self.__class__.__name__)
-
-    @abstractmethod
-    def react(self, stateful: Stateful, dry: bool=False):
-        pass
