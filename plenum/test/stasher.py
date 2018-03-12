@@ -1,4 +1,5 @@
 import time
+from contextlib import contextmanager
 
 from stp_core.common.log import getlogger
 
@@ -108,3 +109,14 @@ class Stasher:
     def reset_delays_and_process_delayeds(self, *names):
         self.resetDelays(*names)
         self.force_unstash(*names)
+
+
+@contextmanager
+def delay_rules(stasher, delayer):
+    stasher.delay(delayer)
+    yield
+    try:
+        stasher.reset_delays_and_process_delayeds(delayer.__name__)
+    except:
+        pass
+
