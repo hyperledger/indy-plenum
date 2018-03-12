@@ -318,7 +318,7 @@ class TPCRequest(Stateful):
         return (self.state() == TPCReqState.Forwarded) and not self.isApplied()
 
     def _isResettable(self):
-        # catch-up can cause that)
+        # catch-up can cause that
         # TODO what if cleaned rejected requests are started processing
         # in new 3PC round, thus Cleaned->Forwarded is possible
         return ((self.state() == TPCReqState.Rejected) or
@@ -344,9 +344,9 @@ class TPCRequest(Stateful):
                               TPCReqState.Ordered)
 
     # non-public methods
-    def _setTxnState(self, state: TransactionState):
+    def _setTxnState(self, state: TransactionState, dry: bool=False):
         try:
-            self.txn_state.setState(state)
+            self.txn_state.setState(state, dry)
         except TransitionError as ex:
             ex.stateful = self
             raise ex
@@ -372,16 +372,16 @@ class TPCRequest(Stateful):
 
     # EVENTS
     class Apply(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq._setTxnState(TransactionState.Applied)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq._setTxnState(TransactionState.Applied, dry)
 
     class Commit(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq._setTxnState(TransactionState.Committed)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq._setTxnState(TransactionState.Committed, dry)
 
     class Revert(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq._setTxnState(TransactionState.NotApplied)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq._setTxnState(TransactionState.NotApplied, dry)
 
     # received or sent inside some PP
     class PP(TPCReqEvent, metaclass=ABCMeta):
@@ -392,9 +392,10 @@ class TPCRequest(Stateful):
         def new_state(self):
             pass
 
-        def react(self, tpcReq):
-            tpcReq.setState(self.new_state())
-            tpcReq.tpcKey = self.tpcKey
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq.setState(self.new_state(), dry)
+            if not dry:
+                tpcReq.tpcKey = self.tpcKey
 
     class Accept(PP):
         def new_state(self):
@@ -405,22 +406,23 @@ class TPCRequest(Stateful):
             return TPCReqState.Rejected
 
     class Order(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq.setState(TPCReqState.Ordered)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq.setState(TPCReqState.Ordered, dry)
 
     class Cancel(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq.setState(TPCReqState.Cancelled)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq.setState(TPCReqState.Cancelled, dry)
 
     class Clean(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq.setState(TPCReqState.Cleaned)
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq.setState(TPCReqState.Cleaned, dry)
 
     class Reset(TPCReqEvent):
-        def react(self, tpcReq):
-            tpcReq.setState(TPCReqState.Forwarded)
-            # transition rules guarantees that tpcKey is not None here
-            assert tpcReq.tpcKey is not None
-            tpcReq.old_rounds[tuple(tpcReq.tpcKey)] = list(tpcReq.states)
-            tpcReq.tpcKey = None
-            tpcReq.states[:] = [TPCReqState.Forwarded]
+        def react(self, tpcReq, dry: bool=False):
+            tpcReq.setState(TPCReqState.Forwarded, dry)
+            if not dry:
+                # transition rules guarantees that tpcKey is not None here
+                assert tpcReq.tpcKey is not None
+                tpcReq.old_rounds[tuple(tpcReq.tpcKey)] = list(tpcReq.states)
+                tpcReq.tpcKey = None
+                tpcReq.states[:] = [TPCReqState.Forwarded]
