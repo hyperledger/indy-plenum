@@ -3,9 +3,6 @@ from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
 from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA, ALIAS
 from plenum.test.bls.helper import sdk_change_bls_key
 from plenum.test.pool_transactions.helper import updateNodeData
-from plenum.test.primary_selection.conftest import stewardAndWalletForMasterNode, txnPoolMasterNodes
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 
 nodeCount = 4
 
