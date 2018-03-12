@@ -29,7 +29,7 @@ from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.stateful import TransitionError
-from plenum.server.rbftrequest import TPCReqState
+from plenum.server.tpcrequest import TPCReqState
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 

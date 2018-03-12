@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 from collections import OrderedDict
 
-from plenum.server.rbftrequest import (
+from plenum.server.tpcrequest import (
         TPCRequest,
         TPCReqState,
         TransactionState
