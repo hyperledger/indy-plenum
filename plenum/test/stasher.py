@@ -1,9 +1,12 @@
 import time
+from collections import namedtuple
 from contextlib import contextmanager
 
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+StasherDelayed = namedtuple('StasherDelayed', 'item timestamp rule')
 
 
 class Stasher:
@@ -43,7 +46,7 @@ class Stasher:
                     logger.debug("{} stashing message {} for "
                                  "{} seconds".
                                  format(self.name, rx, secondsToDelay))
-                    self.delayeds.append((age + secondsToDelay, rx))
+                    self.delayeds.append(StasherDelayed(item=rx, timestamp=age + secondsToDelay, rule=tester.__name__))
                     self.queue.remove(rx)
 
     def unstashAll(self, age, *names, ignore_age_check=False):
@@ -60,18 +63,18 @@ class Stasher:
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
             if ignore_age_check or (
-                    names and d[1][0].__name__ in names) or age >= d[0]:
+                    names and d.rule in names) or age >= d.timestamp:
                 if ignore_age_check:
                     msg = '(forced)'
-                elif names and d[1][0].__name__ in names:
-                    msg = '({} present in {})'.format(d[1][0].__name__, names)
+                elif names and d.rule in names:
+                    msg = '({} present in {})'.format(d.rule, names)
                 else:
                     msg = '({:.0f} milliseconds overdue)'.format(
-                        (age - d[0]) * 1000)
+                        (age - d.timestamp) * 1000)
                 logger.debug(
                     "{} unstashing message {} {}".
-                    format(self.name, d[1], msg))
-                self.queue.appendleft(d[1])
+                        format(self.name, d.item, msg))
+                self.queue.appendleft(d.item)
                 to_remove.append(idx)
                 unstashed += 1
 
@@ -112,11 +115,8 @@ class Stasher:
 
 
 @contextmanager
-def delay_rules(stasher, delayer):
-    stasher.delay(delayer)
+def delay_rules(stasher, *delayers):
+    for d in delayers:
+        stasher.delay(d)
     yield
-    try:
-        stasher.reset_delays_and_process_delayeds(delayer.__name__)
-    except:
-        pass
-
+    stasher.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))

@@ -71,8 +71,22 @@ def test_delay_rules_return_delayed_items_to_list_on_exit():
 
     with delay_rules(s, delay_twos):
         s.process()
+        assert 1 in q
         assert 2 not in q
         assert 3 not in q
 
+    assert 1 in q
     assert 2 in q
     assert 3 not in q
+
+
+def test_delay_rules_can_use_multiple_delayers():
+    s = Stasher(deque())
+
+    with delay_rules(s, delay_twos, delay_threes):
+        assert delay_twos in s.delayRules
+        assert delay_threes in s.delayRules
+
+    assert delay_twos not in s.delayRules
+    assert delay_threes not in s.delayRules
+
