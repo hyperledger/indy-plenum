@@ -93,6 +93,8 @@ class TPCRequest(Stateful):
         self.tpcKey = None
         self.old_rounds = OrderedDict()
 
+        # TODO what about no state change transitions (e.g. Forwarded -> Forwarded)
+
         self.txn_state = Stateful(
             initialState=TransactionState.NotApplied,
             transitions={
@@ -135,19 +137,18 @@ class TPCRequest(Stateful):
                 (self.state() == TPCReqState.Ordered))
 
     # rules for 3PC state
+    def _isResettable(self):
+        # catch-up can cause that
+        return not (self.state() == TPCReqState.Forwarded or
+                    self.isApplied() or 
+                    self.wasState(TPCReqState.Cancelled))
+
     def _isRejectable(self):
         return (self.state() == TPCReqState.Forwarded) and not self.isApplied()
 
-    def _isResettable(self):
-        # catch-up can cause that
-        # TODO what if cleaned rejected requests are started processing
-        # in new 3PC round, thus Cleaned->Forwarded is possible
-        return ((self.state() == TPCReqState.Rejected) or
-                ((self.state() == TPCReqState.In3PC) and not self.isApplied()))
-
     def _isCancellable(self):
         # TODO what about ordered but not committed yet
-        return (not (self.isApplied() or self.isCommitted()) and
+        return (not self.isApplied() and
                 self.state() in (
                     TPCReqState.Forwarded,
                     TPCReqState.In3PC,
@@ -155,6 +156,8 @@ class TPCRequest(Stateful):
 
     def _isCleanable(self):
         _state = self.state()
+        if _state == TPCReqState.Cleaned:
+            return False
         if _state in (TPCReqState.Rejected, TPCReqState.Cancelled):
             return True
         elif self.isCommitted():
@@ -181,10 +184,14 @@ class TPCRequest(Stateful):
         return self.txn_state.state()
 
     def isApplied(self):
-        return self.txn_state.state() == TransactionState.Applied
+        return (self.txn_state.state() in
+                (TransactionState.Applied, TransactionState.Committed))
 
     def isCommitted(self):
         return self.txn_state.state() == TransactionState.Committed
+
+    def isReset(self):
+        return self.state() == TPCReqState.Forwarded
 
     def isRejected(self):
         # TODO as of now Rejected could be reset to Forwarded
@@ -194,7 +201,7 @@ class TPCRequest(Stateful):
     def isCleaned(self):
         return self.state() == TPCReqState.Cleaned
 
-    # EVENTS
+    # EVENTS processing
     def _on(self, ev, dry=False):
         if type(ev) == TPCReqApply:
             self._setTxnState(TransactionState.Applied, dry)
@@ -217,8 +224,8 @@ class TPCRequest(Stateful):
             if not dry:
                 # transition rules guarantees that tpcKey is not None here
                 assert self.tpcKey is not None
-                self.old_rounds[tuple(self.tpcKey)] = list(self.states)
+                self.old_rounds[self.tpcKey] = tuple(self.states)
                 self.tpcKey = None
                 self.states[:] = [TPCReqState.Forwarded]
         else:
-            logger.warning("{} unexpected event type: {}".format(self, type(ev)))
+            logger.warning("{!r} unexpected event type: {}".format(self, type(ev)))

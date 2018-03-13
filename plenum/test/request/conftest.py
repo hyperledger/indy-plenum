@@ -26,18 +26,18 @@ def operation2():
     }
 
 @pytest.fixture
-def masterInstId():
+def master_inst_id():
     return 0
 
 @pytest.fixture
-def backupInstId(masterInstId):
-    return masterInstId + 1
+def backup_inst_id(master_inst_id):
+    return master_inst_id + 1
 
 @pytest.fixture
-def rbft_request(operation1, masterInstId):
+def rbft_request(operation1, master_inst_id):
     return RBFTRequest(
         Request('123', 123, operation1),
         'nodeName',
         'clientName',
-        masterInstId=masterInstId
+        master_inst_id=master_inst_id
     )
