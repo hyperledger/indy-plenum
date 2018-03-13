@@ -139,7 +139,18 @@ def delay_rules(stasher, *delayers):
     :param stasher: Instance of Stasher or iterable over instances of stasher
     :param delayers: Delay rule functions to be added to stashers
     """
-    for d in delayers:
-        stasher.delay(d)
+    try:
+        stashers = [s for s in stasher]
+    except TypeError:
+        stashers = [stasher]
+
+    for s in stashers:
+        if not isinstance(s, Stasher):
+            raise TypeError("expected Stasher or Iterable[Stasher] as a first argument")
+
+    for s in stashers:
+        for d in delayers:
+            s.delay(d)
     yield
-    stasher.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))
+    for s in stashers:
+        s.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))

@@ -90,3 +90,33 @@ def test_delay_rules_can_use_multiple_delayers():
     assert delay_twos not in s.delayRules
     assert delay_threes not in s.delayRules
 
+
+def test_delay_rules_can_use_multiple_stashers():
+    s1 = Stasher(deque())
+    s2 = Stasher(deque())
+
+    with delay_rules([s1, s2], delay_twos):
+        assert delay_twos in s1.delayRules
+        assert delay_twos in s2.delayRules
+
+    assert delay_twos not in s1.delayRules
+    assert delay_twos not in s2.delayRules
+
+
+def test_delay_rules_can_use_generator_expressions():
+    stashers = [Stasher(deque(), name="{}".format(i)) for i in range(3)]
+
+    with delay_rules((s for s in stashers if s.name != "1"), delay_twos):
+        assert delay_twos in stashers[0].delayRules
+        assert delay_twos not in stashers[1].delayRules
+        assert delay_twos in stashers[2].delayRules
+
+    assert delay_twos not in stashers[0].delayRules
+    assert delay_twos not in stashers[1].delayRules
+    assert delay_twos not in stashers[2].delayRules
+
+
+def test_delay_rules_throws_when_given_stashers_of_wrong_type():
+    with pytest.raises(TypeError):
+        with delay_rules(1, delay_twos):
+            pass
