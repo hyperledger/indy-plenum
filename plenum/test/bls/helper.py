@@ -238,10 +238,9 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          bls_key=key_in_txn,
                          services=None)
-    sdk_pool_refresh(looper, sdk_pool_handle)
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    if not add_wrong:
-        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 

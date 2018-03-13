@@ -6,7 +6,6 @@ from plenum.common.util import get_utc_epoch
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.pool_transactions.conftest import looper
 
-
 participants = ["Node1", "Node2", "Node3"]
 signature = "somefakesignaturesomefakesignaturesomefakesignature"
 

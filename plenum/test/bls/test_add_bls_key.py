@@ -37,7 +37,7 @@ def test_add_bls_two_nodes(looper,
                          saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
-                         sdk_wallet_client= sdk_wallet_client,
+                         sdk_wallet_client=sdk_wallet_client,
                          sdk_pool_handle=sdk_pool_handle)
 
 

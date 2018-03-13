@@ -1,7 +1,6 @@
 from plenum.server.quorums import Quorum
 from plenum.test.bls.helper import check_update_bls_key
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.test.pool_transactions.conftest import looper
 
 nodeCount = 4
 nodes_wth_bls = 4
@@ -12,6 +11,7 @@ nodes_wth_bls = 4
 
 def test_update_incorrect_bls_one_node(looper, txnPoolNodeSet,
                                        sdk_wallet_stewards,
+                                       sdk_wallet_client,
                                        sdk_pool_handle):
     '''
     Updated with wrong BLS key for 1st Node;
@@ -24,12 +24,14 @@ def test_update_incorrect_bls_one_node(looper, txnPoolNodeSet,
     check_update_bls_key(node_num=0, saved_multi_sigs_count=4,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
+                         sdk_wallet_client=sdk_wallet_client,
                          sdk_pool_handle=sdk_pool_handle,
                          add_wrong=True)
 
 
 def test_update_incorrect_bls_two_nodes(looper, txnPoolNodeSet,
                                         sdk_wallet_stewards,
+                                        sdk_wallet_client,
                                         sdk_pool_handle):
     '''
     Updated with wrong BLS key for 1st and 2d Nodes;
@@ -38,12 +40,14 @@ def test_update_incorrect_bls_two_nodes(looper, txnPoolNodeSet,
     check_update_bls_key(node_num=1, saved_multi_sigs_count=4,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
+                         sdk_wallet_client=sdk_wallet_client,
                          sdk_pool_handle=sdk_pool_handle,
                          add_wrong=True)
 
 
 def test_update_incorrect_bls_three_nodes(looper, txnPoolNodeSet,
                                           sdk_wallet_stewards,
+                                          sdk_wallet_client,
                                           sdk_pool_handle):
     '''
     Updated with wrong BLS keys 1-3 Nodes;
@@ -52,12 +56,14 @@ def test_update_incorrect_bls_three_nodes(looper, txnPoolNodeSet,
     check_update_bls_key(node_num=2, saved_multi_sigs_count=4,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
+                         sdk_wallet_client=sdk_wallet_client,
                          sdk_pool_handle=sdk_pool_handle,
                          add_wrong=True)
 
 
 def test_update_incorrect_bls_all_nodes(looper, txnPoolNodeSet,
                                         sdk_wallet_stewards,
+                                        sdk_wallet_client,
                                         sdk_pool_handle):
     '''
     Updated with wrong BLS keys all Nodes;
@@ -66,5 +72,6 @@ def test_update_incorrect_bls_all_nodes(looper, txnPoolNodeSet,
     check_update_bls_key(node_num=3, saved_multi_sigs_count=4,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
+                         sdk_wallet_client=sdk_wallet_client,
                          sdk_pool_handle=sdk_pool_handle,
                          add_wrong=True)
