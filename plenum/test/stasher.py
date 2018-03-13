@@ -23,6 +23,10 @@ class Stasher:
 
         :param tester: a callable that takes as an argument the item
             from the queue and returns a number of seconds it should be delayed
+
+        Note: current reliance on tester.__name__ to remove particular
+        delay rules could lead to problems when adding testers with
+        same function but different parameters.
         """
         logger.debug("{} adding delay for {}".format(self.name, tester))
         self.delayRules.add(tester)
@@ -110,12 +114,31 @@ class Stasher:
             return self.unstashAll(0, *names)
 
     def reset_delays_and_process_delayeds(self, *names):
+        """
+        Remove delay rules and unstash related messages.
+
+        :param names: list of delay functions names to unstash
+
+        Note that original implementation made an assumption that messages are tuples
+        and relied on first element __name__ to find messages to unstash, but new one
+        explicitly stores name of delay rule function when stashing messages. Also
+        most delay rule functions override their __name__ to match delayed message.
+        While usages looking like reset_delays_and_process_delayeds(COMMIT) won't break
+        as long as last assumption holds true it's still recommended to consider using
+        new context manager where applicable to reduce potential errors in tests.
+        """
         self.resetDelays(*names)
         self.force_unstash(*names)
 
 
 @contextmanager
 def delay_rules(stasher, *delayers):
+    """
+    Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
+
+    :param stasher: Instance of Stasher or iterable over instances of stasher
+    :param delayers: Delay rule functions to be added to stashers
+    """
     for d in delayers:
         stasher.delay(d)
     yield
