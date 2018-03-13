@@ -14,9 +14,11 @@ from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
+
 def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
-        txnPoolNodeSet, stewardAndWalletForMasterNode, txnPoolMasterNodes,
-        tdir, tconf):
+                                                                   txnPoolNodeSet, stewardAndWalletForMasterNode,
+                                                                   txnPoolMasterNodes,
+                                                                   tdir, tconf):
     """
     Demote primary and restart the pool.
     Pool should select new primary and have viewNo=0 after restart.

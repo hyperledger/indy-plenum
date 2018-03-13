@@ -88,8 +88,8 @@ def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
 
 @pytest.fixture(scope="module")
 def some_requests(nodeSet, looper, stewardWallet,
-                                 steward1, client1Connected,
-                                 sdk_wallet_steward, sdk_pool_handle):
+                  steward1, client1Connected,
+                  sdk_wallet_steward, sdk_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'pqr'}

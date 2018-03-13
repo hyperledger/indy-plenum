@@ -14,7 +14,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
 
-
 TestRunningTimeLimitSec = 150
 
 

@@ -63,7 +63,7 @@ def testCorrectNumOfReplicas(pool):
         for instId in getProtocolInstanceNums(node):
             # num of replicas for a instance on a node must be 1
             assert len([node.replicas[instId]]) == 1 and \
-                node.replicas[instId].instId == instId
+                   node.replicas[instId].instId == instId
             # num of primary on every protocol instance is 1
             numberOfPrimary = len([node for node in pool.nodeset
                                    if node.replicas[instId].isPrimary])

@@ -10,7 +10,6 @@ view_change_timeout = 10
 
 def test_view_change_without_primary(nodeSet, looper,
                                      patched_view_change_timeout):
-
     first, others = stop_nodes_and_remove_first(looper, nodeSet)
 
     start_and_connect_nodes(looper, others)
@@ -28,7 +27,7 @@ def stop_nodes_and_remove_first(looper, nodes):
     looper.removeProdable(first_node)
     looper.runFor(3)  # let the nodes stop
     return first_node, \
-        list(filter(lambda x: x.name != first_node.name, nodes))
+           list(filter(lambda x: x.name != first_node.name, nodes))
 
 
 def start_and_connect_nodes(looper, nodes):

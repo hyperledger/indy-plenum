@@ -11,7 +11,6 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
-
 TestRunningTimeLimitSec = 150
 
 

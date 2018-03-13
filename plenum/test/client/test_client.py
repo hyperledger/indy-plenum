@@ -12,7 +12,7 @@ from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.helper import checkResponseCorrectnessFromNodes, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
-    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength,  \
+    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength, \
     sendReqsToNodesAndVerifySuffReplies
 
 from plenum.test.test_client import genTestClient
@@ -28,7 +28,6 @@ whitelist = ['signer not configured so not signing',
              'public key from disk',
              'verification key from disk',
              'got error while verifying message']  # warnings
-
 
 logger = getlogger()
 
@@ -60,6 +59,7 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
     """
+
     async def go(ctx):
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(
@@ -195,7 +195,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
 
 
 # noinspection PyIncorrectDocstring
-def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
+def testReplyWhenRequestAlreadyExecuted(looper, txnPoolNodeSet, client1, sent1):
     """
     When a request has already been executed the previously executed reply
     will be sent again to the client. An acknowledgement will not be sent
@@ -211,7 +211,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     for part in message_parts:
         client1.nodestack._enqueueIntoAllRemotes(part, None)
-        
+
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
@@ -225,7 +225,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
 
 # noinspection PyIncorrectDocstring
-def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
+@pytest.mark.skip('Unskip and complete this test while sdk integration')
+def testReplyMatchesRequest(looper, txnPoolNodeSet, client_tdir):
     '''
     This tests does check following things:
       - wallet works correctly when used by multiple clients
@@ -233,7 +234,7 @@ def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
     '''
 
     def makeClient(id):
-        client, wallet = genTestClient(nodeSet,
+        client, wallet = genTestClient(txnPoolNodeSet,
                                        tmpdir=client_tdir,
                                        name="client-{}".format(id))
         looper.add(client)
@@ -293,9 +294,10 @@ def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
             assert replies[0] == sentAmount
 
 
-def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, client_tdir,
+@pytest.mark.skip('Unskip and complete this test while sdk integration')
+def testReplyReceivedOnlyByClientWhoSentRequest(looper, txnPoolNodeSet, client_tdir,
                                                 client1, wallet1):
-    newClient, _ = genTestClient(nodeSet, tmpdir=client_tdir)
+    newClient, _ = genTestClient(txnPoolNodeSet, tmpdir=client_tdir)
     looper.add(newClient)
     looper.run(newClient.ensureConnectedToNodes())
     client1InboxSize = len(client1.inBox)

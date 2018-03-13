@@ -12,7 +12,6 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         chkFreqPatched, looper, txnPoolNodeSet, steward1, stewardWallet,
         client1, wallet1, client1Connected, tdir, client_tdir, tconf,
         allPluginsPath):
-
     _, _, epsilon = addNewStewardAndNode(looper, steward1, stewardWallet,
                                          'EpsilonSteward', 'Epsilon',
                                          tdir, client_tdir, tconf,

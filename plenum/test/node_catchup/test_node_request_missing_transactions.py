@@ -13,7 +13,6 @@ from plenum.test import waits
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
-
 logger = getlogger()
 
 TestRunningTimeLimitSec = 180
@@ -68,7 +67,7 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     # Since one of the nodes does not reply, this new node will experience a
     # timeout and retry catchup requests, hence a long test timeout.
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-        reduced_catchup_timeout_conf.CatchupTransactionsTimeout
+              reduced_catchup_timeout_conf.CatchupTransactionsTimeout
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
     new_size = len(new_node_ledger.ledger)
@@ -76,7 +75,7 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     # The new node ledger might catchup some transactions from the batch of
     # `more_request` transactions
     assert old_size_others - \
-        old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
+           old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
     sendRandomRequests(wallet, client, 2)
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)

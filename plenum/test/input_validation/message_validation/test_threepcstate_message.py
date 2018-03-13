@@ -3,7 +3,6 @@ from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, IterableField
 
-
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("messages", IterableField),

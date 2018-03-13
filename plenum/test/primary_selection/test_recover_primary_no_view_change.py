@@ -19,7 +19,6 @@ from plenum.test.primary_selection.test_recover_more_than_f_failure import \
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
-
 logger = getlogger()
 
 
@@ -48,7 +47,7 @@ def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolN
 
     logger.info("send at least one checkpoint")
     assert nodes_do_not_have_checkpoints(*active_nodes)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2*checkpoint_size)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2 * checkpoint_size)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -68,6 +67,6 @@ def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolN
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("Check if the pool is able to process requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10*checkpoint_size)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
     assert nodes_have_checkpoints(*active_nodes)

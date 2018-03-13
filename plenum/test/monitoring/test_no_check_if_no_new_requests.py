@@ -15,7 +15,7 @@ def test_not_check_if_no_new_requests(perf_chk_patched, looper, txnPoolNodeSet,
     Checks that node does not do performance check if there were no new
     requests since previous check
     """
-    
+
     # Ensure that nodes participating, because otherwise they do not do check
     for node in txnPoolNodeSet:
         assert node.isParticipating

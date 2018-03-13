@@ -1,4 +1,3 @@
-
 import pytest
 from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.test import waits
@@ -16,7 +15,6 @@ whitelist = ['because already got primary declaration',
              Suspicions.DUPLICATE_PRI_SENT.reason,
              'doing nothing for now',
              'know how to handle it']
-
 
 logger = getlogger()
 
@@ -84,8 +82,8 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     # Ensure elections are done
     # also have to take into account the catchup procedure
     timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
-        waits.expectedPoolCatchupTime(len(nodeSet)) + \
-        delayOfElectionDone
+              waits.expectedPoolCatchupTime(len(nodeSet)) + \
+              delayOfElectionDone
     ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
@@ -94,5 +92,5 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     for node in [A, C, D]:
         logger.debug(
             "node {} should have primary declaration for C from node B"
-            .format(node))
+                .format(node))
         assert node.elector.primaryDeclarations[0][BRep][0] == CRep

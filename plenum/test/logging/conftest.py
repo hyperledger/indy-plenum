@@ -39,14 +39,14 @@ def logsearch(request):
         class TestingFilter(logging.Filter):
             def filter(self, record):
                 return (
-                    (levels is None or
-                        record.levelname in levels) and
-                    (files is None or
-                        record.filename in files) and
-                    (funcs is None or
-                        record.funcName in funcs) and
-                    (reMsgs is None or
-                        reMsgs.search(record.getMessage()) is not None)
+                        (levels is None or
+                         record.levelname in levels) and
+                        (files is None or
+                         record.filename in files) and
+                        (funcs is None or
+                         record.funcName in funcs) and
+                        (reMsgs is None or
+                         reMsgs.search(record.getMessage()) is not None)
                 )
 
         def tester(record):

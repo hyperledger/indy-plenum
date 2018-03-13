@@ -9,9 +9,7 @@ from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
 from plenum.test import waits
 
-
 nodeCount = 4
-
 
 logger = getlogger()
 

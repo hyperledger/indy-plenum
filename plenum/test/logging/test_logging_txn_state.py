@@ -15,7 +15,6 @@ from plenum.test.pool_transactions.helper import prepare_nym_request, \
 from plenum.test import waits
 from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
 
-
 ERORR_MSG = "something went wrong"
 
 

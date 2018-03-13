@@ -87,4 +87,4 @@ def testSelfNominationDelay(tdir_for_func):
             looper.run(eventually(lambda: assertExp(
                 len(nodeA.spylog.getAll(
                     Node.decidePrimaries.__name__)) > 0),
-                retryWait=1, timeout=delay))
+                                  retryWait=1, timeout=delay))

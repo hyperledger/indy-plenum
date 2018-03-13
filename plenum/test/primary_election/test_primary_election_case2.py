@@ -11,7 +11,6 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
 
-
 nodeCount = 4
 whitelist = ['already got nomination',
              'doing nothing for now']
@@ -36,6 +35,7 @@ def case2Setup(startedNodes: TestNodeSet):
     # the election
     for node in A, C, D:
         node.whitelistNode(B.name, Suspicions.DUPLICATE_NOM_SENT.code)
+
 
 # noinspection PyIncorrectDocstring
 

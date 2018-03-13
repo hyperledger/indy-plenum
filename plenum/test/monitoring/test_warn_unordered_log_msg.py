@@ -6,7 +6,6 @@ from stp_core.common.log import getlogger
 from plenum.test.helper import sendRandomRequest, \
     waitForSufficientRepliesForRequests
 
-
 nodeCount = 4
 logger = getlogger()
 
@@ -36,7 +35,7 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
 
     monitor = nodeSet[0].monitor
     delay = monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC * \
-        monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM + 10
+            monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM + 10
     delaysCommitProcessing(slow_node, delay=delay)
 
     assert no_any_warn(*nodeSet), \

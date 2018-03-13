@@ -36,7 +36,6 @@ def testRequestFullRoundTrip(restrictiveVerifier,
                              sent1,
                              looper,
                              nodeSet):
-
     update = {'reason': 'client request invalid: InvalidClientRequest() '
                         '[caused by amount too high\nassert 999 <= 100]'}
 

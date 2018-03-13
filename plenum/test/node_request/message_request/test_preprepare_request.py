@@ -31,7 +31,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
     Node requests PRE-PREPARE only once after getting PREPAREs.
     """
     slow_node, other_nodes, primary_node, \
-        other_primary_nodes = split_nodes(txnPoolNodeSet)
+    other_primary_nodes = split_nodes(txnPoolNodeSet)
     # Drop PrePrepares and Prepares
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
     slow_node.nodeIbStasher.delay(pDelay(300, 0))

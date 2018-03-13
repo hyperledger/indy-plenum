@@ -11,12 +11,14 @@ logger = getlogger()
 
 def make_node_slow(node):
     old = node.serviceReplicas
+
     async def serviceReplicas(limit):
         for replica in node.replicas:
             for index, message in enumerate(list(replica.outBox)):
                 if isinstance(message, Ordered):
                     del replica.outBox[index]
         return await old(limit)
+
     node.serviceReplicas = serviceReplicas
 
 
@@ -37,7 +39,7 @@ def test_dirty_read(looper, nodeSet, client1, wallet1):
                                                       numReqs=1)[0]
 
     received_replies = getRepliesFromClientInbox(inbox=client1.inBox,
-                                                reqId=set_request.reqId)
+                                                 reqId=set_request.reqId)
 
     seq_no = received_replies[0]["result"]["seqNo"]
     get_request = [wallet1.signOp({

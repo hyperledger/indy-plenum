@@ -1,7 +1,5 @@
 from plenum.server.quorums import Quorum
 from plenum.test.bls.helper import check_update_bls_key
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 
 nodeCount = 4
 nodes_wth_bls = 0
@@ -22,7 +20,6 @@ def test_add_bls_one_node(looper, txnPoolNodeSet, client_tdir,
                          client_tdir=client_tdir,
                          poolTxnClientData=poolTxnClientData,
                          stewards_and_wallets=stewards_and_wallets)
-
 
 
 def test_add_bls_two_nodes(looper, txnPoolNodeSet, client_tdir,

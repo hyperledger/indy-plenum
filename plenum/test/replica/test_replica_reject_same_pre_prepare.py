@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.test.delayers import cDelay
@@ -16,7 +15,6 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',
              'InvalidSignature']
-
 
 logger = getlogger()
 

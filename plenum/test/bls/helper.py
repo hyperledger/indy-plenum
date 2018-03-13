@@ -45,7 +45,7 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
 
     # 3. check how many multi-sigs are saved
     for multi_sigs in multi_sigs_for_batch:
-        assert len(multi_sigs) == saved_multi_sigs_count,\
+        assert len(multi_sigs) == saved_multi_sigs_count, \
             "{} != {}".format(len(multi_sigs), saved_multi_sigs_count)
 
     # 3. check that bls multi-sig is the same for all nodes we get PrePrepare for (that is for all expect the last one)
@@ -89,20 +89,20 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
 
 
 def create_pre_prepare_params(state_root,
-                              ledger_id = DOMAIN_LEDGER_ID,
+                              ledger_id=DOMAIN_LEDGER_ID,
                               txn_root=None,
                               timestamp=None,
                               bls_multi_sig=None):
-    params= [0,
-            0,
-            0,
-            timestamp or get_utc_epoch(),
-            [('1' * 16, 1)],
-            0,
-            "random digest",
-            ledger_id,
-            state_root,
-            txn_root or '1' * 32]
+    params = [0,
+              0,
+              0,
+              timestamp or get_utc_epoch(),
+              [('1' * 16, 1)],
+              0,
+              "random digest",
+              ledger_id,
+              state_root,
+              txn_root or '1' * 32]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params
@@ -122,11 +122,13 @@ def create_commit_no_bls_sig(req_key):
     params = create_commit_params(view_no, pp_seq_no)
     return Commit(*params)
 
+
 def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params.append(bls_sig)
     return Commit(*params)
+
 
 def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
     view_no, pp_seq_no = req_key
@@ -159,8 +161,8 @@ def change_bls_key(looper, txnPoolNodeSet,
 
     key_in_txn = \
         new_blspk \
-        if not add_wrong \
-        else ''.join(random_from_alphabet(32, base58.alphabet))
+            if not add_wrong \
+            else ''.join(random_from_alphabet(32, base58.alphabet))
 
     node_data = {
         ALIAS: node.name,

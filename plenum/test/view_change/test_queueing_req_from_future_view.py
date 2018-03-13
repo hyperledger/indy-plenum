@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change

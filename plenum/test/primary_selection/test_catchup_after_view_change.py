@@ -16,7 +16,6 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     stewardAndWallet1, steward1, stewardWallet
 from plenum.test.batching_3pc.conftest import tconf
 
-
 Max3PCBatchSize = 4
 TestRunningTimeLimitSec = 150
 

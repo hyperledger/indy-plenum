@@ -18,7 +18,7 @@ def setup(nodeSet):
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
-    A.nodeIbStasher.delay(msg_rep_delay(10*howlong, [PROPAGATE, ]))
+    A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
 
 
 def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):

@@ -43,7 +43,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     def chk1():
         assert len(slow_rep.commitsWaitingForPrepare) > 0
 
-    sdk_send_random_request(looper,sdk_pool_handle, sdk_wallet_client)
+    sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delay
     looper.run(eventually(chk1, retryWait=1, timeout=timeout))
 

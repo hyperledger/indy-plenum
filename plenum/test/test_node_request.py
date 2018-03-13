@@ -44,6 +44,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
                             assert result
                         else:
                             assert result is False
+
             timeout = waits.expectedOrderingTime(
                 nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))

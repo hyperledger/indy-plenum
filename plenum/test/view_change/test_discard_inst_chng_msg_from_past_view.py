@@ -55,4 +55,4 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
     # `sendInstanceChange`
     for n in nodeSet:
         assert n.spylog.count(instChngMethodName) == \
-            sentInstChanges.get(n.name, 0)
+               sentInstChanges.get(n.name, 0)

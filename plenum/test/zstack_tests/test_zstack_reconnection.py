@@ -12,7 +12,6 @@ from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
-
 TestRunningTimeLimitSec = 300
 
 

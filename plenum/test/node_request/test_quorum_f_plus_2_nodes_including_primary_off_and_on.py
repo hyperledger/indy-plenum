@@ -22,7 +22,6 @@ def stop_node(node_to_stop, looper, pool_nodes):
 def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
         looper, allPluginsPath, tdir, tconf,
         txnPoolNodeSet, wallet1, client1, client1Connected):
-
     nodes = txnPoolNodeSet
 
     request1 = sendRandomRequest(wallet1, client1)

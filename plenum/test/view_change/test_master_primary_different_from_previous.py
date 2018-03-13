@@ -10,6 +10,7 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
 
 from stp_core.common.log import getlogger
+
 logger = getlogger()
 
 

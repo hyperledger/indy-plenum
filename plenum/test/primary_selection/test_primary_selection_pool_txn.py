@@ -20,7 +20,7 @@ def check_accepted_view_change_sent(node, nodes):
             continue
         if other_node.name in node.view_changer._view_change_done:
             assert node.view_changer._view_change_done[other_node.name] == \
-                node.view_changer._accepted_view_change_done_message
+                   node.view_changer._accepted_view_change_done_message
 
 
 def test_primary_selection_non_genesis_node(one_node_added, looper,
@@ -52,6 +52,5 @@ def test_primary_selection_increase_f(
     #     check_accepted_view_change_sent(n, txnPoolNodeSet)
     ensure_pool_functional(looper, txnPoolNodeSet, stewardWallet, steward1)
 
-
 # TODO: Add more tests to make one next primary crashed, malicious, ensure primary
-    # selection happens after catchup
+# selection happens after catchup

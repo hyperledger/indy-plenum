@@ -26,8 +26,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
         txnPoolNodeSet,
         client1,
         wallet1,
-        one_node_added,
-        client1Connected):
+        one_node_added):
     """
     Delay 3PC messages to one node and view change messages to some others
     (including primary) so the node that does not receive enough 3PC messages is
@@ -54,7 +53,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
 
     def start_count(): return sum([1 for e in slow_node.ledgerManager.spylog.getAll(
         slow_node.ledgerManager.startCatchUpProcess.__name__)
-        if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
+                                   if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
 
     s = start_count()
     requests = sendRandomRequests(wallet1, client1, 10 * Max3PCBatchSize)

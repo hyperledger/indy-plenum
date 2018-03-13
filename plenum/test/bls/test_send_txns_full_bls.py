@@ -5,6 +5,7 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 nodeCount = 7
 nodes_wth_bls = 7
 
+
 def test_each_node_has_bls(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         assert node.bls_bft

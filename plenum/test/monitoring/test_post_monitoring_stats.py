@@ -5,7 +5,6 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_and_check
 
 
-
 def testPostingThroughput(postingStatsEnabled,
                           decreasedMonitoringTimeouts,
                           looper,
@@ -32,10 +31,10 @@ def testPostingThroughput(postingStatsEnabled,
         assert node.monitor.totalRequests == 0
 
     sdk_send_random_and_check(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          reqCount)
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              reqCount)
 
     for node in txnPoolNodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
@@ -88,10 +87,10 @@ def testPostingLatency(postingStatsEnabled,
         assert node.monitor.avgBackupLatency == 0
 
     sdk_send_random_and_check(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          reqCount)
+                              txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              reqCount)
 
     for node in txnPoolNodeSet:
         assert node.monitor.masterLatency > 0

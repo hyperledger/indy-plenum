@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.test.delayers import cDelay

@@ -7,7 +7,6 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
 
-
 logger = getlogger()
 
 

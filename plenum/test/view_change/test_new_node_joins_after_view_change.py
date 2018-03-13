@@ -18,6 +18,7 @@ from plenum.test.primary_selection.conftest import nodeThetaAdded, \
     one_node_added
 
 from stp_core.common.log import getlogger
+
 logger = getlogger()
 
 

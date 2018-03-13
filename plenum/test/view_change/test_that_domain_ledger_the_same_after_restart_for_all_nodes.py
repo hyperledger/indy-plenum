@@ -5,7 +5,6 @@ from plenum.test.pool_transactions.conftest import looper
 from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
 
-
 logger = getlogger()
 
 
@@ -23,8 +22,8 @@ def catchuped(node):
 
 
 def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
-                looper, txnPoolNodeSet, tdir, tconf,
-                allPluginsPath, limitTestRunningTime):
+        looper, txnPoolNodeSet, tdir, tconf,
+        allPluginsPath, limitTestRunningTime):
     """
     Test steps:
     1. Collect domainLedger data for primary node, such as:
@@ -66,7 +65,7 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
         return dict_for_compare
 
     def compare(before, after):
-        for k,v in before.items():
+        for k, v in before.items():
             if k in after:
                 if v != after[k]:
                     logger.debug("compare_domain_ledgers: before[{}]!=after[{}]".format(k, k))
@@ -77,17 +76,16 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
                         logger.debug("compare_domain_ledgers: after_dict: {}: {}".format(k, after.get(k)))
                     assert False
 
-
     pool_of_nodes = txnPoolNodeSet
     for __ in range(4):
         p_node = [node for node in pool_of_nodes if node.has_master_primary][0]
         before_vc_dict = prepare_for_compare(p_node.domainLedger)
         pool_of_nodes = ensure_view_change_by_primary_restart(looper,
-                                                                pool_of_nodes,
-                                                                tconf,
-                                                                tdir,
-                                                                allPluginsPath,
-                                                                customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                                              pool_of_nodes,
+                                                              tconf,
+                                                              tdir,
+                                                              allPluginsPath,
+                                                              customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
         for node in pool_of_nodes:
             logger.debug("compare_domain_ledgers: "
                          "primary node before view_change: {}, "

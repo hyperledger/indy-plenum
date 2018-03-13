@@ -51,7 +51,7 @@ def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
         allPluginsPath=allPluginsPath, autoStart=True,
         do_post_node_creation=do_post_node_creation)
     yield looper, newNode, client, wallet, newStewardClient, \
-        newStewardWallet
+          newStewardWallet
 
 
 @pytest.fixture("module")

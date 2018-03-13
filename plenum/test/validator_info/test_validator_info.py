@@ -22,7 +22,6 @@ from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
 
-
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
 PERIOD_SEC = 1
@@ -242,6 +241,7 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
                        retryWait=1, timeout=timeout))
         txnPoolNodesLooper.runFor(patched_dump_info_period)
         return load_info(info_path)
+
     return read_wrapped
 
 
@@ -257,6 +257,7 @@ def write_txn_and_get_latest_info(txnPoolNodesLooper,
         waitForSufficientRepliesForRequests(txnPoolNodesLooper, client, requests=[req])
         txnPoolNodesLooper.runFor(patched_dump_info_period)
         return load_info(info_path)
+
     return write_wrapped
 
 
@@ -265,6 +266,7 @@ def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
     def wrapped():
         txnPoolNodesLooper.runFor(patched_dump_info_period + 1)
         return load_info(info_path)
+
     return wrapped
 
 

@@ -8,7 +8,6 @@ from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate, forwardedRequest
 from plenum.test import waits
 
-
 nodeCount = 4
 howlong = 10
 delaySec = 5

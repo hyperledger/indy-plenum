@@ -13,10 +13,8 @@ from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change.helper import start_stopped_node
 
-
 # Do not remove these imports
 from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
-
 
 logger = getlogger()
 
@@ -47,7 +45,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
 
     logger.info("send at least one checkpoint")
     assert nodes_do_not_have_checkpoints(*active_nodes)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2*checkpoint_size)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2 * checkpoint_size)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -67,7 +65,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("Check if the pool is able to process requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10*checkpoint_size)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
     assert nodes_have_checkpoints(*active_nodes)
 
@@ -91,7 +89,7 @@ def checkpoint_size(tconf, request):
 
     tconf.Max3PCBatchSize = 3
     tconf.CHK_FREQ = getValueFromModule(request, "CHK_FREQ", 2)
-    tconf.LOG_SIZE = 2*tconf.CHK_FREQ
+    tconf.LOG_SIZE = 2 * tconf.CHK_FREQ
 
     def reset():
         tconf.CHK_FREQ = oldChkFreq

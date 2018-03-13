@@ -18,7 +18,7 @@ def testPluginManagerFindsPlugins(monkeypatch, pluginManager):
         partial(
             mockGetInstalledDistributions,
             packages=validPackages +
-            invalidPackages))
+                     invalidPackages))
     assert len(pluginManager._findPlugins()) == validPackagesCnt
 
 
@@ -59,9 +59,9 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
         'minActivityThreshold': 0,
         'enabled': True
     }
-    assert pluginManagerWithImportedModules\
-        .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name, enabled=True) is None
+    assert pluginManagerWithImportedModules \
+               .sendMessageUponSuspiciousSpike(topic, historicalData,
+                                               newVal, config, name, enabled=True) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
@@ -79,9 +79,9 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
         'minActivityThreshold': 0,
         'enabled': True
     }
-    assert pluginManagerWithImportedModules\
-        .sendMessageUponSuspiciousSpike(topic, historicalData,
-                                        newVal, config, name, enabled=True) is None
+    assert pluginManagerWithImportedModules \
+               .sendMessageUponSuspiciousSpike(topic, historicalData,
+                                               newVal, config, name, enabled=True) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpike(
@@ -99,7 +99,7 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
         'minActivityThreshold': 0,
         'enabled': True
     }
-    sent, found = pluginManagerWithImportedModules\
+    sent, found = pluginManagerWithImportedModules \
         .sendMessageUponSuspiciousSpike(topic, historicalData,
                                         newVal, config, name, enabled=True)
     assert sent == 3
@@ -108,6 +108,7 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
 def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     def mockProcessRequest(obj, inc=1):
         obj.nodeRequestSpikeMonitorData['accum'] += inc
+
     testNode.config.SpikeEventsEnabled = True
     testNode.config.notifierEventTriggeringConfig['nodeRequestSpike'] = {
         'coefficient': 3,

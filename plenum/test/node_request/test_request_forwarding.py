@@ -46,7 +46,7 @@ def test_all_replicas_hold_request_keys(
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
     sdk_get_replies(looper, req_resps, timeout=sdk_eval_timeout(
-        tconf.Max3PCBatchSize-1, len(txnPoolNodeSet),
+        tconf.Max3PCBatchSize - 1, len(txnPoolNodeSet),
         add_delay_to_timeout=delay_3pc))
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
@@ -66,7 +66,7 @@ def test_all_replicas_hold_request_keys(
     # Since each nomination is delayed and there will be multiple nominations
     # so adding some extra time
     timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
-        len(txnPoolNodeSet) * delay
+              len(txnPoolNodeSet) * delay
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     sdk_get_replies(looper, req_resps, timeout=timeout)
     looper.run(eventually(chk, 0))

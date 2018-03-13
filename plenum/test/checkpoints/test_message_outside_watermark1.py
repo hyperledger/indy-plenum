@@ -9,7 +9,6 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_random_and_check
 
-
 TestRunningTimeLimitSec = 300
 PerfCheckFreq = 30
 

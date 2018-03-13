@@ -45,5 +45,4 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
                                "Delta -> Ratio: None"
                                .format(current_view_no,
                                        current_view_no + 1)) as exc_info:
-
         ensure_view_change(looper, active)

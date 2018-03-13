@@ -16,7 +16,6 @@ from plenum.test import waits
 from plenum.common.startable import Mode
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 
-
 logger = getlogger()
 
 
@@ -26,7 +25,7 @@ def catchuped(node):
 
 def test_node_catchup_when_3_not_primary_node_restarted(
         looper, txnPoolNodeSet, tdir, tconf,
-         allPluginsPath, steward1, stewardWallet):
+        allPluginsPath, steward1, stewardWallet):
     """
     Test case:
     1. Create pool of 4 nodes

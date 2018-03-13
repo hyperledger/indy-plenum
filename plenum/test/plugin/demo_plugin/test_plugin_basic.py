@@ -42,7 +42,7 @@ def test_plugin_client_req_fields(nodeSet, looper, stewardWallet,
     req = Request(operation=op, reqId=Request.gen_req_id(),
                   protocolVersion=CURRENT_PROTOCOL_VERSION,
                   identifier=stewardWallet.defaultId,
-                  fix_length_dummy=randomString(dummy_field_length+1))
+                  fix_length_dummy=randomString(dummy_field_length + 1))
     steward1.submitReqs(req)
     for node in nodeSet:
         looper.run(eventually(checkReqNackWithReason, steward1,

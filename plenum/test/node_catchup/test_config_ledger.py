@@ -39,13 +39,13 @@ def read(key, looper, sdk_pool_handle, sdk_wallet):
                 for op in [read_conf_op(key)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
     sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    (req, resp),  = sdk_get_replies(looper, sent_reqs, timeout=10)
+    (req, resp), = sdk_get_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 
 
 def send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys):
     for i in range(5):
-        key, val = 'key_{}'.format(i+1), randomString()
+        key, val = 'key_{}'.format(i + 1), randomString()
         write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
         keys[key] = val
     return keys
@@ -119,7 +119,7 @@ def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
     A new node catches up the config ledger too
     """
     assert len(newNodeCaughtUp.getLedger(CONFIG_LEDGER_ID)) >= \
-        len(some_config_txns_done)
+           len(some_config_txns_done)
 
 
 def test_disconnected_node_catchup_config_ledger_txns(looper,

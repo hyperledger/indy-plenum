@@ -13,6 +13,7 @@ from plenum.test.view_change.helper import simulate_slow_master
 
 nodeCount = 7
 
+
 # noinspection PyIncorrectDocstring
 
 
@@ -71,10 +72,10 @@ def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
     for n in nodeSet:
         if n.name != relucatantNode.name:
             assert n.view_changer.spylog.count(instChngMethodName) > \
-                sentInstChanges.get(n.name, 0)
+                   sentInstChanges.get(n.name, 0)
         else:
             assert n.view_changer.spylog.count(instChngMethodName) == \
-                sentInstChanges.get(n.name, 0)
+                   sentInstChanges.get(n.name, 0)
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))

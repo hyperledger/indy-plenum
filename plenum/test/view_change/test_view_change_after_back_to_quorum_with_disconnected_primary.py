@@ -7,10 +7,10 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
-
 # We do 2 view changes during this test. Timeout for one view change is 60 sec.
 # Test running time will be expected near 2 * 60 = 120, so let's define it as 150 sec.
 TestRunningTimeLimitSec = 150
+
 
 def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeSet, looper,
                                                                     sdk_pool_handle,

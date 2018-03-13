@@ -13,7 +13,6 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
 
-
 nodeCount = 4
 whitelist = ['already got nomination',
              'doing nothing for now']
@@ -92,7 +91,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     for node in [nodeA, nodeC, nodeD]:
         assert [n[0] for n in node.elector.nominations[instId].values()].count(
             Replica.generateName(nodeD.name, instId)) \
-            <= 1
+               <= 1
 
     timeout = waits.expectedPoolElectionTimeout(nodeCount) + delayOfNomination
     primaryReplicas = ensureElectionsDone(looper=looper,

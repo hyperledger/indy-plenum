@@ -34,6 +34,7 @@ def testPrimarySelectionAfterPoolReady(
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
     """
+
     def checkPrimaryPlacement():
         # Node names sorted by rank
         sortedNodes = sorted(nodeSet.nodes.values(),
@@ -79,15 +80,16 @@ def catchup_complete_count(nodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
 
 
-@pytest.fixture(scope='module') # noqa
+@pytest.fixture(scope='module')  # noqa
 def view_change_done(looper, nodeSet):
     ensure_view_change(looper, nodeSet)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
 
+
 # noinspection PyIncorrectDocstring
 
 
-def testPrimarySelectionAfterViewChange(    # noqa
+def testPrimarySelectionAfterViewChange(  # noqa
         looper,
         nodeSet,
         ready,

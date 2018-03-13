@@ -49,4 +49,3 @@ def testRequestFullRoundTrip(node_doesnt_propagate, replied1):
     still be able to successfully complete a full cycle.
     """
     pass
-

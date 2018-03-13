@@ -10,7 +10,6 @@ from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
 
-
 logger = getLogger()
 
 TestRunningTimeLimitSec = 200

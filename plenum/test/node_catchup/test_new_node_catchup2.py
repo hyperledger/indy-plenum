@@ -46,8 +46,8 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
         node.reset_delays_and_process_delayeds()
 
     timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + \
-        catchup_delay + \
-        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+              catchup_delay + \
+              waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitNodeDataEquality(looper, new_node, *old_nodes)
 

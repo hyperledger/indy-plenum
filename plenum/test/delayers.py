@@ -15,6 +15,7 @@ from plenum.test.test_client import TestClient
 
 DEFAULT_DELAY = 600
 
+
 def delayer(seconds, op, senderFilter=None, instFilter: int = None):
     def inner(rx):
         msg, frm = rx
@@ -75,42 +76,42 @@ def delayerMethod(method, delay):
     return inner
 
 
-def nom_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str=None):
+def nom_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of NOMINATE requests
     return delayerMsgTuple(
         delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def prim_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str=None):
+def prim_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of PRIMARY requests
     return delayerMsgTuple(
         delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def rel_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str=None):
+def rel_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of REELECTION requests
     return delayerMsgTuple(
         delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str=None):
+def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str = None):
     # Delayer of PROPAGATE requests
     return delayerMsgTuple(delay, Propagate, senderFilter=sender_filter)
 
 
-def ppDelay(delay: float = DEFAULT_DELAY, instId: int=None, sender_filter: str=None):
+def ppDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of PRE-PREPARE requests from a particular instance
     return delayerMsgTuple(delay, PrePrepare, instFilter=instId,
                            senderFilter=sender_filter)
 
 
-def pDelay(delay: float = DEFAULT_DELAY, instId: int=None, sender_filter: str=None):
+def pDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of PREPARE requests from a particular instance
     return delayerMsgTuple(
         delay, Prepare, instFilter=instId, senderFilter=sender_filter)
 
 
-def cDelay(delay: float = DEFAULT_DELAY, instId: int=None, sender_filter: str=None):
+def cDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of COMMIT requests from a particular instance
     return delayerMsgTuple(
         delay, Commit, instFilter=instId, senderFilter=sender_filter)
@@ -151,7 +152,7 @@ def req_delay(delay: float = DEFAULT_DELAY):
     return delayerMsgTuple(delay, Request)
 
 
-def msg_req_delay(delay: float = DEFAULT_DELAY, types_to_delay: List=None):
+def msg_req_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
     # Delayer of MessageReq messages
     def specific_msgs(msg):
         if isinstance(
@@ -163,7 +164,7 @@ def msg_req_delay(delay: float = DEFAULT_DELAY, types_to_delay: List=None):
     return specific_msgs
 
 
-def msg_rep_delay(delay: float = DEFAULT_DELAY, types_to_delay: List=None):
+def msg_rep_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
     # Delayer of MessageRep messages
     def specific_msgs(msg):
         if isinstance(
@@ -216,7 +217,7 @@ def delay_messages(typ, nodes, inst_id, delay=None,
     else:
         RuntimeError('Unknown type')
     assert delay is not None or (
-        min_delay is not None and max_delay is not None)
+            min_delay is not None and max_delay is not None)
     for node in nodes:
         if delay:
             d = delay

@@ -5,6 +5,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.motor import Motor
 from plenum.server.has_action_queue import HasActionQueue
 
+
 class Q1(Motor, HasActionQueue):
     def __init__(self, name):
         self.name = name
@@ -15,13 +16,14 @@ class Q1(Motor, HasActionQueue):
     def start(self, loop):
         pass
 
-    async def prod(self, limit: int=None) -> int:
+    async def prod(self, limit: int = None) -> int:
         return self._serviceActions()
 
     def meth(self, meth_name, x):
         if meth_name not in self.results:
             self.results[meth_name] = []
         self.results[meth_name].append((x, time.perf_counter()))
+
 
 def test_action_scheduling():
     with Looper() as looper:
