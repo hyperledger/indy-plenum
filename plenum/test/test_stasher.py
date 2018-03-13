@@ -116,7 +116,15 @@ def test_delay_rules_can_use_generator_expressions():
     assert delay_twos not in stashers[2].delayRules
 
 
-def test_delay_rules_throws_when_given_stashers_of_wrong_type():
+def test_delay_rules_raise_type_error_when_given_stashers_of_wrong_type():
     with pytest.raises(TypeError):
         with delay_rules(1, delay_twos):
+            pass
+
+    with pytest.raises(TypeError):
+        with delay_rules([1, 2], delay_twos):
+            pass
+
+    with pytest.raises(TypeError):
+        with delay_rules(range(3), delay_twos):
             pass
