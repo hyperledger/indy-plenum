@@ -138,7 +138,7 @@ def test_state():
     assert stateful.state() == 2
 
 def test_state_history():
-    stateful = Stateful(1, {2: 1, 4: 2})
+    stateful = Stateful(1, {2: 1, 4: 2, 1: 4})
     assert stateful.wasState(1)
     assert not stateful.wasState(2)
     stateful.setState(2)
@@ -146,3 +146,16 @@ def test_state_history():
     assert stateful.wasState(2)
     stateful.setState(4)
     assert stateful.wasState(2)
+    stateful.setState(1)
+    assert stateful.wasState(4)
+
+    assert stateful.states == [1, 2, 4, 1]
+    assert stateful.state_index(1) == 3
+    assert stateful.state_index(1, False) == 0
+    assert stateful.state_index(2) == 1
+    assert stateful.state_index(2, False) == 1
+
+    with pytest.raises(ValueError):
+        stateful.state_index(5)
+    with pytest.raises(ValueError):
+        stateful.state_index(5, False)

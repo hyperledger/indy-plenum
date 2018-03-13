@@ -116,6 +116,7 @@ class Stateful(metaclass=StatefulMeta):
     def setState(self, state, dry: bool=False):
         self.tryState(state)
         if not dry:
+            # TODO store stack trace information for easier debugging
             self.states.append(state)
             logger.trace("{!r} changed state from {!r} to {!r}"
                          .format(self, self.state(), state))
@@ -125,3 +126,12 @@ class Stateful(metaclass=StatefulMeta):
 
     def wasState(self, state):
         return state in self.states
+
+    def state_index(self, state, last=True):
+        try:
+            return (
+                next(idx for idx, st in zip(range(len(self.states) - 1, -1, -1), reversed(self.states)) if st == state)
+                if last else self.states.index(state)
+            )
+        except (StopIteration, ValueError):
+            raise ValueError("{} is not in list of states of {}".format(state, self))
