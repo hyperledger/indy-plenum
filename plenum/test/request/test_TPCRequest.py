@@ -11,6 +11,9 @@ from plenum.server.stateful import TransitionError
 
 from plenum.test.request.helper import check_transitions, check_statefuls
 
+# TODO
+# - dry for all events
+
 # FIXTURES
 @pytest.fixture
 def tpc_request(rbft_request):
@@ -223,6 +226,24 @@ def test_tr_from_cleaned(
     )
 
 # test events
+def test_TPCReqAccept():
+    with pytest.raises(ValueError) as excinfo:
+        TPCRequest.Accept(None)
+    assert "tpcKey should be defined" in str(excinfo.value)
+
+    with pytest.raises(ValueError) as excinfo:
+        TPCRequest.Accept(None)
+    assert "tpcKey should be defined" in str(excinfo.value)
+
+def test_TPCReqReject():
+    with pytest.raises(ValueError) as excinfo:
+        TPCRequest.Reject(None)
+    assert "tpcKey should be defined" in str(excinfo.value)
+
+    with pytest.raises(ValueError) as excinfo:
+        TPCRequest.Reject(None)
+    assert "tpcKey should be defined" in str(excinfo.value)
+
 def test_apply(tpcr_all, tpcr_forwarded, tpcr_in_3pc, tpcr_ordered):
     def check(tpcr):
         tpcr.on_apply()
@@ -362,6 +383,12 @@ def test_reset(tpcr_all,
         assert tpcr.tpcKey is None
         assert tpcr.states == [TPCReqState.Forwarded]
         assert tpcr.old_rounds == OrderedDict({tpcKey: tuple(states + [TPCReqState.Forwarded])})
+
+        for ev in (tpcr.on_accept, tpcr.on_reject):
+            with pytest.raises(ValueError) as excinfo:
+                ev(tpcKey)
+            assert ("TPC key {} was already used in previous rounds"
+                    .format(tpcKey)) in str(excinfo.value)
 
     check_statefuls(
         tpcr_all,

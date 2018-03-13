@@ -46,6 +46,8 @@ class TPCReqRevert(TPCReqEvent):
 # received or sent inside some PP
 class TPCReqPP(TPCReqEvent, metaclass=ABCMeta):
     def __init__(self, tpcKey: Tuple[int, int]):
+        if tpcKey is None:
+            raise ValueError("tpcKey should be defined")
         self.tpcKey = tpcKey
 
     @abstractmethod
@@ -221,6 +223,10 @@ class TPCRequest(Stateful):
         elif type(ev) == TPCReqRevert:
             self._setTxnState(TransactionState.NotApplied, dry)
         elif isinstance(ev, TPCReqPP):
+            if ev.tpcKey in self.old_rounds:
+                raise ValueError(
+                    "TPC key {} was already used in previous rounds"
+                    .format(ev.tpcKey))
             self.setState(ev.new_state(), dry)
             if not dry:
                 self.tpcKey = ev.tpcKey
