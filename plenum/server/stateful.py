@@ -113,17 +113,12 @@ class Stateful(metaclass=StatefulMeta):
 
         return None
 
-    def setState(self, state, dry: bool=False, expectTrError=False):
-        try:
-            self.tryState(state)
-        except TransitionError:
-            if not expectTrError:
-                raise
-        else:
-            if not dry:
-                self.states.append(state)
-                logger.trace("{!r} changed state from {!r} to {!r}"
-                             .format(self, self.state(), state))
+    def setState(self, state, dry: bool=False):
+        self.tryState(state)
+        if not dry:
+            self.states.append(state)
+            logger.trace("{!r} changed state from {!r} to {!r}"
+                         .format(self, self.state(), state))
 
     def state(self):
         return self.states[-1]

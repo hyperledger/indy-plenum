@@ -137,10 +137,6 @@ def test_state():
     stateful.setState(2)
     assert stateful.state() == 2
 
-    # do not raise TransitionError
-    stateful.setState(3, expectTrError=True)
-    assert stateful.state() == 2
-
 def test_state_history():
     stateful = Stateful(1, {2: 1, 4: 2})
     assert stateful.wasState(1)

@@ -1,132 +1,144 @@
 import pytest
+from copy import deepcopy
 
 from plenum.common.request import Request
 from plenum.server.quorums import Quorum
+from plenum.server.tpcrequest import TPCRequest
 from plenum.server.rbftrequest import (
-        RBFTRequest,
         RBFTReqState
 )
-from plenum.test.request.helper import checkTransitions
+from plenum.test.request.helper import check_transitions
 
 # TODO tests for:
 #   - onTPC... events
 #   - tryTPCState
-#   - onForwarded
+#   - onForward
 #   - onExecuted
 #   - and other API
 
 # FIXTURES
 @pytest.fixture
-def rbftRequestPropagation(rbftRequest):
-    return rbftRequest
+def rbftRequestPropagation(rbft_request):
+    return deepcopy(rbft_request)
 
 @pytest.fixture
 def rbftRequestFinalized(rbftRequestPropagation):
-    rbftRequestPropagation.onPropagate(rbftRequestPropagation.request, 'me', Quorum(2))
-    rbftRequestPropagation.onPropagate(rbftRequestPropagation.request, 'notMe', Quorum(2))
-    return rbftRequestPropagation
+    rbftr = deepcopy(rbftRequestPropagation)
+    rbftr.on_propagate(rbftr.request, 'me', Quorum(2))
+    rbftr.on_propagate(rbftr.request, 'notMe', Quorum(2))
+    return rbftr
 
 @pytest.fixture
-def rbftRequestForwarded(rbftRequestFinalized, masterInstId, backupInstId):
-    rbftRequestFinalized.onForwarded((masterInstId, backupInstId))
-    return rbftRequestFinalized
+def rbftRequestForwarded(rbftRequestFinalized, master_inst_id, backup_inst_id):
+    rbftr = deepcopy(rbftRequestFinalized)
+    rbftr.on_forward((master_inst_id, backup_inst_id))
+    return rbftr
 
 @pytest.fixture
-def rbftRequestMasterRejected(rbftRequestForwarded, masterInstId):
-    rbftRequestForwarded.onTPCRejected(masterInstId)
-    return rbftRequestForwarded
+def rbftRequestMasterRejected(rbftRequestForwarded, master_inst_id):
+    rbftr = deepcopy(rbftRequestForwarded)
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Reject((0, 1)))
+    return rbftr
 
 @pytest.fixture
 def rbftRequestRejected(rbftRequestMasterRejected):
+    rbftr = deepcopy(rbftRequestMasterRejected)
     return rbftRequestMasterRejected
 
 @pytest.fixture
-def rbftRequestMasterOrdered(rbftRequestForwarded, masterInstId):
-    rbftRequestForwarded.onTPCPp(masterInstId)
-    rbftRequestForwarded.onTPCOrdered(masterInstId)
-    return rbftRequestForwarded
+def rbftRequestMasterOrderedApplied(rbftRequestForwarded, master_inst_id):
+    rbftr = deepcopy(rbftRequestForwarded)
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Accept((0, 1)))
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Order())
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Apply())
+    return rbftr
 
 @pytest.fixture
-def rbftRequestCommitted(rbftRequestMasterOrdered):
-    rbftRequestMasterOrdered.onCommitted()
-    return rbftRequestMasterOrdered
+def rbftRequestCommitted(rbftRequestMasterOrderedApplied, master_inst_id):
+    rbftr = deepcopy(rbftRequestMasterOrderedApplied)
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Commit())
+    return rbftr
 
 @pytest.fixture
 def rbftRequestReplyed(rbftRequestCommitted):
-    rbftRequestCommitted.onReplyed()
-    return rbftRequestCommitted
+    rbftr = deepcopy(rbftRequestCommitted)
+    rbftr.on_reply()
+    return rbftr
 
 @pytest.fixture
 def rbftRequestExecutedNotCleaned(rbftRequestReplyed):
-    rbftRequestReplyed.onExecuted()
-    return rbftRequestReplyed
+    rbftr = deepcopy(rbftRequestReplyed)
+    rbftr.on_execute()
+    return rbftr
 
 @pytest.fixture
-def rbftRequestExecutedNotSomeCleaned(rbftRequestExecutedNotCleaned, masterInstId):
-    rbftRequestExecutedNotCleaned.onTPCCleaned(masterInstId)
-    return rbftRequestExecutedNotCleaned
+def rbftRequestExecutedNotSomeCleaned(rbftRequestExecutedNotCleaned, master_inst_id):
+    rbftr = deepcopy(rbftRequestExecutedNotCleaned)
+    rbftr.on_tpcevent(master_inst_id, TPCRequest.Clean())
+    return rbftr
 
 @pytest.fixture
-def rbftRequestExecutedAndCleaned(rbftRequestExecutedNotSomeCleaned, backupInstId):
-    rbftRequestExecutedNotSomeCleaned.onTPCCleaned(backupInstId)
-    return rbftRequestExecutedNotSomeCleaned
+def rbftRequestExecutedAndCleaned(rbftRequestExecutedNotSomeCleaned, backup_inst_id):
+    rbftr = deepcopy(rbftRequestExecutedNotSomeCleaned)
+    rbftr.on_tpcevent(backup_inst_id, TPCRequest.Clean())
+    return rbftr
 
 @pytest.fixture
 def rbftRequestDetached(rbftRequestExecutedAndCleaned):
-    return rbftRequestExecutedAndCleaned
+    return deepcopy(rbftRequestExecutedAndCleaned)
 
 
 # TESTS
-def testInitialState(rbftRequest):
-    assert rbftRequest.state() == RBFTReqState.Propagation
+def testInitialState(rbft_request):
+    assert rbft_request.state() == RBFTReqState.Propagation
 
 def testTrFromPropagation(rbftRequestPropagation):
-    checkTransitions(
+    check_transitions(
         rbftRequestPropagation,
         RBFTReqState,
         (RBFTReqState.Finalized,)
     )
 
 def testTrFromFinalized(rbftRequestFinalized):
-    checkTransitions(
+    check_transitions(
         rbftRequestFinalized,
         RBFTReqState,
         (RBFTReqState.Forwarded,)
     )
 
 def testTrFromForwarded(rbftRequestForwarded):
-    checkTransitions(
+    check_transitions(
         rbftRequestForwarded,
         RBFTReqState,
-        tuple()
+        (RBFTReqState.Forwarded,)
     )
 
 def testMasterRejected(rbftRequestMasterRejected):
     assert rbftRequestMasterRejected.state() == RBFTReqState.Rejected
 
 def testTrFromRejected(rbftRequestRejected):
-    checkTransitions(
+    check_transitions(
         rbftRequestRejected,
         RBFTReqState,
         (RBFTReqState.Replyed,)
     )
 
-def testTrFromMasterOrdered(rbftRequestMasterOrdered):
-    checkTransitions(
-        rbftRequestMasterOrdered,
+def testTrFromMasterOrderedApplied(rbftRequestMasterOrderedApplied):
+    check_transitions(
+        rbftRequestMasterOrderedApplied,
         RBFTReqState,
-        (RBFTReqState.Committed,)
+        tuple()
     )
 
 def testTrFromCommitted(rbftRequestCommitted):
-    checkTransitions(
+    check_transitions(
         rbftRequestCommitted,
         RBFTReqState,
         (RBFTReqState.Replyed,)
     )
 
 def testTrFromReplyed(rbftRequestReplyed):
-    checkTransitions(
+    check_transitions(
         rbftRequestReplyed,
         RBFTReqState,
         (RBFTReqState.Executed,)
@@ -134,7 +146,7 @@ def testTrFromReplyed(rbftRequestReplyed):
 
 def testTrFromExecutedNotCleaned(rbftRequestExecutedNotCleaned):
     assert rbftRequestExecutedNotCleaned.state() == RBFTReqState.Executed
-    checkTransitions(
+    check_transitions(
         rbftRequestExecutedNotCleaned,
         RBFTReqState,
         tuple()
@@ -143,7 +155,7 @@ def testTrFromExecutedNotCleaned(rbftRequestExecutedNotCleaned):
 
 def testTrFromExecutedNotSomeCleaned(rbftRequestExecutedNotSomeCleaned):
     assert rbftRequestExecutedNotSomeCleaned.state() == RBFTReqState.Executed
-    checkTransitions(
+    check_transitions(
         rbftRequestExecutedNotSomeCleaned,
         RBFTReqState,
         tuple()
@@ -153,50 +165,50 @@ def testExecutedAndCleaned(rbftRequestExecutedAndCleaned):
     assert rbftRequestExecutedAndCleaned.state() == RBFTReqState.Detached
 
 def testTrFromDetached(rbftRequestDetached):
-    checkTransitions(
+    check_transitions(
         rbftRequestDetached,
         RBFTReqState,
         tuple()
     )
 
 
-def testOnPropagate(rbftRequest, operation2):
+def testOnPropagate(rbft_request, operation2):
     sender1, sender2, sender3 = 's1', 's2', 's3'
     quorum = Quorum(2)
 
-    goodRequest = rbftRequest.request
+    goodRequest = rbft_request.request
     # another operation should lead to different request digest
     strangeRequest = Request(*goodRequest.key, operation2)
     badRequest = Request('234', 234)
 
-    assert not rbftRequest.hasPropagate(sender1)
-    assert not rbftRequest.hasPropagate(sender2)
-    assert not rbftRequest.finalised
-    assert rbftRequest.votes() == 0
+    assert not rbft_request.hasPropagate(sender1)
+    assert not rbft_request.hasPropagate(sender2)
+    assert not rbft_request.finalised
+    assert rbft_request.votes() == 0
 
-    rbftRequest.onPropagate(goodRequest, sender1, quorum)
+    rbft_request.on_propagate(goodRequest, sender1, quorum)
 
     # check propagate accepted
-    assert rbftRequest.hasPropagate(sender1)
-    assert not rbftRequest.hasPropagate(sender2)
-    assert not rbftRequest.finalised
-    assert rbftRequest.votes() == 1
+    assert rbft_request.hasPropagate(sender1)
+    assert not rbft_request.hasPropagate(sender2)
+    assert not rbft_request.finalised
+    assert rbft_request.votes() == 1
 
     # check ignoring propagate from the same sender
-    rbftRequest.onPropagate(goodRequest, sender1, quorum)
-    assert not rbftRequest.finalised
-    assert rbftRequest.votes() == 1
+    rbft_request.on_propagate(goodRequest, sender1, quorum)
+    assert not rbft_request.finalised
+    assert rbft_request.votes() == 1
 
     # check quorum reached by votes number but request is not
     # finalized due to no quorum for the same request
-    rbftRequest.onPropagate(strangeRequest, sender2, quorum)
-    assert not rbftRequest.finalised
-    assert rbftRequest.votes() == 2
+    rbft_request.on_propagate(strangeRequest, sender2, quorum)
+    assert not rbft_request.finalised
+    assert rbft_request.votes() == 2
 
-    rbftRequest.onPropagate(goodRequest, sender3, quorum)
-    assert rbftRequest.finalised
-    assert rbftRequest.votes() == 3
+    rbft_request.on_propagate(goodRequest, sender3, quorum)
+    assert rbft_request.finalised
+    assert rbft_request.votes() == 3
 
     # check assertion raised
     with pytest.raises(AssertionError):
-        rbftRequest.onPropagate(badRequest, sender1, quorum)
+        rbft_request.on_propagate(badRequest, sender1, quorum)
