@@ -201,7 +201,8 @@ class TPCRequest(Stateful):
         return self.txn_state.state() == TransactionState.Committed
 
     def isReset(self):
-        return self.state() == TPCReqState.Forwarded
+        """Returns True if TPCRequest has been reset but not started yet"""
+        return self.old_rounds and (self.state() == TPCReqState.Forwarded)
 
     def isRejected(self):
         # TODO as of now Rejected could be reset to Forwarded

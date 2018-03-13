@@ -127,7 +127,7 @@ def test_initial_state(tpc_request):
     assert tpc_request.txnState() == TransactionState.NotApplied
 
 def test_tr_from_forwarded(tpcr_forwarded):
-    assert tpcr_forwarded.isReset()
+    assert not tpcr_forwarded.isReset()
     check_transitions(
         tpcr_forwarded,
         TPCReqState,
