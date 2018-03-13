@@ -1,6 +1,8 @@
 import base58
 import os
 
+from plenum.test.input_validation.utils import b58_by_len
+
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from common.serializers.serialization import state_roots_serializer
@@ -228,8 +230,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
 
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
-        else ''.join(random_from_alphabet(32, base58.alphabet))
-
+        else b58_by_len(32)
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,

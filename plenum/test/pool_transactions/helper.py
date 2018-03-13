@@ -370,7 +370,7 @@ async def prepare_nym_request(wallet, named_seed, alias, role):
 
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
-                               clientPort=None, nodeIp=None, nodePort=None, blsKey=None,
+                               clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
                                sigseed=None, destination=None, services=[VALIDATOR]):
     use_sigseed = sigseed is not None
     use_dest = destination is not None
@@ -391,8 +391,8 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
         data['node_ip'] = nodeIp
     if nodePort is not None:
         data['node_port'] = nodePort
-    if blsKey is not None:
-        data['blskey'] = blsKey
+    if bls_key is not None:
+        data['blskey'] = bls_key
     if services is not None:
         data['services'] = services
 
@@ -437,7 +437,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                              clientPort=client_port,
                              nodeIp=node_ip,
                              nodePort=node_port,
-                             blsKey=bls_key,
+                             bls_key=bls_key,
                              destination=destination,
                              services=services))
 

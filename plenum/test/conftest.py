@@ -1081,6 +1081,15 @@ def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
 
 
 @pytest.fixture(scope='module')
+def sdk_wallet_new_steward(looper, sdk_pool_handle, sdk_wallet_steward):
+    wh, client_did = sdk_add_new_nym(looper, sdk_pool_handle,
+                                     sdk_wallet_steward,
+                                     alias='new_steward_qwerty',
+                                     role='STEWARD')
+    return wh, client_did
+
+
+@pytest.fixture(scope='module')
 def sdk_wallet_stewards(looper, sdk_wallet_handle, poolTxnStewardNames, poolTxnData):
     stewards = []
     for name in poolTxnStewardNames:
@@ -1115,13 +1124,4 @@ def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
     wh, client_did = sdk_add_new_nym(looper, sdk_pool_handle,
                                      sdk_wallet_steward,
                                      seed=sdk_new_client_seed)
-    return wh, client_did
-
-
-@pytest.fixture(scope='module')
-def sdk_wallet_new_steward(looper, sdk_pool_handle, sdk_wallet_steward):
-    wh, client_did = sdk_add_new_nym(looper, sdk_pool_handle,
-                                     sdk_wallet_steward,
-                                     alias='new_steward_qwerty',
-                                     role='STEWARD')
     return wh, client_did

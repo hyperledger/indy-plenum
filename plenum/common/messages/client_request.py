@@ -7,7 +7,7 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
-    ProtocolVersionField, LedgerIdField
+    ProtocolVersionField, LedgerIdField, Base58Field
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -22,7 +22,7 @@ class ClientNodeOperationData(MessageValidator):
         (CLIENT_PORT, NetworkPortField(optional=True)),
         (ALIAS, LimitedLengthStringField(max_length=ALIAS_FIELD_LIMIT)),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
-        (BLS_KEY, LimitedLengthStringField(max_length=BLS_KEY_LIMIT, optional=True)),
+        (BLS_KEY, Base58Field(byte_lengths=BLS_KEY_LIMIT, optional=True)),
     )
 
     def _validate_message(self, dct):
