@@ -37,6 +37,14 @@ class RBFTReqPropagate(RBFTReqEvent):
         self.sender = sender
         self.quorum = quorum
 
+    def __repr__(self):
+        return ("{}, request key: {!r}, sender: {}, quorum: {!r}"
+                .format(
+                    super().__repr__(),
+                    self.request.key,
+                    self.sender,
+                    self.quorum))
+
 
 class RBFTReqForward(RBFTReqEvent):
     """
@@ -44,6 +52,10 @@ class RBFTReqForward(RBFTReqEvent):
     """
     def __init__(self, instIds: Iterable[int]):
         self.instIds = instIds
+
+    def __repr__(self):
+        return ("{}, instance ids: {!r}"
+                .format(super().__repr__(), self.instIds))
 
 
 class RBFTReqReply(RBFTReqEvent):
@@ -88,7 +100,6 @@ class RBFTRequest(Stateful):
 
         # TODO use only one from finalize/finalise
         self.finalised = None
-        # self.forwarded = False
 
         self.tpcRequests = {}
 
@@ -110,14 +121,14 @@ class RBFTRequest(Stateful):
         )
 
     def __repr__(self):
-        return ("{} {}, origRequest: {}, clientName: {}, master_inst_id: {}, "
-                "tpcRequests: {}".format(
+        return ("{} {}, origRequest: {!r}, clientName: {}, master_inst_id: {}, "
+                "tpcRequests: {!r}".format(
                     self.nodeName,
                     Stateful.__repr__(self),
-                    repr(self.origRequest),
+                    self.origRequest,
                     self.clientName,
                     self.master_inst_id,
-                    repr(self.tpcRequests)))
+                    self.tpcRequests))
 
     def _isResettable(self):
         # catch-up can cause that
@@ -140,12 +151,13 @@ class RBFTRequest(Stateful):
                     if not tpcReq.isCleaned()])
         )
 
-    def _finalize(self, sender: str):
+    def _finalize(self, sender: str, dry: bool=False):
         # TODO why we did a kind of deep copy here in the past
         # (possibly because of possible duplicate request from the same sender
         # which overwrote the one before - doesn't happen for now)
-        self.finalised = self.propagates[sender]
-        self.setState(RBFTReqState.Finalized)
+        self.setState(RBFTReqState.Finalized, dry=dry)
+        if not dry:
+            self.finalised = self.propagates[sender]
 
     def _sendersForRequestWithQuorum(self, quorum: Quorum) -> set:
         digests = defaultdict(set)
@@ -178,13 +190,19 @@ class RBFTRequest(Stateful):
     def nodeName(self):
         return self._nodeName
 
-    @property
-    def executed(self):
-        return self.wasState(RBFTReqState.Executed)
-
-    @property
-    def forwarded(self):
+    def is_forwarded(self):
         return self.wasState(RBFTReqState.Forwarded)
+
+    def is_executed(self):
+        try:
+            exc_idx = self.state_index(RBFTReqState.Executed)
+        except ValueError:
+            return False
+        else:
+            assert self.wasState(RBFTReqState.Forwarded)
+            # ensure that no Reset happened after Execute
+            fwd_idx = self.state_index(RBFTReqState.Forwarded)
+            return exc_idx > fwd_idx
 
     def hasPropagate(self, sender: str) -> bool:
         """
@@ -199,7 +217,8 @@ class RBFTRequest(Stateful):
         return len(self.propagates)
 
     # EVENTS processing
-    def _propagate(self, request: Request, sender: str, quorum: Quorum):
+    def _propagate(self, request: Request, sender: str,
+            quorum: Quorum, dry: bool=False):
         """
         Add the specified request to the list of received PROPAGATEs.
 
@@ -221,49 +240,61 @@ class RBFTRequest(Stateful):
         :param sender: the name of the node sending the msg
         :param quorum: quorum for PROPAGATES
         """
-        self.propagates[sender] = request
+        if request.key != self.request.key:
+            raise ValueError(
+                "{} expects requests with key {} but {} was passed"
+                .format(self, self.request.key, request.key))
+        elif self.hasPropagate(sender):
+            raise ValueError(
+                "{} Propagate from sender {} was alredy registered"
+                .format(self, sender))
 
-        reason = None
+        _sender = self.propagates.get(sender)
+        try:
+            self.propagates[sender] = request
 
-        if self.finalised is None:
-            # If not enough Propogates, don't bother comparing
-            if not quorum.is_reached(self.votes()):
-                reason = 'not enough propagates'
-            else:
-                senders = self._sendersForRequestWithQuorum(quorum)
+            reason = None
 
-                if senders:
-                    logger.debug("{} finalizing request".format(self))
-                    # use arbitrary request as they should be the same
-                    self._finalize(senders.pop())
+            if self.finalised is None:
+                # If not enough Propogates, don't bother comparing
+                if not quorum.is_reached(self.votes()):
+                    reason = 'not enough propagates'
                 else:
-                    reason = 'not enough the same propagates'
+                    senders = self._sendersForRequestWithQuorum(quorum)
 
-        if reason:
-            logger.debug("{} not finalizing since {}".format(
-                self, reason))
+                    if senders:
+                        logger.debug("{} finalizing request".format(self))
+                        # use arbitrary request as they should be the same
+                        self._finalize(senders.pop(), dry)
+                    else:
+                        reason = 'not enough the same propagates'
+
+            if reason:
+                logger.debug("{} not finalizing since {}".format(
+                    self, reason))
+        finally:
+            if dry:
+                if _sender is None:
+                    del self.propagates[sender]
+                else:
+                    self.propagates[sender] = old_sender
 
     def _on(self, ev, dry=False):
         if type(ev) == RBFTReqPropagate:
-            assert ev.request.key == self.request.key
-
-            if dry:
-                raise NotImplementedError(
-                    "{!r}: dry mode for react()".format(self))
-
-            self._propagate(ev.request, ev.sender, ev.quorum)
+            self._propagate(ev.request, ev.sender, ev.quorum, dry)
 
         elif type(ev) == RBFTReqForward:
-            if dry:
-                raise NotImplementedError(
-                    "{!r}: dry mode for react()".format(self))
+            if self.master_inst_id not in ev.instIds:
+                raise ValueError(
+                    "{} expects master instance id {} in passed ids {}"
+                    .format(self, self.master_inst_id, ev.instIds))
 
             # TODO curretnly delayed forwarding (e.g. to newly created replica)
             # is not supported but it seems this is the case we should worry about
-            assert self.master_inst_id in ev.instIds
-            for instId in set(ev.instIds):
-                self.tpcRequests[instId] = TPCRequest(self, instId)
-            self.setState(RBFTReqState.Forwarded)
+            self.setState(RBFTReqState.Forwarded, dry)
+            if not dry:
+                for instId in set(ev.instIds):
+                    self.tpcRequests[instId] = TPCRequest(self, instId)
 
         elif type(ev) == RBFTReqReply:
             self.setState(RBFTReqState.Replyed, dry)

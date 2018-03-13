@@ -13,6 +13,7 @@ from plenum.test.request.helper import check_transitions, check_statefuls
 
 # TODO
 # - dry for all events
+#   - separate tests for each get-API (e.g. is_... methods)
 
 # FIXTURES
 @pytest.fixture
