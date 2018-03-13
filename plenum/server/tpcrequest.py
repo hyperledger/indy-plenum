@@ -30,14 +30,18 @@ class TPCReqEvent(StatefulEvent):
     """ Base class for event expected by TPCRequest """
     pass
 
+
 class TPCReqApply(TPCReqEvent):
     pass
+
 
 class TPCReqCommit(TPCReqEvent):
     pass
 
+
 class TPCReqRevert(TPCReqEvent):
     pass
+
 
 # received or sent inside some PP
 class TPCReqPP(TPCReqEvent, metaclass=ABCMeta):
@@ -48,22 +52,28 @@ class TPCReqPP(TPCReqEvent, metaclass=ABCMeta):
     def new_state(self):
         pass
 
+
 class TPCReqAccept(TPCReqPP):
     def new_state(self):
         return TPCReqState.In3PC
+
 
 class TPCReqReject(TPCReqPP):
     def new_state(self):
         return TPCReqState.Rejected
 
+
 class TPCReqOrder(TPCReqEvent):
     pass
+
 
 class TPCReqCancel(TPCReqEvent):
     pass
 
+
 class TPCReqClean(TPCReqEvent):
     pass
+
 
 class TPCReqReset(TPCReqEvent):
     pass
@@ -140,7 +150,7 @@ class TPCRequest(Stateful):
     def _isResettable(self):
         # catch-up can cause that
         return not (self.state() == TPCReqState.Forwarded or
-                    self.isApplied() or 
+                    self.isApplied() or
                     self.wasState(TPCReqState.Cancelled))
 
     def _isRejectable(self):

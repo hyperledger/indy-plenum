@@ -31,7 +31,6 @@ class RBFTReqEvent(StatefulEvent):
     pass
 
 
-
 class RBFTReqPropagate(RBFTReqEvent):
     def __init__(self, request: Request, sender: str, quorum: Quorum):
         self.request = request
@@ -199,7 +198,6 @@ class RBFTRequest(Stateful):
         """
         return len(self.propagates)
 
-
     # EVENTS processing
     def _propagate(self, request: Request, sender: str, quorum: Quorum):
         """
@@ -251,7 +249,7 @@ class RBFTRequest(Stateful):
 
             if dry:
                 raise NotImplementedError(
-                        "{!r}: dry mode for react()".format(self))
+                    "{!r}: dry mode for react()".format(self))
 
             self._propagate(ev.request, ev.sender, ev.quorum)
 
@@ -302,7 +300,6 @@ class RBFTRequest(Stateful):
                     elif isinstance(ev.tpc_event, TPCRequest.Reset):
                         assert self._isResettable()
                         self.setState(RBFTReqState.Forwarded)
-
 
         else:
             logger.warning("{!r} unexpected event type: {}".format(self, type(ev)))

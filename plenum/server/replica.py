@@ -253,7 +253,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, deque]
+        self.requestQueues = {}  # type: Dict[int, OrderedSet]
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -456,16 +456,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._stateChanged()
 
     def _markRequestsIn3PC(self, pp: PrePrepare):
+        logger.debug("{} mark In3PC {}".format(self, pp))
         # mark both valid and invalid (discarded) requests as In3PC
-        for reqKey in pp.reqIdr[:pp.discarded]:
-            self.requests[reqKey].onTPCPp(self.instId)
-
-        for reqKey in pp.reqIdr[pp.discarded:]:
-            self.requests[reqKey].onTPCRejected(self.instId)
+        for idx, reqKey in enumerate(pp.reqIdr):
+            self.requests[reqKey].onTPCPp(
+                self.instId, (pp.viewNo, pp.ppSeqNo), idx < pp.discarded)
 
     def _markRequestsOrdered(self, ordered: Ordered):
         for reqKey in ordered.reqIdr:
-            self.requests[reqKey].onTPCOrdered(self.instId)
+            self.requests[reqKey].onTPCOrder(self.instId)
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -768,7 +767,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
-        self._markRequestsIn3PC(ppReq)
+        try:
+            self._markRequestsIn3PC(ppReq)
+        except Exception as ex:
+            import pdb; pdb.set_trace()
+            raise
 
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key].finalised
@@ -1651,6 +1654,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # TODO: Should not order or add to checkpoint while syncing
         # 3 phase state.
+
+        # it is possible if we got quorum for Commit but in the same
+        # time the replica didn't participate in consensus - didn't
+        # send any Prepare and Commit
         if key in self.stashingWhileCatchingUp:
             if self.isMaster and self.node.isParticipating:
                 # While this request arrived the node was catching up but the
@@ -1939,12 +1946,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.gc(till3PCKey)
 
     def _gc_before_new_view(self):
-        # Trigger GC for all batches of old view
-        # Clear any checkpoints, since they are valid only in a view
+        # Trigger GC for all ordered batches of old view
         self._gc(self.last_ordered_3pc)
+        # Clear any checkpoints, since they are valid only in a view
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
+        # clear prePreparesPendingFinReqs and prePreparesPendingPrevPP
         self._clear_prev_view_pre_prepares()
+        # clear preparesWaitingForPrePrepare
+        # clear commitsWaitingForPrepare
+        # clear sentPrePrepares
+        # clear prePrepares
+        # clear prepares
+        # clear batches
+        # clear requested_pre_prepares
+        # clear requested_prepares
+        # clear pre_prepares_stashed_for_incorrect_time
+
+        # do not clear commits - thet were done in previous view
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
