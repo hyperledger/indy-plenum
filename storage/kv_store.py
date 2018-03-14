@@ -46,10 +46,6 @@ class KeyValueStorage(metaclass=ABCMeta):
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         pass
 
-    @abstractmethod
-    def get_equal_or_prev(self, key):
-        pass
-
     @property
     @abstractmethod
     def closed(self):
@@ -78,6 +74,9 @@ class KeyValueStorage(metaclass=ABCMeta):
             return True
         except KeyError:
             return False
+
+    def get_equal_or_prev(self, key):
+        pass
 
     def __contains__(self, key):
         return self._has_key(key)
