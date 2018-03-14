@@ -76,7 +76,7 @@ class KeyValueStorage(metaclass=ABCMeta):
             return False
 
     def get_equal_or_prev(self, key):
-        pass
+        raise NotImplemented()
 
     def __contains__(self, key):
         return self._has_key(key)
