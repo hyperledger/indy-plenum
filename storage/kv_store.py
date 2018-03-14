@@ -46,6 +46,10 @@ class KeyValueStorage(metaclass=ABCMeta):
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         pass
 
+    @abstractmethod
+    def get_equal_or_prev(self, key):
+        pass
+
     @property
     @abstractmethod
     def closed(self):
