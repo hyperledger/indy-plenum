@@ -323,14 +323,18 @@ def test_tpcevent_for_forwarded(rbft_forwarded,
     for inst_id in (master_inst_id, backup_inst_id):
         rbftr.on_tpcevent(inst_id, TPCRequest.Clean())
     assert rbftr.state() == RBFTReqState.Committed # not changed
+    assert not rbftr.is_detached()
 
     rbftr.on_reply()
     rbftr.on_execute()
     assert rbftr.state() == RBFTReqState.Detached
+    assert rbftr.is_detached()
 
 def test_detached(rbft_executed_not_cleaned,
         master_inst_id, backup_inst_id):
     rbftr = rbft_executed_not_cleaned
+    assert not rbftr.is_detached()
     for inst_id in (master_inst_id, backup_inst_id):
         rbftr.on_tpcevent(inst_id, TPCRequest.Clean())
     assert rbftr.state() == RBFTReqState.Detached
+    assert rbftr.is_detached()

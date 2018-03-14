@@ -204,6 +204,9 @@ class RBFTRequest(Stateful):
             fwd_idx = self.state_index(RBFTReqState.Forwarded)
             return exc_idx > fwd_idx
 
+    def is_detached(self):
+        return self.state() == RBFTReqState.Detached
+
     def hasPropagate(self, sender: str) -> bool:
         """
         Check whether the request specified has already been propagated.
