@@ -88,6 +88,7 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
+from plenum.server.tpcrequest import TPCRequest
 from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
@@ -1320,7 +1321,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
                 rbftRequest = self.requests[reqKey]
                 self.transmitToClient(reject, rbftRequest.clientName)
-                rbftRequest.onReplyed()
+                rbftRequest.on_reply()
                 self.requests.executed(reqKey)  # TODO why didn't do that before
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
@@ -2454,7 +2455,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible to get len(committedTxns) != len(reqs) someday?
         assert len(committedTxns) == len(reqs)
         for request in reqs:
-            self.requests[request.key].onCommitted()
+            self.requests[request.key].on_tpcevent(
+                    self.instances.masterId, TPCRequest.Commit())
 
         # TODO what is the case here?
         if not committedTxns:
@@ -2590,7 +2592,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "{} sending reply for {} to client {}"
             .format(self, rbftRequest.key, rbftRequest.clientName))
         self.transmitToClient(reply, rbftRequest.clientName)
-        rbftRequest.onReplyed()
+        rbftRequest.on_reply()
 
     def addNewRole(self, txn):
         """

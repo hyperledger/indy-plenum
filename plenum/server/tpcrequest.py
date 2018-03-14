@@ -27,7 +27,7 @@ class TPCReqState(IntEnum):
 
 
 class TPCReqEvent(StatefulEvent):
-    """ Base class for event expected by TPCRequest """
+    """ Base class for events expected by TPCRequest """
     pass
 
 

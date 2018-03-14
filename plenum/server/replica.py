@@ -29,7 +29,7 @@ from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.stateful import TransitionError
-from plenum.server.tpcrequest import TPCReqState
+from plenum.server.tpcrequest import TPCRequest
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
@@ -459,12 +459,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         logger.debug("{} mark In3PC {}".format(self, pp))
         # mark both valid and invalid (discarded) requests as In3PC
         for idx, reqKey in enumerate(pp.reqIdr):
-            self.requests[reqKey].onTPCPp(
-                self.instId, (pp.viewNo, pp.ppSeqNo), idx < pp.discarded)
+            tpc_event_cls = (TPCRequest.Accept
+                if idx < pp.discarded else TPCRequest.Reject)
+            self.requests[reqKey].on_tpcevent(
+                self.instId, tpc_event_cls((pp.viewNo, pp.ppSeqNo)))
 
     def _markRequestsOrdered(self, ordered: Ordered):
         for reqKey in ordered.reqIdr:
-            self.requests[reqKey].onTPCOrder(self.instId)
+            self.requests[reqKey].on_tpcevent(self.instId, TPCRequest.Order())
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -767,11 +769,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
-        try:
-            self._markRequestsIn3PC(ppReq)
-        except Exception as ex:
-            import pdb; pdb.set_trace()
-            raise
+        self._markRequestsIn3PC(ppReq)
 
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key].finalised
@@ -1273,7 +1271,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return PP_CHECK_REQUEST_NOT_FINALIZED
             else:
                 # TODO finalized doesn't guarantee forwarded
-                rbftRequest.tryTPCState(TPCReqState.In3PC, self.instId)
+                rbftRequest.on_tpcevent(
+                    self.instId,
+                    TPCRequest.Accept((pre_prepare.viewNo,
+                                       pre_prepare.ppSeqNo)),
+                    dry=True)
 
         if not self.is_pre_prepare_time_acceptable(pre_prepare):
             return PP_CHECK_WRONG_TIME

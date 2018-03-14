@@ -7,6 +7,7 @@ from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
+from plenum.server.tpcrequest import TPCRequest
 from plenum.server.rbftrequest import RBFTReqState, RBFTRequest
 
 logger = getlogger()
@@ -22,41 +23,35 @@ class Requests(OrderedDict):
     request is popped out
     """
 
-    def add(self, req: Request, clientName: str=None):
+    def add(self, req: Request, nodeName: str,
+            clientName: str, master_inst_id: int):
         """
         Add the specified request to this request store.
         """
         if req.key not in self:
-            self[req.key] = RBFTRequest(req, clientName=clientName)
+            self[req.key] = RBFTRequest(req, nodeName,
+                                        clientName, master_inst_id)
         return self[req.key]
-
-    def _tryRemove(self, rbftRequest: RBFTRequest):
-        if rbftRequest.state() == RBFTReqState.Detached:
-            self.pop(rbftRequest.request.key, None)
 
     def executed(self, reqKey: Tuple):
         """
-        Works together with 'onForwarded' and 'clean' methods.
-
-        It makes request to be removed if all replicas request was
-        forwarded to freed it.
+        Marks request as executed and tries to remove it
         """
         rbftRequest = self[reqKey]
-        rbftRequest.onExecuted()
-        self._tryRemove(rbftRequest)
+        rbftRequest.on_execute()
+        if rbftRequest.is_detached():
+            self.pop(rbftRequest.request.key, None)
 
     def clean(self, request_key, instId):
         """
-        Works together with 'onForwarded' and 'executed' methods.
-
-        It makes request to be removed if all replicas request was
-        forwarded to freed it and if request executor marked it as executed.
+        Marks request as clean for specified replica and tries to remove it
         """
         rbftRequest = self.get(request_key)
         if not rbftRequest:
             return
-        rbftRequest.onTPCCleaned(instId)
-        self._tryRemove(rbftRequest)
+        rbftRequest.on_tpcevent(instId, TPCRequest.Clean())
+        if rbftRequest.is_detached():
+            self.pop(rbftRequest.request.key, None)
 
     def is_finalised(self, reqKey: Tuple[str, int]) -> bool:
         return reqKey in self and self[reqKey].finalised
@@ -105,16 +100,17 @@ class Propagator:
         :param sender: sender Node the request came from, None for client
         :param clientName: name of the original sender (client)
         """
-        rbftRequest = self.requests.add(request, clientName)
+        rbftRequest = self.requests.add(
+            request, self.name, clientName, self.instances.masterId)
 
         # TODO why sender wan't checked in propagates before and
         # ovewrite was allowed/expected in the past
         if not (sender is None or rbftRequest.hasPropagate(sender)):
-            rbftRequest.onPropagate(request, sender, self.quorums.propagate)
+            rbftRequest.on_propagate(request, sender, self.quorums.propagate)
             reason = None
 
             # try forwarding
-            if rbftRequest.forwarded:
+            if rbftRequest.is_forwarded():
                 reason = 'already forwarded'
             elif not rbftRequest.finalised:
                 reason = 'not finalized'
@@ -173,7 +169,7 @@ class Propagator:
                      .format(self, request.key, numReplicas))
         self.replicas.pass_message(ReqKey(*request.key))
         # TODO expect specific numeration scheme: from 0 up numReplicas
-        request.onForwarded(tuple(range(numReplicas)))
+        request.on_forward(tuple(range(numReplicas)))
         self.monitor.requestUnOrdered(*request.key)
 
     def _add_to_recently_requested(self, key):
