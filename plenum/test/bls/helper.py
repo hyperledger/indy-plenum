@@ -229,7 +229,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     new_blspk = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
-        else b58_by_len(32)
+        else base58.b58encode(randomString(128).encode())
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
