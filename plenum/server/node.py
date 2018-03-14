@@ -1118,10 +1118,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.isReady():
             self.checkInstances()
-            for node in joined:
-                self.send_current_state_to_lagging_node(node)
+        else:
+            logger.debug("{} joined nodes {} but status is {}".format(self, joined, self.status))
         # Send ledger status whether ready (connected to enough nodes) or not
         for node in joined:
+            self.send_current_state_to_lagging_node(node)
             self.send_ledger_status_to_newly_connected_node(node)
 
     def request_ledger_status_from_nodes(self, ledger_id):
