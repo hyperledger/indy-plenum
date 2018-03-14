@@ -6,7 +6,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.test.test_node import get_master_primary_node, ensure_node_disconnected
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
 
 

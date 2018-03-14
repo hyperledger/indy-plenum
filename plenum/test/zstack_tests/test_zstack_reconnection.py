@@ -3,8 +3,6 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes, \
     send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.test_node import TestNode, ensureElectionsDone

@@ -11,9 +11,6 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import \
-    clientAndWallet1, client1, wallet1, client1Connected, looper
 from stp_core.loop.eventually import eventually
 
 logger = getlogger()

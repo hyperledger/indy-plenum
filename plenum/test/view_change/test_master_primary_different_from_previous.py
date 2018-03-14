@@ -6,7 +6,6 @@ from plenum.test.helper import checkViewNoForNodes, \
     sdk_send_random_and_check, countDiscarded
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
 
 from stp_core.common.log import getlogger

@@ -3,21 +3,14 @@ import pytest
 from stp_core.common.log import getlogger
 
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import stopNodes, waitForViewChange, \
+from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
-from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
-from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node
 
 from plenum.test.primary_selection.test_recover_more_than_f_failure import \
-    stop_primary, checkpoint_size, primary_replicas_iter, nodes_have_checkpoints, nodes_do_not_have_checkpoints
-
-# Do not remove these imports
-from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
+    stop_primary, nodes_have_checkpoints, nodes_do_not_have_checkpoints
 
 logger = getlogger()
 

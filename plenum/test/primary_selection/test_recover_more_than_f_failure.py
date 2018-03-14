@@ -7,14 +7,9 @@ from plenum.test.helper import stopNodes, waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
-from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
-from plenum.test.view_change.helper import ensure_view_change
+    disconnect_node_and_ensure_disconnected
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node
-
-# Do not remove these imports
-from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
 
 logger = getlogger()
 

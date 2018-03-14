@@ -1,8 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Commit, ConsistencyProof
 from plenum.test.delayers import cpDelay, cDelay
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \

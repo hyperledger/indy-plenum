@@ -10,7 +10,6 @@ from plenum.test.helper import checkLastClientReqForNode, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared
 from plenum.test.node_request.node_request_helper import checkCommitted
-from plenum.test.pool_transactions.conftest import looper
 
 from plenum.common.util import getNoInstances
 

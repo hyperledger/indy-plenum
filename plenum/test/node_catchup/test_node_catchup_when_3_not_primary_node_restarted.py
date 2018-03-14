@@ -5,9 +5,6 @@ from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
-from plenum.test.pool_transactions.conftest import looper, \
-    steward1, stewardWallet, stewardAndWallet1
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import check_ledger_state

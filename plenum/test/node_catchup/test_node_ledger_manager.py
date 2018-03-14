@@ -1,8 +1,3 @@
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import \
-    clientAndWallet1, client1, wallet1, client1Connected, looper
-
-
 def test_ledger_sync_order(looper, txnPoolNodeSet):
     for node in txnPoolNodeSet:
         ledger_ids = node.ledger_ids

@@ -1,7 +1,5 @@
-from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually
 from plenum.server.monitor import Monitor
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_and_check
 
 

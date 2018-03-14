@@ -16,7 +16,6 @@ from plenum.test.helper import waitForSufficientRepliesForRequests, \
     sendRandomRequest, check_sufficient_replies_received
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.conftest import steward1, stewardWallet, client1Connected  # noqa
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL

@@ -5,9 +5,6 @@ from plenum.test.delayers import delay_3pc_messages, icDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     sendRandomRequests, waitForSufficientRepliesForRequests, checkViewNoForNodes
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
 from plenum.test.batching_3pc.conftest import tconf
 
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica, \

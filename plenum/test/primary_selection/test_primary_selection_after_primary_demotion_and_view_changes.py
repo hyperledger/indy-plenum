@@ -2,7 +2,6 @@ from stp_core.common.log import getlogger
 
 from plenum.common.constants import ALIAS, SERVICES
 
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.pool_transactions.helper import updateNodeData
 
 from plenum.test.helper import checkViewNoForNodes, \

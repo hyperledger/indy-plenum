@@ -1,7 +1,5 @@
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import view_change_in_between_3pc
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 
 def slow_nodes(node_set):

@@ -1,7 +1,6 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 

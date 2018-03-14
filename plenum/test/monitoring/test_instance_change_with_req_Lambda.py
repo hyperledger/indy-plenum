@@ -6,7 +6,6 @@ from plenum.test.helper import waitForViewChange
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.pool_transactions.conftest import looper
 
 nodeCount = 7
 whitelist = ["discarding message"]

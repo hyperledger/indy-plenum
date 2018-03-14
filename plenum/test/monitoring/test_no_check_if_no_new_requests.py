@@ -1,4 +1,3 @@
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_random_and_check
 

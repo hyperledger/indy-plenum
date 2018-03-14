@@ -9,7 +9,6 @@ from stp_core.loop.eventually import eventually
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.pool_transactions.helper import prepare_nym_request, \
     sdk_sign_and_send_prepared_request
 from plenum.test import waits

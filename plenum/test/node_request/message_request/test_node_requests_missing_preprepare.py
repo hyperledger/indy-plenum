@@ -12,7 +12,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
-from plenum.test.pool_transactions.conftest import looper
 
 whitelist = ['does not have expected state']
 

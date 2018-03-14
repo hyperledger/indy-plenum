@@ -1,6 +1,4 @@
 from plenum.test.view_change.helper import view_change_in_between_3pc_random_delays
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 TestRunningTimeLimitSec = 300
 

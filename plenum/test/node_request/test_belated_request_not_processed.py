@@ -2,7 +2,6 @@ from plenum.test import waits
 from plenum.test.delayers import cDelay, req_delay, ppgDelay
 from plenum.test.helper import sdk_signed_random_requests, \
     sdk_send_signed_requests, sdk_send_and_check
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 

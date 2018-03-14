@@ -1,5 +1,3 @@
-from plenum.test.pool_transactions.conftest import looper
-
 from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.delayers import ppDelay

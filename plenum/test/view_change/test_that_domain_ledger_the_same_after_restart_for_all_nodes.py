@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.test.view_change.helper import ensure_view_change_by_primary_restart
-from plenum.test.pool_transactions.conftest import looper
 from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
 

@@ -3,9 +3,6 @@ import pytest
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.primary_selection.helper import check_newly_added_nodes, \
     getPrimaryNodesIdxs
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
 

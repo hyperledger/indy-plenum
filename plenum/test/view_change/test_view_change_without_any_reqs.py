@@ -11,7 +11,6 @@ from plenum.test.test_node import get_master_primary_node
 
 Max3PCBatchSize = 3
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.pool_transactions.conftest import looper
 
 TestRunningTimeLimitSec = 200
 

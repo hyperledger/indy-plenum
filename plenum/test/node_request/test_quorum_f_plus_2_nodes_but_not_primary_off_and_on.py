@@ -2,8 +2,6 @@ from plenum.test import waits
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequest, \
     waitForSufficientRepliesForRequests, \
     verify_request_not_replied_and_not_ordered
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances

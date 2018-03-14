@@ -2,7 +2,6 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
 from plenum.test.delayers import nom_delay, delay_3pc_messages
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually

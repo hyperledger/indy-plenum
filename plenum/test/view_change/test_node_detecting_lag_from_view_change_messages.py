@@ -11,8 +11,6 @@ from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 TestRunningTimeLimitSec = 150
 

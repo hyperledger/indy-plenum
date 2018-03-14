@@ -11,7 +11,6 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     checkNodeRemotes
 from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 from plenum.test import waits
-from plenum.test.pool_transactions.conftest import looper
 
 logger = getlogger()
 
