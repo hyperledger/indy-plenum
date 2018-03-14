@@ -68,3 +68,17 @@ def test_restart_groups(looper, txnPoolNodeSet, tconf, tdir,
     restart_nodes(looper, txnPoolNodeSet, restart_group, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, per_add_timeout=tm)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
+
+def test_pool_is_functional_after_restarting_all_nodes_except_primary(looper, txnPoolNodeSet, tconf, tdir,
+                        sdk_pool_handle, sdk_wallet_client, allPluginsPath):
+
+    tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+
+    restart_group = get_group(txnPoolNodeSet, nodeCount-1, include_primary=False)
+
+    restart_nodes(looper, txnPoolNodeSet, restart_group, tconf, tdir, allPluginsPath,
+                  after_restart_timeout=tm, per_add_timeout=tm)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
+
