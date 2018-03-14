@@ -22,7 +22,7 @@ class ClientNodeOperationData(MessageValidator):
         (CLIENT_PORT, NetworkPortField(optional=True)),
         (ALIAS, LimitedLengthStringField(max_length=ALIAS_FIELD_LIMIT)),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
-        (BLS_KEY, Base58Field(byte_lengths=BLS_KEY_LIMIT, optional=True)),
+        (BLS_KEY, Base58Field(byte_lengths=(32,), optional=True)),
     )
 
     def _validate_message(self, dct):

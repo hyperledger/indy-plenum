@@ -227,7 +227,6 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        add_wrong=False,
                        new_bls=None):
     new_blspk = init_bls_keys(node.keys_dir, node.name)
-
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
         else b58_by_len(32)
