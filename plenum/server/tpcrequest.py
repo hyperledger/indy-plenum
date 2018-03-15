@@ -138,25 +138,24 @@ class TPCRequest(Stateful):
 
     # rules for transaction state
     def _isApplicable(self):
-        return ((self.txn_state.state() == TxnState.Shallow) and
+        return (self.isShallow() and
                 self.state() in (
                     TPCReqState.Forwarded,
                     TPCReqState.In3PC,
                     TPCReqState.Ordered))
 
     def _isCommittable(self):
-        return ((self.txn_state.state() == TxnState.Applied) and
-                (self.state() == TPCReqState.Ordered))
+        return self.isApplied() and (self.state() == TPCReqState.Ordered)
 
     # rules for 3PC state
     def _isResettable(self):
         # catch-up can cause that
-        return not (self.state() == TPCReqState.Forwarded or
-                    (self.txn_state.state() in (TxnState.Applied, TxnState.Committed)) or
-                    self.wasState(TPCReqState.Cancelled))
+        return (self.isShallow() and
+                self.state() != TPCReqState.Forwarded and
+                not self.wasState(TPCReqState.Cancelled))
 
     def _isRejectable(self):
-        return (self.state() == TPCReqState.Forwarded) and self.isShallow()
+        return self.isShallow() and (self.state() == TPCReqState.Forwarded)
 
     def _isCancellable(self):
         # TODO what about ordered but not committed yet
