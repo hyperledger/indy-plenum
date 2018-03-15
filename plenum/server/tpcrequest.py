@@ -10,10 +10,10 @@ logger = getlogger()
 
 
 @unique
-class TransactionState(IntEnum):
-    NotApplied = 0  # initial state
+class TxnState(IntEnum):
+    Shallow = 0     # initial state: neither applied nor committed
     Applied = 1     # applied but not committed
-    Committed = 2   # committed
+    Committed = 2   # committed (and not more applied)
 
 
 @unique
@@ -108,11 +108,11 @@ class TPCRequest(Stateful):
         # TODO what about no state change transitions (e.g. Forwarded -> Forwarded)
 
         self.txn_state = Stateful(
-            initialState=TransactionState.NotApplied,
+            initialState=TxnState.Shallow,
             transitions={
-                TransactionState.NotApplied: TransactionState.Applied,
-                TransactionState.Applied: self._isApplicable,
-                TransactionState.Committed: self._isCommittable
+                TxnState.Shallow: TxnState.Applied,
+                TxnState.Applied: self._isApplicable,
+                TxnState.Committed: self._isCommittable
             },
             name='TxnState'
         )
@@ -138,29 +138,29 @@ class TPCRequest(Stateful):
 
     # rules for transaction state
     def _isApplicable(self):
-        return (not self.isApplied() and
+        return ((self.txn_state.state() == TxnState.Shallow) and
                 self.state() in (
                     TPCReqState.Forwarded,
                     TPCReqState.In3PC,
                     TPCReqState.Ordered))
 
     def _isCommittable(self):
-        return ((self.txn_state.state() == TransactionState.Applied) and
+        return ((self.txn_state.state() == TxnState.Applied) and
                 (self.state() == TPCReqState.Ordered))
 
     # rules for 3PC state
     def _isResettable(self):
         # catch-up can cause that
         return not (self.state() == TPCReqState.Forwarded or
-                    self.isApplied() or
+                    (self.txn_state.state() in (TxnState.Applied, TxnState.Committed)) or
                     self.wasState(TPCReqState.Cancelled))
 
     def _isRejectable(self):
-        return (self.state() == TPCReqState.Forwarded) and not self.isApplied()
+        return (self.state() == TPCReqState.Forwarded) and self.isShallow()
 
     def _isCancellable(self):
         # TODO what about ordered but not committed yet
-        return (not self.isApplied() and
+        return (self.isShallow() and
                 self.state() in (
                     TPCReqState.Forwarded,
                     TPCReqState.In3PC,
@@ -174,13 +174,13 @@ class TPCRequest(Stateful):
             return True
         elif self.isCommitted():
             return True
-        elif not self.isApplied():
+        elif self.isShallow():
             return _state in (TPCReqState.Forwarded,
                               TPCReqState.In3PC,
                               TPCReqState.Ordered)
 
     # non-public methods
-    def _setTxnState(self, state: TransactionState, dry: bool=False):
+    def _setTxnState(self, state: TxnState, dry: bool=False):
         try:
             self.txn_state.setState(state, dry)
         except TransitionError as ex:
@@ -195,12 +195,14 @@ class TPCRequest(Stateful):
     def txnState(self):
         return self.txn_state.state()
 
+    def isShallow(self):
+        return self.txn_state.state() == TxnState.Shallow
+
     def isApplied(self):
-        return (self.txn_state.state() in
-                (TransactionState.Applied, TransactionState.Committed))
+        return self.txn_state.state() == TxnState.Applied
 
     def isCommitted(self):
-        return self.txn_state.state() == TransactionState.Committed
+        return self.txn_state.state() == TxnState.Committed
 
     def isReset(self):
         """Returns True if TPCRequest has been reset but not started yet"""
@@ -217,11 +219,11 @@ class TPCRequest(Stateful):
     # EVENTS processing
     def _on(self, ev, dry=False):
         if type(ev) == TPCReqApply:
-            self._setTxnState(TransactionState.Applied, dry)
+            self._setTxnState(TxnState.Applied, dry)
         elif type(ev) == TPCReqCommit:
-            self._setTxnState(TransactionState.Committed, dry)
+            self._setTxnState(TxnState.Committed, dry)
         elif type(ev) == TPCReqRevert:
-            self._setTxnState(TransactionState.NotApplied, dry)
+            self._setTxnState(TxnState.Shallow, dry)
         elif isinstance(ev, TPCReqPP):
             if ev.tpcKey in self.old_rounds:
                 raise ValueError(

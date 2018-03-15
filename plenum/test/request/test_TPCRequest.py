@@ -5,7 +5,7 @@ from collections import OrderedDict
 from plenum.server.tpcrequest import (
         TPCRequest,
         TPCReqState,
-        TransactionState
+        TxnState
 )
 from plenum.server.stateful import TransitionError
 
@@ -128,7 +128,7 @@ def tpcr_all(
 # TESTS
 def test_initial_state(tpc_request):
     assert tpc_request.state() == TPCReqState.Forwarded
-    assert tpc_request.txnState() == TransactionState.NotApplied
+    assert tpc_request.txnState() == TxnState.Shallow
 
 def test_tr_from_forwarded(tpcr_forwarded):
     assert not tpcr_forwarded.isReset()
@@ -248,7 +248,8 @@ def test_TPCReqReject():
 def test_apply(tpcr_all, tpcr_forwarded, tpcr_in_3pc, tpcr_ordered):
     def check(tpcr):
         tpcr.on_apply()
-        assert tpcr.txnState() == TransactionState.Applied
+        assert tpcr.txnState() == TxnState.Applied
+        assert not tpcr.isShallow()
         assert tpcr.isApplied()
         assert not tpcr.isCommitted()
 
@@ -260,8 +261,9 @@ def test_apply(tpcr_all, tpcr_forwarded, tpcr_in_3pc, tpcr_ordered):
 def test_commit(tpcr_all, tpcr_ordered_applied):
     def check(tpcr):
         tpcr.on_commit()
-        assert tpcr.txnState() == TransactionState.Committed
-        assert tpcr.isApplied()
+        assert tpcr.txnState() == TxnState.Committed
+        assert not tpcr.isShallow()
+        assert not tpcr.isApplied()
         assert tpcr.isCommitted()
 
     check_statefuls(
@@ -276,7 +278,8 @@ def test_revert(tpcr_all,
 
     def check(tpcr):
         tpcr.on_revert()
-        assert tpcr.txnState() == TransactionState.NotApplied
+        assert tpcr.txnState() == TxnState.Shallow
+        assert tpcr.isShallow()
         assert not tpcr.isApplied()
         assert not tpcr.isCommitted()
 
