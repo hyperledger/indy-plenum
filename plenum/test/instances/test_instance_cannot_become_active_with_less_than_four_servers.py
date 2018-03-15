@@ -11,9 +11,7 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     checkNodeRemotes
 from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 from plenum.test import waits
-
-
-whitelist = ['discarding message']
+from plenum.test.pool_transactions.conftest import looper
 
 logger = getlogger()
 
@@ -59,7 +57,9 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
 
                 timeout = waits.expectedNodeStartUpTimeout() + \
-                    waits.expectedPoolInterconnectionTime(len(nodeSet))
+                          waits.expectedPoolInterconnectionTime(len(nodeSet))
+                # TODO: Probably it's better to modify waits.* functions
+                timeout *= 1.5
                 looper.run(eventually(checkNodeStatusRemotesAndF,
                                       expectedStatus,
                                       nodeIdx,
