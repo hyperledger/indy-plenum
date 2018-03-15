@@ -138,7 +138,7 @@ class TPCRequest(Stateful):
 
     # rules for transaction state
     def _isApplicable(self):
-        return ((self.txn_state.state() == TransactionState.NotApplied) and
+        return (not self.isApplied() and
                 self.state() in (
                     TPCReqState.Forwarded,
                     TPCReqState.In3PC,
