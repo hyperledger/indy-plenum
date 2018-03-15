@@ -1,12 +1,23 @@
 import base58
 import os
 
+from crypto.bls.bls_crypto import BlsCryptoVerifier
+
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+
+from plenum.server.quorums import Quorums
+
+from crypto.bls.bls_multi_signature import MultiSignatureValue
+
+from state.pruning_state import PruningState
+
 from plenum.test.input_validation.utils import b58_by_len
 
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
-from common.serializers.serialization import state_roots_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
+    MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet, hexToFriendly
@@ -14,6 +25,9 @@ from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRe
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import updateNodeData, new_client, sdk_send_update_node, sdk_add_new_nym, \
     sdk_pool_refresh
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 def generate_state_root():
@@ -285,3 +299,67 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
                                        sdk_pool_handle, sdk_wallet_client,
                                        saved_multi_sigs_count)
+
+
+def validate_proof(result):
+    """
+            Validates state proof
+            """
+    state_root_hash = result[STATE_PROOF]['root_hash']
+    state_root_hash = state_roots_serializer.deserialize(state_root_hash)
+    proof_nodes = result[STATE_PROOF]['proof_nodes']
+    if isinstance(proof_nodes, str):
+        proof_nodes = proof_nodes.encode()
+    proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
+    key, value = prepare_for_state(result)
+    valid = PruningState.verify_state_proof(state_root_hash,
+                                            key,
+                                            value,
+                                            proof_nodes,
+                                            serialized=True)
+    return valid
+
+
+def prepare_for_state(result):
+    if result[TXN_TYPE] == "buy":
+        from plenum.test.test_node import TestDomainRequestHandler
+        key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+        return key, value
+
+
+def validate_multi_signature(state_proof, nodeCount):
+    """
+    Validates multi signature
+    """
+    multi_signature = state_proof[MULTI_SIGNATURE]
+    if not multi_signature:
+        logger.debug("There is a state proof, but no multi signature")
+        return False
+
+    participants = multi_signature[MULTI_SIGNATURE_PARTICIPANTS]
+    signature = multi_signature[MULTI_SIGNATURE_SIGNATURE]
+    value = MultiSignatureValue(
+        **(multi_signature[MULTI_SIGNATURE_VALUE])
+    ).as_single_value()
+    quorums = Quorums(nodeCount)
+    if not quorums.bls_signatures.is_reached(len(participants)):
+        logger.debug("There is not enough participants of "
+                     "multi-signature")
+        return False
+    public_keys = []
+    for node_name in participants:
+        key = self._bls_register.get_key_by_name(node_name)
+        if key is None:
+            logger.debug("There is no bls key for node {}"
+                         .format(node_name))
+            return False
+        public_keys.append(key)
+    _multi_sig_verifier = _create_multi_sig_verifier()
+    return _multi_sig_verifier.verify_multi_sig(signature,
+                                                     value,
+                                                     public_keys)
+
+def _create_multi_sig_verifier() -> BlsCryptoVerifier:
+    verifier = create_default_bls_crypto_factory() \
+        .create_bls_crypto_verifier()
+    return verifier

@@ -37,7 +37,7 @@ def test_update_incorrect_bls_two_nodes(looper, txnPoolNodeSet,
     Updated with wrong BLS key for 1st and 2d Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
-    check_update_bls_key(node_num=1, saved_multi_sigs_count=4,
+    check_update_bls_key(node_num=1, saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
                          sdk_wallet_client=sdk_wallet_client,
@@ -53,7 +53,7 @@ def test_update_incorrect_bls_three_nodes(looper, txnPoolNodeSet,
     Updated with wrong BLS keys 1-3 Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
-    check_update_bls_key(node_num=2, saved_multi_sigs_count=4,
+    check_update_bls_key(node_num=2, saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
                          sdk_wallet_client=sdk_wallet_client,
@@ -69,7 +69,7 @@ def test_update_incorrect_bls_all_nodes(looper, txnPoolNodeSet,
     Updated with wrong BLS keys all Nodes;
     do not expect that BLS multi-sigs are applied (we have less than n-f correct BLS sigs)
     '''
-    check_update_bls_key(node_num=3, saved_multi_sigs_count=4,
+    check_update_bls_key(node_num=3, saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                          sdk_wallet_stewards=sdk_wallet_stewards,
                          sdk_wallet_client=sdk_wallet_client,

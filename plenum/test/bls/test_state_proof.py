@@ -7,6 +7,7 @@ from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import SafeRequest
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
+from plenum.test.bls.helper import validate_proof, validate_multi_signature
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, wait_for_requests_ordered, \
     randomOperation
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
@@ -37,7 +38,7 @@ def check_result(txnPoolNodeSet, req, client, should_have_proof):
 
         if should_have_proof:
             assert result[STATE_PROOF] == proof
-            assert client.validate_proof(result)
+            assert validate_proof(result)
         else:
             assert STATE_PROOF not in result
 
@@ -76,7 +77,7 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
                 MULTI_SIGNATURE_VALUE_TIMESTAMP,
                 MULTI_SIGNATURE_VALUE_TXN_ROOT] == value_keys
 
-        assert client1.validate_multi_signature(proof)
+        assert validate_multi_signature(proof, nodeCount)
 
 
 def test_make_result_bls_enabled(looper, txnPoolNodeSet,
@@ -158,8 +159,8 @@ def test_proof_in_reply(looper, txnPoolNodeSet,
     assert MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT in multi_sig_value
     assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
 
-    assert client1.validate_multi_signature(state_proof)
-    assert client1.validate_proof(result)
+    assert validate_multi_signature(state_proof, nodeCount)
+    assert validate_proof(result)
 
 
 def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
