@@ -13,6 +13,8 @@ from plenum.server.rbftrequest import RBFTRequest
 logger = getlogger()
 
 
+# TODO It's not good that this class (which rather a RequestManager) inherits Dict.
+# So it's better if it HAS dict, instead of IS dict.
 class Requests(OrderedDict):
     """
     Storing client request object corresponding to each client and its
