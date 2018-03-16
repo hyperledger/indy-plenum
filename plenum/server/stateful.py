@@ -86,12 +86,12 @@ class Stateful(metaclass=StatefulMeta):
     Base class for states
     """
     def __init__(self,
-                 initialState,
+                 initial_state,
                  transitions: Dict,
                  name: str=None):
 
         self.transitions = transitions
-        self.states = [initialState]
+        self.states = [initial_state]
         self.name = name
 
     def __repr__(self):
@@ -99,22 +99,22 @@ class Stateful(metaclass=StatefulMeta):
             self.__class__.__name__ if self.name is None else self.name,
             self.states)
 
-    def tryState(self, state):
-        def trWrapper(trRule):
-            def _defaultF():
-                if isinstance(trRule, Iterable):
-                    return self.state() in trRule
+    def try_state(self, state):
+        def tr_wrapper(tr_rule):
+            def _default_f():
+                if isinstance(tr_rule, Iterable):
+                    return self.state() in tr_rule
                 else:
-                    return self.state() == trRule
-            return trRule if callable(trRule) else _defaultF
+                    return self.state() == tr_rule
+            return tr_rule if callable(tr_rule) else _default_f
 
-        if not trWrapper(self.transitions.get(state, []))():
+        if not tr_wrapper(self.transitions.get(state, []))():
             raise TransitionError(stateful=self, state=state)
 
         return None
 
-    def setState(self, state, dry: bool=False):
-        self.tryState(state)
+    def set_state(self, state, dry: bool=False):
+        self.try_state(state)
         if not dry:
             # TODO store stack trace information for easier debugging
             self.states.append(state)
@@ -124,7 +124,7 @@ class Stateful(metaclass=StatefulMeta):
     def state(self):
         return self.states[-1]
 
-    def wasState(self, state):
+    def was_state(self, state):
         return state in self.states
 
     def state_index(self, state, last=True):

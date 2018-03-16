@@ -107,47 +107,47 @@ def test_initial_state():
 
 def test_no_transition_rule():
     with pytest.raises(TransitionError):
-        Stateful(1, {}).tryState(2)
+        Stateful(1, {}).try_state(2)
 
 def test_transition_error():
     stateful = Stateful(1, {})
     with pytest.raises(TransitionError) as excinfo:
-        stateful.tryState(2)
+        stateful.try_state(2)
     assert excinfo.value.stateful is stateful
     assert excinfo.value.state == 2
 
 def test_non_iterable_transition_rule():
-    Stateful(1, {2: 1}).tryState(2)
+    Stateful(1, {2: 1}).try_state(2)
 
 def test_iterable_transition_rule():
-    Stateful(1, {2: (1,)}).tryState(2)
+    Stateful(1, {2: (1,)}).try_state(2)
 
 def test_callable_transition_rule():
-    Stateful(1, {2: lambda: True}).tryState(2)
+    Stateful(1, {2: lambda: True}).try_state(2)
     with pytest.raises(TransitionError):
-        assert Stateful(1, {2: lambda: False}).tryState(2)
+        assert Stateful(1, {2: lambda: False}).try_state(2)
 
 def test_set_state_dry():
     stateful = Stateful(1, {2: lambda: True})
-    stateful.setState(2, dry=True)
+    stateful.set_state(2, dry=True)
     assert stateful.state() == 1
 
 def test_state():
     stateful = Stateful(1, {2: lambda: True})
-    stateful.setState(2)
+    stateful.set_state(2)
     assert stateful.state() == 2
 
 def test_state_history():
     stateful = Stateful(1, {2: 1, 4: 2, 1: 4})
-    assert stateful.wasState(1)
-    assert not stateful.wasState(2)
-    stateful.setState(2)
-    assert stateful.wasState(1)
-    assert stateful.wasState(2)
-    stateful.setState(4)
-    assert stateful.wasState(2)
-    stateful.setState(1)
-    assert stateful.wasState(4)
+    assert stateful.was_state(1)
+    assert not stateful.was_state(2)
+    stateful.set_state(2)
+    assert stateful.was_state(1)
+    assert stateful.was_state(2)
+    stateful.set_state(4)
+    assert stateful.was_state(2)
+    stateful.set_state(1)
+    assert stateful.was_state(4)
 
     assert stateful.states == [1, 2, 4, 1]
     assert stateful.state_index(1) == 3

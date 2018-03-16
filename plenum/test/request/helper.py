@@ -6,10 +6,10 @@ from plenum.server.stateful import TransitionError
 def check_transitions(stfl, states: Iterable, expected: Iterable):
     for st in states:
         if st in expected:
-            stfl.tryState(st)
+            stfl.try_state(st)
         else:
             with pytest.raises(TransitionError):
-                stfl.tryState(st)
+                stfl.try_state(st)
 
 def check_statefuls(stfls, stfls_pass, check):
     for stfl in stfls:

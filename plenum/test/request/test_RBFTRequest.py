@@ -201,16 +201,16 @@ def test_propagate(rbft_propagation, operation2):
     strange_request = Request(*good_request.key, operation2)
     bad_request = Request('234', 234)
 
-    assert not rbftr.hasPropagate(sender1)
-    assert not rbftr.hasPropagate(sender2)
+    assert not rbftr.has_propagate(sender1)
+    assert not rbftr.has_propagate(sender2)
     assert not rbftr.finalised
     assert rbftr.votes() == 0
 
     rbftr.on_propagate(good_request, sender1, quorum)
 
     # check propagate accepted
-    assert rbftr.hasPropagate(sender1)
-    assert not rbftr.hasPropagate(sender2)
+    assert rbftr.has_propagate(sender1)
+    assert not rbftr.has_propagate(sender2)
     assert not rbftr.finalised
     assert rbftr.votes() == 1
 
@@ -247,9 +247,9 @@ def test_forward(rbftr_all, rbft_finalized, master_inst_id, backup_inst_id):
         rbftr.on_forward((master_inst_id, backup_inst_id))
         assert rbftr.state() == RBFTReqState.Forwarded
         assert rbftr.is_forwarded()
-        assert tuple(rbftr.tpcRequests.keys()) == (master_inst_id, backup_inst_id)
+        assert tuple(rbftr.tpc_requests.keys()) == (master_inst_id, backup_inst_id)
         for inst_id in (master_inst_id, backup_inst_id):
-            assert not rbftr.tpcRequests[inst_id].isReset()
+            assert not rbftr.tpc_requests[inst_id].is_reset()
 
     check_statefuls(
         rbftr_all,
@@ -283,7 +283,7 @@ def test_tpcevent_for_non_forwarded(rbft_propagation,
     for rbftr in (rbft_propagation, rbft_finalized):
         with pytest.raises(RuntimeError) as excinfo:
             rbftr.on_tpcevent(master_inst_id, TPCRequest.Reject((0, 1)))
-        assert ("No TPCRequest for instId {} found"
+        assert ("No TPCRequest for inst_id {} found"
                 .format(master_inst_id)) in str(excinfo.value)
 
 def test_tpcevent_for_forwarded(rbft_forwarded,

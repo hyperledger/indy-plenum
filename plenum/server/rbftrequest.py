@@ -50,12 +50,12 @@ class RBFTReqForward(RBFTReqEvent):
     """
     It marks request as forwarded to replicas.
     """
-    def __init__(self, instIds: Iterable[int]):
-        self.instIds = instIds
+    def __init__(self, inst_ids: Iterable[int]):
+        self.inst_ids = inst_ids
 
     def __repr__(self):
         return ("{}, instance ids: {!r}"
-                .format(super().__repr__(), self.instIds))
+                .format(super().__repr__(), self.inst_ids))
 
 
 class RBFTReqReply(RBFTReqEvent):
@@ -68,8 +68,8 @@ class RBFTReqExecute(RBFTReqEvent):
 
 # wrapper for managed TPCRequests events
 class RBFTReqTPCEvent(RBFTReqEvent):
-    def __init__(self, instId: int, tpc_event: TPCReqEvent):
-        self.instId = instId
+    def __init__(self, inst_id: int, tpc_event: TPCReqEvent):
+        self.inst_id = inst_id
         self.tpc_event = tpc_event
 
 
@@ -86,14 +86,14 @@ class RBFTRequest(Stateful):
     TPCEvent = RBFTReqTPCEvent
 
     def __init__(self,
-                 origRequest: Request,
-                 nodeName: str,
-                 clientName: str,
+                 orig_request: Request,
+                 node_name: str,
+                 client_name: str,
                  master_inst_id: int=0):
 
-        self.origRequest = origRequest
-        self._clientName = clientName
-        self._nodeName = nodeName
+        self.orig_request = orig_request
+        self._client_name = client_name
+        self._node_name = node_name
         self.master_inst_id = master_inst_id
 
         self.propagates = {}
@@ -101,65 +101,65 @@ class RBFTRequest(Stateful):
         # TODO use only one from finalize/finalise
         self.finalised = None
 
-        self.tpcRequests = {}
+        self.tpc_requests = {}
 
         Stateful.__init__(
             self,
-            initialState=RBFTReqState.Propagation,
+            initial_state=RBFTReqState.Propagation,
             # TODO Rejected, Committed, Replyed and Executed for now
             # are tightly coupled with master instance's state only
             transitions={
                 RBFTReqState.Finalized: RBFTReqState.Propagation,
-                RBFTReqState.Forwarded: self._isResettable,
-                RBFTReqState.Rejected: self._isRejectable,
-                RBFTReqState.Committed: self._isCommittable,
+                RBFTReqState.Forwarded: self._is_resettable,
+                RBFTReqState.Rejected: self._is_rejectable,
+                RBFTReqState.Committed: self._is_committable,
                 RBFTReqState.Replyed:
                     (RBFTReqState.Committed, RBFTReqState.Rejected),
                 RBFTReqState.Executed: RBFTReqState.Replyed,
-                RBFTReqState.Detached: self._isDetachable,
+                RBFTReqState.Detached: self._is_detachable,
             }
         )
 
     def __repr__(self):
-        return ("{} {}, origRequest: {!r}, clientName: {}, master_inst_id: {}, "
-                "tpcRequests: {!r}".format(
-                    self.nodeName,
+        return ("{} {}, orig_request: {!r}, client_name: {}, master_inst_id: {}, "
+                "tpc_requests: {!r}".format(
+                    self.node_name,
                     Stateful.__repr__(self),
-                    self.origRequest,
-                    self.clientName,
+                    self.orig_request,
+                    self.client_name,
                     self.master_inst_id,
-                    self.tpcRequests))
+                    self.tpc_requests))
 
-    def _isResettable(self):
+    def _is_resettable(self):
         # catch-up can cause that
         return (self.state() == RBFTReqState.Finalized or
                 (self._master_tpc_request is not None and
-                    self._master_tpc_request.isReset()))
+                    self._master_tpc_request.is_reset()))
 
-    def _isRejectable(self):
+    def _is_rejectable(self):
         return (self.state() == RBFTReqState.Forwarded and
-                self._master_tpc_request.isRejected())
+                self._master_tpc_request.is_rejected())
 
-    def _isCommittable(self):
+    def _is_committable(self):
         return (self.state() == RBFTReqState.Forwarded and
-                self._master_tpc_request.isCommitted())
+                self._master_tpc_request.is_committed())
 
-    def _isDetachable(self):
+    def _is_detachable(self):
         return (
             self.state() == RBFTReqState.Executed and
-            not len([tpcReq for tpcReq in self.tpcRequests.values()
-                    if not tpcReq.isCleaned()])
+            not len([tpc_req for tpc_req in self.tpc_requests.values()
+                    if not tpc_req.is_cleaned()])
         )
 
     def _finalize(self, sender: str, dry: bool=False):
         # TODO why we did a kind of deep copy here in the past
         # (possibly because of possible duplicate request from the same sender
         # which overwrote the one before - doesn't happen for now)
-        self.setState(RBFTReqState.Finalized, dry=dry)
+        self.set_state(RBFTReqState.Finalized, dry=dry)
         if not dry:
             self.finalised = self.propagates[sender]
 
-    def _sendersForRequestWithQuorum(self, quorum: Quorum) -> set:
+    def _senders_for_request_with_quorum(self, quorum: Quorum) -> set:
         digests = defaultdict(set)
         # this is workaround because we are getting a propagate from somebody with
         # non-str (byte) name
@@ -172,7 +172,7 @@ class RBFTRequest(Stateful):
 
     @property
     def _master_tpc_request(self):
-        return self.tpcRequests.get(self.master_inst_id)
+        return self.tpc_requests.get(self.master_inst_id)
 
     @property
     def key(self):
@@ -180,18 +180,18 @@ class RBFTRequest(Stateful):
 
     @property
     def request(self):
-        return self.origRequest
+        return self.orig_request
 
     @property
-    def clientName(self):
-        return self._clientName
+    def client_name(self):
+        return self._client_name
 
     @property
-    def nodeName(self):
-        return self._nodeName
+    def node_name(self):
+        return self._node_name
 
     def is_forwarded(self):
-        return self.wasState(RBFTReqState.Forwarded)
+        return self.was_state(RBFTReqState.Forwarded)
 
     def is_executed(self):
         try:
@@ -199,7 +199,7 @@ class RBFTRequest(Stateful):
         except ValueError:
             return False
         else:
-            assert self.wasState(RBFTReqState.Forwarded)
+            assert self.was_state(RBFTReqState.Forwarded)
             # ensure that no Reset happened after Execute
             fwd_idx = self.state_index(RBFTReqState.Forwarded)
             return exc_idx > fwd_idx
@@ -207,7 +207,22 @@ class RBFTRequest(Stateful):
     def is_detached(self):
         return self.state() == RBFTReqState.Detached
 
-    def hasPropagate(self, sender: str) -> bool:
+    # TODO tests
+    def is_shallow(self, inst_id):
+        return (inst_id in self.tpc_requests and
+                self.tpc_requests[inst_id].is_shallow())
+
+    # TODO tests
+    def is_applied(self, inst_id):
+        return (inst_id in self.tpc_requests and
+                self.tpc_requests[inst_id].is_applied())
+
+    # TODO tests
+    def is_committed(self, inst_id):
+        return (inst_id in self.tpc_requests and
+                self.tpc_requests[inst_id].is_committed())
+
+    def has_propagate(self, sender: str) -> bool:
         """
         Check whether the request specified has already been propagated.
         """
@@ -221,7 +236,7 @@ class RBFTRequest(Stateful):
 
     # EVENTS processing
     def _propagate(self, request: Request, sender: str,
-            quorum: Quorum, dry: bool=False):
+                   quorum: Quorum, dry: bool=False):
         """
         Add the specified request to the list of received PROPAGATEs.
 
@@ -247,7 +262,7 @@ class RBFTRequest(Stateful):
             raise ValueError(
                 "{} expects requests with key {} but {} was passed"
                 .format(self, self.request.key, request.key))
-        elif self.hasPropagate(sender):
+        elif self.has_propagate(sender):
             raise ValueError(
                 "{} Propagate from sender {} was alredy registered"
                 .format(self, sender))
@@ -263,7 +278,7 @@ class RBFTRequest(Stateful):
                 if not quorum.is_reached(self.votes()):
                     reason = 'not enough propagates'
                 else:
-                    senders = self._sendersForRequestWithQuorum(quorum)
+                    senders = self._senders_for_request_with_quorum(quorum)
 
                     if senders:
                         logger.debug("{} finalizing request".format(self))
@@ -280,60 +295,60 @@ class RBFTRequest(Stateful):
                 if _sender is None:
                     del self.propagates[sender]
                 else:
-                    self.propagates[sender] = old_sender
+                    self.propagates[sender] = _sender
 
     def _on(self, ev, dry=False):
         if type(ev) == RBFTReqPropagate:
             self._propagate(ev.request, ev.sender, ev.quorum, dry)
 
         elif type(ev) == RBFTReqForward:
-            if self.master_inst_id not in ev.instIds:
+            if self.master_inst_id not in ev.inst_ids:
                 raise ValueError(
                     "{} expects master instance id {} in passed ids {}"
-                    .format(self, self.master_inst_id, ev.instIds))
+                    .format(self, self.master_inst_id, ev.inst_ids))
 
             # TODO curretnly delayed forwarding (e.g. to newly created replica)
             # is not supported but it seems this is the case we should worry about
-            self.setState(RBFTReqState.Forwarded, dry)
+            self.set_state(RBFTReqState.Forwarded, dry)
             if not dry:
-                for instId in set(ev.instIds):
-                    self.tpcRequests[instId] = TPCRequest(self, instId)
+                for inst_id in set(ev.inst_ids):
+                    self.tpc_requests[inst_id] = TPCRequest(self, inst_id)
 
         elif type(ev) == RBFTReqReply:
-            self.setState(RBFTReqState.Replyed, dry)
+            self.set_state(RBFTReqState.Replyed, dry)
 
         elif type(ev) == RBFTReqExecute:
-            self.setState(RBFTReqState.Executed, dry)
-            if self._isDetachable():
-                self.setState(RBFTReqState.Detached, dry)
+            self.set_state(RBFTReqState.Executed, dry)
+            if self._is_detachable():
+                self.set_state(RBFTReqState.Detached, dry)
 
         elif type(ev) == RBFTReqTPCEvent:
-            if ev.instId not in self.tpcRequests:
+            if ev.inst_id not in self.tpc_requests:
                 # TODO improve to make more helpful and understandable
                 raise RuntimeError(
-                    "{!r} No TPCRequest for instId {} found"
-                    .format(self, ev.instId),
+                    "{!r} No TPCRequest for inst_id {} found"
+                    .format(self, ev.inst_id),
                 )
 
-            self.tpcRequests[ev.instId].on(ev.tpc_event, dry)
+            self.tpc_requests[ev.inst_id].on(ev.tpc_event, dry)
 
             if not dry:
                 if isinstance(ev.tpc_event, TPCRequest.Clean):
-                    if self._isDetachable():
-                        self.setState(RBFTReqState.Detached)
-                elif ev.instId == self.master_inst_id:
+                    if self._is_detachable():
+                        self.set_state(RBFTReqState.Detached)
+                elif ev.inst_id == self.master_inst_id:
                     # we don't expect any transition errors here
                     # because all further self transitions depends
                     # on master instance state (as of now)
                     if isinstance(ev.tpc_event, TPCRequest.Reject):
-                        assert self._isRejectable()
-                        self.setState(RBFTReqState.Rejected)
+                        assert self._is_rejectable()
+                        self.set_state(RBFTReqState.Rejected)
                     elif isinstance(ev.tpc_event, TPCRequest.Commit):
-                        assert self._isCommittable()
-                        self.setState(RBFTReqState.Committed)
+                        assert self._is_committable()
+                        self.set_state(RBFTReqState.Committed)
                     elif isinstance(ev.tpc_event, TPCRequest.Reset):
-                        assert self._isResettable()
-                        self.setState(RBFTReqState.Forwarded)
+                        assert self._is_resettable()
+                        self.set_state(RBFTReqState.Forwarded)
 
         else:
             logger.warning("{!r} unexpected event type: {}".format(self, type(ev)))

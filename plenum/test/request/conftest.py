@@ -37,7 +37,7 @@ def backup_inst_id(master_inst_id):
 def rbft_request(operation1, master_inst_id):
     return RBFTRequest(
         Request('123', 123, operation1),
-        'nodeName',
-        'clientName',
+        'node_name',
+        'client_name',
         master_inst_id=master_inst_id
     )
