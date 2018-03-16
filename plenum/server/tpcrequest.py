@@ -116,7 +116,7 @@ class TPCRequest(Stateful):
             },
             name=("{}:{} request {} TxnState"
                   .format(self.rbft_request.node_name,
-                         self.inst_id, repr(self.key)))
+                          self.inst_id, repr(self.key)))
         )
 
         Stateful.__init__(
