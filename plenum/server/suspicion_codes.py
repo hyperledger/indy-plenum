@@ -74,7 +74,7 @@ class Suspicions:
 
     PPR_REQUEST_IN_WRONG_STATE = \
         Suspicion(33, "PRE-PREPARE includes request that is not in "
-                  "appropriate state")
+                  "an appropriate state")
 
     @classmethod
     def get_list(cls):
