@@ -8,7 +8,7 @@ from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.server.tpcrequest import TPCRequest
-from plenum.server.rbftrequest import RBFTReqState, RBFTRequest
+from plenum.server.rbftrequest import RBFTRequest
 
 logger = getlogger()
 
@@ -23,42 +23,46 @@ class Requests(OrderedDict):
     request is popped out
     """
 
-    def add(self, req: Request, nodeName: str,
-            clientName: str, master_inst_id: int):
+    def add(self, req: Request, node_name: str,
+            client_name: str, master_inst_id: int):
         """
         Add the specified request to this request store.
         """
         if req.key not in self:
-            self[req.key] = RBFTRequest(req, nodeName,
-                                        clientName, master_inst_id)
+            self[req.key] = RBFTRequest(req, node_name,
+                                        client_name, master_inst_id)
         return self[req.key]
 
-    def executed(self, reqKey: Tuple):
+    def executed(self, req_key: Tuple):
         """
         Marks request as executed and tries to remove it
         """
-        rbftRequest = self[reqKey]
-        rbftRequest.on_execute()
-        if rbftRequest.is_detached():
-            self.pop(rbftRequest.request.key, None)
+        rbft_request = self[req_key]
+        rbft_request.on_execute()
+        if rbft_request.is_detached():
+            self.pop(rbft_request.request.key, None)
 
-    def clean(self, request_key, instId):
+    def clean(self, request_key, inst_id):
         """
-        Marks request as clean for specified replica and tries to remove it
+        Marks request as cleaned for specified replica and tries to remove it
         """
-        rbftRequest = self.get(request_key)
-        if not rbftRequest:
+        rbft_request = self.get(request_key)
+        if not rbft_request:
+            logger.warning(
+                "Replica {} tries to clean unknown request {}"
+                .format(inst_id, request_key))
             return
-        rbftRequest.on_tpcevent(instId, TPCRequest.Clean())
-        if rbftRequest.is_detached():
-            self.pop(rbftRequest.request.key, None)
 
-    def is_finalised(self, reqKey: Tuple[str, int]) -> bool:
-        return reqKey in self and self[reqKey].finalised
+        rbft_request.on_tpcevent(inst_id, TPCRequest.Clean())
+        if rbft_request.is_detached():
+            self.pop(rbft_request.request.key, None)
 
-    def digest(self, reqKey: Tuple) -> str:
-        if reqKey in self and self[reqKey].finalised:
-            return self[reqKey].finalised.digest
+    def is_finalised(self, req_key: Tuple[str, int]) -> bool:
+        return req_key in self and self[req_key].finalised
+
+    def digest(self, req_key: Tuple) -> str:
+        if req_key in self and self[req_key].finalised:
+            return self[req_key].finalised.digest
 
 
 class Propagator:
@@ -69,7 +73,7 @@ class Propagator:
         self.requested_propagates_for = OrderedSet()
 
     @staticmethod
-    def createPropagate(
+    def create_propagate(
             request: Union[Request, dict], client_name) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
@@ -88,54 +92,54 @@ class Propagator:
             client_name = client_name.decode()
         return Propagate(request, client_name)
 
-    def process_write_request(self, request: Request, clientName: str):
-        self.propagate(request, None, clientName)
+    def process_write_request(self, request: Request, client_name: str):
+        self.propagate(request, None, client_name)
 
-    # noinspection PyUnresolvedReferences
-    def propagate(self, request: Request, sender: str, clientName: str):
+    def propagate(self, request: Request, sender: str, client_name: str):
         """
         Broadcast a PROPAGATE to all other nodes
 
         :param request: the REQUEST to propagate
         :param sender: sender Node the request came from, None for client
-        :param clientName: name of the original sender (client)
+        :param client_name: name of the original sender (client)
         """
-        rbftRequest = self.requests.add(
-            request, self.name, clientName, self.instances.masterId)
+        rbft_request = self.requests.add(
+            request, self.name, client_name, self.instances.masterId)
 
         # TODO why sender wan't checked in propagates before and
         # ovewrite was allowed/expected in the past
-        if not (sender is None or rbftRequest.hasPropagate(sender)):
-            rbftRequest.on_propagate(request, sender, self.quorums.propagate)
+        if not (sender is None or rbft_request.has_propagate(sender)):
             reason = None
 
+            rbft_request.on_propagate(request, sender, self.quorums.propagate)
+
             # try forwarding
-            if rbftRequest.is_forwarded():
+            if rbft_request.is_forwarded():
                 reason = 'already forwarded'
-            elif not rbftRequest.finalised:
+            elif not rbft_request.finalised:
                 reason = 'not finalized'
             else:
                 # If haven't got the client request(REQUEST) for the
                 # corresponding propagate request(PROPAGATE) but have enough
                 # propagate requests to move ahead
-                self._forward(rbftRequest)
+                self._forward(rbft_request)
 
             if reason is not None:
                 logger.debug("{} not forwarding request {} to its replicas "
                              "since {}".format(self, request.key, reason))
 
-        if rbftRequest.hasPropagate(self.name):
+        if rbft_request.has_propagate(self.name):
             logger.trace("{} already propagated {}".format(self, request))
         else:
-            propagate = self.createPropagate(request, rbftRequest.clientName)
+            propagate = self.create_propagate(request, rbft_request.client_name)
             logger.info(
                 "{} propagating request {} from client {}"
                 .format(self, (request.identifier, request.reqId),
-                        rbftRequest.clientName),
+                        rbft_request.client_name),
                 extra={"cli": True, "tags": ["node-propagate"]}
             )
             self.send(propagate)
-            self.propagate(request, self.name, rbftRequest.clientName)
+            self.propagate(request, self.name, rbft_request.client_name)
 
     def request_propagates(self, req_keys):
         """
@@ -157,19 +161,18 @@ class Propagator:
                              format(self, (idr, req_id)))
         return i
 
-    # noinspection PyUnresolvedReferences
     def _forward(self, request: RBFTRequest):
         """
         Forward the specified client REQUEST to the other replicas on this node
 
         :param request: the REQUEST to propagate
         """
-        numReplicas = self.replicas.num_replicas
+        num_replicas = self.replicas.num_replicas
         logger.debug("{} forwarding request {} to {} replicas"
-                     .format(self, request.key, numReplicas))
+                     .format(self, request.key, num_replicas))
         self.replicas.pass_message(ReqKey(*request.key))
-        # TODO expect specific numeration scheme: from 0 up numReplicas
-        request.on_forward(tuple(range(numReplicas)))
+        # TODO logic here relies on specific numeration scheme: from 0 up to 'num_replicas'
+        request.on_forward(tuple(range(num_replicas)))
         self.monitor.requestUnOrdered(*request.key)
 
     def _add_to_recently_requested(self, key):

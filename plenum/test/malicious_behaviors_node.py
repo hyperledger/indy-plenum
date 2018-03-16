@@ -40,7 +40,7 @@ def changesRequest(node):
         return Propagate(request.as_dict, identifier)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
-    node.createPropagate = evilMethod
+    node.create_propagate = evilMethod
     return node
 
 
