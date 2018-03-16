@@ -1,0 +1,53 @@
+
+input_logs:
+  - path: .                        # Where to look for log files
+    recursive: yes                 # Whether to descend into subdirectories recursively
+    pattern: Node(\d+)\.log.*      # Log file regex pattern to look for
+    node_group: 1                  # Group number that matches node identifier
+    only_timestamped: no           # Whether to discard non-timestamped lines
+
+
+chains:
+  main:
+  - log time:
+      monitoring: total
+  - process: warnings
+#  - match timestamp:
+#      min: 2018-03-15 10:14:10
+#      max: 2018-03-15 11:14:10
+  - process: tag_commits
+  - match tag: COMMIT
+  - log line: commits
+
+  warnings:
+  - match level: WARNING
+  - log time:
+      monitoring: warnings
+  - log line: warnings
+
+  tag_commits:
+  - tag:
+      pattern: .*COMMIT\((\d+), (\d+)\)
+      tags: [COMMIT]
+      groups:
+        1: instId
+        2: seqNo
+
+
+logs:
+  warnings:
+    filename: warnings_<node>.log
+    pattern: <timestamp> | <message>
+    merge_nodes: no
+  commits:
+    filename: commits.log
+    pattern: <timestamp> | <node> | <instId> <seqNo>
+    merge_nodes: yes
+
+
+timelogs:
+  monitoring:
+    interval: 20          # Interval in seconds
+    graphs:               # Graph list with colors
+    - total: blue
+    - warnings: red
