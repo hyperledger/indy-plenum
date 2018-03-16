@@ -30,10 +30,10 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-tests_require = ['pytest', 'pytest-xdist', 'python3-indy']
+tests_require = ['pytest', 'pytest-xdist', 'python3-indy-authz-rc==1.3.0-420']
 
 setup(
-    name='indy-plenum-dev',
+    name='indy-plenum-authz',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -56,7 +56,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
-                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
+                      'psutil', 'intervaltree', 'msgpack-python==0.4.6', 'indy-crypto-authz==0.1.6-40'],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,

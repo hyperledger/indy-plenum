@@ -217,6 +217,34 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 }
 
 def options = new TestAndPublishOptions()
+options.skip([
+    StagesEnum.IS_TESTED,
+    StagesEnum.STATIC_CODE_VALIDATION,
+    StagesEnum.TEST,
+    StagesEnum.AUTOMERGE,
+    StagesEnum.GET_RELEASE_VERSION,
+    //StagesEnum.PYPI_RELEASE,
+    //StagesEnum.PACK_RELEASE,
+    //StagesEnum.PACK_RELEASE_COPY,
+
+    StagesEnum.GITHUB_RELEASE,
+    StagesEnum.QA_NOTIF,
+    StagesEnum.QA_APPROVAL,
+    StagesEnum.PRODUCT_NOTIF,
+    StagesEnum.PRODUCT_APPROVAL,
+    StagesEnum.TGB_NOTIF,
+    StagesEnum.TGB_APPROVAL,
+    StagesEnum.PACK_RELEASE_ST,
+    StagesEnum.PACK_RELEASE_COPY_ST,
+    StagesEnum.GITHUB_RELEASE_ST,
+    StagesEnum.POOL_UPDATE_NOTIF,
+    StagesEnum.BUILD_RESULT_NOTIF
+])
+
+options.setReleaseVersion('authz-0.0.0')
+options.setPublishableBranches(['authz'])
+options.setPostfixes([master: 'authz'])
+
 testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
 ledger: ledgerTestUbuntu,
 stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])

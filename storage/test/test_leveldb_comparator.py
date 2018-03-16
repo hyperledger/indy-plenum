@@ -52,7 +52,7 @@ def test_get_keys_in_order(db_with_int_comparator):
     # add random keys and check retrieval happens in sorted order
     for _ in range(100):
         k = str(random.randint(100, 1000000000))
-        db.put(k, str(k+'00'))
+        db.put(k, str(k + '00'))
 
     all_keys = [int(k) for k, _ in db.iterator()]
     assert all_keys == sorted(all_keys)
@@ -66,7 +66,7 @@ def test_get_keys_from_a_given_key(db_with_int_comparator):
     for _ in range(1000):
         _k = random.randint(1, 100000000000)
         k = str(_k)
-        db.put(k, str(k+'00'))
+        db.put(k, str(k + '00'))
         all_keys.append(_k)
 
     # Needed for test below
@@ -78,7 +78,7 @@ def test_get_keys_from_a_given_key(db_with_int_comparator):
         random_key_index = all_keys.index(random_key)
         i = 0
         for k, _ in db.iterator(start=random_key):
-            assert all_keys[random_key_index+i] == int(k)
+            assert all_keys[random_key_index + i] == int(k)
             i += 1
 
         # all keys are retrieved
