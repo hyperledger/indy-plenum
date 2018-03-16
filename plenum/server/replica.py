@@ -1722,7 +1722,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # request
                 # TODO FIXME seems it had been already applied before was stashed
                 self.logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
-                             'catchup process'.format(self, pp.ppSeqNo))
+                                  'catchup process'.format(self, pp.ppSeqNo))
                 self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
                                              pp.ppTime,
                                              pp.ledgerId)
