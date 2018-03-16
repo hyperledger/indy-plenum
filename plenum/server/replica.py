@@ -449,6 +449,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._gc_before_new_view()
             if self.viewNo > 0:
                 self._reset_watermarks_before_new_view()
+                self._reset_reqs_before_new_view()
             self._stateChanged()
 
     # TODO refator that:
@@ -2032,13 +2033,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _reset_reqs_before_new_view(self):
         # new view may bring new round of request ordering
         # in scope of new 3pc batch
-        to_reset = set()
-        for i in self.sentPrePrepares.items():
-            to_reset.add(i)
-        for i in self.prePrepares.items():
-            to_reset.add(i)
+        to_reset = dict(self.sentPrePrepares)
+        to_reset.update(self.prePrepares)
 
-        for pp_key, pp in to_reset:
+        for pp_key, pp in to_reset.items():
             # TODO should be removed after code review and refactoring
             self._monkey_patch_still_applied_reqs_in_pp(
                 pp_key, pp.reqIdr[:pp.discarded])
