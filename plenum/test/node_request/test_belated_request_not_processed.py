@@ -6,13 +6,9 @@ from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
-from stp_core.common.log import getlogger
 from plenum.common.util import updateNamedTuple
-from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.rbftrequest import TPCReqState
-
-logger = getlogger()
+from plenum.server.tpcrequest import TPCReqState
 
 def test_repeated_request_not_processed_if_already_ordered(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
