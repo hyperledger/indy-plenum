@@ -170,14 +170,46 @@ class TxnStackManager(metaclass=ABCMeta):
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
     def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
-        nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-        cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+        nodeHa = None
+        cliHa = None
+        if self.isNode:
+            node_ha_changed = False
+            (ip, port) = nodeOrClientObj.nodeReg[remoteName]
+            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
+                ip = txn[DATA][NODE_IP]
+                node_ha_changed = True
+
+            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
+                port = txn[DATA][NODE_PORT]
+                node_ha_changed = True
+
+            if node_ha_changed:
+                nodeHa = (ip, port)
+
+        cli_ha_changed = False
+        (ip, port) = nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] \
+            if self.isNode \
+            else nodeOrClientObj.nodeReg[remoteName]
+
+        if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
+            ip = txn[DATA][CLIENT_IP]
+            cli_ha_changed = True
+
+        if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
+            port = txn[DATA][CLIENT_PORT]
+            cli_ha_changed = True
+
+        if cli_ha_changed:
+            cliHa = (ip, port)
+
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
         if self.isNode:
-            nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
-            nodeOrClientObj.cliNodeReg[remoteName +
-                                       CLIENT_STACK_SUFFIX] = HA(*cliHa)
-        else:
+            if nodeHa:
+                nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
+            if cliHa:
+                nodeOrClientObj.cliNodeReg[remoteName +
+                                           CLIENT_STACK_SUFFIX] = HA(*cliHa)
+        elif cliHa:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
 
         # Attempt connection at the new HA
@@ -278,7 +310,8 @@ class TxnStackManager(metaclass=ABCMeta):
         # Returns services for each node
         srvs = dict()
         for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE:
+            if txn[TXN_TYPE] == NODE and \
+                    txn.get(DATA, {}).get(SERVICES) is not None:
                 srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
         return srvs
 

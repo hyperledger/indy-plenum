@@ -286,3 +286,19 @@ class InvalidMessageExceedingSizeException(InvalidMessageException):
         ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
             actLen, expLen)
         super().__init__(ex_txt, *args, **kwargs)
+
+
+class RequestNackedException(Exception):
+    pass
+
+
+class RequestRejectedException(Exception):
+    pass
+
+
+class CommonSdkIOException(Exception):
+    pass
+
+
+class PoolLedgerTimeoutException(Exception):
+    pass

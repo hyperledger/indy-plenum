@@ -21,8 +21,10 @@ from indy.error import ErrorCode, IndyError
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT,\
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
+from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
+    PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
@@ -38,7 +40,6 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
-
 
 logger = getlogger()
 
@@ -551,8 +552,8 @@ def checkReplyCount(client, idr, reqId, count):
     senders = set()
     for msg, sdr in client.inBox:
         if msg[OP_FIELD_NAME] == REPLY and \
-                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
+                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
             senders.add(sdr)
     assertLength(senders, count)
 
@@ -636,11 +637,11 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1
+    assert len(viewNos) == 1, 'Expected 1, but got {}'.format(len(viewNos))
     vNo, = viewNos
     if expectedViewNo is not None:
-        assert vNo >= expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
-            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
+        assert vNo >= expectedViewNo, \
+            'Expected at least {}, but got {}'.format(expectedViewNo, vNo)
     return vNo
 
 
@@ -1024,14 +1025,15 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
-    except asyncio.TimeoutError:
-        resp = None
     except IndyError as e:
         resp = e.error_code
 
     return req_json, resp
 
 
+# TODO: Check places where sdk_get_replies used without sdk_check_reply
+# We need to be sure that test behaviour don't need to check response
+# validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
 
@@ -1045,19 +1047,38 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             resp = None
         return resp
 
-    done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pending:
+        for task in pending:
+            task.cancel()
+        raise TimeoutError("{} requests timed out".format(len(pending)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
 
 def sdk_check_reply(req_res):
     req, res = req_res
-    if res is None:
-        raise AssertionError("Got no confirmed result for request {}"
-                             .format(req))
     if isinstance(res, ErrorCode):
-        raise AssertionError("Got an error with code {} for request {}"
-                             .format(res, req))
+        if res == 307:
+            raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
+                                             .format(req))
+        else:
+            raise CommonSdkIOException('Got an error with code {} for request {}'
+                                       .format(res, req))
+    if res['op'] == REQNACK:
+        raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                     .format(req['reqId'], res['reason']))
+    if res['op'] == REJECT:
+        raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                       .format(req['reqId'], res['reason']))
+
+
+def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    rets = []
+    for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
+        sdk_check_reply(req_res)
+        rets.append(req_res)
+    return rets
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,
@@ -1106,7 +1127,7 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     sdk_replies = []
     for _ in range(num_batches - 1):
         sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                   num_reqs // num_batches, **kwargs))
+                                                     num_reqs // num_batches, **kwargs))
     rem = num_reqs % num_batches
     if rem == 0:
         rem = num_reqs // num_batches
@@ -1136,3 +1157,18 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
         coros.append(c)
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
+
+def sdk_json_to_request_object(json_req):
+    return Request(identifier=json_req['identifier'],
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'] if 'signature' in json_req else None,
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+
+
+def sdk_json_couples_to_request_list(json_couples):
+    req_list = []
+    for json_couple in json_couples:
+        req_list.append(sdk_json_to_request_object(json_couple[0]))
+    return req_list

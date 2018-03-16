@@ -9,7 +9,6 @@ from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test import waits
 
-
 nodeCount = 7
 
 

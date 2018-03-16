@@ -521,7 +521,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
-        self.master_replica.on_view_change_start()
+        for replica in self.replicas:
+            replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
                      format(self))
         self.monitor.reset()
@@ -878,6 +879,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_name_by_rank(self, rank, nodeReg=None):
         return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
 
+    def get_rank_by_name(self, name, nodeReg=None):
+        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg)
+
     def newViewChanger(self):
         if self.view_changer:
             return self.view_changer
@@ -1111,10 +1115,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.isReady():
             self.checkInstances()
-            for node in joined:
-                self.send_current_state_to_lagging_node(node)
+        else:
+            logger.debug("{} joined nodes {} but status is {}".format(self, joined, self.status))
         # Send ledger status whether ready (connected to enough nodes) or not
         for node in joined:
+            self.send_current_state_to_lagging_node(node)
             self.send_ledger_status_to_newly_connected_node(node)
 
     def request_ledger_status_from_nodes(self, ledger_id):
@@ -2327,15 +2332,41 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule_view_change()
 
     def select_primaries(self, nodeReg: Dict[str, HA]=None):
+        primaries = set()
+        primary_rank = None
+        '''
+        Build a set of names of primaries, it is needed to avoid
+        duplicates of primary nodes for different replicas.
+        '''
+        for instance_id, replica in enumerate(self.replicas):
+            if replica.primaryName is not None:
+                name = replica.primaryName.split(":", 1)[0]
+                primaries.add(name)
+                '''
+                Remember the rank of primary of master instance, it is needed
+                for calculation of primaries for backup instances.
+                '''
+                if instance_id == 0:
+                    primary_rank = self.get_rank_by_name(name, nodeReg)
+
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
-            new_primary_name = self.elector.next_primary_replica_name(
-                instance_id, nodeReg=nodeReg)
+            if instance_id == 0:
+                new_primary_name, new_primary_instance_name =\
+                    self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
+                primary_rank = self.get_rank_by_name(
+                    new_primary_name, nodeReg)
+            else:
+                assert primary_rank is not None
+                new_primary_name, new_primary_instance_name =\
+                    self.elector.next_primary_replica_name_for_backup(
+                        instance_id, primary_rank, primaries, nodeReg=nodeReg)
+            primaries.add(new_primary_name)
             logger.display("{}{} selected primary {} for instance {} (view {})"
                            .format(PRIMARY_SELECTION_PREFIX, replica,
-                                   new_primary_name, instance_id, self.viewNo),
+                                   new_primary_instance_name, instance_id, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
             if instance_id == 0:
@@ -2345,7 +2376,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # participating.
                 self.start_participating()
 
-            replica.primaryChanged(new_primary_name)
+            replica.primaryChanged(new_primary_instance_name)
             self.primary_selected(instance_id)
 
             logger.display("{}{} declares view change {} as completed for "
@@ -2356,7 +2387,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                    replica,
                                    self.viewNo,
                                    instance_id,
-                                   new_primary_name,
+                                   new_primary_instance_name,
                                    self.ledger_summary),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
@@ -2527,7 +2558,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                reqs: List[Request],
                stateRoot,
                txnRoot) -> List:
-        committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
         # TODO
         #   - is it possible to fail here
         #   - is it guaranteed that committed txns correspond to requests
@@ -2608,8 +2639,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _sendReplyToClient(self, reply, rbft_request):
         logger.debug(
             "{} sending reply for {} to client {}"
-            .format(self, rbft_request.key, rbft_request.clientName))
-        self.transmitToClient(reply, rbft_request.clientName)
+            .format(self, rbft_request.key, rbft_request.client_name))
+        self.transmitToClient(reply, rbft_request.client_name)
         rbft_request.on_reply()
 
     def addNewRole(self, txn):

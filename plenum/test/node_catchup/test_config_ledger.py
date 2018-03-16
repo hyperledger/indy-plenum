@@ -135,7 +135,6 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
     new_node = newNodeCaughtUp
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)
-    looper.removeProdable(new_node)
 
     # Do some config txns; using a fixture as a method, passing some arguments
     # as None as they only make sense for the fixture (pre-requisites)
@@ -144,6 +143,5 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])
 
-    looper.add(new_node)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, new_node)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
