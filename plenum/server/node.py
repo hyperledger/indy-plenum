@@ -1964,7 +1964,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
         # update TPCRequest state
-        self.request[request.key].on_tpcevent(
+        self.requests[request.key].on_tpcevent(
             self.instances.masterId, TPCRequest.Apply())
         # post hook
         ledger_id = self.ledger_id_for_request(request)
