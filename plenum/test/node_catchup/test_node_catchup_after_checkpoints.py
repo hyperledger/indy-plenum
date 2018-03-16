@@ -21,7 +21,6 @@ def test_node_catchup_after_checkpoints(
         txnPoolNodeSet,
         wallet1,
         client1,
-        client1Connected,
         broken_node_and_others):
     """
     For some reason a node misses 3pc messages but eventually the node stashes

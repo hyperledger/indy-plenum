@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
-                               tdir, client1Connected):
+                               tdir):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
 
     npr = [n for n in txnPoolNodeSet if not n.hasPrimary]

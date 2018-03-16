@@ -25,8 +25,6 @@ from plenum.test import waits
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.conftest import whitelist, \
     nodeCreatedAfterSomeTxns, nodeSetWithNodeAddedAfterSomeTxns, newNodeCaughtUp
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 
 
 @pytest.fixture
@@ -173,7 +171,7 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
 def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
                              tdirWithPoolTxns, allPluginsPath,
                              poolTxnStewardData, looper, client1, wallet1,
-                             client1Connected, capsys):
+                             capsys):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -202,7 +200,6 @@ def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
 @skipper
 def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
                                              tconf, looper, client1, wallet1,
-                                             client1Connected,
                                              tdirWithPoolTxns, allPluginsPath,
                                              poolTxnStewardData, capsys):
     """

@@ -23,8 +23,7 @@ from plenum.test.batching_3pc.conftest import tconf  # noqa
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
                                                           txnPoolNodeSet,
                                                           client1,
-                                                          wallet1,
-                                                          client1Connected):
+                                                          wallet1):
     """
     Delay COMMITs to a node such that when it needs to catchup, it needs to
     revert some unordered state. Also till this time the node should have

@@ -42,7 +42,7 @@ def replicas_synced(node):
 
 
 def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
-                                       wallet1, client1Connected, monkeypatch):
+                                       wallet1, monkeypatch):
     """
     Checks that transactions received by catchup do not
     break performance monitoring

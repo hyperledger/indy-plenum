@@ -19,7 +19,6 @@ TestRunningTimeLimitSec = 150
 def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
                                                            looper, wallet1,
                                                            client1,
-                                                           client1Connected,
                                                            tconf):
     """
     A node is slow and after view change starts, it marks it's `last_prepared`

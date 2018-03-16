@@ -5,9 +5,6 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
-from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
-    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
-    client1Connected
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 

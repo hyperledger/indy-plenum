@@ -15,8 +15,7 @@ logger = getlogger()
 
 
 def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
-                                allPluginsPath, tdir, tconf, client1, wallet1,
-                                client1Connected):
+                                allPluginsPath, tdir, tconf, client1, wallet1):
     """
     Test that we can recover after having more than f nodes disconnected:
     - stop current master primary (Alpha)

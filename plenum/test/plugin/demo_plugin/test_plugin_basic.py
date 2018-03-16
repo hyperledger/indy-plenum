@@ -20,7 +20,7 @@ def test_plugin_setup(nodeSet):
 
 
 def test_plugin_client_req_fields(nodeSet, looper, stewardWallet,
-                                  steward1, client1Connected,
+                                  steward1,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Test that plugin's addition of request fields and their validation is

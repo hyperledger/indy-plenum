@@ -17,7 +17,7 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
 
 
 def test_plugin_static_validation(nodeSet, looper, stewardWallet,
-                                  steward1, client1Connected,
+                                  steward1,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin static validation fails and passes
@@ -60,7 +60,7 @@ def test_plugin_static_validation(nodeSet, looper, stewardWallet,
 
 
 def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
-                                   steward1, client1Connected,
+                                   steward1, 
                                    sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
@@ -88,7 +88,7 @@ def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
 
 @pytest.fixture(scope="module")
 def some_requests(nodeSet, looper, stewardWallet,
-                  steward1, client1Connected,
+                  steward1, 
                   sdk_wallet_steward, sdk_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,

@@ -13,9 +13,3 @@ def tconf(tconf, request):
 
     request.addfinalizer(reset)
     return tconf
-
-
-@pytest.fixture(scope="module")
-def client(tconf, looper, txnPoolNodeSet, client1,
-           client1Connected):
-    return client1Connected

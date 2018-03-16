@@ -24,8 +24,7 @@ def tconf(tconf):
 
 
 def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolNodeSet,
-                                               allPluginsPath, tdir, tconf, client1, wallet1,
-                                               client1Connected):
+                                               allPluginsPath, tdir, tconf, client1, wallet1):
     """
     Test that we can recover after having more than f nodes disconnected:
     - send txns

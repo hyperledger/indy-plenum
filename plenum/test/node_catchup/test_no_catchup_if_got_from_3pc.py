@@ -12,8 +12,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 
 
-def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
-                                    client1Connected):
+def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1):
     """
     A node is slow to receive COMMIT messages so after a view change it
     starts catchup. But before it can start requesting txns, the COMMITs messages

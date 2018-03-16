@@ -41,7 +41,7 @@ def test_master_primary_different_from_previous(txnPoolNodeSet, looper,
 
 @pytest.mark.skip(reason='Nodes use round robin primary selection')
 def test_master_primary_different_from_previous_view_for_itself(
-        txnPoolNodeSet, looper, client1, wallet1, client1Connected):
+        txnPoolNodeSet, looper, client1, wallet1):
     """
     After a view change, primary must be different from previous primary for
     master instance, it does not matter for other instance. Break it into
