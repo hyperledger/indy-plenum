@@ -26,7 +26,7 @@ class TransitionError(Exception):
         )
 
 
-class StatefulEvent(metaclass=ABCMeta):
+class StatefulEvent:
     def __repr__(self):
         return "{}".format(self.__class__.__name__)
 
