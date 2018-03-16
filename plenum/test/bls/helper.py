@@ -11,8 +11,6 @@ from crypto.bls.bls_multi_signature import MultiSignatureValue
 
 from state.pruning_state import PruningState
 
-from plenum.test.input_validation.utils import b58_by_len
-
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
@@ -23,7 +21,7 @@ from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet, hexToFriendly
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import updateNodeData, new_client, sdk_send_update_node, sdk_add_new_nym, \
+from plenum.test.pool_transactions.helper import updateNodeData,  sdk_send_update_node, \
     sdk_pool_refresh
 from stp_core.common.log import getlogger
 
@@ -327,7 +325,7 @@ def prepare_for_state(result):
         return key, value
 
 
-def validate_multi_signature(state_proof, nodeCount):
+def validate_multi_signature(state_proof, txnPoolNodeSet):
     """
     Validates multi signature
     """
@@ -341,14 +339,15 @@ def validate_multi_signature(state_proof, nodeCount):
     value = MultiSignatureValue(
         **(multi_signature[MULTI_SIGNATURE_VALUE])
     ).as_single_value()
-    quorums = Quorums(nodeCount)
+    quorums = Quorums(len(txnPoolNodeSet))
     if not quorums.bls_signatures.is_reached(len(participants)):
         logger.debug("There is not enough participants of "
                      "multi-signature")
         return False
     public_keys = []
     for node_name in participants:
-        key = self._bls_register.get_key_by_name(node_name)
+        key = next(node.bls_bft.bls_crypto_signer.pk for node
+                   in txnPoolNodeSet if node.name == node_name)
         if key is None:
             logger.debug("There is no bls key for node {}"
                          .format(node_name))
@@ -356,8 +355,9 @@ def validate_multi_signature(state_proof, nodeCount):
         public_keys.append(key)
     _multi_sig_verifier = _create_multi_sig_verifier()
     return _multi_sig_verifier.verify_multi_sig(signature,
-                                                     value,
-                                                     public_keys)
+                                                value,
+                                                public_keys)
+
 
 def _create_multi_sig_verifier() -> BlsCryptoVerifier:
     verifier = create_default_bls_crypto_factory() \
