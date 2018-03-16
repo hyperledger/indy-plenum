@@ -205,7 +205,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          bls_key=key_in_txn,
                          services=None)
-    poolSetExceptOne = txnPoolNodeSet
+    poolSetExceptOne = list(txnPoolNodeSet)
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
