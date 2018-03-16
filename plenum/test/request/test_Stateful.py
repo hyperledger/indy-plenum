@@ -117,13 +117,26 @@ def test_transition_error():
     assert excinfo.value.state == 2
 
 def test_non_iterable_transition_rule():
-    Stateful(1, {2: 1}).try_state(2)
+    stateful = Stateful(1, {2: 1})
+    stateful.try_state(2)
+    assert stateful.state() == 1
+    stateful.set_state(2)
+    assert stateful.state() == 2
 
 def test_iterable_transition_rule():
-    Stateful(1, {2: (1,)}).try_state(2)
+    stateful = Stateful(1, {2: (1,)})
+    stateful.try_state(2)
+    assert stateful.state() == 1
+    stateful.set_state(2)
+    assert stateful.state() == 2
 
 def test_callable_transition_rule():
-    Stateful(1, {2: lambda: True}).try_state(2)
+    stateful = Stateful(1, {2: lambda: True})
+    stateful.try_state(2)
+    assert stateful.state() == 1
+    stateful.set_state(2)
+    assert stateful.state() == 2
+
     with pytest.raises(TransitionError):
         assert Stateful(1, {2: lambda: False}).try_state(2)
 
