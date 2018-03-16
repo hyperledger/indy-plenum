@@ -2,7 +2,7 @@ import time
 from collections import deque, OrderedDict
 from enum import unique, IntEnum
 from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
 
 import math
 
@@ -86,10 +86,6 @@ PP_APPLY_REJECT_WRONG = 7
 PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
-
-PP_CHECK_DUPLICATE_REQUEST = 11
-PP_CHECK_ORDERED_REQUEST = 12
-PP_CHECK_REJECTED_REQUEST = 13
 
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
@@ -258,7 +254,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.register_ledger(ledger_id)
 
         self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
-        # Tuple[int, float, bytes]]
+        # Tuple[PrePrepare, bytes]]
 
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = time.perf_counter()
@@ -455,18 +451,78 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self._reset_watermarks_before_new_view()
             self._stateChanged()
 
-    def _markRequestsIn3PC(self, pp: PrePrepare):
-        logger.debug("{} mark In3PC {}".format(self, pp))
-        # mark both valid and invalid (discarded) requests as In3PC
-        for idx, reqKey in enumerate(pp.reqIdr):
-            tpc_event_cls = (TPCRequest.Accept
-                if idx < pp.discarded else TPCRequest.Reject)
-            self.requests[reqKey].on_tpcevent(
+    # TODO refator that:
+    #   - requests are updated by different objects: replica, node, requests
+    #   - apply / revert happens on different levels: apply - node, revert - replica
+    #   - DRY
+    def _mark_requests_added_to_pp(self, pp: PrePrepare):
+        logger.debug(
+            "{} setting requests as added to pp {}: accepted {}, rejected {}"
+            .format(self, (pp.viewNo, pp.ppSeqNo),
+                    pp.reqIdr[:pp.discarded], pp.reqIdr[pp.discarded:]))
+        for idx, key in enumerate(pp.reqIdr):
+            tpc_event_cls = (TPCRequest.Accept if
+                             idx < pp.discarded else TPCRequest.Reject)
+            self.requests[key].on_tpcevent(
                 self.instId, tpc_event_cls((pp.viewNo, pp.ppSeqNo)))
 
-    def _markRequestsOrdered(self, ordered: Ordered):
-        for reqKey in ordered.reqIdr:
-            self.requests[reqKey].on_tpcevent(self.instId, TPCRequest.Order())
+    def _mark_requests_reset(self, req_keys: Iterable[Tuple[int, int]]):
+        logger.debug("{} setting requests as reset: {}".format(self, req_keys))
+        for key in req_keys:
+            self.requests[key].on_tpcevent(self.instId, TPCRequest.Reset())
+
+    def _mark_requests_ordered(self, req_keys: Iterable[Tuple[int, int]]):
+        logger.debug("{} setting requests as ordered: {}".format(self, req_keys))
+        for key in req_keys:
+            self.requests[key].on_tpcevent(self.instId, TPCRequest.Order())
+
+    def _mark_requests_reverted(self, req_keys: Iterable[Tuple[int, int]]):
+        logger.debug("{} setting requests as reverted: {}".format(self, req_keys))
+        for key in req_keys:
+            self.requests[key].on_tpcevent(self.instId, TPCRequest.Revert())
+
+    def _mark_requests_cleaned(self, req_keys: Iterable[Tuple[int, int]]):
+        logger.debug("{} setting requests as cleaned: {}".format(self, req_keys))
+        for key in req_keys:
+            self.requests.clean(key, self.instId)
+
+    # TODO should be removed after some refactoring in node/replica code
+    # for now we can't be sure about requests state: seems it is possible
+    # that some requests might be in applied (but not committed) state
+    def _monkey_patch_still_applied_reqs_in_pp(
+            self,
+            pp_key: Tuple[int, int],
+            req_keys: Iterable[Tuple[int, int]]):
+        rbftr = None
+        for key in req_keys:
+            rbftr = self.requests[key]
+            if rbftr.is_applied(self.instId):
+                logger.error(
+                    "{} pp {} includes still applied request {}"
+                    .format(self, pp_key, rbftr))
+                break  # log only once
+
+        if rbftr is not None and rbftr.is_applied(self.instId):
+            self._mark_requests_reverted(req_keys)
+
+    # TODO should be removed after some refactoring in node/replica code
+    # for now we can't be sure about requests state: seems it is possible
+    # that some requests might be in applied (but not committed) state
+    def _cancel_reqs_in_caught_up_3pc(self, pp_key, reqs_keys):
+        _committed = None
+
+        self._monkey_patch_still_applied_reqs_in_pp(pp_key, reqs_keys)
+
+        for req_key in reqs_keys:
+            rbftr = self.requests[req_key]
+            if rbftr.is_committed(self.instId):
+                if _committed is None:  # log only once
+                    logger.warning(
+                        "{} pp {} includes committed request {}"
+                        .format(self, pp_key, rbftr))
+                _committed = rbftr
+            else:
+                rbftr.on_tpcevent(self.instId, TPCRequest.Cancel())
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -479,7 +535,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.primaryNames.pop(view_no)
 
     def primaryChanged(self, primaryName):
+        for pp_key, (pp, _) in self.batches.items():
+            self._monkey_patch_still_applied_reqs_in_pp(
+                pp_key, pp.reqIdr[:pp.discarded])
+
         self.batches.clear()
+
         if self.isMaster:
             # Since there is no temporary state data structure and state root
             # is explicitly set to correct value
@@ -666,8 +727,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tracked to revert this PRE-PREPARE
         logger.debug('{} tracking batch for {} with state root {}'.
                      format(self, pp, prevStateRootHash))
-        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
-                                                 pp.ppTime, prevStateRootHash]
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp, prevStateRootHash]
 
     def send3PCBatch(self):
         r = 0
@@ -769,7 +829,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
-        self._markRequestsIn3PC(ppReq)
+        self._mark_requests_added_to_pp(ppReq)
 
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key].finalised
@@ -879,6 +939,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.addToPrePrepares(pre_prepare)
         if not self.node.isParticipating:
+            # TODO FIXME seems we should revert applied requests here
             self.stashingWhileCatchingUp.add(key)
             logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
             return None
@@ -1156,16 +1217,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return self.last_ordered_3pc
 
-    def revert(self, ledgerId, stateRootHash, reqCount):
+    def revert(self, ledgerId, stateRootHash, req_keys: Iterable[Tuple]):
         # A batch should only be reverted if all batches that came after it
         # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
         logger.debug('{} reverting {} txns and state root from {} to {} for'
-                     ' ledger {}'.format(self, reqCount, state.headHash,
+                     ' ledger {}'.format(self, len(req_keys), state.headHash,
                                          stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
-        ledger.discardTxns(reqCount)
+        ledger.discardTxns(len(req_keys))
+        self._mark_requests_reverted(req_keys)
+
         self.node.onBatchRejected(ledgerId)
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
@@ -1200,7 +1263,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        len(valid_reqs))
+                        [req.key for req in valid_reqs])
 
         if len(valid_reqs) != pre_prepare.discarded:
             if self.isMaster:
@@ -1300,7 +1363,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
-        self._markRequestsIn3PC(pp)
+        self._mark_requests_added_to_pp(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeue_prepares(*key)
@@ -1472,7 +1535,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # TODO: Fix problem that can occur with a primary and non-primary(s)
         # colluding and the honest nodes being slow
-        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+        if ((key not in self.prepares) and (key not in self.sentPrePrepares) and
                 (key not in self.preparesWaitingForPrePrepare)):
             logger.warning("{} rejecting COMMIT{} due to lack of prepares".
                            format(self, key))
@@ -1657,14 +1720,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: Should not order or add to checkpoint while syncing
         # 3 phase state.
 
-        # it is possible if we got quorum for Commit but in the same
-        # time the replica didn't participate in consensus - didn't
-        # send any Prepare and Commit
+        # quorum for Commit is possible even if corresponding PP was received
+        # in non-participating state: PP was stashed and the replica didn't
+        # participate in consensus (didn't send any Prepare and Commit)
         if key in self.stashingWhileCatchingUp:
             if self.isMaster and self.node.isParticipating:
                 # While this request arrived the node was catching up but the
                 # node has caught up and applied the stash so apply this
                 # request
+                # TODO FIXME seems it had been already applied before was stashed
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
                 self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
@@ -1674,7 +1738,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stashingWhileCatchingUp.remove(key)
 
         self._discard_ordered_req_keys(pp)
-        self._markRequestsOrdered(ordered)
+        self._mark_requests_ordered(ordered.reqIdr)
 
         self.send(ordered, TPCStat.OrderSent)
 
@@ -1847,11 +1911,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         to_remove = []
         for idx, (pp, _, _) in enumerate(self.prePreparesPendingFinReqs):
             if pp.viewNo < self.viewNo:
-                to_remove.insert(0, (idx, pp))
-        for (idx, pp) in to_remove:
+                to_remove.insert(0, idx)
+        for idx in to_remove:
             self.prePreparesPendingFinReqs.pop(idx)
 
-        for (v, p), pp in list(self.prePreparesPendingPrevPP.items()):
+        for (v, p) in list(self.prePreparesPendingPrevPP.keys()):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
@@ -1923,6 +1987,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
 
+        # TODO should be removed after code review and refactoring
+        for pp_key, (pp, _) in self.batches.items():
+            if pp_key in tpcKeys:
+                self._monkey_patch_still_applied_reqs_in_pp(
+                    pp_key, pp.reqIdr[:pp.discarded])
+
         to_clean_up = (
             self.sentPrePrepares,
             self.prePrepares,
@@ -1937,10 +2007,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             for coll in to_clean_up:
                 coll.pop(request_key, None)
 
-        for request_key in reqKeys:
-            self.requests.clean(request_key, self.instId)
-            logger.debug('{} freed request {} from previous checkpoints'
-                         .format(self, request_key))
+        self._mark_requests_cleaned(reqKeys)
 
         self.compact_ordered()
 
@@ -1953,19 +2020,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Clear any checkpoints, since they are valid only in a view
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
-        # clear prePreparesPendingFinReqs and prePreparesPendingPrevPP
         self._clear_prev_view_pre_prepares()
-        # clear preparesWaitingForPrePrepare
-        # clear commitsWaitingForPrepare
-        # clear sentPrePrepares
-        # clear prePrepares
-        # clear prepares
-        # clear batches
-        # clear requested_pre_prepares
-        # clear requested_prepares
-        # clear pre_prepares_stashed_for_incorrect_time
-
-        # do not clear commits - thet were done in previous view
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
@@ -1973,6 +2028,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # as other nodes
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
+
+    def _reset_reqs_before_new_view(self):
+        # new view may bring new round of request ordering
+        # in scope of new 3pc batch
+        to_reset = set()
+        for i in self.sentPrePrepares.items():
+            to_reset.add(i)
+        for i in self.prePrepares.items():
+            to_reset.add(i)
+
+        for pp_key, pp in to_reset:
+            # TODO should be removed after code review and refactoring
+            self._monkey_patch_still_applied_reqs_in_pp(
+                pp_key, pp.reqIdr[:pp.discarded])
+
+            self._mark_requests_reset(pp.reqIdr)
 
     def stashOutsideWatermarks(self, item: Tuple):
         self.stashingWhileOutsideWaterMarks.append(item)
@@ -2045,6 +2116,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if view_no >= min_allowed_view_no:
                 break
             i += 1
+        # TODO does it makes sense to update it in-place?
         self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
@@ -2435,9 +2507,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                ledger_id, count, _, prevStateRoot = self.batches.pop(key)
+                pp, prevStateRoot = self.batches.pop(key)
                 logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, count)
+                self.revert(pp.ledgerId, prevStateRoot, pp.reqIdr[:pp.discarded])
                 i += 1
             else:
                 break
@@ -2461,6 +2533,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         Remove any 3 phase messages till the last ordered key and also remove
         any corresponding request keys
         """
+        # TODO why we don't clean from stashingWhileCatchingUp as well
+
         outdated_pre_prepares = {}
         for key, pp in self.prePrepares.items():
             if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
@@ -2476,6 +2550,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
             self.prePrepares.pop(key, None)
+            # TODO what about rejected / discarded
+            self._cancel_reqs_in_caught_up_3pc(key, pp.reqIdr[:pp.discarded])
+            # TODO why we didn't clean here before
+            self._mark_requests_cleaned(pp.reqIdr)
+
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
@@ -2502,4 +2581,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for i in reversed(to_remove):
             removed.insert(0, self.outBox[i])
             del self.outBox[i]
+
+        if last_caught_up_3PC:
+            for msg in removed:
+                self._cancel_reqs_in_caught_up_3pc(
+                    (msg.viewNo, msg.ppSeqNo), msg.reqIdr)
+
         return removed

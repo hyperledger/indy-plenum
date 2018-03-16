@@ -1314,15 +1314,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.try_processing_ordered(message)
             elif isinstance(message, Reject):
                 # expected only from master replica
-                reqKey = (message.identifier, message.reqId)
+                req_key = (message.identifier, message.reqId)
                 reject = Reject(
-                    *reqKey,
+                    *req_key,
                     self.reasonForClientFromException(message.reason)
                 )
-                rbftRequest = self.requests[reqKey]
-                self.transmitToClient(reject, rbftRequest.clientName)
-                rbftRequest.on_reply()
-                self.requests.executed(reqKey)  # TODO why didn't do that before
+                rbftr = self.requests[req_key]
+                self.transmitToClient(reject, rbftr.client_name)
+                rbftr.on_reply()
+                self.requests.executed(req_key)  # TODO why didn't do that before
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1957,10 +1957,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
+        # pre hook
         self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time)
+        # apply
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
+        # update TPCRequest state
+        self.request[request.key].on_tpcevent(
+            self.instances.masterId, TPCRequest.Apply())
+        # post hook
         ledger_id = self.ledger_id_for_request(request)
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
@@ -2061,8 +2067,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         request = self._client_request_class(**msg.request)
 
-        if not (request.key in self.requests or
-                self.seqNoDB.get(*request.key) is None):
+        if (request.key not in self.requests and
+                self.seqNoDB.get(*request.key) is not None):
+            # request is not being processed now but it has been committed
             logger.debug(
                 "{} ignoring propagated request {} since it has been already "
                 "committed".format(self.name, msg)
@@ -2137,7 +2144,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self))
 
         # TODO all reqKeys have to be in self.requests, if not we should
-        # review and verify all data come from replicas
+        # review and verify all data comes from replicas
         requests = [
             self.requests[reqKey].finalised for reqKey in ordered.reqIdr
             if self.requests[reqKey].finalised
@@ -2456,7 +2463,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         assert len(committedTxns) == len(reqs)
         for request in reqs:
             self.requests[request.key].on_tpcevent(
-                    self.instances.masterId, TPCRequest.Commit())
+                self.instances.masterId, TPCRequest.Commit())
 
         # TODO what is the case here?
         if not committedTxns:
@@ -2514,17 +2521,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.addBatch((idr_from_req_data(txn), txn[f.REQ_ID.nm],
                                    txn[F.seqNo.name]) for txn in committedTxns)
 
-    def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
-                             stateRoot, txnRoot) -> List:
+    def commit(self,
+               reqHandler,
+               ppTime,
+               reqs: List[Request],
+               stateRoot,
+               txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        # TODO
+        #   - is it possible to fail here
+        #   - is it guaranteed that committed txns correspond to requests
+        #       (as long as we don't refer to requests, just to number of them)
+        assert len(committedTxns) == len(reqs)
+
         self.updateSeqNoMap(committedTxns)
         return committedTxns
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
-        return self.commitAndSendReplies(
-            self.get_req_handler(ledger_id), pp_time, reqs, state_root,
-            txn_root)
+        return self.commit(
+            self.get_req_handler(ledger_id),
+            pp_time, reqs, state_root, txn_root
+        )
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
@@ -2578,21 +2596,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
-            reqKey = (idr_from_req_data(txn), txn[f.REQ_ID.nm])
-            rbftRequest = self.requests.get(reqKey)
-            if rbftRequest is not None:
-                self._sendReplyToClient(Reply(txn), rbftRequest)
+            req_key = (idr_from_req_data(txn), txn[f.REQ_ID.nm])
+            rbftr = self.requests.get(req_key)
+            if rbftr is not None:
+                self._sendReplyToClient(Reply(txn), rbftr)
             else:
                 logger.warning(
                     "{} rbft request with key {} wasn't found, txn: {}"
-                    .format(self, reqKey, txn))
+                    .format(self, req_key, txn))
 
-    def _sendReplyToClient(self, reply, rbftRequest):
+    def _sendReplyToClient(self, reply, rbft_request):
         logger.debug(
             "{} sending reply for {} to client {}"
-            .format(self, rbftRequest.key, rbftRequest.clientName))
-        self.transmitToClient(reply, rbftRequest.clientName)
-        rbftRequest.on_reply()
+            .format(self, rbft_request.key, rbft_request.clientName))
+        self.transmitToClient(reply, rbft_request.clientName)
+        rbft_request.on_reply()
 
     def addNewRole(self, txn):
         """
