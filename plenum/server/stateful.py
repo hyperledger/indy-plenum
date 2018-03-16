@@ -119,7 +119,7 @@ class Stateful(metaclass=StatefulMeta):
             # TODO store stack trace information for easier debugging
             self.states.append(state)
             logger.trace("{!r} changed state from {!r} to {!r}"
-                         .format(self, self.state(), state))
+                         .format(self, self.states[-2], state))
 
     def state(self):
         return self.states[-1]

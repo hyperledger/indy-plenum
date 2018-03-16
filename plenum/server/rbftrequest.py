@@ -72,6 +72,10 @@ class RBFTReqTPCEvent(RBFTReqEvent):
         self.inst_id = inst_id
         self.tpc_event = tpc_event
 
+    def __repr__(self):
+        return ("{}, inst_id {}, tpc_event: {!r}"
+                .format(super().__repr__(), self.inst_id, self.tpc_event))
+
 
 class RBFTRequest(Stateful):
     """

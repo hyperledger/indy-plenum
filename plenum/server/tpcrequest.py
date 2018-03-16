@@ -114,7 +114,9 @@ class TPCRequest(Stateful):
                 TxnState.Applied: self._is_applicable,
                 TxnState.Committed: self._is_committable
             },
-            name='TxnState'
+            name=("{}:{} request {} TxnState"
+                  .format(self.rbft_request.node_name,
+                         self.inst_id, repr(self.key)))
         )
 
         Stateful.__init__(
