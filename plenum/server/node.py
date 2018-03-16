@@ -1322,7 +1322,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 rbftr = self.requests[req_key]
                 self.transmitToClient(reject, rbftr.client_name)
                 rbftr.on_reply()
-                self.requests.executed(req_key)  # TODO why didn't do that before
+                self.requests.mark_executed(req_key)  # TODO why didn't do that before
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -2475,7 +2475,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             pp_time)
 
         for request in reqs:
-            self.requests.executed(request.key)
+            self.requests.mark_executed(request.key)
 
         logger.info(
             "{} committed batch request, view no {}, ppSeqNo {}, "

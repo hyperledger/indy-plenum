@@ -35,7 +35,7 @@ class Requests(OrderedDict):
                                         client_name, master_inst_id)
         return self[req.key]
 
-    def executed(self, req_key: Tuple):
+    def mark_executed(self, req_key: Tuple):
         """
         Marks request as executed and tries to remove it
         """
