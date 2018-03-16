@@ -103,7 +103,7 @@ def test_meta_unkown_event():
             .format(StatefulChild.supported_events, StEvTest3))
 
 def test_initial_state():
-    Stateful(1, {}).state() == 1
+    assert Stateful(1, {}).state() == 1
 
 def test_no_transition_rule():
     with pytest.raises(TransitionError):
