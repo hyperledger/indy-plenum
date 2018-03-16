@@ -1,0 +1,479 @@
+#!/usr/bin/env python3
+
+import os, sys, re, yaml
+from collections import namedtuple
+from datetime import datetime, timedelta
+from multiprocessing import Pool
+
+import matplotlib.pyplot as plt
+
+###########################################################################################
+# Configuration
+###########################################################################################
+
+global_config = sys.argv[1] if len(sys.argv) > 1 else sys.argv[0] + ".yml"
+print("Using config {}".format(global_config))
+with open(global_config) as f:
+    global_config = yaml.load(f.read())
+
+
+def kv_from_item(item):
+    try:
+        return next(iter(item.items()))
+    except:
+        return item, None
+
+
+###########################################################################################
+# Input log info
+###########################################################################################
+
+InputLogInfo = namedtuple("InputLogInfo", "filename node rule")
+
+
+def _parse_input_log_names(filenames, rule):
+    matcher = re.compile(os.path.join(rule["path"], rule["pattern"]))
+    for name in filenames:
+        m = matcher.fullmatch(name)
+        if m:
+            yield InputLogInfo(name, node=m.group(rule["node_group"]), rule=rule)
+
+
+def _input_logs_from_rule(rule):
+    path = rule["path"]
+    if rule["recursive"]:
+        for root, _, files in os.walk(path):
+            yield from _parse_input_log_names((os.path.join(root, name) for name in files), rule)
+    else:
+        yield from _parse_input_log_names((os.path.join(path, name) for name in os.listdir(path)), rule)
+
+
+def input_logs():
+    for rule in global_config["input_logs"]:
+        yield from _input_logs_from_rule(rule)
+
+
+###########################################################################################
+# Log message
+###########################################################################################
+
+class LogMessage:
+    def __init__(self, message, node=None, timestamp=None, level=None, source=None, func=None):
+        self.message = message
+        self.timestamp = timestamp
+        self.node = node
+        self.level = level
+        self.source = source
+        self.func = func
+
+    def set_tag(self, name, value=None):
+        setattr(self, name, value)
+
+
+def _parse_messages(f, node):
+    for line in f:
+        tokens = [t.strip() for t in line.split('|', maxsplit=4)]
+        if len(tokens) < 5:
+            yield LogMessage(line, node)
+        else:
+            # The following is just a much faster version of
+            # timestamp = datetime.strptime(tokens[0], "%Y-%m-%d %H:%M:%S,%f")
+            timestamp = datetime(year=int(tokens[0][0:4]),
+                                 month=int(tokens[0][5:7]),
+                                 day=int(tokens[0][8:10]),
+                                 hour=int(tokens[0][11:13]),
+                                 minute=int(tokens[0][14:16]),
+                                 second=int(tokens[0][17:19]),
+                                 microsecond=int(tokens[0][20:23]) * 1000)
+            yield LogMessage(tokens[4], node, timestamp, tokens[1], tokens[2], tokens[3])
+
+
+def messages_in_log(log):
+    print("Processing {}...".format(log.filename))
+    with open(log.filename, "r") as f:
+        if log.rule["only_timestamped"]:
+            for message in _parse_messages(f, log.node):
+                if message.timestamp is not None:
+                    yield message
+            return
+
+        last_time = None
+        stashed_messages = []
+        for message in _parse_messages(f, log.node):
+            cur_time = message.timestamp
+            if cur_time is not None:
+                for m in stashed_messages:
+                    m.timestamp = cur_time
+                    yield m
+                stashed_messages = []
+                last_time = cur_time
+                yield message
+            elif last_time is not None:
+                message.timestamp = last_time
+                yield message
+            else:
+                stashed_messages.append(message)
+
+        if len(stashed_messages) > 0:
+            print("WARNING: none of lines in {} were timestamped!".format(log.filename))
+
+
+###########################################################################################
+# Processing chain
+###########################################################################################
+
+ACTION_RETURN = "RETURN"
+ACTION_DROP = "DROP"
+
+
+class RuleAction:
+    def __init__(self, action):
+        self.action = action
+
+    def process(self, message, ctx):
+        return self.action
+
+
+class RuleProcess:
+    def __init__(self, chain):
+        self.chain = chain
+
+    def process(self, message, ctx):
+        return self.chain
+
+
+class RuleMatchTimestamp:
+    def __init__(self, params):
+        self.min = params.setdefault("min", None)
+        self.max = params.setdefault("max", None)
+
+    def process(self, message, ctx):
+        if self.min is not None:
+            if message.timestamp < self.min:
+                return ACTION_RETURN
+        if self.max is not None:
+            if message.timestamp > self.max:
+                return ACTION_RETURN
+
+
+def _severity(level):
+    levels = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR"]
+    try:
+        return levels.index(level)
+    except:
+        return None
+
+
+class RuleMatchLevel:
+    def __init__(self, params):
+        try:
+            self.min = _severity(params.setdefault("min", None))
+            self.max = _severity(params.setdefault("min", None))
+        except:
+            self.min = self.max = _severity(params)
+
+    def process(self, message, ctx):
+        level = _severity(message.level)
+        if level is None:
+            return
+        if self.min is not None:
+            if level < self.min:
+                return ACTION_RETURN
+        if self.max is not None:
+            if level > self.max:
+                return ACTION_RETURN
+
+
+class RuleMatchMessage:
+    def __init__(self, pattern):
+        self.match = re.compile(pattern).match
+
+    def process(self, message, ctx):
+        if self.match(message.message) is None:
+            return ACTION_RETURN
+
+
+class RuleMatchTag:
+    def __init__(self, params):
+        self.name, self.value = kv_from_item(params)
+
+    def process(self, message, ctx):
+        if not hasattr(message, self.name):
+            return ACTION_RETURN
+        if self.value is None:
+            return
+        if getattr(message, self.name) != self.value:
+            return ACTION_RETURN
+
+
+class RuleTag:
+    def __init__(self, params):
+        self.match = re.compile(params["pattern"]).match
+        self.tags = params["tags"]
+        self.groups = params["groups"]
+
+    def process(self, message, ctx):
+        m = self.match(message.message)
+        if m is None:
+            return
+        for tag in self.tags:
+            message.set_tag(tag)
+        for idx, tag in self.groups.items():
+            message.set_tag(tag, m.group(idx))
+
+
+class RuleLogTime:
+    def __init__(self, target):
+        self.log, self.graph = kv_from_item(target)
+        assert (self.graph is not None)
+
+    def process(self, message, ctx):
+        ctx.timelogs[self.log].add_event(message, self.graph)
+
+
+class RuleLogLine:
+    def __init__(self, target):
+        self.target = target
+
+    def process(self, message, ctx):
+        ctx.logs[self.target].add_message(message)
+
+
+def _create_rule(config):
+    name, params = kv_from_item(config)
+
+    if name == "return":
+        return RuleAction(ACTION_RETURN)
+    if name == "drop":
+        return RuleAction(ACTION_DROP)
+    if name == "process":
+        return RuleProcess(params)
+    if name == "match timestamp":
+        return RuleMatchTimestamp(params)
+    if name == "match level":
+        return RuleMatchLevel(params)
+    if name == "match message":
+        return RuleMatchMessage(params)
+    if name == "match tag":
+        return RuleMatchTag(params)
+    if name == "tag":
+        return RuleTag(params)
+    if name == "log time":
+        return RuleLogTime(params)
+    if name == "log line":
+        return RuleLogLine(params)
+
+    print("WARNING: Unknown rule", name)
+    return RuleAction(None)
+
+
+def _create_chain(config):
+    return [_create_rule(rule) for rule in config]
+
+
+class ChainSet:
+    def __init__(self, config):
+        self.chains = {name: _create_chain(params) for name, params in config.items()}
+
+    def process(self, chain, message, ctx):
+        for rule in self.chains[chain]:
+            result = rule.process(message, ctx)
+            if result is None:
+                continue
+            if result == ACTION_RETURN:
+                break
+            if result == ACTION_DROP:
+                return ACTION_DROP
+            if self.process(result, message, ctx) == ACTION_DROP:
+                return ACTION_DROP
+
+
+###########################################################################################
+# Output log
+###########################################################################################
+
+class OutputLogFile:
+    def __init__(self, filename):
+        self.filename = filename
+        self.lines = []
+
+    def append(self, timestamp, line):
+        self.lines.append((timestamp, line))
+
+    def merge(self, other):
+        self.lines += other.lines
+
+    def dump(self):
+        self.lines.sort()
+        with open(self.filename, 'w') as f:
+            for _, line in self.lines:
+                f.write(line)
+                f.write('\n')
+
+
+class OutputLog:
+    def __init__(self, config):
+        self.filename = config["filename"].replace('<', '{').replace('>', '}')
+        self.pattern = config["pattern"].replace('<', '{').replace('>', '}')
+        self.merge_nodes = config["merge_nodes"]
+        self.merged_log = OutputLogFile(self.filename)
+        self.nodes = {}
+
+    def add_message(self, message):
+        line = self.pattern.format(**vars(message))
+        if self.merge_nodes:
+            self.merged_log.append(message.timestamp, line)
+        else:
+            self._node(message.node).append(message.timestamp, line)
+
+    def merge(self, other):
+        if self.merge_nodes:
+            self.merged_log.merge(other.merged_log)
+        else:
+            for name, node in other.nodes.items():
+                self._node(name).merge(node)
+
+    def dump(self):
+        if self.merge_nodes:
+            self.merged_log.dump()
+        else:
+            for node in self.nodes.values():
+                node.dump()
+
+    def _node(self, node):
+        result = self.nodes.setdefault(node, None)
+        if result is None:
+            result = OutputLogFile(self.filename.format(node=node))
+            self.nodes[node] = result
+        return result
+
+
+###########################################################################################
+# Timelog
+###########################################################################################
+
+class TimeLogGraph:
+    def __init__(self, color):
+        self.color = color
+        self.events = {}
+
+    def add_event(self, timestamp, increment=1):
+        value = self.events.setdefault(timestamp, 0)
+        value += increment
+        self.events[timestamp] = value
+
+    def merge(self, other):
+        for timestamp, counter in other.events.items():
+            self.add_event(timestamp, counter)
+
+
+class NodeTimeLog:
+    def __init__(self, config):
+        self.graphs = {}
+        for graph in config:
+            name, color = kv_from_item(graph)
+            self.graphs[name] = TimeLogGraph(color)
+
+    def add_event(self, timestamp, graph):
+        self.graphs[graph].add_event(timestamp)
+
+    def merge(self, other):
+        for name in set(self.graphs) & set(other.graphs):
+            self.graphs[name].merge(other.graphs[name])
+
+
+class TimeLog:
+    def __init__(self, config):
+        self.interval = config["interval"]
+        self.graphs = config["graphs"]
+        self.nodes = {}
+
+    def add_event(self, message, graph):
+        timestamp = self._round_timestamp(message.timestamp)
+        self._node(message.node).add_event(timestamp, graph)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self, title):
+        fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
+        fig.suptitle(title)
+        fig.subplots_adjust(hspace=0)
+        names, nodes = zip(*sorted(self.nodes.items()))
+
+        for name, node, ax in zip(names, nodes, axs):
+            ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
+            ax.tick_params(axis='y', which='both', labelleft='off')
+
+            for graph in node.graphs.values():
+                if len(graph.events) == 0:
+                    continue
+
+                dates, values = zip(*sorted(graph.events.items()))
+                ax.plot_date(dates, values,
+                             marker=None,
+                             linestyle='solid',
+                             color=graph.color)
+                ax.fill_between(dates, 0, values, color=graph.color)
+
+        fig.autofmt_xdate()
+        plt.show()
+
+    def _round_timestamp(self, timestamp):
+        return datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day,
+                        hour=timestamp.hour, minute=timestamp.minute,
+                        second=timestamp.second // self.interval * self.interval)
+
+    def _node(self, node):
+        result = self.nodes.setdefault(node, None)
+        if result is None:
+            result = NodeTimeLog(self.graphs)
+            self.nodes[node] = result
+        return result
+
+
+###########################################################################################
+# Processing context
+###########################################################################################
+
+
+class Context:
+    def __init__(self, config):
+        self.logs = {name: OutputLog(params) for name, params in config["logs"].items()}
+        self.timelogs = {name: TimeLog(params) for name, params in config["timelogs"].items()}
+
+    def merge(self, other):
+        for name in set(self.logs) & set(other.logs):
+            self.logs[name].merge(other.logs[name])
+        for name in set(self.timelogs) & set(other.timelogs):
+            self.timelogs[name].merge(other.timelogs[name])
+
+    def dump(self):
+        for log in self.logs.values():
+            log.dump()
+        for name, timelog in self.timelogs.items():
+            timelog.dump(name)
+
+
+###########################################################################################
+# Main
+###########################################################################################
+
+chain_set = ChainSet(global_config["chains"])
+
+
+def process_log(log):
+    ctx = Context(global_config)
+    for message in messages_in_log(log):
+        chain_set.process("main", message, ctx)
+    return ctx
+
+
+with Pool() as pool:
+    results = pool.map(process_log, input_logs())
+
+for context in results[1:]:
+    results[0].merge(context)
+
+results[0].dump()
