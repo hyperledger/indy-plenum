@@ -1,5 +1,4 @@
 from plenum.test.bls.helper import sdk_check_bls_multi_sig_after_send
-from plenum.test.pool_transactions.conftest import looper
 
 nodeCount = 7
 nodes_wth_bls = 7

@@ -1,6 +1,6 @@
 from plenum.common.constants import TXN_TYPE, STATE_PROOF, DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
-from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, sdk_send_random_and_check, \
+from plenum.test.helper import sdk_send_random_and_check, \
     sdk_json_to_request_object
 
 nodeCount = 4

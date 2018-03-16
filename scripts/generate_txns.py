@@ -34,7 +34,7 @@ async def get_wallet_and_pool():
     await did.create_and_store_my_did(my_wallet_handle, "{}")
 
     (their_did, their_verkey) = await did.create_and_store_my_did(their_wallet_handle,
-                                                                     json.dumps({"seed": seed_trustee1}))
+                                                                  json.dumps({"seed": seed_trustee1}))
 
     await did.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
 
@@ -84,10 +84,10 @@ if __name__ == "__main__":
 
     with ExitStack() as exit_stack:
         with Looper() as looper:
-            sdk_wallet, did = looper.loop.run_until_complete(get_wallet_and_pool())
+            sdk_wallet, DID = looper.loop.run_until_complete(get_wallet_and_pool())
             with open(path_to_save, 'w') as outpath:
                 for _ in range(args.count):
-                    req = sdk_signed_random_requests(looper, (sdk_wallet, did), 1)[0]
+                    req = sdk_signed_random_requests(looper, (sdk_wallet, DID), 1)[0]
                     txn = sdk_reqToTxn(req, int(time.time()))
                     outpath.write(json.dumps(txn))
                     outpath.write(os.linesep)

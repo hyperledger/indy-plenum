@@ -1,6 +1,5 @@
 from plenum.server.quorums import Quorum
 from plenum.test.bls.helper import check_update_bls_key
-from plenum.test.pool_transactions.conftest import looper
 
 nodeCount = 4
 nodes_wth_bls = 4
