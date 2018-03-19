@@ -2,17 +2,10 @@ import base58
 import os
 
 from crypto.bls.bls_crypto import BlsCryptoVerifier
-
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
-
 from plenum.server.quorums import Quorums
-
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-
 from state.pruning_state import PruningState
-
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
@@ -21,6 +14,7 @@ from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet, hexToFriendly
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node, \
     sdk_pool_refresh
 from stp_core.common.log import getlogger
@@ -32,9 +26,9 @@ def generate_state_root():
     return base58.b58encode(os.urandom(32))
 
 
-def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                   client, wallet,
-                                   saved_multi_sigs_count):
+def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
+                                       sdk_pool_handle, sdk_wallet_handle,
+                                       saved_multi_sigs_count):
     # at least two because first request could have no
     # signature since state can be clear
     number_of_requests = 3
@@ -43,8 +37,8 @@ def check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     # Using loop to avoid 3pc batching
     state_roots = []
     for i in range(number_of_requests):
-        reqs = sendRandomRequests(wallet, client, 1)
-        waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_handle, 1)
         waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
         state_roots.append(
             state_roots_serializer.serialize(
@@ -250,7 +244,9 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          bls_key=key_in_txn,
                          services=None)
-    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
+    poolSetExceptOne = list(txnPoolNodeSet)
+    poolSetExceptOne.remove(node)
+    waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
@@ -301,8 +297,8 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
 
 def validate_proof(result):
     """
-            Validates state proof
-            """
+    Validates state proof
+    """
     state_root_hash = result[STATE_PROOF]['root_hash']
     state_root_hash = state_roots_serializer.deserialize(state_root_hash)
     proof_nodes = result[STATE_PROOF]['proof_nodes']

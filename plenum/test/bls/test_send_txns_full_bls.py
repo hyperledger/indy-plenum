@@ -11,7 +11,6 @@ def test_each_node_has_bls(txnPoolNodeSet):
 
 
 def test_send_txns_full_bls(looper, txnPoolNodeSet,
-
                             sdk_pool_handle, sdk_wallet_client):
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
                                        sdk_pool_handle, sdk_wallet_client,
