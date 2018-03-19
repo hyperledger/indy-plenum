@@ -22,7 +22,7 @@ def limitTestRunningTime():
 
 # noinspection PyIncorrectDocstring
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
-        tconf_for_func, tdir_for_func):
+        looper, txnPoolNodeSet):
     """
     A protocol instance must have at least 4 nodes to come up.
     The status of the nodes will change from starting to started only after the
@@ -33,54 +33,51 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     minimumNodesToBeUp = nodeCount - f
 
     nodeNames = genNodeNames(nodeCount)
-    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
 
-            # helpers
+    # helpers
+    def genExpectedStates(connecteds: Iterable[str]):
+        return {
+            nn: CONNECTED if nn in connecteds else JOINED_NOT_ALLOWED
+            for nn in nodeNames}
 
-            def genExpectedStates(connecteds: Iterable[str]):
-                return {
-                    nn: CONNECTED if nn in connecteds else JOINED_NOT_ALLOWED
-                    for nn in nodeNames}
+    def checkNodeStatusRemotesAndF(expectedStatus: Status,
+                                   nodeIdx: int):
+        for node in txnPoolNodeSet:
+            checkNodeRemotes(node,
+                             genExpectedStates(nodeNames[:nodeIdx + 1]))
+            assert node.status == expectedStatus
 
-            def checkNodeStatusRemotesAndF(expectedStatus: Status,
-                                           nodeIdx: int):
-                for node in nodeSet.nodes.values():
-                    checkNodeRemotes(node,
-                                     genExpectedStates(nodeNames[:nodeIdx + 1]))
-                    assert node.status == expectedStatus
+    def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
+        logger.info("Add back the {} node and see status of {}".
+                    format(ordinal(nodeIdx + 1), expectedStatus))
+        addNodeBack(txnPoolNodeSet, looper, nodeNames[nodeIdx])
 
-            def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
-                logger.info("Add back the {} node and see status of {}".
-                            format(ordinal(nodeIdx + 1), expectedStatus))
-                addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
+        timeout = waits.expectedNodeStartUpTimeout() + \
+                  waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))
+        # TODO: Probably it's better to modify waits.* functions
+        timeout *= 1.5
+        looper.run(eventually(checkNodeStatusRemotesAndF,
+                              expectedStatus,
+                              nodeIdx,
+                              retryWait=1, timeout=timeout))
 
-                timeout = waits.expectedNodeStartUpTimeout() + \
-                          waits.expectedPoolInterconnectionTime(len(nodeSet))
-                # TODO: Probably it's better to modify waits.* functions
-                timeout *= 1.5
-                looper.run(eventually(checkNodeStatusRemotesAndF,
-                                      expectedStatus,
-                                      nodeIdx,
-                                      retryWait=1, timeout=timeout))
+    logger.debug("Sharing keys")
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
-            logger.debug("Sharing keys")
-            looper.run(checkNodesConnected(nodeSet))
+    logger.debug("Remove all the nodes")
+    for n in nodeNames:
+        looper.removeProdable(txnPoolNodeSet[n])
+        txnPoolNodeSet.remove(n)
 
-            logger.debug("Remove all the nodes")
-            for n in nodeNames:
-                looper.removeProdable(nodeSet.nodes[n])
-                nodeSet.removeNode(n)
+    looper.runFor(10)
 
-            looper.runFor(10)
-
-            logger.debug("Add nodes back one at a time")
-            for i in range(nodeCount):
-                nodes = i + 1
-                if nodes < minimumNodesToBeUp:
-                    expectedStatus = Status.starting
-                elif nodes < nodeCount:
-                    expectedStatus = Status.started_hungry
-                else:
-                    expectedStatus = Status.started
-                addNodeBackAndCheck(i, expectedStatus)
+    logger.debug("Add nodes back one at a time")
+    for i in range(nodeCount):
+        nodes = i + 1
+        if nodes < minimumNodesToBeUp:
+            expectedStatus = Status.starting
+        elif nodes < nodeCount:
+            expectedStatus = Status.started_hungry
+        else:
+            expectedStatus = Status.started
+        addNodeBackAndCheck(i, expectedStatus)

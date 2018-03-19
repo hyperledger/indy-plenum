@@ -37,7 +37,7 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
     number_of_requests = 5
     tconf.CHK_FREQ = 1
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         for replica in node.replicas:
             set_checkpoint_faking(replica)
 
@@ -51,7 +51,7 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
                                             requests=[request])
 
     expected = [request.reqId for request in requests]
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         real_ledger_state = [txn[1]["reqId"]
                              for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn()]
         assert expected == real_ledger_state

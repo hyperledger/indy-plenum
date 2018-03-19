@@ -32,7 +32,8 @@ from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
-from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals
+from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
+    getAllMsgReceivedForNode
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
     checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
@@ -331,83 +332,78 @@ def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
     return txn
 
 
-async def msgAll(nodes: TestNodeSet):
+async def msgAll(nodes):
     # test sending messages from every node to every other node
     # TODO split send and check so that the messages can be sent concurrently
-    for p in permutations(nodes.nodeNames, 2):
-        await sendMessageAndCheckDelivery(nodes, p[0], p[1])
+    for p in permutations(nodes, 2):
+        await sendMessageAndCheckDelivery(p[0], p[1])
 
 
-def sendMessage(nodes: TestNodeSet,
-                frm: NodeRef,
-                to: NodeRef,
+def sendMessage(sender: Node,
+                reciever: Node,
                 msg: Optional[Tuple] = None):
     """
     Sends message from one node to another
 
     :param nodes:
-    :param frm: sender
-    :param to: recepient
+    :param sender: sender
+    :param reciever: recepient
     :param msg: optional message - by default random one generated
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
     msg = msg if msg else randomMsg()
-    sender = nodes.getNode(frm)
-    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    rid = sender.nodestack.getRemote(reciever.name).uid
     sender.nodestack.send(msg, rid)
 
 
-async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
-                                      frm: NodeRef,
-                                      to: NodeRef,
+async def sendMessageAndCheckDelivery(sender: Node,
+                                      reciever: Node,
                                       msg: Optional[Tuple] = None,
                                       method=None,
                                       customTimeout=None):
     """
     Sends message from one node to another and checks that it was delivered
 
-    :param nodes:
-    :param frm: sender
-    :param to: recepient
+    :param sender: sender
+    :param reciever: recepient
     :param msg: optional message - by default random one generated
     :param customTimeout:
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
     msg = msg if msg else randomMsg()
-    sender = nodes.getNode(frm)
-    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    rid = sender.nodestack.getRemote(reciever.name).uid
     sender.nodestack.send(msg, rid)
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMessageReceived, msg, nodes, to, method,
+    await eventually(checkMessageReceived, msg, reciever, method,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)
 
 
-def sendMessageToAll(nodes: TestNodeSet,
-                     frm: NodeRef,
+def sendMessageToAll(nodes,
+                     sender: Node,
                      msg: Optional[Tuple] = None):
     """
     Sends message from one node to all others
 
     :param nodes:
-    :param frm: sender
+    :param sender: sender
     :param msg: optional message - by default random one generated
     :return:
     """
     for node in nodes:
-        if node != frm:
-            sendMessage(nodes, frm, node, msg)
+        if node != sender:
+            sendMessage(sender, node, msg)
 
 
-async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
-                                           frm: NodeRef,
+async def sendMessageAndCheckDeliveryToAll(nodes,
+                                           sender: Node,
                                            msg: Optional[Tuple] = None,
                                            method=None,
                                            customTimeout=None):
@@ -415,7 +411,7 @@ async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
     Sends message from one node to all other and checks that it was delivered
 
     :param nodes:
-    :param frm: sender
+    :param sender: sender
     :param msg: optional message - by default random one generated
     :param customTimeout:
     :return:
@@ -423,13 +419,13 @@ async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
     customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(
         len(nodes))
     for node in nodes:
-        if node != frm:
-            await sendMessageAndCheckDelivery(nodes, frm, node, msg, method, customTimeout)
+        if node != sender:
+            await sendMessageAndCheckDelivery(sender, node, msg, method, customTimeout)
             break
 
 
-def checkMessageReceived(msg, nodes, to, method: str = None):
-    allMsgs = nodes.getAllMsgReceived(to, method)
+def checkMessageReceived(msg, receiver, method: str = None):
+    allMsgs = getAllMsgReceivedForNode(receiver, method)
     assert msg in allMsgs
 
 

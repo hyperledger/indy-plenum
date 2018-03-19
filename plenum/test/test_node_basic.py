@@ -29,14 +29,13 @@ def testAllBroadcast(pool):
     pool.looper.run(msgAll(pool.nodeset))
 
 
-def testMsgSendingTime(pool, nodeReg):
-    nodeNames = list(nodeReg.keys())
+def testMsgSendingTime(pool):
+    nodes = pool.nodeset
     msg = randomMsg()
     timeout = waits.expectedNodeStartUpTimeout()
     pool.looper.run(
-        sendMessageAndCheckDelivery(pool.nodeset,
-                                    nodeNames[0],
-                                    nodeNames[1],
+        sendMessageAndCheckDelivery(nodes[0],
+                                    nodes[1],
                                     msg,
                                     customTimeout=timeout))
 
