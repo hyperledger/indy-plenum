@@ -219,10 +219,10 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 def options = new TestAndPublishOptions()
 options.skip([
     StagesEnum.IS_TESTED,
-    StagesEnum.STATIC_CODE_VALIDATION,
-    StagesEnum.TEST,
+    //StagesEnum.STATIC_CODE_VALIDATION,
+    //StagesEnum.TEST,
     StagesEnum.AUTOMERGE,
-    StagesEnum.GET_RELEASE_VERSION,
+    //StagesEnum.GET_RELEASE_VERSION,
     //StagesEnum.PYPI_RELEASE,
     //StagesEnum.PACK_RELEASE,
     //StagesEnum.PACK_RELEASE_COPY,
@@ -241,7 +241,6 @@ options.skip([
     StagesEnum.BUILD_RESULT_NOTIF
 ])
 
-options.setReleaseVersion('authz-0.0.0')
 options.setPublishableBranches(['authz'])
 options.setPostfixes([master: 'authz'])
 
