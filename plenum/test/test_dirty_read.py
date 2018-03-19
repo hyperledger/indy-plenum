@@ -22,13 +22,13 @@ def make_node_slow(node):
     node.serviceReplicas = serviceReplicas
 
 
-def test_dirty_read(looper, nodeSet, client1, wallet1):
+def test_dirty_read(looper, txnPoolNodeSet, client1, wallet1):
     """
     Tests the case when read request comes before write request is
     not executed on some nodes
     """
 
-    slow_nodes = list(nodeSet)[2:4]
+    slow_nodes = list(txnPoolNodeSet)[2:4]
     for node in slow_nodes:
         logger.debug("Making node {} slow".format(node))
         make_node_slow(node)

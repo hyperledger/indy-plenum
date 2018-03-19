@@ -4,9 +4,9 @@ from plenum.test.conftest import getValueFromModule
 
 
 @pytest.fixture()
-def viewNo(nodeSet):
+def viewNo(txnPoolNodeSet):
     viewNos = set()
-    for n in nodeSet:
+    for n in txnPoolNodeSet:
         viewNos.add(n.viewNo)
     assert len(viewNos) == 1
     return viewNos.pop()

@@ -13,12 +13,12 @@ nodeCount = 4
 
 
 @pytest.fixture(scope="module")
-def pool(looper, nodeSet):
+def pool(looper, txnPoolNodeSet):
     # for n in nodeSet:  # type: TestNode
     #     n.startKeySharing()
-    looper.run(checkNodesConnected(nodeSet))
-    checkProtocolInstanceSetup(looper, nodeSet)
-    return adict(looper=looper, nodeset=nodeSet)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    checkProtocolInstanceSetup(looper, txnPoolNodeSet)
+    return adict(looper=looper, nodeset=txnPoolNodeSet)
 
 
 def testConnectNodes(pool):

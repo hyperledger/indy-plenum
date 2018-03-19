@@ -19,7 +19,8 @@ def set_checkpoint_faking(replica):
 
 
 def test_request_executed_once_and_without_failing_behind(tconf, looper,
-                                                          nodeSet, client1,
+                                                          txnPoolNodeSet,
+                                                          client1,
                                                           wallet1):
     """
     Checks that all requests executed only once and without failing behind in
