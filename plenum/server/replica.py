@@ -1540,11 +1540,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             vToRemove = set()
             for v in self.stashed_out_of_order_commits:
                 if v < lastOrdered[0] and self.stashed_out_of_order_commits[v]:
-                    raise RuntimeError(
+                    self.logger.debug(
                         "{} found commits {} from previous view {}"
                         " that were not ordered but last ordered"
                         " is {}".format(
                             self, self.stashed_out_of_order_commits[v], v, lastOrdered))
+                    vToRemove.add(v)
+                    continue
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
                     if (v, p) in self.ordered:
