@@ -48,6 +48,10 @@ class PruningState(State):
         # head is the root
         return self._hash_to_node(self.committedHeadHash)
 
+    def get_head_by_hash(self, root_hash):
+        # return node of a merkle tree by given hash
+        return self._hash_to_node(root_hash)
+
     def _hash_to_node(self, node_hash):
         if node_hash == BLANK_ROOT:
             return BLANK_NODE
