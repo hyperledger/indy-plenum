@@ -1,8 +1,10 @@
+import base58
 import pytest
 from plenum.common.constants import BLS_KEY
 
 from plenum.common.messages.client_request import ClientNodeOperationData, ALIAS, SERVICES, NODE_IP, CLIENT_IP, \
     NODE_PORT, CLIENT_PORT
+from plenum.common.util import randomString
 
 op = ClientNodeOperationData()
 
@@ -54,7 +56,7 @@ def test_update_ha_passes():
 def test_update_bls_sign():
     op.validate({
         ALIAS: 'aNode',
-        BLS_KEY: 'some_key',
+        BLS_KEY: base58.b58encode(randomString(128).encode()),
     })
 
 
@@ -64,5 +66,5 @@ def test_empty_bls_fails():
             BLS_KEY: '',
             ALIAS: 'aNode'
         })
-    ex_info.match(
-        'validation error \[ClientNodeOperationData\]: empty string \(blskey=\)')
+    assert 'validation error [ClientNodeOperationData]: b58 decoded ' \
+           'value length 0 should be one of [128] (blskey=)' in ex_info.value.args[0]

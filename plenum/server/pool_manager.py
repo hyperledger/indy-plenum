@@ -200,7 +200,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param ppTime: PrePrepare request time
         :param reqs: request
         """
-        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
         self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             t = deepcopy(txn)
