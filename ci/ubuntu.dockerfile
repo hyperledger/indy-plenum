@@ -5,7 +5,7 @@ ARG uid=1000
 ARG user=indy
 ARG venv=venv
 
-RUN echo "deb https://repo.sovrin.org/test/deb xenial rocksdb" >> /etc/apt/sources.list && \
+RUN echo  "deb https://repo.sovrin.org/test/deb xenial rocksdb" >> /etc/apt/sources.list && \
     apt-get update
 
 RUN apt-get update -y && apt-get install -y \
@@ -17,7 +17,7 @@ RUN apt-get update -y && apt-get install -y \
     zlib1g-dev \
     liblz4-dev \
     libsnappy-dev \
-    librocksdb=5.8.8
+    rocksdb=5.8.8
 
 RUN indy_ci_add_user $uid $user $venv
 
