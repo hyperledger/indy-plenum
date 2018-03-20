@@ -278,12 +278,12 @@ def ensure_view_change_complete_by_primary_restart(
     return nodes
 
 
-def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
+def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client1,
                                slow_delay=1, wait=None):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client1, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
-    sendRandomRequests(wallet, client, 10)
+    sendRandomRequests(wallet, client1, 10)
     if wait:
         looper.runFor(wait)
 
@@ -292,27 +292,27 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
     reset_delays_and_process_delayeds(slow_nodes)
 
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet, client, 5, total_timeout=30)
+        looper, wallet, client1, 5, total_timeout=30)
     send_reqs_to_nodes_and_verify_all_replies(
-        looper, wallet, client, 5, total_timeout=30)
+        looper, wallet, client1, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(
         looper,
         nodes,
         slow_nodes,
-        wallet,
-        client,
+        wallet1,
+        client1,
         tconf,
         min_delay=0,
         max_delay=0):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 4)
 
     # max delay should not be more than catchup timeout.
     max_delay = max_delay or tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
-    sendRandomRequests(wallet, client, 10)
+    sendRandomRequests(wallet1, client1, 10)
 
     ensure_view_change_complete(looper,
                                 nodes,
@@ -321,4 +321,4 @@ def view_change_in_between_3pc_random_delays(
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 10)

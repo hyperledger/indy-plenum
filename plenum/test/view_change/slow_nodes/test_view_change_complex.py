@@ -5,7 +5,7 @@ TestRunningTimeLimitSec = 300
 
 
 def test_view_change_complex(
-        txnPoolNodeSet, looper, wallet1, client, tconf):
+        txnPoolNodeSet, looper, wallet1, client1, tconf):
     """
     - Complex scenario with multiple view changes
     """
@@ -36,7 +36,7 @@ def test_view_change_complex(
         txnPoolNodeSet,
         txnPoolNodeSet,
         wallet1,
-        client,
+        client1,
         tconf,
         min_delay=0,
         max_delay=10)
@@ -45,7 +45,7 @@ def test_view_change_complex(
         txnPoolNodeSet,
         txnPoolNodeSet,
         wallet1,
-        client,
+        client1,
         tconf,
         min_delay=1,
         max_delay=5)
@@ -54,6 +54,6 @@ def test_view_change_complex(
         txnPoolNodeSet,
         txnPoolNodeSet,
         wallet1,
-        client,
+        client1,
         tconf,
         min_delay=5)
