@@ -200,9 +200,9 @@ def delay(what, frm, to, howlong):
                     "to type {} for {} not supported".format(type(t), t))
 
 
-def delayNonPrimaries(nodeSet, instId, delay):
+def delayNonPrimaries(txnPoolNodeSet, instId, delay):
     from plenum.test.test_node import getNonPrimaryReplicas
-    nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
+    nonPrimReps = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
     return nonPrimReps

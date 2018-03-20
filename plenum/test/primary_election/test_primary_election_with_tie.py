@@ -29,7 +29,7 @@ def electTieFixture(txnPoolNodeSet):
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
+def testPrimaryElectionWithTie(electTieFixture, looper, txnPoolNodeSet):
     """
     Primary selection (Rainy Day)
     A, B, C, D, E
@@ -56,18 +56,17 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
     #     millis have passed, we send the several queued messages in one
     #     batch.
 
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
-    checkPoolReady(looper, nodeSet.nodes.values())
+    checkPoolReady(looper, txnPoolNodeSet)
 
-    for node in nodeSet.nodes.values():
+    for node in txnPoolNodeSet:
         for instId, replica in enumerate(node.elector.replicas):
             logger.debug("replica {} {} with votes {}".
                          format(replica.name, replica.instId,
                                 node.elector.nominations.get(instId, {})))
 
-    nominationTimeout = waits.expectedPoolNominationTimeout(len(nodeSet))
+    nominationTimeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     logger.debug("Check nomination")
     # Checking whether Node A nominated itself
     looper.run(eventually(checkNomination, A, A.name,
@@ -86,10 +85,10 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
                           retryWait=1, timeout=nominationTimeout))
 
     # No node should be primary
-    for node in nodeSet.nodes.values():
+    for node in txnPoolNodeSet:
         assert node.hasPrimary is False
 
-    for node in nodeSet.nodes.values():
+    for node in txnPoolNodeSet:
         node.resetDelays()
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
+    checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1)

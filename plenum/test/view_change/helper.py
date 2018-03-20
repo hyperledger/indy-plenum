@@ -68,12 +68,12 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def simulate_slow_master(looper, nodeSet, wallet,
+def simulate_slow_master(looper, txnPoolNodeSet, wallet,
                          client, delay=10, num_reqs=4):
-    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    m_primary_node = get_master_primary_node(list(txnPoolNodeSet))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, delay)
+    delayNonPrimaries(txnPoolNodeSet, 0, delay)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, num_reqs)
     return m_primary_node
 
