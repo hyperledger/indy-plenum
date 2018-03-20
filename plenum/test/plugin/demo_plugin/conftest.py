@@ -67,5 +67,5 @@ def do_post_node_creation():
 
 
 @pytest.fixture(scope="module")
-def nodeSet(tconf, do_post_node_creation, txnPoolNodeSet):
+def txn_pool_node_set_post_creation(tconf, do_post_node_creation, txnPoolNodeSet):
     return txnPoolNodeSet

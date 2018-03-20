@@ -66,8 +66,8 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
 
 
 @pytest.fixture(scope="module")
-def step1(looper, nodeSet, up, wallet1, client1):
-    startedNodes = nodeSet
+def step1(looper, txnPoolNodeSet, wallet1, client1):
+    startedNodes = txnPoolNodeSet
     """
     stand up a pool of nodes and send 5 requests to client
     """

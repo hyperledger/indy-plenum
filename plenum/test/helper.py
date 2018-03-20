@@ -476,9 +476,9 @@ def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
     assert not requestReturnedToNode(node, identifier, reqId, instId)
 
 
-def check_request_is_not_returned_to_nodes(nodeSet, request):
-    instances = range(getNoInstances(len(nodeSet)))
-    for node, inst_id in itertools.product(nodeSet, instances):
+def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
+    instances = range(getNoInstances(len(txnPoolNodeSet)))
+    for node, inst_id in itertools.product(txnPoolNodeSet, instances):
         checkRequestNotReturnedToNode(node,
                                       request.identifier,
                                       request.reqId,

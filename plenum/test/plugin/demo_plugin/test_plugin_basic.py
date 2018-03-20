@@ -8,18 +8,18 @@ from plenum.test.plugin.demo_plugin.constants import GET_BAL
 from stp_core.loop.eventually import eventually
 
 
-def test_plugin_setup(nodeSet):
+def test_plugin_setup(txn_pool_node_set_post_creation):
     """
     Test that plugin's ledger and state are setup
     """
-    for node in nodeSet:
+    for node in txn_pool_node_set_post_creation:
         assert AUCTION_LEDGER_ID in node.ledger_ids
         assert AUCTION_LEDGER_ID in node.ledgerManager.ledgerRegistry
         assert node.ledger_ids == node.ledgerManager.ledger_sync_order
         assert AUCTION_LEDGER_ID in node.states
 
 
-def test_plugin_client_req_fields(nodeSet, looper, stewardWallet,
+def test_plugin_client_req_fields(txn_pool_node_set_post_creation, looper, stewardWallet,
                                   steward1,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
@@ -44,7 +44,7 @@ def test_plugin_client_req_fields(nodeSet, looper, stewardWallet,
                   identifier=stewardWallet.defaultId,
                   fix_length_dummy=randomString(dummy_field_length + 1))
     steward1.submitReqs(req)
-    for node in nodeSet:
+    for node in txn_pool_node_set_post_creation:
         looper.run(eventually(checkReqNackWithReason, steward1,
                               'should have length',
                               node.clientstack.name, retryWait=1))

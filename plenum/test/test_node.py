@@ -890,16 +890,16 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
     return nodeReg
 
 
-def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
+def prepareNodeSet(looper: Looper, txnPoolNodeSet):
     # TODO: Come up with a more specific name for this
 
     # Key sharing party
-    looper.run(checkNodesConnected(nodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Remove all the nodes
-    for n in list(nodeSet.nodes.keys()):
-        looper.removeProdable(nodeSet.nodes[n])
-        nodeSet.removeNode(n)
+    for n in list(txnPoolNodeSet):
+        looper.removeProdable(txnPoolNodeSet)
+        txnPoolNodeSet.remove(n)
 
 
 def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
