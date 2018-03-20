@@ -28,7 +28,7 @@ RUN apt-get update -y && apt-get install -y \
         zlib1g-dev \
         liblz4-dev \
         libsnappy-dev \
-        librocksdb=5.8.8
+        rocksdb=5.8.8
 
 RUN pip3 install -U setuptools
 
