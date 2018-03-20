@@ -2,8 +2,8 @@
 chains:
   tag_commits:
   - tag:
-      pattern: .*COMMIT\((\d+), (\d+)\)
+      pattern: COMMIT\((\d+), (\d+)\)
       tags: [COMMIT]
-      groups:
-        1: instId
-        2: seqNo
+      attributes:
+        instId: 1
+        seqNo: 2
