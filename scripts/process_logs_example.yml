@@ -2,13 +2,15 @@
 input_logs:
   - path: .                        # Where to look for log files
     recursive: yes                 # Whether to descend into subdirectories recursively
-    pattern: Node(\d+)\.log.*      # Log file regex pattern to look for
+    pattern: Node(\d+)\.log        # Log file regex pattern to look for
     node_group: 1                  # Group number that matches node identifier
     only_timestamped: no           # Whether to discard non-timestamped lines
 
 
 chains:
   main:
+  - timeshift:
+      12: -3600.25
   - log time:
       monitoring: total
   - process: warnings

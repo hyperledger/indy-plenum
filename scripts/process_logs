@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os, sys, re, yaml
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Pool
 
@@ -49,9 +49,9 @@ InputLogInfo = namedtuple("InputLogInfo", "filename node rule")
 
 
 def _parse_input_log_names(filenames, rule):
-    matcher = re.compile(os.path.join(rule["path"], rule["pattern"]))
+    matcher = re.compile(rule["pattern"])
     for name in filenames:
-        m = matcher.fullmatch(name)
+        m = matcher.search(name)
         if m:
             yield InputLogInfo(name, node=m.group(rule["node_group"]), rule=rule)
 
@@ -82,9 +82,14 @@ class LogMessage:
         self.level = level
         self.source = source
         self.func = func
+        self.tags = set()
+        self.attributes = defaultdict()
 
-    def set_tag(self, name, value=None):
-        setattr(self, name, value)
+    def set_tag(self, name):
+        self.tags.add(name)
+
+    def set_attribute(self, name, value):
+        self.attributes[name] = value
 
 
 def _parse_messages(f, node):
@@ -159,6 +164,15 @@ class RuleProcess:
         return self.chain
 
 
+class RuleTimeshift:
+    def __init__(self, params):
+        self.delta = {str(name): timedelta(seconds=float(delta)) for name, delta in params.items()}
+
+    def process(self, message, ctx):
+        delta = self.delta.setdefault(message.node, timedelta())
+        message.timestamp += delta
+
+
 class RuleMatchTimestamp:
     def __init__(self, params):
         self.min = params.setdefault("min", None)
@@ -203,7 +217,7 @@ class RuleMatchLevel:
 
 class RuleMatchMessage:
     def __init__(self, pattern):
-        self.match = re.compile(pattern).match
+        self.match = re.compile(pattern).search
 
     def process(self, message, ctx):
         if self.match(message.message) is None:
@@ -211,23 +225,28 @@ class RuleMatchMessage:
 
 
 class RuleMatchTag:
+    def __init__(self, tag):
+        self.tag = tag
+
+    def process(self, message, ctx):
+        if self.tag not in message.tags:
+            return ACTION_RETURN
+
+
+class RuleMatchAttribute:
     def __init__(self, params):
         self.name, self.value = kv_from_item(params)
 
     def process(self, message, ctx):
-        if not hasattr(message, self.name):
-            return ACTION_RETURN
-        if self.value is None:
-            return
-        if getattr(message, self.name) != self.value:
+        if message.attributes[self.name] != self.value:
             return ACTION_RETURN
 
 
 class RuleTag:
     def __init__(self, params):
-        self.match = re.compile(params["pattern"]).match
+        self.match = re.compile(params["pattern"]).search
         self.tags = params["tags"]
-        self.groups = params["groups"]
+        self.attributes = params["attributes"]
 
     def process(self, message, ctx):
         m = self.match(message.message)
@@ -235,8 +254,8 @@ class RuleTag:
             return
         for tag in self.tags:
             message.set_tag(tag)
-        for idx, tag in self.groups.items():
-            message.set_tag(tag, m.group(idx))
+        for name, idx in self.attributes.items():
+            message.set_attribute(name, m.group(idx))
 
 
 class RuleLogTime:
@@ -265,6 +284,8 @@ def _create_rule(config):
         return RuleAction(ACTION_DROP)
     if name == "process":
         return RuleProcess(params)
+    if name == "timeshift":
+        return RuleTimeshift(params)
     if name == "match timestamp":
         return RuleMatchTimestamp(params)
     if name == "match level":
@@ -273,6 +294,8 @@ def _create_rule(config):
         return RuleMatchMessage(params)
     if name == "match tag":
         return RuleMatchTag(params)
+    if name == "match attribute":
+        return RuleMatchAttribute(params)
     if name == "tag":
         return RuleTag(params)
     if name == "log time":
@@ -337,7 +360,7 @@ class OutputLog:
         self.nodes = {}
 
     def add_message(self, message):
-        line = self.pattern.format(**vars(message))
+        line = self.pattern.format(**vars(message), **message.attributes)
         if self.merge_nodes:
             self.merged_log.append(message.timestamp, line)
         else:
@@ -457,8 +480,12 @@ class TimeLog:
 
 class Context:
     def __init__(self, config):
-        self.logs = {name: OutputLog(params) for name, params in config["logs"].items()}
-        self.timelogs = {name: TimeLog(params) for name, params in config["timelogs"].items()}
+        self.logs = {}
+        if "logs" in config:
+            self.logs = {name: OutputLog(params) for name, params in config["logs"].items()}
+        self.timelogs = {}
+        if "timelogs" in config:
+            self.timelogs = {name: TimeLog(params) for name, params in config["timelogs"].items()}
 
     def merge(self, other):
         for name in set(self.logs) & set(other.logs):
