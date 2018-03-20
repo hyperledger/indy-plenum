@@ -11,10 +11,27 @@ import matplotlib.pyplot as plt
 # Configuration
 ###########################################################################################
 
-global_config = sys.argv[1] if len(sys.argv) > 1 else sys.argv[0] + ".yml"
-print("Using config {}".format(global_config))
-with open(global_config) as f:
+if len(sys.argv) < 2:
+    print("Usage: process_log config.yml")
+    exit(1)
+
+# Load default config
+with open(sys.argv[0] + ".yml") as f:
     global_config = yaml.load(f.read())
+
+
+def _merge_dict(dst, src):
+    for k, v in src.items():
+        if isinstance(v, dict):
+            node = dst.setdefault(k, {})
+            _merge_dict(node, v)
+        else:
+            dst[k] = v
+
+
+# Override with values from user-defined config
+with open(sys.argv[1]) as f:
+    _merge_dict(global_config, yaml.load(f.read()))
 
 
 def kv_from_item(item):
