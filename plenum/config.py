@@ -60,17 +60,17 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_ROCKSDB
+    "type": HS_LEVELDB
 }
 
 primaryStorage = None
 
-domainStateStorage = KeyValueStorageType.Rocksdb
-poolStateStorage = KeyValueStorageType.Rocksdb
-configStateStorage = KeyValueStorageType.Rocksdb
-reqIdToTxnStorage = KeyValueStorageType.Rocksdb
+domainStateStorage = KeyValueStorageType.Leveldb
+poolStateStorage = KeyValueStorageType.Leveldb
+configStateStorage = KeyValueStorageType.Leveldb
+reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
-stateSignatureStorage = KeyValueStorageType.Rocksdb
+stateSignatureStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
