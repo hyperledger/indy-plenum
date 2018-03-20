@@ -8,14 +8,14 @@ from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
+from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
 from psutil import Popen
 import json
 import asyncio
 
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
+from indy.ledger import sign_and_submit_request, sign_request, submit_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
@@ -28,6 +28,7 @@ from plenum.common.exceptions import RequestNackedException, RequestRejectedExce
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
@@ -429,12 +430,23 @@ def checkMessageReceived(msg, receiver, method: str = None):
     assert msg in allMsgs
 
 
-def addNodeBack(nodeSet: TestNodeSet,
+def addNodeBack(node_set,
                 looper: Looper,
-                nodeName: str) -> TestNode:
-    node = nodeSet.addNode(nodeName)
-    looper.add(node)
-    return node
+                node: Node,
+                tconf,
+                tdir) -> TestNode:
+    config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
+    restartedNode = TestNode(node.name,
+                             config_helper=config_helper,
+                             config=tconf,
+                             ha=node.nodestack.ha,
+                             cliha=node.clientstack.ha)
+    for node in node_set:
+        if node.name != restartedNode.name:
+            node.nodestack.reconnectRemoteWithName(restartedNode.name)
+    node_set.append(restartedNode)
+    looper.add(restartedNode)
+    return restartedNode
 
 
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):

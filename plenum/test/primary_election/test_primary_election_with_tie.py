@@ -5,7 +5,7 @@ from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import Nomination
 from plenum.test.delayers import delay
 from plenum.test.primary_election.helpers import checkNomination
-from plenum.test.test_node import TestNodeSet, checkPoolReady, \
+from plenum.test.test_node import checkPoolReady, \
     checkProtocolInstanceSetup
 from plenum.test import waits
 
@@ -15,8 +15,8 @@ logger = getlogger()
 
 
 @pytest.fixture()
-def electTieFixture(startedNodes: TestNodeSet):
-    A, B, C, D = startedNodes.nodes.values()
+def electTieFixture(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     for node in [C, D]:
         node.delaySelfNomination(10)
