@@ -2,7 +2,6 @@ import pytest
 
 from stp_core.common.log import getlogger
 
-from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import stopNodes, waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -73,26 +72,6 @@ def stop_primary(looper, active_nodes):
     looper.removeProdable(stopped_node)
     active_nodes = active_nodes[1:]
     return stopped_node, active_nodes
-
-
-@pytest.fixture(scope="module")
-def checkpoint_size(tconf, request):
-    oldChkFreq = tconf.CHK_FREQ
-    oldLogSize = tconf.LOG_SIZE
-    oldMax3PCBatchSize = tconf.Max3PCBatchSize
-
-    tconf.Max3PCBatchSize = 3
-    tconf.CHK_FREQ = getValueFromModule(request, "CHK_FREQ", 2)
-    tconf.LOG_SIZE = 2 * tconf.CHK_FREQ
-
-    def reset():
-        tconf.CHK_FREQ = oldChkFreq
-        tconf.LOG_SIZE = oldLogSize
-        tconf.Max3PCBatchSize = oldMax3PCBatchSize
-
-    request.addfinalizer(reset)
-
-    return tconf.CHK_FREQ * tconf.Max3PCBatchSize
 
 
 def primary_replicas_iter(*nodes):
