@@ -12,6 +12,8 @@ from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
+from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 
 def initKeyValueStorage(keyValueType, dataLocation,
@@ -22,6 +24,16 @@ def initKeyValueStorage(keyValueType, dataLocation,
         return KeyValueStorageRocksdb(dataLocation, keyValueStorageName)
     elif keyValueType == KeyValueStorageType.Memory:
         return KeyValueStorageInMemory()
+    else:
+        raise KeyValueStorageConfigNotFound
+
+
+def initKeyValueStorageIntKeys(keyValueType, dataLocation,
+                               keyValueStorageName) -> KeyValueStorage:
+    if keyValueType == KeyValueStorageType.Leveldb:
+        return KeyValueStorageLeveldbIntKeys(dataLocation, keyValueStorageName)
+    if keyValueType == KeyValueStorageType.Rocksdb:
+        return KeyValueStorageRocksdbIntKeys(dataLocation, keyValueStorageName)
     else:
         raise KeyValueStorageConfigNotFound
 
