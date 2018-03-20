@@ -1,10 +1,16 @@
 import pytest
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 
-@pytest.fixture(scope="function")
-def storage_with_ts_root_hashes(tmpdir):
-    storage = KeyValueStorageLeveldbIntKeys(tmpdir.dirname, "test_db")
+@pytest.fixture(scope="module", params=['rocksdb', 'leveldb'])
+def storage_with_ts_root_hashes(request, tmpdir_factory):
+    if request.param == 'leveldb':
+        storage = KeyValueStorageLeveldbIntKeys(tmpdir_factory.mktemp('').strpath,
+                                                "test_db")
+    else:
+        storage = KeyValueStorageRocksdbIntKeys(tmpdir_factory.mktemp('').strpath,
+                                                "test_db")
     ts_list = {
         2: "aaaa",
         4: "bbbb",
