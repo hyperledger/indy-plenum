@@ -7,7 +7,6 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.test.pool_transactions.conftest import looper
 
 logger = getlogger()
 

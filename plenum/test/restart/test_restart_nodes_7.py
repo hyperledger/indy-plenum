@@ -6,15 +6,11 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import TestNode
 from plenum.test.restart.test_restart_nodes import get_group, restart_nodes
 
-from plenum.test.pool_transactions.conftest import looper
-
-
 nodeCount = 7
 
 
 def test_restart_groups_wp(looper, txnPoolNodeSet, tconf, tdir,
                            sdk_pool_handle, sdk_wallet_client, allPluginsPath):
-
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
 
     restart_group = get_group(txnPoolNodeSet, 7, include_primary=False)

@@ -1,7 +1,6 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 
@@ -33,7 +32,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         for node in txnPoolNodeSet:
             if node != pr_node:
                 assert node.spylog.count(node.lost_master_primary.__name__) \
-                    > lost_pr_calls[node.name]
+                       > lost_pr_calls[node.name]
 
     def chk2():
         # Schedule an instance change but do not send it
@@ -41,9 +40,9 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         for node in txnPoolNodeSet:
             if node != pr_node:
                 assert node.spylog.count(node.propose_view_change.__name__) \
-                    > prp_inst_chg_calls[node.name]
+                       > prp_inst_chg_calls[node.name]
                 assert node.view_changer.spylog.count(node.view_changer.process_instance_change_msg.__name__) \
-                    == recv_inst_chg_calls[node.name]
+                       == recv_inst_chg_calls[node.name]
 
     # Disconnect master's primary
     for node in txnPoolNodeSet:

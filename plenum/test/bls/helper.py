@@ -65,6 +65,45 @@ def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
             assert multi_sigs.count(multi_sigs[0]) == len(multi_sigs)
 
 
+def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
+                                       sdk_pool_handle, sdk_wallet_handle,
+                                       saved_multi_sigs_count):
+    # at least two because first request could have no
+    # signature since state can be clear
+    number_of_requests = 3
+
+    # 1. send requests
+    # Using loop to avoid 3pc batching
+    state_roots = []
+    for i in range(number_of_requests):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_handle, 1)
+        waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
+        state_roots.append(
+            state_roots_serializer.serialize(
+                bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
+
+    # 2. get all saved multi-sigs
+    multi_sigs_for_batch = []
+    for state_root in state_roots:
+        multi_sigs = []
+        for node in txnPoolNodeSet:
+            multi_sig = node.bls_bft.bls_store.get(state_root)
+            if multi_sig:
+                multi_sigs.append(multi_sig)
+        multi_sigs_for_batch.append(multi_sigs)
+
+    # 3. check how many multi-sigs are saved
+    for multi_sigs in multi_sigs_for_batch:
+        assert len(multi_sigs) == saved_multi_sigs_count, \
+            "{} != {}".format(len(multi_sigs), saved_multi_sigs_count)
+
+    # 3. check that bls multi-sig is the same for all nodes we get PrePrepare for (that is for all expect the last one)
+    for multi_sigs in multi_sigs_for_batch[:-1]:
+        if multi_sigs:
+            assert multi_sigs.count(multi_sigs[0]) == len(multi_sigs)
+
+
 def process_commits_for_key(key, pre_prepare, bls_bfts):
     for sender_bls_bft in bls_bfts:
         commit = create_commit_bls_sig(

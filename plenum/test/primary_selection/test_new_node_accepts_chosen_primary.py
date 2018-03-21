@@ -40,7 +40,7 @@ def testNodeClass(patchPluginManager):
 
 
 @pytest.fixture("module")
-def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1, client1Connected,
+def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1,
                    tconf, tdirWithPoolTxns, allPluginsPath):
     logger.debug("Do several view changes to round the list of primaries")
 

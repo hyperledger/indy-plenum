@@ -142,7 +142,7 @@ def testKeyConversionFromEd25519ToCurve25519():
     publicKey = ed25519PkToCurve25519(vk)
     assert PrivateKey(secretKey).public_key.__bytes__() == publicKey
     assert ed25519PkToCurve25519(vk, toHex=True) == \
-        hexlify(PrivateKey(secretKey).public_key.__bytes__())
+           hexlify(PrivateKey(secretKey).public_key.__bytes__())
 
     # Check when keys are passed as hex
     secretKey = ed25519SkToCurve25519(hexlify(sk))

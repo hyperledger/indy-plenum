@@ -1,9 +1,7 @@
 import pytest
 
-from stp_core.common.util import adict
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.pool_transactions.conftest import looper
 
 
 def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,

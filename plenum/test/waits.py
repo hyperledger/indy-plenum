@@ -7,7 +7,6 @@ from plenum.config import CLIENT_REQACK_TIMEOUT, CLIENT_REPLY_TIMEOUT
 
 logger = getlogger()
 
-
 # Peer (node/client) to peer message delivery time
 __Peer2PeerRequestDeliveryTime = 0.5
 __Peer2PeerRequestExchangeTime = 2 * __Peer2PeerRequestDeliveryTime
@@ -94,7 +93,7 @@ def expectedPoolConsistencyProof(nodeCount):
     """
     config = getConfig()
     nodeCPTimeout = __Peer2PeerRequestExchangeTime + \
-        config.ConsistencyProofsTimeout
+                    config.ConsistencyProofsTimeout
     return nodeCount * nodeCPTimeout
 
 
@@ -113,8 +112,8 @@ def expectedPoolGetReadyTimeout(nodeCount):
     To: the pool ledger is equal across the Nodes
     """
     return expectedPoolInterconnectionTime(nodeCount) + \
-        expectedPoolConsistencyProof(nodeCount) + \
-        expectedPoolCatchupTime(nodeCount)
+           expectedPoolConsistencyProof(nodeCount) + \
+           expectedPoolCatchupTime(nodeCount)
 
 
 def expectedPoolLedgerRepliedMsgPersisted(nodeCount):
@@ -240,7 +239,7 @@ def expectedClientToPoolConnectionTimeout(nodeCount):
     # TODO check actual state
     config = getConfig()
     return config.ExpectedConnectTime * nodeCount + \
-        config.RETRY_TIMEOUT_RESTRICTED
+           config.RETRY_TIMEOUT_RESTRICTED
 
 
 def expectedClientConsistencyProof(nodeCount):
@@ -251,7 +250,7 @@ def expectedClientConsistencyProof(nodeCount):
     config = getConfig()
     qN = Quorums(nodeCount).commit.value
     return qN * __Peer2PeerRequestExchangeTime + \
-        config.ConsistencyProofsTimeout
+           config.ConsistencyProofsTimeout
 
 
 def expectedClientCatchupTime(nodeCount):
@@ -262,7 +261,7 @@ def expectedClientCatchupTime(nodeCount):
     config = getConfig()
     qN = Quorums(nodeCount).commit.value
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
-        config.CatchupTransactionsTimeout
+           config.CatchupTransactionsTimeout
 
 
 def expectedClientToPoolRequestDeliveryTime(nodeCount):

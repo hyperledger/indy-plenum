@@ -1,5 +1,4 @@
 from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.pool_transactions.helper import updateNodeData
 
 from plenum.test.test_node import ensureElectionsDone

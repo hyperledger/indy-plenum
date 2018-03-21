@@ -22,7 +22,7 @@ def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
         node.doStaticValidation(req)
 
 
-def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
+def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet,
                                       sdk_wallet_client, sdk_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are

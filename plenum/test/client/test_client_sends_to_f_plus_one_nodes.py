@@ -5,24 +5,23 @@ from plenum.test.malicious_behaviors_client import \
     genDoesntSendRequestToSomeNodes
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
-
 nodeCount = 4
 clientFault = genDoesntSendRequestToSomeNodes("AlphaC")
 reqAcked1 = passThroughReqAcked1
 
 
-def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, nodeSet,
+def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, txnPoolNodeSet,
                                                     fClient, replied1,
                                                     wallet1):
     """
     Alpha would not be sent request but other nodes will be, so Alpha will
     just rely on propagates from other nodes
     """
-    alpha = nodeSet.Alpha
-    other_nodes = [n for n in nodeSet if n != alpha]
+    alpha = txnPoolNodeSet[0]
+    other_nodes = [n for n in txnPoolNodeSet if n != alpha]
 
     def chk(req_count=1):
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             prc_req = node.processRequest.__name__
             prc_ppg = node.processPropagate.__name__
             if node != alpha:
