@@ -17,8 +17,13 @@ function build_from_pypi {
     PREREM_TMP=prerm-${PACKAGE_NAME}
     cp postinst ${POSTINST_TMP}
     cp prerm ${PREREM_TMP}
-    sed -i 's/{package_name}/python3-'${PACKAGE_NAME}'/' ${POSTINST_TMP}
-    sed -i 's/{package_name}/python3-'${PACKAGE_NAME}'/' ${PREREM_TMP}
+    if [[ ${PACKAGE_NAME} =~ ^python-* ]]; then
+        PACKAGE_NAME_TMP="${PACKAGE_NAME/python-/}"
+    else
+        PACKAGE_NAME_TMP=$PACKAGE_NAME
+    fi
+    sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${POSTINST_TMP}
+    sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${PREREM_TMP}
 
     fpm --input-type "python" \
         --output-type "deb" \
@@ -50,3 +55,5 @@ build_from_pypi pyzmq 16.0.2
 build_from_pypi intervaltree 2.1.0
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7
+build_from_pypi setuptools 38.5.2
+build_from_pypi python-rocksdb 0.6.9
