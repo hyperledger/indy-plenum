@@ -1,30 +1,26 @@
 
-input_logs:
+input_logs:                        # List of input logs
   - path: .                        # Where to look for log files
     recursive: yes                 # Whether to descend into subdirectories recursively
-    pattern: Node(\d+)\.log        # Log file regex pattern to look for
+    pattern: Node(\d+)\.log$        # Log file regex pattern to look for
     node_group: 1                  # Group number that matches node identifier
     only_timestamped: no           # Whether to discard non-timestamped lines
 
 
 chains:
   main:
-  - timeshift:
-      12: -3600.25
-  - log time:
-      monitoring: total
+  - log time: {monitoring: total}
+  - log count: {monitoring: total}
   - process: warnings
-#  - match timestamp:
-#      min: 2018-03-15 10:14:10
-#      max: 2018-03-15 11:14:10
   - process: tag_commits
-  - match tag: COMMIT
+  - match: [tag: COMMIT]
   - log line: commits
 
+
   warnings:
-  - match level: WARNING
-  - log time:
-      monitoring: warnings
+  - match: [level: WARNING]
+  - log time: {monitoring: warnings}
+  - log count: {monitoring: warnings}
   - log line: warnings
 
 
@@ -45,3 +41,8 @@ timelogs:
     graphs:               # Graph list with colors
     - total: blue
     - warnings: red
+
+counters:
+  monitoring:
+    format: |
+      Node <node>: <total> total, <warnings> warnings

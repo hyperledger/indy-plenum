@@ -3,6 +3,7 @@
 import os, sys, re, yaml
 from collections import namedtuple
 from datetime import datetime, timedelta
+from string import Formatter
 from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
@@ -39,6 +40,10 @@ def kv_from_item(item):
         return next(iter(item.items()))
     except AttributeError:
         return item, None
+
+
+def parse_format_string(src):
+    return src.replace('<', '{').replace('>', '}')
 
 
 ###########################################################################################
@@ -213,29 +218,53 @@ def match_attribute(params):
     return match
 
 
+def _create_matcher(config):
+    name, params = kv_from_item(config)
+
+    if name == "timestamp":
+        return match_timestamp(params)
+    if name == "level":
+        return match_level(params)
+    if name == "message":
+        return match_message(params)
+    if name == "tag":
+        return match_tag(params)
+    if name == "attribute":
+        return match_attribute(params)
+
+    print("WARNING: Unknown matcher", name)
+    return lambda m: True
+
 
 ###########################################################################################
 # Rules
 ###########################################################################################
 
-ACTION_RETURN = "RETURN"
-ACTION_DROP = "DROP"
-
-
-def rule_action(action):
-    return lambda m, c: action
+ACTION_RETURN = "return"
+ACTION_DROP = "drop"
 
 
 def rule_process(chain):
     return lambda m, c: chain
 
 
-def rule_match(matcher):
-    def process(message, ctx):
-        if not matcher(message):
-            return ACTION_RETURN
+def rule_match(operation, condition, action, config):
+    matchers = [_create_matcher(matcher) for matcher in config]
 
-    return process
+    if operation == "all":
+        if condition == "or":
+            return lambda message, _: action if not all(m(message) for m in matchers) else None
+        if condition == "and":
+            return lambda message, _: action if all(m(message) for m in matchers) else None
+
+    if operation == "any":
+        if condition == "or":
+            return lambda message, _: action if not any(m(message) for m in matchers) else None
+        if condition == "and":
+            return lambda message, _: action if any(m(message) for m in matchers) else None
+
+    print("WARNING: Unknown combo of", operation, condition)
+    return rule_process(None)
 
 
 def rule_timeshift(params):
@@ -269,7 +298,7 @@ def rule_tag(params):
 
 def rule_log_time(target):
     log, graph = kv_from_item(target)
-    assert(graph is not None)
+    assert graph is not None
 
     def process(message, ctx):
         ctx.timelogs[log].add_event(message, graph)
@@ -284,25 +313,32 @@ def rule_log_line(target):
     return process
 
 
+def rule_log_count(target):
+    log, target = kv_from_item(target)
+    assert target is not None
+
+    def process(message, ctx):
+        ctx.counters[log].add_event(message, target)
+
+    return process
+
+
 def _create_rule(config):
     name, params = kv_from_item(config)
 
+    match = re.match("match\s*(all|any|)\s*((and|or)\s*(return|drop)|)", name)
+    if match is not None:
+        operation = match.group(1) if match.group(1) else "all"
+        condition = match.group(3) if match.group(3) else "or"
+        action = match.group(4) if match.group(4) else "return"
+        return rule_match(operation, condition, action, params)
+
     if name == "return":
-        return rule_action(ACTION_RETURN)
+        return rule_process(ACTION_RETURN)
     if name == "drop":
-        return rule_action(ACTION_DROP)
+        return rule_process(ACTION_DROP)
     if name == "process":
         return rule_process(params)
-    if name == "match timestamp":
-        return rule_match(match_timestamp(params))
-    if name == "match level":
-        return rule_match(match_level(params))
-    if name == "match message":
-        return rule_match(match_message(params))
-    if name == "match tag":
-        return rule_match(match_tag(params))
-    if name == "match attribute":
-        return rule_match(match_attribute(params))
     if name == "timeshift":
         return rule_timeshift(params)
     if name == "tag":
@@ -311,9 +347,11 @@ def _create_rule(config):
         return rule_log_time(params)
     if name == "log line":
         return rule_log_line(params)
+    if name == "log count":
+        return rule_log_count(params)
 
     print("WARNING: Unknown rule", name)
-    return rule_action(None)
+    return rule_process(None)
 
 
 ###########################################################################################
@@ -366,8 +404,8 @@ class OutputLogFile:
 
 class OutputLog:
     def __init__(self, config):
-        self.filename = config["filename"].replace('<', '{').replace('>', '}')
-        self.pattern = config["pattern"].replace('<', '{').replace('>', '}')
+        self.filename = parse_format_string(config["filename"])
+        self.pattern = parse_format_string(config["pattern"])
         self.merge_nodes = config["merge_nodes"]
         self.merged_log = OutputLogFile(self.filename)
         self.nodes = {}
@@ -473,7 +511,7 @@ class TimeLog:
                 ax.fill_between(dates, 0, values, color=graph.color)
 
         fig.autofmt_xdate()
-        plt.show()
+        # plt.show()
 
     def _round_timestamp(self, timestamp):
         return datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day,
@@ -490,30 +528,80 @@ class TimeLog:
 
 
 ###########################################################################################
+# Counter
+###########################################################################################
+
+class NodeLogCounter:
+    def __init__(self, format):
+        self.format = format
+        self.targets = {target: 0 for _, target, _, _ in Formatter().parse(format) if target and target != "node"}
+
+    def add_event(self, target, increment=1):
+        try:
+            self.targets[target] += increment
+        except KeyError:
+            self.targets[target] = increment
+
+    def merge(self, other):
+        for target, value in other.targets.items():
+            self.add_event(target, value)
+
+    def dump(self, node):
+        print(self.format.format(node=node, **self.targets))
+
+
+class LogCounter:
+    def __init__(self, config):
+        self.format = parse_format_string(config["format"])
+        self.nodes = {}
+
+    def add_event(self, message, target):
+        self._node(message.node).add_event(target)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self, name):
+        print(name, "counters:")
+        for node_name, node in sorted(self.nodes.items()):
+            node.dump(node_name)
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            result = NodeLogCounter(self.format)
+            self.nodes[node] = result
+            return result
+
+
+###########################################################################################
 # Processing context
 ###########################################################################################
 
 
 class Context:
     def __init__(self, config):
-        self.logs = {}
-        if "logs" in config:
-            self.logs = {name: OutputLog(params) for name, params in config["logs"].items()}
-        self.timelogs = {}
-        if "timelogs" in config:
-            self.timelogs = {name: TimeLog(params) for name, params in config["timelogs"].items()}
+        self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
+        self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
+        self.counters = {name: LogCounter(params) for name, params in config.get("counters", {}).items()}
 
     def merge(self, other):
         for name in set(self.logs) & set(other.logs):
             self.logs[name].merge(other.logs[name])
         for name in set(self.timelogs) & set(other.timelogs):
             self.timelogs[name].merge(other.timelogs[name])
+        for name in set(self.counters) & set(other.counters):
+            self.counters[name].merge(other.counters[name])
 
     def dump(self):
         for log in self.logs.values():
             log.dump()
         for name, timelog in self.timelogs.items():
             timelog.dump(name)
+        for name, counter in self.counters.items():
+            counter.dump(name)
 
 
 ###########################################################################################
