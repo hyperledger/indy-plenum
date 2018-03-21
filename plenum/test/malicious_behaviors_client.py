@@ -82,5 +82,6 @@ def sendsUnsignedRequest(client) -> Client:
     def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg
+
     client.nodestack.sign = types.MethodType(evilSign, client)
     return client

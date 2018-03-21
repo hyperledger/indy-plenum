@@ -11,9 +11,6 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import \
-    clientAndWallet1, client1, wallet1, client1Connected, looper
 from stp_core.loop.eventually import eventually
 
 logger = getlogger()
@@ -21,7 +18,6 @@ txnCount = 5
 
 
 def make_master_replica_lag(node):
-
     node.nodeIbStasher.delay(ppDelay(1200, 0))
     node.nodeIbStasher.delay(pDelay(1200, 0))
     node.nodeIbStasher.delay(cDelay(1200, 0))
@@ -46,7 +42,7 @@ def replicas_synced(node):
 
 
 def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
-                                       wallet1, client1Connected, monkeypatch):
+                                       wallet1, monkeypatch):
     """
     Checks that transactions received by catchup do not
     break performance monitoring

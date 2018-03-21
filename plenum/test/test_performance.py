@@ -25,8 +25,7 @@ from plenum.test import waits
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.conftest import whitelist, \
     nodeCreatedAfterSomeTxns, nodeSetWithNodeAddedAfterSomeTxns, newNodeCaughtUp
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+
 
 @pytest.fixture
 def logger():
@@ -36,12 +35,12 @@ def logger():
     yield logger
     logger.root.setLevel(old_value)
 
+
 # autouse and inject before others in all tests
 pytestmark = pytest.mark.usefixtures("logger")
 
 txnCount = 5
 TestRunningTimeLimitSec = math.inf
-
 
 """
 Since these tests expect performance to be of certain level, they can fail and
@@ -92,7 +91,6 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                                    disable_node_monitor_config, looper,
                                    txnPoolNodeSet, tdirWithPoolTxns,
                                    allPluginsPath, poolTxnStewardData, capsys):
-
     # One of the reason memory grows is because spylog grows
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
@@ -173,7 +171,7 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
 def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
                              tdirWithPoolTxns, allPluginsPath,
                              poolTxnStewardData, looper, client1, wallet1,
-                             client1Connected, capsys):
+                             capsys):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -202,7 +200,6 @@ def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
 @skipper
 def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
                                              tconf, looper, client1, wallet1,
-                                             client1Connected,
                                              tdirWithPoolTxns, allPluginsPath,
                                              poolTxnStewardData, capsys):
     """
@@ -253,7 +250,7 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
 
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-        2 * delay_catchup_reply
+              2 * delay_catchup_reply
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
                          customTimeout=timeout)
 
@@ -274,7 +271,6 @@ def test_nodestack_contexts_are_discrete(txnPoolNodeSet):
 def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
                                     tdirWithPoolTxns, allPluginsPath,
                                     poolTxnStewardData, capsys):
-
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)
@@ -319,7 +315,6 @@ def test_node_load_after_one_node_drops_all_msgs(
         allPluginsPath,
         poolTxnStewardData,
         capsys):
-
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)

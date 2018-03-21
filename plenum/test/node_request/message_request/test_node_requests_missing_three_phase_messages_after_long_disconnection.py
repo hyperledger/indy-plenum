@@ -7,7 +7,6 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
 from plenum.test.waits import expectedPoolGetReadyTimeout
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
 
 logger = getlogger()

@@ -11,8 +11,6 @@ from plenum.test.helper import sendRandomRequests, \
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds
 from plenum.test.view_change.helper import ensure_view_change_complete
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 
 def check_nodes_last_ordered_3pc(nodes, last_ordered_3pc):
@@ -28,14 +26,14 @@ def check_nodes_requests_size(nodes, size):
 
 
 def test_view_change_gc_in_between_3pc_all_nodes_delays(
-        looper, txnPoolNodeSet, wallet1, client):
+        looper, txnPoolNodeSet, wallet1, client1):
     """
     Test that garbage collector compares the whole 3PC key (viewNo, ppSeqNo)
     and does not remove messages from node's queues that have higher
     viewNo than last ordered one even if their ppSeqNo are less or equal
     """
 
-    numNodes = len(client.nodeReg)
+    numNodes = len(client1.nodeReg)
     viewNo = checkViewNoForNodes(txnPoolNodeSet)
 
     # 1 send two messages one by one separately to make
@@ -45,8 +43,8 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #       for master instances only cause non-master ones have
     #       specific logic of its management which we don't care in
     #       the test, see Replica::_setup_for_non_master)
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client, 1)
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client, 1)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 1)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 1)
 
     last_ordered_3pc = (viewNo, 2)
     check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
@@ -74,7 +72,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     delay_3pc_messages(txnPoolNodeSet,
                        1,
                        delay=propagationTimeout * 2)
-    requests = sendRandomRequests(wallet1, client, 1)
+    requests = sendRandomRequests(wallet1, client1, 1)
 
     def checkPrePrepareSentAtLeastByPrimary():
         for node in txnPoolNodeSet:
@@ -104,7 +102,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #    -> they should be ordered
     #    -> last_ordered_3pc = (+2, 1)
     reset_delays_and_process_delayeds(txnPoolNodeSet)
-    waitForSufficientRepliesForRequests(looper, client,
+    waitForSufficientRepliesForRequests(looper, client1,
                                         requests=requests)
 
     checkViewNoForNodes(txnPoolNodeSet, viewNo)

@@ -63,6 +63,7 @@ def createAllNodes(request, cli):
     def stopNodes():
         for node in cli.nodes.values():
             node.stop()
+
     request.addfinalizer(stopNodes)
 
 
@@ -85,8 +86,10 @@ def be(ctx):
     Fixture that is a 'be' function that closes over the test context.
     'be' allows to change the current cli in the context.
     """
+
     def _(cli):
         ctx['current_cli'] = cli
+
     return _
 
 

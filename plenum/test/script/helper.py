@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.client.wallet import Wallet
@@ -26,7 +25,6 @@ def looper(txnPoolNodesLooper):
 
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary, tdir):
-
     # prepare new ha for node and client stack
     subjectedNode = None
     stewardName = None
@@ -40,7 +38,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
             break
 
     nodeStackNewHA, clientStackNewHA = genHa(2)
-    logger.debug("change HA for node: {} to {}". format(
+    logger.debug("change HA for node: {} to {}".format(
         subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
 
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()

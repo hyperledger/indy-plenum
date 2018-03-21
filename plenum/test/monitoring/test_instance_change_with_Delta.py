@@ -12,7 +12,6 @@ from plenum.test.view_change.helper import provoke_and_wait_for_view_change
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
-
 nodeCount = 7
 whitelist = ["discarding message"]
 
@@ -24,6 +23,7 @@ verify that throughput has dropped
 verify a view change happens
 """
 
+
 @pytest.fixture
 def logger():
     logger = getlogger()
@@ -32,8 +32,10 @@ def logger():
     yield logger
     logger.root.setLevel(old_value)
 
+
 # autouse and inject before others in all tests
 pytestmark = pytest.mark.usefixtures("logger")
+
 
 def latestPerfChecks(nodes):
     """
@@ -64,8 +66,8 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
 
 
 @pytest.fixture(scope="module")
-def step1(looper, nodeSet, up, wallet1, client1):
-    startedNodes = nodeSet
+def step1(looper, txnPoolNodeSet, wallet1, client1):
+    startedNodes = txnPoolNodeSet
     """
     stand up a pool of nodes and send 5 requests to client
     """

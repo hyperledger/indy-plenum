@@ -17,14 +17,13 @@ Max3PCBatchSize = 2
 TestRunningTimeLimitSec = 125
 
 # Do not remove the next imports
-from plenum.test.batching_3pc.conftest import tconf # noqa
+from plenum.test.batching_3pc.conftest import tconf  # noqa
 
 
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
                                                           txnPoolNodeSet,
                                                           client1,
-                                                          wallet1,
-                                                          client1Connected):
+                                                          wallet1):
     """
     Delay COMMITs to a node such that when it needs to catchup, it needs to
     revert some unordered state. Also till this time the node should have
@@ -62,6 +61,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     def is_catchup_needed_count():
         return len(getAllReturnVals(slow_node, slow_node.is_catchup_needed,
                                     compare_val_to=True))
+
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
     old_cn_count = is_catchup_needed_count()
 
