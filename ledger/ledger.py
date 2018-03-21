@@ -10,7 +10,7 @@ from ledger.merkle_tree import MerkleTree
 from ledger.tree_hasher import TreeHasher
 from ledger.util import F, ConsistencyVerificationFailed
 from storage.kv_store import KeyValueStorage
-from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 
 class Ledger(ImmutableStore):
@@ -19,7 +19,7 @@ class Ledger(ImmutableStore):
                       logName,
                       ensureDurability,
                       open=True) -> KeyValueStorage:
-        return KeyValueStorageLeveldbIntKeys(dataDir, logName, open)
+        return KeyValueStorageRocksdbIntKeys(dataDir, logName, open)
 
     def __init__(self,
                  tree: MerkleTree,
@@ -222,8 +222,11 @@ class Ledger(ImmutableStore):
     # TODO: rename getAllTxn to get_txn_slice with required parameters frm to
     # add get_txn_all without args.
     def getAllTxn(self, frm: int = None, to: int = None):
-        yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
-                    for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
+        for seq_no, txn in self._transactionLog.iterator(start=frm, end=to):
+            if to is None or int(seq_no) <= to:
+                yield (int(seq_no), self.txn_serializer.deserialize(txn))
+            else:
+                break
 
     @staticmethod
     def hashToStr(h):
