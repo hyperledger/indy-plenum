@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
@@ -20,7 +19,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
+def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
                                   wallet1, client1):
     """
     Test if every node queues 3 Phase requests(PRE-PREPARE, PREPARE and COMMIT)
@@ -29,7 +28,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
        => it starts receiving 3 phase commit messages for next view
     """
 
-    lagging_node = get_last_master_non_primary_node(nodeSet)
+    lagging_node = get_last_master_non_primary_node(txnPoolNodeSet)
     old_view_no = lagging_node.viewNo
 
     # Delay processing of InstanceChange and ViewChangeDone so node stashes
@@ -54,7 +53,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
 
     # Every node except Node A should do a view change
     ensure_view_change(looper,
-                       [n for n in nodeSet if n != lagging_node],
+                       [n for n in txnPoolNodeSet if n != lagging_node],
                        [lagging_node])
 
     # send more requests that will be queued for the lagged node

@@ -6,40 +6,39 @@ from stp_core.common.log import getlogger
 from plenum.test.helper import sendRandomRequest, \
     waitForSufficientRepliesForRequests
 
-
 nodeCount = 4
 logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def test_working_has_no_warn_log_msg(looper, nodeSet,
+def test_working_has_no_warn_log_msg(looper, txnPoolNodeSet,
                                      wallet1, client1, patch_monitors):
-    monitor = nodeSet[0].monitor
-    assert no_any_warn(*nodeSet)
+    monitor = txnPoolNodeSet[0].monitor
+    assert no_any_warn(*txnPoolNodeSet)
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
         req = sendRandomRequest(wallet1, client1)
         waitForSufficientRepliesForRequests(looper, client1, requests=[req])
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
-    assert no_any_warn(*nodeSet)
+    assert no_any_warn(*txnPoolNodeSet)
 
 
 # noinspection PyIncorrectDocstring
 def test_slow_node_has_warn_unordered_log_msg(looper,
-                                              nodeSet,
+                                              txnPoolNodeSet,
                                               wallet1,
                                               client1,
                                               patch_monitors):
-    npr = getNonPrimaryReplicas(nodeSet, 0)[0]
+    npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)[0]
     slow_node = npr.node
 
-    monitor = nodeSet[0].monitor
+    monitor = txnPoolNodeSet[0].monitor
     delay = monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC * \
-        monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM + 10
+            monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM + 10
     delaysCommitProcessing(slow_node, delay=delay)
 
-    assert no_any_warn(*nodeSet), \
+    assert no_any_warn(*txnPoolNodeSet), \
         'all nodes do not have warnings before test'
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
@@ -47,7 +46,7 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
         waitForSufficientRepliesForRequests(looper, client1, requests=[req])
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
-    others = [node for node in nodeSet if node.name != slow_node.name]
+    others = [node for node in txnPoolNodeSet if node.name != slow_node.name]
     assert no_any_warn(*others), \
         'others do not have warning after test'
     assert has_some_warn(slow_node), \
@@ -91,12 +90,12 @@ def no_last_warn(*nodes):
 
 
 @pytest.fixture(scope="function")
-def patch_monitors(nodeSet):
+def patch_monitors(txnPoolNodeSet):
     backup = {}
     req_num = 3
     diff_sec = 1
     window_mins = 0.25
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         backup[node.name] = (
             node.monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM,
             node.monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC,
@@ -106,7 +105,7 @@ def patch_monitors(nodeSet):
         node.monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC = diff_sec
         node.monitor.WARN_NOT_PARTICIPATING_WINDOW_MINS = window_mins
     yield req_num, diff_sec, window_mins
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM = backup[node.name][0]
         node.monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC = backup[node.name][1]
         node.monitor.WARN_NOT_PARTICIPATING_WINDOW_MINS = backup[node.name][2]

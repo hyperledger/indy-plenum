@@ -13,8 +13,7 @@ def disable_view_change_config(tconf):
 def test_disable_view_change(
         disable_view_change_config,
         looper,
-        nodeSet,
-        up,
+        txnPoolNodeSet,
         viewNo,
         wallet1,
         client1):
@@ -22,7 +21,7 @@ def test_disable_view_change(
     assert isinstance(disable_view_change_config.unsafe, set)
     assert 'disable_view_change' in disable_view_change_config.unsafe
 
-    simulate_slow_master(looper, nodeSet, wallet1, client1)
+    simulate_slow_master(looper, txnPoolNodeSet, wallet1, client1)
 
     with pytest.raises(AssertionError):
-        waitForViewChange(looper, nodeSet, expectedViewNo=viewNo + 1)
+        waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)

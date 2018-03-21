@@ -118,7 +118,7 @@ def test_node_catchup_after_restart_with_txns(
 
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
-        2 * delay_catchup_reply
+              2 * delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
     assert new_node_ledger.num_txns_caught_up == more_requests

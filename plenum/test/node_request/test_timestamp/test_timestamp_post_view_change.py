@@ -59,9 +59,9 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
         # Requests are sent
         for _ in range(5):
             sdk_send_random_requests(looper,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
-                                    count=2)
+                                     sdk_pool_handle,
+                                     sdk_wallet_client,
+                                     count=2)
             looper.runFor(2)
 
         def chk():
@@ -77,7 +77,6 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
             assert faulty_node.domainLedger.size == ledger_sizes[faulty_node.name]
 
         looper.run(eventually(chk, retryWait=1))
-
 
     # Eventually another view change happens
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, old_view_no + 1,

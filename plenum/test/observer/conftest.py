@@ -10,8 +10,6 @@ from plenum.test.helper import sdk_random_request_objects
 from plenum.test.test_node import TestNode
 from plenum.test.testable import spyable
 
-from plenum.test.pool_transactions.conftest import looper
-
 
 @spyable(methods=[Observable.append_input,
                   Observable.send_to_observers,

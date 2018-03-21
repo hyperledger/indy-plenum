@@ -1,5 +1,4 @@
 from base58 import b58encode
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.common.types import f
 from plenum.common.constants import ROOT_HASH

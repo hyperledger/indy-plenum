@@ -97,7 +97,7 @@ def checkPrePrepared(looper,
                                       param['pre_prepare'][4:],
                                       param['sender']) == (
                                       expectedPrePrepareRequest[0:3] +
-                                          expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[4:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -257,14 +257,14 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                 actualMsgs = len(
                     [
                         param for param in getAllArgs(
-                            npr,
-                            npr.processPrepare) if (
-                            param['prepare'].instId,
-                            param['prepare'].viewNo,
-                            param['prepare'].ppSeqNo) == (
-                            primary.instId,
-                            primary.viewNo,
-                            primary.lastPrePrepareSeqNo)])
+                        npr,
+                        npr.processPrepare) if (
+                                                   param['prepare'].instId,
+                                                   param['prepare'].viewNo,
+                                                   param['prepare'].ppSeqNo) == (
+                                                   primary.instId,
+                                                   primary.viewNo,
+                                                   primary.lastPrePrepareSeqNo)])
 
                 passes += int(msgCountOK(nodeCount,
                                          faultyNodes,

@@ -5,9 +5,6 @@ from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
-from plenum.test.pool_transactions.conftest import looper, \
-    steward1, stewardWallet, stewardAndWallet1
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import check_ledger_state
@@ -15,7 +12,6 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test import waits
 from plenum.common.startable import Mode
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-
 
 logger = getlogger()
 
@@ -26,7 +22,7 @@ def catchuped(node):
 
 def test_node_catchup_when_3_not_primary_node_restarted(
         looper, txnPoolNodeSet, tdir, tconf,
-         allPluginsPath, steward1, stewardWallet):
+        allPluginsPath, steward1, stewardWallet):
     """
     Test case:
     1. Create pool of 4 nodes

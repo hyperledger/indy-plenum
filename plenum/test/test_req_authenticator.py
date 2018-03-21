@@ -18,7 +18,6 @@ def pre_reqs():
     return simple_authnr, core_authnr, req_authnr
 
 
-
 @pytest.fixture(scope='module')
 def registration(pre_reqs):
     simple_authnr, core_authnr, req_authnr = pre_reqs

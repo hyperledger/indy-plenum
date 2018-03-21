@@ -9,6 +9,7 @@ from plenum.test.helper import sdk_send_random_and_check
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
 
+
 def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle,
                                                              sdk_wallet_client, reqs_for_logsize):
     """

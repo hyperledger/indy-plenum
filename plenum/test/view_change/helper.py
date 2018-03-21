@@ -35,7 +35,6 @@ def start_stopped_node(stopped_node, looper, tconf,
 
 
 def provoke_and_check_view_change(nodes, newViewNo, wallet, client):
-
     if {n.viewNo for n in nodes} == {newViewNo}:
         return True
 
@@ -69,12 +68,12 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def simulate_slow_master(looper, nodeSet, wallet,
+def simulate_slow_master(looper, txnPoolNodeSet, wallet,
                          client, delay=10, num_reqs=4):
-    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    m_primary_node = get_master_primary_node(list(txnPoolNodeSet))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, delay)
+    delayNonPrimaries(txnPoolNodeSet, 0, delay)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, num_reqs)
     return m_primary_node
 
@@ -124,45 +123,45 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
 
 def ensure_several_view_change(looper, nodes, vc_count=1,
                                exclude_from_check=None, custom_timeout=None):
-   """
-   This method patches the master performance check to return False and thus
-   ensures that all given nodes do a view change
-   Also, this method can do several view change.
-   If you try do several view_change by calling ensure_view_change,
-   than monkeypatching method isMasterDegraded would work unexpectedly.
-   Therefore, we return isMasterDegraded only after doing view_change needed count
-   """
-   old_meths = {}
-   view_changes = {}
-   expected_view_no = None
-   for node in nodes:
-       old_meths[node.name] = node.monitor.isMasterDegraded
+    """
+    This method patches the master performance check to return False and thus
+    ensures that all given nodes do a view change
+    Also, this method can do several view change.
+    If you try do several view_change by calling ensure_view_change,
+    than monkeypatching method isMasterDegraded would work unexpectedly.
+    Therefore, we return isMasterDegraded only after doing view_change needed count
+    """
+    old_meths = {}
+    view_changes = {}
+    expected_view_no = None
+    for node in nodes:
+        old_meths[node.name] = node.monitor.isMasterDegraded
 
-   for __ in range(vc_count):
-       old_view_no = checkViewNoForNodes(nodes)
-       expected_view_no = old_view_no + 1
+    for __ in range(vc_count):
+        old_view_no = checkViewNoForNodes(nodes)
+        expected_view_no = old_view_no + 1
 
-       for node in nodes:
-           view_changes[node.name] = node.monitor.totalViewChanges
+        for node in nodes:
+            view_changes[node.name] = node.monitor.totalViewChanges
 
-           def slow_master(self):
-               # Only allow one view change
-               rv = self.totalViewChanges == view_changes[self.name]
-               if rv:
-                   logger.info('{} making master look slow'.format(self))
-               return rv
+            def slow_master(self):
+                # Only allow one view change
+                rv = self.totalViewChanges == view_changes[self.name]
+                if rv:
+                    logger.info('{} making master look slow'.format(self))
+                return rv
 
-           node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+            node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
 
-       perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
-       timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + perf_check_freq
-       nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes if n not in exclude_from_check]
-       logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
-       looper.run(eventually(checkViewNoForNodes, nodes_to_check, expected_view_no, retryWait=1, timeout=timeout))
-       ensureElectionsDone(looper=looper, nodes=nodes, customTimeout=timeout)
-       ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=timeout, exclude_from_check=exclude_from_check)
+        perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
+        timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + perf_check_freq
+        nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes if n not in exclude_from_check]
+        logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
+        looper.run(eventually(checkViewNoForNodes, nodes_to_check, expected_view_no, retryWait=1, timeout=timeout))
+        ensureElectionsDone(looper=looper, nodes=nodes, customTimeout=timeout)
+        ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=timeout, exclude_from_check=exclude_from_check)
 
-   return expected_view_no
+    return expected_view_no
 
 
 def ensure_view_change_by_primary_restart(
@@ -212,7 +211,7 @@ def check_each_node_reaches_same_end_for_view(nodes, view_no):
     for node in nodes:
         params = [e.params for e in node.replicas[0].spylog.getAll(
             node.replicas[0].primary_changed.__name__)
-            if e.params['view_no'] == view_no]
+                  if e.params['view_no'] == view_no]
         assert params
         args[node.name] = (params[0]['last_ordered_pp_seq_no'],
                            params[0]['ledger_summary'])
@@ -279,12 +278,12 @@ def ensure_view_change_complete_by_primary_restart(
     return nodes
 
 
-def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
+def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client1,
                                slow_delay=1, wait=None):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client1, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
-    sendRandomRequests(wallet, client, 10)
+    sendRandomRequests(wallet, client1, 10)
     if wait:
         looper.runFor(wait)
 
@@ -293,27 +292,27 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
     reset_delays_and_process_delayeds(slow_nodes)
 
     sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet, client, 5, total_timeout=30)
+        looper, wallet, client1, 5, total_timeout=30)
     send_reqs_to_nodes_and_verify_all_replies(
-        looper, wallet, client, 5, total_timeout=30)
+        looper, wallet, client1, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(
         looper,
         nodes,
         slow_nodes,
-        wallet,
-        client,
+        wallet1,
+        client1,
         tconf,
         min_delay=0,
         max_delay=0):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 4)
 
     # max delay should not be more than catchup timeout.
     max_delay = max_delay or tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
-    sendRandomRequests(wallet, client, 10)
+    sendRandomRequests(wallet1, client1, 10)
 
     ensure_view_change_complete(looper,
                                 nodes,
@@ -322,4 +321,4 @@ def view_change_in_between_3pc_random_delays(
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 10)

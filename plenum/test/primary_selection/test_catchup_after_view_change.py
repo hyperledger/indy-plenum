@@ -10,12 +10,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup, TestReplica
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
-
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
 from plenum.test.batching_3pc.conftest import tconf
-
 
 Max3PCBatchSize = 4
 TestRunningTimeLimitSec = 150

@@ -3,10 +3,6 @@ from plenum.test import waits
 from plenum.test.helper import sendRandomRequest, \
     checkResponseCorrectnessFromNodes
 from stp_core.loop.eventually import eventually
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
-
 
 nodeCount = 4
 nodes_wth_bls = 4
@@ -21,7 +17,7 @@ def check_proved_reply_received(client, identifier, request_id):
 
 
 def test_state_proof_checked_in_client_request(looper, txnPoolNodeSet,
-                                               client1, client1Connected, wallet1):
+                                               client1,  wallet1):
     """
     Checks that client cat use state proofs instead of quorum for replies.
 
