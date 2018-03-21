@@ -1534,8 +1534,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # were stashed due to lack of commits before them and orders them if it
         # can
         self.logger.debug('{} trying to order from out of order commits. '
-                          'Len(stashed_out_of_order_commits) == {}'.format(
-            self, len(self.stashed_out_of_order_commits)))
+                          'Len(stashed_out_of_order_commits) == {}'
+                          .format(self, len(self.stashed_out_of_order_commits)))
         if self.last_ordered_3pc:
             lastOrdered = self.last_ordered_3pc
             vToRemove = set()
@@ -1573,8 +1573,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.stopRepeating(self.process_stashed_out_of_order_commits)
         else:
             self.logger.debug('{} last_ordered_3pc if False. '
-                              'Len(stashed_out_of_order_commits) == {}'.format(
-                self, len(self.stashed_out_of_order_commits)))
+                              'Len(stashed_out_of_order_commits) == {}'
+                              .format(self, len(self.stashed_out_of_order_commits)))
 
     def isLowestCommitInView(self, commit):
         view_no = commit.viewNo
