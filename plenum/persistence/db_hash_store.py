@@ -1,13 +1,18 @@
+import storage.helper
+
 from ledger.hash_stores.hash_store import HashStore
-from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from plenum.common.constants import KeyValueStorageType, HS_LEVELDB, HS_ROCKSDB
 from stp_core.common.log import getlogger
 
 logger = getlogger()
 
 
-class LevelDbHashStore(HashStore):
-    def __init__(self, dataDir, fileNamePrefix=""):
+class DbHashStore(HashStore):
+    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_ROCKSDB):
         self.dataDir = dataDir
+        assert db_type == HS_ROCKSDB or db_type == HS_LEVELDB
+        self.db_type = KeyValueStorageType.Leveldb if db_type == HS_LEVELDB \
+            else KeyValueStorageType.Rocksdb
         self.nodesDb = None
         self.leavesDb = None
         self._leafCount = 0
@@ -76,9 +81,10 @@ class LevelDbHashStore(HashStore):
                (self.nodesDb.closed and self.leavesDb.closed)
 
     def open(self):
-        self.nodesDb = KeyValueStorageLeveldb(self.dataDir, self.nodes_db_name)
-        self.leavesDb = KeyValueStorageLeveldb(
-            self.dataDir, self.leaves_db_name)
+        self.nodesDb = storage.helper.initKeyValueStorage(
+            self.db_type, self.dataDir, self.nodes_db_name)
+        self.leavesDb = storage.helper.initKeyValueStorage(
+            self.db_type, self.dataDir, self.leaves_db_name)
         self._leafCount = self.leavesDb.size
 
     def close(self):
