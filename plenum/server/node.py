@@ -11,9 +11,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.hash_stores.hash_store import HashStore
-from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
@@ -21,7 +19,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_FILE, HS_LEVELDB, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, \
     TXN_TYPE, LEDGER_STATUS, \
     CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
@@ -58,9 +56,8 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
-from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
-from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
+from plenum.persistence.storage import Storage, initStorage
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr, CoreAuthNr
@@ -91,6 +88,7 @@ from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
+from storage.helper import initKeyValueStorage, initHashStore
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
@@ -447,9 +445,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_req_handler(CONFIG_LEDGER_ID, self.configReqHandler)
 
     def getConfigLedger(self):
-        hashStore = LevelDbHashStore(
-            dataDir=self.dataLocation, fileNamePrefix='config')
-        return Ledger(CompactMerkleTree(hashStore=hashStore),
+        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
                       dataDir=self.dataLocation,
                       fileName=self.config.configTransactionsFile,
                       ensureDurability=self.config.EnsureLedgerDurability)
@@ -717,15 +713,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Create and return a hashStore implementation based on configuration
         """
-        hsConfig = self.config.hashStore['type'].lower()
-        if hsConfig == HS_FILE:
-            return FileHashStore(dataDir=self.dataLocation,
-                                 fileNamePrefix=name)
-        elif hsConfig == HS_LEVELDB:
-            return LevelDbHashStore(dataDir=self.dataLocation,
-                                    fileNamePrefix=name)
-        else:
-            return MemoryHashStore()
+        return initHashStore(self.dataLocation, name, self.config)
 
     def get_new_ledger_manager(self) -> LedgerManager:
         ledger_sync_order = self.ledger_ids
@@ -940,7 +928,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
-        logger.debug("{} closing level dbs".format(self), extra={"cli": False})
+        logger.debug("{} closing key-value storages".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgerRegistry:
             state = self.getState(ledgerId)
             if state:

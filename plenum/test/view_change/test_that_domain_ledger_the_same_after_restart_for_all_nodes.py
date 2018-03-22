@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.constants import HS_FILE, HS_LEVELDB, HS_ROCKSDB
 from plenum.test.view_change.helper import ensure_view_change_by_primary_restart
 from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
@@ -45,19 +46,25 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
         dict_for_compare['root_hash'] = domain_ledger.root_hash
         dict_for_compare['tree_root_hash'] = domain_ledger.tree.root_hash
         dict_for_compare['tree_root_hash_hex'] = domain_ledger.tree.root_hash_hex
-        """
-        save current position of the cursor in stream, move to begin, read content and
-        move the cursor back
-        """
-        c_pos = domain_ledger.tree.hashStore.leavesFile.db_file.tell()
-        domain_ledger.tree.hashStore.leavesFile.db_file.seek(0, 0)
-        dict_for_compare['leaves_store'] = domain_ledger.tree.hashStore.leavesFile.db_file.read()
-        domain_ledger.tree.hashStore.leavesFile.db_file.seek(c_pos)
+        if tconf.hashStore['type'] == HS_FILE:
+            """
+            save current position of the cursor in stream, move to begin, read content and
+            move the cursor back
+            """
+            c_pos = domain_ledger.tree.hashStore.leavesFile.db_file.tell()
+            domain_ledger.tree.hashStore.leavesFile.db_file.seek(0, 0)
+            dict_for_compare['leaves_store'] = domain_ledger.tree.hashStore.leavesFile.db_file.read()
+            domain_ledger.tree.hashStore.leavesFile.db_file.seek(c_pos)
 
-        c_pos = domain_ledger.tree.hashStore.nodesFile.db_file.tell()
-        domain_ledger.tree.hashStore.nodesFile.db_file.seek(0, 0)
-        dict_for_compare['nodes_store'] = domain_ledger.tree.hashStore.nodesFile.db_file.read()
-        domain_ledger.tree.hashStore.nodesFile.db_file.seek(c_pos)
+            c_pos = domain_ledger.tree.hashStore.nodesFile.db_file.tell()
+            domain_ledger.tree.hashStore.nodesFile.db_file.seek(0, 0)
+            dict_for_compare['nodes_store'] = domain_ledger.tree.hashStore.nodesFile.db_file.read()
+            domain_ledger.tree.hashStore.nodesFile.db_file.seek(c_pos)
+        elif tconf.hashStore['type'] == HS_LEVELDB or tconf.hashStore['type'] == HS_ROCKSDB:
+            dict_for_compare['leaves_store'] = domain_ledger.tree.hashStore.\
+                readLeafs(1, domain_ledger.tree.hashStore.leafCount)
+            dict_for_compare['nodes_store'] = domain_ledger.tree.hashStore. \
+                readNodes(1, domain_ledger.tree.hashStore.nodeCount)
 
         dict_for_compare['txns'] = [(tno, txn) for tno, txn in domain_ledger.getAllTxn()]
 
