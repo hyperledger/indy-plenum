@@ -9,7 +9,7 @@ from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
-    checkPrepareReqSent, check_sufficient_replies_received, sendRandomRequest, sdk_send_random_requests, \
+    checkPrepareReqSent, sdk_send_random_requests, \
     sdk_json_to_request_object, sdk_get_replies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 

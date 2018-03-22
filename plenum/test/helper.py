@@ -317,10 +317,6 @@ def send_signed_requests(client: Client, signed_reqs: Sequence):
     return client.submitReqs(*signed_reqs)[0]
 
 
-def sendRandomRequest(wallet: Wallet, client: Client):
-    return sendRandomRequests(wallet, client, 1)[0]
-
-
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
     logger.debug('Sending {} random requests'.format(count))
     return send_signed_requests(client,

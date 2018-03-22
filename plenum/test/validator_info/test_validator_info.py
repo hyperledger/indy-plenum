@@ -12,8 +12,8 @@ from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test import waits
-from plenum.test.helper import waitForSufficientRepliesForRequests, \
-    sendRandomRequest, check_sufficient_replies_received, sdk_send_random_and_check
+from plenum.test.helper import check_sufficient_replies_received, \
+    sdk_send_random_and_check
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected

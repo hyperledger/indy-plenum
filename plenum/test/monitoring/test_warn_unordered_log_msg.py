@@ -3,8 +3,7 @@ import pytest
 from plenum.test.malicious_behaviors_node import delaysCommitProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 
 nodeCount = 4
 logger = getlogger()

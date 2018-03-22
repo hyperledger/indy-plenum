@@ -4,8 +4,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import suspendNode, \

@@ -1,17 +1,11 @@
-import pytest
-
-from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.util import getMaxFailures
-from plenum.test import waits
-from plenum.test.delayers import ppDelay, icDelay, vcd_delay
-from plenum.test.helper import sendRandomRequest, \
-    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests, \
+from plenum.test.delayers import icDelay, vcd_delay
+from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests, \
     send_reqs_to_nodes_and_verify_all_replies
-from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
-    checkViewChangeInitiatedForNode, get_last_master_non_primary_node
+from plenum.test.test_node import get_last_master_non_primary_node
 
 nodeCount = 7
 
