@@ -1,0 +1,36 @@
+
+input_logs:                        # List of input logs
+  - path: .                        # Where to look for log files
+    recursive: yes                 # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log        # Log file regex pattern to look for
+    node_group: 1                  # Group number that matches node identifier
+    only_timestamped: yes          # Whether to discard non-timestamped lines
+
+
+chains:
+  main:
+  - process: tag_network
+  - match or drop: [tag: NETWORK]
+  - log line: network
+  - log time: {networking: total}
+  - match or drop: [tag: DISCONNECT]
+  - log time: {networking: disconnect}
+  - log time: {disconnect: disconnect}
+
+logs:
+  network:
+    filename: output.log
+    pattern: <timestamp> | <node> | <message>
+    merge_nodes: yes
+
+timelogs:
+  networking:
+    interval: 20          # Interval in seconds
+    graphs:               # Graph list with colors
+    - total: blue
+    - disconnect: red
+
+  disconnect:
+    interval: 20          # Interval in seconds
+    graphs:               # Graph list with colors
+    - disconnect: red

@@ -190,6 +190,10 @@ def match_level(params):
     return match
 
 
+def match_func(name):
+    return lambda message: message.func == name
+
+
 def match_message(pattern):
     m = re.compile(pattern).search
 
@@ -200,10 +204,7 @@ def match_message(pattern):
 
 
 def match_tag(tag):
-    def match(message):
-        return tag in message.tags
-
-    return match
+    return lambda message: tag in message.tags
 
 
 def match_attribute(params):
@@ -225,6 +226,8 @@ def _create_matcher(config):
         return match_timestamp(params)
     if name == "level":
         return match_level(params)
+    if name == "func":
+        return match_func(params)
     if name == "message":
         return match_message(params)
     if name == "tag":
@@ -280,9 +283,9 @@ def rule_timeshift(params):
 
 
 def rule_tag(params):
-    match = re.compile(params["pattern"]).search
-    tags = params["tags"]
-    attributes = params["attributes"]
+    match = re.compile(params.get("pattern", "")).search
+    tags = params.get("tags", [])
+    attributes = params.get("attributes", {})
 
     def process(message, ctx):
         m = match(message.message)
@@ -459,6 +462,14 @@ class TimeLogGraph:
         for timestamp, counter in other.events.items():
             self.add_event(timestamp, counter)
 
+    def fill_gaps(self, interval):
+        timestamp = min(self.events.keys())
+        max_timestamp = max(self.events.keys())
+        delta = timedelta(seconds=interval)
+        while timestamp < max_timestamp:
+            self.events.setdefault(timestamp, 0)
+            timestamp += delta
+
 
 class NodeTimeLog:
     def __init__(self, config):
@@ -474,10 +485,14 @@ class NodeTimeLog:
         for name in set(self.graphs) & set(other.graphs):
             self.graphs[name].merge(other.graphs[name])
 
+    def fill_gaps(self, interval):
+        for graph in self.graphs.values():
+            graph.fill_gaps(interval)
+
 
 class TimeLog:
     def __init__(self, config):
-        self.interval = config["interval"]
+        self.interval = config.get("interval", 10)
         self.graphs = config["graphs"]
         self.nodes = {}
 
@@ -490,7 +505,12 @@ class TimeLog:
             self._node(name).merge(node)
 
     def dump(self, title):
+        for node in self.nodes.values():
+            node.fill_gaps(self.interval)
+
         fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
+        if len(self.nodes) == 1:
+            axs = [axs]
         fig.suptitle(title)
         fig.subplots_adjust(hspace=0)
         names, nodes = zip(*sorted(self.nodes.items()))
@@ -511,7 +531,6 @@ class TimeLog:
                 ax.fill_between(dates, 0, values, color=graph.color)
 
         fig.autofmt_xdate()
-        # plt.show()
 
     def _round_timestamp(self, timestamp):
         return datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day,
@@ -602,6 +621,7 @@ class Context:
             timelog.dump(name)
         for name, counter in self.counters.items():
             counter.dump(name)
+        plt.show()
 
 
 ###########################################################################################
