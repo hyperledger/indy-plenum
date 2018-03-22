@@ -1,53 +1,44 @@
-from pprint import pprint
-
 import pytest
-from plenum import config
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
-from plenum.common.messages.node_messages import Primary, PrePrepare, Prepare, Commit
-from plenum.common.util import getMaxFailures
+from plenum.common.messages.node_messages import \
+    PrePrepare, Prepare, Commit
 from plenum.test import waits
-from plenum.test.delayers import delayerMsgTuple
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import setupNodesAndClient, \
-    sendRandomRequest, setupClient, \
-    assertLength, addNodeBack, waitForSufficientRepliesForRequests, \
-    getPendingRequestsForReplica, checkRequestReturnedToNode
-from plenum.test.profiler import profile_this
-from plenum.test.test_node import TestNode, TestNodeSet, checkPoolReady, \
-    ensureElectionsDone, genNodeReg, prepareNodeSet
+from plenum.test.helper import assertLength, addNodeBack, \
+    getPendingRequestsForReplica, sdk_send_random_and_check
+from plenum.test.test_node import TestNode, TestNodeSet, \
+    checkPoolReady, genNodeReg, prepareNodeSet
 
 whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()
 
 
-def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
-    with TestNodeSet(tconf_for_func, count=4, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
-            client1, wallet1 = setupNodesAndClient(looper,
-                                                   nodeSet,
-                                                   tmpdir=tdir_for_func)
-            req = sendRandomRequest(wallet1, client1)
-            waitForSufficientRepliesForRequests(looper, client1,
-                                                requests=[req])
+def testReqExecWhenReturnedByMaster(looper, txnPoolNodeSet,
+                                    sdk_pool_handle,
+                                    sdk_wallet_client):
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)
 
-            async def chk():
-                for node in nodeSet:
-                    entries = node.spylog.getAll(
-                        node.processOrdered.__name__)
-                    for entry in entries:
-                        arg = entry.params['ordered']
-                        result = entry.result
-                        if arg.instId == node.instances.masterId:
-                            assert result
-                        else:
-                            assert result is False
+    async def chk():
+        for node in txnPoolNodeSet:
+            entries = node.spylog.getAll(
+                node.processOrdered.__name__)
+            for entry in entries:
+                arg = entry.params['ordered']
+                result = entry.result
+                if arg.instId == node.instances.masterId:
+                    assert result
+                else:
+                    assert result is False
 
-            timeout = waits.expectedOrderingTime(
-                nodeSet.nodes['Alpha'].instances.count)
-            looper.run(eventually(chk, timeout=timeout))
+    timeout = waits.expectedOrderingTime(
+        txnPoolNodeSet[0].instances.count)
+    looper.run(eventually(chk, timeout=timeout))
 
 
 @pytest.mark.skip('Since primary is selected immediately now')
@@ -78,8 +69,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 
-            client1, wal = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
-            request = sendRandomRequest(wal, client1)
+            # client1, wal = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
+            # request = sendRandomRequest(wal, client1)
 
             # TODO Rethink this
             instNo = 0
@@ -132,18 +123,6 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
     key = identifier, reqId
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
-
-
-def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper,
-                                                            txnPoolNodeSet,
-                                                            wallet1,
-                                                            client1):
-    size = len(client1.inBox)
-    req = sendRandomRequest(wallet1, client1)
-    client1.submitReqs(req)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
-    # Only REQACK will be sent twice by the node but not REPLY
-    assert len(client1.inBox) == size + 12
 
 
 def snapshotStats(*nodes):
