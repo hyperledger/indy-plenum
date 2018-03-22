@@ -1,0 +1,44 @@
+
+input_logs:                        # List of input logs
+  - path: .                        # Where to look for log files
+    recursive: yes                 # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log        # Log file regex pattern to look for
+    node_group: 1                  # Group number that matches node identifier
+    only_timestamped: yes          # Whether to discard non-timestamped lines
+
+
+# Catchup
+# View change
+
+chains:
+  main:
+  - log count: {monitoring: total}
+  - log time: {monitoring: total}
+  - process: filter_all_spam
+  - log count: {monitoring: interesting}
+  - process: filter_ok
+  - process: slow_filter_ok
+  - log count: {monitoring: unknown}
+  - log line: output
+
+
+logs:
+  output:
+    filename: output.log
+    pattern: <timestamp> | <node> | <source> | <func> | <message>
+    merge_nodes: yes
+  state_trie:
+    filename: state_trie.log
+    pattern: <timestamp> | <node> | <message>
+    merge_nodes: yes
+
+timelogs:
+  monitoring:
+    interval: 20          # Interval in seconds
+    graphs:               # Graph list with colors
+    - total: blue
+
+counters:
+  monitoring:
+    format: |
+      <node>: <total> total, <interesting> interesting, <unknown> unknown
