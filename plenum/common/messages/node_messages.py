@@ -1,9 +1,13 @@
 from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
-    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
-    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
+from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
+    BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, \
+    CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
+    CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, \
+    ACTION_RESULT
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
@@ -212,6 +216,19 @@ class Reply(MessageBase):
     typename = REPLY
     schema = (
         (f.RESULT.nm, AnyValueField()),
+    )
+
+
+class ActionResult(MessageBase):
+    typename = ACTION_RESULT
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField()),
+        (f.SIG.nm, AnyValueField()),
+        (f.OPERATION.nm, AnyValueField()),
+        (f.PROTOCOL_VERSION.nm, AnyValueField()),
+        (f.IS_SUCCESS.nm, AnyValueField()),
+        (f.MSG.nm, AnyValueField(optional=True, nullable=True))
     )
 
 
