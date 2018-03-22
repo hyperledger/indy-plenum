@@ -124,22 +124,6 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
 
-<< << << < HEAD
-== == == =
-
-def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper,
-                                                            txnPoolNodeSet,
-                                                            wallet1,
-                                                            client1):
-    size = len(client1.inBox)
-    req = sendRandomRequest(wallet1, client1)
-    client1.submitReqs(req)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
-    # Only REQACK will be sent twice by the node but not REPLY
-    assert len(client1.inBox) == size + 12
-
->> >> >> > base / master
-
 
 def snapshotStats(*nodes):
     return {n.name: n.nodestack.stats.copy() for n in nodes}
