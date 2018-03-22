@@ -17,7 +17,6 @@ from plenum.common.config_util import getConfigOnce
 from plenum.test.helper import create_new_test_node
 from plenum.test.test_node import TestNode
 
-
 whitelist = ['but majority declared']
 
 
@@ -102,6 +101,7 @@ class FakeNode:
 
     def start_catchup(self):
         pass
+
 
 def test_has_view_change_quorum_number(tconf, tdir):
     """
@@ -299,7 +299,7 @@ def test_get_msgs_for_lagged_nodes(tconf, tdir):
             viewNo=0,
             name='Node2',
             ledgerInfo=ledgerInfo),
-            'Node1'),
+         'Node1'),
         (ViewChangeDone(
             viewNo=0,
             name='Node3',
@@ -483,4 +483,4 @@ def test_primaries_selection_gaps(txnPoolNodeSetWithElector):
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
             2, master_primary_rank, primaries)
         assert name == "Gamma" and \
-            instance_name == "Gamma:2"
+               instance_name == "Gamma:2"

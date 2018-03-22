@@ -17,8 +17,8 @@ class TestVerifier:
 
 
 @pytest.fixture(scope="module")
-def restrictiveVerifier(nodeSet):
-    for n in nodeSet:
+def restrictiveVerifier(txnPoolNodeSet):
+    for n in txnPoolNodeSet:
         n.opVerifiers = [TestVerifier()]
 
 
@@ -35,13 +35,12 @@ def testRequestFullRoundTrip(restrictiveVerifier,
                              client1,
                              sent1,
                              looper,
-                             nodeSet):
-
+                             txnPoolNodeSet):
     update = {'reason': 'client request invalid: InvalidClientRequest() '
                         '[caused by amount too high\nassert 999 <= 100]'}
 
     coros2 = [partial(checkReqNack, client1, node, sent1.identifier,
                       sent1.reqId, update)
-              for node in nodeSet]
+              for node in txnPoolNodeSet]
     timeout = waits.expectedReqAckQuorumTime()
     looper.run(eventuallyAll(*coros2, totalTimeout=timeout))

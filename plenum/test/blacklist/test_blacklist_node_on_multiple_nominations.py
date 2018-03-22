@@ -10,12 +10,11 @@ whitelist = ['already got nomination',
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
 @pytest.mark.skip(reason="SOV-540. Implementation changed.")
-def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
+def testBlacklistNodeOnMultipleNominations(looper, txnPoolNodeSet, ready):
     """
     A node that sends multiple nominations must be blacklisted by other nodes
     """
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
     # B sends more than 2 nominations
     for i in range(3):
@@ -26,5 +25,5 @@ def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    timeout = waits.expectedPoolNominationTimeout(len(nodeSet.nodes))
+    timeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

@@ -12,7 +12,7 @@ def _get_ppseqno(nodes):
     for node in nodes:
         for repl in node.replicas:
             res.add(repl.lastPrePrepareSeqNo)
-    assert(len(res) == 1)
+    assert (len(res) == 1)
     return min(res)
 
 
@@ -41,11 +41,11 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     big_ppseqno = tconf.LOG_SIZE * 2 + 2345
     cur_ppseqno = _get_ppseqno(txnPoolNodeSet)
-    assert(big_ppseqno > cur_ppseqno)
+    assert (big_ppseqno > cur_ppseqno)
 
     # ensure pool is working properly
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, numReqs=3)
-    assert(cur_ppseqno < _get_ppseqno(txnPoolNodeSet))
+    assert (cur_ppseqno < _get_ppseqno(txnPoolNodeSet))
 
     _set_ppseqno(txnPoolNodeSet, big_ppseqno)
     cur_ppseqno = _get_ppseqno(txnPoolNodeSet)
@@ -55,7 +55,7 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     new_steward_name = "testClientSteward" + randomString(4)
     new_node_name = "TestTheta" + randomString(4)
-    new_steward, new_steward_wallet, new_node =\
+    new_steward, new_steward_wallet, new_node = \
         addNewStewardAndNode(looper, steward1, stewardWallet, new_steward_name,
                              new_node_name, tdir, client_tdir, tconf, allPluginsPath)
     txnPoolNodeSet.append(new_node)

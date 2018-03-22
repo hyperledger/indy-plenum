@@ -22,21 +22,22 @@ nodeCount = 7
 
 
 @pytest.fixture()
-def primaryReplicas(nodeSet, up):
+def primaryReplicas(txnPoolNodeSet):
     instanceCount = getNoInstances(nodeCount)
-    return [getPrimaryReplica(nodeSet, i) for i in range(instanceCount)]
+    return [getPrimaryReplica(txnPoolNodeSet, i) for i in range(instanceCount)]
 
 
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterPoolReady(
-        looper, nodeSet, ready, wallet1, client1):
+        looper, txnPoolNodeSet, wallet1, client1):
     """
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
     """
+
     def checkPrimaryPlacement():
         # Node names sorted by rank
-        sortedNodes = sorted(nodeSet.nodes.values(),
+        sortedNodes = sorted(txnPoolNodeSet,
                              key=operator.attrgetter("rank"))
 
         for idx, node in enumerate(sortedNodes):
@@ -64,33 +65,33 @@ def testPrimarySelectionAfterPoolReady(
                 assert not node.replicas[1].isPrimary
                 assert node.replicas[2].isPrimary
 
-    check_rank_consistent_across_each_node(nodeSet)
+    check_rank_consistent_across_each_node(txnPoolNodeSet)
     # Check if the primary is on the correct node
-    timeout = waits.expectedPoolElectionTimeout(len(nodeSet))
+    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=timeout))
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1)
+    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
 
 @pytest.fixture(scope='module')
-def catchup_complete_count(nodeSet):
-    return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
+def catchup_complete_count(txnPoolNodeSet):
+    return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in txnPoolNodeSet}
 
 
-@pytest.fixture(scope='module') # noqa
-def view_change_done(looper, nodeSet):
-    ensure_view_change(looper, nodeSet)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
+@pytest.fixture(scope='module')  # noqa
+def view_change_done(looper, txnPoolNodeSet):
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+
 
 # noinspection PyIncorrectDocstring
 
 
-def testPrimarySelectionAfterViewChange(    # noqa
+def testPrimarySelectionAfterViewChange(  # noqa
         looper,
-        nodeSet,
-        ready,
+        txnPoolNodeSet,
         primaryReplicas,
         catchup_complete_count,
         view_change_done):
@@ -100,7 +101,7 @@ def testPrimarySelectionAfterViewChange(    # noqa
     """
     # TODO: This test can fail due to view change.
 
-    for n in nodeSet:
+    for n in txnPoolNodeSet:
         assert n.spylog.count(
             n.allLedgersCaughtUp) > catchup_complete_count[n.name]
 
@@ -109,11 +110,11 @@ def testPrimarySelectionAfterViewChange(    # noqa
 
     # Primary replicas after view change
     instanceCount = getNoInstances(nodeCount)
-    prAfterVC = [getPrimaryReplica(nodeSet, i) for i in range(instanceCount)]
+    prAfterVC = [getPrimaryReplica(txnPoolNodeSet, i) for i in range(instanceCount)]
 
     # Primary replicas have moved to the next node
     for br, ar in zip(prBeforeVC, prAfterVC):
         assert ar.node.rank - br.node.rank == 1
 
-    check_rank_consistent_across_each_node(nodeSet)
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1)
+    check_rank_consistent_across_each_node(txnPoolNodeSet)
+    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)

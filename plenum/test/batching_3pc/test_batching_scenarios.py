@@ -22,7 +22,7 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
     """
     tconf = perf_chk_patched
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+                 getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
     otherNodes = [r.node for r in otherR]
     ppsToDelay = 2
     delayeds = 0

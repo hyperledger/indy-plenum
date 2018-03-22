@@ -7,7 +7,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 
-
 CHK_FREQ = 5
 
 

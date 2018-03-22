@@ -4,7 +4,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_random_request
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.pool_transactions.conftest import looper
 
 
 def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):

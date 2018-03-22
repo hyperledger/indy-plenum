@@ -10,7 +10,6 @@ from plenum.test.node_catchup.helper import \
 from plenum.test.test_node import checkNodesConnected
 from plenum.test import waits
 
-
 logger = getlogger()
 
 txnCount = 10

@@ -8,9 +8,8 @@ CHK_FREQ = 5
 
 def test_upper_bound_of_checkpoint_after_catchup_is_divisible_by_chk_freq(
         chkFreqPatched, looper, txnPoolNodeSet, steward1, stewardWallet,
-        client1, wallet1, client1Connected, tdir, client_tdir, tconf,
+        client1, wallet1, tdir, client_tdir, tconf,
         allPluginsPath):
-
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     _, _, epsilon = addNewStewardAndNode(looper, steward1, stewardWallet,

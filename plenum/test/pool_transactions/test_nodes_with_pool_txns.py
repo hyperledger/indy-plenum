@@ -30,7 +30,6 @@ logger = getlogger()
 # reaches it
 
 
-
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
                                         sdk_pool_handle,
                                         sdk_wallet_steward, tdir, tconf,
