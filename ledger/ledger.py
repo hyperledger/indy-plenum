@@ -10,7 +10,7 @@ from ledger.merkle_tree import MerkleTree
 from ledger.tree_hasher import TreeHasher
 from ledger.util import F, ConsistencyVerificationFailed
 from storage.kv_store import KeyValueStorage
-from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 
 
 class Ledger(ImmutableStore):
@@ -19,7 +19,7 @@ class Ledger(ImmutableStore):
                       logName,
                       ensureDurability,
                       open=True) -> KeyValueStorage:
-        return KeyValueStorageRocksdbIntKeys(dataDir, logName, open)
+        return KeyValueStorageLeveldbIntKeys(dataDir, logName, open)
 
     def __init__(self,
                  tree: MerkleTree,
