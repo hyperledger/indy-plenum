@@ -9,7 +9,7 @@ input_logs:                                     # List of input logs
 
 chains:                                         # List of processing chains
   main:                                         # Main processing chain
-  - match or drop: [view_change_message]        # Drop everything except view change messages
+  - match or drop: [view_change_event]          # Drop everything except view change messages
   - log line: view_change                       # Save message to view_change log sink
   - log_view_change_start:                      # Call chain log_view_change_start
   - log_view_change_done:                       # Call chain log_view_change_done

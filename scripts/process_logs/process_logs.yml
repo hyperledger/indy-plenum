@@ -2,10 +2,24 @@
 matchers:
 
 #########################################################################
+# Message matchers
+#########################################################################
+
+  message_event:
+  - message_sending:
+  - message_inbox:
+
+  message_sending:
+  - message: "sending message"
+
+  message_inbox:
+  - message: "appending to nodeInbox"
+
+#########################################################################
 # Network matchers
 #########################################################################
 
-  network_message:
+  network_event:
   - network_ping_pong:
   - network_connect:
   - network_disconnect:
@@ -30,8 +44,15 @@ matchers:
 # View change matchers
 #########################################################################
 
-  view_change_message:
+  view_change_event:
   - message: "VIEW CHANGE:"
+  - all:
+    - message_event:
+    - any:
+      - message: CURRENT_STATE
+      - message: LEDGER_STATUS
+      - message: CONSISTENCY_PROOF
+      - message: VIEW_CHANGE_DONE
 
   view_change_start:
   - message: initiating a view change to
@@ -39,15 +60,23 @@ matchers:
 
   view_change_done:
   - all:
-    - view_change_message:
+    - view_change_event:
     - message: changed to view
+
+#########################################################################
+# Catchup
+#########################################################################
+
+  catchup_event:
+  - message: "CATCH-UP:"
 
 #########################################################################
 # BLS matchers
 #########################################################################
 
-  bls_message:
+  bls_event:
   - message: "BLS:"
+
 
 #########################################################################
 # Spam matchers
@@ -103,7 +132,6 @@ matchers:
   - message: matched remote
   - message: reverting 3PC key
   - message: verifying proof for
-  - message: appending to nodeInbox
   - message: received consistency proof
   - message: view_changer sending INSTANCE_CHANGE
   - message: does not send BATCH to Observers since there are no observers added
@@ -122,8 +150,28 @@ chains:
   - match and drop: [all_spam]
 
 #########################################################################
-# Taggers
+# Message taggers
 #########################################################################
+
+  tag_messages:
+  - tag_message_sending:
+  - tag_message_inbox:
+
+  tag_message_sending:
+  - match: [message_sending]
+  - tag:
+      pattern: sending message (\w+)
+      tags: [MESSAGE, SEND]
+      attributes:
+        message_type: 1
+
+  tag_message_inbox:
+  - match: [message_inbox]
+  - tag:
+      pattern: appending to nodeInbox (\w+)
+      tags: [MESSAGE, INBOX]
+      attributes:
+        message_type: 1
 
 
 #########################################################################
@@ -132,12 +180,13 @@ chains:
 
   filter_ok:
   - match any and drop:
-    - network_message:
-    - view_change_message:
-    - bls_message:
+    - message_event:
+    - network_event:
+    - catchup_event:
+    - view_change_event:
+    - bls_event:
     - message: found proof
     - message: pended request
-    - message: sending message
     - message: popping stashed
     - message: reconnecting to
     - message: processed incoming

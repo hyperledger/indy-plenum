@@ -7,9 +7,6 @@ input_logs:                        # List of input logs
     only_timestamped: yes          # Whether to discard non-timestamped lines
 
 
-# Catchup
-# View change
-
 chains:
   main:
   - log count: {monitoring: total}
