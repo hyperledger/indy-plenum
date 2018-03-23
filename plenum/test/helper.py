@@ -540,23 +540,6 @@ def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
     assert client.inBox.count(expected) > 0
 
 
-def checkReplyCount(client, idr, reqId, count):
-    senders = set()
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REPLY and \
-                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
-            senders.add(sdr)
-    assertLength(senders, count)
-
-
-def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
-    timeout = custom_timeout or waits.expectedTransactionExecutionTime(
-        len(client.nodeReg))
-    looper.run(eventually(checkReplyCount, client, idr, reqId, count,
-                          timeout=timeout))
-
-
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
