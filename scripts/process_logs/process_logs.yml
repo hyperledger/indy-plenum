@@ -7,23 +7,24 @@ matchers:
 
   network_message:
   - network_ping_pong:
+  - network_connect:
   - network_disconnect:
-  - network_not_connected:
   - network_misc:
 
   network_ping_pong:
   - message: " ping "
   - message: " pong "
 
+  network_connect:
+  - message: now connected to
+
   network_disconnect:
   - message: disconnecting remote
-
-  network_not_connected:
-  - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
 
   network_misc:
   - message: connections changed from
   - message: found disconnected event on monitor
+  - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
 
 #########################################################################
 # View change matchers
