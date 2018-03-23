@@ -234,11 +234,16 @@ def _create_matcher(config):
         return match_tag(params)
     if name == "attribute":
         return match_attribute(params)
+    if name == "any":
+        matchers = [_create_matcher(p) for p in params]
+        return lambda message: any(m(message) for m in matchers)
+    if name == "all":
+        matchers = [_create_matcher(p) for p in params]
+        return lambda message: all(m(message) for m in matchers)
 
     try:
         params = global_config["matchers"][name]
-        matchers = [_create_matcher(item) for item in params]
-        return lambda message: any(m(message) for m in matchers)
+        return _create_matcher({"any": params})
     except KeyError:
         print("WARNING: Unknown matcher", name)
         return lambda m: True
