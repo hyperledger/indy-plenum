@@ -4,11 +4,11 @@ from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
-    addNewStewardAndNode, buildPoolClientAndWallet
+    addNewStewardAndNode, buildPoolClientAndWallet, sdk_add_new_steward_and_node
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
@@ -48,6 +48,25 @@ def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
         do_post_node_creation=do_post_node_creation)
     yield looper, newNode, client, wallet, newStewardClient, \
           newStewardWallet
+
+
+@pytest.yield_fixture("module")
+def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=do_post_node_creation)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture("module")

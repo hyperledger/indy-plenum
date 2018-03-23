@@ -6,9 +6,8 @@ from plenum.test.node_request.message_request.helper import \
     count_msg_reqs_of_type
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
-from plenum.test.helper import sendRandomRequests
+from plenum.test.helper import sdk_send_random_requests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.test_node import checkNodesConnected
 
 # Do not remove the next imports
 from plenum.test.node_catchup.conftest import whitelist
@@ -22,7 +21,7 @@ TestRunningTimeLimitSec = 150
 
 
 def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
-                                nodeCreatedAfterSomeTxns):
+                                sdk_node_created_after_some_txns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
     joined node while they are processing requests which results in them sending
@@ -30,18 +29,18 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     conclude about the state of transactions in the system. So the new node
     requests consistency proof for a particular range from all nodes.
     """
-    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_created_after_some_txns
 
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
     for node in txnPoolNodeSet:
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
-    txnPoolNodeSet.append(newNode)
+    txnPoolNodeSet.append(new_node)
     # The new node sends different ledger statuses to every node so it
     # does not get enough similar consistency proofs
     next_size = 0
-    origMethod = newNode.build_ledger_status
+    origMethod = new_node.build_ledger_status
 
     def build_broken_ledger_status(self, ledger_id):
         nonlocal next_size
@@ -61,18 +60,20 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
-    newNode.build_ledger_status = types.MethodType(
-        build_broken_ledger_status, newNode)
-    logger.debug(
-        'Domain Ledger status sender of {} patched'.format(newNode))
+    new_node.build_ledger_status = types.MethodType(
+            build_broken_ledger_status, new_node)
 
-    sendRandomRequests(wallet, client, 10)
+    logger.debug(
+        'Domain Ledger status sender of {} patched'.format(new_node))
+
+    sdk_send_random_requests(looper, sdk_pool_handle,
+                             new_steward_wallet_handle, 10)
 
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here
     # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
     # 60 sec, hence large timeout. Dont reduce it.
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          customTimeout=75)
 
     # Other nodes should have received a request for `CONSISTENCY_PROOF` and
