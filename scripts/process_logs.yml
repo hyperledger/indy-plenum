@@ -1,20 +1,111 @@
 
 matchers:
-  network_ping_pong:
-    - message: " ping "
-    - message: " pong "
-  network_disconnect:
-    - message: disconnecting remote
-  network_not_connected:
-    - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
-  network_misc:
-    - message: connections changed from
-    - message: found disconnected event on monitor
+
+#########################################################################
+# Network matchers
+#########################################################################
+
   network_message:
-    - network_ping_pong:
-    - network_disconnect:
-    - network_not_connected:
-    - network_misc:
+  - network_ping_pong:
+  - network_disconnect:
+  - network_not_connected:
+  - network_misc:
+
+  network_ping_pong:
+  - message: " ping "
+  - message: " pong "
+
+  network_disconnect:
+  - message: disconnecting remote
+
+  network_not_connected:
+  - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
+
+  network_misc:
+  - message: connections changed from
+  - message: found disconnected event on monitor
+
+#########################################################################
+# View change matchers
+#########################################################################
+
+  view_change_message:
+  - message: "VIEW CHANGE:"
+
+  view_change_start:
+  - message: initiating a view change to
+  - message: starting view change for
+
+  view_change_done:
+  - all:
+    - view_change_message:
+    - message: changed to view
+
+#########################################################################
+# BLS matchers
+#########################################################################
+
+  bls_message:
+  - message: "BLS:"
+
+#########################################################################
+# Spam matchers
+#########################################################################
+
+  spam:
+  - func: acquire
+  - message: keys to clean
+  - message: msg validated
+  - message: got ping from
+  - message: "MONITORING:"
+  - message: freed request
+  - message: going to remove
+  - message: sending Commit
+  - message: sending Prepare
+  - message: sending Ordered
+  - message: sending PrePrepare
+  - message: sending Checkpoint
+  - message: popped Interval # batch
+  - message: sending reply for
+  - message: transmitting message
+  - message: You can find logs in
+  - message: created a PRE-PREPARE
+  - message: next check for retries
+  - message: requesting PREPARE for
+  - message: into fewer transmissions
+  - message: processing a batch BATCH
+  - message: requesting PREPREPARE for
+  - message: missing PRE-PREPAREs from
+  - message: received node message from
+  - message: Setting handler for SIGINT
+  - message: Setting handler for SIGTERM
+  - message: checking its request amount
+  - message: removing previous checkpoint
+  - message: tracking batch for PREPREPARE
+  - message: cannot process incoming PREPARE
+  - message: have no stashed checkpoints for
+  - message: "Using selector: EpollSelector"
+  - message: Suspicious Spike check is disabled
+  - message: master instance performance degraded
+  - message: saved shared multi signature for root
+  - message: master has higher performance than backups
+  - message: batches before starting catch up for ledger
+  - message: changing status from started to started_hungry
+  - message: process_stashed_out_of_order_commits is already repeating
+  - message: since Primary of master protocol instance degraded the performance
+  - message: and trying to start view change since performance of master instance degraded
+  - message: to its replicas since not finalised
+  all_spam:
+  - spam:
+  - message: " pinged "
+  - message: " ponged "
+  - message: matched remote
+  - message: reverting 3PC key
+  - message: verifying proof for
+  - message: appending to nodeInbox
+  - message: received consistency proof
+  - message: view_changer sending INSTANCE_CHANGE
+  - message: does not send BATCH to Observers since there are no observers added
 
 
 chains:
@@ -24,66 +115,10 @@ chains:
 #########################################################################
 
   filter_spam:
-  - match any and drop:
-    - func: acquire
-    - message: keys to clean
-    - message: msg validated
-    - message: got ping from
-    - message: "MONITORING:"
-    - message: freed request
-    - message: going to remove
-    - message: sending Commit
-    - message: sending Prepare
-    - message: sending Ordered
-    - message: sending PrePrepare
-    - message: sending Checkpoint
-    - message: popped Interval # batch
-    - message: sending reply for
-    - message: transmitting message
-    - message: You can find logs in
-    - message: created a PRE-PREPARE
-    - message: next check for retries
-    - message: requesting PREPARE for
-    - message: into fewer transmissions
-    - message: processing a batch BATCH
-    - message: requesting PREPREPARE for
-    - message: missing PRE-PREPAREs from
-    - message: received node message from
-    - message: Setting handler for SIGINT
-    - message: Setting handler for SIGTERM
-    - message: checking its request amount
-    - message: removing previous checkpoint
-    - message: tracking batch for PREPREPARE
-    - message: cannot process incoming PREPARE
-    - message: have no stashed checkpoints for
-    - message: "Using selector: EpollSelector"
-    - message: Suspicious Spike check is disabled
-    - message: master instance performance degraded
-    - message: saved shared multi signature for root
-    - message: master has higher performance than backups
-    - message: batches before starting catch up for ledger
-    - message: changing status from started to started_hungry
-    - message: process_stashed_out_of_order_commits is already repeating
-    - message: since Primary of master protocol instance degraded the performance
-    - message: and trying to start view change since performance of master instance degraded
-    - message: to its replicas since not finalised
-  - match any and drop:
-    - message: asking (\w+) for ledger status of ledger
-    - message: ^it took (\S+) seconds to run once nicely
-    - message: authenticated {'(\w+)'} signature on (\w+) request
+  - match and drop: [spam]
 
   filter_all_spam:
-  - filter_spam:
-  - match any and drop:
-    - message: pinged
-    - message: ponged
-    - message: matched remote
-    - message: reverting 3PC key
-    - message: verifying proof for
-    - message: appending to nodeInbox
-    - message: received consistency proof
-    - message: view_changer sending INSTANCE_CHANGE
-    - message: does not send BATCH to Observers since there are no observers added
+  - match and drop: [all_spam]
 
 #########################################################################
 # Taggers
@@ -96,7 +131,9 @@ chains:
 
   filter_ok:
   - match any and drop:
-    - message: "BLS:"
+    - network_message:
+    - view_change_message:
+    - bls_message:
     - message: found proof
     - message: pended request
     - message: sending message
