@@ -615,12 +615,6 @@ def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
                               timeout=timeout))
 
 
-def waitRejectFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitRejectWithReason(looper, client, reason,
-                             node.clientstack.name)
-
-
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no

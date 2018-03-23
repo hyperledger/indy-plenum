@@ -2,9 +2,8 @@ import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import RequestNackedException
-from plenum.test.helper import send_signed_requests, sign_requests, \
-    waitRejectFromPoolWithReason, sdk_gen_request, sdk_sign_and_submit_req_obj, \
-    sdk_get_reply, sdk_send_signed_requests, \
+from plenum.test.helper import sdk_gen_request, \
+    sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_send_signed_requests, \
     sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
@@ -65,8 +64,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
-                                   steward1,
+def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
                                    sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
@@ -75,9 +73,11 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stew
         TXN_TYPE: AUCTION_END,
         DATA: {'id': 'abcdef'}
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitRejectFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                 'unknown auction')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(RequestNackedException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('unknown auction')
 
     op = {
         TXN_TYPE: AUCTION_START,

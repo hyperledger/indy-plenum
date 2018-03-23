@@ -1,8 +1,10 @@
 import pytest
+
+from plenum.common.exceptions import RequestRejectedException
 from plenum.test.delayers import ppgDelay
 from plenum.test.helper import send_pre_prepare, send_prepare, send_commit, \
-    sendRandomRequests, waitRejectFromPoolWithReason, \
-    waitForSufficientRepliesForRequests
+    sendRandomRequests, waitForSufficientRepliesForRequests, \
+    sdk_send_random_and_check
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import check_replica_queue_empty, \
     check_all_replica_queue_empty
@@ -10,17 +12,15 @@ from plenum.test.view_change.helper import check_replica_queue_empty, \
 
 @pytest.mark.skip('Currently we stash client requests during view change')
 def test_no_requests_processed_during_view_change(looper, txnPoolNodeSet,
-                                                  client1, wallet1):
+                                                  sdk_pool_handle, sdk_wallet_client):
     for node in txnPoolNodeSet:
         node.view_change_in_progress = True
 
-    sendRandomRequests(wallet1, client1, 10)
-
-    waitRejectFromPoolWithReason(
-        looper,
-        txnPoolNodeSet,
-        client1,
-        'Can not process requests when view change is in progress')
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle, sdk_wallet_client, 10)
+    assert 'Can not process requests when view change is in progress' in \
+           e._excinfo[1].args[0]
 
     for node in txnPoolNodeSet:
         check_replica_queue_empty(node)
