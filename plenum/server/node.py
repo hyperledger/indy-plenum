@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -1150,7 +1150,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} new node joined by txn {}".format(self, txn))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
-        if new_replicas > 0 and not self.view_changer.view_change_in_progress:
+        ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
+        if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
+                ledgerInfo.state == LedgerState.synced:
+            # Select primaries must be only after pool ledger catchup
+            # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
 
     def nodeLeft(self, txn):
@@ -1756,13 +1760,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     'ledger {}'.format(self, r, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
-        rh = self.postRecvTxnFromCatchup(ledger_id, txn)
+        rh = self.get_req_handler(ledger_id)
         if rh:
             rh.updateState([txn], isCommitted=True)
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
         self.updateSeqNoMap([txn])
         self._clear_req_key_for_txn(ledger_id, txn)
+        self.postRecvTxnFromCatchup(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
         if f.IDENTIFIER.nm in txn and f.REQ_ID.nm in txn:
@@ -1774,8 +1779,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-        rh = self.get_req_handler(ledgerId)
-        return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
