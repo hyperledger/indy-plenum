@@ -87,6 +87,7 @@ def view_change_done(looper, nodeSet):
 # noinspection PyIncorrectDocstring
 
 
+@pytest.mark.skip(reason='test is deprecated')
 def testPrimarySelectionAfterViewChange(    # noqa
         looper,
         nodeSet,
