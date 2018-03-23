@@ -6,10 +6,10 @@ from plenum.test.helper import checkViewNoForNodes, \
     sdk_send_random_and_check, countDiscarded
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
 
 from stp_core.common.log import getlogger
+
 logger = getlogger()
 
 
@@ -41,7 +41,7 @@ def test_master_primary_different_from_previous(txnPoolNodeSet, looper,
 
 @pytest.mark.skip(reason='Nodes use round robin primary selection')
 def test_master_primary_different_from_previous_view_for_itself(
-        txnPoolNodeSet, looper, client1, wallet1, client1Connected):
+        txnPoolNodeSet, looper, client1, wallet1):
     """
     After a view change, primary must be different from previous primary for
     master instance, it does not matter for other instance. Break it into

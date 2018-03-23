@@ -11,9 +11,6 @@ from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-
 
 TestRunningTimeLimitSec = 150
 
@@ -22,7 +19,6 @@ TestRunningTimeLimitSec = 150
 def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
                                                            looper, wallet1,
                                                            client1,
-                                                           client1Connected,
                                                            tconf):
     """
     A node is slow and after view change starts, it marks it's `last_prepared`

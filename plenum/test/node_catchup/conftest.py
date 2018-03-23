@@ -9,10 +9,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
-    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
-    client1Connected
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
@@ -51,7 +47,7 @@ def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
         allPluginsPath=allPluginsPath, autoStart=True,
         do_post_node_creation=do_post_node_creation)
     yield looper, newNode, client, wallet, newStewardClient, \
-        newStewardWallet
+          newStewardWallet
 
 
 @pytest.fixture("module")

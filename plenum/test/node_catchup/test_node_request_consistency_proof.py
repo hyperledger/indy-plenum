@@ -14,7 +14,6 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.conftest import whitelist
 from plenum.test.batching_3pc.conftest import tconf
 
-
 logger = getlogger()
 # So that `three_phase_key_for_txn_seq_no` always works, it makes the test
 # easy as the requesting node selects a random size for the ledger

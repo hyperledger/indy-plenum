@@ -8,49 +8,49 @@ nodeCount = 7
 
 
 # noinspection PyIncorrectDocstring
-def test_view_change_on_empty_ledger(nodeSet, up, looper):
+def test_view_change_on_empty_ledger(txnPoolNodeSet, looper):
     """
     Check that view change is done when no txns in the ldegr
     """
-    ensure_view_change(looper, nodeSet)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
-    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
 
 # noinspection PyIncorrectDocstring
-def test_view_change_after_some_txns(looper, nodeSet, up, viewNo,
+def test_view_change_after_some_txns(looper, txnPoolNodeSet, viewNo,
                                      wallet1, client1):
     """
     Check that view change is done after processing some of txns
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
-    ensure_view_change(looper, nodeSet)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
-    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
 
 # noinspection PyIncorrectDocstring
-def test_send_more_after_view_change(looper, nodeSet, up,
+def test_send_more_after_view_change(looper, txnPoolNodeSet,
                                      wallet1, client1):
     """
     Check that we can send more requests after view change
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
-    ensure_view_change(looper, nodeSet)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
-    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
 
 
-def test_node_notified_about_primary_election_result(nodeSet, looper, up):
+def test_node_notified_about_primary_election_result(txnPoolNodeSet, looper):
     old_counts = {node.name: get_count(
-        node, node.primary_selected) for node in nodeSet}
-    ensure_view_change(looper, nodeSet)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
-    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+        node, node.primary_selected) for node in txnPoolNodeSet}
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         assert get_count(node, node.primary_selected) > old_counts[node.name]

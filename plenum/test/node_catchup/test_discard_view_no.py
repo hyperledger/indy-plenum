@@ -11,7 +11,6 @@ from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test import waits
 
-
 whitelist = ['found legacy entry']  # warnings
 
 

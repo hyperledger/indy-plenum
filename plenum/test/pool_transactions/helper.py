@@ -421,11 +421,13 @@ def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
     return req
 
 
-def sdk_send_update_node(looper, sdk_submitter_wallet, sdk_pool_handle,
+def sdk_send_update_node(looper, sdk_submitter_wallet,
+                         sdk_pool_handle,
                          destination, alias,
                          node_ip, node_port,
                          client_ip, client_port,
-                         services=[VALIDATOR]):
+                         services=[VALIDATOR],
+                         bls_key=None):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -435,6 +437,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet, sdk_pool_handle,
                              clientPort=client_port,
                              nodeIp=node_ip,
                              nodePort=node_port,
+                             bls_key=bls_key,
                              destination=destination,
                              services=services))
 

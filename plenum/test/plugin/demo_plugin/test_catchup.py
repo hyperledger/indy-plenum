@@ -15,13 +15,13 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 
 
-def test_new_node_catchup_plugin_ledger(nodeSet, looper, some_requests,
+def test_new_node_catchup_plugin_ledger(txn_pool_node_set_post_creation, looper, some_requests,
                                         newNodeCaughtUp):
     """
     A new node catches up the demo plugin's ledger too
     """
     assert len(newNodeCaughtUp.getLedger(AUCTION_LEDGER_ID)) > 0
-    for node in nodeSet[:-1]:
+    for node in txn_pool_node_set_post_creation[:-1]:
         assert len(newNodeCaughtUp.getLedger(AUCTION_LEDGER_ID)) == \
                len(node.getLedger(AUCTION_LEDGER_ID))
 

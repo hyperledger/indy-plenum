@@ -16,8 +16,8 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     sdk_get_reply(looper, req)
 
 
-def test_plugin_static_validation(nodeSet, looper, stewardWallet,
-                                  steward1, client1Connected,
+def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
+                                  steward1,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin static validation fails and passes
@@ -26,7 +26,7 @@ def test_plugin_static_validation(nodeSet, looper, stewardWallet,
         TXN_TYPE: AUCTION_START
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
                                   'attribute is missing or not in proper format')
 
     op = {
@@ -34,7 +34,7 @@ def test_plugin_static_validation(nodeSet, looper, stewardWallet,
         DATA: 'should be a dict but giving a string'
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
                                   'attribute is missing or not in proper format')
 
     op = {
@@ -49,7 +49,7 @@ def test_plugin_static_validation(nodeSet, looper, stewardWallet,
         DATA: {'id': 'abc', AMOUNT: -3}
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, nodeSet, steward1,
+    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
                                   'must be present and should be a number')
 
     op = {
@@ -59,8 +59,8 @@ def test_plugin_static_validation(nodeSet, looper, stewardWallet,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
-                                   steward1, client1Connected,
+def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
+                                   steward1, 
                                    sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
@@ -70,7 +70,7 @@ def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
         DATA: {'id': 'abcdef'}
     }
     send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitRejectFromPoolWithReason(looper, nodeSet, steward1,
+    waitRejectFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
                                  'unknown auction')
 
     op = {
@@ -87,9 +87,9 @@ def test_plugin_dynamic_validation(nodeSet, looper, stewardWallet,
 
 
 @pytest.fixture(scope="module")
-def some_requests(nodeSet, looper, stewardWallet,
-                                 steward1, client1Connected,
-                                 sdk_wallet_steward, sdk_pool_handle):
+def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
+                  steward1, 
+                  sdk_wallet_steward, sdk_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'pqr'}
@@ -102,7 +102,7 @@ def some_requests(nodeSet, looper, stewardWallet,
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
-    for node in nodeSet:
+    for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
         assert auctions['pqr'][stewardWallet.defaultId] == 20
@@ -113,7 +113,7 @@ def some_requests(nodeSet, looper, stewardWallet,
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
-    for node in nodeSet:
+    for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
         assert auctions['pqr'][stewardWallet.defaultId] == 40

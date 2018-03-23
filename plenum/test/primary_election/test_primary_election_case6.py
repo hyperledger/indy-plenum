@@ -9,8 +9,8 @@ from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='module')
-def case_6_setup(startedNodes):
-    A, B, C, D = startedNodes.nodes.values()
+def case_6_setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     # A will get Nomination, Primary, Reelection from after elections get over
     for m in (Nomination, Primary, Reelection):
@@ -22,11 +22,10 @@ def case_6_setup(startedNodes):
 
 # noinspection PyIncorrectDocstring
 @pytest.fixture(scope='module')
-def elections_done(case_6_setup, looper, keySharedNodes):
+def elections_done(case_6_setup, looper, txnPoolNodeSet):
     # Make sure elections are done successfully
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
-    looper.run(checkNodesConnected(nodeSet))
+    A, B, C, D = txnPoolNodeSet
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     inst_ids = (0, 1)
 
@@ -48,7 +47,7 @@ def elections_done(case_6_setup, looper, keySharedNodes):
             assert primary_send_times[i][0] > max(primary_recv_times[i])
 
     looper.run(eventually(chk, retryWait=1, timeout=15))
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
+    checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1)
 
     # Make sure no Nominations or Primary are received by A from B
     for i in inst_ids:

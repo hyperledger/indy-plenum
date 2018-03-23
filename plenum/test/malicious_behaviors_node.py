@@ -44,11 +44,11 @@ def changesRequest(node):
     return node
 
 
-def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
+def delaysPrePrepareProcessing(node, delay: float = 30, instId: int = None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
 
 
-def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+def delaysCommitProcessing(node, delay: float = 30, instId: int = None):
     node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
 
 
@@ -57,7 +57,7 @@ def delaysCommitProcessing(node, delay: float=30, instId: int=None):
 def sendDuplicate3PhaseMsg(
         node: TestNode,
         msgType: ThreePhaseMsg,
-        count: int=2,
+        count: int = 2,
         instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
@@ -118,7 +118,7 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
         common.error.error("Not a 3 phase message")
 
 
-def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
+def malignInstancesOfNode(node: TestNode, malignMethod, instId: int = None):
     if instId is not None:
         malignMethod(replica=node.replicas[instId])
     else:
@@ -129,7 +129,7 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
 
 
 def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
-                                     instId: int=None):
+                                     instId: int = None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
@@ -183,6 +183,7 @@ def faultyReply(node):
         reply.result[f.SIG.nm] = "incorrect signature"
         reply.result["declaration"] = "All your base are belong to us."
         return reply
+
     node.generateReply = types.MethodType(newGenerateReply, node)
 
 

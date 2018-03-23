@@ -12,8 +12,7 @@ from plenum.test.view_change.helper import ensure_view_change
 
 
 @pytest.fixture(scope='module', params=['some', 'all'])
-def setup(request, looper, txnPoolNodeSet, client1, wallet1,
-          client1Connected):
+def setup(request, looper, txnPoolNodeSet, client1, wallet1):
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[1].node
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     # Delay catchup reply so that the test gets time to make the check,
@@ -38,12 +37,12 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
         looper, wallet1, client1, 10, 5)
     ensure_all_nodes_have_same_data(looper, fast_nodes)
     assert slow_node.master_replica.last_ordered_3pc != \
-        fast_nodes[0].master_replica.last_ordered_3pc
+           fast_nodes[0].master_replica.last_ordered_3pc
 
     def chk(key, nodes, present):
         for node in nodes:
             assert (
-                key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
+                           key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
 
     for req in reqs:
         chk(req.key, fast_nodes, False)

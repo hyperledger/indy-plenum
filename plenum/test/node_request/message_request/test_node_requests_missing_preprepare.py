@@ -12,8 +12,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
-from plenum.test.pool_transactions.conftest import looper
-
 
 whitelist = ['does not have expected state']
 
@@ -87,7 +85,7 @@ def malicious_setup(request, txnPoolNodeSet):
         bad_node.nodeMsgRouter.routes[MessageReq] = types.MethodType(
             do_not_send, bad_node)
         return primary_node, bad_node, good_non_primary_node, slow_node, \
-            other_nodes, do_not_send, orig_method
+               other_nodes, do_not_send, orig_method
 
     if request.param == 'send_bad':
         orig_method = bad_node.nodeMsgRouter.routes[MessageReq]
@@ -108,7 +106,7 @@ def malicious_setup(request, txnPoolNodeSet):
         bad_node.nodeMsgRouter.routes[MessageReq] = types.MethodType(send_bad,
                                                                      bad_node)
         return primary_node, bad_node, good_non_primary_node, slow_node, \
-            other_nodes, send_bad, orig_method
+               other_nodes, send_bad, orig_method
 
 
 def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
@@ -127,20 +125,20 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
     # good_non_primary_node = [n for n in other_nodes if n != slow_node
     #                          and n != bad_node and n != primary_node][0]
     primary_node, bad_node, good_non_primary_node, slow_node, other_nodes, \
-        bad_method, orig_method = malicious_setup
+    bad_method, orig_method = malicious_setup
 
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
     def get_reply_count_frm(node):
         return sum([1 for entry in slow_node.spylog.getAll(
             slow_node.process_message_rep)
-            if entry.params['msg'].msg_type == PREPREPARE and
-            entry.params['frm'] == node.name])
+                    if entry.params['msg'].msg_type == PREPREPARE and
+                    entry.params['frm'] == node.name])
 
     old_reply_count_from_bad_node = get_reply_count_frm(bad_node)
     old_reply_count_from_good_node = get_reply_count_frm(good_non_primary_node)
     old_discarded = countDiscarded(slow_node.master_replica, 'does not have '
-                                   'expected state')
+                                                             'expected state')
 
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
@@ -163,7 +161,7 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
                               'does not have expected state') > old_discarded
 
     assert get_reply_count_frm(good_non_primary_node) > \
-        old_reply_count_from_good_node
+           old_reply_count_from_good_node
 
     slow_node.reset_delays_and_process_delayeds()
     bad_node.nodeMsgRouter.routes[MessageReq] = orig_method

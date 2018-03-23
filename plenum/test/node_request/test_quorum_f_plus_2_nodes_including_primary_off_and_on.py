@@ -2,8 +2,6 @@ from plenum.test import waits
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, \
     sendRandomRequest, waitForSufficientRepliesForRequests, \
     verify_request_not_replied_and_not_ordered
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
@@ -21,8 +19,7 @@ def stop_node(node_to_stop, looper, pool_nodes):
 
 def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
         looper, allPluginsPath, tdir, tconf,
-        txnPoolNodeSet, wallet1, client1, client1Connected):
-
+        txnPoolNodeSet, wallet1, client1):
     nodes = txnPoolNodeSet
 
     request1 = sendRandomRequest(wallet1, client1)
