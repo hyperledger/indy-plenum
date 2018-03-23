@@ -18,9 +18,17 @@ chains:
   - log count: {monitoring: interesting}
   - filter_ok:
   - slow_filter_ok:
+  - filter_to_decide:
   - log count: {monitoring: unknown}
   - log line: output
 
+  filter_to_decide:
+  - match any and drop:
+    - func: processCatchupRep
+    - func: _ask_for_ledger_status
+    - message: authenticated
+    - message: stashing ledger status
+    - message: creating catchup request
 
 logs:
   output:
