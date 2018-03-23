@@ -12,6 +12,8 @@ function build_rocksdb_deb {
     git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb
     cd /tmp/rocksdb
     git checkout $VERSION_TAG
+    sed -i 's/--license BSD/--license BSD --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>"/g' \
+        ./build_tools/make_package.sh
     EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" ./build_tools/make_package.sh $VERSION
     cp ./package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     # Install it in the system as it is needed by python-rocksdb.
