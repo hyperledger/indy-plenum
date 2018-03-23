@@ -14,10 +14,10 @@ chains:
   main:
   - log count: {monitoring: total}
   - log time: {monitoring: total}
-  - process: filter_all_spam
+  - filter_all_spam:
   - log count: {monitoring: interesting}
-  - process: filter_ok
-  - process: slow_filter_ok
+  - filter_ok:
+  - slow_filter_ok:
   - log count: {monitoring: unknown}
   - log line: output
 
@@ -34,7 +34,7 @@ logs:
 
 timelogs:
   monitoring:
-    interval: 20          # Interval in seconds
+    interval: 5           # Interval in seconds
     graphs:               # Graph list with colors
     - total: blue
 

@@ -9,7 +9,7 @@ input_logs:                        # List of input logs
 
 chains:
   main:
-  - process: tag_network
+  - tag_network:
   - match or drop: [tag: NETWORK]
   - log line: network
   - log time: {networking: total}

@@ -55,7 +55,7 @@ chains:
     - message: authenticated {'(\w+)'} signature on (\w+) request
 
   filter_all_spam:
-  - process: filter_spam
+  - filter_spam:
   - match any and drop:
     - message: pinged
     - message: ponged
@@ -162,9 +162,9 @@ chains:
     - message: not requesting a PRE-PREPARE because does not have sufficient PREPAREs for
     - message: cannot send PREPARE since should not participate in consensus for PREPREPARE
     - message: is getting requests but still does not have a primary so the replica will not process the request until a primary is chosen
-  - process: suspicion_filter
-  - process: discard_filter
-  - process: slow_filter_or
+  - suspicion_filter:
+  - discard_filter:
+  - slow_filter_ok:
 
   suspicion_filter:
   - match: [message: raised suspicion on node]
