@@ -1,6 +1,5 @@
 from plenum.common.prepare_batch import split_messages_on_batches, SPLIT_STEPS_LIMIT
 
-
 LEN_LIMIT_BYTES = 100
 SERIALIZATION_OTHER_HEAD_BYTES = 10
 MAX_ONE_MSG_LEN = LEN_LIMIT_BYTES - SERIALIZATION_OTHER_HEAD_BYTES
@@ -55,5 +54,5 @@ def test_one_msg_almost_excesses_limit_split_fails():
 
 
 def test_excesses_limit_of_split_steps_split_fails():
-    msgs = [b'1' * MAX_ONE_MSG_LEN] * 2**(SPLIT_STEPS_LIMIT + 1)
+    msgs = [b'1' * MAX_ONE_MSG_LEN] * 2 ** (SPLIT_STEPS_LIMIT + 1)
     assert split_ut(msgs) is None

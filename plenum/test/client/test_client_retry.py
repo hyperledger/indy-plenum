@@ -13,14 +13,14 @@ from plenum.test import waits
 whitelist = ['AlphaC unable to send message', ]
 
 
-def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1, wallet1):
+def testClientRetryRequestWhenAckNotReceived(looper, txnPoolNodeSet, client1, wallet1):
     """
     The client gets disconnected from node say Alpha but does not know it.
     It sends request to all nodes including Alpha, expects ACK and REPLY from
     Alpha too, does not get it, so reconnects to Alpha and sends request again
     and gets REPLY
     """
-    alpha = nodeSet.Alpha
+    alpha = txnPoolNodeSet[0]
 
     skipped = False
     origPr = alpha.processRequest
@@ -37,7 +37,7 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1, wallet1):
     req = sendRandomRequest(wallet1, client1)
 
     def chkAcks():
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             if node != alpha:
                 checkReqAck(client1, node, *req.key)
             else:
@@ -50,14 +50,14 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1, wallet1):
     wait_for_replies(looper, client1, idr, reqId, 4)
 
 
-def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
+def testClientRetryRequestWhenReplyNotReceived(looper, txnPoolNodeSet, client1,
                                                wallet1, tconf):
     """
     A node say Alpha sends ACK but doesn't send REPLY. The client resends the
     request and gets REPLY
     """
 
-    alpha = nodeSet.Alpha
+    alpha = txnPoolNodeSet[0]
     skipped = False
     origTrans = alpha.transmitToClient
 
@@ -70,7 +70,7 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
 
     alpha.transmitToClient = skipReplyOnce
     req = sendRandomRequest(wallet1, client1)
-    coros = [partial(checkReqAck, client1, node, *req.key) for node in nodeSet]
+    coros = [partial(checkReqAck, client1, node, *req.key) for node in txnPoolNodeSet]
     timeout = waits.expectedReqAckQuorumTime()
     start = time.perf_counter()
     looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=timeout))
@@ -86,14 +86,14 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     wait_for_replies(looper, client1, idr, reqId, 4)
 
 
-def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1, wallet1):
+def testClientNotRetryRequestWhenReqnackReceived(looper, txnPoolNodeSet, client1, wallet1):
     """
     A node sends REQNACK. The client does not resend Request.
     """
 
-    numOfNodes = len(nodeSet)
+    numOfNodes = len(txnPoolNodeSet)
 
-    alpha = nodeSet.Alpha
+    alpha = txnPoolNodeSet[0]
     origProcReq = alpha.processRequest
     origTrans = alpha.transmitToClient
 
@@ -148,7 +148,7 @@ def withFewerRetryReq(tconf, request):
 
 
 def testClientNotRetryingRequestAfterMaxTriesDone(looper,
-                                                  nodeSet,
+                                                  txnPoolNodeSet,
                                                   client1,
                                                   wallet1,
                                                   withFewerRetryReq):
@@ -158,7 +158,7 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     configuration and no more
     """
 
-    alpha = nodeSet.Alpha
+    alpha = txnPoolNodeSet[0]
     origTrans = alpha.transmitToClient
 
     def dontTransmitReply(msg, remoteName):
@@ -175,8 +175,8 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     # +1 because we have to wait one more retry timeout to make sure what
     # client cleaned his buffers (expectingAcksFor, expectingRepliesFor)
     retryTime = withFewerRetryReq.CLIENT_REPLY_TIMEOUT * \
-        (withFewerRetryReq.CLIENT_MAX_RETRY_REPLY + 1)
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + retryTime
+                (withFewerRetryReq.CLIENT_MAX_RETRY_REPLY + 1)
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + retryTime
 
     looper.runFor(timeout)
 
@@ -184,7 +184,7 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     wait_for_replies(looper, client1, idr, reqId, 3)
 
     assert client1.spylog.count(client1.resendRequests.__name__) == \
-        (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
+           (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor
     assert req.key not in client1.expectingRepliesFor
     alpha.transmitToClient = origTrans

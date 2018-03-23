@@ -10,7 +10,6 @@ from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
 
-
 logger = getLogger()
 
 TestRunningTimeLimitSec = 200
@@ -22,7 +21,6 @@ def test_node_catchup_after_checkpoints(
         txnPoolNodeSet,
         wallet1,
         client1,
-        client1Connected,
         broken_node_and_others):
     """
     For some reason a node misses 3pc messages but eventually the node stashes

@@ -222,8 +222,11 @@ class Ledger(ImmutableStore):
     # TODO: rename getAllTxn to get_txn_slice with required parameters frm to
     # add get_txn_all without args.
     def getAllTxn(self, frm: int = None, to: int = None):
-        yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
-                    for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
+        for seq_no, txn in self._transactionLog.iterator(start=frm, end=to):
+            if to is None or int(seq_no) <= to:
+                yield (int(seq_no), self.txn_serializer.deserialize(txn))
+            else:
+                break
 
     @staticmethod
     def hashToStr(h):

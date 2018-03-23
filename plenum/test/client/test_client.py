@@ -12,7 +12,7 @@ from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.helper import checkResponseCorrectnessFromNodes, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
-    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength,  \
+    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength, \
     sendReqsToNodesAndVerifySuffReplies
 
 from plenum.test.test_client import genTestClient
@@ -28,7 +28,6 @@ whitelist = ['signer not configured so not signing',
              'public key from disk',
              'verification key from disk',
              'got error while verifying message']  # warnings
-
 
 logger = getlogger()
 
@@ -60,6 +59,7 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
     """
+
     async def go(ctx):
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(
@@ -195,7 +195,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
 
 
 # noinspection PyIncorrectDocstring
-def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
+def testReplyWhenRequestAlreadyExecuted(looper, txnPoolNodeSet, client1, sent1):
     """
     When a request has already been executed the previously executed reply
     will be sent again to the client. An acknowledgement will not be sent
@@ -211,7 +211,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     for part in message_parts:
         client1.nodestack._enqueueIntoAllRemotes(part, None)
-        
+
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
@@ -222,84 +222,3 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(eventually(chk, retryWait=1, timeout=responseTimeout))
-
-
-# noinspection PyIncorrectDocstring
-def testReplyMatchesRequest(looper, nodeSet, client_tdir, up):
-    '''
-    This tests does check following things:
-      - wallet works correctly when used by multiple clients
-      - clients do receive responses for exactly the same request they sent
-    '''
-
-    def makeClient(id):
-        client, wallet = genTestClient(nodeSet,
-                                       tmpdir=client_tdir,
-                                       name="client-{}".format(id))
-        looper.add(client)
-        looper.run(client.ensureConnectedToNodes())
-        return client, wallet
-
-    # creating clients
-    numOfClients = 3
-    numOfRequests = 1
-
-    clients = set()
-    sharedWallet = None
-    for i in range(numOfClients):
-        client, wallet = makeClient(i)
-        if sharedWallet is None:
-            sharedWallet = wallet
-        clients.add(client)
-
-    for i in range(1, numOfRequests + 1):
-        # sending requests
-        requests = {}
-        for client in clients:
-            op = randomOperation()
-            req = sharedWallet.signOp(op)
-
-            request = client.submitReqs(req)[0][0]
-            requests[client] = (request.reqId, request.operation['amount'])
-
-        # checking results
-        responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
-        for client, (reqId, sentAmount) in requests.items():
-            looper.run(eventually(checkResponseRecvdFromNodes,
-                                  client,
-                                  nodeCount,
-                                  reqId,
-                                  retryWait=1,
-                                  timeout=responseTimeout))
-
-            print("Expected amount for request {} is {}".
-                  format(reqId, sentAmount))
-
-            # This looks like it fails on some python versions
-            # replies = [r[0]['result']['amount']
-            #            for r in client.inBox
-            #            if r[0]['op'] == 'REPLY'
-            #            and r[0]['result']['reqId'] == reqId]
-
-            replies = []
-            for r in client.inBox:
-                if r[0]['op'] == 'REPLY' and r[0]['result']['reqId'] == reqId:
-                    if 'amount' not in r[0]['result']:
-                        logger.debug('{} cannot find amount in {}'.
-                                     format(client, r[0]['result']))
-                    replies.append(r[0]['result']['amount'])
-
-            assert all(replies[0] == r for r in replies)
-            assert replies[0] == sentAmount
-
-
-def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, client_tdir,
-                                                client1, wallet1):
-    newClient, _ = genTestClient(nodeSet, tmpdir=client_tdir)
-    looper.add(newClient)
-    looper.run(newClient.ensureConnectedToNodes())
-    client1InboxSize = len(client1.inBox)
-    newClientInboxSize = len(newClient.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
-    assert len(client1.inBox) == client1InboxSize
-    assert len(newClient.inBox) > newClientInboxSize

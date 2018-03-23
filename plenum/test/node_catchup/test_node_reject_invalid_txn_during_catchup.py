@@ -10,12 +10,10 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
 
-
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
-
 
 txnCount = 10
 
@@ -81,7 +79,7 @@ def _sendIncorrectTxns(self, req, frm):
                     " for catchup request {} from {}".
                     format(self, req, frm))
         start, end = getattr(req, f.SEQ_NO_START.nm), \
-            getattr(req, f.SEQ_NO_END.nm)
+                     getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         txns = {}
         for seqNo, txn in ledger.getAllTxn(start, end):

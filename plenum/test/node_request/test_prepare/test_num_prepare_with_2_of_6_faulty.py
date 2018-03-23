@@ -9,7 +9,6 @@ from plenum.test.node_request.node_request_helper import checkPrepared
 
 from plenum.test.node_request.helper import nodes_by_rank
 
-
 nodeCount = 6
 f = 1
 faultyNodes = f + 1

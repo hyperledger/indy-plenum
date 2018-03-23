@@ -1,19 +1,23 @@
 import copy
 
 import pytest
+from storage.kv_store import KeyValueStorage
 from state.pruning_state import PruningState
 from state.state import State
 from state.trie.pruning_trie import BLANK_NODE, BLANK_ROOT
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 
 i = 0
 
 
-@pytest.yield_fixture(scope="function", params=['leveldb', 'in_memory'])
-def db(request, tempdir) -> State:
-    if request == 'leveldb':
+@pytest.yield_fixture(scope="function", params=['rocksdb', 'leveldb', 'in_memory'])
+def db(request, tempdir) -> KeyValueStorage:
+    if request.param == 'leveldb':
         return KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i))
+    if request.param == 'rocksdb':
+        return KeyValueStorageRocksdb(tempdir, 'kv{}'.format(i))
     return KeyValueStorageInMemory()
 
 

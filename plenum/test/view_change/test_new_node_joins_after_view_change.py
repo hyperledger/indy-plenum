@@ -11,13 +11,11 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
     checkViewNoForNodes, stopNodes, sendReqsToNodesAndVerifySuffReplies
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, stewardAndWallet1, steward1, \
-    stewardWallet
-from plenum.test.primary_selection.conftest import nodeThetaAdded, \
-    one_node_added
+from plenum.test.pool_transactions.conftest import nodeThetaAdded
+from plenum.test.primary_selection.conftest import one_node_added
 
 from stp_core.common.log import getlogger
+
 logger = getlogger()
 
 
@@ -28,8 +26,7 @@ def all_nodes_view_change(
         stewardWallet,
         steward1,
         client1,
-        wallet1,
-        client1Connected):
+        wallet1):
     for _ in range(5):
         send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     ensure_view_change(looper, txnPoolNodeSet)

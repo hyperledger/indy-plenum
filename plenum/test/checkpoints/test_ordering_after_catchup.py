@@ -14,7 +14,6 @@ nodeCount = 4
 
 def add_new_node(looper, pool_nodes, steward, steward_wallet,
                  tdir, client_tdir, tconf, all_plugins_path):
-
     name = randomString(6)
     node_name = "Node-" + name
     new_steward_name = "Steward-" + name

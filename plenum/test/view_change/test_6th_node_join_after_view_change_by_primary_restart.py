@@ -6,10 +6,6 @@ from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
-from plenum.test.pool_transactions.conftest import wallet1, client1,\
-client1Connected, looper, stewardAndWallet1, steward1, \
-     stewardWallet
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import check_ledger_state, \
@@ -19,7 +15,6 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test import waits
 from plenum.common.startable import Mode
-
 
 logger = getlogger()
 
@@ -47,7 +42,7 @@ def catchuped(node):
 
 
 def add_new_node(looper, nodes, steward, steward_wallet,
-                tdir, client_tdir, tconf, all_plugins_path, name=None):
+                 tdir, client_tdir, tconf, all_plugins_path, name=None):
     node_name = name or "Psi"
     new_steward_name = "testClientSteward" + randomString(3)
     new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
@@ -68,9 +63,9 @@ def add_new_node(looper, nodes, steward, steward_wallet,
 
 
 def test_6th_node_join_after_view_change_by_master_restart(
-         looper, txnPoolNodeSet, tdir, tconf,
-         allPluginsPath, steward1, stewardWallet,
-         client_tdir, limitTestRunningTime):
+        looper, txnPoolNodeSet, tdir, tconf,
+        allPluginsPath, steward1, stewardWallet,
+        client_tdir, limitTestRunningTime):
     """
     Test steps:
     1. start pool of 4 nodes
@@ -84,11 +79,11 @@ def test_6th_node_join_after_view_change_by_master_restart(
     pool_of_nodes = txnPoolNodeSet
     for __ in range(4):
         pool_of_nodes = ensure_view_change_by_primary_restart(looper,
-                                                                pool_of_nodes,
-                                                                tconf,
-                                                                tdir,
-                                                                allPluginsPath,
-                                                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                              pool_of_nodes,
+                                                              tconf,
+                                                              tdir,
+                                                              allPluginsPath,
+                                                              customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
         timeout = waits.expectedPoolCatchupTime(nodeCount=len(pool_of_nodes))
         for node in pool_of_nodes:
             looper.run(eventually(catchuped, node, timeout=2 * timeout))
@@ -116,11 +111,11 @@ def test_6th_node_join_after_view_change_by_master_restart(
                               LedgerState.synced, retryWait=.5, timeout=timeout))
     for __ in range(4):
         pool_of_nodes = ensure_view_change_by_primary_restart(looper,
-                                                               pool_of_nodes,
-                                                               tconf,
-                                                               tdir,
-                                                               allPluginsPath,
-                                                               customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                              pool_of_nodes,
+                                                              tconf,
+                                                              tdir,
+                                                              allPluginsPath,
+                                                              customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
 
         timeout = waits.expectedPoolCatchupTime(nodeCount=len(pool_of_nodes))
         for node in pool_of_nodes:
@@ -139,5 +134,3 @@ def test_6th_node_join_after_view_change_by_master_restart(
                           LedgerState.synced, retryWait=.5, timeout=5))
     looper.run(eventually(check_ledger_state, new_psi_node, POOL_LEDGER_ID,
                           LedgerState.synced, retryWait=.5, timeout=5))
-
-

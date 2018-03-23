@@ -18,7 +18,7 @@ nodes_with_bls = 0
 def test_client_resends_not_confirmed_request(looper,
                                               client1,
                                               wallet1,
-                                              nodeSet):
+                                              txnPoolNodeSet):
     """
     Check that client resends request to all nodes if it was previously sent
     to one node but reply cannot be verified

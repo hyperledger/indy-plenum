@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState

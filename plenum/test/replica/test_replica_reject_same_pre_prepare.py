@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.test.delayers import cDelay
@@ -17,12 +16,11 @@ whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',
              'InvalidSignature']
 
-
 logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
+def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, client1, wallet1):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -31,14 +29,14 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     """
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
-    primaryRepl = getPrimaryReplica(nodeSet, 1)
+    primaryRepl = getPrimaryReplica(txnPoolNodeSet, 1)
     logger.debug("Primary Replica: {}".format(primaryRepl))
-    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, 1)
+    nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, 1)
     logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
 
     # Delay COMMITs so request is not ordered and checks can be made
     c_delay = 10
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(delay=c_delay, instId=1))
 
     request1 = sendRandomRequest(wallet1, client1)
@@ -71,7 +69,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     primaryRepl._lastPrePrepareSeqNo -= 1
     view_no = primaryRepl.viewNo
     request2 = sendRandomRequest(wallet1, client1)
-    timeout = waits.expectedPrePrepareTime(len(nodeSet))
+    timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=timeout))
 
@@ -96,7 +94,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     logger.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
-    timeout = waits.expectedPrePrepareTime(len(nodeSet))
+    timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(checkPrePrepareReqRecvd,
                           nonPrimaryReplicas,
                           prePrepareReq,
@@ -105,7 +103,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     logger.debug("""Check that none of the non primary replicas didn't send
     any prepare message "
                              in response to the pre-prepare message""")
-    timeout = waits.expectedPrepareTime(len(nodeSet))
+    timeout = waits.expectedPrepareTime(len(txnPoolNodeSet))
     looper.runFor(timeout)  # expect prepare processing timeout
 
     # check if prepares have not been sent
@@ -119,7 +117,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                                   retryWait=1,
                                   timeout=timeout))
 
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + c_delay
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + c_delay
     result1 = \
         looper.run(eventually(check_sufficient_replies_received,
                               client1, request1.identifier, request1.reqId,

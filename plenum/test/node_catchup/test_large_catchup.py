@@ -9,7 +9,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from stp_core.validators.message_length_validator import MessageLenValidator
 
-
 TestRunningTimeLimitSec = 125
 
 
@@ -47,7 +46,6 @@ def test_large_catchup(tdir, tconf,
                        txnPoolNodeSet,
                        wallet1,
                        client1,
-                       client1Connected,
                        allPluginsPath):
     """
     Checks that node can catchup large ledgers

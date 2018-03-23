@@ -7,7 +7,6 @@ from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
-
 logger = getlogger()
 
 

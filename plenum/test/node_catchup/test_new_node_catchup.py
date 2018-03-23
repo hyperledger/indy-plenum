@@ -43,7 +43,7 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
     for comp in completes:
         completionTimes[comp.params.get('ledgerId')] = comp.endtime
     assert startTimes[0] < completionTimes[0] < \
-        startTimes[1] < completionTimes[1]
+           startTimes[1] < completionTimes[1]
 
 
 @pytest.mark.skip(reason="SOV-554. "

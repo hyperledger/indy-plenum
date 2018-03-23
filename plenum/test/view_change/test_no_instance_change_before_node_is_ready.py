@@ -2,10 +2,6 @@ import pytest
 
 from plenum.server.view_change.view_changer import ViewChanger
 
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, stewardAndWallet1, steward1, \
-    stewardWallet
-
 from stp_core.common.log import getlogger
 from plenum.test.pool_transactions.helper import start_not_added_node, add_started_node
 

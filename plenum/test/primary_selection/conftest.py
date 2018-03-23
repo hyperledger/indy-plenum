@@ -1,12 +1,11 @@
 import pytest
 
+from plenum.test.conftest import getValueFromModule
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.primary_selection.helper import check_newly_added_nodes, \
     getPrimaryNodesIdxs
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
+from plenum.test.pool_transactions.conftest import nodeThetaAdded
 
 
 @pytest.fixture(scope="module")
@@ -49,3 +48,23 @@ def stewardAndWalletForMasterNode(looper, poolTxnData, poolTxnStewardNames,
     looper.run(stewardClient.ensureConnectedToNodes())
 
     return stewardClient, stewardWallet
+
+
+@pytest.fixture(scope="module")
+def checkpoint_size(tconf, request):
+    oldChkFreq = tconf.CHK_FREQ
+    oldLogSize = tconf.LOG_SIZE
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+
+    tconf.Max3PCBatchSize = 3
+    tconf.CHK_FREQ = getValueFromModule(request, "CHK_FREQ", 2)
+    tconf.LOG_SIZE = 2 * tconf.CHK_FREQ
+
+    def reset():
+        tconf.CHK_FREQ = oldChkFreq
+        tconf.LOG_SIZE = oldLogSize
+        tconf.Max3PCBatchSize = oldMax3PCBatchSize
+
+    request.addfinalizer(reset)
+
+    return tconf.CHK_FREQ * tconf.Max3PCBatchSize

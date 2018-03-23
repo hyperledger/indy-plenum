@@ -2,14 +2,12 @@ from plenum.test import waits
 from plenum.test.delayers import cDelay, req_delay, ppgDelay
 from plenum.test.helper import sdk_signed_random_requests, \
     sdk_send_signed_requests, sdk_send_and_check
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
 
 def test_repeated_request_not_processed_if_already_ordered(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
 
@@ -25,7 +23,6 @@ def test_repeated_request_not_processed_if_already_ordered(
 
 def test_belated_request_not_processed_if_already_ordered(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
@@ -42,7 +39,6 @@ def test_belated_request_not_processed_if_already_ordered(
 
 def test_belated_propagate_not_processed_if_already_ordered(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))
@@ -59,7 +55,6 @@ def test_belated_propagate_not_processed_if_already_ordered(
 
 def test_repeated_request_not_processed_if_already_in_3pc_process(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     for node in txnPoolNodeSet:
@@ -88,7 +83,6 @@ def test_repeated_request_not_processed_if_already_in_3pc_process(
 
 def test_belated_request_not_processed_if_already_in_3pc_process(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
@@ -118,7 +112,6 @@ def test_belated_request_not_processed_if_already_in_3pc_process(
 
 def test_belated_propagate_not_processed_if_already_in_3pc_process(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))
@@ -148,7 +141,6 @@ def test_belated_propagate_not_processed_if_already_in_3pc_process(
 
 def test_repeated_request_not_processed_after_view_change(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
 
@@ -167,7 +159,6 @@ def test_repeated_request_not_processed_after_view_change(
 
 def test_belated_request_not_processed_after_view_change(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
@@ -187,7 +178,6 @@ def test_belated_request_not_processed_after_view_change(
 
 def test_belated_propagate_not_processed_after_view_change(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))

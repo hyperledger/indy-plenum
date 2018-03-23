@@ -2,7 +2,6 @@ from plenum.test.delayers import delay_3pc_messages, vcd_delay
 from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually

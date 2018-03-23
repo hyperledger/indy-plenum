@@ -14,7 +14,6 @@ from plenum.test import waits
 
 logger = getlogger()
 
-
 BaseStackClass = ZStack
 
 
@@ -62,7 +61,7 @@ class StackedTester:
 
     async def ensureConnectedToNodes(self, customTimeout=None, count=None):
         timeout = customTimeout or \
-            waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
+                  waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
             "waiting for {} seconds to check client connections to "
@@ -109,7 +108,7 @@ JOINED_NOT_ALLOWED = RemoteState(isConnected=False)
 JOINED = RemoteState(isConnected=False)
 
 
-def checkState(state: RemoteState, obj: Any, details: str=None):
+def checkState(state: RemoteState, obj: Any, details: str = None):
     if state is not None:
         checkedItems = {}
         for key, s in state._asdict().items():

@@ -2,7 +2,6 @@ from plenum.test import waits
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange, \
     sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected

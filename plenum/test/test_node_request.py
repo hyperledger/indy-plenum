@@ -44,6 +44,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
                             assert result
                         else:
                             assert result is False
+
             timeout = waits.expectedOrderingTime(
                 nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
@@ -133,8 +134,9 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
     assert senderNode.name in recvrNode.requests[key].propagates
 
 
-def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
-                                                            up, wallet1,
+def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper,
+                                                            txnPoolNodeSet,
+                                                            wallet1,
                                                             client1):
     size = len(client1.inBox)
     req = sendRandomRequest(wallet1, client1)

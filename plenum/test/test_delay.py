@@ -7,44 +7,41 @@ from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.helper import sendMessageAndCheckDelivery, addNodeBack, assertExp
-from plenum.test.msgs import randomMsg, TestMsg
+from plenum.test.msgs import TestMsg
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone, prepareNodeSet
 
 logger = getlogger()
 
+nodeCount = 2
+
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
-def testTestNodeDelay(tdir_for_func, tconf_for_func):
-    nodeNames = {"testA", "testB"}
-    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodes:
-        nodeA = nodes.getNode("testA")
-        nodeB = nodes.getNode("testB")
+def testTestNodeDelay(looper, txnPoolNodeSet):
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    nodeA = txnPoolNodeSet[0]
+    nodeB = txnPoolNodeSet[1]
+    # send one message, without delay
+    looper.run(sendMessageAndCheckDelivery(nodeA, nodeB))
 
-        with Looper(nodes) as looper:
-            looper.run(checkNodesConnected(nodes))
+    # set delay, then send another message
+    # and find that it doesn't arrive
+    delay = 5 * waits.expectedNodeToNodeMessageDeliveryTime()
+    nodeB.nodeIbStasher.delay(
+        delayerMsgTuple(delay, TestMsg, nodeA.name)
+    )
+    with pytest.raises(AssertionError):
+        looper.run(sendMessageAndCheckDelivery(nodeA, nodeB))
 
-            # send one message, without delay
-            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
+    # but then find that it arrives after the delay
+    # duration has passed
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delay
+    looper.run(sendMessageAndCheckDelivery(nodeA, nodeB,
+                                           customTimeout=timeout))
 
-            # set delay, then send another message
-            # and find that it doesn't arrive
-            delay = 5 * waits.expectedNodeToNodeMessageDeliveryTime()
-            nodeB.nodeIbStasher.delay(
-                delayerMsgTuple(delay, TestMsg, nodeA.name)
-            )
-            with pytest.raises(AssertionError):
-                looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
-
-            # but then find that it arrives after the delay
-            # duration has passed
-            timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delay
-            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB,
-                                                   customTimeout=timeout))
-
-            # reset the delay, and find another message comes quickly
-            nodeB.nodeIbStasher.reset_delays_and_process_delayeds()
-            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
+    # reset the delay, and find another message comes quickly
+    nodeB.nodeIbStasher.reset_delays_and_process_delayeds()
+    looper.run(sendMessageAndCheckDelivery(nodeA, nodeB))
 
 
 @pytest.mark.skip('Nodes use round robin primary selection')
@@ -87,4 +84,4 @@ def testSelfNominationDelay(tdir_for_func):
             looper.run(eventually(lambda: assertExp(
                 len(nodeA.spylog.getAll(
                     Node.decidePrimaries.__name__)) > 0),
-                retryWait=1, timeout=delay))
+                                  retryWait=1, timeout=delay))

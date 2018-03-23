@@ -9,7 +9,6 @@ from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 from plenum.test.test_client import TestClient
 from stp_core.loop.eventually import eventually
 
-
 TestRunningTimeLimitSec = 125
 
 
