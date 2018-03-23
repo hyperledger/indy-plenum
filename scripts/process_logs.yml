@@ -1,4 +1,22 @@
 
+matchers:
+  network_ping_pong:
+    - message: " ping "
+    - message: " pong "
+  network_disconnect:
+    - message: disconnecting remote
+  network_not_connected:
+    - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
+  network_misc:
+    - message: connections changed from
+    - message: found disconnected event on monitor
+  network_message:
+    - network_ping_pong:
+    - network_disconnect:
+    - network_not_connected:
+    - network_misc:
+
+
 chains:
 
 #########################################################################
@@ -71,21 +89,6 @@ chains:
 # Taggers
 #########################################################################
 
-  tag_network:
-  - match any or return:
-    - message: " ping "
-    - message: " pong "
-    - message: disconnecting remote
-    - message: connections changed from
-    - message: found disconnected event on monitor
-    - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
-  - tag:
-      pattern: .*
-      tags: [NETWORK]
-  - match or return: [message: disconnecting remote]
-  - tag:
-      pattern: .*
-      tags: [DISCONNECT]
 
 #########################################################################
 # To be done filters

@@ -235,8 +235,13 @@ def _create_matcher(config):
     if name == "attribute":
         return match_attribute(params)
 
-    print("WARNING: Unknown matcher", name)
-    return lambda m: True
+    try:
+        params = global_config["matchers"][name]
+        matchers = [_create_matcher(item) for item in params]
+        return lambda message: any(m(message) for m in matchers)
+    except KeyError:
+        print("WARNING: Unknown matcher", name)
+        return lambda m: True
 
 
 ###########################################################################################
@@ -331,7 +336,7 @@ def _create_rule(config):
 
     match = re.match("match\s*(all|any|)\s*((and|or)\s*(return|drop)|)", name)
     if match is not None:
-        operation = match.group(1) if match.group(1) else "all"
+        operation = match.group(1) if match.group(1) else "any"
         condition = match.group(3) if match.group(3) else "or"
         action = match.group(4) if match.group(4) else "return"
         return rule_match(operation, condition, action, params)
@@ -373,6 +378,9 @@ class ChainSet:
                 return ACTION_DROP
             if self.process(result, message, ctx) == ACTION_DROP:
                 return ACTION_DROP
+
+
+global_chain_set = ChainSet(global_config["chains"])
 
 
 ###########################################################################################
@@ -621,13 +629,10 @@ class Context:
 # Main
 ###########################################################################################
 
-chain_set = ChainSet(global_config["chains"])
-
-
 def process_log(log):
     ctx = Context(global_config)
     for message in messages_in_log(log):
-        chain_set.process("main", message, ctx)
+        global_chain_set.process("main", message, ctx)
     return ctx
 
 
