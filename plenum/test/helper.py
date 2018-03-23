@@ -144,7 +144,6 @@ def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
                                               override_timeout_limit=False,
                                               total_timeout=None):
     requests = sendRandomRequests(wallet, client, numReqs)
-    nodeCount = len(client.nodeReg)
     # wait till more than nodeCount replies are received (that is all nodes
     # answered)
     waitForSufficientRepliesForRequests(
@@ -616,12 +615,6 @@ def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
                               timeout=timeout))
 
 
-def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitReqNackWithReason(looper, client, reason,
-                              node.clientstack.name)
-
-
 def waitRejectFromPoolWithReason(looper, nodes, client, reason):
     for node in nodes:
         waitRejectWithReason(looper, client, reason,
@@ -985,6 +978,14 @@ def sdk_random_request_objects(count, protocol_version, identifier=None,
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
+
+
+def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
+    reqs_str = [json.dumps(req) for req in reqs]
     reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs

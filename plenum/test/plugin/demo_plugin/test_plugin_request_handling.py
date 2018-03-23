@@ -1,10 +1,11 @@
 import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.test.helper import waitReqNackFromPoolWithReason, \
-    send_signed_requests, sign_requests, \
+from plenum.common.exceptions import RequestNackedException
+from plenum.test.helper import send_signed_requests, sign_requests, \
     waitRejectFromPoolWithReason, sdk_gen_request, sdk_sign_and_submit_req_obj, \
-    sdk_get_reply
+    sdk_get_reply, sdk_send_signed_requests, \
+    sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
 
@@ -16,8 +17,7 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     sdk_get_reply(looper, req)
 
 
-def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
-                                  steward1,
+def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin static validation fails and passes
@@ -25,17 +25,21 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
     op = {
         TXN_TYPE: AUCTION_START
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'attribute is missing or not in proper format')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(RequestNackedException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('attribute is missing or not in proper format')
 
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: 'should be a dict but giving a string'
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'attribute is missing or not in proper format')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(RequestNackedException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('attribute is missing or not in proper format')
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -48,9 +52,11 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
         TXN_TYPE: PLACE_BID,
         DATA: {'id': 'abc', AMOUNT: -3}
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'must be present and should be a number')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(RequestNackedException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('must be present and should be a number')
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -60,7 +66,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
 
 
 def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
-                                   steward1, 
+                                   steward1,
                                    sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
@@ -88,7 +94,7 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stew
 
 @pytest.fixture(scope="module")
 def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
-                  steward1, 
+                  steward1,
                   sdk_wallet_steward, sdk_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,
