@@ -540,17 +540,6 @@ def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
     assert client.inBox.count(expected) > 0
 
 
-def checkReqNack(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQNACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
 def checkReplyCount(client, idr, reqId, count):
     senders = set()
     for msg, sdr in client.inBox:
