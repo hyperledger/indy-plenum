@@ -336,12 +336,6 @@ def _create_rule(config):
         action = match.group(4) if match.group(4) else "return"
         return rule_match(operation, condition, action, params)
 
-    if name == "return":
-        return rule_process(ACTION_RETURN)
-    if name == "drop":
-        return rule_process(ACTION_DROP)
-    if name == "process":
-        return rule_process(params)
     if name == "timeshift":
         return rule_timeshift(params)
     if name == "tag":
@@ -353,8 +347,7 @@ def _create_rule(config):
     if name == "log count":
         return rule_log_count(params)
 
-    print("WARNING: Unknown rule", name)
-    return rule_process(None)
+    return rule_process(name)
 
 
 ###########################################################################################
