@@ -28,9 +28,10 @@ class f:  # provides a namespace for reusable field constants
     SEQ_NO_START = Field('seqNoStart', int)
     SEQ_NO_END = Field('seqNoEnd', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
-    ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
-    # Last ordered seq no of each protocol instance, sent during view change
-    ORD_SEQ_NOS = Field('ordSeqNos', List[int])
+    ORD_SEQ_NO = Field('ordSeqNo', int)  # Last PP_SEQ_NO that was ordered
+    # Last ordered 3PC-keys for each of the replicas
+    REPLICAS_THREE_PC_KEYS = Field('replicasThreePcKeys',
+                                   Optional[List(Tuple[int, int])])
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)

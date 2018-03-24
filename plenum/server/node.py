@@ -382,12 +382,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.seqNoDB = self.loadSeqNoDB()
 
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
-        # the key is the ledger id and value is an interval tree with each
+        # the key is the instance number and the value is a dictionary where
+        # the key is the ledger id and the value is an interval tree with each
         # interval being the range of txns and value being the 3 phase key of
         # the batch in which those transactions were included. The txn range is
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
-        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
+        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, Dict[int, IntervalTree]]
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
@@ -2465,9 +2466,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
-        if ledger_id in self.txn_seq_range_to_3phase_key:
+        if 0 in self.txn_seq_range_to_3phase_key and \
+                        ledger_id in self.txn_seq_range_to_3phase_key[0]:
             # point query in interval tree
-            s = self.txn_seq_range_to_3phase_key[ledger_id][seq_no]
+            s = self.txn_seq_range_to_3phase_key[0][ledger_id][seq_no]
             if s:
                 # There should not be more than one interval for any seq no in
                 # the tree
@@ -2525,10 +2527,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         first_txn_seq_no = committedTxns[0][F.seqNo.name]
         last_txn_seq_no = committedTxns[-1][F.seqNo.name]
-        if ledger_id not in self.txn_seq_range_to_3phase_key:
-            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+        if 0 not in self.txn_seq_range_to_3phase_key:
+            self.txn_seq_range_to_3phase_key[0] = {}
+        if ledger_id not in self.txn_seq_range_to_3phase_key[0]:
+            self.txn_seq_range_to_3phase_key[0][ledger_id] = IntervalTree()
         # adding one to end of range since its exclusive
-        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
+        intrv_tree = self.txn_seq_range_to_3phase_key[0][ledger_id]
         intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
         logger.debug('{} storing 3PC key {} for ledger {} range {}'.
                      format(self, (view_no, pp_seq_no), ledger_id,
