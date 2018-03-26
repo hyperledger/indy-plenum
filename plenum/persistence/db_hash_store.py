@@ -8,7 +8,7 @@ logger = getlogger()
 
 
 class DbHashStore(HashStore):
-    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_ROCKSDB):
+    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB):
         self.dataDir = dataDir
         assert db_type == HS_ROCKSDB or db_type == HS_LEVELDB
         self.db_type = KeyValueStorageType.Leveldb if db_type == HS_LEVELDB \
