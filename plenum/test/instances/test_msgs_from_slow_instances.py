@@ -27,7 +27,6 @@ def configNodeSet(txnPoolNodeSet):
     return txnPoolNodeSet
 
 
-@pytest.mark.skip(reason='test is deprecated')
 def testMsgFromInstanceDelay(configNodeSet, looper, prepared1):
     A, B, C, D = configNodeSet
 
