@@ -89,18 +89,19 @@ def view_change_done(looper, txnPoolNodeSet):
 # noinspection PyIncorrectDocstring
 
 
-@pytest.mark.skip(reason='test is deprecated')
 def testPrimarySelectionAfterViewChange(  # noqa
         looper,
         txnPoolNodeSet,
         primaryReplicas,
-        catchup_complete_count,
-        view_change_done):
+        catchup_complete_count):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.
     """
     # TODO: This test can fail due to view change.
+
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     for n in txnPoolNodeSet:
         assert n.spylog.count(
