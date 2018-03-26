@@ -66,7 +66,7 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
 
 
 @pytest.fixture(scope="module")
-def step1(looper, txnPoolNodeSet, wallet1, client1):
+def step1(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     startedNodes = txnPoolNodeSet
     """
     stand up a pool of nodes and send 5 requests to client
@@ -74,7 +74,7 @@ def step1(looper, txnPoolNodeSet, wallet1, client1):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    requests = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,

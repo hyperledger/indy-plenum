@@ -10,7 +10,7 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
 
-TestRunningTimeLimitSec = 200
+TestRunningTimeLimitSec = 400
 
 nodeCount = 5
 

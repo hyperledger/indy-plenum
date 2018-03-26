@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.common.exceptions import RequestNackedException
+from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
 from plenum.test.helper import sdk_gen_request, \
     sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_send_signed_requests, \
     sdk_sign_request_strings, sdk_get_and_check_replies
@@ -26,9 +26,9 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
     reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    with pytest.raises(RequestNackedException) as exc_info:
+    with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
-    exc_info.match('attribute is missing or not in proper format')
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -36,9 +36,9 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
     reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    with pytest.raises(RequestNackedException) as exc_info:
+    with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
-    exc_info.match('attribute is missing or not in proper format')
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -53,9 +53,9 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
     reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    with pytest.raises(RequestNackedException) as exc_info:
+    with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
-    exc_info.match('must be present and should be a number')
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -75,9 +75,9 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
     reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    with pytest.raises(RequestNackedException) as exc_info:
+    with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
-    exc_info.match('unknown auction')
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,

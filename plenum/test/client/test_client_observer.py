@@ -3,6 +3,7 @@ import pytest
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
 
+# TODO: probably delete
 def test_observer_registration(looper, txnPoolNodeSet, client1):
     def callable1(*args, **kwargs):
         print(1)
@@ -48,6 +49,7 @@ def test_observer_registration(looper, txnPoolNodeSet, client1):
     assert len(client1._observers) == 1
 
 
+# TODO: probably delete
 def test_observer_execution(looper, txnPoolNodeSet, client1, wallet1):
     resp1 = []
     resp2 = []

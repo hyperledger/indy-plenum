@@ -102,7 +102,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #    -> they should be ordered
     #    -> last_ordered_3pc = (+2, 1)
     reset_delays_and_process_delayeds(txnPoolNodeSet)
-    sdk_get_replies(looper, requests)
+    sdk_get_replies(looper, [requests])
 
     checkViewNoForNodes(txnPoolNodeSet, viewNo)
     last_ordered_3pc = (viewNo, 1)

@@ -1,6 +1,6 @@
 from plenum.test.client.conftest import passThroughReqAcked1
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
 from plenum.test.malicious_behaviors_client import \
     genDoesntSendRequestToSomeNodes
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -10,6 +10,7 @@ clientFault = genDoesntSendRequestToSomeNodes("AlphaC")
 reqAcked1 = passThroughReqAcked1
 
 
+# TODO: probably delete
 def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, txnPoolNodeSet,
                                                     fClient, replied1,
                                                     wallet1):
@@ -41,6 +42,7 @@ def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, txnPoolNodeSet,
     more_reqs_count = 5
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, fClient,
                                         more_reqs_count, 1)
+    sdk_send_random_and_check
     # Ledger is same for all nodes
     waitNodeDataEquality(looper, alpha, *other_nodes)
     chk(6)  # Since one request is already sent as part of `replied1`

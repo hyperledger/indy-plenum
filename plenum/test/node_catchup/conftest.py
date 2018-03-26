@@ -82,6 +82,16 @@ def nodeSetWithNodeAddedAfterSomeTxns(
 
 
 @pytest.fixture("module")
+def sdk_node_set_with_node_added_after_some_txns(
+        txnPoolNodeSet, sdk_node_created_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_created_after_some_txns
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+
+
+@pytest.fixture("module")
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])

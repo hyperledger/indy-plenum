@@ -2,13 +2,13 @@ import pytest
 
 from stp_core.common.log import getlogger
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
 
 from plenum.test.test_node import TestNode, TestViewChanger
 from plenum.test.view_change.helper import ensure_view_change_complete
 
-from plenum.test.node_catchup.conftest import nodeCreatedAfterSomeTxns, \
-    nodeSetWithNodeAddedAfterSomeTxns
+from plenum.test.node_catchup.conftest import sdk_node_created_after_some_txns, \
+    sdk_node_set_with_node_added_after_some_txns
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 logger = getlogger()
@@ -66,8 +66,8 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, client1, wallet1,
 
 
 def test_new_node_accepts_chosen_primary(
-        txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
-    looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+        txnPoolNodeSet, sdk_node_set_with_node_added_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_set_with_node_added_after_some_txns
 
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
@@ -87,7 +87,8 @@ def test_new_node_accepts_chosen_primary(
 
     logger.debug("Send requests to ensure that pool is working properly, "
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              new_steward_wallet_handle, 3)
 
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
