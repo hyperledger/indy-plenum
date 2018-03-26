@@ -3,8 +3,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes, \
-    send_reqs_to_nodes_and_verify_all_replies
+from plenum.test.helper import stopNodes, sdk_send_random_and_check
 from plenum.test.test_node import TestNode, ensureElectionsDone
 from plenum.common.config_helper import PNodeConfigHelper
 
@@ -19,9 +18,12 @@ def tconf(tconf):
     return tconf
 
 
-def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
+def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet,
+                               sdk_pool_handle,
+                               sdk_wallet_client,
                                tdir):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 1)
 
     npr = [n for n in txnPoolNodeSet if not n.hasPrimary]
     nodeToCrash = npr[0]
@@ -60,4 +62,5 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 10)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 10)

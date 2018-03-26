@@ -135,28 +135,6 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     return requests
 
 
-def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
-                                              wallet: Wallet,
-                                              client: TestClient,
-                                              numReqs: int,
-                                              customTimeoutPerReq: float = None,
-                                              add_delay_to_timeout: float = 0,
-                                              override_timeout_limit=False,
-                                              total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    # wait till more than nodeCount replies are received (that is all nodes
-    # answered)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
 def send_reqs_batches_and_get_suff_replies(
         looper: Looper,
         wallet: Wallet,

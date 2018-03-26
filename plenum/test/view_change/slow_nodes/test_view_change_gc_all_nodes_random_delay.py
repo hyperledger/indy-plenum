@@ -3,11 +3,8 @@ from itertools import combinations
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
-from plenum.test.helper import sendRandomRequests, \
-    send_reqs_to_nodes_and_verify_all_replies, \
-    waitForSufficientRepliesForRequests, \
-    checkViewNoForNodes, \
-    check_last_ordered_3pc, sdk_send_random_requests, sdk_send_random_request, sdk_get_replies, \
+from plenum.test.helper import checkViewNoForNodes, \
+    check_last_ordered_3pc, sdk_send_random_request, sdk_get_replies, \
     sdk_send_random_and_check
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds

@@ -2,9 +2,8 @@ from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.delayers import icDelay, vcd_delay
-from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, \
-    send_reqs_to_nodes_and_verify_all_replies, sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_requests, \
+    sdk_get_replies, sdk_send_random_and_check
 from plenum.test.test_node import get_last_master_non_primary_node
 
 nodeCount = 7
