@@ -27,7 +27,7 @@ SpyableMethods = Iterable[SpyableMethod]
 
 class SpyLog(list):
     def getLast(self, method: SpyableMethod, required: bool = False) -> \
-    Optional[Entry]:
+            Optional[Entry]:
         entry = None  # type: Optional[Entry]
         if callable(method):
             method = method.__name__
@@ -51,6 +51,10 @@ class SpyLog(list):
         last = self.getLast(method, required)
         return last.params if last is not None else None
 
+    def getLastResult(self, method: str, required: bool = True) -> Tuple:
+        last = self.getLast(method, required)
+        return last.result if last is not None else None
+
     def count(self, method: SpyableMethod) -> int:
         if callable(method):
             method = method.__name__
@@ -59,10 +63,6 @@ class SpyLog(list):
 
 def spy(func, is_init, should_spy, spy_log=None):
     sig = inspect.signature(func)
-    paramNames = [k for k in sig.parameters]
-    # TODO Find a better way
-    if paramNames and paramNames[0] == "self":
-        paramNames = paramNames[1:]
 
     # sets up spylog, but doesn't spy on init
     def init_only(self, *args, **kwargs):
@@ -89,19 +89,10 @@ def spy(func, is_init, should_spy, spy_log=None):
             r = ex
             raise
         finally:
-            params = {}
-            if kwargs:
-                for k, v in kwargs.items():
-                    params[k] = v
-            if args:
-                for i, nm in enumerate(paramNames[:len(args)]):
-                    params[nm] = args[i]
-
-            used_log = spy_log
-
-            if hasattr(self, 'spylog'):
-                used_log = self.spylog
-
+            bound = sig.bind(self, *args, **kwargs)
+            params = dict(bound.arguments)
+            params.pop('self', None)
+            used_log = self.spylog if hasattr(self, 'spylog') else spy_log
             used_log.append(Entry(start,
                                   time.perf_counter(),
                                   func.__name__,
@@ -112,14 +103,16 @@ def spy(func, is_init, should_spy, spy_log=None):
     return wrap if not is_init else init_wrap if should_spy else init_only
 
 
-def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = None):
+def spyable(name: str = None, methods: SpyableMethods = None,
+            deep_level: int = None):
     def decorator(clas):
 
         if 'NO_SPIES' in globals() and globals()['NO_SPIES']:
             # Since spylog consumes resources, benchmarking tests need to be
             # able to not have spyables, so they set a module global `NO_SPIES`,
             #  it's their responsibility to unset it
-            logger.info('NOT USING SPIES ON METHODS AS THEY ARE EXPLICITLY DISABLED')
+            logger.info(
+                'NOT USING SPIES ON METHODS AS THEY ARE EXPLICITLY DISABLED')
             return clas
 
         nonlocal name
@@ -133,12 +126,12 @@ def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = 
                          if callable(getattr(clas, method))]:
             isInit = nm == "__init__"
             matched = (nm if methods and nm in methods else
-                       func if methods and func in methods else
-                       None)
+            func if methods and func in methods else
+            None)
             # if method was specified to be spied on or is `__init__` method
             # or is does not have name starting with `__`
             shouldSpy = bool(matched) if methods else (
-                not nm.startswith("__") or isInit)
+                    not nm.startswith("__") or isInit)
             if shouldSpy or isInit:
                 newFunc = spy(func, isInit, shouldSpy)
                 morphed[func] = newFunc
@@ -154,7 +147,8 @@ def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = 
                         "method {} not found, so no spy added".format(m),
                         extra={"cli": False})
 
-        objSearchReplace(spyable_type, morphed, logMsg="Applying spy remapping", deepLevel=deep_level)
+        objSearchReplace(spyable_type, morphed,
+                         logMsg="Applying spy remapping", deepLevel=deep_level)
         return spyable_type
 
     return decorator

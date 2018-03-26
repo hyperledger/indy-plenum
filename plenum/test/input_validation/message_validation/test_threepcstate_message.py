@@ -1,9 +1,7 @@
-import pytest
 from plenum.common.messages.node_messages import ThreePCState
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, IterableField
-
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
@@ -17,7 +15,7 @@ def test_hash_expected_type():
 
 def test_has_expected_fields():
     actual_field_names = OrderedDict(ThreePCState.schema).keys()
-    assert actual_field_names == EXPECTED_ORDERED_FIELDS.keys()
+    assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():

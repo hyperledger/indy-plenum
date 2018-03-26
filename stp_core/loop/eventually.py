@@ -1,13 +1,14 @@
 import asyncio
-import inspect
-import os
 import time
 from asyncio.coroutines import CoroWrapper
 from inspect import isawaitable
 from typing import Callable, TypeVar, Optional, Iterable
+
 import psutil
 
 from stp_core.common.log import getlogger
+from stp_core.common.util import get_func_name, get_func_args
+from stp_core.loop.exceptions import EventuallyTimeoutException
 from stp_core.ratchet import Ratchet
 
 # TODO: move it to plenum-util repo
@@ -22,7 +23,7 @@ FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 def isMinimalConfiguration():
     mem = psutil.virtual_memory()
     memAvailableGb = mem.available / (1024 * 1024 * 1024)
-    cpuCount = psutil.cpu_count()
+    # cpuCount = psutil.cpu_count()
     # we can have a 8 cpu but 100Mb free RAM and the tests will be slow
     return memAvailableGb <= 1.5  # and cpuCount == 1
 
@@ -34,6 +35,7 @@ def getSlowFactor():
     else:
         return 1
 
+
 slowFactor = getSlowFactor()
 
 
@@ -44,7 +46,7 @@ async def eventuallySoon(coroFunc: FlexFunc, *args):
                             ratchetSteps=10)
 
 
-async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if needed)
+async def eventuallyAll(*coroFuncs: FlexFunc,  # (use functools.partials if needed)
                         totalTimeout: float,
                         retryWait: float=0.1,
                         acceptableExceptions=None,
@@ -72,7 +74,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     rem = None
     for cf in coroFuncs:
         if len(funcNames) < 2:
-            funcNames.append(getFuncName(cf))
+            funcNames.append(get_func_name(cf))
         else:
             others += 1
         # noinspection PyBroadException
@@ -86,42 +88,28 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
                              acceptableExceptions=acceptableExceptions,
                              verbose=True,
                              override_timeout_limit=override_timeout_limit)
-        except Exception:
+        except Exception as ex:
+            if acceptableExceptions and type(ex) not in acceptableExceptions:
+                raise
             fails += 1
             logger.debug("a coro {} with args {} timed out without succeeding; fail count: "
                          "{}, acceptable: {}".
-                         format(getFuncName(cf), get_func_args(cf), fails, acceptableFails))
+                         format(get_func_name(cf), get_func_args(cf), fails, acceptableFails))
             if fails > acceptableFails:
                 raise
 
     if rem is not None and rem <= 0:
         fails += 1
         if fails > acceptableFails:
-            err= 'All checks could not complete successfully since total timeout ' \
-                 'expired {} sec ago'.format(-1*rem if rem<0 else 0)
-            raise Exception(err)
+            err = 'All checks could not complete successfully since total timeout ' \
+                'expired {} sec ago'.format(-1 * rem if rem < 0 else 0)
+            raise EventuallyTimeoutException(err)
 
     if others:
         funcNames.append("and {} others".format(others))
     desc = ", ".join(funcNames)
     logger.debug("{} succeeded with {:.2f} seconds to spare".
                  format(desc, remaining()))
-
-
-def getFuncName(f):
-    if hasattr(f, "__name__"):
-        return f.__name__
-    elif hasattr(f, "func"):
-        return "partial({})".format(getFuncName(f.func))
-    else:
-        return "<unknown>"
-
-
-def get_func_args(f):
-    if hasattr(f, 'args'):
-        return f.args
-    else:
-        return list(inspect.signature(f).parameters)
 
 
 def recordFail(fname, timeout):
@@ -140,31 +128,32 @@ async def eventually(coroFunc: FlexFunc,
                      acceptableExceptions=None,
                      verbose=True,
                      override_timeout_limit=False) -> T:
-    assert timeout > 0, 'Need a timeout value of greater than 0 but got {} instead'.format(timeout)
+    assert timeout > 0, 'Need a timeout value of greater than 0 but got {} instead'.format(
+        timeout)
     if not override_timeout_limit:
         assert timeout < 240, '`eventually` timeout ({:.2f} sec) is huge. ' \
-                                 'Is it expected?'.format(timeout)
+            'Is it expected?'.format(timeout)
     else:
         logger.debug('Overriding timeout limit to {} for evaluating {}'
                      .format(timeout, coroFunc))
     if acceptableExceptions and not isinstance(acceptableExceptions, Iterable):
-            acceptableExceptions = [acceptableExceptions]
+        acceptableExceptions = [acceptableExceptions]
     start = time.perf_counter()
 
-    ratchet = Ratchet.fromGoalDuration(retryWait*slowFactor,
+    ratchet = Ratchet.fromGoalDuration(retryWait * slowFactor,
                                        ratchetSteps,
-                                       timeout*slowFactor).gen() \
+                                       timeout * slowFactor).gen() \
         if ratchetSteps else None
 
-    fname = getFuncName(coroFunc)
+    fname = get_func_name(coroFunc)
     while True:
         remain = 0
         try:
-            remain = start + timeout*slowFactor - time.perf_counter()
+            remain = start + timeout * slowFactor - time.perf_counter()
             if remain < 0:
                 # this provides a convenient breakpoint for a debugger
-                logger.warning("{} last try...".format(fname),
-                               extra={"cli": False})
+                logger.debug("{} last try...".format(fname),
+                             extra={"cli": False})
             # noinspection PyCallingNonCallable
             res = coroFunc(*args)
 
@@ -174,7 +163,7 @@ async def eventually(coroFunc: FlexFunc,
                 result = res
 
             if verbose:
-                recordSuccess(fname, timeout, timeout*slowFactor, remain)
+                recordSuccess(fname, timeout, timeout * slowFactor, remain)
 
                 logger.debug("{} succeeded with {:.2f} seconds to spare".
                              format(fname, remain))

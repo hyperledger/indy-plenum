@@ -7,7 +7,6 @@ from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
-
 logger = getlogger()
 
 
@@ -26,8 +25,8 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
         client, wallet = buildPoolClientAndWallet((name, seed),
                                                   tdirWithPoolTxns)
         txnPoolNodesLooper.add(client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
-                                                      *txnPoolNodeSet)
+        ensureClientConnectedToNodesAndPoolLedgerSame(
+            txnPoolNodesLooper, client, *txnPoolNodeSet)
         clients.append((client, wallet))
 
     numRequests = 250

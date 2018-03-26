@@ -8,8 +8,8 @@ from plenum.test.testable import SpyableMethod
 
 def getLastMsgReceivedForNode(node, method: str = None) -> Tuple:
     return node.spylog.getLast(
-            method if method else Node.handleOneNodeMsg.__name__,
-            required=True).params[
+        method if method else Node.handleOneNodeMsg.__name__,
+        required=True).params[
         'wrappedMsg']  # params should return a one element tuple
 
 

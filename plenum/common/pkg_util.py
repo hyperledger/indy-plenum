@@ -27,7 +27,7 @@ def check_deps(dependencies, parent=""):
             meta = getPackageMeta(pkg_name)
             ver = meta.__version__
             if MAJOR_MINOR_REGEX.fullmatch(ver):
-                ver += ".0" # Add a fictive patch number to fit semver format
+                ver += ".0"  # Add a fictive patch number to fit semver format
             if not semver.match(ver, exp_ver):
                 raise RuntimeError("Incompatible '{}' package version. "
                                    "Expected: {} "
@@ -42,3 +42,8 @@ def check_deps(dependencies, parent=""):
         meta = getPackageMeta(pkg)
         deps = meta.__dependencies__
         check_deps(deps)
+
+
+def update_module_vars(module_path, **kwargs):
+    module = import_module(module_path)
+    module.__dict__.update(kwargs)

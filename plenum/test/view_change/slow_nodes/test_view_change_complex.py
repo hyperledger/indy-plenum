@@ -1,14 +1,11 @@
 from plenum.test.view_change.helper import \
     view_change_in_between_3pc_random_delays
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-
 
 TestRunningTimeLimitSec = 300
 
 
 def test_view_change_complex(
-        txnPoolNodeSet, looper, wallet1, client):
+        txnPoolNodeSet, looper, wallet1, client1, tconf):
     """
     - Complex scenario with multiple view changes
     """
@@ -34,13 +31,29 @@ def test_view_change_complex(
     # view_change_in_between_3pc(looper, txnPoolNodeSet, txnPoolNodeSet, wallet1,
     #                            client)
 
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client,
-                                             min_delay=0, max_delay=10)
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client,
-                                             min_delay=1, max_delay=5)
-    view_change_in_between_3pc_random_delays(looper, txnPoolNodeSet,
-                                             txnPoolNodeSet, wallet1, client,
-                                             min_delay=5, max_delay=50)
-
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client1,
+        tconf,
+        min_delay=0,
+        max_delay=10)
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client1,
+        tconf,
+        min_delay=1,
+        max_delay=5)
+    view_change_in_between_3pc_random_delays(
+        looper,
+        txnPoolNodeSet,
+        txnPoolNodeSet,
+        wallet1,
+        client1,
+        tconf,
+        min_delay=5)

@@ -56,10 +56,10 @@ class NonEmptyStringField(TestFieldBase):
 class HexString64Field(TestFieldBase):
     # TODO implement
     negative_test_cases = (
-        #'',
-        #'fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 63 characters
-        #'77fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 65 characters
-        #'xfba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # first char is 'x'
+        # '',
+        # 'fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 63 characters
+        # '77fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 65 characters
+        # 'xfba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # first char is 'x'
     )
     positive_test_cases = (
         '7fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # lower case
@@ -82,7 +82,6 @@ class MerkleRootField(TestFieldBase):
     negative_test_cases = ()
     positive_test_cases = ('47DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',)
     field_types = (str,)
-    pass
     # TODO implement
     # negative_test_cases = (
     #     '',
@@ -138,14 +137,17 @@ class RequestIdrField(TestFieldBase):
     @property
     def negative_test_cases(self):
         return [
-            [[self.idr_field.positive_test_cases[0], self.ts_field.negative_test_cases[0]]],
-            [[self.idr_field.negative_test_cases[0], self.ts_field.positive_test_cases[0]]],
+            [[self.idr_field.positive_test_cases[0],
+              self.ts_field.negative_test_cases[0]]],
+            [[self.idr_field.negative_test_cases[0],
+              self.ts_field.positive_test_cases[0]]],
         ]
 
     @property
     def positive_test_cases(self):
         return [
-            [[self.idr_field.positive_test_cases[0], self.ts_field.positive_test_cases[0]]],
+            [[self.idr_field.positive_test_cases[0],
+              self.ts_field.positive_test_cases[0]]],
         ]
 
 
@@ -157,14 +159,17 @@ class TieAmongField(TestFieldBase):
     @property
     def negative_test_cases(self):
         return [
-            [self.name_field.positive_test_cases[0], self.ts_field.negative_test_cases[0]],
-            [self.name_field.negative_test_cases[0], self.ts_field.positive_test_cases[0]],
+            [self.name_field.positive_test_cases[0],
+             self.ts_field.negative_test_cases[0]],
+            [self.name_field.negative_test_cases[0],
+             self.ts_field.positive_test_cases[0]],
         ]
 
     @property
     def positive_test_cases(self):
         return [
-            [self.name_field.positive_test_cases[0], self.ts_field.positive_test_cases[0]],
+            [self.name_field.positive_test_cases[0],
+             self.ts_field.positive_test_cases[0]],
         ]
 
 
@@ -178,11 +183,11 @@ class NetworkPortField(TestFieldBase):
 
     @property
     def negative_test_cases(self):
-        return -1, 65535 + 1
+        return 0, -1, 65535 + 1
 
     @property
     def positive_test_cases(self):
-        return 0, 9700, 65535
+        return 0 + 1, 9700, 65535
 
 
 class NetworkIpAddressField(TestFieldBase):
@@ -242,7 +247,7 @@ TestCase = namedtuple('TestCase', ['case', 'description'])
 
 
 class MessageDescriptor(TestFieldBase):
-    field_types = (dict, )
+    field_types = (dict,)
 
     def __init__(self, klass, fields, optional_fields=None, name=None):
         self.klass = klass
@@ -318,4 +323,5 @@ class MessageDescriptor(TestFieldBase):
 
     @property
     def _any_positive_case_copy(self):
-        return deepcopy({field.name: field.positive_test_cases[0] for field in self.fields})
+        return deepcopy(
+            {field.name: field.positive_test_cases[0] for field in self.fields})

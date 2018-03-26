@@ -1,6 +1,7 @@
-from typing import Iterable
+from typing import Iterable, Optional
 from collections import deque
 
+from plenum.common.constants import VIEW_CHANGE_PREFIX
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.types import f
 from plenum.server.has_action_queue import HasActionQueue
@@ -19,11 +20,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         self.node = node
 
         self.name = node.name
-        self.f = node.f
         self.replicas = node.replicas
-        self.viewNo = node.viewNo
-        self.rank = node.rank
-        self.nodeNames = node.allNodeNames
         self.nodeCount = 0
         self.inBox = deque()
         self.outBox = deque()
@@ -38,6 +35,18 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
 
     def __repr__(self):
         return "{}".format(self.name)
+
+    @property
+    def viewNo(self) -> Optional[int]:
+        return self.node.viewNo
+
+    @viewNo.setter
+    def viewNo(self, value: int):
+        self.node.viewNo = value
+
+    @property
+    def rank(self) -> Optional[int]:
+        return self.node.rank
 
     @property
     def was_master_primary_in_prev_view(self):
@@ -59,9 +68,8 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def decidePrimaries(self) -> None:
         """
-        Start election of the primary replica for each protocol instance        
+        Start election of the primary replica for each protocol instance
         """
-        pass
 
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
@@ -102,14 +110,14 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     def view_change_started(self, viewNo: int):
         """
         Notifies primary decider about the fact that view changed to let it
-        prepare for election, which then will be started from outside by 
-        calling decidePrimaries() 
+        prepare for election, which then will be started from outside by
+        calling decidePrimaries()
         """
         if viewNo <= self.viewNo:
-            logger.warning("Provided view no {} is not greater than the "
-                           "current view no {}".format(viewNo, self.viewNo))
+            logger.warning("{}Provided view no {} is not greater"
+                           " than the current view no {}"
+                           .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
             return False
-        self.viewNo = viewNo
         self.previous_master_primary = self.node.master_primary_name
         for replica in self.replicas:
             replica.primaryName = None
@@ -118,9 +126,8 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def get_msgs_for_lagged_nodes(self) -> List[object]:
         """
-        Returns election messages from the last view change        
+        Returns election messages from the last view change
         """
-        pass
 
     def send(self, msg):
         """
@@ -134,6 +141,5 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     @abstractmethod
     def start_election_for_instance(self, instance_id):
         """
-        Called when starting election for a particular protocol instance 
+        Called when starting election for a particular protocol instance
         """
-        pass

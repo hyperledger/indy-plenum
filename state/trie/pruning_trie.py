@@ -6,11 +6,12 @@ import sys
 import rlp
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
-from state.kv.kv_in_memory import KeyValueStorageInMemory
-from state.util.fast_rlp import encode_optimized
+from state.util.fast_rlp import encode_optimized, decode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 rlp_encode = encode_optimized
+rlp_decode = decode_optimized
 
 bin_to_nibbles_cache = {}
 
@@ -63,12 +64,13 @@ class ProofConstructor:
         self.nodes = []
         self.exempt = []
 
-    def push(self, mode, nodes=[]):
+    def push(self, mode, nodes=None):
         global proving
         proving = True
         self.mode.append(mode)
         self.exempt.append(set())
         if mode == VERIFYING:
+            nodes = nodes or []
             self.nodes.append(set([rlp_encode(x) for x in nodes]))
         else:
             self.nodes.append(set())
@@ -97,6 +99,7 @@ class ProofConstructor:
 
     def get_mode(self):
         return self.mode[-1]
+
 
 proof = ProofConstructor()
 
@@ -188,6 +191,7 @@ def is_key_value_type(node_type):
     return node_type in [NODE_TYPE_LEAF,
                          NODE_TYPE_EXTENSION]
 
+
 BLANK_NODE = b''
 BLANK_ROOT = sha3rlp(BLANK_NODE)
 DEATH_ROW_OFFSET = 2**62
@@ -205,7 +209,7 @@ class Trie:
         :param db key value database
         :root: blank or trie node in form of [key, value] or [v0,v1..v15,v]
         '''
-        self._db = db # Pass in a database object directly
+        self._db = db  # Pass in a database object directly
         self.transient = transient
         if self.transient:
             self.update = self.get = self.delete = transient_trie_exception
@@ -520,7 +524,8 @@ class Trie:
             if reverse:
                 scan_range.reverse()
             for i in scan_range:
-                o = self._getany(self._decode_to_node(node[i]), path=path + [i])
+                o = self._getany(self._decode_to_node(
+                    node[i]), path=path + [i])
                 if o:
                     return [i] + o
             return None
@@ -601,8 +606,8 @@ class Trie:
             return
         """
         ===== FIXME ====
-        in the current trie implementation two nodes can share identical subtrees
-        thus we can not safely delete nodes for now
+        in the current trie implementation two nodes can share identical
+        subtrees thus we can not safely delete nodes for now
         """
         hashkey = sha3(encoded)
         self._db.dec_refcount(hashkey)
@@ -852,7 +857,8 @@ class Trie:
                 sub_dict = self._to_dict(self._decode_to_node(node[i]))
 
                 for sub_key, sub_value in sub_dict.items():
-                    full_key = (str_to_bytes(str(i)) + b'+' + sub_key).strip(b'+')
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
                     res[full_key] = sub_value
 
             if node[16]:
@@ -870,6 +876,50 @@ class Trie:
             key = nibbles_to_bin(without_terminator(nibbles))
             res[key] = value
         return res
+
+    def iter_branch(self):
+        for key_str, value in self._iter_branch(self.root_node):
+            if key_str:
+                nibbles = [int(x) for x in key_str.split(b'+')]
+            else:
+                nibbles = []
+            key = nibbles_to_bin(without_terminator(nibbles))
+            yield key, value
+
+    def _iter_branch(self, node):
+        """yield (key, value) stored in this and the descendant nodes
+        :param node: node in form of list, or BLANK_NODE
+
+        .. note::
+            Here key is in full form, rather than key of the individual node
+        """
+        if node == BLANK_NODE:
+            raise StopIteration
+
+        node_type = self._get_node_type(node)
+
+        if is_key_value_type(node_type):
+            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            key = b'+'.join([to_string(x) for x in nibbles])
+            if node_type == NODE_TYPE_EXTENSION:
+                sub_tree = self._iter_branch(self._decode_to_node(node[1]))
+            else:
+                sub_tree = [(to_string(NIBBLE_TERMINATOR), node[1])]
+
+            # prepend key of this node to the keys of children
+            for sub_key, sub_value in sub_tree:
+                full_key = (key + b'+' + sub_key).strip(b'+')
+                yield (full_key, sub_value)
+
+        elif node_type == NODE_TYPE_BRANCH:
+            for i in range(16):
+                sub_tree = self._iter_branch(self._decode_to_node(node[i]))
+                for sub_key, sub_value in sub_tree:
+                    full_key = (str_to_bytes(str(i)) +
+                                b'+' + sub_key).strip(b'+')
+                    yield (full_key, sub_value)
+            if node[16]:
+                yield (to_string(NIBBLE_TERMINATOR), node[-1])
 
     def get(self, key):
         return self._get(self.root_node, bin_to_nibbles(to_string(key)))
@@ -920,9 +970,10 @@ class Trie:
             return True
         return self.root_hash in self._db
 
-    def produce_spv_proof(self, key):
+    def produce_spv_proof(self, key, root=None):
+        root = root or self.root_node
         proof.push(RECORDING)
-        self.get(key)
+        self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
         return o
@@ -935,6 +986,45 @@ class Trie:
         :return:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
+
+    def generate_state_proof(self, key, root=None, serialize=False):
+        # NOTE: The method `produce_spv_proof` is not deliberately modified
+        root = root or self.root_node
+        pf = self.produce_spv_proof(key, root)
+        pf.append(copy.deepcopy(root))
+        return pf if not serialize else self.serialize_proof(pf)
+
+    @staticmethod
+    def verify_spv_proof(root, key, value, proof_nodes, serialized=False):
+        # NOTE: `root` is a derivative of the last element of `proof_nodes`
+        # but it's important to keep `root` as a separate as signed root
+        # hashes will be published.
+        if serialized:
+            proof_nodes = Trie.deserialize_proof(proof_nodes)
+        proof.push(VERIFYING, proof_nodes)
+        new_trie = Trie(KeyValueStorageInMemory())
+
+        for node in proof_nodes:
+            R = rlp_encode(node)
+            H = sha3(R)
+            new_trie._db.put(H, R)
+        try:
+            new_trie.root_hash = root
+            v = new_trie.get(key)
+            proof.pop()
+            return v == value
+        except Exception as e:
+            print(e)
+            proof.pop()
+            return False
+
+    @staticmethod
+    def serialize_proof(proof_nodes):
+        return rlp_encode(proof_nodes)
+
+    @staticmethod
+    def deserialize_proof(ser_proof):
+        return rlp_decode(ser_proof)
 
 
 if __name__ == "__main__":

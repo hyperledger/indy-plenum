@@ -52,21 +52,25 @@ def test_heartbeats_only_one_stack(tdir, looper, tconf, setup):
     recv_pings_before = recv_ping_counts(alpha, beta, gamma)
     recv_pongs_before = recv_pong_counts(alpha, beta, gamma)
 
-    looper.runFor(6*heartbeat_freq)
+    looper.runFor(6 * heartbeat_freq)
 
     # Only alpha should send pings
-    assert sent_ping_counts(alpha)[alpha.name] - sent_pings_before[alpha.name] >= 5
+    assert sent_ping_counts(alpha)[alpha.name] - \
+        sent_pings_before[alpha.name] >= 5
     assert sent_ping_counts(beta)[beta.name] == sent_pings_before[beta.name]
     assert sent_ping_counts(gamma)[gamma.name] == sent_pings_before[gamma.name]
 
     # All except alpha should receive pings
     assert recv_ping_counts(alpha)[alpha.name] == recv_pings_before[alpha.name]
-    assert recv_ping_counts(beta)[beta.name] - recv_pings_before[beta.name] >= 5
-    assert recv_ping_counts(gamma)[gamma.name] - recv_pings_before[gamma.name] >= 5
+    assert recv_ping_counts(beta)[beta.name] - \
+        recv_pings_before[beta.name] >= 5
+    assert recv_ping_counts(gamma)[gamma.name] - \
+        recv_pings_before[gamma.name] >= 5
 
     # All except alpha should send pongs
     assert sent_pong_counts(alpha)[alpha.name] == sent_pongs_before[alpha.name]
-    assert sent_pong_counts(beta)[beta.name] - sent_pongs_before[beta.name] >= 5
+    assert sent_pong_counts(beta)[beta.name] - \
+        sent_pongs_before[beta.name] >= 5
     assert sent_pong_counts(gamma)[gamma.name] - sent_pongs_before[
         gamma.name] >= 5
 
@@ -102,10 +106,14 @@ def test_heartbeats_all_stacks(tdir, looper, tconf, setup):
 
     for stack in (alpha, beta, gamma):
         # All should send pings
-        assert sent_ping_counts(stack)[stack.name] - sent_pings_before[stack.name] >= 5
+        assert sent_ping_counts(
+            stack)[stack.name] - sent_pings_before[stack.name] >= 5
         # All should receive pings
-        assert recv_ping_counts(stack)[stack.name] - recv_pings_before[stack.name] >= 5
+        assert recv_ping_counts(
+            stack)[stack.name] - recv_pings_before[stack.name] >= 5
         # All except alpha should send pongs
-        assert sent_pong_counts(stack)[stack.name] - sent_pongs_before[stack.name] >= 5
+        assert sent_pong_counts(
+            stack)[stack.name] - sent_pongs_before[stack.name] >= 5
         # All should receive pongs
-        assert recv_pong_counts(stack)[stack.name] - recv_pongs_before[stack.name] >= 5
+        assert recv_pong_counts(
+            stack)[stack.name] - recv_pongs_before[stack.name] >= 5

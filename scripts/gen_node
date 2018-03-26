@@ -7,7 +7,7 @@ from sys import argv
 from plenum.common.script_helper import getStewardKeyFromName, \
     generateNodeGenesisTxn, buildKeepDirIfNotExists
 from plenum.common.constants import CLIENT_STACK_SUFFIX
-from plenum.common.keygen_utils import initLocalKeys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from stp_core.crypto.util import isHexKey
 from plenum.common.config_util import getConfig
 
@@ -47,36 +47,16 @@ if __name__ == "__main__":
             stewardVerkey = args.steward
         else:
             stewardVerkey = getStewardKeyFromName(config.baseDir, args.steward)
-    except Exception as ex:
-        print(ex)
-        exit(1)
 
-    pubkey, verkey = None, None
+        print("Node-stack name is", args.name)
+        print("Client-stack name is", args.name + CLIENT_STACK_SUFFIX)
 
-    # Initialize node stack
-    print("For node stack, stack name is", args.name)
-    try:
-        pubkey, verkey = initLocalKeys(args.name, config.baseDir, args.seed,
-                                  args.force, config=config)
-    except Exception as ex:
-        print(ex)
-        exit()
-
-    # Initialize client stack
-    print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
-    try:
-        initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
-                 args.force, config=config)
-    except Exception as ex:
-        print(ex)
-        exit()
-
-    # Print genesis transaction commands
-    try:
+        pubkey, verkey, blskey = initNodeKeysForBothStacks(args.name, config.baseDir, args.seed, override=args.force)
+        # Print genesis transaction commands
         generateNodeGenesisTxn(config.baseDir, args.print_gen_txn, args.name,
                                verkey,
                                stewardVerkey, args.ip, args.port, args.clientip,
                                args.clientport)
     except Exception as ex:
         print(ex)
-        exit()
+        exit(1)

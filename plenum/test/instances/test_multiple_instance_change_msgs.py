@@ -9,32 +9,33 @@ from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test import waits
 
-
 nodeCount = 7
 
 
 @pytest.mark.skip(reason="INDY-80. Not yet implemented")
-def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
-    maliciousNode = nodeSet.Alpha
+def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, txnPoolNodeSet):
+    maliciousNode = txnPoolNodeSet[0]
     for i in range(0, 5):
-        maliciousNode.send(maliciousNode._create_instance_change_msg(i, 0))
+        maliciousNode.send(maliciousNode.view_changer._create_instance_change_msg(i, 0))
 
     def chk(instId):
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             if node.name != maliciousNode.name:
-                args = getAllArgs(node, Node.processInstanceChange)
+                args = getAllArgs(node, ViewChanger.process_instance_change_msg)
                 assert len(args) == 5
                 for arg in args:
                     assert arg['frm'] == maliciousNode.name
 
-    numOfNodes = len(nodeSet)
-    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(numOfNodes)
+    numOfNodes = len(txnPoolNodeSet)
+    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(
+        numOfNodes)
 
     for i in range(0, 5):
-        looper.run(eventually(chk, i, retryWait=1, timeout=instanceChangeTimeout))
+        looper.run(eventually(chk, i, retryWait=1,
+                              timeout=instanceChangeTimeout))
 
     def g():
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             if node.name != maliciousNode.name:
                 frm, reason, code = getAllArgs(node, Node.reportSuspiciousNode)
                 assert frm == maliciousNode.name

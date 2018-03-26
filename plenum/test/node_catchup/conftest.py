@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.test.spy_helpers import getAllReturnVals
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
@@ -10,9 +9,6 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
-from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
-    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
-    client1Connected
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
@@ -30,11 +26,11 @@ def looper(txnPoolNodesLooper):
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
-                             tdirWithPoolTxns, poolTxnStewardData, tconf,
-                             allPluginsPath, request):
+def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
+                             txnPoolNodeSet, tdir, tdirWithClientPoolTxns,
+                             poolTxnStewardData, tconf, allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
+                                              tdirWithClientPoolTxns,
                                               clientClass=TestClient)
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
@@ -47,13 +43,16 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
         looper, client, wallet, newStewardName, newNodeName,
-        tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=do_post_node_creation)
     yield looper, newNode, client, wallet, newStewardClient, \
-        newStewardWallet
+          newStewardWallet
 
 
 @pytest.fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def nodeSetWithNodeAddedAfterSomeTxns(
+        txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
@@ -79,6 +78,36 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
         # check the return value of `num_txns_caught_up_in_last_catchup` to be
         # greater than 0
 
-        assert max(getAllReturnVals(newNode,
-                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
+        assert max(
+            getAllReturnVals(
+                newNode,
+                newNode.num_txns_caught_up_in_last_catchup)) > 0
+
+    for li in newNode.ledgerManager.ledgerRegistry.values():
+        assert not li.receivedCatchUpReplies
+        assert not li.recvdCatchupRepliesFrm
+
     return newNode
+
+
+@pytest.yield_fixture("module")
+def poolAfterSomeTxns(
+        looper,
+        txnPoolNodesLooper,
+        txnPoolNodeSet,
+        tdirWithClientPoolTxns,
+        poolTxnStewardData,
+        allPluginsPath,
+        request):
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithClientPoolTxns,
+                                              clientClass=TestClient)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+                                        wallet,
+                                        client,
+                                        txnCount)
+    yield looper, client, wallet

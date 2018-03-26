@@ -1,12 +1,12 @@
 import os
 import string
 
-try:
-    from crypto.Hash import keccak
-    sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
-except:
-    import sha3 as _sha3
-    sha3_256 = lambda x: _sha3.sha3_256(x).digest()
+import sha3 as _sha3
+
+
+def sha3_256(x):
+    return _sha3.sha3_256(x).digest()
+
 
 # from bitcoin import privtopub
 import sys
@@ -15,8 +15,14 @@ from rlp.sedes import big_endian_int, BigEndianInt, Binary
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
 import random
 
-big_endian_to_int = lambda x: big_endian_int.deserialize(str_to_bytes(x).lstrip(b'\x00'))
-int_to_big_endian = lambda x: big_endian_int.serialize(x)
+
+def big_endian_to_int(x):
+    return big_endian_int.deserialize(
+        str_to_bytes(x).lstrip(b'\x00'))
+
+
+def int_to_big_endian(x):
+    return big_endian_int.serialize(x)
 
 
 TT256 = 2 ** 256
@@ -24,8 +30,9 @@ TT256M1 = 2 ** 256 - 1
 TT255 = 2 ** 255
 
 if sys.version_info.major == 2:
-    is_numeric = lambda x: isinstance(x, (int, long))
-    is_string = lambda x: isinstance(x, (str, unicode))
+    def is_numeric(x): return isinstance(x, (int, long))
+
+    def is_string(x): return isinstance(x, (str, unicode))
 
     def to_string(value):
         return str(value)
@@ -43,8 +50,9 @@ if sys.version_info.major == 2:
         return bytes(''.join(chr(c) for c in value))
 
 else:
-    is_numeric = lambda x: isinstance(x, int)
-    is_string = lambda x: isinstance(x, bytes)
+    def is_numeric(x): return isinstance(x, int)
+
+    def is_string(x): return isinstance(x, bytes)
 
     def to_string(value):
         if isinstance(value, bytes):
@@ -68,11 +76,13 @@ else:
 
 isnumeric = is_numeric
 
+
 def removeLockFiles(dbPath):
     if os.path.isdir(dbPath):
         lockFilePath = os.path.join(dbPath, 'LOCK')
         if os.path.isfile(lockFilePath):
             os.remove(lockFilePath)
+
 
 def mk_contract_address(sender, nonce):
     return sha3(rlp.encode([normalize_address(sender), nonce]))[12:]
@@ -87,6 +97,7 @@ def safe_ord(value):
         return value
     else:
         return ord(value)
+
 
 def isHex(val: str) -> bool:
     """
@@ -138,6 +149,7 @@ def int_to_32bytearray(i):
         o[31 - x] = i & 0xff
         i >>= 8
     return o
+
 
 sha3_count = [0]
 
@@ -442,7 +454,7 @@ def print_func_call(ignore_first_arg=False, max_call_number=100):
         x = to_string(x)
         try:
             x.decode('ascii')
-        except:
+        except BaseException:
             return 'NON_PRINTABLE'
         return x
 
@@ -493,6 +505,7 @@ class Denoms():
         self.finney = 10 ** 15
         self.ether = 10 ** 18
         self.turing = 2 ** 256
+
 
 denoms = Denoms()
 

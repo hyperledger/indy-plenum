@@ -4,26 +4,21 @@ import types
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
-from plenum.common.types import f
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep
-from plenum.test.helper import sendRandomRequests
 from plenum.common.types import f
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
-from plenum.common.txn_util import txnToReq
-
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
-
 txnCount = 10
 
 
-def testNodeRejectingInvalidTxns(conf, txnPoolNodeSet, patched_node,
+def testNodeRejectingInvalidTxns(tconf, txnPoolNodeSet, patched_node,
                                  nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
@@ -43,7 +38,7 @@ def testNodeRejectingInvalidTxns(conf, txnPoolNodeSet, patched_node,
 
     # catchup #1 -> CatchupTransactionsTimeout -> catchup #2
     catchup_timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet) + 1)
-    timeout = 2 * catchup_timeout + conf.CatchupTransactionsTimeout
+    timeout = 2 * catchup_timeout + tconf.CatchupTransactionsTimeout
 
     # have to skip seqno_db check because the txns are not executed
     # on the new node
@@ -84,13 +79,13 @@ def _sendIncorrectTxns(self, req, frm):
                     " for catchup request {} from {}".
                     format(self, req, frm))
         start, end = getattr(req, f.SEQ_NO_START.nm), \
-            getattr(req, f.SEQ_NO_END.nm)
+                     getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         txns = {}
         for seqNo, txn in ledger.getAllTxn(start, end):
             # Since the type of random request is `buy`
             if txn.get(TXN_TYPE) == "buy":
-                txn[TXN_TYPE] = "randomtype"
+                txn[TXN_TYPE] = "randombuy"
             txns[seqNo] = txn
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, ledger.size)]

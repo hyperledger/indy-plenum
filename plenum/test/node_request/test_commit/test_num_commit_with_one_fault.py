@@ -12,10 +12,11 @@ whitelist = ['cannot process incoming PREPARE']
 
 
 @pytest.fixture(scope="module")
-def evilAlpha(nodeSet):
+def evilAlpha(txnPoolNodeSet):
     # Delay processing of PRE-PREPARE messages by Alpha for 90
     # seconds since the timeout for checking sufficient commits is 60 seconds
-    makeNodeFaulty(nodeSet.Alpha, partial(delaysPrePrepareProcessing, delay=90))
+    makeNodeFaulty(txnPoolNodeSet[0], partial(
+        delaysPrePrepareProcessing, delay=90))
 
 
 def testNumOfCommitMsgsWithOneFault(evilAlpha, committed1):

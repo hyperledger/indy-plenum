@@ -5,6 +5,7 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
+
 class MessageFilter:
 
     @abstractmethod
@@ -30,7 +31,8 @@ class MessageFilterEngine:
         for fltr in self.__filters.values():
             filter_desc = fltr.filter_node_to_node(msg)
             if filter_desc:
-                logger.debug("Filtered node-to-node msg {} since {}".format(msg, filter_desc))
+                logger.debug(
+                    "Filtered node-to-node msg {} since {}".format(msg, filter_desc))
                 return filter_desc
         return None
 
@@ -38,6 +40,8 @@ class MessageFilterEngine:
         for fltr in self.__filters.values():
             filter_desc = fltr.filter_client_to_node(req)
             if filter_desc:
-                logger.debug("Filtered client request {} since {}".format(req, filter_desc))
+                logger.debug(
+                    "Filtered client request {} since {}".format(
+                        req, filter_desc))
                 return filter_desc
         return None

@@ -23,5 +23,3 @@ class Signer:
     @abstractmethod
     def alias(self) -> str:
         raise NotImplementedError
-
-

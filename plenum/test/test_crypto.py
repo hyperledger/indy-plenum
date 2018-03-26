@@ -68,7 +68,8 @@ def testFullSigning():
     # helper for signing
     signer = Signer(sk)
 
-    # this is the public key used to verify signatures (securely shared before-hand with recipient)
+    # this is the public key used to verify signatures (securely shared
+    # before-hand with recipient)
     verkey = signer.verhex
 
     # the message to be signed

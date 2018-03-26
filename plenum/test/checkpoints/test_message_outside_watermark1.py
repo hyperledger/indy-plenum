@@ -1,39 +1,24 @@
 import math
 
-import pytest
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
-
+from plenum.test.view_change.conftest import perf_chk_patched
+from plenum.test.helper import sdk_send_random_and_check
 
 TestRunningTimeLimitSec = 300
-
+PerfCheckFreq = 30
 
 logger = getlogger()
 
-
-@pytest.fixture(scope="module")
-def tconf(tconf, request):
-    # Delaying perf check as the test sends a lot of requests with delays
-    old_freq = tconf.PerfCheckFreq
-    tconf.PerfCheckFreq = 30
-
-    def reset():
-        tconf.PerfCheckFreq = old_freq
-
-    request.addfinalizer(reset)
-    return tconf
+whitelist = ['received an incorrect digest']
 
 
-def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
-                                                   txnPoolNodeSet, client1,
-                                                   wallet1, client1Connected,
-                                                   reqs_for_logsize):
+def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFreqPatched, looper, txnPoolNodeSet,
+                                                         sdk_pool_handle, sdk_wallet_client, reqs_for_logsize):
     """
     One of the primary starts getting lot of requests, more than his log size
     and queues up requests since they will go beyond its watermarks. This
@@ -41,9 +26,10 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     Eventually this primary will send PRE-PREPARE for all requests and those
     requests will complete
     """
-    delay = 3
-    instId = 1
-    reqs_to_send = 2*reqs_for_logsize + 1
+    tconf = perf_chk_patched
+    delay = 5
+    instId = 0
+    reqs_to_send = 2 * reqs_for_logsize + 1
     logger.debug('Will send {} requests'.format(reqs_to_send))
 
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
@@ -62,5 +48,5 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     def chk():
         assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqs_to_send)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
     looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

@@ -1,7 +1,7 @@
 from hashlib import sha256
 from typing import Optional
 
-from state.kv.kv_store import KeyValueStorage
+from storage.kv_store import KeyValueStorage
 
 
 class ReqIdrToTxn:
@@ -13,7 +13,8 @@ class ReqIdrToTxn:
     def __init__(self, keyValueStorage: KeyValueStorage):
         self._keyValueStorage = keyValueStorage
 
-    def getKey(self, identifier, reqId):
+    @staticmethod
+    def getKey(identifier, reqId):
         h = sha256()
         h.update(identifier.encode())
         h.update(str(reqId).encode())
@@ -24,8 +25,8 @@ class ReqIdrToTxn:
         self._keyValueStorage.put(key, str(seqNo))
 
     def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(seqNo))
-                                        for identifier, reqId, seqNo in batch])
+        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(
+            seqNo)) for identifier, reqId, seqNo in batch])
 
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)

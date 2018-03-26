@@ -2,19 +2,20 @@ import random
 import types
 from functools import partial
 
-import time
-
+import common.error
 import plenum.common.error
 from plenum.common.types import f
 
-from plenum.common.messages.node_messages import *
-from plenum.common.request import Request, ReqDigest
+from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
+    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
+from plenum.common.request import Request
 
-from plenum.common import util
 from plenum.common.util import updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
-from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.test.delayers import ppDelay, cDelay
@@ -33,45 +34,47 @@ def changesRequest(node):
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
+        request._digest = request.getDigest()
         if isinstance(identifier, bytes):
             identifier = identifier.decode()
-        return Propagate(request.__getstate__(), identifier)
+        return Propagate(request.as_dict, identifier)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
     return node
 
 
-def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
+def delaysPrePrepareProcessing(node, delay: float = 30, instId: int = None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
 
 
-def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+def delaysCommitProcessing(node, delay: float = 30, instId: int = None):
     node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
 
 
 # Could have this method directly take a replica rather than a node and an
 # instance id but this looks more useful as a complete node can be malicious
-def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
-                           instId=None):
+def sendDuplicate3PhaseMsg(
+        node: TestNode,
+        msgType: ThreePhaseMsg,
+        count: int = 2,
+        instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, tm, *reqDigest)
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
 
-    def evilSendPrepare(self, request):
+    def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
-                          request.viewNo,
-                          request.ppSeqNo,
-                          request.digest,
-                          request.stateRootHash,
-                          request.txnRootHash)
+                          ppReq.viewNo,
+                          ppReq.ppSeqNo,
+                          ppReq.ppTime,
+                          ppReq.digest,
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(request, prepare))
+                     format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -112,10 +115,10 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     elif msgType == Commit:
         replica.doCommit = evilMethod
     else:
-        plenum.common.error.error("Not a 3 phase message")
+        common.error.error("Not a 3 phase message")
 
 
-def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
+def malignInstancesOfNode(node: TestNode, malignMethod, instId: int = None):
     if instId is not None:
         malignMethod(replica=node.replicas[instId])
     else:
@@ -126,15 +129,11 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
 
 
 def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
-                                     instId: int=None):
+                                     instId: int = None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # reqDigest = ReqDigest(reqDigest.identifier, reqDigest.reqId, "random")
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, *reqDigest, tm)
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
-        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest+'random')
+        ppReq = updateNamedTuple(ppReq, digest=ppReq.digest + 'random')
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
 
@@ -143,6 +142,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prepare = Prepare(self.instId,
                           ppReq.viewNo,
                           ppReq.ppSeqNo,
+                          ppReq.ppTime,
                           digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)
@@ -152,7 +152,6 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         self.send(prepare, TPCStat.PrepareSent)
 
     def evilSendCommit(self, request):
-        digest = "random"
         commit = Commit(self.instId,
                         request.viewNo,
                         request.ppSeqNo)
@@ -184,6 +183,7 @@ def faultyReply(node):
         reply.result[f.SIG.nm] = "incorrect signature"
         reply.result["declaration"] = "All your base are belong to us."
         return reply
+
     node.generateReply = types.MethodType(newGenerateReply, node)
 
 

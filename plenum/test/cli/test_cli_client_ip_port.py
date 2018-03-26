@@ -7,21 +7,23 @@ from plenum.test.helper import initDirWithGenesisTxns
 
 
 @pytest.fixture(scope="module")
-def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited, tconf):
-    tempDir = os.path.join(tdir, "cl1")
-    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    cli = newCLI(cliLooper, tempDir)
+def cli1(cliLooper, tdirWithClientPoolTxns,
+         tdirWithNodeKeepInited, tconf):
+    tempDir = os.path.join(tdirWithClientPoolTxns, "cl1")
+    initDirWithGenesisTxns(
+        tempDir, tconf, tdirWithClientPoolTxns)
+    cli = newCLI(cliLooper, tempDir, tempDir)
     yield cli
     cli.close()
 
 
 @pytest.fixture(scope="module")
-def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
-        tdirWithNodeKeepInited, tconf):
-    tempDir = os.path.join(tdir, "cl2")
-    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    cli = newCLI(cliLooper, tempDir)
+def cli2(cliLooper, tdir, tdirWithClientPoolTxns,
+         tdirWithNodeKeepInited, tconf):
+    tempDir = os.path.join(tdirWithClientPoolTxns, "cl2")
+    initDirWithGenesisTxns(
+        tempDir, tconf, tdirWithClientPoolTxns)
+    cli = newCLI(cliLooper, tempDir, tempDir)
     yield cli
     cli.close()
 

@@ -4,7 +4,7 @@ from functools import wraps
 
 import sys
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 
 def get_size(obj, seen=None):
@@ -28,16 +28,22 @@ def get_size(obj, seen=None):
     return size
 
 
-def timeit(method):
+def timeit(method, record_time_in: Optional[List]=None):
     @wraps(method)
     def timed(*args, **kw):
         nonlocal method
         ts = time.perf_counter()
         result = method(*args, **kw)
         te = time.perf_counter()
-        elapsed = te-ts
-        print('{} took {} sec'.format(method.__name__, elapsed))
-        method.elapsed = elapsed
+        elapsed = te - ts
+        # print('{} took {} sec'.format(method.__name__, elapsed))
+        try:
+            method.elapsed = elapsed
+        # setattr(method, 'elapsed', elapsed)
+        except AttributeError:
+            pass
+        if record_time_in is not None:
+            record_time_in.append(elapsed)
         return result
 
     return timed
@@ -57,8 +63,10 @@ def get_collection_sizes(obj, collections: Optional[Tuple]=None,
     result = []
     for attr_name in dir(obj):
         attr = getattr(obj, attr_name)
-        if isinstance(attr, collections) and (not get_only_non_empty or len(attr) > 0):
-            result.append((attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
+        if isinstance(attr, collections) and (
+                not get_only_non_empty or len(attr) > 0):
+            result.append(
+                (attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
     return result
 
 
@@ -68,6 +76,7 @@ def get_memory_usage(obj, get_collections_memory_usage=False,
     from pympler import asizeof
     result.append(asizeof.asizeof(obj))
     if get_collections_memory_usage:
-        result.append(get_collection_sizes(obj,
-                                           get_only_non_empty=get_only_non_empty))
+        result.append(
+            get_collection_sizes(
+                obj, get_only_non_empty=get_only_non_empty))
     return result

@@ -23,15 +23,15 @@ whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()
 
 
-def testReqExecWhenReturnedByMaster(tdir_for_func):
-    with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
+def testReqExecWhenReturnedByMaster(tdir_for_func, tconf_for_func):
+    with TestNodeSet(tconf_for_func, count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
             waitForSufficientRepliesForRequests(looper, client1,
-                                                requests=[req], fVal=1)
+                                                requests=[req])
 
             async def chk():
                 for node in nodeSet:
@@ -44,7 +44,9 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                             assert result
                         else:
                             assert result is False
-            timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
+
+            timeout = waits.expectedOrderingTime(
+                nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
 
 
@@ -57,7 +59,9 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             prepareNodeSet(looper, nodeSet)
 
             nodeA, nodeB, nodeC, nodeD = tuple(
-                addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
+                addNodeBack(
+                    nodeSet, looper, nodeNames[i]) for i in range(
+                    0, 4))
 
             # Since primary selection is round robin, A and B will be primaries
 
@@ -111,10 +115,15 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
             for reqType in [PrePrepare, Prepare, Commit]:
-                looper.run(eventually(lambda: assertLength(
-                    getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                 reqType),
-                    0), retryWait=1, timeout=delayD)) # wait little more than delay
+                looper.run(
+                    eventually(
+                        lambda: assertLength(
+                            getPendingRequestsForReplica(
+                                nodeD.replicas[instNo],
+                                reqType),
+                            0),
+                        retryWait=1,
+                        timeout=delayD))  # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
@@ -125,51 +134,9 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
     assert senderNode.name in recvrNode.requests[key].propagates
 
 
-# noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="INDY-76. ZStack does not have any mechanism to have "
-                         "stats either remove this once raet is removed "
-                         "or implement a `stats` feature in ZStack")
-def testMultipleRequests(tdir_for_func):
-    """
-    Send multiple requests to the node
-    """
-    with TestNodeSet(count=7, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
-            # for n in nodeSet:
-            #     n.startKeySharing()
-
-            # TODO: ZStack does not have any mechanism to have stats,
-            # either remove this once raet is removed or implement a `stats`
-            # feature in ZStack
-            if not config.UseZStack:
-                ss0 = snapshotStats(*nodeSet)
-            client, wal = setupNodesAndClient(looper,
-                                              nodeSet,
-                                              tmpdir=tdir_for_func)
-            if not config.UseZStack:
-                ss1 = snapshotStats(*nodeSet)
-
-            def x():
-                requests = [sendRandomRequest(wal, client) for _ in range(10)]
-                waitForSufficientRepliesForRequests(looper, client,
-                                                    requests=requests, fVal=3)
-
-                ss2 = snapshotStats(*nodeSet)
-                diff = statsDiff(ss2, ss1)
-
-                if not config.UseZStack:
-                    ss2 = snapshotStats(*nodeSet)
-                    diff = statsDiff(ss2, ss1)
-
-                    pprint(ss2)
-                    print("----------------------------------------------")
-                    pprint(diff)
-
-            profile_this(x)
-
-
-def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
-                                                            up, wallet1,
+def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper,
+                                                            txnPoolNodeSet,
+                                                            wallet1,
                                                             client1):
     size = len(client1.inBox)
     req = sendRandomRequest(wallet1, client1)

@@ -1,30 +1,13 @@
 from copy import copy
 from typing import List, Tuple
 
-import base58
-
-from ledger.stores.chunked_file_store import ChunkedFileStore
-from ledger.stores.file_store import FileStore
-
 from ledger.ledger import Ledger as _Ledger
 from stp_core.common.log import getlogger
-
 
 logger = getlogger()
 
 
 class Ledger(_Ledger):
-    @staticmethod
-    def _defaultStore(dataDir,
-                      logName,
-                      ensureDurability,
-                      defaultFile=None) -> FileStore:
-        return ChunkedFileStore(dataDir,
-                                logName,
-                                isLineNoKey=True,
-                                storeContentHash=False,
-                                ensureDurability=ensureDurability,
-                                defaultFile=defaultFile)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,7 +30,7 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = self.uncommittedTree.root_hash
         self.uncommittedTxns.extend(txns)
         if txns:
-            return (uncommittedSize+1, uncommittedSize+len(txns)), txns
+            return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
         else:
             return (uncommittedSize, uncommittedSize), txns
 
@@ -64,6 +47,8 @@ class Ledger(_Ledger):
             txn.update(self.append(txn))
             committedTxns.append(txn)
         self.uncommittedTxns = self.uncommittedTxns[count:]
+        logger.debug('Committed {} txns, {} are uncommitted'.
+                     format(len(committedTxns), len(self.uncommittedTxns)))
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
@@ -85,16 +70,21 @@ class Ledger(_Ledger):
         :param count:
         :return:
         """
+        # TODO: This can be optimised if multiple discards are combined
+        # together since merkle root computation will be done only once.
         old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
         else:
-            self.uncommittedTree = self.treeWithAppliedTxns(self.uncommittedTxns)
+            self.uncommittedTree = self.treeWithAppliedTxns(
+                self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
         logger.debug('Discarding {} txns and root hash {} and new root hash '
-                     'is {}'.format(count, old_hash, self.uncommittedRootHash))
+                     'is {}. {} are still uncommitted'.
+                     format(count, old_hash, self.uncommittedRootHash,
+                            len(self.uncommittedTxns)))
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """
@@ -108,18 +98,10 @@ class Ledger(_Ledger):
         # number of leaves (no. of txns)
         tempTree = copy(currentTree)
         for txn in txns:
-            tempTree.append(self.serializeLeaf(txn))
+            tempTree.append(self.serialize_for_tree(txn))
         return tempTree
 
     def reset_uncommitted(self):
         self.uncommittedTxns = []
         self.uncommittedRootHash = None
         self.uncommittedTree = None
-
-    @staticmethod
-    def hashToStr(h):
-        return base58.b58encode(h)
-
-    @staticmethod
-    def strToHash(s):
-        return base58.b58decode(s)

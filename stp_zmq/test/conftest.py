@@ -1,8 +1,9 @@
 import asyncio
-
+import logging
 import pytest
 import zmq.asyncio
 
+from stp_core.common.log import getlogger
 from stp_core.common.config.util import getConfig
 from stp_core.common.temp_file_util import SafeTemporaryDirectory
 from stp_core.loop.looper import Looper
@@ -32,7 +33,7 @@ def tdirAndLooper(loop):
     asyncio.set_event_loop(loop)
 
     with SafeTemporaryDirectory() as td:
-        with Looper(loop=loop, debug=True) as looper:
+        with Looper(loop=loop) as looper:
             yield td, looper
 
 
@@ -49,3 +50,12 @@ def looper(tdirAndLooper):
 @pytest.fixture()
 def tconf():
     return getConfig()
+
+
+@pytest.fixture(scope="module")
+def set_info_log_level():
+    logger = getlogger()
+    lvl = logger.level
+    logger.setLevel(logging.INFO)
+    yield
+    logger.setLevel(lvl)

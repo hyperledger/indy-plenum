@@ -20,7 +20,7 @@ class TreeHasherTest(unittest.TestCase):
          b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"),
         (b"101112131415161718191a1b1c1d1e1f",
          b"3bfb960453ebaebf33727da7a1f4db38acc051d381b6da20d6d4e88f0eabfd7a")
-        ]
+    ]
     sha256_nodes = [
         (b"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
          b"202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
@@ -94,7 +94,7 @@ class TreeHasherTest(unittest.TestCase):
     def test_hash_full_tree_test_vector(self):
         hasher = ledger.tree_hasher.TreeHasher()
         for i in range(len(TreeHasherTest.test_vector_leaves)):
-            test_vector = TreeHasherTest.test_vector_leaves[:i+1]
+            test_vector = TreeHasherTest.test_vector_leaves[:i + 1]
             expected_hash = unhexlify(TreeHasherTest.test_vector_hashes[i])
             self.assertEqual(hasher.hash_full_tree(test_vector), expected_hash)
 
@@ -121,7 +121,7 @@ class CompactMerkleTreeTest(unittest.TestCase):
 
     def test_extend_from_empty(self):
         for i in range(len(TreeHasherTest.test_vector_leaves)):
-            test_vector = TreeHasherTest.test_vector_leaves[:i+1]
+            test_vector = TreeHasherTest.test_vector_leaves[:i + 1]
             expected_hash = TreeHasherTest.test_vector_hashes[i]
             self.tree = compact_merkle_tree.CompactMerkleTree()
             self.tree.extend(test_vector)
@@ -130,7 +130,7 @@ class CompactMerkleTreeTest(unittest.TestCase):
 
     def test_push_subtree_1(self):
         for i in range(len(TreeHasherTest.test_vector_leaves)):
-            test_vector = TreeHasherTest.test_vector_leaves[:i+1]
+            test_vector = TreeHasherTest.test_vector_leaves[:i + 1]
             self.tree = compact_merkle_tree.CompactMerkleTree()
             self.tree.extend(test_vector)
             self.tree._push_subtree([b"test leaf"])
@@ -141,13 +141,13 @@ class CompactMerkleTreeTest(unittest.TestCase):
         for i in range(z):
             self.tree = compact_merkle_tree.CompactMerkleTree()
             # add up to i
-            test_vector = TreeHasherTest.test_vector_leaves[:i+1]
+            test_vector = TreeHasherTest.test_vector_leaves[:i + 1]
             expected_hash = TreeHasherTest.test_vector_hashes[i]
             self.tree.extend(test_vector)
             self.assertEqual(self.tree.root_hash_hex, expected_hash)
             # add up to z
-            test_vector = TreeHasherTest.test_vector_leaves[i+1:]
-            expected_hash = TreeHasherTest.test_vector_hashes[z-1]
+            test_vector = TreeHasherTest.test_vector_leaves[i + 1:]
+            expected_hash = TreeHasherTest.test_vector_hashes[z - 1]
             self.tree.extend(test_vector)
             self.assertEqual(self.tree.root_hash_hex, expected_hash)
 
@@ -177,7 +177,7 @@ class MerkleVerifierTest(unittest.TestCase):
          b"4e3bbb1f7b478dcfe71fb631631519a3bca12c9aefca1612bfce4c13a86264d4",
          [b"5f083f0a1a33ca076a95279832580db3e0ef4584bdff1f54c8a360f50de3031e",
           b"bc1a0643b12e4d2d7c77918f44e0f4f79a838b6cf9ec5b5c283e1f4d88599e6b"])
-        ]
+    ]
 
     # Data for leaf inclusion proof test
     sha256_audit_path = [
@@ -267,26 +267,32 @@ class MerkleVerifierTest(unittest.TestCase):
     def test_verify_tree_consistency_always_accepts_empty_tree(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
         # Give some bogus proof too; it should be ignored.
-        self.assertTrue(verifier.verify_tree_consistency(
-            0, 1,
-            b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-            [b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"]
-            ))
+        self.assertTrue(
+            verifier.verify_tree_consistency(
+                0,
+                1,
+                b"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+                [b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"]))
 
     def test_verify_tree_consistency_for_equal_tree_sizes(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
-        # Equal tree sizes and hashes, and a bogus proof that should be ignored.
-        self.assertTrue(verifier.verify_tree_consistency(
-            3, 3,
-            b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-            b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-            [b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"]
-            ))
+        # Equal tree sizes and hashes, and a bogus proof that should be
+        # ignored.
+        self.assertTrue(
+            verifier.verify_tree_consistency(
+                3,
+                3,
+                b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+                b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+                [b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"]))
 
         # Equal tree sizes but different hashes.
         self.assertRaises(
-            error.ConsistencyError, verifier.verify_tree_consistency, 3, 3,
+            error.ConsistencyError,
+            verifier.verify_tree_consistency,
+            3,
+            3,
             b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01e",
             b"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
             [])
@@ -299,7 +305,7 @@ class MerkleVerifierTest(unittest.TestCase):
             b"fac54203e7cc696cf0dfcb42c92a1d9dbaf70ad9e621f4bd8d98662f00e3c125",
             [b"5f083f0a1a33ca076a95279832580db3e0ef4584bdff1f54c8a360f50de3031e",
              b"bc1a0643b12e4d2d7c77918f44e0f4f79a838b6cf9ec5b5c283e1f4d88599e6b"]
-            )
+        )
 
     def test_verify_tree_consistency_proof_too_short(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
@@ -309,7 +315,7 @@ class MerkleVerifierTest(unittest.TestCase):
             b"5dc9da79a70659a9ad559cb701ded9a2ab9d823aad2f4960cfe370eff4604328",
             [b"0ebc5d3437fbe2db158b9f126a1d118e308181031d0a949f8dededebc558ef6a",
              b"ca854ea128ed050b41b35ffc1b87b8eb2bde461e9e3b5596ece6b9d5975a0ae0"]
-            )
+        )
 
     def test_verify_tree_consistency_bad_second_hash(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
@@ -321,7 +327,7 @@ class MerkleVerifierTest(unittest.TestCase):
             [b"0ebc5d3437fbe2db158b9f126a1d118e308181031d0a949f8dededebc558ef6a",
              b"ca854ea128ed050b41b35ffc1b87b8eb2bde461e9e3b5596ece6b9d5975a0ae0",
              b"d37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7"]
-            )
+        )
 
     def test_verify_tree_consistency_both_hashes_bad(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
@@ -333,7 +339,7 @@ class MerkleVerifierTest(unittest.TestCase):
             [b"0ebc5d3437fbe2db158b9f126a1d118e308181031d0a949f8dededebc558ef6a",
              b"ca854ea128ed050b41b35ffc1b87b8eb2bde461e9e3b5596ece6b9d5975a0ae0",
              b"d37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7"]
-            )
+        )
 
     def test_verify_tree_consistency_bad_first_hash(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
@@ -345,13 +351,13 @@ class MerkleVerifierTest(unittest.TestCase):
             [b"0ebc5d3437fbe2db158b9f126a1d118e308181031d0a949f8dededebc558ef6a",
              b"ca854ea128ed050b41b35ffc1b87b8eb2bde461e9e3b5596ece6b9d5975a0ae0",
              b"d37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7"]
-            )
+        )
 
     def test_calculate_root_hash_good_proof(self):
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
         root_hash = verifier._calculate_root_hash_from_audit_path(
-                self.leaf_hash, self.leaf_index, self.sha256_audit_path[:],
-                self.tree_size)
+            self.leaf_hash, self.leaf_index, self.sha256_audit_path[:],
+            self.tree_size)
         self.assertEqual(root_hash, self.expected_root_hash)
 
     def test_calculate_root_too_short_proof(self):
@@ -416,7 +422,7 @@ class MerkleVerifierTest(unittest.TestCase):
                 self.ones, 7, [self.zeros, self.zeros, self.zeros], sth))
 
     def test_verify_leaf_inclusion_rightmost_node_in_unbalanced_odd_tree(
-        self):
+            self):
         # Show that verify_leaf_inclusion works when required to check a proof
         # for the right-most, even-indexed node: In a tree of 5 nodes, ask for
         # inclusion proof check for leaf 4 (the 5th).
@@ -429,7 +435,7 @@ class MerkleVerifierTest(unittest.TestCase):
             verifier.verify_leaf_inclusion(self.ones, 4, [self.zeros, ], sth))
 
     def test_verify_leaf_inclusion_rightmost_node_in_unbalanced_tree_odd_node(
-        self):
+            self):
         # Show that verify_leaf_inclusion works when required to check a proof
         # for the right-most, odd-indexed node: In a tree of 6 nodes, ask for
         # inclusion proof check for leaf 5 (the 6th).
@@ -444,7 +450,7 @@ class MerkleVerifierTest(unittest.TestCase):
                 self.ones, 5, [self.zeros, self.zeros], sth))
 
     def test_verify_leaf_inclusion_rightmost_node_in_unbalanced_even_tree(
-        self):
+            self):
         # Show that verify_leaf_inclusion works when required to check a proof
         # for the right-most, odd-indexed node: In a tree of 6 nodes, ask for
         # inclusion proof check for leaf 4 (the 5th).
@@ -474,17 +480,17 @@ class MerkleVerifierTest(unittest.TestCase):
         leaf_hashes = [hh.hash_leaf(l) for l in leaves]
         hc = hh.hash_children
         proofs_per_tree_size = {
-            1: [[] ],
+            1: [[]],
             2: [[leaf_hashes[1]], [leaf_hashes[0]]],
-            3: [[leaf_hashes[1], leaf_hashes[2]], # leaf 0
-                [leaf_hashes[0], leaf_hashes[2]], # leaf 1
-                [hc(leaf_hashes[0], leaf_hashes[1])]], # leaf 2
-            4: [[leaf_hashes[1], hc(leaf_hashes[2], leaf_hashes[3])], # leaf 0
-                [leaf_hashes[0], hc(leaf_hashes[2], leaf_hashes[3])], # leaf 1
-                [leaf_hashes[3], hc(leaf_hashes[0], leaf_hashes[1])], # leaf 2
-                [leaf_hashes[2], hc(leaf_hashes[0], leaf_hashes[1])], # leaf 3
+            3: [[leaf_hashes[1], leaf_hashes[2]],  # leaf 0
+                [leaf_hashes[0], leaf_hashes[2]],  # leaf 1
+                [hc(leaf_hashes[0], leaf_hashes[1])]],  # leaf 2
+            4: [[leaf_hashes[1], hc(leaf_hashes[2], leaf_hashes[3])],  # leaf 0
+                [leaf_hashes[0], hc(leaf_hashes[2], leaf_hashes[3])],  # leaf 1
+                [leaf_hashes[3], hc(leaf_hashes[0], leaf_hashes[1])],  # leaf 2
+                [leaf_hashes[2], hc(leaf_hashes[0], leaf_hashes[1])],  # leaf 3
                 ]
-            }
+        }
         tree = compact_merkle_tree.CompactMerkleTree(hasher=HexTreeHasher())
         verifier = ledger.merkle_verifier.MerkleVerifier(HexTreeHasher())
         # Increase the tree by one leaf each time
@@ -494,11 +500,11 @@ class MerkleVerifierTest(unittest.TestCase):
             # ... and check inclusion proof validates for each node
             # of the tree
             for j in range(tree_size):
-              proof = proofs_per_tree_size[tree_size][j]
-              sth = self.STH(tree.root_hash, tree_size)
-              self.assertTrue(
-                  verifier.verify_leaf_inclusion(
-                      leaves[j], j, proof, sth))
+                proof = proofs_per_tree_size[tree_size][j]
+                sth = self.STH(tree.root_hash, tree_size)
+                self.assertTrue(
+                    verifier.verify_leaf_inclusion(
+                        leaves[j], j, proof, sth))
 
 
 if __name__ == "__main__":

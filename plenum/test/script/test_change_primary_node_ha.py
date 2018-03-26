@@ -4,7 +4,6 @@ from plenum.test.script.helper import looper
 from stp_core.common.log import getlogger
 from plenum.test.script.helper import changeNodeHa
 
-
 logger = getlogger()
 
 whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
@@ -14,12 +13,13 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
-def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                               poolTxnData, poolTxnStewardNames, tconf):
+def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
+                               poolTxnData, poolTxnStewardNames, tconf, tdir):
     changeNodeHa(looper,
                  txnPoolNodeSet,
-                 tdirWithPoolTxns,
+                 tdirWithClientPoolTxns,
                  poolTxnData,
                  poolTxnStewardNames,
                  tconf,
-                 shouldBePrimary=True)
+                 shouldBePrimary=True,
+                 tdir=tdir)

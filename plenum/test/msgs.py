@@ -1,6 +1,6 @@
+from plenum.common.messages.fields import NonEmptyStringField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_message_factory import node_message_factory
-from plenum.common.messages.node_messages import NonEmptyStringField
 from plenum.common.util import randomString
 
 

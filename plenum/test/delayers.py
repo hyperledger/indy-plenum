@@ -1,11 +1,19 @@
 import random
-from typing import Iterable
+from typing import Iterable, List
 
+from plenum.common.request import Request
+
+from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
+    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
-from plenum.common.messages.node_messages import *
-from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
+
+DEFAULT_DELAY = 600
 
 
 def delayer(seconds, op, senderFilter=None, instFilter: int = None):
@@ -20,7 +28,8 @@ def delayer(seconds, op, senderFilter=None, instFilter: int = None):
     return inner
 
 
-def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
+def delayerMsgTuple(seconds, opType, senderFilter=None,
+                    instFilter: int = None):
     """
     Used for nodeInBoxStasher
 
@@ -36,11 +45,14 @@ def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
         if isinstance(msg, opType) and \
                 (not senderFilter or frm == senderFilter) and \
                 (instFilter is None or
-                     (f.INST_ID.nm in msg._fields and
-                              getattr(msg, f.INST_ID.nm) == instFilter)):
+                 (f.INST_ID.nm in msg._fields and
+                  getattr(msg, f.INST_ID.nm) == instFilter)):
             return seconds
 
-    inner.__name__ = opType.__name__
+    if hasattr(opType, 'typename'):
+        inner.__name__ = opType.typename
+    else:
+        inner.__name__ = opType.__name__
     return inner
 
 
@@ -64,75 +76,104 @@ def delayerMethod(method, delay):
     return inner
 
 
-def nom_delay(delay: float, inst_id=None, sender_filter: str=None):
+def nom_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of NOMINATE requests
-    return delayerMsgTuple(delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def prim_delay(delay: float, inst_id=None, sender_filter: str=None):
+def prim_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of PRIMARY requests
-    return delayerMsgTuple(delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def rel_delay(delay: float, inst_id=None, sender_filter: str=None):
+def rel_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
     # Delayer of REELECTION requests
-    return delayerMsgTuple(delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def vcdDelay(delay: float):
-    # Delayer of VIEW_CHANGE_DONE requests
-    return delayerMsgTuple(delay, ViewChangeDone)
-
-
-def ppgDelay(delay: float, sender_filter: str=None):
+def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str = None):
     # Delayer of PROPAGATE requests
     return delayerMsgTuple(delay, Propagate, senderFilter=sender_filter)
 
 
-def ppDelay(delay: float, instId: int=None, sender_filter: str=None):
+def ppDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of PRE-PREPARE requests from a particular instance
     return delayerMsgTuple(delay, PrePrepare, instFilter=instId,
                            senderFilter=sender_filter)
 
 
-def pDelay(delay: float, instId: int=None, sender_filter: str=None):
+def pDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of PREPARE requests from a particular instance
-    return delayerMsgTuple(delay, Prepare, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Prepare, instFilter=instId, senderFilter=sender_filter)
 
 
-def cDelay(delay: float, instId: int=None, sender_filter: str=None):
+def cDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of COMMIT requests from a particular instance
-    return delayerMsgTuple(delay, Commit, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(
+        delay, Commit, instFilter=instId, senderFilter=sender_filter)
 
 
-def icDelay(delay: float):
+def icDelay(delay: float = DEFAULT_DELAY):
     # Delayer of INSTANCE-CHANGE requests
     return delayerMsgTuple(delay, InstanceChange)
 
 
-def vcd_delay(delay: float):
+def vcd_delay(delay: float = DEFAULT_DELAY):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, ViewChangeDone)
 
 
-def lsDelay(delay: float):
+def lsDelay(delay: float = DEFAULT_DELAY):
     # Delayer of LEDGER_STATUSES requests
     return delayerMsgTuple(delay, LedgerStatus)
 
 
-def cpDelay(delay: float):
+def cpDelay(delay: float = DEFAULT_DELAY):
     # Delayer of CONSISTENCY_PROOFS requests
     return delayerMsgTuple(delay, ConsistencyProof)
 
 
-def cqDelay(delay: float):
+def cqDelay(delay: float = DEFAULT_DELAY):
     # Delayer of CATCHUP_REQ requests
     return delayerMsgTuple(delay, CatchupReq)
 
 
-def cr_delay(delay: float):
+def cr_delay(delay: float = DEFAULT_DELAY):
     # Delayer of CATCHUP_REP requests
     return delayerMsgTuple(delay, CatchupRep)
+
+
+def req_delay(delay: float = DEFAULT_DELAY):
+    # Delayer of Request requests
+    return delayerMsgTuple(delay, Request)
+
+
+def msg_req_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
+    # Delayer of MessageReq messages
+    def specific_msgs(msg):
+        if isinstance(
+                msg[0], MessageReq) and (
+                not types_to_delay or msg[0].msg_type in types_to_delay):
+            return delay
+
+    specific_msgs.__name__ = MESSAGE_REQUEST
+    return specific_msgs
+
+
+def msg_rep_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
+    # Delayer of MessageRep messages
+    def specific_msgs(msg):
+        if isinstance(
+                msg[0], MessageRep) and (
+                not types_to_delay or msg[0].msg_type in types_to_delay):
+            return delay
+
+    specific_msgs.__name__ = MESSAGE_RESPONSE
+    return specific_msgs
 
 
 def delay(what, frm, to, howlong):
@@ -151,30 +192,32 @@ def delay(what, frm, to, howlong):
                     stasher = t.clientIbStasher
                 else:
                     raise TypeError(
-                            "from type {} for {} not supported".format(type(f),
-                                                                       f))
+                        "from type {} for {} not supported".format(type(f),
+                                                                   f))
                 stasher.delay(delayerMsgTuple(howlong, what, f.name))
             else:
                 raise TypeError(
-                        "to type {} for {} not supported".format(type(t), t))
+                    "to type {} for {} not supported".format(type(t), t))
 
 
-def delayNonPrimaries(nodeSet, instId, delay):
+def delayNonPrimaries(txnPoolNodeSet, instId, delay):
     from plenum.test.test_node import getNonPrimaryReplicas
-    nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
+    nonPrimReps = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
     return nonPrimReps
 
 
-def delay_messages(typ, nodes, inst_id, delay=None, min_delay=None, max_delay=None):
+def delay_messages(typ, nodes, inst_id, delay=None,
+                   min_delay=None, max_delay=None):
     if typ == 'election':
         delay_meths = (nom_delay, prim_delay, rel_delay)
     elif typ == '3pc':
         delay_meths = (ppDelay, pDelay, cDelay)
     else:
         RuntimeError('Unknown type')
-    assert delay is not None or (min_delay is not None and max_delay is not None)
+    assert delay is not None or (
+            min_delay is not None and max_delay is not None)
     for node in nodes:
         if delay:
             d = delay
@@ -201,3 +244,8 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
 def reset_delays_and_process_delayeds(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds()
+
+
+def reset_delays_and_process_delayeds_for_client(nodes):
+    for node in nodes:
+        node.reset_delays_and_process_delayeds_for_clients()

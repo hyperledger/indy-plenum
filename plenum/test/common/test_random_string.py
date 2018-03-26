@@ -1,5 +1,5 @@
-import time
 from plenum.common.util import randomString
+
 
 # Checks if the function randomString() is returning correct
 # length random string for various lengths

@@ -24,7 +24,8 @@ class Printer:
         self.printeds = []
 
     def print(self, m):
-        print('{} printing... {}'.format(self.name, m))
+        str_m = "{}".format(m)
+        print('{} printing... {}'.format(self.name, str_m[:100]))
         self.printeds.append(m)
 
     def reset(self):

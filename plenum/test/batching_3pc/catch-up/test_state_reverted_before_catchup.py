@@ -1,12 +1,13 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.batching_3pc.helper import send_and_check
 from plenum.test.delayers import cDelay
-from plenum.test.helper import signed_random_requests, sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
+from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check, \
+    sdk_send_random_requests, sdk_get_replies
 
 
-def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, client,
-                                                 wallet1):
+def test_unordered_state_reverted_before_catchup(
+        tconf, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     """
     Check that unordered state is reverted before starting catchup:
     - save the initial state on a node
@@ -24,8 +25,10 @@ def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, 
     non_primary_state = non_primary_node.getState(ledger_id)
 
     # send reqs and make sure we are at the same state
-    reqs = signed_random_requests(wallet1, 10)
-    send_and_check(reqs, looper, txnPoolNodeSet, client)
+
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 10)
+    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # the state of the node before
     committed_ledger_before = non_primary_ledger.tree.root_hash
@@ -40,13 +43,17 @@ def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, 
     non_primary_node.nodeIbStasher.delay(cDelay(delay_c))
 
     # send requests
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs, total_timeout=40)
+    reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    sdk_get_replies(looper, reqs, timeout=40)
 
-    committed_ledger_during_3pc = non_primary_node.getLedger(ledger_id).tree.root_hash
-    uncommitted_ledger_during_3pc = non_primary_node.getLedger(ledger_id).uncommittedRootHash
-    committed_state_during_3pc = non_primary_node.getState(ledger_id).committedHeadHash
-    uncommitted_state_during_3pc = non_primary_node.getState(ledger_id).headHash
+    committed_ledger_during_3pc = non_primary_node.getLedger(
+        ledger_id).tree.root_hash
+    uncommitted_ledger_during_3pc = non_primary_node.getLedger(
+        ledger_id).uncommittedRootHash
+    committed_state_during_3pc = non_primary_node.getState(
+        ledger_id).committedHeadHash
+    uncommitted_state_during_3pc = non_primary_node.getState(
+        ledger_id).headHash
 
     # start catchup
     non_primary_node.ledgerManager.preCatchupClbk(ledger_id)

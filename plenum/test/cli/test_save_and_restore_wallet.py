@@ -37,7 +37,7 @@ def testSaveAndRestoreWallet(do, be, cli, aliceCli):
     createNewKeyring("mykr0", do)
     useKeyring("Default", do)
     filePath = getWalletFilePath(
-        cli.getContextBasedKeyringsBaseDir(),
+        cli.getContextBasedWalletsBaseDir(),
         cli.walletFileName)
     exitFromCli(do)
     be(aliceCli)

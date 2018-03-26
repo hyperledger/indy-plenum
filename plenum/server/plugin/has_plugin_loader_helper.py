@@ -4,15 +4,15 @@ from plenum.common.constants import PLUGIN_BASE_DIR_PATH
 from plenum.common.config_util import getConfig
 from plenum.server.plugin_loader import PluginLoader
 
-config = getConfig()
-
 
 class PluginLoaderHelper:
 
     @staticmethod
     def getPluginPath(name):
+        config = getConfig()
         if PLUGIN_BASE_DIR_PATH in config.DefaultPluginPath:
-            return os.path.join(config.DefaultPluginPath.get(PLUGIN_BASE_DIR_PATH), name)
+            return os.path.join(config.DefaultPluginPath.get(
+                PLUGIN_BASE_DIR_PATH), name)
         else:
             curPath = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(curPath, name)
@@ -53,19 +53,21 @@ class PluginLoaderHelper:
         finalPlugins = {}
         for typ in types:
             if typ not in allPlugins:
-                finalPlugins[typ] = PluginLoaderHelper._getDefaultPluginsByType(typ)
+                finalPlugins[typ] = PluginLoaderHelper._getDefaultPluginsByType(
+                    typ)
             else:
                 finalPlugins[typ] = allPlugins[typ]
         return finalPlugins
 
     @staticmethod
     def _getDefaultPluginsByType(typ):
+        config = getConfig()
         allPluginsPath = []
 
         if typ in config.DefaultPluginPath:
-            allPluginsPath.append(PluginLoaderHelper.getPluginPath(config.DefaultPluginPath.get(typ)))
+            allPluginsPath.append(PluginLoaderHelper.getPluginPath(
+                config.DefaultPluginPath.get(typ)))
             allPlugins = PluginLoaderHelper._getAllPlugins(allPluginsPath)
             return allPlugins.get(typ, [])
         else:
             return []
-

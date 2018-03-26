@@ -1,9 +1,12 @@
-import json
+from hashlib import sha256
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.serialization import domain_state_serializer, \
+    proof_nodes_serializer, state_roots_serializer
 from ledger.util import F
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
+    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, STATE_PROOF
 from plenum.common.exceptions import UnauthorizedClientRequest
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
@@ -15,13 +18,19 @@ logger = getlogger()
 
 
 class DomainRequestHandler(RequestHandler):
-    stateSerializer = JsonSerializer()
+    stateSerializer = domain_state_serializer
+    write_types = {NYM, }
 
-    def __init__(self, ledger, state, reqProcessors):
+    def __init__(self, ledger, state, config, reqProcessors, bls_store):
         super().__init__(ledger, state)
+        self.config = config
         self.reqProcessors = reqProcessors
+        self.bls_store = bls_store
 
-    def validate(self, req: Request, config=None):
+    def doStaticValidation(self, request: Request):
+        pass
+
+    def validate(self, req: Request):
         if req.operation.get(TXN_TYPE) == NYM:
             origin = req.identifier
             error = None
@@ -29,28 +38,28 @@ class DomainRequestHandler(RequestHandler):
                                   origin, isCommitted=False):
                 error = "Only Steward is allowed to do these transactions"
             if req.operation.get(ROLE) == STEWARD:
-                if self.stewardThresholdExceeded(config):
+                if self.stewardThresholdExceeded(self.config):
                     error = "New stewards cannot be added by other stewards " \
                             "as there are already {} stewards in the system".\
-                            format(config.stewardThreshold)
+                            format(self.config.stewardThreshold)
             if error:
                 raise UnauthorizedClientRequest(req.identifier,
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request):
-        txn = reqToTxn(req)
+    def _reqToTxn(self, req: Request, cons_time: int):
+        txn = reqToTxn(req, cons_time)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
-
         return txn
 
-    def apply(self, req: Request):
-        txn = self._reqToTxn(req)
-        (start, end), _ = self.ledger.appendTxns([self.transform_txn_for_ledger(txn)])
+    def apply(self, req: Request, cons_time: int):
+        txn = self._reqToTxn(req, cons_time)
+        (start, end), _ = self.ledger.appendTxns(
+            [self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
-        return txn
+        return start, txn
 
     @staticmethod
     def transform_txn_for_ledger(txn):
@@ -71,7 +80,8 @@ class DomainRequestHandler(RequestHandler):
             nym = txn.get(TARGET_NYM)
             self.updateNym(nym, txn, isCommitted=isCommitted)
         else:
-            logger.debug('Cannot apply request of type {} to state'.format(typ))
+            logger.debug(
+                'Cannot apply request of type {} to state'.format(typ))
 
     def countStewards(self) -> int:
         """
@@ -94,7 +104,7 @@ class DomainRequestHandler(RequestHandler):
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn[f.IDENTIFIER.nm]
+            newData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a
@@ -107,36 +117,89 @@ class DomainRequestHandler(RequestHandler):
         if VERKEY in txn:
             newData[VERKEY] = txn[VERKEY]
         newData[F.seqNo.name] = txn.get(F.seqNo.name)
+        newData[TXN_TIME] = txn.get(TXN_TIME)
         existingData.update(newData)
-        key = nym.encode()
         val = self.stateSerializer.serialize(existingData)
+        key = self.nym_to_state_key(nym)
         self.state.set(key, val)
         return existingData
 
-    def hasNym(self, nym, isCommitted: bool = True):
-        key = nym.encode()
+    def hasNym(self, nym, isCommitted: bool=True):
+        key = self.nym_to_state_key(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
     @staticmethod
-    def getSteward(state, nym, isCommitted: bool = True):
+    def get_role(state, nym, role, isCommitted: bool=True):
         nymData = DomainRequestHandler.getNymDetails(state, nym, isCommitted)
         if not nymData:
             return {}
         else:
-            if nymData.get(ROLE) == STEWARD:
+            if nymData.get(ROLE) == role:
                 return nymData
             else:
                 return {}
 
     @staticmethod
-    def isSteward(state, nym, isCommitted: bool = True):
+    def getSteward(state, nym, isCommitted: bool=True):
+        return DomainRequestHandler.get_role(state, nym, STEWARD, isCommitted)
+
+    @staticmethod
+    def isSteward(state, nym, isCommitted: bool=True):
         return bool(DomainRequestHandler.getSteward(state,
                                                     nym,
                                                     isCommitted))
 
     @staticmethod
-    def getNymDetails(state, nym, isCommitted: bool = True):
-        key = nym.encode()
+    def getNymDetails(state, nym, isCommitted: bool=True):
+        key = DomainRequestHandler.nym_to_state_key(nym)
         data = state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        if not data:
+            return {}
+        return DomainRequestHandler.stateSerializer.deserialize(data)
+
+    @staticmethod
+    def nym_to_state_key(nym: str) -> bytes:
+        return sha256(nym.encode()).digest()
+
+    def make_proof(self, path, head_hash=None):
+        '''
+        Creates a state proof for the given path in state trie.
+        Returns None if there is no BLS multi-signature for the given state (it can
+        be the case for txns added before multi-signature support).
+
+        :param path: the path generate a state proof for
+        :return: a state proof or None
+        '''
+        root_hash = head_hash if head_hash else self.state.committedHeadHash
+        proof = self.state.generate_state_proof(key=path,
+                                                root=self.state.get_head_by_hash(root_hash),
+                                                serialize=True)
+        encoded_proof = proof_nodes_serializer.serialize(proof)
+        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+
+        multi_sig = self.bls_store.get(encoded_root_hash)
+        if not multi_sig:
+            return None
+
+        return {
+            ROOT_HASH: encoded_root_hash,
+            MULTI_SIGNATURE: multi_sig.as_dict(),
+            PROOF_NODES: encoded_proof
+        }
+
+    @staticmethod
+    def make_result(request, data, last_seq_no, update_time, proof):
+        result = {**request.operation, **{
+            DATA: data,
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId,
+            f.SEQ_NO.nm: last_seq_no,
+            TXN_TIME: update_time
+        }}
+        if proof and request.protocolVersion and \
+                request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
+            result[STATE_PROOF] = proof
+
+        # Do not inline please, it makes debugging easier
+        return result

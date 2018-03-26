@@ -5,20 +5,20 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
-from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests
-from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test.helper import sdk_send_random_requests, \
+    sdk_send_random_and_check
+from plenum.test.test_node import getNonPrimaryReplicas, \
+    getPrimaryReplica
 
 
 @pytest.fixture(scope="module")
-def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
+def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, tconf.Max3PCBatchSize)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr.create3PCBatch
@@ -33,7 +33,8 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
         return pp
 
     pr.create3PCBatch = types.MethodType(badMethod, pr)
-    sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+                             tconf.Max3PCBatchSize)
     return pr, otherR, stateRoot
 
 
@@ -42,7 +43,7 @@ def reverted(setup, looper):
     pr, otherR, oldStateRoot = setup
 
     def chkStateRoot(root):
-        for r in [pr]+otherR:
+        for r in [pr] + otherR:
             r.stateRootHash(DOMAIN_LEDGER_ID, to_str=False) == root
 
     looper.run(eventually(chkStateRoot, oldStateRoot))
@@ -63,7 +64,6 @@ def testTreeStateRevertedAfterBatchRejection(reverted):
     After a batch is rejected, all nodes revert their trees to last known
     correct state
     """
-    pass
 
 
 def testViewChangeAfterBatchRejected(viewChanged):
@@ -71,15 +71,15 @@ def testViewChangeAfterBatchRejected(viewChanged):
     After a batch is rejected and each batch that was created based on the
     rejected batch is discarded, the discarded batches are tried again
     """
-    pass
 
 
-def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
-                                             client, tconf, looper):
+def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged,
+                                             txnPoolNodeSet,
+                                             sdk_pool_handle, sdk_wallet_client,
+                                             tconf, looper):
     """
     After retrying discarded batches, new batches are sent
     :return:
     """
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, tconf.Max3PCBatchSize)

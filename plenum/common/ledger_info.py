@@ -45,6 +45,11 @@ class LedgerInfo:
         #  process as completed
         self.ledgerStatusOk = set()
 
+        # Key of the 3PC-batch ordered by the master instance that contained
+        # the last transaction of this node's ledger
+        # This is a map of last 3PC for each received LedgerStatus
+        self.last_txn_3PC_key = {}
+
         # Dictionary of consistency proofs received for the ledger
         # in process of catching up
         # Key is the node name and value is a consistency proof
@@ -79,8 +84,12 @@ class LedgerInfo:
         self.canSync = False
         self.state = LedgerState.synced
         self.ledgerStatusOk = set()
+        self.last_txn_3PC_key = {}
         self.recvdConsistencyProofs = {}
-        self.postCatchupCompleteClbk()
+        self.receivedCatchUpReplies = []
+        self.recvdCatchupRepliesFrm = {}
+        if self.postCatchupCompleteClbk:
+            self.postCatchupCompleteClbk()
         self.catchupReplyTimer = None
         if self.catchUpTill:
             cp = self.catchUpTill

@@ -1,6 +1,7 @@
+from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
-from typing import Dict, Mapping, Callable, Tuple, Any, Union
+from typing import Dict, Callable
 from stp_core.types import HA
 import time
 from stp_core.common.log import getlogger
@@ -16,14 +17,16 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
                  registry: Dict[str, HA],
                  seed=None,
                  sighex: str = None,
-                 config=None):
+                 config=None,
+                 msgRejectHandler=None):
 
         SimpleZStack.__init__(self,
                               stackParams,
                               msgHandler,
                               seed=seed,
                               sighex=sighex,
-                              config=config)
+                              config=config,
+                              msgRejectHandler=msgRejectHandler)
 
         KITNetworkInterface.__init__(self,
                                      registry=registry)
@@ -49,10 +52,9 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
 
     def reconcileNodeReg(self) -> set:
         """
-        Check whether registry contains some addresses 
+        Check whether registry contains some addresses
         that were never connected to
-
-        :return: 
+        :return:
         """
 
         matches = set()
@@ -71,7 +73,7 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
             if name in exclude or remote.isConnected:
                 continue
 
-            if not name in self._retry_connect:
+            if name not in self._retry_connect:
                 self._retry_connect[name] = 0
 
             if not remote.socket or self._retry_connect[name] >= \
@@ -91,16 +93,15 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
         if not missing:
             return missing
 
-        logger.debug("{} found the following "
-                     "missing connections: {}"
-                     .format(self, ", ".join(missing)))
+        logger.debug("{}{} found the following missing connections: {}"
+                     .format(CONNECTION_PREFIX, self, ", ".join(missing)))
 
         for name in missing:
             try:
                 self.connect(name, ha=self.registry[name])
             except ValueError as ex:
-                logger.error('{} cannot connect to {} due to {}'
-                             .format(self, name, ex))
+                logger.error('{}{} cannot connect to {} due to {}'
+                             .format(CONNECTION_PREFIX, self, name, ex))
         return missing
 
     async def service(self, limit=None):

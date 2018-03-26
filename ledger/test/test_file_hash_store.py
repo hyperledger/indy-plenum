@@ -4,7 +4,7 @@ from random import choice, randint
 
 import pytest
 
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 
 
 @pytest.fixture(scope="module")
@@ -15,6 +15,7 @@ def nodesLeaves():
 
 def writtenFhs(tempdir, nodes, leaves):
     fhs = FileHashStore(tempdir)
+    assert fhs.is_persistent
     for leaf in leaves:
         fhs.writeLeaf(leaf)
     for node in nodes:
@@ -51,6 +52,15 @@ def testSimpleReadWrite(nodesLeaves, tempdir):
     for i, n in enumerate(nds):
         assert nodes[i][2] == n
 
+    # Check that hash store can be closed and re-opened and the contents
+    # remain same
+    leaf_count = fhs.leafCount
+    node_count = fhs.nodeCount
+    fhs.close()
+    reopened_hash_store = FileHashStore(tempdir)
+    assert reopened_hash_store.leafCount == leaf_count
+    assert reopened_hash_store.nodeCount == node_count
+
 
 def testIncorrectWrites(tempdir):
     fhs = FileHashStore(tempdir, leafSize=50, nodeSize=50)
@@ -61,9 +71,9 @@ def testIncorrectWrites(tempdir):
         fhs.writeNode((8, 1, b"also less than 50"))
 
     with pytest.raises(ValueError):
-        fhs.writeLeaf(b"more than 50" + b'1'*50)
+        fhs.writeLeaf(b"more than 50" + b'1' * 50)
     with pytest.raises(ValueError):
-        fhs.writeNode((4, 1, b"also more than 50" + b'1'*50))
+        fhs.writeNode((4, 1, b"also more than 50" + b'1' * 50))
 
 
 def testRandomAndRepeatedReads(nodesLeaves, tempdir):

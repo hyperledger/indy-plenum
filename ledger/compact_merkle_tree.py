@@ -3,11 +3,11 @@ from binascii import hexlify
 from typing import List, Tuple, Sequence
 
 import ledger.merkle_tree as merkle_tree
-from ledger.stores.hash_store import HashStore
-from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.hash_stores.hash_store import HashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.tree_hasher import TreeHasher
-from ledger.util import count_bits_set, lowest_bit_set
 from ledger.util import ConsistencyVerificationFailed
+from ledger.util import count_bits_set, lowest_bit_set
 
 
 class CompactMerkleTree(merkle_tree.MerkleTree):
@@ -24,9 +24,13 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
 
         # These two queues should be written to two simple position-accessible
         # arrays (files, database tables, etc.)
-        self.hashStore = hashStore or MemoryHashStore()  # type: HashStore
+        self.__hashStore = hashStore or MemoryHashStore()  # type: HashStore
         self.__hasher = hasher
         self._update(tree_size, hashes)
+
+    @property
+    def hashStore(self):
+        return self.__hashStore
 
     def _update(self, tree_size: int, hashes: Sequence[bytes]):
         bits_set = count_bits_set(tree_size)
@@ -95,14 +99,15 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
         there is a minimum subtree (i.e. __mintree_height > 0), then the input
         subtree must be smaller or of equal size to the minimum subtree.
 
-        If the subtree is smaller (or no such minimum exists, in an empty tree),
-        we can simply append its hash to self.hashes, since this maintains the
-        invariant property of being sorted in descending size order.
+        If the subtree is smaller (or no such minimum exists, in an empty
+        tree), we can simply append its hash to self.hashes, since this
+        maintains the invariant property of being sorted in descending
+        size order.
 
         If the subtree is of equal size, we are in a similar situation to an
-        addition carry. We handle it by combining the two subtrees into a larger
-        subtree (of size 2^(k+1)), then recursively trying to add this new
-        subtree back into the tree.
+        addition carry. We handle it by combining the two subtrees into a
+        larger subtree (of size 2^(k+1)), then recursively trying to add
+        this new subtree back into the tree.
 
         Any collection of leaves larger than the minimum subtree must undergo
         additional partition to conform with the structure of a merkle tree,
@@ -170,7 +175,7 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
             max_h = self.__mintree_height
             max_size = 1 << (max_h - 1) if max_h > 0 else 0
             if max_h > 0 and size - idx >= max_size:
-                self._push_subtree(new_leaves[idx:idx+max_size])
+                self._push_subtree(new_leaves[idx:idx + max_size])
                 idx += max_size
             else:
                 break
@@ -211,7 +216,8 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
                 self._subproof(first, 0, second, True)]
 
     def inclusion_proof(self, start, end):
-        return [self.merkle_tree_hash(a, b) for a, b in self._path(start, 0, end)]
+        return [self.merkle_tree_hash(a, b)
+                for a, b in self._path(start, 0, end)]
 
     def _subproof(self, m, start_n: int, end_n: int, b: int):
         n = end_n - start_n
@@ -243,7 +249,7 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
                 return self._path(m - k, start_n + k, end_n) + [
                     (start_n, start_n + k)]
 
-    def get_tree_head(self, seq: int=None):
+    def get_tree_head(self, seq: int = None):
         if seq is None:
             seq = self.tree_size
         if seq > self.tree_size:
@@ -261,10 +267,29 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
     def nodeCount(self) -> int:
         return self.hashStore.nodeCount
 
-    def verifyConsistency(self, expectedLeafCount = -1) -> bool:
-        if expectedLeafCount > 0 and expectedLeafCount != self.leafCount:
+    @staticmethod
+    def get_expected_node_count(leaf_count):
+        """
+        The number of nodes is the number of full subtrees present
+        """
+        count = 0
+        while leaf_count > 1:
+            leaf_count //= 2
+            count += leaf_count
+        return count
+
+    def verify_consistency(self, expected_leaf_count) -> bool:
+        """
+        Check that the tree has same leaf count as expected and the
+        number of nodes are also as expected
+        """
+        if expected_leaf_count != self.leafCount:
             raise ConsistencyVerificationFailed()
-        expectedNodeCount = count_bits_set(self.leafCount)
-        if not expectedNodeCount == self.nodeCount:
+        if self.get_expected_node_count(self.leafCount) != self.nodeCount:
             raise ConsistencyVerificationFailed()
         return True
+
+    def reset(self):
+        self.hashStore.reset()
+        self._update(tree_size=0,
+                     hashes=())

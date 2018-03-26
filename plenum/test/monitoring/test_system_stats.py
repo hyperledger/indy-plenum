@@ -49,4 +49,5 @@ def testSystemStats(monkeypatch, testNode):
     data2 = testNode.monitor.captureSystemPerformance()
     assert data2['cpu']['value'] == cpu
     assert data2['ram']['value'] == ram
-    assert data2['traffic']['value'] == bytes / 1024 - data1['traffic']['value']
+    assert data2['traffic']['value'] == bytes / \
+           1024 - data1['traffic']['value']

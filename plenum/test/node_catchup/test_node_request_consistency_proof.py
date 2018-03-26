@@ -1,7 +1,4 @@
 import types
-from random import randint
-
-import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF
 from plenum.common.ledger import Ledger
@@ -11,18 +8,17 @@ from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 
 # Do not remove the next imports
 from plenum.test.node_catchup.conftest import whitelist
 from plenum.test.batching_3pc.conftest import tconf
 
-
 logger = getlogger()
 # So that `three_phase_key_for_txn_seq_no` always works, it makes the test
 # easy as the requesting node selects a random size for the ledger
 Max3PCBatchSize = 1
+TestRunningTimeLimitSec = 150
 
 
 def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
@@ -46,6 +42,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     # does not get enough similar consistency proofs
     next_size = 0
     origMethod = newNode.build_ledger_status
+
     def build_broken_ledger_status(self, ledger_id):
         nonlocal next_size
         if ledger_id != DOMAIN_LEDGER_ID:
@@ -60,17 +57,16 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            next_size)
         v, p = three_pc_key if three_pc_key else None, None
-        ledgerStatus =  LedgerStatus(1, next_size, v, p, newRootHash)
+        ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash)
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
-
-    newNode.build_ledger_status = types.MethodType(build_broken_ledger_status, newNode)
+    newNode.build_ledger_status = types.MethodType(
+        build_broken_ledger_status, newNode)
     logger.debug(
         'Domain Ledger status sender of {} patched'.format(newNode))
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here
@@ -79,6 +75,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=75)
 
-    # Other nodes should have received a request for `CONSISTENCY_PROOF` and processed it.
+    # Other nodes should have received a request for `CONSISTENCY_PROOF` and
+    # processed it.
     for node in txnPoolNodeSet[:-1]:
         assert count_msg_reqs_of_type(node, CONSISTENCY_PROOF) > 0, node

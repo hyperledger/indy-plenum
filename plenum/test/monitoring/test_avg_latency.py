@@ -1,33 +1,24 @@
 from stp_core.common.log import getlogger
-from stp_core.loop.looper import Looper
-from plenum.server.node import Node
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
-from plenum.test.test_node import TestNodeSet
+from plenum.test.helper import sdk_send_random_and_check
 
 nodeCount = 4
-
-
 logger = getlogger()
 
 
-# noinspection PyIncorrectDocstring
-def testAvgReqLatency(looper: Looper, nodeSet: TestNodeSet, wallet1, client1):
+def testAvgReqLatency(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     """
     Checking if average latency is being set
     """
-
+    _, wallet_did = sdk_wallet_client
     for i in range(5):
-        req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1,
-                                            requests=[req], fVal=1)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
-    for node in nodeSet:  # type: Node
-        mLat = node.monitor.getAvgLatencyForClient(wallet1.defaultId,
+    for node in txnPoolNodeSet:  # type: Node
+        mLat = node.monitor.getAvgLatencyForClient(wallet_did,
                                                    node.instances.masterId)
-        bLat = node.monitor.getAvgLatencyForClient(wallet1.defaultId,
+        bLat = node.monitor.getAvgLatencyForClient(wallet_did,
                                                    *node.instances.backupIds)
         logger.debug("Avg. master latency : {}. Avg. backup latency: {}".
-                      format(mLat, bLat))
+                     format(mLat, bLat))
         assert mLat > 0
         assert bLat > 0

@@ -11,9 +11,6 @@ from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-
 
 TestRunningTimeLimitSec = 150
 
@@ -22,7 +19,6 @@ TestRunningTimeLimitSec = 150
 def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
                                                            looper, wallet1,
                                                            client1,
-                                                           client1Connected,
                                                            tconf):
     """
     A node is slow and after view change starts, it marks it's `last_prepared`
@@ -87,16 +83,17 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
             assert compare_3PC_keys(prepareds[slow_master_replica.node.name],
                                     prepareds[rep.node.name]) > 0
 
-    looper.run(eventually(chk2, timeout=delay_ic+5))
+    looper.run(eventually(chk2, timeout=delay_ic + 5))
 
     last_start_catchup_call_at = None
     no_more_catchup_call_at = None
 
     def chk3():
-        # no_more_catchups_needed was called since node found no need of catchup
+        # no_more_catchups_needed was called since node found no need of
+        # catchup
         nonlocal last_start_catchup_call_at, no_more_catchup_call_at
-        assert (get_count(slow_node, slow_node.no_more_catchups_needed)
-                - no_more_catchup_count) > 0
+        assert (get_count(slow_node, slow_node.no_more_catchups_needed) -
+                no_more_catchup_count) > 0
 
         no_more_catchup_call_at = slow_node.spylog.getLast(
             slow_node.no_more_catchups_needed).starttime
@@ -111,5 +108,7 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-    assert slow_node.spylog.getLast(slow_node.start_catchup).starttime > no_more_catchup_call_at
-    assert slow_node.spylog.getLast(slow_node.start_catchup).starttime > last_start_catchup_call_at
+    assert slow_node.spylog.getLast(
+        slow_node.start_catchup).starttime > no_more_catchup_call_at
+    assert slow_node.spylog.getLast(
+        slow_node.start_catchup).starttime > last_start_catchup_call_at

@@ -14,7 +14,7 @@ def main(logfile: str=None, debug=None, cliClass=None):
     if not cliClass:
         cliClass = Cli
 
-    with Looper(debug=False) as looper:
+    with Looper(debug=config.LOOPER_DEBUG) as looper:
         cli = cliClass(looper=looper,
                        basedirpath=basedirpath,
                        nodeReg=nodeReg,
@@ -26,6 +26,7 @@ def main(logfile: str=None, debug=None, cliClass=None):
             looper.run(cli.shell(*sys.argv[1:]))
             print('Goodbye.')
         return cli
+
 
 if __name__ == '__main__':
     main()

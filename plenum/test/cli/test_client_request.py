@@ -5,7 +5,5 @@ def testClientRequest(cli, validNodeNames, createAllNodes):
     """
     Test client sending request and checking reply and status
     """
-    operation = '{"Hello": "There", "type": "greeting"}'
+    operation = '{"amount": 12, "type": "buy"}'
     checkRequest(cli, operation)
-
-

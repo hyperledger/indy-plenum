@@ -4,7 +4,6 @@ from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, LedgerIdField
 
-
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("seqNoStart", NonNegativeNumberField),
@@ -19,7 +18,7 @@ def test_hash_expected_type():
 
 def test_has_expected_fields():
     actual_field_names = OrderedDict(CatchupReq.schema).keys()
-    assert actual_field_names == EXPECTED_ORDERED_FIELDS.keys()
+    assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():

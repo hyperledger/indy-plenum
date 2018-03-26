@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from stp_core.crypto.util import randomSeed
@@ -9,7 +7,7 @@ from stp_core.test.helper import Printer, prepStacks, chkPrinted
 from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
     check_stacks_communicating, get_file_permission_mask, get_zstack_key_paths
 from stp_zmq.zstack import ZStack
-import time
+from stp_core.common.util import adict
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):
@@ -47,12 +45,13 @@ def testUnrestricted2ZStackCommunication(tdir, looper, tconf):
 
 
 def testZStackSendMethodReturnsFalseIfDestinationIsUnknown(tdir, looper, tconf):
-    """
-    Checks: https://evernym.atlassian.net/browse/SOV-971
-    1. Connect two stacks 
+    """Case: stp fails on send if a remote close the socket
+
+    Checks:
+    1. Connect two stacks
     2. Disconnect a remote from one side
     3. Send a message from disconnected remote
-    Expected result: the stack's method 'send' should not 
+    Expected result: the stack's method 'send' should not
         fail just return False
     """
     names = ['Alpha', 'Beta']
@@ -60,7 +59,7 @@ def testZStackSendMethodReturnsFalseIfDestinationIsUnknown(tdir, looper, tconf):
     # disconnect remote
     alpha.getRemote(beta.name).disconnect()
     # check send message returns False
-    assert alpha.send({'greetings': 'hello'}, beta.name) is False
+    assert alpha.send({'greetings': 'hello'}, beta.name)[0] is False
 
 
 def test_zstack_non_utf8(tdir, looper, tconf):
@@ -95,7 +94,7 @@ def test_zstack_non_utf8(tdir, looper, tconf):
 
 
 def test_zstack_creates_keys_with_secure_permissions(tdir):
-    any_seed = b'0'*32
+    any_seed = b'0' * 32
     stack_name = 'aStack'
     key_paths = get_zstack_key_paths(stack_name, tdir)
 
@@ -122,9 +121,9 @@ set a fixture parameter to do so.
 """
 
 
-def test_high_load(tdir, looper, tconf):
+def test_high_load(set_info_log_level, tdir, looper, tconf):
     """
-    Checks whether ZStack can cope with high message rate 
+    Checks whether ZStack can cope with high message rate
     """
 
     letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G',
@@ -162,6 +161,133 @@ def test_high_load(tdir, looper, tconf):
     assert len(received_messages) != 0
     assert len(expected_messages) == len(received_messages), \
         "{} != {}, LAST IS {}"\
-            .format(len(expected_messages),
-                    len(received_messages),
-                    received_messages[-1])
+        .format(len(expected_messages),
+                len(received_messages),
+                received_messages[-1])
+
+
+def testZStackSendRecvHugeDataUnderLimit(set_info_log_level, tdir, looper, tconf):
+    names = ['Alpha', 'Beta']
+    genKeys(tdir, names)
+
+    # we use json serializer now, so final form will be {'k':'vvv...vvv'}
+    # so here we try to prepare exactly tconf.MSG_LEN_LIMIT bytes after serialization
+    msg = {'k': 'v' * (tconf.MSG_LEN_LIMIT - len("{'k':''}"))}
+
+    betaHandler = [False]
+
+    def recvHandlerAlpha(wrpMsg):
+        pass
+
+    def recvHandlerBeta(wrpMsg):
+        rmsg, frm = wrpMsg
+        betaHandler[0] = True
+        assert frm == 'Alpha'
+        assert rmsg == msg
+
+    alpha = ZStack(names[0], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerAlpha, restricted=True,
+                   config=adict(**tconf.__dict__), msgRejectHandler=None)
+
+    beta = ZStack(names[1], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerBeta, restricted=True,
+                  config=adict(**tconf.__dict__), msgRejectHandler=None)
+
+    assert len(alpha.serializeMsg(msg)) == tconf.MSG_LEN_LIMIT
+
+    prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
+
+    stat = alpha.send(msg, beta.name)
+    assert stat[0] is True
+
+    looper.runFor(5)
+
+    assert betaHandler[0] is True
+
+
+def testZStackSendHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
+    names = ['Alpha', 'Beta']
+    genKeys(tdir, names)
+
+    # we use json serializer now, so final form will be {'k':'vvv...vvv'}
+    # so here we try to prepare exactly tconf.MSG_LEN_LIMIT + 1 bytes after serialization
+    msg = {'k': 'v' * (tconf.MSG_LEN_LIMIT - len("{'k':''}") + 1)}
+
+    betaHandlers = [False, False]
+
+    def recvHandlerAlpha(wrpMsg):
+        pass
+
+    def recvHandlerBeta(wrpMsg):
+        rmsg, frm = wrpMsg
+        betaHandlers[0] = True
+        assert frm is not None
+        assert rmsg is not None
+
+    def rejectHandlerBeta(reason, frm):
+        betaHandlers[1] = True
+        assert reason is not None
+        assert frm is not None
+
+    alpha = ZStack(names[0], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerAlpha, restricted=True,
+                   config=adict(**tconf.__dict__), msgRejectHandler=None)
+
+    beta = ZStack(names[1], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerBeta, restricted=True,
+                  config=adict(**tconf.__dict__), msgRejectHandler=rejectHandlerBeta)
+
+    assert len(alpha.serializeMsg(msg)) == (tconf.MSG_LEN_LIMIT + 1)
+
+    prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
+
+    stat = alpha.send(msg, beta.name)
+    assert stat[0] is False
+    assert 'exceeded allowed limit of {}'.format(
+        tconf.MSG_LEN_LIMIT) in stat[1]
+
+    looper.runFor(5)
+
+    assert betaHandlers[0] is False
+    assert betaHandlers[1] is False
+
+
+def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
+    names = ['Alpha', 'Beta']
+    genKeys(tdir, names)
+
+    # we use json serializer now, so final form will be {'k':'vvv...vvv'}
+    # so here we try to prepare exactly tconf.MSG_LEN_LIMIT + 1 bytes after serialization
+    msg = {'k': 'v' * (tconf.MSG_LEN_LIMIT - len("{'k':''}") + 1)}
+
+    betaHandlers = [False, False]
+
+    def recvHandlerAlpha(wrpMsg):
+        pass
+
+    def recvHandlerBeta(wrpMsg):
+        rmsg, frm = wrpMsg
+        betaHandlers[0] = True
+        assert frm is not None
+        assert rmsg is not None
+
+    def rejectHandlerBeta(reason, frm):
+        betaHandlers[1] = True
+        assert 'exceeded allowed limit of {}'.format(
+            tconf.MSG_LEN_LIMIT) in reason
+        assert frm == 'Alpha'
+
+    alpha = ZStack(names[0], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerAlpha, restricted=True,
+                   config=adict(**tconf.__dict__), msgRejectHandler=None)
+
+    beta = ZStack(names[1], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerBeta, restricted=True,
+                  config=adict(**tconf.__dict__), msgRejectHandler=rejectHandlerBeta)
+
+    bytemsg = alpha.serializeMsg(msg)
+    assert len(bytemsg) == (tconf.MSG_LEN_LIMIT + 1)
+
+    prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
+
+    stat = alpha._remotes['Beta'].socket.send(bytemsg, copy=False, track=True)
+    assert stat
+
+    looper.runFor(5)
+
+    assert betaHandlers[0] is False
+    assert betaHandlers[1] is True

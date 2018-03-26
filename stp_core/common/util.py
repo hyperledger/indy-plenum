@@ -1,13 +1,15 @@
 # TODO: move it to plenum-util repo
+import inspect
 
 
 class Singleton(type):
     _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    def __call__(self, *args, **kwargs):
+        if self not in self._instances:
+            self._instances[self] = super(
+                Singleton, self).__call__(*args, **kwargs)
+        return self._instances[self]
 
 
 def lxor(a, b):
@@ -45,3 +47,19 @@ class adict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
+
+
+def get_func_name(f):
+    if hasattr(f, "__name__"):
+        return f.__name__
+    elif hasattr(f, "func"):
+        return "partial({})".format(get_func_name(f.func))
+    else:
+        return "<unknown>"
+
+
+def get_func_args(f):
+    if hasattr(f, 'args'):
+        return f.args
+    else:
+        return list(inspect.signature(f).parameters)

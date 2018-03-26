@@ -1,28 +1,24 @@
-import json
 import os
 from collections import namedtuple
 from typing import Any, List, Dict
 
 from plenum.common.constants import REQACK, REQNACK, REPLY, REJECT
-
-from ledger.stores.directory_store import DirectoryStore
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.request import Request
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
-from plenum.common.request import Request
 from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
+from storage.directory_store import DirectoryStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
-    LinePrefixes = namedtuple('LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
+    LinePrefixes = namedtuple(
+        'LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
-    def __init__(self, name, baseDir):
-        self.baseDir = baseDir
-        self.dataDir = "data/clients"
-        self.name = name
-        HasFileStorage.__init__(self, name=self.name, baseDir=baseDir,
-                                dataDir=self.dataDir)
+    def __init__(self, dataLocation):
+        assert dataLocation is not None
+        HasFileStorage.__init__(self, dataLocation)
         if not os.path.exists(self.dataLocation):
             os.makedirs(self.dataLocation)
         self.reqStore = DirectoryStore(self.dataLocation, "Requests")
@@ -32,13 +28,21 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     @property
     def lastReqId(self) -> int:
-        reqIds = self.reqStore.keys
+        reqIds = [self.items_from_key(key)[1] for key in self.reqStore.keys]
         return max(map(int, reqIds)) if reqIds else 0
+
+    @staticmethod
+    def create_key(idr, req_id):
+        return "{},{}".format(idr, req_id)
+
+    @staticmethod
+    def items_from_key(key):
+        return key.split(',')
 
     def addRequest(self, req: Request):
         idr = req.identifier
         reqId = req.reqId
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.Request,
                                            self.delimiter,
@@ -47,7 +51,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addAck(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.REQACK,
                                            self.delimiter, sender))
@@ -55,7 +59,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addNack(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REQNACK,
@@ -65,7 +69,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addReject(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
-        key = "{}{}".format(idr, reqId)
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REJECT,
@@ -75,7 +79,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> int:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
-        key = "{}{}".format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         self.reqStore.appendToValue(key,
                                     "{}{}{}{}{}".
                                     format(self.linePrefixes.REPLY,
@@ -84,12 +88,13 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return len(self._getSerializedReplies(identifier, reqId))
 
     def hasRequest(self, identifier: str, reqId: int) -> bool:
-        key = '{}{}'.format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         return self.reqStore.exists(key)
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
-        for r in self._getLinesWithPrefix(identifier, reqId, "{}{}".
-                format(self.linePrefixes.Request, self.delimiter)):
+        for r in self._getLinesWithPrefix(
+            identifier, reqId, "{}{}". format(
+                self.linePrefixes.Request, self.delimiter)):
             return self.deserializeReq(r[2:])
 
     def getReplies(self, identifier: str, reqId: int):
@@ -115,8 +120,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return result
 
     def getRejects(self, identifier: str, reqId: int) -> dict:
-        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
-                                             format(self.linePrefixes.REJECT, self.delimiter))
+        nackLines = self._getLinesWithPrefix(
+            identifier, reqId, "{}{}". format(
+                self.linePrefixes.REJECT, self.delimiter))
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(self.delimiter, 1)
@@ -128,17 +134,16 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         fields = getTxnOrderedFields()
         return updateFieldsWithSeqNo(fields)
 
-    @staticmethod
-    def serializeReq(req: Request) -> str:
-        return json.dumps(req.__getstate__())
+    def serializeReq(self, req: Request) -> str:
+        return self.txnSerializer.serialize(req.__getstate__(), toBytes=False)
 
-    @staticmethod
-    def deserializeReq(serReq: str) -> Request:
-        return Request.fromState(json.loads(serReq))
+    def deserializeReq(self, serReq: str) -> Request:
+        return Request.fromState(
+            self.txnSerializer.deserialize(serReq))
 
     def _getLinesWithPrefix(self, identifier: str, reqId: int,
                             prefix: str) -> List[str]:
-        key = '{}{}'.format(identifier, reqId)
+        key = self.create_key(identifier, reqId)
         data = self.reqStore.get(key)
         return [line for line in data.splitlines()
                 if line.startswith(prefix)] if data else []
@@ -153,5 +158,3 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
             sender, reply = line[2:].split(self.delimiter, 1)
             result[sender] = reply
         return result
-
-

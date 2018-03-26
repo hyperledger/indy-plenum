@@ -10,10 +10,9 @@ reqAcked1 = passThroughReqAcked1
 
 
 # noinspection PyIncorrectDocstring
-def testReplyWhenRequestSentToLessThanFPlusOneNodes(looper, nodeSet,
+def testReplyWhenRequestSentToLessThanFPlusOneNodes(looper, txnPoolNodeSet,
                                                     fClient: Client, replied1):
     """
     In a system with no faulty nodes, even if the client sends the request to
      one node it will get replies from all the nodes.
     """
-    pass

@@ -1,15 +1,14 @@
-import base58
 from binascii import hexlify
 from typing import Dict
 
+import base58
+from common.serializers.serialization import serialize_msg_for_signing
 from libnacl import randombytes
-from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
-
-from stp_core.crypto.signer import Signer
-from plenum.common.signing import serializeMsg
-from stp_core.types import Identifier
-from plenum.common.util import rawToFriendly, friendlyToRaw, cryptonymToHex
 from plenum.common.types import f
+from plenum.common.util import rawToFriendly, friendlyToRaw
+from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
+from stp_core.crypto.signer import Signer
+from stp_core.types import Identifier
 
 
 class DidIdentity:
@@ -17,10 +16,13 @@ class DidIdentity:
 
     def __init__(self, identifier, verkey=None, rawVerkey=None):
         self.abbreviated = None
-        if verkey is None and rawVerkey is None:
+        if (verkey is None or verkey == '') and (rawVerkey is None or rawVerkey == ''):
             if identifier:
                 self._identifier = identifier
-                self._verkey = None
+                if (verkey is None and rawVerkey is None):
+                    self._verkey = None
+                else:
+                    self._verkey = ''
                 return
 
         assert (verkey or rawVerkey) and not (verkey and rawVerkey)
@@ -95,7 +97,8 @@ class DidSigner(DidIdentity, Signer):
         self.naclSigner = NaclSigner(self.sk)
 
         Signer.__init__(self)
-        DidIdentity.__init__(self, identifier, rawVerkey=self.naclSigner.verraw)
+        DidIdentity.__init__(
+            self, identifier, rawVerkey=self.naclSigner.verraw)
 
         self._alias = alias
 
@@ -115,7 +118,7 @@ class DidSigner(DidIdentity, Signer):
         """
         Return a signature for the given message.
         """
-        ser = serializeMsg(msg, topLevelKeysToIgnore=[f.SIG.nm])
+        ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

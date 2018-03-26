@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from stp_core.loop.eventually import eventually
 
 from stp_core.crypto.util import randomSeed
@@ -9,7 +10,7 @@ from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
 
 
-def testMessageQuota(tdir, looper):
+def testMessageQuota(set_info_log_level, tdir, looper):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
     alphaP = Printer(names[0])
@@ -37,7 +38,7 @@ def testMessageQuota(tdir, looper):
                           timeout=5))
 
 
-def testManyMessages(tdir, looper):
+def testManyMessages(set_info_log_level, tdir, looper):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
     alphaP = Printer(names[0])

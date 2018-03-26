@@ -1,17 +1,26 @@
 from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import *
-from plenum.common.messages.fields import *
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.types import f
+from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
 from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
+    SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
+    LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
+    LimitedLengthStringField, BlsMultiSignatureField
+from plenum.common.messages.message_base import \
+    MessageBase
+from plenum.common.types import f
+from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
+    SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
 class Nomination(MessageBase):
     typename = NOMINATE
 
     schema = (
-        (f.NAME.nm, NonEmptyStringField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
@@ -23,7 +32,7 @@ class Batch(MessageBase):
 
     schema = (
         (f.MSGS.nm, IterableField(SerializedValueField())),
-        (f.SIG.nm, SignatureField()),
+        (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT)),
     )
 
 
@@ -33,7 +42,7 @@ class Reelection(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.ROUND.nm, NonNegativeNumberField()),
-        (f.TIE_AMONG.nm, IterableField(TieAmongField())),
+        (f.TIE_AMONG.nm, IterableField(TieAmongField(max_length=TIE_IDR_FIELD_LIMIT))),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
     )
 
@@ -42,7 +51,7 @@ class Primary(MessageBase):
     typename = PRIMARY
 
     schema = (
-        (f.NAME.nm, NonEmptyStringField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
@@ -106,6 +115,7 @@ class Ordered(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 
@@ -113,7 +123,7 @@ class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
         (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
-        (f.SENDER_CLIENT.nm, NonEmptyStringField()),
+        (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT, nullable=True)),
     )
 
 
@@ -126,10 +136,14 @@ class PrePrepare(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
         (f.DISCARDED.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        # TODO: support multiple multi-sigs for multiple previous batches
+        (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
+                                                    nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
 
 
@@ -139,9 +153,11 @@ class Prepare(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 
@@ -151,6 +167,11 @@ class Commit(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
+                                                optional=True)),
+        # PLUGIN_FIELDS is not used in Commit as of now but adding for
+        # consistency
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
 
@@ -161,7 +182,7 @@ class Checkpoint(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 
@@ -169,7 +190,8 @@ class ThreePCState(MessageBase):
     typename = THREE_PC_STATE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+        (f.MSGS.nm, IterableField(ClientMessageValidator(
+            operation_schema_is_strict=True))),
     )
 
 
@@ -228,7 +250,7 @@ class ConsistencyProof(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
-        (f.HASHES.nm, IterableField(NonEmptyStringField())),
+        (f.HASHES.nm, IterableField(LimitedLengthStringField(max_length=HASH_FIELD_LIMIT))),
     )
 
 
@@ -243,7 +265,6 @@ class CatchupReq(MessageBase):
 
 
 class CatchupRep(MessageBase):
-
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -253,7 +274,7 @@ class CatchupRep(MessageBase):
         (f.TXNS.nm, AnyValueField()),
         (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
-    
+
 
 class ViewChangeDone(MessageBase):
     """
@@ -267,8 +288,23 @@ class ViewChangeDone(MessageBase):
         # name is nullable because this message can be sent when
         # there were no view changes and instance has no primary yet
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.NAME.nm, NonEmptyStringField(nullable=True)),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT,
+                                             nullable=True)),
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
+    )
+
+
+class CurrentState(MessageBase):
+    """
+    Node sends this kind of message for nodes which
+    suddenly reconnected (lagged). It contains information about current
+    pool state, like view no, primary etc.
+    """
+    typename = CURRENT_STATE
+
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PRIMARY.nm, IterableField(AnyField())),  # ViewChangeDone
     )
 
 
@@ -278,14 +314,17 @@ one was debated. It has some pros and some cons. We wrote up the analysis in
 http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
 lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
 """
+
+
 class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
     """
+    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE,
+                     PROPAGATE, PREPARE}
     typename = MESSAGE_REQUEST
     schema = (
-        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
-                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
         (f.PARAMS.nm, AnyMapField())
     )
 
@@ -294,10 +333,11 @@ class MessageRep(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
+    # TODO: support a setter for `msg` to create an instance of a type
+    # according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
-        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
-                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),
         (f.PARAMS.nm, AnyMapField()),
         (f.MSG.nm, AnyField())
     )
@@ -306,11 +346,55 @@ class MessageRep(MessageBase):
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
 
-
 ElectionType = (Nomination, Primary, Reelection)
 ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
-                        f.VIEW_NO,
-                        f.PP_SEQ_NO
-                    ])
+    f.VIEW_NO,
+    f.PP_SEQ_NO
+])
+
+
+class BatchCommitted(MessageBase):
+    """
+    Purpose: pass to Observable after each batch is committed
+    (so that Observable can propagate the data to Observers using ObservedData msg)
+    """
+    typename = BATCH_COMMITTED
+    schema = (
+        (f.REQUESTS.nm,
+         IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField())
+    )
+
+
+class ObservedData(MessageBase):
+    """
+    Purpose: propagate data from Validators to Observers
+    """
+    # TODO: support other types
+    # TODO: support validation of Msg according to the type
+    allowed_types = {BATCH}
+    typename = OBSERVED_DATA
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
+        (f.MSG.nm, AnyValueField())
+    )
+
+    def _validate_message(self, dct):
+        msg = dct[f.MSG.nm]
+        # TODO: support other types
+        expected_type_cls = BatchCommitted
+        if isinstance(msg, expected_type_cls):
+            return None
+        if isinstance(msg, dict):
+            expected_type_cls(**msg)
+            return None
+        self._raise_invalid_fields(
+            f.MSG.nm, msg,
+            "The message type must be {} ".format(expected_type_cls.typename))

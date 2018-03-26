@@ -1,9 +1,9 @@
+import os
 import asyncio
 import inspect
 import signal
 import sys
 import time
-from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List, Optional
 
@@ -16,6 +16,7 @@ from stp_core.loop.startable import Status
 logger = getlogger()
 
 # TODO: move it to plenum-util repo
+
 
 class Prodable:
     """
@@ -88,23 +89,24 @@ class Looper:
             self.loop = loop
         else:
             try:
-                #if sys.platform == 'win32':
+                # if sys.platform == 'win32':
                 #    loop = asyncio.ProactorEventLoop()
                 #    asyncio.set_event_loop(loop)
-                l = asyncio.get_event_loop()
-                if l.is_closed():
+                evl = asyncio.get_event_loop()
+                if evl.is_closed():
                     raise RuntimeError("event loop was closed")
             except Exception as ex:
-                logger.warning("Looper could not get default event loop; "
-                               "creating a new one: {}".format(ex))
+                logger.debug("Looper could not get default event loop; "
+                             "creating a new one: {}".format(ex))
                 # Trying out uvloop for linux
-                l = asyncio.new_event_loop()
-            asyncio.set_event_loop(l)
-            self.loop = l
+                evl = asyncio.new_event_loop()
+            asyncio.set_event_loop(evl)
+            self.loop = evl
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
-        self.loop.set_debug(debug)
+
+        self.loop.set_debug(bool(int(os.getenv('PYTHONASYNCIODEBUG', debug))))
 
         # TODO: uncomment this when python bug fixed (not just closed, but solved!)
         # https://bugs.python.org/issue23548
@@ -112,19 +114,20 @@ class Looper:
         # signals = [item for item in dir(signal)
         #             if item.startswith("SIG") and item[3] != "_"]
 
-        signals = ["SIGINT"]
+        self.signals = ["SIGINT", "SIGTERM"]
 
         setSignal = \
             signal.signal if sys.platform == 'win32' \
             else self.loop.add_signal_handler
 
-        for sigName in signals:
+        for sigName in self.signals:
             try:
                 logger.debug("Setting handler for {}".format(sigName))
                 sigNum = getattr(signal, sigName)
                 setSignal(sigNum, self.handleSignal)
             except RuntimeError as e:
-                logger.debug("Cannot set handler for {} because {}".format(sigName, e))
+                logger.debug(
+                    "Cannot set handler for {} because {}".format(sigName, e))
 
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
@@ -141,6 +144,7 @@ class Looper:
 
         :return: the sum of the number of events executed successfully
         """
+        # TODO: looks like limit is always None???
         limit = None
         s = 0
         for n in self.prodables:
@@ -179,7 +183,7 @@ class Looper:
                 return prodable
             else:
                 logger.warning("Trying to remove a prodable {} which is not present"
-                            .format(prodable))
+                               .format(prodable))
         else:
             logger.error("Provide a prodable object or a prodable name")
 
@@ -201,11 +205,12 @@ class Looper:
         start = time.perf_counter()
         msgsProcessed = await self.prodAllOnce()
         if msgsProcessed == 0:
-            await asyncio.sleep(0.01, loop=self.loop)  # if no let other stuff run
+            # if no let other stuff run
+            await asyncio.sleep(0.01, loop=self.loop)
         dur = time.perf_counter() - start
         if dur >= 0.5:
-            logger.info("it took {:.3f} seconds to run once nicely".
-                        format(dur), extra={"cli": False})
+            logger.debug("it took {:.3f} seconds to run once nicely".
+                         format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
         self.run(asyncio.sleep(timeout))
@@ -238,7 +243,8 @@ class Looper:
                         else:
                             results.append(res)
                     else:
-                        raise RuntimeError("don't know how to run {}".format(coro))
+                        raise RuntimeError(
+                            "don't know how to run {}".format(coro))
                 except Exception as ex:
                     logger.error("Error while running coroutine {}: {}"
                                  .format(coro.__name__, ex.__repr__()))
@@ -256,7 +262,7 @@ class Looper:
     def handleSignal(self, sig=None):
         # Allowing sig to be optional since asyncio not passing the signal or
         # KeyboardInterrupt (Ctrl+C)
-        logger.info("Signal {} received, stopping looper...".format(sig))
+        logger.debug("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):
@@ -267,11 +273,17 @@ class Looper:
                     extra={"cli": False})
         self.running = False
         start = time.perf_counter()
-        await self.runFut
+        if not self.runFut.done():
+            await self.runFut
         self.stopall()
         logger.info("Looper shut down in {:.3f} seconds.".
                     format(time.perf_counter() - start),
                     extra={"cli": False})
+        # Unset signal handlers, bug: https://bugs.python.org/issue23548
+        for sig_name in self.signals:
+            logger.debug("Unsetting handler for {}".format(sig_name))
+            sig_num = getattr(signal, sig_name)
+            self.loop.remove_signal_handler(sig_num)
 
     def __enter__(self):
         return self

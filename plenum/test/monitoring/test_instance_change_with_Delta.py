@@ -12,7 +12,6 @@ from plenum.test.view_change.helper import provoke_and_wait_for_view_change
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
-
 nodeCount = 7
 whitelist = ["discarding message"]
 
@@ -25,8 +24,17 @@ verify a view change happens
 """
 
 
-logger = getlogger()
-logger.root.setLevel(logging.DEBUG)
+@pytest.fixture
+def logger():
+    logger = getlogger()
+    old_value = logger.getEffectiveLevel()
+    logger.root.setLevel(logging.DEBUG)
+    yield logger
+    logger.root.setLevel(old_value)
+
+
+# autouse and inject before others in all tests
+pytestmark = pytest.mark.usefixtures("logger")
 
 
 def latestPerfChecks(nodes):
@@ -58,8 +66,8 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
 
 
 @pytest.fixture(scope="module")
-def step1(looper, nodeSet, up, wallet1, client1):
-    startedNodes = nodeSet
+def step1(looper, txnPoolNodeSet, wallet1, client1):
+    startedNodes = txnPoolNodeSet
     """
     stand up a pool of nodes and send 5 requests to client
     """
@@ -101,7 +109,8 @@ def step2(step1, looper):
 
 @pytest.fixture(scope="module")
 def step3(step2):
-    # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
+    # make P (primary replica on master) faulty, i.e., slow to send
+    # PRE-PREPAREs
     slow_primary(step2.nodes, 0, 5)
     return step2
 
@@ -115,4 +124,3 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
-

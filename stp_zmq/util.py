@@ -4,7 +4,6 @@
 import datetime
 import os
 import shutil
-from binascii import hexlify, unhexlify
 
 from libnacl import crypto_sign_seed_keypair
 from zmq.auth.certs import _write_key_file, _cert_public_banner, \
@@ -12,7 +11,7 @@ from zmq.auth.certs import _write_key_file, _cert_public_banner, \
 from zmq.utils import z85
 
 from stp_core.crypto.util import ed25519PkToCurve25519 as ep2c, \
-    ed25519SkToCurve25519 as es2c, isHex, randomSeed
+    ed25519SkToCurve25519 as es2c, randomSeed
 
 
 def createCertsFromKeys(key_dir, name, public_key, secret_key=None,
@@ -146,4 +145,3 @@ def generate_certificates(base_dir, *peer_names, pubKeyDir=None,
     print('Private keys in {}'.format(secret_keys_dir))
     print('Verification keys in {}'.format(ver_keys_dir))
     print('Signing keys in {}'.format(sig_keys_dir))
-

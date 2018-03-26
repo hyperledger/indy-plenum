@@ -6,8 +6,6 @@ from plenum.common.util import totalConnections
 from plenum.config import CLIENT_REQACK_TIMEOUT, CLIENT_REPLY_TIMEOUT
 
 logger = getlogger()
-config = getConfig()
-
 
 # Peer (node/client) to peer message delivery time
 __Peer2PeerRequestDeliveryTime = 0.5
@@ -68,12 +66,14 @@ def expectedPoolInterconnectionTime(nodeCount):
     From: the Pool up
     To: the Pool is fully connected
     """
+    config = getConfig()
     interconnectionCount = totalConnections(nodeCount)
     nodeConnectionTimeout = config.ExpectedConnectTime
     # '+KITZStack.RETRY_TIMEOUT_RESTRICTED' is a workaround for
     # bug (`'str' object has no attribute 'keys'`) which supposed to be
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
+    # TODO check actual state
     # multiply by 2 because we need to re-create connections which can be done on a second re-try only
     # (we may send pings on some of the re-tries)
     return min(0.8 * config.TestRunningTimeLimitSec,
@@ -91,6 +91,7 @@ def expectedPoolConsistencyProof(nodeCount):
     To: each of the Nodes finish the consistency proof procedure
         (ready for catchup if it is needed)
     """
+    config = getConfig()
     nodeCPTimeout = __Peer2PeerRequestExchangeTime + \
                     config.ConsistencyProofsTimeout
     return nodeCount * nodeCPTimeout
@@ -101,9 +102,8 @@ def expectedPoolCatchupTime(nodeCount):
     From: the consistency proof procedure is finished
     To: each of the Nodes finished the the catchup procedure
     """
-    nodeCatchupTimeout = __Peer2PeerRequestExchangeTime + \
-                         config.CatchupTransactionsTimeout
-    return nodeCount * nodeCatchupTimeout
+    config = getConfig()
+    return nodeCount * config.CatchupTransactionsTimeout
 
 
 def expectedPoolGetReadyTimeout(nodeCount):
@@ -114,12 +114,6 @@ def expectedPoolGetReadyTimeout(nodeCount):
     return expectedPoolInterconnectionTime(nodeCount) + \
            expectedPoolConsistencyProof(nodeCount) + \
            expectedPoolCatchupTime(nodeCount)
-
-
-def expectedPoolLedgerCheck(nodeCount):
-    # TODO this is a legacy for sovrin-node
-    # remove it and replace in the sovrin-node
-    return 5 * nodeCount
 
 
 def expectedPoolLedgerRepliedMsgPersisted(nodeCount):
@@ -242,6 +236,8 @@ def expectedClientToPoolConnectionTimeout(nodeCount):
     # bug (`'str' object has no attribute 'keys'`) which supposed to be
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
+    # TODO check actual state
+    config = getConfig()
     return config.ExpectedConnectTime * nodeCount + \
            config.RETRY_TIMEOUT_RESTRICTED
 
@@ -251,6 +247,7 @@ def expectedClientConsistencyProof(nodeCount):
     From: the Client is connected to the Pool
     To: the Client finished the consistency proof procedure
     """
+    config = getConfig()
     qN = Quorums(nodeCount).commit.value
     return qN * __Peer2PeerRequestExchangeTime + \
            config.ConsistencyProofsTimeout
@@ -261,6 +258,7 @@ def expectedClientCatchupTime(nodeCount):
     From: the Client finished the consistency proof procedure
     To: the Client finished the catchup procedure
     """
+    config = getConfig()
     qN = Quorums(nodeCount).commit.value
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
            config.CatchupTransactionsTimeout

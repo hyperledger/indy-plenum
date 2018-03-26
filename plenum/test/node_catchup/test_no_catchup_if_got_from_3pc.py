@@ -1,8 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Commit, ConsistencyProof
 from plenum.test.delayers import cpDelay, cDelay
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
 
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
@@ -14,8 +12,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 
 
-def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
-                                  client1Connected):
+def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1):
     """
     A node is slow to receive COMMIT messages so after a view change it
     starts catchup. But before it can start requesting txns, the COMMITs messages
@@ -28,7 +25,7 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
 
     delay_cm = 30
-    delat_cp = 40
+    delat_cp = 100
     slow_node.nodeIbStasher.delay(cDelay(delay_cm))
     # The slow node receives consistency proofs after some delay, this delay
     # gives the opportunity to deliver all 3PC messages
@@ -36,10 +33,10 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
 
     # Count of `getCatchupReqs` which is called to construct the `CatchupReq`
     # to be sent
-    domain_cr_count = lambda: sum(1 for entry in
-                               slow_node.ledgerManager.spylog.getAll(
-                                   slow_node.ledgerManager.getCatchupReqs) if
-                               entry.params['consProof'].ledgerId == DOMAIN_LEDGER_ID)
+    def domain_cr_count(): return sum(1 for entry in
+                                      slow_node.ledgerManager.spylog.getAll(
+                                          slow_node.ledgerManager.getCatchupReqs) if
+                                      entry.params['consProof'].ledgerId == DOMAIN_LEDGER_ID)
 
     old_count = domain_cr_count()
     sent_batches = 10
@@ -51,12 +48,12 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
     waitNodeDataInequality(looper, slow_node, *other_nodes)
 
     # Unstash only COMMIT messages
-    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(Commit.__name__)
+    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(Commit.typename)
 
     looper.runFor(2)
 
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(
-        ConsistencyProof.__name__)
+        ConsistencyProof.typename)
 
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 

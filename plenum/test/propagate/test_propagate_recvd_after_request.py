@@ -1,9 +1,9 @@
 import pytest
 
+from plenum.common.constants import PROPAGATE
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
-from plenum.test import waits
-from plenum.test.delayers import delay
+from plenum.test.delayers import delay, msg_rep_delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate
 from plenum.test.test_node import TestNode
@@ -11,14 +11,18 @@ from plenum.test.test_node import TestNode
 nodeCount = 4
 howlong = 5
 
+
 @pytest.fixture()
-def setup(nodeSet):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
+    # Delay MessageRep by long simulating loss as if Propagate is missing, it
+    # is requested
+    A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
 
 
-def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet, sent1):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
 
     def x():
         # A should have received a request from the client

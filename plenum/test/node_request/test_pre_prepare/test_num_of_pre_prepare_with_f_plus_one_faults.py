@@ -1,4 +1,3 @@
-import logging
 from functools import partial
 
 import pytest
@@ -11,7 +10,6 @@ from stp_core.common.util import adict
 from stp_core.common.log import getlogger
 
 from plenum.test.node_request.node_request_helper import checkPrePrepared
-from plenum.test.test_node import TestNodeSet
 
 nodeCount = 7
 # f + 1 faults, i.e, num of faults greater than system can tolerate
@@ -26,44 +24,47 @@ delayPrePrepareSec = 60
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
+def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
-    A = startedNodes.Eta
-    B = startedNodes.Gamma
-    G = startedNodes.Zeta
+    A = txnPoolNodeSet[-3]
+    B = txnPoolNodeSet[-2]
+    G = txnPoolNodeSet[-1]
     for node in A, B, G:
-        makeNodeFaulty(node,
-                       changesRequest,
-                       partial(delaysPrePrepareProcessing, delay=delayPrePrepareSec))
+        makeNodeFaulty(
+            node,
+            changesRequest,
+            partial(
+                delaysPrePrepareProcessing,
+                delay=delayPrePrepareSec))
         # Delaying nomination to avoid becoming primary
         # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary
 
 
 @pytest.fixture(scope="module")
-def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
-    timeouts = waits.expectedPrePrepareTime(len(nodeSet)) + delayPrePrepareSec
+def preprepared1WithDelay(looper, txnPoolNodeSet, propagated1, faultyNodes):
+    timeouts = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delayPrePrepareSec
     checkPrePrepared(looper,
-                     nodeSet,
+                     txnPoolNodeSet,
                      propagated1,
-                     range(getNoInstances(len(nodeSet))),
+                     range(getNoInstances(len(txnPoolNodeSet))),
                      faultyNodes,
                      timeout=timeouts)
 
 
 def testNumOfPrePrepareWithFPlusOneFaults(
-                                          afterElection,
-                                          noRetryReq,
-                                          nodeSet,
-                                          preprepared1WithDelay):
-    for n in nodeSet:
+        afterElection,
+        noRetryReq,
+        txnPoolNodeSet,
+        preprepared1WithDelay):
+    for n in txnPoolNodeSet:
         for r in n.replicas:
             if r.isPrimary:
                 logger.info("{} is primary".format(r))

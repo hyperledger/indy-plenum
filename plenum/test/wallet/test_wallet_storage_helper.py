@@ -25,6 +25,7 @@ def set_permissions(path, mode):
     os.chmod(path, mode)
     return stat.S_IMODE(os.stat(path).st_mode)
 
+
 def get_permissions(path):
     return stat.S_IMODE(os.stat(path).st_mode)
 
@@ -62,6 +63,7 @@ def keyrings_base_dir(tdir_for_func):
 def test_wallet():
     return Wallet("TestWallet")
 
+
 def test_keyring_base_dir_new_permissions(tdir_for_func):
     # default
     keyringsBaseDir = os.path.join(tdir_for_func, 'keyrings')
@@ -90,8 +92,8 @@ def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
     check_permissions(dpath, mode2)
 
 
-def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_wallet):
-
+def test_store_wallet_by_empty_path_fail(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
@@ -101,8 +103,8 @@ def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_
         exc_info.match(r'empty path')
 
 
-def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet):
-
+def test_store_wallet_outside_fail(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [
@@ -126,8 +128,9 @@ def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet
         with pytest.raises(ValueError) as exc_info:
             wsh.saveWallet(test_wallet, path)
 
-        exc_info.match(r"path {} is not is not relative to the keyrings {}".format(
-            path, keyrings_base_dir))
+        exc_info.match(
+            r"path {} is not is not relative to the keyrings {}".format(
+                path, keyrings_base_dir))
 
     for path in inv_paths:
         check_path(path)
@@ -145,8 +148,8 @@ def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
     exc_info.match(r"{}".format(wdir))
 
 
-
-def test_new_file_wallet_permissions(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_new_file_wallet_permissions(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wpath = 'ctx/test.wallet'
 
     # default
@@ -173,7 +176,8 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     check_permissions(wpath, mode2)
 
 
-def test_store_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_store_wallet_by_abs_path(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "1/2/3/wallet")
     wsh.saveWallet(test_wallet, abs_path)
@@ -196,7 +200,6 @@ def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
 
 
 def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
@@ -207,7 +210,6 @@ def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
 
 
 def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [
@@ -231,8 +233,9 @@ def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
         with pytest.raises(ValueError) as exc_info:
             wsh.loadWallet(path)
 
-        exc_info.match(r"path {} is not is not relative to the keyrings {}".format(
-            path, keyrings_base_dir))
+        exc_info.match(
+            r"path {} is not is not relative to the wallets {}".format(
+                path, keyrings_base_dir))
 
     for path in inv_paths:
         check_path(path)
@@ -249,7 +252,8 @@ def test_loaded_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
     assert encode_wallet(test_wallet) == encode_wallet(loaded_wallet)
 
 
-def test_load_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_load_wallet_by_abs_path(
+        tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "5/6/7/wallet")
     wsh.saveWallet(test_wallet, abs_path)

@@ -78,7 +78,8 @@ class MessageFactory:
         for cls in self.__classes.values():
             new_schema = []
             for name, field in cls.schema:
-                field = self._transform_field(field, old_field_type, new_field_type)
+                field = self._transform_field(
+                    field, old_field_type, new_field_type)
                 new_schema.append((name, field))
             cls.schema = tuple(new_schema)
 

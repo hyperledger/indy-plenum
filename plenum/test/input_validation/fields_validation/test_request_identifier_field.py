@@ -2,7 +2,7 @@ import pytest
 from plenum.common.messages.fields import RequestIdentifierField
 
 from plenum.test.input_validation.constants import \
-        TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG
+    TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG
 
 from plenum.test.input_validation.utils import b58_by_len
 

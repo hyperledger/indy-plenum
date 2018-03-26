@@ -7,7 +7,6 @@ from plenum.test.input_validation.utils import b58_by_len
 validator = IdentifierField()
 
 
-
 def test_identifiers():
     for byte_len in range(1, 33):
         val = b58_by_len(byte_len)

@@ -10,10 +10,13 @@ import logging
 import math
 import os
 import random
+import re
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
+from datetime import datetime, timezone
+from enum import unique, IntEnum
 from math import floor
 from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -22,18 +25,18 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import base58
 import libnacl.secret
 import psutil
-from jsonpickle import encode, decode
 from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
+from sortedcontainers import SortedDict as _SortedDict
 
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
-from plenum.common.error import error
+from common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
-# Do not remove the next import until imports in sovrin are fixed
+# TODO Do not remove the next import until imports in indy are fixed
 from stp_core.common.util import adict
 
 
@@ -54,31 +57,65 @@ def randomString(size: int = 20) -> str:
 
     def randomStr(size):
         assert (size > 0), "Expected random string size cannot be less than 1"
-        #Approach 1
+        # Approach 1
         rv = randombytes(size // 2).hex()
+
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
-        #Approach 2 this is faster than Approach 1, but lovesh had a doubt
+        # Approach 2 this is faster than Approach 1, but lovesh had a doubt
         # that part of a random may not be truely random, so until
         # we have definite proof going to retain it commented
-        #rstr = randombytes(size).hex()
-        #return rstr[:size]
+        # rstr = randombytes(size).hex()
+        # return rstr[:size]
 
     return randomStr(size)
+
+
+def random_from_alphabet(size, alphabet):
+    """
+    Takes *size* random elements from provided alphabet
+    :param size:
+    :param alphabet:
+    """
+    import random
+    return list(random.choice(alphabet) for _ in range(size))
 
 
 def randomSeed(size=32):
     return randomString(size)
 
 
-def mostCommonElement(elements: Iterable[T]) -> T:
+def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
     """
     Find the most frequent element of a collection.
 
     :param elements: An iterable of elements
-    :return: element of type T which is most frequent in the collection
+    :param to_hashable_f: (optional) if defined will be used to get
+        hashable presentation for non-hashable elements. Otherwise json.dumps
+        is used with sort_keys=True
+    :return: element which is the most frequent in the collection and
+        the number of its occurrences
     """
-    return Counter(elements).most_common(1)[0][0]
+    class _Hashable(collections.abc.Hashable):
+        def __init__(self, orig):
+            self.orig = orig
+
+            if isinstance(orig, collections.Hashable):
+                self.hashable = orig
+            elif to_hashable_f is not None:
+                self.hashable = to_hashable_f(orig)
+            else:
+                self.hashable = json.dumps(orig, sort_keys=True)
+
+        def __eq__(self, other):
+            return self.hashable == other.hashable
+
+        def __hash__(self):
+            return hash(self.hashable)
+
+    _elements = (_Hashable(el) for el in elements)
+    most_common, counter = Counter(_elements).most_common(n=1)[0]
+    return most_common.orig, counter
 
 
 def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
@@ -87,8 +124,11 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any,
+                     toFrom: Dict[Any, Any],
+                     checked: Set[Any]=None,
+                     logMsg: str=None,
+                     deepLevel: int=None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -97,6 +137,10 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
     :param checked: set of attributes of the object for recursion. optional. defaults to `set()`
     :param logMsg: a custom log message
     """
+
+    if checked is None:
+        checked = set()
+
     checked.add(id(obj))
     pairs = [(i, getattr(obj, i)) for i in dir(obj) if not i.startswith("__")]
 
@@ -110,9 +154,9 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             mutated = False
             for old, new in toFrom.items():
                 if id(o) == id(old):
-                    logging.debug("{}in object {}, attribute {} changed from {} to {}".
-                                  format(logMsg + ": " if logMsg else "",
-                                         obj, nm, old, new))
+                    logging.debug(
+                        "{}in object {}, attribute {} changed from {} to {}". format(
+                            logMsg + ": " if logMsg else "", obj, nm, old, new))
                     if isinstance(obj, dict):
                         obj[nm] = new
                     else:
@@ -121,7 +165,8 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             if not mutated:
                 if deepLevel is not None and deepLevel == 0:
                     continue
-                objSearchReplace(o, toFrom, checked, logMsg, deepLevel - 1 if deepLevel is not None else deepLevel)
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel -
+                                 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 
@@ -148,7 +193,8 @@ async def runall(corogen):
     return results
 
 
-def getSymmetricallyEncryptedVal(val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
+def getSymmetricallyEncryptedVal(
+        val, secretKey: Union[str, bytes]=None) -> Tuple[str, str]:
     """
     Encrypt the provided value with symmetric encryption
 
@@ -295,6 +341,7 @@ def runWithLoop(loop, callback, *args, **kwargs):
 
 
 def checkIfMoreThanFSameItems(items, maxF):
+    # TODO: separate json serialization into serialization.py
     jsonified_items = [json.dumps(item, sort_keys=True) for item in items]
     counts = defaultdict(int)
     for j_item in jsonified_items:
@@ -345,7 +392,7 @@ def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addIdr(identifier, verkey)
+        n.clientAuthNr.core_authenticator.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):
@@ -424,6 +471,14 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
+def get_utc_epoch() -> int:
+    """
+    Returns epoch in UTC
+    :return:
+    """
+    return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+
+
 def lxor(a, b):
     # Logical xor of 2 items, return true when one of them is truthy and
     # one of them falsy
@@ -474,6 +529,17 @@ def is_network_ip_address_valid(ip_address):
         return False
     else:
         return True
+
+
+def is_hostname_valid(hostname):
+    # Taken from https://stackoverflow.com/a/2532344
+    if len(hostname) > 255:
+        return False
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]    # strip exactly one dot from the right,
+        # if present
+    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in hostname.split("."))
 
 
 def check_endpoint_valid(endpoint):
@@ -546,3 +612,30 @@ def min_3PC_key(keys) -> Tuple[int, int]:
 
 def max_3PC_key(keys) -> Tuple[int, int]:
     return max(keys, key=lambda k: (k[0], k[1]))
+
+
+if 'peekitem' in dir(_SortedDict):
+    SortedDict = _SortedDict
+else:
+    # Since older versions of `SortedDict` lack `peekitem`
+    class SortedDict(_SortedDict):
+        def peekitem(self, index=-1):
+            # This method is copied from `SortedDict`'s source code
+            """Return (key, value) item pair at index.
+
+            Unlike ``popitem``, the sorted dictionary is not modified. Index
+            defaults to -1, the last/greatest key in the dictionary. Specify
+            ``index=0`` to lookup the first/least key in the dictiony.
+
+            If index is out of range, raise IndexError.
+
+            """
+            key = self._list[index]
+            return key, self[key]
+
+
+@unique
+class UniqueSet(IntEnum):
+    @classmethod
+    def get_all_vals(cls):
+        return [i.value for i in cls.__members__.values()]

@@ -1,4 +1,5 @@
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
+from typing import Optional
 
 
 class State:
@@ -8,9 +9,19 @@ class State:
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, key: bytes, isCommitted: bool=True):
+    def get(self, key: bytes, isCommitted: bool=True) -> Optional[bytes]:
         # If `isCommitted` is True then get value corresponding to the
         # committed state else get the latest value
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_for_root_hash(self, root_hash, key: bytes) -> Optional[bytes]:
+        '''
+        Gets a value corresponded to the key for a given root_hash
+        :param root_hash: a hash of the root get the value for
+        :param key: a key in the trie corresponded to the root
+        :return: a value (in bytes) or None
+        '''
         raise NotImplementedError
 
     @abstractmethod
@@ -30,19 +41,22 @@ class State:
     def close(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def head(self):
         # The current head of the state, if the state is a merkle tree then
         # head is the root
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def committedHead(self):
         # The committed head of the state, if the state is a merkle tree then
         # head is the root
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def headHash(self):
         """
         The hash of the current head of the state, if the state is a merkle
@@ -51,10 +65,12 @@ class State:
         """
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def committedHeadHash(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isEmpty(self):
         raise NotImplementedError

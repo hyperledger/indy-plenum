@@ -1,19 +1,18 @@
-from operator import itemgetter
-
-import itertools
-from typing import Mapping
 from collections import OrderedDict
+from operator import itemgetter
+from typing import Mapping
+
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
 
 
 class MessageValidator(FieldValidator):
-
     # the schema has to be an ordered iterable because the message class
     # can be create with positional arguments __init__(*args)
 
     schema = ()
     optional = False
+    schema_is_strict = True
 
     def __init__(self, schema_is_strict=True):
         self.schema_is_strict = schema_is_strict
@@ -40,8 +39,7 @@ class MessageValidator(FieldValidator):
                 if validation_error:
                     self._raise_invalid_fields(k, v, validation_error)
 
-    @staticmethod
-    def _validate_message(dct):
+    def _validate_message(self, dct):
         return None
 
     def _raise_invalid_type(self, dct):
@@ -83,16 +81,19 @@ class MessageBase(Mapping, MessageValidator):
             kwargs.pop(OP_FIELD_NAME, None)
 
         argsLen = len(args or kwargs)
-        assert argsLen == len(self.schema), \
-            "number of parameters should be the " \
-            "same as a number of fields in schema, but it was {}" \
-                .format(argsLen)
+        assert argsLen <= len(self.schema), \
+            "number of parameters should be less than or equal to " \
+            "the number of fields in schema, but it was {}".format(argsLen)
 
+        super().__init__()
         input_as_dict = kwargs if kwargs else self._join_with_schema(args)
 
         self.validate(input_as_dict)
 
-        self._fields = OrderedDict((name, input_as_dict[name]) for name, _ in self.schema)
+        self._fields = OrderedDict(
+            (name, input_as_dict[name])
+            for name, _ in self.schema
+            if name in input_as_dict)
 
     def _join_with_schema(self, args):
         return dict(zip(map(itemgetter(0), self.schema), args))
@@ -156,3 +157,9 @@ class MessageBase(Mapping, MessageValidator):
         for index, value in enumerate(list(self.__iter__())):
             h = h * (index + 1) * (hash(value) + 1)
         return h
+
+    def __dir__(self):
+        return self.keys()
+
+    def __contains__(self, key):
+        return key in self._fields

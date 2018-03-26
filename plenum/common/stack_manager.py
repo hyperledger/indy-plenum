@@ -1,31 +1,29 @@
-import os
-import shutil
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
-from typing import List
 
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
-from plenum.common.signer_did import DidIdentity
+from plenum.common.tools import lazy_field
+from storage.helper import initHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
 
 logger = getlogger()
 
 
-class TxnStackManager:
-    def __init__(self, name, basedirpath, isNode=True):
+class TxnStackManager(metaclass=ABCMeta):
+    def __init__(self, name, genesis_dir, keys_dir, isNode=True):
         self.name = name
-        self.basedirpath = basedirpath
+        self.genesis_dir = genesis_dir
+        self.keys_dir = keys_dir
         self.isNode = isNode
-        self.hashStore = None
 
     @property
     @abstractmethod
@@ -42,29 +40,27 @@ class TxnStackManager:
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
-    # noinspection PyTypeChecker
-    @property
-    def ledger(self):
-        if self._ledger is None:
-            defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.ledgerFile)
-            if not os.path.exists(defaultTxnFile):
-                logger.debug("Not using default initialization file for "
-                             "pool ledger, since it does not exist: {}"
-                             .format(defaultTxnFile))
-                defaultTxnFile = None
+    @lazy_field
+    def hashStore(self):
+        return initHashStore(self.ledgerLocation, 'pool', self.config)
 
-            dataDir = self.ledgerLocation
-            self.hashStore = FileHashStore(dataDir=dataDir)
-            self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
-                                  dataDir=dataDir,
-                                  fileName=self.ledgerFile,
-                                  ensureDurability=self.config.EnsureLedgerDurability,
-                                  defaultFile=defaultTxnFile)
-        return self._ledger
+    # noinspection PyTypeChecker
+    @lazy_field
+    def ledger(self):
+        data_dir = self.ledgerLocation
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.genesis_dir,
+                                                            self.ledgerFile)
+        tree = CompactMerkleTree(hashStore=self.hashStore)
+        ledger = Ledger(tree,
+                        dataDir=data_dir,
+                        fileName=self.ledgerFile,
+                        ensureDurability=self.config.EnsureLedgerDurability,
+                        genesis_txn_initiator=genesis_txn_initiator)
+
+        return ledger
 
     @staticmethod
-    def parseLedgerForHaAndKeys(ledger, returnActive=True):
+    def parseLedgerForHaAndKeys(ledger, returnActive=True, ledger_size=None):
         """
         Returns validator ip, ports and keys
         :param ledger:
@@ -76,7 +72,35 @@ class TxnStackManager:
         cliNodeReg = OrderedDict()
         nodeKeys = {}
         activeValidators = set()
-        for _, txn in ledger.getAllTxn():
+        try:
+            TxnStackManager._parse_pool_transaction_file(
+                ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+                ledger_size=ledger_size)
+        except ValueError:
+            errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
+            logger.exception(errMsg)
+            exit(errMsg)
+
+        if returnActive:
+            allNodes = tuple(nodeReg.keys())
+            for nodeName in allNodes:
+                if nodeName not in activeValidators:
+                    nodeReg.pop(nodeName, None)
+                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
+                    nodeKeys.pop(nodeName, None)
+
+            return nodeReg, cliNodeReg, nodeKeys
+        else:
+            return nodeReg, cliNodeReg, nodeKeys, activeValidators
+
+    @staticmethod
+    def _parse_pool_transaction_file(
+            ledger, nodeReg, cliNodeReg, nodeKeys, activeValidators,
+            ledger_size=None):
+        """
+        helper function for parseLedgerForHaAndKeys
+        """
+        for _, txn in ledger.getAllTxn(to=ledger_size):
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
                 clientStackName = nodeName + CLIENT_STACK_SUFFIX
@@ -93,9 +117,14 @@ class TxnStackManager:
 
                 try:
                     # TODO: Need to handle abbreviated verkey
+                    key_type = 'verkey'
                     verkey = cryptonymToHex(txn[TARGET_NYM])
-                except ValueError as ex:
-                    raise ValueError("Invalid verkey. Rebuild pool transactions.")
+                    key_type = 'identifier'
+                    cryptonymToHex(txn[IDENTIFIER])
+                except ValueError:
+                    logger.exception(
+                        'Invalid {}. Rebuild pool transactions.'.format(key_type))
+                    exit('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
                 nodeKeys[nodeName] = verkey
 
@@ -105,18 +134,6 @@ class TxnStackManager:
                         activeValidators.add(nodeName)
                     else:
                         activeValidators.discard(nodeName)
-
-        if returnActive:
-            allNodes = tuple(nodeReg.keys())
-            for nodeName in allNodes:
-                if nodeName not in activeValidators:
-                    nodeReg.pop(nodeName, None)
-                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
-                    nodeKeys.pop(nodeName, None)
-
-            return nodeReg, cliNodeReg, nodeKeys
-        else:
-            return nodeReg, cliNodeReg, nodeKeys, activeValidators
 
     def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
                          addRemote=True):
@@ -131,15 +148,15 @@ class TxnStackManager:
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeys(self.name, remoteName, self.basedirpath,
-                                   verkey, override=True)
+                initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
 
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
-            nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
+            nodeOrClientObj.cliNodeReg[remoteName +
+                                       CLIENT_STACK_SUFFIX] = HA(*cliHa)
             logger.debug("{} adding new node {} with HA {}".format(self.name,
                                                                    remoteName,
                                                                    nodeHa))
@@ -151,13 +168,46 @@ class TxnStackManager:
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
     def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
-        nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-        cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+        nodeHa = None
+        cliHa = None
+        if self.isNode:
+            node_ha_changed = False
+            (ip, port) = nodeOrClientObj.nodeReg[remoteName]
+            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
+                ip = txn[DATA][NODE_IP]
+                node_ha_changed = True
+
+            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
+                port = txn[DATA][NODE_PORT]
+                node_ha_changed = True
+
+            if node_ha_changed:
+                nodeHa = (ip, port)
+
+        cli_ha_changed = False
+        (ip, port) = nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] \
+            if self.isNode \
+            else nodeOrClientObj.nodeReg[remoteName]
+
+        if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
+            ip = txn[DATA][CLIENT_IP]
+            cli_ha_changed = True
+
+        if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
+            port = txn[DATA][CLIENT_PORT]
+            cli_ha_changed = True
+
+        if cli_ha_changed:
+            cliHa = (ip, port)
+
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
         if self.isNode:
-            nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
-            nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
-        else:
+            if nodeHa:
+                nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
+            if cliHa:
+                nodeOrClientObj.cliNodeReg[remoteName +
+                                           CLIENT_STACK_SUFFIX] = HA(*cliHa)
+        elif cliHa:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
 
         # Attempt connection at the new HA
@@ -174,13 +224,13 @@ class TxnStackManager:
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
         if txn[VERKEY][0] == '~':  # abbreviated
-            verkey = cryptonymToHex(txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
+            verkey = cryptonymToHex(
+                txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
         else:
             verkey = cryptonymToHex(txn[VERKEY])
 
         # Override any keys found
-        initRemoteKeys(self.name, remoteName, self.basedirpath,
-                               verkey, override=True)
+        initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -210,19 +260,24 @@ class TxnStackManager:
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
-                #if self.isNode:
-                initRemoteKeys(self.name, remoteName, self.basedirpath, key,
-                                   override=True)
+                # if self.isNode:
+                initRemoteKeys(self.name, remoteName, self.keys_dir, key,
+                               override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
+
+    def getNodeRegistry(self, ledger_size=None):
+        nodeReg, _, _ = self.parseLedgerForHaAndKeys(
+            self.ledger, ledger_size=ledger_size)
+        return nodeReg
 
     def nodeExistsInLedger(self, nym):
         # Since PoolLedger is going to be small so using
         # `getAllTxn` is fine
         for _, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == nym:
+                    txn[TARGET_NYM] == nym:
                 return True
         return False
 
@@ -249,7 +304,15 @@ class TxnStackManager:
             self.updateNodeTxns(info, txn)
         return nodeTxnSeqNos, info
 
+    def getNodesServices(self):
+        # Returns services for each node
+        srvs = dict()
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TXN_TYPE] == NODE and \
+                    txn.get(DATA, {}).get(SERVICES) is not None:
+                srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
+        return srvs
+
     @staticmethod
     def updateNodeTxns(oldTxn, newTxn):
         updateNestedDict(oldTxn, newTxn, nestedKeysToUpdate=[DATA, ])
-

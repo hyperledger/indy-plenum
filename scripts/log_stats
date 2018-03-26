@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+"""
+Gathers statistics on different log messages occurrences in a given log file.
+
+Usage:
+
+log_stats INPUT [OUTPUT]
+
+where
+INPUT   - the path of the log
+OUTPUT  - the path for the statistics on the log (by default the output is
+          printed to stdout)
+
+Examples:
+
+log_stats Node1.log
+
+log_stats /home/user/.indy/Node1.log /home/user/stats.txt
+"""
+
+import argparse
+import re
+
+LOG_RECORD_REGEX = re.compile(
+    '[^\|]*\| (?P<key>[^\|]*\|[^\|]*\|[^\|]*) \| (?P<message>.*)')
+
+
+class Sample:
+    def __init__(self, count, record):
+        self.count = count
+        self.record = record
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('input',
+                        help='Log path')
+
+    parser.add_argument('output',
+                        nargs='?',
+                        default='/dev/stdout',
+                        help='Log stats path')
+
+    return parser.parse_args()
+
+
+def main(args):
+    samples_dict = {}
+
+    with open(args.input, 'r') as source_log:
+        for line in source_log:
+            match = LOG_RECORD_REGEX.match(line)
+
+            if match:
+                key = match.group('key')
+                message = match.group('message')
+
+                if key in samples_dict:
+                    samples_dict[key].count += 1
+                else:
+                    samples_dict[key] = \
+                        Sample(1, '{} | {}'.format(key, message))
+
+    samples = sorted(samples_dict.values(),
+                     key=lambda sample: sample.count,
+                     reverse=True)
+
+    with open(args.output, 'w') as log_stats:
+        for sample in samples:
+            log_stats.write('{:>6}:\t{}\n'
+                            .format(sample.count, sample.record))
+
+if __name__ == '__main__':
+    main(parse_args())

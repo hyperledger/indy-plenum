@@ -11,5 +11,5 @@ def test_invalid_inner_type():
 
 def test_valid_inner_type():
     validator = IterableField(NonNegativeNumberField())
-    assert not validator.validate([1,2,3])
+    assert not validator.validate([1, 2, 3])
     assert validator.validate([1, 2, -3])

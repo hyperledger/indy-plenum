@@ -12,10 +12,6 @@ from plenum.test.pool_transactions.helper import suspendNode, \
     buildPoolClientAndWallet, cancelNodeSuspension
 from plenum.test.test_node import TestNode, checkNodesConnected
 
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message']
-
 
 def checkNodeNotInNodeReg(nodeOrClient, nodeName):
     if isinstance(nodeOrClient, Node):
@@ -36,7 +32,6 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             nodeThetaAdded,
                             poolTxnStewardData,
                             allPluginsPath):
-
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     newNodeNym = hexToFriendly(newNode.nodestack.verhex)
     suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)
@@ -75,7 +70,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                            if not n.hasPrimary][0]
     oldNode.stop()
     looper.removeProdable(oldNode)
-    oldNode = TestNode(oldNode.name, basedirpath=tdirWithPoolTxns,
+    oldNode = TestNode(oldNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                        config=tconf, pluginPaths=allPluginsPath)
     looper.add(oldNode)
     txnPoolNodeSet[oldNodeIdx] = oldNode
@@ -86,7 +81,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
     # nodes and clients can also connect to that node
     cancelNodeSuspension(looper, newSteward, newStewardWallet, newNodeNym,
                          newNode.name)
-    nodeTheta = TestNode(newNode.name, basedirpath=tdirWithPoolTxns,
+    nodeTheta = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
                          config=tconf, pluginPaths=allPluginsPath,
                          ha=newNode.nodestack.ha, cliha=newNode.clientstack.ha)
     looper.add(nodeTheta)

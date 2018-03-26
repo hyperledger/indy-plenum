@@ -1,10 +1,9 @@
-import time
 from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -16,8 +15,8 @@ from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
 
 
 # This code is unclear, refactor
-def checkPropagated(looper, nodeSet, request, faultyNodes=0):
-    nodesSize = len(list(nodeSet.nodes))
+def checkPropagated(looper, txnPoolNodeSet, request, faultyNodes=0):
+    nodesSize = len(list(txnPoolNodeSet))
 
     # noinspection PyIncorrectDocstring
     def g(node: TestNode):
@@ -42,22 +41,22 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
                           numOfMsgsWithZFN,
                           numOfMsgsWithFaults)
 
-    timeout = waits.expectedPropagateTime(len(nodeSet))
-    funcs = [partial(g, node) for node in nodeSet]
+    timeout = waits.expectedPropagateTime(len(txnPoolNodeSet))
+    funcs = [partial(g, node) for node in txnPoolNodeSet]
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def checkPrePrepared(looper,
-                     nodeSet,
+                     txnPoolNodeSet,
                      propagated1,
                      instIds,
                      faultyNodes=0,
                      timeout=30):
-    nodesSize = len(list(nodeSet))
+    nodesSize = len(list(txnPoolNodeSet))
 
     def g(instId):
-        primary = getPrimaryReplica(nodeSet, instId)
-        nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+        primary = getPrimaryReplica(txnPoolNodeSet, instId)
+        nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
 
         def primarySeesCorrectNumberOfPREPREPAREs():
             """
@@ -66,7 +65,7 @@ def checkPrePrepared(looper,
             """
             l1 = len([param for param in
                       getAllArgs(primary, primary.processPrePrepare)])
-            assert l1 == 0
+            assert l1 == 0, 'Primary {} sees no pre-prepare'.format(primary)
 
         def nonPrimarySeesCorrectNumberOfPREPREPAREs():
             """
@@ -78,25 +77,27 @@ def checkPrePrepared(looper,
             with faults in system.
             """
             expectedPrePrepareRequest = PrePrepare(
-                    instId,
-                    primary.viewNo,
-                    primary.lastPrePrepareSeqNo,
-                    time.time(),
-                    [[propagated1.identifier, propagated1.reqId]],
-                    1,
-                    Replica.batchDigest([propagated1,]),
-                    DOMAIN_LEDGER_ID,
-                    primary.stateRootHash(DOMAIN_LEDGER_ID),
-                    primary.txnRootHash(DOMAIN_LEDGER_ID),
-                    )
+                instId,
+                primary.viewNo,
+                primary.lastPrePrepareSeqNo,
+                get_utc_epoch(),
+                [[propagated1.identifier, propagated1.reqId]],
+                1,
+                Replica.batchDigest([propagated1, ]),
+                DOMAIN_LEDGER_ID,
+                primary.stateRootHash(DOMAIN_LEDGER_ID),
+                primary.txnRootHash(DOMAIN_LEDGER_ID),
+            )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][0:3]+param['pp'][4:],
+                                  if (param['pre_prepare'][0:3] +
+                                      param['pre_prepare'][4:],
                                       param['sender']) == (
-                                      expectedPrePrepareRequest[0:3] + expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[0:3] +
+                                      expectedPrePrepareRequest[4:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -107,7 +108,8 @@ def checkPrePrepared(looper,
                                          actualMsgs,
                                          numOfMsgsWithZFN,
                                          numOfMsgsWithFaults))
-            assert passes >= len(nonPrimaryReplicas) - faultyNodes
+            assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
+                'Non-primary sees correct number pre-prepares - {}'.format(passes)
 
         def primarySentsCorrectNumberOfPREPREPAREs():
             """
@@ -134,7 +136,7 @@ def checkPrePrepared(looper,
                               faultyNodes,
                               actualMsgs,
                               numOfMsgsWithZFN,
-                              numOfMsgsWithZFN)
+                              numOfMsgsWithZFN), 'Primary sends correct number of per-prepare'
 
         def nonPrimaryReceivesCorrectNumberOfPREPREPAREs():
             """
@@ -161,7 +163,8 @@ def checkPrePrepared(looper,
                                      numOfMsgsWithZFN,
                                      numOfMsgsWithFaults)
 
-            assert passes >= len(nonPrimaryReplicas) - faultyNodes
+            assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
+                'Non-primary receives correct number of pre-prepare -- {}'.format(passes)
 
         primarySeesCorrectNumberOfPREPREPAREs()
         nonPrimarySeesCorrectNumberOfPREPREPAREs()
@@ -174,15 +177,15 @@ def checkPrePrepared(looper,
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
-def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
+def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                   timeout=30):
-    nodeCount = len(list(nodeSet.nodes))
+    nodeCount = len(list(txnPoolNodeSet))
     quorums = Quorums(nodeCount)
 
     def g(instId):
-        allReplicas = getAllReplicas(nodeSet, instId)
-        primary = getPrimaryReplica(nodeSet, instId)
-        nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+        allReplicas = getAllReplicas(txnPoolNodeSet, instId)
+        primary = getPrimaryReplica(txnPoolNodeSet, instId)
+        nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
 
         def primaryDontSendAnyPREPAREs():
             """
@@ -251,16 +254,17 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
             numOfMsgsWithFaults = quorums.prepare.value - 1
 
             for npr in nonPrimaryReplicas:
-                actualMsgs = len([param for param in
-                                  getAllArgs(
-                                          npr,
-                                          npr.processPrepare)
-                                  if (param['prepare'].instId,
-                                      param['prepare'].viewNo,
-                                      param['prepare'].ppSeqNo) == (primary.instId,
-                                                            primary.viewNo,
-                                                            primary.lastPrePrepareSeqNo)
-                                  ])
+                actualMsgs = len(
+                    [
+                        param for param in getAllArgs(
+                        npr,
+                        npr.processPrepare) if (
+                                                   param['prepare'].instId,
+                                                   param['prepare'].viewNo,
+                                                   param['prepare'].ppSeqNo) == (
+                                                   primary.instId,
+                                                   primary.viewNo,
+                                                   primary.lastPrePrepareSeqNo)])
 
                 passes += int(msgCountOK(nodeCount,
                                          faultyNodes,
@@ -283,14 +287,14 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
     chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
-def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
-    timeout = waits.expectedCommittedTime(len(nodeSet))
-    nodeCount = len((list(nodeSet)))
+def checkCommitted(looper, txnPoolNodeSet, prepared1, instIds, faultyNodes=0):
+    timeout = waits.expectedCommittedTime(len(txnPoolNodeSet))
+    nodeCount = len((list(txnPoolNodeSet)))
     quorums = Quorums(nodeCount)
 
     def g(instId):
-        allReplicas = getAllReplicas(nodeSet, instId)
-        primaryReplica = getPrimaryReplica(nodeSet, instId)
+        allReplicas = getAllReplicas(txnPoolNodeSet, instId)
+        primaryReplica = getPrimaryReplica(txnPoolNodeSet, instId)
 
         def replicas_gets_correct_num_of_COMMITs():
             """

@@ -26,7 +26,7 @@ def initStatements(cli):
     return ["New wallet {} created".format(name),
             "Current wallet set to " + name,
             "Key created in wallet " + name,
-            "Identifier for key is " + cryptonym,
+            "DID for key is " + cryptonym,
             "Current identifier set to " + cryptonym,
             "Note: To rename this wallet, use following command:",
             "    rename wallet Default to NewName"]
