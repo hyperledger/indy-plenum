@@ -283,12 +283,12 @@ def ensure_view_change_complete_by_primary_restart(
 
 def view_change_in_between_3pc(looper, nodes, slow_nodes,
                                sdk_pool_handle,
-                               sdk_wallet_handle,
+                               sdk_wallet_client,
                                slow_delay=1, wait=None):
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_handle, 4)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_handle, 10)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
     if wait:
         looper.runFor(wait)
 
@@ -297,9 +297,9 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes,
     reset_delays_and_process_delayeds(slow_nodes)
 
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
-                              sdk_wallet_handle, 5, total_timeout=30)
+                              sdk_wallet_client, 5, total_timeout=30)
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
-                              sdk_wallet_handle, 5, total_timeout=30)
+                              sdk_wallet_client, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(

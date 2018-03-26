@@ -1,16 +1,15 @@
 import pytest
 
-from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test import waits
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, \
     sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies, \
-    sdk_check_reply
+    sdk_check_reply, sdk_eval_timeout
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
 
-TestRunningTimeLimitSec = 400
+TestRunningTimeLimitSec = 200
 
 nodeCount = 5
 
@@ -25,6 +24,7 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
         txnPoolNodeSet,
         sdk_pool_handle,
         sdk_wallet_client):
+    timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
     nodes = txnPoolNodeSet
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
@@ -51,8 +51,8 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(PoolLedgerTimeoutException):
-        req_res = sdk_get_replies(looper, sdk_reqs3)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs3, timeout=timeout)
         sdk_check_reply(req_res[0])
 
     stop_node(nodes[2], looper, nodes)
@@ -64,8 +64,8 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(PoolLedgerTimeoutException):
-        req_res = sdk_get_replies(looper, sdk_reqs4)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs4, timeout=timeout)
         sdk_check_reply(req_res[0])
 
     nodes[2] = start_stopped_node(nodes[2], looper, tconf, tdir, allPluginsPath)
@@ -76,8 +76,8 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(PoolLedgerTimeoutException):
-        req_res = sdk_get_replies(looper, sdk_reqs5)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs5, timeout=timeout)
         sdk_check_reply(req_res[0])
 
     nodes[1] = start_stopped_node(nodes[1], looper, tconf, tdir, allPluginsPath)
