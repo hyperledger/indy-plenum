@@ -881,7 +881,6 @@ class LedgerManager(HasActionQueue):
         if last_3PC is not None \
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
-
         self.mark_ledger_synced(ledgerId)
         self.catchup_next_ledger(ledgerId)
 

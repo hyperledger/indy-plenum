@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -1150,7 +1150,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} new node joined by txn {}".format(self, txn))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
-        if new_replicas > 0 and not self.view_changer.view_change_in_progress:
+        ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
+        if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
+                ledgerInfo.state == LedgerState.synced:
+            # Select primaries must be only after pool ledger catchup
+            # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
 
     def nodeLeft(self, txn):
@@ -1800,6 +1804,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(CATCH_UP_PREFIX, self),
                         extra={'cli': True})
             self.no_more_catchups_needed()
+            # select primaries after pool ledger caughtup
+            if not self.view_change_in_progress:
+                self.select_primaries()
 
     def is_catchup_needed(self) -> bool:
         """
