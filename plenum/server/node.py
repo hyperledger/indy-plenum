@@ -1804,6 +1804,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(CATCH_UP_PREFIX, self),
                         extra={'cli': True})
             self.no_more_catchups_needed()
+            # select primaries after pool ledger caughtup
+            self.select_primaries()
 
     def is_catchup_needed(self) -> bool:
         """

@@ -882,9 +882,6 @@ class LedgerManager(HasActionQueue):
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
         self.mark_ledger_synced(ledgerId)
-        if ledgerId == POOL_LEDGER_ID and self.ownedByNode:
-            # select primaries after pool ledger caughtup
-            self.owner.select_primaries()
         self.catchup_next_ledger(ledgerId)
 
     def mark_ledger_synced(self, ledger_id):

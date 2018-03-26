@@ -88,5 +88,6 @@ def test_add_node_with_f_changed(looper, txnPoolNodeSet, tdir, tconf,
                  tconf,
                  allPluginsPath,
                  name="Node8")
+    # check that all nodes have equal number of replica
     assert len(set([n.replicas.num_replicas for n in txnPoolNodeSet])) == 1
-    assert txnPoolNodeSet[-1].replicas.num_replicas == 3
+    assert txnPoolNodeSet[-1].replicas.num_replicas == txnPoolNodeSet[-1].requiredNumberOfInstances
