@@ -154,6 +154,126 @@ matches message if any of its sub-matchers matches message.
   
 ### chains
 
+Contains dictionary of chains, each containing a list of key-value pairs
+describing commands to execute. Key is type of command, value is parameter.
+For commands not having parameters (like jumping to other chain) value 
+should be omitted. If type of command is not any of builtin types it's
+considered a name of custom chain to which jump should be performed.
+
+Each message enters `main` chain, and is processed until it either reaches 
+end of this chain or is dropped. When message jumps to some custom chain 
+and reaches it's end it returns to source chain and continues processing
+from command next to jump. For example, in this setup:
+```yaml
+- main:
+  - do_a:
+  - subchain:
+  - do_b:
+  
+- subchain:
+  - do_something_special:
+  - do_something_exotic: 
+```
+each message is first processed by `do_a` command, then jumps to subchain 
+`subchain` where it's processed by `do_something_special` and 
+`do_something_exotic` commands, and then returns to main chain where it's
+processed by `do_b` command. This allows for arbitrary complex processing 
+rules to be split into manageable pieces, and for building library of
+some common filters. 
+
+There's also special `drop` chain, jumping to which stops processing of
+message prematurely. For example, in this setup:
+```yaml
+- main:
+  - do_a:
+  - subchain:
+  - do_b:
+  
+- subchain:
+  - do_something_special:
+  - drop:
+  - do_something_exotic: 
+```
+each message is processed by `do_a` and `do_something_special` commands, but
+then is dropped and never reaches neither `do_something_exotic` nor `do_b`
+commands.
+
+#### Builtin commands
+
+- `log line`: adds message to given output log target, for example:
+  ```yaml
+  chains:
+    main:
+      - log line: fancy_log
+    
+  logs:
+    fancy_log:
+       ...
+  ```
+- `log time`: registers message to given graph of given timelog, for example:
+  ```yaml
+  chains:
+    main:
+      - log time: {monitoring: some_metric}
+    
+  timelogs:
+    monitoring:
+      graphs:
+        some_metric: blue
+  ```
+- `log count`: registers message to given subcounter of given counter, 
+  for example:
+  ```yaml
+  chains:
+    main:
+      - log count: {stats: total}
+    
+  counters:
+    stats:
+      format: <node> emitted <total> messages
+  ```
+- `timeshift`: shifts timestamp for some nodes by given amount of seconds,
+  for example:
+  ```yaml
+  - timeshift:
+      Node12: 300
+      Node2: -3600
+  ``` 
+- `match`: checks if messages matches given matcher(s), specified as a list,
+  and returns from chain or drops message altogether if needed. In fact there 
+  are several match commands with following pattern:
+  ```
+  match [any|all] [(or|and) (return|drop)]
+  ```
+  When all optional parts are omitted match command is interpreted as 
+  `match any or return`. Meaning of options is as follows:
+  - `any`: consider message matched if any of specified matchers triggered
+  - `all`: consider message matched if all of specified matchers triggered
+  - `or`: perform action when message is not matched
+  - `and`: perform action when message is matched
+  - `return`: action to perform is to return from current chain to calling one
+  - `drop`: action to perform is to drop message altogether
+- `tag`: optionally checks if message matches some regex pattern and sets
+  custom tags and/or attributes on it. Parameter for this command is dictionary
+  with following keys:
+  - `pattern`: pattern to match message body
+  - `tags`: list of tags to add to message on match
+  - `attributes`: dictionary of custom attributes to add to message on match,
+    with keys being attribute names and values index of matching regex group.
+  For example:
+  ```yaml
+  - tag:
+      pattern: sending (\w+), viewNo: (\d+)
+      tags: [SEND]
+      attributes:
+        message_type: 1
+        view_no: 2
+  ```
+  will add tag `SEND` to messages containing `sending COMMIT, viewNo: 23`,
+  and adds custom attributes `message_type: COMMIT` and `view_no: 23`.  
+
+## Standard (in process_logs.yml) matchers and chains
+
 TODO
 
 ## Things to consider in future
