@@ -150,13 +150,13 @@ def messages_in_log(log):
 ###########################################################################################
 
 def match_timestamp(params):
-    min = params.get("min")
-    max = params.get("max")
+    min_timestamp = params.get("min")
+    max_timestamp = params.get("max")
 
     def match(message):
-        if min is not None and message.timestamp < min:
+        if min_timestamp is not None and message.timestamp < min_timestamp:
             return False
-        if max is not None and message.timestamp > max:
+        if max_timestamp is not None and message.timestamp > max_timestamp:
             return False
         return True
 
