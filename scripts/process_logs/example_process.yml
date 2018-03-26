@@ -27,23 +27,24 @@ chains:
     - message: stashing ledger status
     - message: creating catchup request
 
-logs:
-  output:
-    filename: output.log
-    pattern: <timestamp> | <node> | <source> | <func> | <message>
-    merge_nodes: yes
-  state_trie:
-    filename: state_trie.log
-    pattern: <timestamp> | <node> | <message>
-    merge_nodes: yes
+outputs:
+  logs:
+    output:
+      filename: output.log
+      pattern: <timestamp> | <node> | <source> | <func> | <message>
+      merge_nodes: yes
+    state_trie:
+      filename: state_trie.log
+      pattern: <timestamp> | <node> | <message>
+      merge_nodes: yes
 
-timelogs:
-  monitoring:
-    interval: 5           # Interval in seconds
-    graphs:               # Graph list with colors
-    - total: blue
+  timelogs:
+    monitoring:
+      interval: 5           # Interval in seconds
+      graphs:               # Graph list with colors
+      - total: blue
 
-counters:
-  monitoring:
-    format: |
-      <node>: <total> total, <interesting> interesting, <unknown> unknown
+  counters:
+    monitoring:
+      format: |
+        <node>: <total> total, <interesting> interesting, <unknown> unknown

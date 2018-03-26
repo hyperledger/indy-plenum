@@ -59,9 +59,7 @@ matchers:
   - message: starting view change for
 
   view_change_done:
-  - all:
-    - view_change_event:
-    - message: changed to view
+  - message: declares view change
 
 #########################################################################
 # Catchup

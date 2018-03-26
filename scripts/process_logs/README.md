@@ -27,9 +27,9 @@ config file `process_log.yml` placed next to it. Basic workflow consists
 of writing some custom config, calling `process_log custom_config.yml`,
 looking at output, adding more rules to custom config as needed and
 repeating this process until achieving desired results. Custom config can
-use some common rules defined in common `process_log.yml` (these configs
-have same format). Also there are some example configs provided in 
-`example_*.yml` files which could be used as a starting point.
+use some common rules defined in `process_log.yml` (these configs have same 
+format). Also there are some example configs provided in `example_*.yml` files 
+which could be used as a starting point.
 
 Configuration file consists of three main parts:
 - input log gathering rules
@@ -54,7 +54,11 @@ they belong to. Options are:
 - `node_group`: regex group number that matches node identifier
 - `only_timestamped`: whether to discard non-timestamped messages
 
-### logs
+### outputs
+
+Contains subsections describing different outputs.
+
+#### logs
 
 Contains dictionary of output log files, each with following options:
 - `filename`: output filename, possibly with `<node>` placeholder when logs
@@ -70,14 +74,14 @@ Contains dictionary of output log files, each with following options:
   - `<user attr>`: any user-defined attribute, explained later in 
     *chains* section 
 
-### timelogs
+#### timelogs
 
 Contains dictionary of output event intensity plots, each with following 
 options:
 - `interval`: sampling interval in seconds
 - `graphs`: list of graphs on plot, each being a `name: color` key-value
 
-### counters
+#### counters
 
 Contains dictionary of output event counters, each with simple option
 `format` containing string, which will be output for each node when all
@@ -273,6 +277,12 @@ commands.
   and adds custom attributes `message_type: COMMIT` and `view_no: 23`.  
 
 ## Standard (in process_logs.yml) matchers and chains
+
+### Matchers
+
+TODO
+
+### Chains
 
 TODO
 

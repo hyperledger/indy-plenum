@@ -283,7 +283,7 @@ def rule_match(operation, condition, action, config):
 def rule_timeshift(params):
     delta = {str(name): timedelta(seconds=float(delta)) for name, delta in params.items()}
 
-    def process(message, ctx):
+    def process(message, output):
         try:
             message.timestamp += delta[message.node]
         except KeyError:
@@ -297,7 +297,7 @@ def rule_tag(params):
     tags = params.get("tags", [])
     attributes = params.get("attributes", {})
 
-    def process(message, ctx):
+    def process(message, output):
         m = match(message.message)
         if m is None:
             return
@@ -313,15 +313,15 @@ def rule_log_time(target):
     log, graph = kv_from_item(target)
     assert graph is not None
 
-    def process(message, ctx):
-        ctx.timelogs[log].add_event(message, graph)
+    def process(message, output):
+        output.timelogs[log].add_event(message, graph)
 
     return process
 
 
 def rule_log_line(target):
-    def process(message, ctx):
-        ctx.logs[target].add_message(message)
+    def process(message, output):
+        output.logs[target].add_message(message)
 
     return process
 
@@ -330,8 +330,8 @@ def rule_log_count(target):
     log, target = kv_from_item(target)
     assert target is not None
 
-    def process(message, ctx):
-        ctx.counters[log].add_event(message, target)
+    def process(message, output):
+        output.counters[log].add_event(message, target)
 
     return process
 
@@ -372,16 +372,16 @@ class ChainSet:
     def __init__(self, config):
         self.chains = {name: _create_chain(params) for name, params in config.items()}
 
-    def process(self, chain, message, ctx):
+    def process(self, chain, message, output):
         for rule in self.chains[chain]:
-            result = rule(message, ctx)
-            if result is None:
+            action = rule(message, output)
+            if action is None:
                 continue
-            if result == ACTION_RETURN:
+            if action == ACTION_RETURN:
                 break
-            if result == ACTION_DROP:
+            if action == ACTION_DROP:
                 return ACTION_DROP
-            if self.process(result, message, ctx) == ACTION_DROP:
+            if self.process(action, message, output) == ACTION_DROP:
                 return ACTION_DROP
 
 
@@ -469,6 +469,8 @@ class TimeLogGraph:
             self.add_event(timestamp, counter)
 
     def fill_gaps(self, interval):
+        if not self.events:
+            return
         timestamp = min(self.events.keys())
         max_timestamp = max(self.events.keys())
         delta = timedelta(seconds=interval)
@@ -596,17 +598,17 @@ class LogCounter:
         try:
             return self.nodes[node]
         except KeyError:
-            result = NodeLogCounter(self.format)
-            self.nodes[node] = result
-            return result
+            node_counter = NodeLogCounter(self.format)
+            self.nodes[node] = node_counter
+            return node_counter
 
 
 ###########################################################################################
-# Processing context
+# Output data
 ###########################################################################################
 
 
-class Context:
+class OutputData:
     def __init__(self, config):
         self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
         self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
@@ -635,16 +637,16 @@ class Context:
 ###########################################################################################
 
 def process_log(log):
-    ctx = Context(global_config)
+    output_data = OutputData(global_config.get("outputs", {}))
     for message in messages_in_log(log):
-        global_chain_set.process("main", message, ctx)
-    return ctx
+        global_chain_set.process("main", message, output_data)
+    return output_data
 
 
 with Pool() as pool:
     results = pool.map(process_log, input_logs())
 
-for context in results[1:]:
-    results[0].merge(context)
+for result in results[1:]:
+    results[0].merge(result)
 
 results[0].dump()
