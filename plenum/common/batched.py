@@ -97,7 +97,7 @@ class Batched(MessageProcessor):
                 continue
             if msgs:
                 if self._should_batch(msgs):
-                    logger.debug(
+                    logger.trace(
                         "{} batching {} msgs to {} into fewer transmissions".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
