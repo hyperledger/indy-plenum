@@ -43,7 +43,7 @@ def pre_check(tconf, looper, txnPoolNodeSet, tdirWithClientPoolTxns,
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     for i in range(tconf.ProcessedBatchMapsToKeep - 1):
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1)
+         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1)
 
     # All node maintain the same map from txn range to 3PC
     looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet))

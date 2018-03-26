@@ -43,7 +43,7 @@ def test_ordering_after_more_than_f_nodes_caught_up(
 
     for _ in range(2):
         add_new_node(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward,
-                     tdir, client_tdir, tconf, allPluginsPath)
+                     tdir, tconf, allPluginsPath)
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,

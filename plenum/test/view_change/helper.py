@@ -71,13 +71,14 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def simulate_slow_master(looper, txnPoolNodeSet, wallet,
-                         client, delay=10, num_reqs=4):
+def simulate_slow_master(looper, txnPoolNodeSet, sdk_pool_handle,
+                         sdk_wallet_steward, delay=10, num_reqs=4):
     m_primary_node = get_master_primary_node(list(txnPoolNodeSet))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, delay)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, num_reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, num_reqs)
     return m_primary_node
 
 
@@ -227,14 +228,6 @@ def check_each_node_reaches_same_end_for_view(nodes, view_no):
     val = list(args.values())[0]
     for v in vals.values():
         assert v == val
-
-
-def do_vc(looper, nodes, client, wallet, old_view_no=None):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    new_view_no = ensure_view_change(looper, nodes)
-    if old_view_no:
-        assert new_view_no - old_view_no >= 1
-    return new_view_no
 
 
 def disconnect_master_primary(nodes):
