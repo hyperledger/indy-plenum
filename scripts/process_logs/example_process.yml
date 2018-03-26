@@ -33,10 +33,6 @@ outputs:
       filename: output.log
       pattern: <timestamp> | <node> | <source> | <func> | <message>
       merge_nodes: yes
-    state_trie:
-      filename: state_trie.log
-      pattern: <timestamp> | <node> | <message>
-      merge_nodes: yes
 
   timelogs:
     monitoring:
