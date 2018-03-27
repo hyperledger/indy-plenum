@@ -1,6 +1,6 @@
-from plenum.server.req_handler import RequestHandler
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 
 
-class ConfigReqHandler(RequestHandler):
+class ConfigReqHandler(LedgerRequestHandler):
     def __init__(self, ledger, state):
         super().__init__(ledger, state)

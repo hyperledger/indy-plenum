@@ -174,6 +174,9 @@ class CoreAuthMixin:
     write_types = PoolRequestHandler.write_types.union(
         DomainRequestHandler.write_types
     )
+    action_types = PoolRequestHandler.action_types.union(
+        DomainRequestHandler.action_types
+    )
     query_types = {GET_TXN, }.union(
         PoolRequestHandler.query_types
     ).union(
@@ -187,6 +190,10 @@ class CoreAuthMixin:
     @classmethod
     def is_write(cls, typ):
         return typ in cls.write_types
+
+    @classmethod
+    def is_action(cls, typ):
+        return typ in cls.action_types
 
     @staticmethod
     def _extract_signature(msg):

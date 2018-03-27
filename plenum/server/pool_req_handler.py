@@ -10,6 +10,7 @@ from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from state.state import State
 from stp_core.common.log import getlogger
@@ -17,7 +18,7 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-class PoolRequestHandler(RequestHandler):
+class PoolRequestHandler(LedgerRequestHandler):
     write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
