@@ -31,8 +31,7 @@ outputs:
   logs:
     output:
       filename: output.log
-      pattern: <timestamp> | <node> | <source> | <func> | <message>
-      merge_nodes: yes
+      pattern: <timestamp> | <node> <replica> | <source> | <func> | <message>
 
   timelogs:
     monitoring:

@@ -79,8 +79,10 @@ def input_logs():
 # Log message
 ###########################################################################################
 
+REPLICA_NONE="-"
+
 class LogMessage:
-    def __init__(self, message, node=None, replica=None, timestamp=None, level=None, source=None, func=None):
+    def __init__(self, message, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
         self.message = message
         self.timestamp = timestamp
         self.node = node
@@ -117,7 +119,7 @@ def _parse_messages(f, node):
                                  second=int(tokens[0][17:19]),
                                  microsecond=int(tokens[0][20:23]) * 1000)
             message = tokens[4]
-            replica = None
+            replica = REPLICA_NONE
             if message.startswith("REPLICA:"):
                 m = _replica_matcher(message)
                 replica = int(m.group(2))
@@ -215,11 +217,11 @@ def match_message(pattern):
 
 def match_replica(replica):
     if replica == "node":
-        return lambda message: message.replica is None
+        return lambda message: message.replica == REPLICA_NONE
     if replica == "master":
-        return lambda message: message.replica is None or message.replica == 0
+        return lambda message: message.replica in [REPLICA_NONE, 0]
     if replica == "backup":
-        return lambda message: message.replica != 0
+        return lambda message: message.replica not in [REPLICA_NONE, 0]
     return lambda message: message.replica == replica
 
 
@@ -442,7 +444,8 @@ class OutputLog:
 
     def add_message(self, message):
         line = self.pattern.format(**vars(message), **message.attributes)
-        filename = self.filename.format(node=message.node, replica=message.replica)
+        filename = self.filename.format(node=message.node,
+                                        replica=message.replica if message.replica != REPLICA_NONE else 0)
         self._log_file(filename).append(message.timestamp, line)
 
     def merge(self, other):
