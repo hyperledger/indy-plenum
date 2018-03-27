@@ -5,6 +5,8 @@ ARG uid=1000
 ARG user=indy
 ARG venv=venv
 
+RUN echo "To invalidate cache"
+
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
     libindy-crypto=0.2.0 \

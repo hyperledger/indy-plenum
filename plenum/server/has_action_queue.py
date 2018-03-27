@@ -116,7 +116,7 @@ class HasActionQueue:
             self.repeatingActions.add(action)
             self._schedule(wrapper, seconds)
         else:
-            logger.debug('{} is already repeating'.format(
+            logger.trace('{} is already repeating'.format(
                 get_func_name(action)))
 
     def stopRepeating(self, action: Callable, strict=True):

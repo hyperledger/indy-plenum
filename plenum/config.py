@@ -72,6 +72,8 @@ reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 stateSignatureStorage = KeyValueStorageType.Leveldb
 
+transactionLogDefaultStorage = KeyValueStorageType.Leveldb
+
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",
