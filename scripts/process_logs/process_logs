@@ -80,10 +80,11 @@ def input_logs():
 ###########################################################################################
 
 class LogMessage:
-    def __init__(self, message, node=None, timestamp=None, level=None, source=None, func=None):
+    def __init__(self, message, node=None, replica=None, timestamp=None, level=None, source=None, func=None):
         self.message = message
         self.timestamp = timestamp
         self.node = node
+        self.replica = replica
         self.level = level
         self.source = source
         self.func = func
@@ -95,6 +96,9 @@ class LogMessage:
 
     def set_attribute(self, name, value):
         self.attributes[name] = value
+
+
+_replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
 
 
 def _parse_messages(f, node):
@@ -112,7 +116,13 @@ def _parse_messages(f, node):
                                  minute=int(tokens[0][14:16]),
                                  second=int(tokens[0][17:19]),
                                  microsecond=int(tokens[0][20:23]) * 1000)
-            yield LogMessage(tokens[4], node, timestamp, tokens[1], tokens[2], tokens[3])
+            message = tokens[4]
+            replica = None
+            if message.startswith("REPLICA:"):
+                m = _replica_matcher(message)
+                replica = int(m.group(2))
+                message = message[m.end():]
+            yield LogMessage(message, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
 
 
 def messages_in_log(log):
@@ -203,6 +213,16 @@ def match_message(pattern):
     return match
 
 
+def match_replica(replica):
+    if replica == "node":
+        return lambda message: message.replica is None
+    if replica == "master":
+        return lambda message: message.replica is None or message.replica == 0
+    if replica == "backup":
+        return lambda message: message.replica != 0
+    return lambda message: message.replica == replica
+
+
 def match_tag(tag):
     return lambda message: tag in message.tags
 
@@ -230,6 +250,8 @@ def _create_matcher(config):
         return match_func(params)
     if name == "message":
         return match_message(params)
+    if name == "replica":
+        return match_replica(params)
     if name == "tag":
         return match_tag(params)
     if name == "attribute":
