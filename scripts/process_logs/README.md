@@ -61,10 +61,9 @@ Contains subsections describing different outputs.
 #### logs
 
 Contains dictionary of output log files, each with following options:
-- `filename`: output filename, possibly with `<node>` placeholder when logs
-  from different nodes should be placed to different files
-- `merge_nodes`: whether to merge messages from different nodes to one 
-  output or not
+- `filename`: output filename, possibly with `<node>` and/or `<replica>` 
+  placeholders when logs from different nodes/replicas should be placed 
+  in different files
 - `pattern`: log line format, can contain the following placeholders:
   - `<timestamp>`: event timestamp
   - `<node>`: source node identifier
