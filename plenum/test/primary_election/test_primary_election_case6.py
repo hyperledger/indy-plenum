@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.test.delayers import delay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
 from stp_core.loop.eventually import eventually

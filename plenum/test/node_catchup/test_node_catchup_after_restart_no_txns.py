@@ -1,21 +1,13 @@
-import pytest
-
-from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.test.delayers import cr_delay
 from plenum.test.spy_helpers import get_count
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    check_last_ordered_3pc
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    check_ledger_state
+from plenum.test.helper import check_last_ordered_3pc
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
-from plenum.test import waits
 from plenum.common.config_helper import PNodeConfigHelper
 
 # Do not remove the next import
@@ -26,18 +18,18 @@ txnCount = 5
 
 
 def test_node_catchup_after_restart_no_txns(
-        newNodeCaughtUp,
+        sdk_new_node_caught_up,
         txnPoolNodeSet,
         tdir,
         tconf,
-        nodeSetWithNodeAddedAfterSomeTxns,
+        sdk_node_set_with_node_added_after_some_txns,
         tdirWithPoolTxns,
         allPluginsPath):
     """
     A node restarts but no transactions have happened while it was down.
     It would then use the `LedgerStatus` to catchup
     """
-    looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_set_with_node_added_after_some_txns
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
     logger.debug("Stopping node {} with pool ledger size {}".

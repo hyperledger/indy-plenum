@@ -17,8 +17,9 @@ TestRunningTimeLimitSec = 150
 
 @pytest.mark.skip(reason='Pending complete implementation')
 def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
-                                                           looper, wallet1,
-                                                           client1,
+                                                           looper,
+                                                           sdk_pool_handle,
+                                                           sdk_wallet_client,
                                                            tconf):
     """
     A node is slow and after view change starts, it marks it's `last_prepared`
@@ -29,7 +30,11 @@ def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
     before view change it has different last_prepared from others.
     Also delay processing of COMMITs and INSTANCE_CHANGEs by other nodes
     """
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 2 * 3, 3)
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           2 * 3,
+                                           3)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node

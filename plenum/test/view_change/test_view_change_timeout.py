@@ -1,9 +1,9 @@
 import pytest
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
 from plenum.test.helper import waitForViewChange, stopNodes
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import get_master_primary_node, \
     ensureElectionsDone
@@ -32,7 +32,7 @@ def setup(txnPoolNodeSet, looper):
 
 
 def test_view_change_retry_by_timeout(
-        txnPoolNodeSet, looper, setup, wallet1, client1):
+        txnPoolNodeSet, looper, setup, sdk_pool_handle, sdk_wallet_client):
     """
     Verifies that a view change is restarted if it is not completed in time
     """
@@ -71,11 +71,14 @@ def test_view_change_retry_by_timeout(
     for node in txnPoolNodeSet:
         assert node.viewNo - initial_view_no == 2
 
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_client,
+                               sdk_pool_handle)
 
 
 def test_multiple_view_change_retries_by_timeouts(
-        txnPoolNodeSet, looper, setup, wallet1, client1):
+        txnPoolNodeSet, looper, setup,
+        sdk_pool_handle, sdk_wallet_client):
     """
     Verifies that a view change is restarted each time
     when the previous one is timed out
@@ -117,11 +120,13 @@ def test_multiple_view_change_retries_by_timeouts(
     for node in txnPoolNodeSet:
         assert node.viewNo - initial_view_no == 4
 
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_client,
+                               sdk_pool_handle)
 
 
 def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
-        txnPoolNodeSet, looper, setup, wallet1, client1):
+        txnPoolNodeSet, looper, setup):
     """
     Verifies that a view change is restarted by timeout
     if the next primary has been disconnected

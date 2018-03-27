@@ -5,8 +5,7 @@ from stp_core.types import HA
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
     reset_delays_and_process_delayeds
 from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies, sdk_send_random_requests, \
-    sdk_send_random_and_check
+    sdk_send_random_requests, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data

@@ -2,9 +2,8 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_3pc_messages, icDelay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    sendRandomRequests, waitForSufficientRepliesForRequests, checkViewNoForNodes, sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_get_and_check_replies
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, \
+    sdk_send_random_requests, sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.batching_3pc.conftest import tconf
 

@@ -115,54 +115,30 @@ def waitForSufficientRepliesForRequests(looper,
                   override_eventually_timeout=override_timeout_limit)
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
-                                        wallet: Wallet,
-                                        client: TestClient,
-                                        numReqs: int,
-                                        customTimeoutPerReq: float = None,
-                                        add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
 def send_reqs_batches_and_get_suff_replies(
         looper: Looper,
-        wallet: Wallet,
-        client: TestClient,
+        txnPoolNodeSet,
+        sdk_pool_handle,
+        sdk_wallet_client,
         num_reqs: int,
         num_batches=1,
         **kwargs):
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
     if num_batches == 1:
-        return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                                   num_reqs, **kwargs)
+        return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_client, num_reqs)
     else:
         requests = []
         for _ in range(num_batches - 1):
             requests.extend(
-                sendReqsToNodesAndVerifySuffReplies(
-                    looper,
-                    wallet,
-                    client,
-                    num_reqs // num_batches,
-                    **kwargs))
+                sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                          sdk_wallet_client, num_reqs // num_batches))
         rem = num_reqs % num_batches
         if rem == 0:
             rem = num_reqs // num_batches
-        requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
-                                                            client,
-                                                            rem,
-                                                            **kwargs))
+        requests.extend(
+            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                      sdk_wallet_client, rem))
         return requests
 
 

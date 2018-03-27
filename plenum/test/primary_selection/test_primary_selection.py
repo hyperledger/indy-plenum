@@ -2,7 +2,7 @@ import operator
 
 import pytest
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.primary_selection.helper import \
     check_rank_consistent_across_each_node
 from plenum.test.view_change.helper import ensure_view_change

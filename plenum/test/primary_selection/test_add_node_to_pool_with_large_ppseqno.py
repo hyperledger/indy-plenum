@@ -2,11 +2,11 @@ import pytest
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.util import randomString
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.view_change.helper import ensure_several_view_change
-from plenum.test.pool_transactions.helper import addNewStewardAndNode, sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 
 def _get_ppseqno(nodes):

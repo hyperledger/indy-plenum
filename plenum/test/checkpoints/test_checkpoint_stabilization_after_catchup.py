@@ -1,7 +1,7 @@
 from plenum.test import waits
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode, sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
 
 CHK_FREQ = 5

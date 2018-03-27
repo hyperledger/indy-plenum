@@ -4,7 +4,7 @@ from stp_core.common.log import getlogger
 
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+    sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node

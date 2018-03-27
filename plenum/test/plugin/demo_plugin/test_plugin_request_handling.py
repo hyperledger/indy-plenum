@@ -92,6 +92,7 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
+# TODO: probably delete
 @pytest.fixture(scope="module")
 def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
                   steward1,

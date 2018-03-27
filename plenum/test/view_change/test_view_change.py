@@ -1,4 +1,4 @@
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import ensureElectionsDone

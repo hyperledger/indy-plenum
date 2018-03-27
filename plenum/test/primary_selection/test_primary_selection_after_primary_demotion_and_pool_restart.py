@@ -2,13 +2,12 @@ from plenum.common.util import hexToFriendly
 
 from stp_core.common.log import getlogger
 
-from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
-from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+    sdk_send_random_and_check
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
 from plenum.common.config_helper import PNodeConfigHelper
@@ -41,8 +40,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     ensureElectionsDone(looper, restNodes)
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+
 
     logger.info("2. restart pool")
     # Stopping existing nodes

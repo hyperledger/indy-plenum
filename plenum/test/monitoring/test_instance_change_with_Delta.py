@@ -5,7 +5,7 @@ import pytest
 from stp_core.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change

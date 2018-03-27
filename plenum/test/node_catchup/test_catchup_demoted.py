@@ -1,11 +1,11 @@
 from plenum.common.util import hexToFriendly
 
-from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.common.constants import VALIDATOR
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     checkNodeDataForInequality
 from plenum.test.pool_transactions.helper import \
-    updateNodeData, sdk_send_update_node
+    sdk_send_update_node
 from stp_core.common.log import getlogger
 
 from plenum.test.node_catchup.conftest import whitelist

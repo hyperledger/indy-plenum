@@ -19,7 +19,7 @@ txnCount = 10
 
 
 def testNodeRejectingInvalidTxns(tconf, txnPoolNodeSet, patched_node,
-                                 nodeCreatedAfterSomeTxns):
+                                 sdk_node_created_after_some_txns):
     """
     A newly joined node is catching up and sends catchup requests to other
     nodes but one of the nodes replies with incorrect transactions. The newly
@@ -27,7 +27,7 @@ def testNodeRejectingInvalidTxns(tconf, txnPoolNodeSet, patched_node,
     the node. Ii thus cannot complete the process till the timeout and then
     requests the missing transactions.
     """
-    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
+    looper, new_node, _, _ = sdk_node_created_after_some_txns
     bad_node = patched_node
 
     do_not_tell_clients_about_newly_joined_node(txnPoolNodeSet)
@@ -42,10 +42,10 @@ def testNodeRejectingInvalidTxns(tconf, txnPoolNodeSet, patched_node,
 
     # have to skip seqno_db check because the txns are not executed
     # on the new node
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
 
-    assert newNode.isNodeBlacklisted(bad_node.name)
+    assert new_node.isNodeBlacklisted(bad_node.name)
 
 
 @pytest.fixture

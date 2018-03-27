@@ -1,10 +1,9 @@
 import pytest
-import types
 
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
-    ensure_view_change_by_primary_restart, start_stopped_node
+    ensure_view_change_by_primary_restart
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -12,7 +11,7 @@ from plenum.test.node_catchup.helper import check_ledger_state, \
     waitNodeDataEquality
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.pool_transactions.helper import addNewStewardAndNode, sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test import waits
 from plenum.common.startable import Mode
 

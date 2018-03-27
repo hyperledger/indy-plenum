@@ -1,11 +1,9 @@
 import types
 
-import pytest
-
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+    sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
     ensureElectionsDone

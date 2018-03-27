@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.common.log import getlogger
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 
 from plenum.test.test_node import TestNode, TestViewChanger
 from plenum.test.view_change.helper import ensure_view_change_complete
