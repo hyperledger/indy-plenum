@@ -240,8 +240,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self._cancel(action=self.instance_change_action)
             self.instance_change_rounds = 0
         self.instance_change_action = partial(self.send_instance_change_if_needed,
-                                                  view_no,
-                                                  Suspicions.PRIMARY_DISCONNECTED)
+                                              view_no,
+                                              Suspicions.PRIMARY_DISCONNECTED)
         self._schedule(self.instance_change_action,
                        seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
         self.do_view_change_if_possible(view_no)
