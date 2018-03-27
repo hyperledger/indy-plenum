@@ -68,6 +68,7 @@ Contains dictionary of output log files, each with following options:
 - `pattern`: log line format, can contain the following placeholders:
   - `<timestamp>`: event timestamp
   - `<node>`: source node identifier
+  - `<replica>`: source replica identifier
   - `<level>`: log level (DEBUG, INFO, WARNING, etc)
   - `<source>`: source file which emitted message
   - `<func>`: function which emitted message
@@ -132,6 +133,11 @@ matches message if any of its sub-matchers matches message.
   ```yaml
   - message: cannot send COMMIT since does not have prepare quorum for PREPARE
   ```
+- `replica`: checks if message is from given replica, which could be a number 
+  or one of special strings:
+  - `node`: message is actually from node, not replica
+  - `master`: message is from master replica or from node
+  - `backup`: message is from any of backup replicas
 - `tag`: checks if message is tagged with specified tag (tagging explained 
   later in *chains* section), for example:
   ```yaml
