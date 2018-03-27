@@ -34,7 +34,7 @@ outputs:
       filename: view_change.log                   # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
     view_change_start_done:                       # View change start/done log sink
-      filename: view_change_sd.log                # Filename where to put messages
+      filename: view_change_sd_<replica>.log      # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
 
   timelogs:                                       # List of timelog
