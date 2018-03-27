@@ -435,40 +435,31 @@ class OutputLogFile:
 
 class OutputLog:
     def __init__(self, config):
-        self.filename = parse_format_string(config["filename"])
-        self.pattern = parse_format_string(config["pattern"])
-        self.merge_nodes = config["merge_nodes"]
-        self.merged_log = OutputLogFile(self.filename)
-        self.nodes = {}
+        self.filename = parse_format_string(config.get("filename", "output.log"))
+        self.pattern = parse_format_string(
+            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <message>"))
+        self.log_files = {}
 
     def add_message(self, message):
         line = self.pattern.format(**vars(message), **message.attributes)
-        if self.merge_nodes:
-            self.merged_log.append(message.timestamp, line)
-        else:
-            self._node(message.node).append(message.timestamp, line)
+        filename = self.filename.format(node=message.node, replica=message.replica)
+        self._log_file(filename).append(message.timestamp, line)
 
     def merge(self, other):
-        if self.merge_nodes:
-            self.merged_log.merge(other.merged_log)
-        else:
-            for name, node in other.nodes.items():
-                self._node(name).merge(node)
+        for filename, log_file in other.log_files.items():
+            self._log_file(filename).merge(log_file)
 
     def dump(self):
-        if self.merge_nodes:
-            self.merged_log.dump()
-        else:
-            for node in self.nodes.values():
-                node.dump()
+        for file in self.log_files.values():
+            file.dump()
 
-    def _node(self, node):
+    def _log_file(self, filename):
         try:
-            return self.nodes[node]
+            return self.log_files[filename]
         except KeyError:
-            result = OutputLogFile(self.filename.format(node=node))
-            self.nodes[node] = result
-            return result
+            log_file = OutputLogFile(filename)
+            self.log_files[filename] = log_file
+            return log_file
 
 
 ###########################################################################################

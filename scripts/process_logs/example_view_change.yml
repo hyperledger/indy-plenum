@@ -31,11 +31,9 @@ outputs:
     view_change:                                  # View change log sink
       filename: view_change.log                   # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
     view_change_start_done:                       # View change start/done log sink
       filename: view_change_sd.log                # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
 
   timelogs:                                       # List of timelog
     view_change:                                  # View changes timelog

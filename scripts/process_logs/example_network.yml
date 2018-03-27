@@ -35,7 +35,6 @@ outputs:
     network:                                      # Network log sink
       filename: output.log                        # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
 
   timelogs:                                       # List of timelog
     general:                                      # General timelog
