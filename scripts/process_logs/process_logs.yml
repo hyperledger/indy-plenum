@@ -159,17 +159,17 @@ chains:
   - match: [message_sending]
   - tag:
       pattern: sending message (\w+)
-      tags: [MESSAGE, SEND]
       attributes:
-        message_type: 1
+        message: send
+        message_type: group 1
 
   tag_message_inbox:
   - match: [message_inbox]
   - tag:
       pattern: appending to nodeInbox (\w+)
-      tags: [MESSAGE, INBOX]
       attributes:
-        message_type: 1
+        message: inbox
+        message_type: group 1
 
 
 #########################################################################

@@ -11,25 +11,25 @@ chains:                                           # List of processing chains
   main:                                           # Main processing chain
   - match: [replica: master]
   - track_requests:
-  - match: [tag: REQUEST]
+  - match: request
   - log line: output
   - stat_received:
   - stat_already_processed:
   - stat_ordered:
 
   stat_received:
-  - match: [tag: RECEIVED]
+  - match: [request: received]
   - log count: { stats: received }
   - log time: { stats: received }
   - drop:
 
   stat_already_processed:
-  - match: [tag: ALREADY_PROCESSED]
+  - match: [request: already_processed]
   - log count: { stats: already_processed }
   - drop:
 
   stat_ordered:
-  - match: [tag: ORDERED]
+  - match: [request: ordered]
   - log count: { stats: ordered }
   - log time: { stats: ordered }
   - drop:
@@ -47,5 +47,4 @@ outputs:
 
   counters:
     stats:
-      format: |
-        <node> requests: <received> received, <already_processed> already_processed, <ordered> ordered
+      format: "<node> requests: <received>/<ordered> received/ordered, <already_processed> already_processed"
