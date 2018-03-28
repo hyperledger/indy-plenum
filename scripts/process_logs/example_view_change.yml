@@ -9,7 +9,9 @@ input_logs:                                       # List of input logs
 
 chains:                                           # List of processing chains
   main:                                           # Main processing chain
-  - match or drop: [view_change_event]            # Drop everything except view change messages
+  - match all or drop:                            # Drop unless message...
+    - replica: master                             # ...is from node or master replica...
+    - view_change_event:                          # ...and is related to view change
   - log line: view_change                         # Save message to view_change log sink
   - log_view_change_start:                        # Call chain log_view_change_start
   - log_view_change_done:                         # Call chain log_view_change_done
@@ -31,11 +33,9 @@ outputs:
     view_change:                                  # View change log sink
       filename: view_change.log                   # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
     view_change_start_done:                       # View change start/done log sink
-      filename: view_change_sd.log                # Filename where to put messages
+      filename: view_change_sd_<replica>.log      # Filename where to put messages
       pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
 
   timelogs:                                       # List of timelog
     view_change:                                  # View changes timelog

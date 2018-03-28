@@ -79,11 +79,14 @@ def input_logs():
 # Log message
 ###########################################################################################
 
+REPLICA_NONE="-"
+
 class LogMessage:
-    def __init__(self, message, node=None, timestamp=None, level=None, source=None, func=None):
+    def __init__(self, message, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
         self.message = message
         self.timestamp = timestamp
         self.node = node
+        self.replica = replica
         self.level = level
         self.source = source
         self.func = func
@@ -95,6 +98,9 @@ class LogMessage:
 
     def set_attribute(self, name, value):
         self.attributes[name] = value
+
+
+_replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
 
 
 def _parse_messages(f, node):
@@ -112,7 +118,13 @@ def _parse_messages(f, node):
                                  minute=int(tokens[0][14:16]),
                                  second=int(tokens[0][17:19]),
                                  microsecond=int(tokens[0][20:23]) * 1000)
-            yield LogMessage(tokens[4], node, timestamp, tokens[1], tokens[2], tokens[3])
+            message = tokens[4]
+            replica = REPLICA_NONE
+            if message.startswith("REPLICA:"):
+                m = _replica_matcher(message)
+                replica = int(m.group(2))
+                message = message[m.end():]
+            yield LogMessage(message, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
 
 
 def messages_in_log(log):
@@ -203,6 +215,16 @@ def match_message(pattern):
     return match
 
 
+def match_replica(replica):
+    if replica == "node":
+        return lambda message: message.replica == REPLICA_NONE
+    if replica == "master":
+        return lambda message: message.replica in [REPLICA_NONE, 0]
+    if replica == "backup":
+        return lambda message: message.replica not in [REPLICA_NONE, 0]
+    return lambda message: message.replica == replica
+
+
 def match_tag(tag):
     return lambda message: tag in message.tags
 
@@ -230,6 +252,8 @@ def _create_matcher(config):
         return match_func(params)
     if name == "message":
         return match_message(params)
+    if name == "replica":
+        return match_replica(params)
     if name == "tag":
         return match_tag(params)
     if name == "attribute":
@@ -413,40 +437,32 @@ class OutputLogFile:
 
 class OutputLog:
     def __init__(self, config):
-        self.filename = parse_format_string(config["filename"])
-        self.pattern = parse_format_string(config["pattern"])
-        self.merge_nodes = config["merge_nodes"]
-        self.merged_log = OutputLogFile(self.filename)
-        self.nodes = {}
+        self.filename = parse_format_string(config.get("filename", "output.log"))
+        self.pattern = parse_format_string(
+            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <message>"))
+        self.log_files = {}
 
     def add_message(self, message):
         line = self.pattern.format(**vars(message), **message.attributes)
-        if self.merge_nodes:
-            self.merged_log.append(message.timestamp, line)
-        else:
-            self._node(message.node).append(message.timestamp, line)
+        filename = self.filename.format(node=message.node,
+                                        replica=message.replica if message.replica != REPLICA_NONE else 0)
+        self._log_file(filename).append(message.timestamp, line)
 
     def merge(self, other):
-        if self.merge_nodes:
-            self.merged_log.merge(other.merged_log)
-        else:
-            for name, node in other.nodes.items():
-                self._node(name).merge(node)
+        for filename, log_file in other.log_files.items():
+            self._log_file(filename).merge(log_file)
 
     def dump(self):
-        if self.merge_nodes:
-            self.merged_log.dump()
-        else:
-            for node in self.nodes.values():
-                node.dump()
+        for file in self.log_files.values():
+            file.dump()
 
-    def _node(self, node):
+    def _log_file(self, filename):
         try:
-            return self.nodes[node]
+            return self.log_files[filename]
         except KeyError:
-            result = OutputLogFile(self.filename.format(node=node))
-            self.nodes[node] = result
-            return result
+            log_file = OutputLogFile(filename)
+            self.log_files[filename] = log_file
+            return log_file
 
 
 ###########################################################################################
