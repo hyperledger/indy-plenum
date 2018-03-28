@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, re, yaml
+import os, sys, re, gzip, yaml
 from collections import namedtuple
 from datetime import datetime, timedelta
 from string import Formatter
@@ -133,7 +133,10 @@ def _parse_messages(f, node):
 
 def messages_in_log(log):
     print("Processing {}...".format(log.filename))
-    with open(log.filename, "r") as f:
+    open_fn = open
+    if log.filename.endswith(".gz"):
+        open_fn = gzip.open
+    with open_fn(log.filename, "rt") as f:
         if log.rule["only_timestamped"]:
             for message in _parse_messages(f, log.node):
                 if message.timestamp is not None:
