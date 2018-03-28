@@ -18,8 +18,8 @@ def test_primary_selection_non_genesis_node(sdk_one_node_added, looper,
                                             txnPoolNodeSet, sdk_pool_handle,
                                             sdk_wallet_steward):
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_pool_handle,
-                               sdk_wallet_steward)
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
 
 
 @pytest.fixture(scope='module')
