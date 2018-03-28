@@ -173,33 +173,6 @@ chains:
 
 
 #########################################################################
-# Request taggers
-#########################################################################
-
-  tag_requests:
-  - tag_received_requests:
-  - tag_already_processed_requests:
-  - tag_ordered_requests:
-
-  tag_received_requests:
-  - match: [message: received client request]
-  - tag: {tags: [REQUEST, RECEIVED]}
-  - tag:
-      pattern: "'reqId': (\\d+)"
-      attributes: {reqId: 1}
-
-  tag_already_processed_requests:
-  - match: [message: returning REPLY from already processed REQUEST]
-  - tag: {tags: [REQUEST, ALREADY_PROCESSED]}
-  - tag:
-      pattern: "'reqId': (\\d+)"
-      attributes: {reqId: 1}
-
-  tag_ordered_requests:
-  - match: [message: ordered batch request]
-  - tag: {tags: [REQUEST, ORDERED]}
-
-#########################################################################
 # To be done filters
 #########################################################################
 

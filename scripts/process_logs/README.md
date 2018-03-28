@@ -71,6 +71,7 @@ Contains dictionary of output log files, each with following options:
   - `<level>`: log level (DEBUG, INFO, WARNING, etc)
   - `<source>`: source file which emitted message
   - `<func>`: function which emitted message
+  - `<body>`: message body
   - `<user attr>`: any user-defined attribute, explained later in 
     *chains* section 
 

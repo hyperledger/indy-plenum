@@ -34,7 +34,7 @@ outputs:
   logs:                                           # List of output log sinks
     network:                                      # Network log sink
       filename: output.log                        # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
+      pattern: <timestamp> | <node> | <body>      # Message format
 
   timelogs:                                       # List of timelog
     general:                                      # General timelog
