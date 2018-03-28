@@ -11,7 +11,7 @@ from plenum.test.node_catchup.helper import check_ledger_state, \
     waitNodeDataEquality
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test import waits
 from plenum.common.startable import Mode
 
@@ -53,6 +53,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
     waitNodeDataEquality(looper, new_node, *nodes[:-1],
                          customTimeout=timeout)
+    sdk_pool_refresh(looper, sdk_pool_handle)
     return new_node
 
 

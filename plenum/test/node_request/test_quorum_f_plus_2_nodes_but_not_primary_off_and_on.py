@@ -10,6 +10,8 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
 
+# TODO: restore previous value (200) after sdk will
+# have api call to change its timeout
 TestRunningTimeLimitSec = 400
 
 nodeCount = 5
