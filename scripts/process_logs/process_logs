@@ -91,14 +91,16 @@ class LogMessage:
         self.level = level
         self.source = source
         self.func = func
-        self.tags = set()
         self.attributes = {}
 
-    def set_tag(self, name):
-        self.tags.add(name)
-
-    def set_attribute(self, name, value):
-        self.attributes[name] = value
+    def set_attribute(self, name, value=None):
+        if value:
+            try:
+                self.attributes[name].add(value)
+            except KeyError:
+                self.attributes[name] = set([value])
+        else:
+            self.attributes.setdefault(name, set())
 
 
 _replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
@@ -226,16 +228,14 @@ def match_replica(replica):
     return lambda message: message.replica == replica
 
 
-def match_tag(tag):
-    return lambda message: tag in message.tags
-
-
 def match_attribute(params):
     name, value = kv_from_item(params)
+    if value is None:
+        return lambda message: name in message.attributes
 
     def match(message):
         try:
-            return message.attributes[name] == value
+            return value in message.attributes[name]
         except KeyError:
             return False
 
@@ -255,10 +255,6 @@ def _create_matcher(config):
         return match_message(params)
     if name == "replica":
         return match_replica(params)
-    if name == "tag":
-        return match_tag(params)
-    if name == "attribute":
-        return match_attribute(params)
     if name == "any":
         matchers = [_create_matcher(p) for p in params]
         return lambda message: any(m(message) for m in matchers)
@@ -266,12 +262,11 @@ def _create_matcher(config):
         matchers = [_create_matcher(p) for p in params]
         return lambda message: all(m(message) for m in matchers)
 
-    try:
-        params = global_config["matchers"][name]
+    params = global_config["matchers"].get(name)
+    if params is not None:
         return _create_matcher({"any": params})
-    except KeyError:
-        print("WARNING: Unknown matcher", name)
-        return lambda m: True
+
+    return match_attribute(config)
 
 
 ###########################################################################################
@@ -321,17 +316,20 @@ def rule_timeshift(params):
 
 def rule_tag(params):
     match = re.compile(params.get("pattern", "")).search
-    tags = params.get("tags", [])
     attributes = params.get("attributes", {})
 
     def process(message, output):
         m = match(message.body)
         if m is None:
             return
-        for tag in tags:
-            message.set_tag(tag)
-        for name, idx in attributes.items():
-            message.set_attribute(name, m.group(idx))
+        for name, value in attributes.items():
+            if value is None:
+                message.set_attribute(name)
+                return
+            if isinstance(value, str) and value.startswith("group "):
+                message.set_attribute(name, m.group(int(value[6:])))
+                return
+            message.set_attribute(name, value)
 
     return process
 
@@ -632,13 +630,30 @@ class LogCounter:
 # Request tracking facilities
 ###########################################################################################
 
+def _merge_timestamps(self, other):
+    if not self:
+        return other
+    if not other:
+        return self
+    return min(self, other)
+
+
 class RequestData:
     def __init__(self):
+        self.received = None
+        self.ordered = None
+
+    def merge(self, other):
+        self.received = _merge_timestamps(self.received, other.received)
+        self.ordered = _merge_timestamps(self.ordered, other.ordered)
+
+    def dump(self):
         pass
 
 
 class NodeRequestData:
     def __init__(self):
+        self.requests = {}
         self._match_req_id = re.compile("'reqId': (\d+)").search
         self._pattern_req_list = "(\[(?:\('\w+', \d+\)(?:, )?)*\])"
         self._match_ordered_req_list = re.compile("requests ordered {}".format(self._pattern_req_list)).search
@@ -651,10 +666,19 @@ class NodeRequestData:
         self._check_batch_ordered(message)
 
     def merge(self, other):
-        pass
+        for name, request in other.requests:
+            self._request(name).merge(request)
 
     def dump(self):
         pass
+
+    def _request(self, name):
+        try:
+            return self.requests[name]
+        except:
+            request = RequestData()
+            self.requests[name] = request
+            return request
 
     def _try_add_req_id(self, message):
         if "'reqId':" not in message.body:
@@ -666,20 +690,17 @@ class NodeRequestData:
     def _check_received(self, message):
         if "received client request" not in message.body:
             return
-        message.set_tag("REQUEST")
-        message.set_tag("RECEIVED")
+        message.set_attribute("request", "received")
 
     def _check_already_processed(self, message):
         if "returning REPLY from already processed REQUEST" not in message.body:
             return
-        message.set_tag("REQUEST")
-        message.set_tag("ALREADY_PROCESSED")
+        message.set_attribute("request", "already_processed")
 
     def _check_batch_ordered(self, message):
         if "ordered batch request" not in message.body:
             return
-        message.set_tag("REQUEST")
-        message.set_tag("ORDERED")
+        message.set_attribute("request", "ordered")
         # ordered = self._match_ordered_req_list(message.body)
 
 
