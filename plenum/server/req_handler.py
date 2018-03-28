@@ -60,4 +60,5 @@ class RequestHandler:
     #
     @property
     def valid_txn_types(self) -> set:
-        return self.write_types.union(self.query_types)
+        return self.write_types.union(self.query_types)\
+            .union(self.action_types)

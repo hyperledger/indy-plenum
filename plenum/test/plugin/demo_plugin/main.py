@@ -25,6 +25,4 @@ def integrate_plugin_in_node(node):
     node.register_state(AUCTION_LEDGER_ID, state)
     auction_authnr = AuctionAuthNr(node.states[DOMAIN_LEDGER_ID])
     node.clientAuthNr.register_authenticator(auction_authnr)
-    auction_req_handler = AuctionReqHandler(ledger, state)
-    node.register_req_handler(auction_req_handler, AUCTION_LEDGER_ID)
     return node

@@ -219,19 +219,6 @@ class Reply(MessageBase):
     )
 
 
-class ActionResult(MessageBase):
-    typename = ACTION_RESULT
-    schema = (
-        (f.IDENTIFIER.nm, AnyValueField()),
-        (f.REQ_ID.nm, AnyValueField()),
-        (f.SIG.nm, AnyValueField()),
-        (f.OPERATION.nm, AnyValueField()),
-        (f.PROTOCOL_VERSION.nm, AnyValueField()),
-        (f.IS_SUCCESS.nm, AnyValueField()),
-        (f.MSG.nm, AnyValueField(optional=True, nullable=True))
-    )
-
-
 class InstanceChange(MessageBase):
     typename = INSTANCE_CHANGE
     schema = (
