@@ -4,6 +4,7 @@ import os, sys, re, yaml
 from collections import namedtuple
 from datetime import datetime, timedelta
 from string import Formatter
+from ast import literal_eval
 from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
@@ -235,7 +236,7 @@ def match_attribute(params):
 
     def match(message):
         try:
-            return value in message.attributes[name]
+            return str(value) in message.attributes[name]
         except KeyError:
             return False
 
@@ -643,34 +644,62 @@ class RequestData:
         self.received = None
         self.ordered = None
 
+    def set_received(self, timestamp):
+        self.received = _merge_timestamps(self.received, timestamp)
+
+    def set_ordered(self, timestamp):
+        self.ordered = _merge_timestamps(self.ordered, timestamp)
+
+    @property
+    def is_received(self):
+        return self.received is not None
+
+    @property
+    def is_ordered(self):
+        return self.ordered is not None
+
+    @property
+    def time_to_order(self):
+        return self.ordered - self.received
+
     def merge(self, other):
         self.received = _merge_timestamps(self.received, other.received)
         self.ordered = _merge_timestamps(self.ordered, other.ordered)
-
-    def dump(self):
-        pass
 
 
 class NodeRequestData:
     def __init__(self):
         self.requests = {}
         self._match_req_id = re.compile("'reqId': (\d+)").search
-        self._pattern_req_list = "(\[(?:\('\w+', \d+\)(?:, )?)*\])"
-        self._match_ordered_req_list = re.compile("requests ordered {}".format(self._pattern_req_list)).search
-        self._match_discarded_req_list = re.compile("discarded {}".format(self._pattern_req_list)).search
+        self._pattern_req_list = "\[(?:\('\w+', \d+\)(?:, )?)*\]"
+        self._match_ordered_req_list = re.compile("requests ordered ({})".format(self._pattern_req_list)).search
+        self._match_discarded_req_list = re.compile("discarded ({})".format(self._pattern_req_list)).search
 
     def process_message(self, message):
-        self._try_add_req_id(message)
-        self._check_received(message)
-        self._check_already_processed(message)
-        self._check_batch_ordered(message)
+        self._set_attributes(message)
+        if self._check_received(message):
+            return
+        if self._check_already_processed(message):
+            return
+        if self._check_batch_ordered(message):
+            return
 
     def merge(self, other):
-        for name, request in other.requests:
+        for name, request in other.requests.items():
             self._request(name).merge(request)
 
-    def dump(self):
-        pass
+    def dump(self, name):
+        received = set(id for id, req in self.requests.items() if req.is_received)
+        ordered = set(id for id, req in self.requests.items() if req.is_ordered)
+        time_to_order = [self.requests[id].time_to_order.total_seconds() for id in received & ordered]
+        if time_to_order:
+            print("{}: {}/{} received/ordered, {}/{}/{} min/avg/max seconds to process".format(
+                name, len(self.requests), len(ordered),
+                round(min(time_to_order), 2),
+                round(sum(time_to_order) / len(time_to_order), 2),
+                round(max(time_to_order), 2)))
+        else:
+            print("{}: {}/{} received/ordered".format(name, len(self.requests), len(ordered)))
 
     def _request(self, name):
         try:
@@ -680,28 +709,42 @@ class NodeRequestData:
             self.requests[name] = request
             return request
 
-    def _try_add_req_id(self, message):
+    def _parse_reqId(self, message):
         if "'reqId':" not in message.body:
             return
         m = self._match_req_id(message.body)
         if not m: return
-        message.set_attribute("reqId", m.group(1))
+        return m.group(1)
+
+    def _set_attributes(self, message):
+        reqId = self._parse_reqId(message)
+        if reqId: message.set_attribute("reqId", reqId)
 
     def _check_received(self, message):
         if "received client request" not in message.body:
             return
         message.set_attribute("request", "received")
+        reqId = self._parse_reqId(message)
+        self._request(reqId).set_received(message.timestamp)
+        return True
 
     def _check_already_processed(self, message):
         if "returning REPLY from already processed REQUEST" not in message.body:
             return
         message.set_attribute("request", "already_processed")
+        return True
 
     def _check_batch_ordered(self, message):
         if "ordered batch request" not in message.body:
             return
         message.set_attribute("request", "ordered")
-        # ordered = self._match_ordered_req_list(message.body)
+        ordered = self._match_ordered_req_list(message.body)
+        ordered = literal_eval(ordered.group(1))
+        for _, reqId in ordered:
+            reqId = str(reqId)
+            message.set_attribute("reqId", reqId)
+            self._request(reqId).set_ordered(message.timestamp)
+        return True
 
 
 class AllRequestData:
@@ -716,7 +759,11 @@ class AllRequestData:
             self._node(name).merge(node)
 
     def dump(self):
-        pass
+        if not self.nodes:
+            return
+        print("Requests statistics:")
+        for name, node in self.nodes.items():
+            node.dump(name)
 
     def _node(self, node):
         try:
