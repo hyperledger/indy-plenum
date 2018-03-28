@@ -10,6 +10,17 @@ from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
 
 
+BIG_NUM_OF_MSGS = 100000
+
+
+@pytest.fixture()
+def tconf(tconf):
+    old_num = tconf.ZMQ_INTERNAL_QUEUE_SIZE
+    tconf.ZMQ_INTERNAL_QUEUE_SIZE = BIG_NUM_OF_MSGS
+    yield tconf
+    tconf.ZMQ_INTERNAL_QUEUE_SIZE = old_num
+
+
 def testMessageQuota(set_info_log_level, tdir, looper):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
@@ -38,7 +49,7 @@ def testMessageQuota(set_info_log_level, tdir, looper):
                           timeout=5))
 
 
-def testManyMessages(set_info_log_level, tdir, looper):
+def testManyMessages(set_info_log_level, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
     alphaP = Printer(names[0])
@@ -58,7 +69,7 @@ def testManyMessages(set_info_log_level, tdir, looper):
 
     looper.runFor(1)
 
-    msgNum = 100000
+    msgNum = BIG_NUM_OF_MSGS
     msgSender = MessageSender(msgNum, alpha, beta.name)
     looper.add(msgSender)
 
