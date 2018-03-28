@@ -1,6 +1,6 @@
 from typing import Sequence, List
 
-from plenum.server.pool_manager import RegistryPoolManager, TxnPoolManager
+from plenum.server.pool_manager import TxnPoolManager
 from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 
 
@@ -22,9 +22,7 @@ def check_rank_consistent_across_each_node(nodes):
                     ork) == name_by_ranks[ork]
     order = []
     for node in nodes:
-        if isinstance(node.poolManager, RegistryPoolManager):
-            order.append(node.poolManager.node_names_ordered_by_rank())
-        elif isinstance(node.poolManager, TxnPoolManager):
+        if isinstance(node.poolManager, TxnPoolManager):
             order.append(node.poolManager.node_ids_ordered_by_rank())
         else:
             RuntimeError('Dont know this pool manager {}'.
