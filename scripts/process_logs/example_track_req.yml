@@ -14,23 +14,15 @@ chains:                                           # List of processing chains
   - match: request
   - log line: output
   - stat_received:
-  - stat_already_processed:
   - stat_ordered:
 
   stat_received:
   - match: [request: received]
-  - log count: { stats: received }
   - log time: { stats: received }
-  - drop:
-
-  stat_already_processed:
-  - match: [request: already_processed]
-  - log count: { stats: already_processed }
   - drop:
 
   stat_ordered:
   - match: [request: ordered]
-  - log count: { stats: ordered }
   - log time: { stats: ordered }
   - drop:
 
@@ -44,7 +36,3 @@ outputs:
       graphs:
         received: blue
         ordered: green
-
-  counters:
-    stats:
-      format: "<node> requests: <received>/<ordered> received/ordered, <already_processed> already_processed"
