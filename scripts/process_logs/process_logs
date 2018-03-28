@@ -79,11 +79,12 @@ def input_logs():
 # Log message
 ###########################################################################################
 
-REPLICA_NONE="-"
+REPLICA_NONE = "-"
+
 
 class LogMessage:
-    def __init__(self, message, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
-        self.message = message
+    def __init__(self, body, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
+        self.body = body
         self.timestamp = timestamp
         self.node = node
         self.replica = replica
@@ -118,13 +119,13 @@ def _parse_messages(f, node):
                                  minute=int(tokens[0][14:16]),
                                  second=int(tokens[0][17:19]),
                                  microsecond=int(tokens[0][20:23]) * 1000)
-            message = tokens[4]
+            body = tokens[4]
             replica = REPLICA_NONE
-            if message.startswith("REPLICA:"):
-                m = _replica_matcher(message)
+            if body.startswith("REPLICA:"):
+                m = _replica_matcher(body)
                 replica = int(m.group(2))
-                message = message[m.end():]
-            yield LogMessage(message, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
+                body = body[m.end():]
+            yield LogMessage(body, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
 
 
 def messages_in_log(log):
@@ -210,7 +211,7 @@ def match_message(pattern):
     m = re.compile(pattern).search
 
     def match(message):
-        return m(message.message) is not None
+        return m(message.body) is not None
 
     return match
 
@@ -286,6 +287,8 @@ def rule_process(chain):
 
 
 def rule_match(operation, condition, action, config):
+    if isinstance(config, str):
+        config = [config]
     matchers = [_create_matcher(matcher) for matcher in config]
 
     if operation == "all":
@@ -322,7 +325,7 @@ def rule_tag(params):
     attributes = params.get("attributes", {})
 
     def process(message, output):
-        m = match(message.message)
+        m = match(message.body)
         if m is None:
             return
         for tag in tags:
@@ -360,6 +363,10 @@ def rule_log_count(target):
     return process
 
 
+def track_requests(message, output):
+    output.requests.process_message(message)
+
+
 def _create_rule(config):
     name, params = kv_from_item(config)
 
@@ -380,6 +387,8 @@ def _create_rule(config):
         return rule_log_line(params)
     if name == "log count":
         return rule_log_count(params)
+    if name == "track_requests":
+        return track_requests
 
     return rule_process(name)
 
@@ -439,7 +448,7 @@ class OutputLog:
     def __init__(self, config):
         self.filename = parse_format_string(config.get("filename", "output.log"))
         self.pattern = parse_format_string(
-            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <message>"))
+            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <body>"))
         self.log_files = {}
 
     def add_message(self, message):
@@ -620,6 +629,84 @@ class LogCounter:
 
 
 ###########################################################################################
+# Request tracking facilities
+###########################################################################################
+
+class RequestData:
+    def __init__(self):
+        pass
+
+
+class NodeRequestData:
+    def __init__(self):
+        self._match_req_id = re.compile("'reqId': (\d+)").search
+        self._pattern_req_list = "(\[(?:\('\w+', \d+\)(?:, )?)*\])"
+        self._match_ordered_req_list = re.compile("requests ordered {}".format(self._pattern_req_list)).search
+        self._match_discarded_req_list = re.compile("discarded {}".format(self._pattern_req_list)).search
+
+    def process_message(self, message):
+        self._try_add_req_id(message)
+        self._check_received(message)
+        self._check_already_processed(message)
+        self._check_batch_ordered(message)
+
+    def merge(self, other):
+        pass
+
+    def dump(self):
+        pass
+
+    def _try_add_req_id(self, message):
+        if "'reqId':" not in message.body:
+            return
+        m = self._match_req_id(message.body)
+        if not m: return
+        message.set_attribute("reqId", m.group(1))
+
+    def _check_received(self, message):
+        if "received client request" not in message.body:
+            return
+        message.set_tag("REQUEST")
+        message.set_tag("RECEIVED")
+
+    def _check_already_processed(self, message):
+        if "returning REPLY from already processed REQUEST" not in message.body:
+            return
+        message.set_tag("REQUEST")
+        message.set_tag("ALREADY_PROCESSED")
+
+    def _check_batch_ordered(self, message):
+        if "ordered batch request" not in message.body:
+            return
+        message.set_tag("REQUEST")
+        message.set_tag("ORDERED")
+        # ordered = self._match_ordered_req_list(message.body)
+
+
+class AllRequestData:
+    def __init__(self):
+        self.nodes = {}
+
+    def process_message(self, message):
+        self._node(message.node).process_message(message)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self):
+        pass
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            node_data = NodeRequestData()
+            self.nodes[node] = node_data
+            return node_data
+
+
+###########################################################################################
 # Output data
 ###########################################################################################
 
@@ -629,6 +716,7 @@ class OutputData:
         self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
         self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
         self.counters = {name: LogCounter(params) for name, params in config.get("counters", {}).items()}
+        self.requests = AllRequestData()
 
     def merge(self, other):
         for name in set(self.logs) & set(other.logs):
@@ -637,8 +725,10 @@ class OutputData:
             self.timelogs[name].merge(other.timelogs[name])
         for name in set(self.counters) & set(other.counters):
             self.counters[name].merge(other.counters[name])
+        self.requests.merge(other.requests)
 
     def dump(self):
+        self.requests.dump()
         for log in self.logs.values():
             log.dump()
         for name, timelog in self.timelogs.items():

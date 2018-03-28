@@ -10,7 +10,7 @@ input_logs:                                       # List of input logs
 chains:                                           # List of processing chains
   main:                                           # Main processing chain
   - match: [replica: master]
-  - tag_requests:
+  - track_requests:
   - match: [tag: REQUEST]
   - log line: output
   - stat_received:
