@@ -2,23 +2,12 @@ import json
 
 import pytest
 from stp_core.loop.eventually import eventually
-
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, prepStacks, CollectingMsgsHandler, CounterMsgsHandler, MessageSender
 from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
-
-
-BIG_NUM_OF_MSGS = 100000
-
-
-@pytest.fixture()
-def tconf(tconf):
-    old_num = tconf.ZMQ_INTERNAL_QUEUE_SIZE
-    tconf.ZMQ_INTERNAL_QUEUE_SIZE = BIG_NUM_OF_MSGS
-    yield tconf
-    tconf.ZMQ_INTERNAL_QUEUE_SIZE = old_num
+from stp_zmq.test.conftest import BIG_NUM_OF_MSGS
 
 
 def testMessageQuota(set_info_log_level, tdir, looper):
