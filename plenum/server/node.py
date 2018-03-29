@@ -2567,7 +2567,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
-        logger.debug('{} going to commit and send replies to client'.format(self))
+        logger.trace('{} going to commit and send replies to client'.format(self))
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
         self.updateSeqNoMap(committedTxns)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
