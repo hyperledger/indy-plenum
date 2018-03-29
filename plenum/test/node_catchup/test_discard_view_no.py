@@ -15,16 +15,17 @@ whitelist = ['found legacy entry']  # warnings
 
 
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
-                                          nodeSetWithNodeAddedAfterSomeTxns,
-                                          newNodeCaughtUp,
-                                          allPluginsPath):
+                                          sdk_node_set_with_node_added_after_some_txns,
+                                          sdk_new_node_caught_up,
+                                          allPluginsPath, wallet1):
     """
     Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)
     :return:
     """
-    looper, nodeX, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    viewNo = nodeX.viewNo
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_set_with_node_added_after_some_txns
+    viewNo = new_node.viewNo
 
     # Force two view changes: node discards msgs which have viewNo
     # at least two less than node's. Current protocol implementation
@@ -32,11 +33,11 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # from the current view.
     for i in range(2):
         ensure_view_change(looper, txnPoolNodeSet)
-        waitNodeDataEquality(looper, nodeX, *txnPoolNodeSet[:-1])
+        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
         checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
     sender = txnPoolNodeSet[0]
-    rid_x_node = sender.nodestack.getRemote(nodeX.name).uid
+    rid_x_node = sender.nodestack.getRemote(new_node.name).uid
     messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
 
     # 3 pc msg (PrePrepare) needs to be discarded
@@ -46,7 +47,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
         viewNo,
         10,
         get_utc_epoch(),
-        [[wallet.defaultId, Request.gen_req_id()]],
+        [[wallet1.defaultId, Request.gen_req_id()]],
         1,
         "random digest",
         DOMAIN_LEDGER_ID,
@@ -54,7 +55,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
         primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
     )
     sender.send(three_pc, rid_x_node)
-    looper.run(eventually(checkDiscardMsg, [nodeX, ], three_pc,
+    looper.run(eventually(checkDiscardMsg, [new_node, ], three_pc,
                           'un-acceptable viewNo',
                           retryWait=1, timeout=messageTimeout))
 

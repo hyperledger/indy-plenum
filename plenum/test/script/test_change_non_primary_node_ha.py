@@ -1,6 +1,5 @@
 import pytest
 
-from plenum.test.script.helper import looper
 from stp_core.common.log import getlogger
 from plenum.test.script.helper import changeNodeHa
 
@@ -14,12 +13,13 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
 def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
-                                  poolTxnData, poolTxnStewardNames, tconf, tdir):
+                                  poolTxnData, poolTxnStewardNames, tconf, tdir,
+                                  sdk_pool_handle, sdk_wallet_stewards):
     changeNodeHa(looper,
                  txnPoolNodeSet,
                  tdirWithClientPoolTxns,
-                 poolTxnData,
-                 poolTxnStewardNames,
                  tconf,
                  shouldBePrimary=False,
-                 tdir=tdir)
+                 tdir=tdir,
+                 sdk_pool_handle=sdk_pool_handle,
+                 sdk_wallet_stewards=sdk_wallet_stewards)

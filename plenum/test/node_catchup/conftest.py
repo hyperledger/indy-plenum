@@ -4,12 +4,11 @@ from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
-    addNewStewardAndNode, buildPoolClientAndWallet
-from plenum.test.test_client import TestClient
+    sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.test_node import checkNodesConnected
 
 
@@ -20,57 +19,47 @@ def whitelist():
 logger = getlogger()
 
 
-@pytest.yield_fixture(scope="module")
-def looper(txnPoolNodesLooper):
-    yield txnPoolNodesLooper
-
-
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, testNodeClass, do_post_node_creation,
-                             txnPoolNodeSet, tdir, tdirWithClientPoolTxns,
-                             poolTxnStewardData, tconf, allPluginsPath, request):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithClientPoolTxns,
-                                              clientClass=TestClient)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
+def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(looper,
-                                        wallet,
-                                        client,
-                                        txnCount)
-    newStewardName = randomString()
-    newNodeName = "Epsilon"
-    newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
-        looper, client, wallet, newStewardName, newNodeName,
-        tdir, tdirWithClientPoolTxns, tconf, nodeClass=testNodeClass,
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
         allPluginsPath=allPluginsPath, autoStart=True,
         do_post_node_creation=do_post_node_creation)
-    yield looper, newNode, client, wallet, newStewardClient, \
-          newStewardWallet
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(
-        txnPoolNodeSet, nodeCreatedAfterSomeTxns):
-    looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
-        nodeCreatedAfterSomeTxns
-    txnPoolNodeSet.append(newNode)
+def sdk_node_set_with_node_added_after_some_txns(
+        txnPoolNodeSet, sdk_node_created_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_created_after_some_txns
+    txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.run(newStewardClient.ensureConnectedToNodes())
-    looper.run(client.ensureConnectedToNodes())
-    return looper, newNode, client, wallet, newStewardClient, newStewardWallet
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture("module")
-def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
-    looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
-    check_last_3pc_master(newNode, txnPoolNodeSet[:4])
+def sdk_new_node_caught_up(txnPoolNodeSet,
+                           sdk_node_set_with_node_added_after_some_txns):
+    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    check_last_3pc_master(new_node, txnPoolNodeSet[:4])
 
     # Check if catchup done once
     catchup_done_once = True
-    for li in newNode.ledgerManager.ledgerRegistry.values():
+    for li in new_node.ledgerManager.ledgerRegistry.values():
         catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
 
     if not catchup_done_once:
@@ -80,34 +69,26 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
 
         assert max(
             getAllReturnVals(
-                newNode,
-                newNode.num_txns_caught_up_in_last_catchup)) > 0
+                new_node,
+                new_node.num_txns_caught_up_in_last_catchup)) > 0
 
-    for li in newNode.ledgerManager.ledgerRegistry.values():
+    for li in new_node.ledgerManager.ledgerRegistry.values():
         assert not li.receivedCatchUpReplies
         assert not li.recvdCatchupRepliesFrm
 
-    return newNode
+    return new_node
 
 
 @pytest.yield_fixture("module")
 def poolAfterSomeTxns(
         looper,
-        txnPoolNodesLooper,
         txnPoolNodeSet,
-        tdirWithClientPoolTxns,
-        poolTxnStewardData,
-        allPluginsPath,
+        sdk_pool_handle,
+        sdk_wallet_client,
         request):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithClientPoolTxns,
-                                              clientClass=TestClient)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
-                                        wallet,
-                                        client,
-                                        txnCount)
-    yield looper, client, wallet
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    yield looper, sdk_pool_handle, sdk_wallet_client

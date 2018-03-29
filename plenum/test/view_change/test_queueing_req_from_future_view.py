@@ -1,17 +1,10 @@
-import pytest
-
-from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.util import getMaxFailures
-from plenum.test import waits
-from plenum.test.delayers import ppDelay, icDelay, vcd_delay
-from plenum.test.helper import sendRandomRequest, \
-    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests, \
-    waitForSufficientRepliesForRequests, \
-    send_reqs_to_nodes_and_verify_all_replies
-from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
-    checkViewChangeInitiatedForNode, get_last_master_non_primary_node
+from plenum.test.delayers import icDelay, vcd_delay
+from plenum.test.helper import sdk_send_random_requests, \
+    sdk_get_replies, sdk_send_random_and_check
+from plenum.test.test_node import get_last_master_non_primary_node
 
 nodeCount = 7
 
@@ -20,7 +13,7 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
-                                  wallet1, client1):
+                                  sdk_pool_handle, sdk_wallet_client):
     """
     Test if every node queues 3 Phase requests(PRE-PREPARE, PREPARE and COMMIT)
     that come from a view which is greater than the current view.
@@ -58,13 +51,13 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
 
     # send more requests that will be queued for the lagged node
     # sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 3)
-    reqs = sendRandomRequests(wallet1, client1, 5)
+    reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                    sdk_wallet_client, 5)
     l = looper.run(eventually(chk_fut_view, old_view_no + 1, False,
                               retryWait=1))
     logger.debug('{} has {} messages for future views'
                  .format(lagging_node, l))
-
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+    sdk_get_replies(looper, reqs)
     # reset delays for the lagging_node node so that it finally makes view
     # change
     lagging_node.reset_delays_and_process_delayeds()
@@ -75,4 +68,5 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     logger.debug('{} exhausted pending messages for future views'
                  .format(lagging_node))
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_client, 2)

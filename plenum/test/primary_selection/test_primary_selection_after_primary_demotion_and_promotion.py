@@ -1,14 +1,16 @@
-from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
-from plenum.test.pool_transactions.helper import updateNodeData
+from plenum.common.util import hexToFriendly
+
+from plenum.common.constants import VALIDATOR
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 
 from plenum.test.test_node import ensureElectionsDone
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
 
 
 def test_primary_selection_after_demoted_primary_node_promotion(
-        looper, txnPoolNodeSet, stewardAndWalletForMasterNode,
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward,
         txnPoolMasterNodes):
     """
     Demote primary of master instance, wait for view change and promote it back.
@@ -23,14 +25,15 @@ def test_primary_selection_after_demoted_primary_node_promotion(
     assert primariesIdxs[1] == 1
 
     master_node = txnPoolMasterNodes[0]
-    client, wallet = stewardAndWalletForMasterNode
 
     # Demote primary of master instance.
-    node_data = {
-        ALIAS: master_node.name,
-        SERVICES: []
-    }
-    updateNodeData(looper, client, wallet, master_node, node_data)
+    node_dest = hexToFriendly(master_node.nodestack.verhex)
+    sdk_send_update_node(looper, sdk_wallet_steward,
+                         sdk_pool_handle,
+                         node_dest, master_node.name,
+                         None, None,
+                         None, None,
+                         services=[])
 
     restNodes = [node for node in txnPoolNodeSet if node.name != master_node.name]
     ensureElectionsDone(looper, restNodes)
@@ -41,17 +44,20 @@ def test_primary_selection_after_demoted_primary_node_promotion(
     assert primariesIdxs[0] == 1
 
     # Ensure pool is working properly.
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 3)
 
     # Promote demoted node back.
-    node_data = {
-        ALIAS: master_node.name,
-        SERVICES: [VALIDATOR]
-    }
-    updateNodeData(looper, client, wallet, master_node, node_data)
+    sdk_send_update_node(looper, sdk_wallet_steward,
+                         sdk_pool_handle,
+                         node_dest, master_node.name,
+                         None, None,
+                         None, None,
+                         services=[VALIDATOR])
 
     # Ensure pool is working properly.
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 3)
 
     # Check that there are two instances again, check their primaries.
     primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)

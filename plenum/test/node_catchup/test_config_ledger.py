@@ -114,11 +114,11 @@ def some_config_txns_done(looper, setup, txnPoolNodeSet, keys,
 
 
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
-                                        txnPoolNodeSet, newNodeCaughtUp):
+                                        txnPoolNodeSet, sdk_new_node_caught_up):
     """
     A new node catches up the config ledger too
     """
-    assert len(newNodeCaughtUp.getLedger(CONFIG_LEDGER_ID)) >= \
+    assert len(sdk_new_node_caught_up.getLedger(CONFIG_LEDGER_ID)) >= \
            len(some_config_txns_done)
 
 
@@ -127,12 +127,12 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
                                                       txnPoolNodeSet,
                                                       sdk_wallet_client,
                                                       sdk_pool_handle,
-                                                      newNodeCaughtUp, keys):
+                                                      sdk_new_node_caught_up, keys):
     """
     A node gets disconnected, a few config ledger txns happen,
     the disconnected node comes back up and catches up the config ledger
     """
-    new_node = newNodeCaughtUp
+    new_node = sdk_new_node_caught_up
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)
 
