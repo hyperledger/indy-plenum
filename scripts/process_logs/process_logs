@@ -645,7 +645,8 @@ def _merge_timestamps(self, other):
 
 
 class RequestData:
-    def __init__(self):
+    def __init__(self, id):
+        self.id = id
         self.received = None
         self.ordered = None
 
@@ -694,24 +695,25 @@ class NodeRequestData:
             self._request(name).merge(request)
 
     def dump(self, name):
-        received = set(id for id, req in self.requests.items() if req.is_received)
-        ordered = set(id for id, req in self.requests.items() if req.is_ordered)
-        time_to_order = [self.requests[id].time_to_order.total_seconds() for id in received & ordered]
-        if time_to_order:
-            print("{}: {}/{} received/ordered, {}/{}/{} min/avg/max seconds to process".format(
-                name, len(self.requests), len(ordered),
-                round(min(time_to_order), 2),
-                round(sum(time_to_order) / len(time_to_order), 2),
-                round(max(time_to_order), 2)))
-        else:
-            print("{}: {}/{} received/ordered".format(name, len(self.requests), len(ordered)))
+        received = set(req.id for req in self.requests.values() if req.is_received)
+        ordered = set(req.id for req in self.requests.values() if req.is_ordered)
+        interesting = received & ordered
+        time_to_order = [self.requests[id].time_to_order.total_seconds() for id in interesting]
+        time_to_order = [delta for delta in time_to_order if delta > 0]
+        lagging = [id for id in interesting if self.requests[id].time_to_order.total_seconds() > 60]
+        stats_string = ", {}/{}/{} min/avg/max seconds to process".format(
+            round(min(time_to_order), 2), round(sum(time_to_order) / len(time_to_order), 2),
+            round(max(time_to_order), 2)) if time_to_order else ""
+        lags_string = ", {} lagged for more that a minute".format(lagging) if lagging else ""
+        print("{}: {}/{} received/ordered{}{}".format(
+            name, len(self.requests), len(ordered), stats_string, lags_string))
 
-    def _request(self, name):
+    def _request(self, id):
         try:
-            return self.requests[name]
+            return self.requests[id]
         except:
-            request = RequestData()
-            self.requests[name] = request
+            request = RequestData(id)
+            self.requests[id] = request
             return request
 
     def _parse_reqId(self, message):
@@ -787,8 +789,7 @@ class AllRequestData:
             events.sort()
             dates, values = zip(*events)
 
-            ax.plot_date(dates, values,
-                         marker='.')
+            ax.plot_date(dates, values, marker='.')
             fig.autofmt_xdate()
 
     def _node(self, node):
