@@ -270,12 +270,6 @@ def send_signed_requests(client: Client, signed_reqs: Sequence):
     return client.submitReqs(*signed_reqs)[0]
 
 
-def sendRandomRequests(wallet: Wallet, client: Client, count: int):
-    logger.debug('Sending {} random requests'.format(count))
-    return send_signed_requests(client,
-                                signed_random_requests(wallet, count))
-
-
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
     txn = request.operation
     txn.update(reply)
