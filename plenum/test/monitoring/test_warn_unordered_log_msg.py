@@ -3,8 +3,7 @@ import pytest
 from plenum.test.malicious_behaviors_node import delaysCommitProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import sdk_send_random_and_check
 
 nodeCount = 4
 logger = getlogger()
@@ -12,13 +11,15 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 def test_working_has_no_warn_log_msg(looper, txnPoolNodeSet,
-                                     wallet1, client1, patch_monitors):
+                                     sdk_pool_handle, sdk_wallet_client, patch_monitors):
     monitor = txnPoolNodeSet[0].monitor
     assert no_any_warn(*txnPoolNodeSet)
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
-        req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_client,
+                                  1)
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
     assert no_any_warn(*txnPoolNodeSet)
@@ -27,8 +28,8 @@ def test_working_has_no_warn_log_msg(looper, txnPoolNodeSet,
 # noinspection PyIncorrectDocstring
 def test_slow_node_has_warn_unordered_log_msg(looper,
                                               txnPoolNodeSet,
-                                              wallet1,
-                                              client1,
+                                              sdk_pool_handle,
+                                              sdk_wallet_client,
                                               patch_monitors):
     npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)[0]
     slow_node = npr.node
@@ -42,8 +43,10 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
         'all nodes do not have warnings before test'
 
     for i in range(monitor.WARN_NOT_PARTICIPATING_UNORDERED_NUM):
-        req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1, requests=[req])
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_client,
+                                  1)
         looper.runFor(monitor.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC)
 
     others = [node for node in txnPoolNodeSet if node.name != slow_node.name]
@@ -55,8 +58,10 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
     ordered_requests_keys_len_before = len(monitor.ordered_requests_keys)
     # wait at least windows time
     looper.runFor(monitor.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60)
-    req = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)
     assert no_any_warn(*others), 'others do not have warning'
     assert no_last_warn(slow_node), \
         'the last call of warn_has_lot_unordered_requests returned False ' \

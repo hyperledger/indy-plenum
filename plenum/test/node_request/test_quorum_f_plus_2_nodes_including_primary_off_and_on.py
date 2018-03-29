@@ -1,7 +1,9 @@
+import pytest
+
 from plenum.test import waits
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, \
-    sendRandomRequest, waitForSufficientRepliesForRequests, \
-    verify_request_not_replied_and_not_ordered
+    sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies, \
+    sdk_check_reply, sdk_eval_timeout
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
@@ -19,55 +21,81 @@ def stop_node(node_to_stop, looper, pool_nodes):
 
 def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
         looper, allPluginsPath, tdir, tconf,
-        txnPoolNodeSet, wallet1, client1):
+        txnPoolNodeSet,
+        sdk_pool_handle,
+        sdk_wallet_client):
+    timeout = sdk_eval_timeout(1, len(txnPoolNodeSet))
     nodes = txnPoolNodeSet
 
-    request1 = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[request1])
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)
 
     stop_node(nodes[0], looper, nodes)
     waitForViewChange(looper, nodes[1:], expectedViewNo=1)
     ensureElectionsDone(looper, nodes[1:],
                         numInstances=getRequiredInstances(nodeCount))
 
-    request2 = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[request2])
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)
 
     stop_node(nodes[1], looper, nodes)
     looper.runFor(tconf.ToleratePrimaryDisconnection +
                   waits.expectedPoolElectionTimeout(len(nodes)))
     checkViewNoForNodes(nodes[2:], expectedViewNo=1)
 
-    request3 = sendRandomRequest(wallet1, client1)
-    verify_request_not_replied_and_not_ordered(request3, looper, client1, nodes)
+    sdk_reqs3 = sdk_send_random_requests(looper,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         1)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs3, timeout=timeout)
+        sdk_check_reply(req_res[0])
 
     stop_node(nodes[2], looper, nodes)
     looper.runFor(tconf.ToleratePrimaryDisconnection +
                   waits.expectedPoolElectionTimeout(len(nodes)))
     checkViewNoForNodes(nodes[3:], expectedViewNo=1)
 
-    request4 = sendRandomRequest(wallet1, client1)
-    verify_request_not_replied_and_not_ordered(request4, looper, client1, nodes)
+    sdk_reqs4 = sdk_send_random_requests(looper,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         1)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs4, timeout=timeout)
+        sdk_check_reply(req_res[0])
 
     nodes[2] = start_stopped_node(nodes[2], looper, tconf, tdir, allPluginsPath)
     looper.runFor(waits.expectedPoolElectionTimeout(len(nodes)))
     checkViewNoForNodes(nodes[3:], expectedViewNo=1)
 
-    request5 = sendRandomRequest(wallet1, client1)
-    verify_request_not_replied_and_not_ordered(request5, looper, client1, nodes)
+    sdk_reqs5 = sdk_send_random_requests(looper,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
+                                         1)
+    with pytest.raises(TimeoutError):
+        req_res = sdk_get_replies(looper, sdk_reqs5, timeout=timeout)
+        sdk_check_reply(req_res[0])
 
     nodes[1] = start_stopped_node(nodes[1], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes[1:],
                         numInstances=getRequiredInstances(nodeCount))
     checkViewNoForNodes(nodes[1:], expectedViewNo=1)
 
-    request6 = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[request6])
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)
 
     nodes[0] = start_stopped_node(nodes[0], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes,
                         numInstances=getRequiredInstances(nodeCount))
     checkViewNoForNodes(nodes, expectedViewNo=1)
 
-    request7 = sendRandomRequest(wallet1, client1)
-    waitForSufficientRepliesForRequests(looper, client1, requests=[request7])
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              1)

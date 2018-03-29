@@ -1,10 +1,10 @@
 import types
 
 import pytest
-from plenum.test.helper import waitForViewChange, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
+from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.exceptions import EventuallyTimeoutException
 
@@ -21,7 +21,9 @@ def patch_has_ordered_till_last_prepared_certificate(txnPoolNodeSet):
                 patched_has_ordered_till_last_prepared_certificate, node)
 
 
-def test_view_change_min_catchup_timeout(txnPoolNodeSet, looper, wallet1, client1,
+def test_view_change_min_catchup_timeout(txnPoolNodeSet, looper,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
                                          tconf,
                                          viewNo):
     """
@@ -39,7 +41,8 @@ def test_view_change_min_catchup_timeout(txnPoolNodeSet, looper, wallet1, client
     """
 
     # 1. Send some txns
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 4)
 
     # 2. make the only condition to finish catch-up is
     # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
@@ -65,4 +68,6 @@ def test_view_change_min_catchup_timeout(txnPoolNodeSet, looper, wallet1, client
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     # 6. ensure that the pool is still functional.
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_client,
+                               sdk_pool_handle)

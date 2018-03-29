@@ -4,18 +4,15 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.test.delayers import cr_delay
-from plenum.test.spy_helpers import get_count
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    check_last_ordered_3pc
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
 from plenum.common.config_helper import PNodeConfigHelper
@@ -34,22 +31,23 @@ txnCount = 5
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
 def test_node_catchup_after_restart_with_txns(
-        newNodeCaughtUp,
+        sdk_new_node_caught_up,
         txnPoolNodeSet,
         tdir,
         tconf,
-        nodeSetWithNodeAddedAfterSomeTxns,
+        sdk_node_set_with_node_added_after_some_txns,
         allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
     :return:
     """
-    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_set_with_node_added_after_some_txns
     logger.debug("Stopping node {} with pool ledger size {}".
-                 format(newNode, newNode.poolManager.txnSeqNo))
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode)
-    looper.removeProdable(newNode)
+                 format(new_node, new_node.poolManager.txnSeqNo))
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, new_node)
+    looper.removeProdable(new_node)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -59,12 +57,13 @@ def test_node_catchup_after_restart_with_txns(
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
     more_requests = 5
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
-    logger.debug("Starting the stopped node, {}".format(newNode))
-    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
-    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              new_steward_wallet_handle, more_requests)
+    logger.debug("Starting the stopped node, {}".format(new_node))
+    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
+    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
     newNode = TestNode(
-        newNode.name,
+        new_node.name,
         config_helper=config_helper,
         config=tconf,
         ha=nodeHa,

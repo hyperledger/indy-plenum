@@ -1,9 +1,10 @@
 from plenum.common.types import f
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    getRepliesFromClientInbox, send_signed_requests, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import getRepliesFromClientInbox, \
+    send_signed_requests, \
+    waitForSufficientRepliesForRequests, sdk_send_random_and_check, sdk_get_and_check_replies
 from plenum.common.constants import GET_TXN, DATA, TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Ordered
+from plenum.test.pool_transactions.helper import sdk_build_get_txn_request, sdk_sign_and_send_prepared_request
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -22,7 +23,7 @@ def make_node_slow(node):
     node.serviceReplicas = serviceReplicas
 
 
-def test_dirty_read(looper, txnPoolNodeSet, client1, wallet1):
+def test_dirty_read(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     Tests the case when read request comes before write request is
     not executed on some nodes
@@ -33,26 +34,16 @@ def test_dirty_read(looper, txnPoolNodeSet, client1, wallet1):
         logger.debug("Making node {} slow".format(node))
         make_node_slow(node)
 
-    set_request = sendReqsToNodesAndVerifySuffReplies(looper,
-                                                      wallet1,
-                                                      client1,
-                                                      numReqs=1)[0]
-
-    received_replies = getRepliesFromClientInbox(inbox=client1.inBox,
-                                                 reqId=set_request.reqId)
-
-    seq_no = received_replies[0]["result"]["seqNo"]
-    get_request = [wallet1.signOp({
-        TXN_TYPE: GET_TXN,
-        f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-        DATA: seq_no
-    })]
-    send_signed_requests(client1, get_request)
-    waitForSufficientRepliesForRequests(looper,
-                                        client1,
-                                        requests=get_request)
-    received_replies = getRepliesFromClientInbox(inbox=client1.inBox,
-                                                 reqId=get_request[0].reqId)
-    results = [str(reply['result'][DATA]) for reply in received_replies]
+    received_replies = sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                 sdk_pool_handle,
+                                                 sdk_wallet_client,
+                                                 1)
+    seq_no = received_replies[0][1]["result"]["seqNo"]
+    _, did = sdk_wallet_client
+    req = sdk_build_get_txn_request(looper, did, seq_no)
+    request = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
+                                                 sdk_pool_handle, req)
+    received_replies = sdk_get_and_check_replies(looper, [request])
+    results = [str(reply[1]['result'][DATA]) for reply in received_replies]
 
     assert len(set(results)) == 1
