@@ -217,11 +217,7 @@ def match_func(name):
 
 def match_message(pattern):
     m = re.compile(pattern).search
-
-    def match(message):
-        return m(message.body) is not None
-
-    return match
+    return lambda message: m(message.body) is not None
 
 
 def match_replica(replica):
@@ -447,12 +443,11 @@ class OutputLogFile:
                 f.write(line)
                 f.write('\n')
 
-
 class OutputLog:
     def __init__(self, config):
         self.filename = parse_format_string(config.get("filename", "output.log"))
         self.pattern = parse_format_string(
-            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <body>"))
+            config.get("pattern", "<timestamp> | <node> <replica> | <level> | <source> | <func> | <body>"))
         self.log_files = {}
 
     def add_message(self, message):
@@ -542,6 +537,9 @@ class TimeLog:
             self._node(name).merge(node)
 
     def dump(self, title):
+        if not self.nodes:
+            return
+
         for node in self.nodes.values():
             node.fill_gaps(self.interval)
 
@@ -564,7 +562,7 @@ class TimeLog:
                 ax.plot_date(dates, values,
                              marker=None,
                              linestyle='solid',
-                             color=graph.color)
+                             c=graph.color)
 
         fig.autofmt_xdate()
 
@@ -769,8 +767,6 @@ class AllRequestData:
             self._node(name).merge(node)
 
     def dump(self):
-        print(self.report_stats)
-
         if not self.report_stats:
             return
 
