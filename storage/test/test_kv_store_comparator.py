@@ -72,14 +72,13 @@ def test_get_keys_from_a_given_key(db_with_int_comparator):
     db = db_with_int_comparator
     all_keys = []
     for _ in range(1000):
-        _k = random.randint(1, 100000000000)
+        _k = _ + 100000000
         k = str(_k)
         db.put(k, str(k + '00'))
         all_keys.append(_k)
 
     # Needed for test below
     all_keys = sorted(all_keys)
-
     for _ in range(100):
         # For a random key, check that keys retrived from db are in sorted order
         random_key = random.choice(all_keys)
