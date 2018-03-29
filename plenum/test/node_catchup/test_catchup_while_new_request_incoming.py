@@ -8,7 +8,7 @@ from plenum.test.delayers import cqDelay
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
@@ -49,6 +49,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
         looper, sdk_pool_handle, sdk_wallet_steward,
         new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
         allPluginsPath=allPluginsPath, autoStart=True)
+    sdk_pool_refresh(looper, sdk_pool_handle)
     txnPoolNodeSet.append(new_node)
     looper.runFor(2)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 5)
