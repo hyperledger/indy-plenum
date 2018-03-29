@@ -785,10 +785,11 @@ class AllRequestData:
             ax.tick_params(axis='y', which='both', labelleft='off')
 
             events = [(req.received, req.time_to_order.total_seconds())
-                      for req in node.requests.values() if req.received]
-            events.sort()
-            dates, values = zip(*events)
+                      for req in node.requests.values() if req.is_received and req.is_ordered]
+            if not events:
+                continue
 
+            dates, values = zip(*sorted(events))
             ax.plot_date(dates, values, marker='.')
             fig.autofmt_xdate()
 
