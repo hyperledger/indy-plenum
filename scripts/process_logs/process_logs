@@ -766,9 +766,30 @@ class AllRequestData:
     def dump(self):
         if not self.nodes:
             return
+
         print("Requests statistics:")
         for name, node in sorted(self.nodes.items()):
             node.dump(name)
+
+        fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
+        if len(self.nodes) == 1:
+            axs = [axs]
+        fig.suptitle("Time to order")
+        fig.subplots_adjust(hspace=0)
+        names, nodes = zip(*sorted(self.nodes.items()))
+
+        for name, node, ax in zip(names, nodes, axs):
+            ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
+            ax.tick_params(axis='y', which='both', labelleft='off')
+
+            events = [(req.received, req.time_to_order.total_seconds())
+                      for req in node.requests.values() if req.received]
+            events.sort()
+            dates, values = zip(*events)
+
+            ax.plot_date(dates, values,
+                         marker='.')
+            fig.autofmt_xdate()
 
     def _node(self, node):
         try:
