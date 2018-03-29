@@ -36,3 +36,8 @@ outputs:
       graphs:
         received: blue
         ordered: green
+
+  requests:
+    report_stats: yes
+    report_lags: yes
+    plot_graphs: yes

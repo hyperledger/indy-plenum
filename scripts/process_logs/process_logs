@@ -565,7 +565,6 @@ class TimeLog:
                              marker=None,
                              linestyle='solid',
                              color=graph.color)
-                ax.fill_between(dates, 0, values, color=graph.color)
 
         fig.autofmt_xdate()
 
@@ -694,16 +693,17 @@ class NodeRequestData:
         for name, request in other.requests.items():
             self._request(name).merge(request)
 
-    def dump(self, name):
+    def dump(self, name, report_lags):
         received = set(req.id for req in self.requests.values() if req.is_received)
         ordered = set(req.id for req in self.requests.values() if req.is_ordered)
         interesting = received & ordered
         time_to_order = [self.requests[id].time_to_order.total_seconds() for id in interesting]
         time_to_order = [delta for delta in time_to_order if delta > 0]
-        lagging = [id for id in interesting if self.requests[id].time_to_order.total_seconds() > 60]
         stats_string = ", {}/{}/{} min/avg/max seconds to process".format(
             round(min(time_to_order), 2), round(sum(time_to_order) / len(time_to_order), 2),
             round(max(time_to_order), 2)) if time_to_order else ""
+        lagging = [id for id in interesting if self.requests[id].time_to_order.total_seconds() > 60] \
+            if report_lags else []
         lags_string = ", {} lagged for more that a minute".format(lagging) if lagging else ""
         print("{}: {}/{} received/ordered{}{}".format(
             name, len(self.requests), len(ordered), stats_string, lags_string))
@@ -755,7 +755,10 @@ class NodeRequestData:
 
 
 class AllRequestData:
-    def __init__(self):
+    def __init__(self, config):
+        self.report_stats = config.get("report_stats", 0)
+        self.report_lags = config.get("report_lags", 0)
+        self.plot_graphs = config.get("plot_graphs", 0)
         self.nodes = {}
 
     def process_message(self, message):
@@ -766,12 +769,20 @@ class AllRequestData:
             self._node(name).merge(node)
 
     def dump(self):
+        print(self.report_stats)
+
+        if not self.report_stats:
+            return
+
         if not self.nodes:
             return
 
         print("Requests statistics:")
         for name, node in sorted(self.nodes.items()):
-            node.dump(name)
+            node.dump(name, self.report_lags)
+
+        if not self.plot_graphs:
+            return
 
         fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
         if len(self.nodes) == 1:
@@ -812,7 +823,7 @@ class OutputData:
         self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
         self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
         self.counters = {name: LogCounter(params) for name, params in config.get("counters", {}).items()}
-        self.requests = AllRequestData()
+        self.requests = AllRequestData(config.get("requests", {}))
 
     def merge(self, other):
         for name in set(self.logs) & set(other.logs):
