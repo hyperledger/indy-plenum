@@ -159,45 +159,18 @@ chains:
   - match: [message_sending]
   - tag:
       pattern: sending message (\w+)
-      tags: [MESSAGE, SEND]
       attributes:
-        message_type: 1
+        message: send
+        message_type: group 1
 
   tag_message_inbox:
   - match: [message_inbox]
   - tag:
       pattern: appending to nodeInbox (\w+)
-      tags: [MESSAGE, INBOX]
       attributes:
-        message_type: 1
+        message: inbox
+        message_type: group 1
 
-
-#########################################################################
-# Request taggers
-#########################################################################
-
-  tag_requests:
-  - tag_received_requests:
-  - tag_already_processed_requests:
-  - tag_ordered_requests:
-
-  tag_received_requests:
-  - match: [message: received client request]
-  - tag: {tags: [REQUEST, RECEIVED]}
-  - tag:
-      pattern: "'reqId': (\\d+)"
-      attributes: {reqId: 1}
-
-  tag_already_processed_requests:
-  - match: [message: returning REPLY from already processed REQUEST]
-  - tag: {tags: [REQUEST, ALREADY_PROCESSED]}
-  - tag:
-      pattern: "'reqId': (\\d+)"
-      attributes: {reqId: 1}
-
-  tag_ordered_requests:
-  - match: [message: ordered batch request]
-  - tag: {tags: [REQUEST, ORDERED]}
 
 #########################################################################
 # To be done filters

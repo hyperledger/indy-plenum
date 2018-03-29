@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import os, sys, re, yaml
+import os, sys, re, gzip, yaml
 from collections import namedtuple
 from datetime import datetime, timedelta
 from string import Formatter
+from ast import literal_eval
 from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
@@ -79,25 +80,28 @@ def input_logs():
 # Log message
 ###########################################################################################
 
-REPLICA_NONE="-"
+REPLICA_NONE = "-"
+
 
 class LogMessage:
-    def __init__(self, message, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
-        self.message = message
+    def __init__(self, body, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
+        self.body = body
         self.timestamp = timestamp
         self.node = node
         self.replica = replica
         self.level = level
         self.source = source
         self.func = func
-        self.tags = set()
         self.attributes = {}
 
-    def set_tag(self, name):
-        self.tags.add(name)
-
-    def set_attribute(self, name, value):
-        self.attributes[name] = value
+    def set_attribute(self, name, value=None):
+        if value:
+            try:
+                self.attributes[name].add(value)
+            except KeyError:
+                self.attributes[name] = set([value])
+        else:
+            self.attributes.setdefault(name, set())
 
 
 _replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
@@ -118,18 +122,21 @@ def _parse_messages(f, node):
                                  minute=int(tokens[0][14:16]),
                                  second=int(tokens[0][17:19]),
                                  microsecond=int(tokens[0][20:23]) * 1000)
-            message = tokens[4]
+            body = tokens[4]
             replica = REPLICA_NONE
-            if message.startswith("REPLICA:"):
-                m = _replica_matcher(message)
+            if body.startswith("REPLICA:"):
+                m = _replica_matcher(body)
                 replica = int(m.group(2))
-                message = message[m.end():]
-            yield LogMessage(message, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
+                body = body[m.end():]
+            yield LogMessage(body, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
 
 
 def messages_in_log(log):
     print("Processing {}...".format(log.filename))
-    with open(log.filename, "r") as f:
+    open_fn = open
+    if log.filename.endswith(".gz"):
+        open_fn = gzip.open
+    with open_fn(log.filename, "rt") as f:
         if log.rule["only_timestamped"]:
             for message in _parse_messages(f, log.node):
                 if message.timestamp is not None:
@@ -210,7 +217,7 @@ def match_message(pattern):
     m = re.compile(pattern).search
 
     def match(message):
-        return m(message.message) is not None
+        return m(message.body) is not None
 
     return match
 
@@ -225,16 +232,14 @@ def match_replica(replica):
     return lambda message: message.replica == replica
 
 
-def match_tag(tag):
-    return lambda message: tag in message.tags
-
-
 def match_attribute(params):
     name, value = kv_from_item(params)
+    if value is None:
+        return lambda message: name in message.attributes
 
     def match(message):
         try:
-            return message.attributes[name] == value
+            return str(value) in message.attributes[name]
         except KeyError:
             return False
 
@@ -254,10 +259,6 @@ def _create_matcher(config):
         return match_message(params)
     if name == "replica":
         return match_replica(params)
-    if name == "tag":
-        return match_tag(params)
-    if name == "attribute":
-        return match_attribute(params)
     if name == "any":
         matchers = [_create_matcher(p) for p in params]
         return lambda message: any(m(message) for m in matchers)
@@ -265,12 +266,11 @@ def _create_matcher(config):
         matchers = [_create_matcher(p) for p in params]
         return lambda message: all(m(message) for m in matchers)
 
-    try:
-        params = global_config["matchers"][name]
+    params = global_config["matchers"].get(name)
+    if params is not None:
         return _create_matcher({"any": params})
-    except KeyError:
-        print("WARNING: Unknown matcher", name)
-        return lambda m: True
+
+    return match_attribute(config)
 
 
 ###########################################################################################
@@ -286,6 +286,8 @@ def rule_process(chain):
 
 
 def rule_match(operation, condition, action, config):
+    if isinstance(config, str):
+        config = [config]
     matchers = [_create_matcher(matcher) for matcher in config]
 
     if operation == "all":
@@ -318,17 +320,20 @@ def rule_timeshift(params):
 
 def rule_tag(params):
     match = re.compile(params.get("pattern", "")).search
-    tags = params.get("tags", [])
     attributes = params.get("attributes", {})
 
     def process(message, output):
-        m = match(message.message)
+        m = match(message.body)
         if m is None:
             return
-        for tag in tags:
-            message.set_tag(tag)
-        for name, idx in attributes.items():
-            message.set_attribute(name, m.group(idx))
+        for name, value in attributes.items():
+            if value is None:
+                message.set_attribute(name)
+                return
+            if isinstance(value, str) and value.startswith("group "):
+                message.set_attribute(name, m.group(int(value[6:])))
+                return
+            message.set_attribute(name, value)
 
     return process
 
@@ -360,6 +365,10 @@ def rule_log_count(target):
     return process
 
 
+def track_requests(message, output):
+    output.requests.process_message(message)
+
+
 def _create_rule(config):
     name, params = kv_from_item(config)
 
@@ -380,6 +389,8 @@ def _create_rule(config):
         return rule_log_line(params)
     if name == "log count":
         return rule_log_count(params)
+    if name == "track_requests":
+        return track_requests
 
     return rule_process(name)
 
@@ -439,7 +450,7 @@ class OutputLog:
     def __init__(self, config):
         self.filename = parse_format_string(config.get("filename", "output.log"))
         self.pattern = parse_format_string(
-            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <message>"))
+            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <body>"))
         self.log_files = {}
 
     def add_message(self, message):
@@ -620,6 +631,153 @@ class LogCounter:
 
 
 ###########################################################################################
+# Request tracking facilities
+###########################################################################################
+
+def _merge_timestamps(self, other):
+    if not self:
+        return other
+    if not other:
+        return self
+    return min(self, other)
+
+
+class RequestData:
+    def __init__(self):
+        self.received = None
+        self.ordered = None
+
+    def set_received(self, timestamp):
+        self.received = _merge_timestamps(self.received, timestamp)
+
+    def set_ordered(self, timestamp):
+        self.ordered = _merge_timestamps(self.ordered, timestamp)
+
+    @property
+    def is_received(self):
+        return self.received is not None
+
+    @property
+    def is_ordered(self):
+        return self.ordered is not None
+
+    @property
+    def time_to_order(self):
+        return self.ordered - self.received
+
+    def merge(self, other):
+        self.received = _merge_timestamps(self.received, other.received)
+        self.ordered = _merge_timestamps(self.ordered, other.ordered)
+
+
+class NodeRequestData:
+    def __init__(self):
+        self.requests = {}
+        self._match_req_id = re.compile("'reqId': (\d+)").search
+        self._pattern_req_list = "\[(?:\('\w+', \d+\)(?:, )?)*\]"
+        self._match_ordered_req_list = re.compile("requests ordered ({})".format(self._pattern_req_list)).search
+        self._match_discarded_req_list = re.compile("discarded ({})".format(self._pattern_req_list)).search
+
+    def process_message(self, message):
+        self._set_attributes(message)
+        if self._check_received(message):
+            return
+        if self._check_already_processed(message):
+            return
+        if self._check_batch_ordered(message):
+            return
+
+    def merge(self, other):
+        for name, request in other.requests.items():
+            self._request(name).merge(request)
+
+    def dump(self, name):
+        received = set(id for id, req in self.requests.items() if req.is_received)
+        ordered = set(id for id, req in self.requests.items() if req.is_ordered)
+        time_to_order = [self.requests[id].time_to_order.total_seconds() for id in received & ordered]
+        if time_to_order:
+            print("{}: {}/{} received/ordered, {}/{}/{} min/avg/max seconds to process".format(
+                name, len(self.requests), len(ordered),
+                round(min(time_to_order), 2),
+                round(sum(time_to_order) / len(time_to_order), 2),
+                round(max(time_to_order), 2)))
+        else:
+            print("{}: {}/{} received/ordered".format(name, len(self.requests), len(ordered)))
+
+    def _request(self, name):
+        try:
+            return self.requests[name]
+        except:
+            request = RequestData()
+            self.requests[name] = request
+            return request
+
+    def _parse_reqId(self, message):
+        if "'reqId':" not in message.body:
+            return
+        m = self._match_req_id(message.body)
+        if not m: return
+        return m.group(1)
+
+    def _set_attributes(self, message):
+        reqId = self._parse_reqId(message)
+        if reqId: message.set_attribute("reqId", reqId)
+
+    def _check_received(self, message):
+        if "received client request" not in message.body:
+            return
+        message.set_attribute("request", "received")
+        reqId = self._parse_reqId(message)
+        self._request(reqId).set_received(message.timestamp)
+        return True
+
+    def _check_already_processed(self, message):
+        if "returning REPLY from already processed REQUEST" not in message.body:
+            return
+        message.set_attribute("request", "already_processed")
+        return True
+
+    def _check_batch_ordered(self, message):
+        if "ordered batch request" not in message.body:
+            return
+        message.set_attribute("request", "ordered")
+        ordered = self._match_ordered_req_list(message.body)
+        ordered = literal_eval(ordered.group(1))
+        for _, reqId in ordered:
+            reqId = str(reqId)
+            message.set_attribute("reqId", reqId)
+            self._request(reqId).set_ordered(message.timestamp)
+        return True
+
+
+class AllRequestData:
+    def __init__(self):
+        self.nodes = {}
+
+    def process_message(self, message):
+        self._node(message.node).process_message(message)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self):
+        if not self.nodes:
+            return
+        print("Requests statistics:")
+        for name, node in self.nodes.items():
+            node.dump(name)
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            node_data = NodeRequestData()
+            self.nodes[node] = node_data
+            return node_data
+
+
+###########################################################################################
 # Output data
 ###########################################################################################
 
@@ -629,6 +787,7 @@ class OutputData:
         self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
         self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
         self.counters = {name: LogCounter(params) for name, params in config.get("counters", {}).items()}
+        self.requests = AllRequestData()
 
     def merge(self, other):
         for name in set(self.logs) & set(other.logs):
@@ -637,8 +796,10 @@ class OutputData:
             self.timelogs[name].merge(other.timelogs[name])
         for name in set(self.counters) & set(other.counters):
             self.counters[name].merge(other.counters[name])
+        self.requests.merge(other.requests)
 
     def dump(self):
+        self.requests.dump()
         for log in self.logs.values():
             log.dump()
         for name, timelog in self.timelogs.items():

@@ -71,6 +71,7 @@ Contains dictionary of output log files, each with following options:
   - `<level>`: log level (DEBUG, INFO, WARNING, etc)
   - `<source>`: source file which emitted message
   - `<func>`: function which emitted message
+  - `<body>`: message body
   - `<user attr>`: any user-defined attribute, explained later in 
     *chains* section 
 
@@ -96,6 +97,23 @@ pairs describing sub-matchers (builtin or custom) to check. Key is type
 of matcher, value is parameter. For submatchers that don't have parameters
 (for example, other custom matchers) value should be omitted. Custom matcher 
 matches message if any of its sub-matchers matches message.
+
+Matcher name resolution rules are:
+- check if this is any of builtin matchers (listed below)
+- check if this is a custom matcher
+- consider this custom attribute matcher
+
+Attribute matchers check if message has given attribute, and, when value is 
+provided, if attribute contains given value. For example, matcher
+```yaml
+- is_request:
+``` 
+checks that message has attribute `is_request`, and matcher
+```yaml
+- reqId: 42
+```
+checks that message has attribute `reqId` containing value `42`
+
 
 #### Builtin matchers
 - `timestamp`: checks if message timestamp is within defined limits. 
@@ -137,17 +155,6 @@ matches message if any of its sub-matchers matches message.
   - `node`: message is actually from node, not replica
   - `master`: message is from master replica or from node
   - `backup`: message is from any of backup replicas
-- `tag`: checks if message is tagged with specified tag (tagging explained 
-  later in *chains* section), for example:
-  ```yaml
-  - tag: NETWORK
-  ```
-- `attribute`: check if message has custom attribute (explained later in 
-  *chains* section) with matching name and value, specified as a dictionary 
-  with single key-value pair, for example:
-  ```yaml
-  - attribute: {viewNo: 2}
-  ```
 - `any`: check if message matches any submatcher, specified as a list:
   ```yaml
   - any:
@@ -262,24 +269,39 @@ commands.
   - `and`: perform action when message is matched
   - `return`: action to perform is to return from current chain to calling one
   - `drop`: action to perform is to drop message altogether
+- `track_requests`: track requests, adding multiple attributes to relevant
+  messages:
+  - reqId: request identifier
+  - TODO: list other attibutes
 - `tag`: optionally checks if message matches some regex pattern and sets
   custom tags and/or attributes on it. Parameter for this command is dictionary
   with following keys:
   - `pattern`: pattern to match message body
-  - `tags`: list of tags to add to message on match
   - `attributes`: dictionary of custom attributes to add to message on match,
-    with keys being attribute names and values index of matching regex group.
+    with keys being attribute names and values being one of:
+    - empty: indicating tag-like attribute which doesn't have any value
+    - arbitrary string: sets this string as attribute value
+    - `group <n>`: sets matching regex group as attribute value
   For example:
   ```yaml
   - tag:
       pattern: sending (\w+), viewNo: (\d+)
-      tags: [SEND]
       attributes:
-        message_type: 1
-        view_no: 2
+        is_message:
+        message_action: send
+        message_type: group 1
+        view_no: group 2
   ```
-  will add tag `SEND` to messages containing `sending COMMIT, viewNo: 23`,
-  and adds custom attributes `message_type: COMMIT` and `view_no: 23`.  
+  will add following attributes to messages containing 
+  `sending COMMIT, viewNo: 23`:
+  ```
+  is_message: []
+  message_action: send
+  message_type: COMMIT
+  view_no: 23
+  ```
+  It's possible for multiple tagger to write to same attribute multiple
+  times, in this case it will contain all written values.
 
 ## Standard (in process_logs.yml) matchers and chains
 
