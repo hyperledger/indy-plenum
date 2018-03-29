@@ -152,6 +152,8 @@ def messages_in_log(log):
                     m.timestamp = cur_time
                     yield m
                 stashed_messages = []
+                if cur_time < last_time:
+                    print("{}: time went back from {} to {}".format(log.filename, last_time, cur_time))
                 last_time = cur_time
                 yield message
             elif last_time is not None:
@@ -765,7 +767,7 @@ class AllRequestData:
         if not self.nodes:
             return
         print("Requests statistics:")
-        for name, node in self.nodes.items():
+        for name, node in sorted(self.nodes.items()):
             node.dump(name)
 
     def _node(self, node):
