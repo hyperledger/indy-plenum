@@ -1,11 +1,15 @@
-from plenum.common.constants import ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
-from plenum.test.pool_transactions.helper import updateNodeData
+from plenum.common.util import hexToFriendly
+
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
-def testChangeNodeHaBack(looper, txnPoolNodeSet, tdir, tconf,
-                         steward1, stewardWallet, nodeThetaAdded):
+
+def testChangeNodeHaBack(looper, txnPoolNodeSet,
+                         sdk_pool_handle,
+                         sdk_node_theta_added,
+                         tconf, tdir):
     """
     The case:
         The Node HA is updated with some HA (let's name it 'correct' HA).
@@ -13,46 +17,44 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet, tdir, tconf,
         ('wrong' HA). The Steward replaces back 'wrong' HA by 'correct' HA sending
         yet another one NODE txn.
     """
-
-    steward, stewardWallet, theta = nodeThetaAdded
-    clientHa = theta.cliNodeReg['ThetaC']  # use the same client HA
+    new_steward_wallet, new_node = sdk_node_theta_added
+    client_ha = new_node.cliNodeReg['ThetaC']  # use the same client HA
     # do all exercises without the Node
-    theta.stop()
-    looper.removeProdable(name=theta.name)
+    new_node.stop()
+    looper.removeProdable(name=new_node.name)
 
     # step 1: set 'correct' HA
-    correctNodeHa = genHa(1)
-    op = {
-        ALIAS: theta.name,
-        NODE_IP: correctNodeHa.host,
-        NODE_PORT: correctNodeHa.port,
-        CLIENT_IP: clientHa.host,
-        CLIENT_PORT: clientHa.port,
-    }
-    updateNodeData(looper, steward, stewardWallet, theta,
-                   op)
+    correct_node_ha = genHa(1)
+
+    node_dest = hexToFriendly(new_node.nodestack.verhex)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         correct_node_ha.host, correct_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # step 2: set 'wrong' HA
-    wrongNodeHa = genHa(1)
-    op.update({NODE_IP: wrongNodeHa.host, NODE_PORT: wrongNodeHa.port})
-    updateNodeData(looper, steward, stewardWallet, theta,
-                   op)
+    wrong_node_ha = genHa(1)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         wrong_node_ha.host, wrong_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # step 3: set 'correct' HA back
-    op.update({NODE_IP: correctNodeHa.host, NODE_PORT: correctNodeHa.port})
-    updateNodeData(looper, steward, stewardWallet, theta,
-                   op)
+    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                         node_dest, new_node.name,
+                         correct_node_ha.host, correct_node_ha.port,
+                         client_ha.host, client_ha.port)
 
     # In order to save the time the pool connection is not maintaining
     # during the steps, only the final result is checked.
-    config_helper = PNodeConfigHelper(theta.name, tconf, chroot=tdir)
-    restartedNode = TestNode(theta.name,
+    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
+    restartedNode = TestNode(new_node.name,
                              config_helper=config_helper,
-                             config=tconf, ha=correctNodeHa, cliha=clientHa)
+                             config=tconf, ha=correct_node_ha, cliha=client_ha)
     looper.add(restartedNode)
     txnPoolNodeSet[-1] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
     # check Theta HA
     for n in txnPoolNodeSet:
-        assert n.nodeReg['Theta'] == correctNodeHa
+        assert n.nodeReg['Theta'] == correct_node_ha

@@ -4,7 +4,6 @@ from plenum.test.spy_helpers import getAllArgs
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.client.conftest import passThroughReqAcked1
-from plenum.test.helper import stopNodes, send_signed_requests
 
 from plenum.test.helper import stopNodes, send_signed_requests
 from plenum.test.malicious_behaviors_client import \
@@ -20,7 +19,7 @@ reqAcked1 = passThroughReqAcked1
 def test_client_sends_get_request_to_one_node(looper,
                                               client1,
                                               wallet1,
-                                              nodeSet):
+                                              txnPoolNodeSet):
     """
     Check that client sends read only request to one node only
     """
@@ -52,7 +51,7 @@ def test_client_sends_get_request_to_one_node(looper,
 def test_client_can_send_get_request_to_one_node(looper,
                                                  client1,
                                                  wallet1,
-                                                 nodeSet):
+                                                 txnPoolNodeSet):
     """
     Check that read only request can be sent
     without having connection to all nodes
@@ -61,7 +60,7 @@ def test_client_can_send_get_request_to_one_node(looper,
     wallet = wallet1
 
     logger.info("Stopping nodes")
-    nodes_to_stop = list(nodeSet)[1:]
+    nodes_to_stop = list(txnPoolNodeSet)[1:]
     stopNodes(nodes_to_stop, looper)
 
     def sign_and_send(op):

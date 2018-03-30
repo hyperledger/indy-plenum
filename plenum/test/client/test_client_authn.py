@@ -5,7 +5,6 @@ from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate, \
 from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
-
 idr = '5G72199XZB7wREviUbQma7'
 msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 

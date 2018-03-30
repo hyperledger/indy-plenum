@@ -8,29 +8,33 @@ from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-from typing import Tuple, Iterable, Dict, Optional, NamedTuple, List, Any, Sequence, Union
+from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
 from psutil import Popen
 import json
 import asyncio
 
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_nym_request
+from indy.ledger import sign_and_submit_request, sign_request, submit_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT,\
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
+from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
+    PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
-from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals
+from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
+    getAllMsgReceivedForNode
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
     checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
@@ -38,7 +42,6 @@ from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
 from stp_core.network.util import checkPortAvailable
-
 
 logger = getlogger()
 
@@ -112,77 +115,30 @@ def waitForSufficientRepliesForRequests(looper,
                   override_eventually_timeout=override_timeout_limit)
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
-                                        wallet: Wallet,
-                                        client: TestClient,
-                                        numReqs: int,
-                                        customTimeoutPerReq: float = None,
-                                        add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
-def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
-                                              wallet: Wallet,
-                                              client: TestClient,
-                                              numReqs: int,
-                                              customTimeoutPerReq: float = None,
-                                              add_delay_to_timeout: float = 0,
-                                              override_timeout_limit=False,
-                                              total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    nodeCount = len(client.nodeReg)
-    # wait till more than nodeCount replies are received (that is all nodes
-    # answered)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
 def send_reqs_batches_and_get_suff_replies(
         looper: Looper,
-        wallet: Wallet,
-        client: TestClient,
+        txnPoolNodeSet,
+        sdk_pool_handle,
+        sdk_wallet_client,
         num_reqs: int,
         num_batches=1,
         **kwargs):
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
     if num_batches == 1:
-        return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                                   num_reqs, **kwargs)
+        return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_client, num_reqs)
     else:
         requests = []
         for _ in range(num_batches - 1):
             requests.extend(
-                sendReqsToNodesAndVerifySuffReplies(
-                    looper,
-                    wallet,
-                    client,
-                    num_reqs // num_batches,
-                    **kwargs))
+                sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                          sdk_wallet_client, num_reqs // num_batches))
         rem = num_reqs % num_batches
         if rem == 0:
             rem = num_reqs // num_batches
-        requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
-                                                            client,
-                                                            rem,
-                                                            **kwargs))
+        requests.extend(
+            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                      sdk_wallet_client, rem))
         return requests
 
 
@@ -314,10 +270,6 @@ def send_signed_requests(client: Client, signed_reqs: Sequence):
     return client.submitReqs(*signed_reqs)[0]
 
 
-def sendRandomRequest(wallet: Wallet, client: Client):
-    return sendRandomRequests(wallet, client, 1)[0]
-
-
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
     logger.debug('Sending {} random requests'.format(count))
     return send_signed_requests(client,
@@ -330,83 +282,78 @@ def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
     return txn
 
 
-async def msgAll(nodes: TestNodeSet):
+async def msgAll(nodes):
     # test sending messages from every node to every other node
     # TODO split send and check so that the messages can be sent concurrently
-    for p in permutations(nodes.nodeNames, 2):
-        await sendMessageAndCheckDelivery(nodes, p[0], p[1])
+    for p in permutations(nodes, 2):
+        await sendMessageAndCheckDelivery(p[0], p[1])
 
 
-def sendMessage(nodes: TestNodeSet,
-                frm: NodeRef,
-                to: NodeRef,
+def sendMessage(sender: Node,
+                reciever: Node,
                 msg: Optional[Tuple] = None):
     """
     Sends message from one node to another
 
     :param nodes:
-    :param frm: sender
-    :param to: recepient
+    :param sender: sender
+    :param reciever: recepient
     :param msg: optional message - by default random one generated
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
     msg = msg if msg else randomMsg()
-    sender = nodes.getNode(frm)
-    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    rid = sender.nodestack.getRemote(reciever.name).uid
     sender.nodestack.send(msg, rid)
 
 
-async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
-                                      frm: NodeRef,
-                                      to: NodeRef,
+async def sendMessageAndCheckDelivery(sender: Node,
+                                      reciever: Node,
                                       msg: Optional[Tuple] = None,
                                       method=None,
                                       customTimeout=None):
     """
     Sends message from one node to another and checks that it was delivered
 
-    :param nodes:
-    :param frm: sender
-    :param to: recepient
+    :param sender: sender
+    :param reciever: recepient
     :param msg: optional message - by default random one generated
     :param customTimeout:
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
     msg = msg if msg else randomMsg()
-    sender = nodes.getNode(frm)
-    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    rid = sender.nodestack.getRemote(reciever.name).uid
     sender.nodestack.send(msg, rid)
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMessageReceived, msg, nodes, to, method,
+    await eventually(checkMessageReceived, msg, reciever, method,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)
 
 
-def sendMessageToAll(nodes: TestNodeSet,
-                     frm: NodeRef,
+def sendMessageToAll(nodes,
+                     sender: Node,
                      msg: Optional[Tuple] = None):
     """
     Sends message from one node to all others
 
     :param nodes:
-    :param frm: sender
+    :param sender: sender
     :param msg: optional message - by default random one generated
     :return:
     """
     for node in nodes:
-        if node != frm:
-            sendMessage(nodes, frm, node, msg)
+        if node != sender:
+            sendMessage(sender, node, msg)
 
 
-async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
-                                           frm: NodeRef,
+async def sendMessageAndCheckDeliveryToAll(nodes,
+                                           sender: Node,
                                            msg: Optional[Tuple] = None,
                                            method=None,
                                            customTimeout=None):
@@ -414,7 +361,7 @@ async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
     Sends message from one node to all other and checks that it was delivered
 
     :param nodes:
-    :param frm: sender
+    :param sender: sender
     :param msg: optional message - by default random one generated
     :param customTimeout:
     :return:
@@ -422,22 +369,33 @@ async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
     customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(
         len(nodes))
     for node in nodes:
-        if node != frm:
-            await sendMessageAndCheckDelivery(nodes, frm, node, msg, method, customTimeout)
+        if node != sender:
+            await sendMessageAndCheckDelivery(sender, node, msg, method, customTimeout)
             break
 
 
-def checkMessageReceived(msg, nodes, to, method: str = None):
-    allMsgs = nodes.getAllMsgReceived(to, method)
+def checkMessageReceived(msg, receiver, method: str = None):
+    allMsgs = getAllMsgReceivedForNode(receiver, method)
     assert msg in allMsgs
 
 
-def addNodeBack(nodeSet: TestNodeSet,
+def addNodeBack(node_set,
                 looper: Looper,
-                nodeName: str) -> TestNode:
-    node = nodeSet.addNode(nodeName)
-    looper.add(node)
-    return node
+                node: Node,
+                tconf,
+                tdir) -> TestNode:
+    config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
+    restartedNode = TestNode(node.name,
+                             config_helper=config_helper,
+                             config=tconf,
+                             ha=node.nodestack.ha,
+                             cliha=node.clientstack.ha)
+    for node in node_set:
+        if node.name != restartedNode.name:
+            node.nodestack.reconnectRemoteWithName(restartedNode.name)
+    node_set.append(restartedNode)
+    looper.add(restartedNode)
+    return restartedNode
 
 
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
@@ -467,9 +425,9 @@ def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
     assert not requestReturnedToNode(node, identifier, reqId, instId)
 
 
-def check_request_is_not_returned_to_nodes(nodeSet, request):
-    instances = range(getNoInstances(len(nodeSet)))
-    for node, inst_id in itertools.product(nodeSet, instances):
+def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
+    instances = range(getNoInstances(len(txnPoolNodeSet)))
+    for node, inst_id in itertools.product(txnPoolNodeSet, instances):
         checkRequestNotReturnedToNode(node,
                                       request.identifier,
                                       request.reqId,
@@ -536,34 +494,6 @@ def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
     assert client.inBox.count(expected) > 0
 
 
-def checkReqNack(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQNACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
-def checkReplyCount(client, idr, reqId, count):
-    senders = set()
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REPLY and \
-                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
-            senders.add(sdr)
-    assertLength(senders, count)
-
-
-def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
-    timeout = custom_timeout or waits.expectedTransactionExecutionTime(
-        len(client.nodeReg))
-    looper.run(eventually(checkReplyCount, client, idr, reqId, count,
-                          timeout=timeout))
-
-
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
@@ -611,18 +541,6 @@ def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
                               timeout=timeout))
 
 
-def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitReqNackWithReason(looper, client, reason,
-                              node.clientstack.name)
-
-
-def waitRejectFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitRejectWithReason(looper, client, reason,
-                             node.clientstack.name)
-
-
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no
@@ -636,24 +554,24 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1
+    assert len(viewNos) == 1, 'Expected 1, but got {}'.format(len(viewNos))
     vNo, = viewNos
     if expectedViewNo is not None:
-        assert vNo >= expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
-            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
+        assert vNo >= expectedViewNo, \
+            'Expected at least {}, but got {}'.format(expectedViewNo, vNo)
     return vNo
 
 
-def waitForViewChange(looper, nodeSet, expectedViewNo=None,
+def waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=None,
                       customTimeout=None):
     """
     Waits for nodes to come to same view.
     Raises exception when time is out
     """
 
-    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     return looper.run(eventually(checkViewNoForNodes,
-                                 nodeSet,
+                                 txnPoolNodeSet,
                                  expectedViewNo,
                                  timeout=timeout))
 
@@ -985,6 +903,14 @@ def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     return reqs
 
 
+def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
+    reqs_str = [json.dumps(req) for req in reqs]
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
+
+
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
     reqs_obj = sdk_random_request_objects(count, identifier=did,
@@ -1024,14 +950,15 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
-    except asyncio.TimeoutError:
-        resp = None
     except IndyError as e:
         resp = e.error_code
 
     return req_json, resp
 
 
+# TODO: Check places where sdk_get_replies used without sdk_check_reply
+# We need to be sure that test behaviour don't need to check response
+# validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
 
@@ -1045,19 +972,38 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             resp = None
         return resp
 
-    done, pend = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pending:
+        for task in pending:
+            task.cancel()
+        raise TimeoutError("{} requests timed out".format(len(pending)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
 
 def sdk_check_reply(req_res):
     req, res = req_res
-    if res is None:
-        raise AssertionError("Got no confirmed result for request {}"
-                             .format(req))
     if isinstance(res, ErrorCode):
-        raise AssertionError("Got an error with code {} for request {}"
-                             .format(res, req))
+        if res == 307:
+            raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
+                                             .format(req))
+        else:
+            raise CommonSdkIOException('Got an error with code {} for request {}'
+                                       .format(res, req))
+    if res['op'] == REQNACK:
+        raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                     .format(req['reqId'], res['reason']))
+    if res['op'] == REJECT:
+        raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                       .format(req['reqId'], res['reason']))
+
+
+def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    rets = []
+    for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
+        sdk_check_reply(req_res)
+        rets.append(req_res)
+    return rets
 
 
 def sdk_eval_timeout(req_count: int, node_count: int,
@@ -1106,7 +1052,7 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     sdk_replies = []
     for _ in range(num_batches - 1):
         sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                   num_reqs // num_batches, **kwargs))
+                                                     num_reqs // num_batches, **kwargs))
     rem = num_reqs % num_batches
     if rem == 0:
         rem = num_reqs // num_batches
@@ -1120,8 +1066,7 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op):
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
-    assert resp
-    return request
+    return json.loads(resp)
 
 
 def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
@@ -1137,3 +1082,18 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
         coros.append(c)
     timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
+
+def sdk_json_to_request_object(json_req):
+    return Request(identifier=json_req['identifier'],
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'] if 'signature' in json_req else None,
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+
+
+def sdk_json_couples_to_request_list(json_couples):
+    req_list = []
+    for json_couple in json_couples:
+        req_list.append(sdk_json_to_request_object(json_couple[0]))
+    return req_list

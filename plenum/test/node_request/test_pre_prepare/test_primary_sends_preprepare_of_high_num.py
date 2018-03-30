@@ -1,4 +1,3 @@
-
 import pytest
 
 from plenum.common.util import get_utc_epoch
@@ -16,9 +15,9 @@ instId = 0
 
 @pytest.mark.skip(reason="SOV-555. Not implemented in replica. Add a check in "
                          "replica to check value of preprepare seq number.")
-def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
+def testPrePrepareWithHighSeqNo(looper, txnPoolNodeSet, propagated1):
     def chk():
-        for r in getNonPrimaryReplicas(nodeSet, instId):
+        for r in getNonPrimaryReplicas(txnPoolNodeSet, instId):
             nodeSuspicions = len(getNodeSuspicions(
                 r.node, Suspicions.WRONG_PPSEQ_NO.code))
             assert nodeSuspicions == 1
@@ -27,11 +26,11 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
         assert (replica.prePrepares[viewNo, ppSeqNo][0]) == \
                (req.identifier, req.reqId, req.digest)
 
-    primary = getPrimaryReplica(nodeSet, instId)
-    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+    primary = getPrimaryReplica(txnPoolNodeSet, instId)
+    nonPrimaryReplicas = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     req = propagated1.reqDigest
     primary.doPrePrepare(req)
-    timeout = waits.expectedPrePrepareTime(len(nodeSet))
+    timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     for np in nonPrimaryReplicas:
         looper.run(
             eventually(checkPreprepare, np, primary.viewNo,
@@ -46,5 +45,5 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
                                         get_utc_epoch())
     primary.send(incorrectPrePrepareReq, TPCStat.PrePrepareSent)
 
-    timeout = waits.expectedPrePrepareTime(len(nodeSet))
+    timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

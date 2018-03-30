@@ -9,7 +9,6 @@ from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 

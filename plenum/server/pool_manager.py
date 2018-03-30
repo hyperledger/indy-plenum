@@ -14,7 +14,7 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
 from plenum.common.exceptions import UnsupportedOperation
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
-from plenum.persistence.storage import initKeyValueStorage
+from storage.helper import initKeyValueStorage
 from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 from state.pruning_state import PruningState
@@ -177,7 +177,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value)
-        nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
         if not cliha:
@@ -186,7 +185,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value)
-        cliNodeReg[cliname] = HA(*cliha)
 
         if keys_dir:
             nstack['basedirpath'] = keys_dir
@@ -202,7 +200,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param ppTime: PrePrepare request time
         :param reqs: request
         """
-        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
         self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             t = deepcopy(txn)
@@ -214,7 +212,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return committedTxns
 
     def onPoolMembershipChange(self, txn):
-        if txn[TXN_TYPE] == NODE:
+        if txn[TXN_TYPE] == NODE and DATA in txn:
             nodeName = txn[DATA][ALIAS]
             nodeNym = txn[TARGET_NYM]
 
@@ -253,10 +251,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]
         if nodeName == self.name:
-            logger.debug("{} not adding itself to node registry".
+            logger.debug("{} adding itself to node registry".
                          format(self.name))
-            return
-        self.connectNewRemote(txn, nodeName, self.node)
+            self.node.nodeReg[nodeName] = HA(txn[DATA][NODE_IP],
+                                             txn[DATA][NODE_PORT])
+            self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = \
+                HA(txn[DATA][CLIENT_IP],
+                   txn[DATA][CLIENT_PORT])
+        else:
+            self.connectNewRemote(txn, nodeName, self.node, nodeName != self.name)
         self.node.nodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
@@ -269,6 +272,33 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
+            # Update itself in node registry if needed
+            ha_changed = False
+            (ip, port) = self.node.nodeReg[nodeName]
+            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
+                ip = txn[DATA][NODE_IP]
+                ha_changed = True
+
+            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
+                port = txn[DATA][NODE_PORT]
+                ha_changed = True
+
+            if ha_changed:
+                self.node.nodeReg[nodeName] = HA(ip, port)
+
+            ha_changed = False
+            (ip, port) = self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+            if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
+                ip = txn[DATA][CLIENT_IP]
+                ha_changed = True
+
+            if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
+                port = txn[DATA][CLIENT_PORT]
+                ha_changed = True
+
+            if ha_changed:
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(ip, port)
+
             self.node.nodestack.onHostAddressChanged()
             self.node.clientstack.onHostAddressChanged()
         else:
@@ -411,6 +441,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             return None
         return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
 
+    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
+        for nym, nm in self._ordered_node_ids.items():
+            if name == nm:
+                return self.get_rank_of(nym, nodeReg)
+
     def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:
             nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
@@ -531,6 +566,9 @@ class RegistryPoolManager(PoolManager):
     def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
         # TODO node_id here has got another meaning
         return self._get_rank(node_id, self.node_names_ordered_by_rank(nodeReg))
+
+    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
+        return self.get_rank_of(name, nodeReg)
 
     def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
         try:

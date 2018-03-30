@@ -94,7 +94,6 @@ def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
 
 def test_store_wallet_by_empty_path_fail(
         tdir_for_func, keyrings_base_dir, test_wallet):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
@@ -106,7 +105,6 @@ def test_store_wallet_by_empty_path_fail(
 
 def test_store_wallet_outside_fail(
         tdir_for_func, keyrings_base_dir, test_wallet):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [
@@ -202,7 +200,6 @@ def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
 
 
 def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
@@ -213,7 +210,6 @@ def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
 
 
 def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
-
     wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [

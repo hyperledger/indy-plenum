@@ -3,7 +3,6 @@ from collections import OrderedDict
 from plenum.common.messages.fields import \
     IterableField, LedgerIdField, MapField
 
-
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("txns", AnyValueField),

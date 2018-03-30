@@ -97,7 +97,7 @@ class Batched(MessageProcessor):
                 continue
             if msgs:
                 if self._should_batch(msgs):
-                    logger.debug(
+                    logger.trace(
                         "{} batching {} msgs to {} into fewer transmissions".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
@@ -141,8 +141,11 @@ class Batched(MessageProcessor):
             del self.outBoxes[rid]
 
     def _make_batch(self, msgs):
-        batch = Batch(msgs, None)
-        serialized_batch = self.sign_and_serialize(batch)
+        if len(msgs) > 1:
+            batch = Batch(msgs, None)
+            serialized_batch = self.sign_and_serialize(batch)
+        else:
+            serialized_batch = msgs[0]
         return serialized_batch
 
     def _test_batch_len(self, batch_len):

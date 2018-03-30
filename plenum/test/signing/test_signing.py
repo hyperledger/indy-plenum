@@ -15,29 +15,30 @@ whitelist = ['doing nothing for now',
 
 
 @pytest.fixture(scope="module")
-def setup(nodeSet):
-    gn = [v for k, v in nodeSet.nodes.items() if k != 'Alpha']
+def setup(txnPoolNodeSet):
+    pool_without_alpha = list(txnPoolNodeSet)
+    pool_without_alpha.remove(txnPoolNodeSet[0])
     # delay incoming client messages for good nodes by 250 milliseconds
     # this gives Alpha a chance to send a propagate message
-    for n in gn:  # type: TestNode
+    for n in pool_without_alpha:  # type: TestNode
         n.clientIbStasher.delay(lambda _: 1)
-    return adict(goodNodes=gn)
+    return adict(goodNodes=pool_without_alpha)
 
 
 @pytest.fixture(scope="module")
-def evilAlpha(nodeSet):
-    makeNodeFaulty(nodeSet.Alpha, changesRequest)
+def evilAlpha(txnPoolNodeSet):
+    makeNodeFaulty(txnPoolNodeSet[0], changesRequest)
 
 
 faultyNodes = 1
 
 
 def testOneNodeAltersAClientRequest(looper,
-                                    nodeSet,
+                                    txnPoolNodeSet,
                                     setup,
                                     evilAlpha,
                                     sent1):
-    checkPropagated(looper, nodeSet, sent1, faultyNodes)
+    checkPropagated(looper, txnPoolNodeSet, sent1, faultyNodes)
 
     goodNodes = setup.goodNodes
 
@@ -58,5 +59,5 @@ def testOneNodeAltersAClientRequest(looper,
             for good in goodNodes:
                 assert good.name in props
 
-    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
+    timeout = waits.expectedClientRequestPropagationTime(len(txnPoolNodeSet))
     looper.run(eventually(check, retryWait=1, timeout=timeout))

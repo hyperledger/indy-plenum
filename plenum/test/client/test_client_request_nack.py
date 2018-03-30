@@ -2,10 +2,8 @@ from functools import partial
 
 import pytest
 
-from stp_core.loop.eventually import eventuallyAll
-
-from plenum.test import waits
-from plenum.test.helper import checkReqNack
+from plenum.common.exceptions import RequestNackedException
+from plenum.test.helper import sdk_send_random_and_check
 
 whitelist = ['discarding message']
 
@@ -17,8 +15,8 @@ class TestVerifier:
 
 
 @pytest.fixture(scope="module")
-def restrictiveVerifier(nodeSet):
-    for n in nodeSet:
+def restrictiveVerifier(txnPoolNodeSet):
+    for n in txnPoolNodeSet:
         n.opVerifiers = [TestVerifier()]
 
 
@@ -32,16 +30,15 @@ def request1(wallet1):
 
 @pytest.mark.skip(reason="old style plugin")
 def testRequestFullRoundTrip(restrictiveVerifier,
-                             client1,
-                             sent1,
+                             sdk_pool_handle,
+                             sdk_wallet_client,
                              looper,
-                             nodeSet):
-
+                             txnPoolNodeSet):
     update = {'reason': 'client request invalid: InvalidClientRequest() '
                         '[caused by amount too high\nassert 999 <= 100]'}
-
-    coros2 = [partial(checkReqNack, client1, node, sent1.identifier,
-                      sent1.reqId, update)
-              for node in nodeSet]
-    timeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*coros2, totalTimeout=timeout))
+    with pytest.raises(RequestNackedException) as e:
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle, sdk_wallet_client, 1)
+    assert 'client request invalid: InvalidClientRequest() '
+    '[caused by amount too high\nassert 999 <= 100]' in \
+    e._excinfo[1].args[0]
