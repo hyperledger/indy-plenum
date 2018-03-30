@@ -264,11 +264,11 @@ class ValidatorNodeInfoTool:
             replica_stat = {}
             replica_stat["Primary"] = replica.primaryName
             replica_stat["Watermarks"] = "{}:{}".format(replica.h, replica.H)
-            replica_stat["Last_ordered_3PC"] = replica.last_ordered_3pc
+            replica_stat["Last_ordered_3PC"] = str(replica.last_ordered_3pc)
             stashed_txns = {}
             stashed_txns["Stashed_checkoints"] = len(replica.stashedRecvdCheckpoints)
             if replica.prePreparesPendingPrevPP:
-                stashed_txns["Min_stashed_PrePrepare"] = replica.prePreparesPendingPrevPP.itervalues[-1]
+                stashed_txns["Min_stashed_PrePrepare"] = str(replica.prePreparesPendingPrevPP.itervalues[-1])
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = replica_stat
 
@@ -284,12 +284,12 @@ class ValidatorNodeInfoTool:
         uncommited_txns = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
             ledger_statuses[idx] = linfo.state.name
-            waiting_cp[idx] = linfo.catchUpTill
+            waiting_cp[idx] = str(linfo.catchUpTill)
             num_txns_in_catchup[idx] = linfo.num_txns_caught_up
-            last_txn_3PC_keys[idx] = linfo.last_txn_3PC_key
+            last_txn_3PC_keys[idx] = str(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
                 uncommited_root_hashes[idx] = base58.b58encode(linfo.ledger.uncommittedRootHash)
-            uncommited_txns[idx] = linfo.ledger.uncommittedTxns
+            uncommited_txns[idx] = [ str(txn) for txn in linfo.ledger.uncommittedTxns]
             if linfo.ledger.tree.root_hash:
                 root_hashes[idx] = base58.b58encode(linfo.ledger.tree.root_hash)
 
@@ -300,18 +300,21 @@ class ValidatorNodeInfoTool:
             ics["Vouters"] = list(queue.voters)
             ics["Message"] = str(queue.msg)
             ic_queue[view_no] = ics
+        metrics = self._node.monitor.metrics()
+        if metrics:
+            metrics = [str(m) for m in metrics]
         return {
             "Node info": {
                 "Name": self._node.name,
                 "Last N pool ledger txns": "",
-                "Mode": self._node.mode,
-                "Metrics": self._node.monitor.metrics(),
+                "Mode": self._node.mode.name,
+                "Metrics": metrics,
                 "Root_hashes": root_hashes,
                 "Uncommited_root_hashes": uncommited_root_hashes,
                 "Uncommited_txns": uncommited_txns,
                 "View_change_status": {
                     "View_No": self._node.viewNo,
-                    "VC_in_progress": self._node.view_changer.view_change_in_progress,
+                    "VC_in_progress": str(self._node.view_changer.view_change_in_progress),
                     "IC_queue": ic_queue,
                     "VCDone_queue": str(self._node.view_changer._view_change_done)
                 },
@@ -333,5 +336,5 @@ class ValidatorNodeInfoTool:
         with open(path, 'w') as fd:
             try:
                 json.dump(self.info, fd)
-            except json.JSONDecodeError as ex:
-                logger.error("Erro while dumping into json: {}".format(repr(ex)))
+            except Exception as ex:
+                logger.error("Error while dumping into json: {}".format(repr(ex)))
