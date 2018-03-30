@@ -26,6 +26,14 @@ def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 
+class ReplicaFilter(logging.Filter):
+
+    def filter(self, record):
+        if record.module == "replica":
+            record.msg = "REPLICA:({}) {}".format(self.name, record.msg)
+        return record
+
+
 class Logger(metaclass=Singleton):
     def __init__(self, config=None):
 
@@ -33,26 +41,7 @@ class Logger(metaclass=Singleton):
         self._config = config or getConfig()
         self._addTraceToLogging()
         self._addDisplayToLogging()
-
-        self._handlers = {}
-        self._format = logging.Formatter(fmt=self._config.logFormat,
-                                         style=self._config.logFormatStyle)
-
-        self._default_raet_verbosity = \
-            getRAETLogLevelFromConfig("RAETLogLevel",
-                                      Console.Wordage.terse,
-                                      self._config)
-
-        self._default_raet_log_file = \
-            getRAETLogFilePath("RAETLogFilePath", self._config)
-
-        if self._config.enableStdOutLogging:
-            self.enableStdLogging()
-
-        logLevel = logging.INFO
-        if hasattr(self._config, "logLevel"):
-            logLevel = self._config.logLevel
-        self.setLogLevel(logLevel)
+        self.apply_config(self._config)
 
     @staticmethod
     def getlogger(name=None):
@@ -67,18 +56,22 @@ class Logger(metaclass=Singleton):
     def setLogLevel(log_level):
         logging.root.setLevel(log_level)
 
-    def setupRaet(self, raet_log_level=None, raet_log_file=None):
-        console = getConsole()
+    def apply_config(self, config):
+        assert config
 
-        verbosity = raet_log_level \
-            if raet_log_level is not None \
-            else self._default_raet_verbosity
-        file = raet_log_file or self._default_raet_log_file
+        self._config = config
+        self._handlers = {}
+        self._clearAllHandlers()
+        self._format = logging.Formatter(fmt=self._config.logFormat,
+                                         style=self._config.logFormatStyle)
 
-        logging.debug("Setting RAET log level {}".format(verbosity),
-                      extra={"cli": False})
+        if self._config.enableStdOutLogging:
+            self.enableStdLogging()
 
-        console.reinit(verbosity=verbosity, path=file, flushy=True)
+        logLevel = logging.INFO
+        if hasattr(self._config, "logLevel"):
+            logLevel = self._config.logLevel
+        self.setLogLevel(logLevel)
 
     def enableStdLogging(self):
         # only enable if CLI is not
@@ -122,6 +115,10 @@ class Logger(metaclass=Singleton):
         if old:
             logging.root.removeHandler(old)
 
+    def _clearAllHandlers(self):
+        for hdlr in logging.root.handlers:
+            logging.root.removeHandler(hdlr)
+
     @staticmethod
     def _addTraceToLogging():
         logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
@@ -141,22 +138,3 @@ class Logger(metaclass=Singleton):
                 self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
 
         logging.Logger.display = display
-
-
-def getRAETLogLevelFromConfig(paramName, defaultValue, config):
-    try:
-        defaultVerbosity = config.__getattribute__(paramName)
-        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    except AttributeError:
-        defaultVerbosity = defaultValue
-        logging.debug("Ignoring RAET log level {} from config and using {} "
-                      "instead".format(paramName, defaultValue))
-    return defaultVerbosity
-
-
-def getRAETLogFilePath(paramName, config):
-    try:
-        filePath = config.__getattribute__(paramName)
-    except AttributeError:
-        filePath = None
-    return filePath

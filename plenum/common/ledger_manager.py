@@ -91,11 +91,14 @@ class LedgerManager(HasActionQueue):
         if ledgerInfo.consistencyProofsTimer is None:
             return
 
+        proofs = ledgerInfo.recvdConsistencyProofs
+        # there is no any received ConsistencyProofs
+        if not proofs:
+            return
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
         quorum = Quorums(self.owner.totalNodes)
-        proofs = ledgerInfo.recvdConsistencyProofs
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
         if quorum.same_consistency_proof.is_reached(null_proofs_count):
             return
@@ -650,7 +653,7 @@ class LedgerManager(HasActionQueue):
         for k, catchupReps in ledgerInfo.recvdCatchupRepliesFrm.items():
             for rep in catchupReps:
                 txns = getattr(rep, f.TXNS.nm)
-                # Transfers of odcits in RAET converts integer keys to string
+
                 if str(seqNo) in txns:
                     return k, rep
 
@@ -878,7 +881,6 @@ class LedgerManager(HasActionQueue):
         if last_3PC is not None \
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
-
         self.mark_ledger_synced(ledgerId)
         self.catchup_next_ledger(ledgerId)
 

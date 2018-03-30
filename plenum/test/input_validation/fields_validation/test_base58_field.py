@@ -48,4 +48,4 @@ def test_invalid_symbols_truncated_output():
         b58_by_len(20)[slice(0, -len(INVALID_CHARS))] + INVALID_CHARS)
     assert res
     assert (res == 'should not contain the following chars '
-            '{} (truncated)'.format(sorted(set(INVALID_CHARS))[:10]))
+                   '{} (truncated)'.format(sorted(set(INVALID_CHARS))[:10]))

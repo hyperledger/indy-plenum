@@ -12,14 +12,12 @@ whitelist = ['got primary declaration',
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip(reason="SOV-541. Implementation changed.")
 def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
-                                                   keySharedNodes,
-                                                   ready):
+                                                   txnPoolNodeSet):
     """
     A node that sends multiple primary declarations must be blacklisted by
     other nodes
     """
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
     # B sends more than 2 primary declarations
     for i in range(3):
@@ -30,5 +28,5 @@ def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    timeout = waits.expectedPoolNominationTimeout(len(nodeSet.nodes))
+    timeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

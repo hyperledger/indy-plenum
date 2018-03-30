@@ -3,7 +3,7 @@ from plenum.test.delayers import pDelay, cDelay, ppDelay
 from plenum.test.node_catchup.test_node_reject_invalid_txn_during_catchup import \
     get_any_non_primary_node
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import \
     waitNodeDataEquality, \
     waitNodeDataInequality
@@ -11,9 +11,6 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import \
-    clientAndWallet1, client1, wallet1, client1Connected, looper
 from stp_core.loop.eventually import eventually
 
 logger = getlogger()
@@ -21,7 +18,6 @@ txnCount = 5
 
 
 def make_master_replica_lag(node):
-
     node.nodeIbStasher.delay(ppDelay(1200, 0))
     node.nodeIbStasher.delay(pDelay(1200, 0))
     node.nodeIbStasher.delay(cDelay(1200, 0))
@@ -45,14 +41,13 @@ def replicas_synced(node):
     assert compare_last_ordered_3pc(node) == 0
 
 
-def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
-                                       wallet1, client1Connected, monkeypatch):
+def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
+                                       sdk_wallet_client, monkeypatch):
     """
     Checks that transactions received by catchup do not
     break performance monitoring
     """
 
-    client, wallet = client1, wallet1
     lagging_node = get_any_non_primary_node(txnPoolNodeSet)
     rest_nodes = set(txnPoolNodeSet).difference({lagging_node})
 
@@ -63,7 +58,8 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
                         lambda *x, **y: None)
 
     # Send some requests and check that all replicas except master executed it
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     waitNodeDataInequality(looper, lagging_node, *rest_nodes)
     looper.run(eventually(backup_replicas_run_forward, lagging_node))
 
@@ -73,9 +69,8 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
                                             txnPoolNodeSet,
                                             lagging_node,
                                             stopNode=False)
-    looper.removeProdable(lagging_node)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    looper.add(lagging_node)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, lagging_node)
 
     # Check that catchup done
@@ -83,7 +78,8 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, client1,
 
     # Send some more requests to ensure that backup and master replicas
     # are in the same state
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     looper.run(eventually(replicas_synced, lagging_node))
 
     # Check that master is not considered to be degraded

@@ -6,7 +6,6 @@ from stp_core.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.testable import spyable
 
-
 pr = slice(3, 5)  # params and result
 
 logger = getlogger()

@@ -1,19 +1,15 @@
 from functools import partial
-from itertools import product
 
 import pytest
+import json
 
-from plenum.common.util import getNoInstances
-from plenum.test.batching_3pc.helper import send_and_check
+from plenum.test.node_request.helper import nodes_by_rank
 from stp_core.common.util import adict
-from plenum.test import waits
-from plenum.test.helper import checkRequestReturnedToNode, checkRequestNotReturnedToNode, signed_random_requests, \
-    check_request_is_not_returned_to_nodes
-from plenum.test.node_request.node_request_helper import checkCommitted
+from plenum.test.helper import check_request_is_not_returned_to_nodes, \
+    sdk_send_and_check, sdk_json_to_request_object, sdk_signed_random_requests
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
-    changesRequest, delaysCommitProcessing
-from stp_core.loop.eventually import eventually, eventuallyAll
+    changesRequest
 
 nodeCount = 6
 # f + 1 faults, i.e, num of faults greater than system can tolerate
@@ -23,10 +19,10 @@ whitelist = ['InvalidSignature']
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
+def setup(txnPoolNodeSet):
     # A = startedNodes.Alpha
     # B = startedNodes.Beta
-    A, B = startedNodes.nodes_by_rank[-2:]
+    A, B = nodes_by_rank(txnPoolNodeSet)[-2:]
     for node in A, B:
         makeNodeFaulty(node, changesRequest,
                        partial(delaysPrePrepareProcessing, delay=90))
@@ -35,16 +31,17 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary
 
 
 def test_6_nodes_pool_cannot_reach_quorum_with_2_faulty(afterElection, looper,
-                                                        nodeSet, prepared1,
-                                                        wallet1, client1):
-    reqs = signed_random_requests(wallet1, 1)
-    with pytest.raises(AssertionError):
-        send_and_check(reqs, looper, nodeSet, client1)
-    check_request_is_not_returned_to_nodes(nodeSet, reqs[0])
+                                                        txnPoolNodeSet, prepared1,
+                                                        sdk_wallet_client, sdk_pool_handle):
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
+    with pytest.raises(TimeoutError):
+        sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    check_request_is_not_returned_to_nodes(
+        txnPoolNodeSet, sdk_json_to_request_object(json.loads(reqs[0])))
