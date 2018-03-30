@@ -289,7 +289,7 @@ class ValidatorNodeInfoTool:
             last_txn_3PC_keys[idx] = str(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
                 uncommited_root_hashes[idx] = base58.b58encode(linfo.ledger.uncommittedRootHash)
-            uncommited_txns[idx] = [ str(txn) for txn in linfo.ledger.uncommittedTxns]
+            uncommited_txns[idx] = [str(txn) for txn in linfo.ledger.uncommittedTxns]
             if linfo.ledger.tree.root_hash:
                 root_hashes[idx] = base58.b58encode(linfo.ledger.tree.root_hash)
 
