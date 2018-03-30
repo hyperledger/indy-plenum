@@ -3,15 +3,10 @@ import random
 import pytest
 
 from plenum.test.pool_transactions.helper import sdk_build_get_txn_request, sdk_sign_and_send_prepared_request
-from plenum.test.spy_helpers import getAllArgs
 from stp_core.common.log import getlogger
-from stp_core.loop.eventually import eventually
-from plenum.test.client.conftest import passThroughReqAcked1
 
-from plenum.test.helper import stopNodes, send_signed_requests, sdk_send_random_and_check, sdk_get_replies, \
+from plenum.test.helper import stopNodes, sdk_send_random_and_check, \
     sdk_get_and_check_replies
-from plenum.test.malicious_behaviors_client import \
-    genDoesntSendRequestToSomeNodes
 
 logger = getlogger()
 

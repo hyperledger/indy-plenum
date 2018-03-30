@@ -6,8 +6,6 @@ from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn
 from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.util import check_if_all_equal_in_list
-from plenum.test.helper import waitForSufficientRepliesForRequests, \
-    send_signed_requests
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -56,12 +54,6 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
 
         assert len(stateRoots) == 1
         assert len(txnRoots) == 1
-
-
-def send_and_check(signed_reqs, looper, txnPoolNodeSet, client):
-    reqs = send_signed_requests(client, signed_reqs)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
-    checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
 def add_txns_to_ledger_before_order(replica, reqs):
