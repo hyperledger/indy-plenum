@@ -14,6 +14,7 @@ from plenum.common.exceptions import EmptySignature, \
     InsufficientSignatures, InsufficientCorrectSignatures
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
+from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.pool_req_handler import PoolRequestHandler
 from stp_core.common.log import getlogger
@@ -174,14 +175,12 @@ class CoreAuthMixin:
     write_types = PoolRequestHandler.write_types.union(
         DomainRequestHandler.write_types
     )
-    action_types = PoolRequestHandler.action_types.union(
-        DomainRequestHandler.action_types
-    )
     query_types = {GET_TXN, }.union(
         PoolRequestHandler.query_types
     ).union(
         DomainRequestHandler.query_types
     )
+    action_types = ActionReqHandler.action_types
 
     @classmethod
     def is_query(cls, typ):

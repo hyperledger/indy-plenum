@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 from typing import List
 
 import base58
@@ -13,7 +14,7 @@ from state.state import State
 logger = getlogger()
 
 
-class LedgerRequestHandler(RequestHandler):
+class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     """
     Base class for request handlers
     Declares methods for validation, application of requests and
@@ -49,10 +50,16 @@ class LedgerRequestHandler(RequestHandler):
         self.state.commit(rootHash=stateRoot)
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
+    @abstractmethod
     def onBatchCreated(self, state_root):
         pass
 
+    @abstractmethod
     def onBatchRejected(self):
+        pass
+
+    @abstractmethod
+    def doStaticValidation(self, request: Request):
         pass
 
     def is_query(self, txn_type):
