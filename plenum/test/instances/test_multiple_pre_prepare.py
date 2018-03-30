@@ -12,21 +12,15 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
-
-
-whitelist = [Suspicions.DUPLICATE_PPR_SENT.reason,
-             'cannot process incoming PRE-PREPARE',
-             Suspicions.UNKNOWN_PR_SENT.reason,
-             'Invalid prepare message received',
-             'cannot process incoming PREPARE',
-             Suspicions.UNKNOWN_CM_SENT.reason,
-             'cannot process incoming COMMIT']
+from plenum.test.node_request.conftest import committed1, \
+    prepared1, preprepared1, propagated1, reqAcked1, \
+    sent1, noRetryReq, faultyNodes
 
 
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     # The primary replica would send 3 duplicate PRE-PREPARE requests to
     # non primary replicas

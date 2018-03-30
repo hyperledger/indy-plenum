@@ -2,15 +2,14 @@ import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from ledger.test.test_file_hash_store import nodesLeaves, \
-    generateHashes
+from plenum.common.constants import HS_LEVELDB, HS_ROCKSDB
+from ledger.test.test_file_hash_store import nodesLeaves
+from plenum.persistence.db_hash_store import DbHashStore
 
-from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 
-
-@pytest.yield_fixture(scope="module")
-def leveldbHashStore(tdir):
-    hs = LevelDbHashStore(tdir)
+@pytest.yield_fixture(scope="module", params=[HS_ROCKSDB, HS_LEVELDB])
+def hashStore(request, tmpdir_factory):
+    hs = DbHashStore(tmpdir_factory.mktemp('').strpath, db_type=request.param)
     cleanup(hs)
     yield hs
     hs.close()
@@ -21,33 +20,33 @@ def cleanup(hs):
     hs.leafCount = 0
 
 
-def testIndexFrom1(leveldbHashStore):
+def testIndexFrom1(hashStore):
     with pytest.raises(IndexError):
-        leveldbHashStore.readLeaf(0)
+        hashStore.readLeaf(0)
 
 
-def testReadWrite(leveldbHashStore, nodesLeaves):
+def testReadWrite(hashStore, nodesLeaves):
     nodes, leaves = nodesLeaves
     for node in nodes:
-        leveldbHashStore.writeNode(node)
+        hashStore.writeNode(node)
     for leaf in leaves:
-        leveldbHashStore.writeLeaf(leaf)
-    onebyone = [leveldbHashStore.readLeaf(i + 1) for i in range(10)]
-    multiple = leveldbHashStore.readLeafs(1, 10)
+        hashStore.writeLeaf(leaf)
+    onebyone = [hashStore.readLeaf(i + 1) for i in range(10)]
+    multiple = hashStore.readLeafs(1, 10)
     assert onebyone == leaves
     assert onebyone == multiple
 
 
-def testRecoverLedgerFromHashStore(leveldbHashStore, tdir):
-    cleanup(leveldbHashStore)
-    tree = CompactMerkleTree(hashStore=leveldbHashStore)
+def testRecoverLedgerFromHashStore(hashStore, tdir):
+    cleanup(hashStore)
+    tree = CompactMerkleTree(hashStore=hashStore)
     ledger = Ledger(tree=tree, dataDir=tdir)
     for d in range(10):
         ledger.add(str(d).encode())
     updatedTree = ledger.tree
     ledger.stop()
 
-    tree = CompactMerkleTree(hashStore=leveldbHashStore)
+    tree = CompactMerkleTree(hashStore=hashStore)
     restartedLedger = Ledger(tree=tree, dataDir=tdir)
     assert restartedLedger.size == ledger.size
     assert restartedLedger.root_hash == ledger.root_hash

@@ -13,13 +13,12 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 @pytest.fixture("module")
-def node_doesnt_propagate(startedNodes):
+def node_doesnt_propagate(txnPoolNodeSet):
     """
     Makes the node named Alpha in the given set of nodes faulty.
     After applying this behavior, the node Alpha no longer sends
     propagate requests.
     """
-    nodes = startedNodes
 
     def evilProcessPropagate(self, msg, frm):
         logger.info("TEST: Evil {} is not processing PROPAGATE".format(self))
@@ -29,7 +28,7 @@ def node_doesnt_propagate(startedNodes):
                     format(self))
 
     # Choosing a node which will not be primary
-    node = nodes.Delta
+    node = txnPoolNodeSet[3]
     epp = types.MethodType(evilProcessPropagate, node)
     node.nodeMsgRouter.routes[Propagate] = epp
     node.processPropagate = epp
@@ -49,4 +48,3 @@ def testRequestFullRoundTrip(node_doesnt_propagate, replied1):
     still be able to successfully complete a full cycle.
     """
     pass
-

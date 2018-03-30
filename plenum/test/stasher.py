@@ -1,8 +1,12 @@
 import time
+from collections import namedtuple
+from contextlib import contextmanager
 
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+StasherDelayed = namedtuple('StasherDelayed', 'item timestamp rule')
 
 
 class Stasher:
@@ -19,6 +23,10 @@ class Stasher:
 
         :param tester: a callable that takes as an argument the item
             from the queue and returns a number of seconds it should be delayed
+
+        Note: current reliance on tester.__name__ to remove particular
+        delay rules could lead to problems when adding testers with
+        same function but different parameters.
         """
         logger.debug("{} adding delay for {}".format(self.name, tester))
         self.delayRules.add(tester)
@@ -42,7 +50,7 @@ class Stasher:
                     logger.debug("{} stashing message {} for "
                                  "{} seconds".
                                  format(self.name, rx, secondsToDelay))
-                    self.delayeds.append((age + secondsToDelay, rx))
+                    self.delayeds.append(StasherDelayed(item=rx, timestamp=age + secondsToDelay, rule=tester.__name__))
                     self.queue.remove(rx)
 
     def unstashAll(self, age, *names, ignore_age_check=False):
@@ -59,18 +67,18 @@ class Stasher:
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
             if ignore_age_check or (
-                    names and d[1][0].__name__ in names) or age >= d[0]:
+                    names and d.rule in names) or age >= d.timestamp:
                 if ignore_age_check:
                     msg = '(forced)'
-                elif names and d[1][0].__name__ in names:
-                    msg = '({} present in {})'.format(d[1][0].__name__, names)
+                elif names and d.rule in names:
+                    msg = '({} present in {})'.format(d.rule, names)
                 else:
                     msg = '({:.0f} milliseconds overdue)'.format(
-                        (age - d[0]) * 1000)
+                        (age - d.timestamp) * 1000)
                 logger.debug(
                     "{} unstashing message {} {}".
-                    format(self.name, d[1], msg))
-                self.queue.appendleft(d[1])
+                        format(self.name, d.item, msg))
+                self.queue.appendleft(d.item)
                 to_remove.append(idx)
                 unstashed += 1
 
@@ -106,5 +114,43 @@ class Stasher:
             return self.unstashAll(0, *names)
 
     def reset_delays_and_process_delayeds(self, *names):
+        """
+        Remove delay rules and unstash related messages.
+
+        :param names: list of delay functions names to unstash
+
+        Note that original implementation made an assumption that messages are tuples
+        and relied on first element __name__ to find messages to unstash, but new one
+        explicitly stores name of delay rule function when stashing messages. Also
+        most delay rule functions override their __name__ to match delayed message.
+        While usages looking like reset_delays_and_process_delayeds(COMMIT) won't break
+        as long as last assumption holds true it's still recommended to consider using
+        new context manager where applicable to reduce potential errors in tests.
+        """
         self.resetDelays(*names)
         self.force_unstash(*names)
+
+
+@contextmanager
+def delay_rules(stasher, *delayers):
+    """
+    Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
+
+    :param stasher: Instance of Stasher or iterable over instances of stasher
+    :param delayers: Delay rule functions to be added to stashers
+    """
+    try:
+        stashers = [s for s in stasher]
+    except TypeError:
+        stashers = [stasher]
+
+    for s in stashers:
+        if not isinstance(s, Stasher):
+            raise TypeError("expected Stasher or Iterable[Stasher] as a first argument")
+
+    for s in stashers:
+        for d in delayers:
+            s.delay(d)
+    yield
+    for s in stashers:
+        s.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))

@@ -5,7 +5,8 @@ from collections import OrderedDict
 
 import logging
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
+    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -59,7 +60,7 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_FILE
+    "type": HS_LEVELDB
 }
 
 primaryStorage = None
@@ -70,6 +71,8 @@ configStateStorage = KeyValueStorageType.Leveldb
 reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 stateSignatureStorage = KeyValueStorageType.Leveldb
+
+transactionLogDefaultStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -123,12 +126,6 @@ STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 DUMP_VALIDATOR_INFO_INIT_SEC = 3
 DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
 
-RAETLogLevel = "terse"
-RAETLogLevelCli = "mute"
-RAETLogFilePath = os.path.expanduser('~/.plenum/raet.log')
-RAETLogFilePathCli = None
-RAETMessageTimeout = 60
-
 # Controls sending of view change messages, a node will only send view change
 # messages if it did not send any sent instance change messages in last
 # `ViewChangeWindowSize` seconds
@@ -177,9 +174,6 @@ EnsureLedgerDurability = False
 
 log_override_tags = dict(cli={}, demo={})
 
-# TODO needs to be refactored to use a transport protocol abstraction
-UseZStack = True
-
 
 # Number of messages zstack accepts at once
 LISTENER_MESSAGE_QUOTA = 100
@@ -219,6 +213,7 @@ CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
+INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 

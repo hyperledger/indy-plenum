@@ -3,10 +3,7 @@ from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
     send_signed_requests, checkReqNackWithReason, random_request_objects, \
-    sign_request_objects, signed_random_requests, random_requests
-# noinspection PyUnresolvedReferences
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+    sign_request_objects, random_requests
 from stp_core.loop.eventually import eventually
 
 
@@ -14,8 +11,9 @@ from stp_core.loop.eventually import eventually
 def request_num(request):
     return int(request.param)
 
+
 def test_request_no_protocol_version(looper, txnPoolNodeSet,
-                                     client1, client1Connected,
+                                     client1,
                                      wallet1,
                                      request_num):
     reqs = random_request_objects(request_num, protocol_version=None)
@@ -28,9 +26,9 @@ def test_request_no_protocol_version(looper, txnPoolNodeSet,
 
 
 def test_version_not_set_by_default(looper, txnPoolNodeSet,
-                                client1, client1Connected,
-                                wallet1,
-                                request_num):
+                                    client1,
+                                    wallet1,
+                                    request_num):
     req_dicts = random_requests(request_num)
     reqs = [Request(operation=op) for op in req_dicts]
     for req in reqs:
@@ -44,7 +42,7 @@ def test_version_not_set_by_default(looper, txnPoolNodeSet,
 
 
 def test_request_with_correct_version(looper,
-                                      txnPoolNodeSet, client1, client1Connected,
+                                      txnPoolNodeSet, client1,
                                       wallet1,
                                       request_num):
     reqs = random_request_objects(request_num, protocol_version=CURRENT_PROTOCOL_VERSION)
@@ -57,7 +55,7 @@ def test_request_with_correct_version(looper,
 
 
 def test_request_with_invalid_version(looper, txnPoolNodeSet,
-                                      client1, client1Connected,
+                                      client1,
                                       wallet1,
                                       request_num):
     reqs = random_request_objects(request_num, protocol_version=-1)

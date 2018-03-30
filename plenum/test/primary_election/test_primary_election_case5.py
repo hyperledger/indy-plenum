@@ -1,4 +1,3 @@
-
 import pytest
 from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.test import waits
@@ -7,7 +6,7 @@ from stp_core.common.log import getlogger
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.primary_election.helpers import primaryByNode
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.delayers import delayerMsgTuple
 
@@ -17,7 +16,6 @@ whitelist = ['because already got primary declaration',
              'doing nothing for now',
              'know how to handle it']
 
-
 logger = getlogger()
 
 # the total delay of election done
@@ -25,8 +23,8 @@ delayOfElectionDone = 20
 
 
 @pytest.fixture()
-def case5Setup(startedNodes: TestNodeSet):
-    A, B, C, D = startedNodes.nodes.values()
+def case5Setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     # Node B delays self nomination so A's nomination reaches everyone
     B.delaySelfNomination(30)
@@ -58,17 +56,16 @@ def case5Setup(startedNodes: TestNodeSet):
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
+def testPrimaryElectionCase5(case5Setup, looper, txnPoolNodeSet):
     """
     Case 5 - A node making primary declarations for a multiple other nodes.
     Consider 4 nodes A, B, C, and D. Lets say node B is malicious and
     declares node C as primary to all nodes.
     Again node B declares node D as primary to all nodes.
     """
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
-    looper.run(checkNodesConnected(nodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     BRep = Replica.generateName(B.name, 0)
     CRep = Replica.generateName(C.name, 0)
@@ -83,10 +80,10 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
 
     # Ensure elections are done
     # also have to take into account the catchup procedure
-    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
-        waits.expectedPoolCatchupTime(len(nodeSet)) + \
-        delayOfElectionDone
-    ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=timeout)
+    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
+              waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + \
+              delayOfElectionDone
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, customTimeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have primary declarations for node C from node B
@@ -94,5 +91,5 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     for node in [A, C, D]:
         logger.debug(
             "node {} should have primary declaration for C from node B"
-            .format(node))
+                .format(node))
         assert node.elector.primaryDeclarations[0][BRep][0] == CRep

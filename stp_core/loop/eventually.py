@@ -88,7 +88,9 @@ async def eventuallyAll(*coroFuncs: FlexFunc,  # (use functools.partials if need
                              acceptableExceptions=acceptableExceptions,
                              verbose=True,
                              override_timeout_limit=override_timeout_limit)
-        except Exception:
+        except Exception as ex:
+            if acceptableExceptions and type(ex) not in acceptableExceptions:
+                raise
             fails += 1
             logger.debug("a coro {} with args {} timed out without succeeding; fail count: "
                          "{}, acceptable: {}".
