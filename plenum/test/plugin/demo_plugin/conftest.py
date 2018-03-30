@@ -7,10 +7,6 @@ from plenum import setup_plugins, PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELD
 from plenum.common.pkg_util import update_module_vars
 from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
 
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, stewardAndWallet1, \
-    stewardWallet, steward1
-
 
 def do_plugin_initialisation_for_tests():
     # The next imports and reloading are needed only in tests, since in
@@ -71,5 +67,5 @@ def do_post_node_creation():
 
 
 @pytest.fixture(scope="module")
-def nodeSet(tconf, do_post_node_creation, txnPoolNodeSet):
+def txn_pool_node_set_post_creation(tconf, do_post_node_creation, txnPoolNodeSet):
     return txnPoolNodeSet

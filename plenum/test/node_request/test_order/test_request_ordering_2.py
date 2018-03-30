@@ -1,8 +1,10 @@
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual, sdk_send_random_and_check, \
+    sdk_send_random_requests, sdk_get_replies, sdk_eval_timeout, sdk_get_and_check_replies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
@@ -11,7 +13,7 @@ nodeCount = 7
 logger = getlogger()
 
 
-def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
+def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     Scenario -> A client sends requests, some nodes delay COMMITs to few
     specific nodes such some nodes achieve commit quorum later for those
@@ -19,8 +21,8 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     order of ppSeqNos
     https://www.pivotaltracker.com/n/projects/1889887/stories/133655009
     """
-    pr, replicas = getPrimaryReplica(nodeSet, instId=0), \
-        getNonPrimaryReplicas(nodeSet, instId=0)
+    pr, replicas = getPrimaryReplica(txnPoolNodeSet, instId=0), \
+                   getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
     assert len(replicas) == 6
 
     rep0 = pr
@@ -53,7 +55,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
                 delayedPpSeqNos.add(msg.ppSeqNo)
                 logger.debug('ppSeqNo {} be delayed'.format(msg.ppSeqNo))
         if isinstance(msg, Commit) and msg.instId == 0 and \
-            sender in (n.name for n in (node3, node4, node5)) and \
+                sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:
             return commitDelay
 
@@ -61,24 +63,11 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    requests = sendRandomRequests(wallet1, client1, requestCount)
-    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
+    sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                        sdk_wallet_client, requestCount)
 
-    def ensureSlowNodesHaveAllTxns():
-        nonlocal node1, node2
-        for node in node1, node2:
-            assert len(node.domainLedger) == requestCount
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
 
-    timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
-    looper.run(eventually(ensureSlowNodesHaveAllTxns,
-                          retryWait=1, timeout=timeout))
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=timeout)
 
-    checkAllLedgersEqual((n.domainLedger for n in (node0, node3, node4,
-                                                   node5, node6)))
-
-    for node in (node1, node2):
-        for n in nodeSet:
-            if n != node:
-                checkLedgerEquality(node.domainLedger, n.domainLedger)
-
-    checkAllLedgersEqual((n.domainLedger for n in nodeSet))
+    sdk_get_and_check_replies(looper, sdk_reqs)

@@ -1,11 +1,12 @@
 import pytest
-from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, ALIAS, SERVICES, CLIENT_STACK_SUFFIX
-from plenum.test.pool_transactions.helper import updateNodeData
-from plenum.test.primary_selection.conftest import stewardAndWalletForMasterNode, txnPoolMasterNodes
+from plenum.common.util import hexToFriendly
 
+from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, CLIENT_STACK_SUFFIX
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 
 nodeCount = 7
 nodes_wth_bls = 0
+
 
 @pytest.fixture()
 def pool_node_txns(poolTxnData):
@@ -14,6 +15,7 @@ def pool_node_txns(poolTxnData):
         if txn[TXN_TYPE] == NODE:
             node_txns.append(txn)
     return node_txns
+
 
 def test_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
     check_get_nym_by_name(txnPoolNodeSet, pool_node_txns)
@@ -29,23 +31,20 @@ def test_get_nym_by_name_not_in_registry(txnPoolNodeSet, pool_node_txns):
 
 
 def test_get_nym_by_name_demoted(txnPoolNodeSet, pool_node_txns,
-                                 looper, stewardAndWalletForMasterNode):
-    client, wallet = stewardAndWalletForMasterNode
-    demote_node(txnPoolNodeSet[0], looper, client, wallet)
+                                 looper, sdk_wallet_steward, sdk_pool_handle):
+    # sdk_wallet_steward fixture is a steward for [0] node,
+    # so we can do things below:
+    demote_node(txnPoolNodeSet[0], looper, sdk_wallet_steward, sdk_pool_handle)
     check_get_nym_by_name(txnPoolNodeSet, pool_node_txns)
 
 
-def demote_node(node,
-                looper, client, wallet):
-    node_data = {
-        ALIAS: node.name,
-        SERVICES: []
-    }
-    updateNodeData(looper,
-                   client,
-                   wallet,
-                   node,
-                   node_data)
+def demote_node(node, looper, sdk_steward_wallet, sdk_pool_handle):
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    sdk_send_update_node(looper, sdk_steward_wallet, sdk_pool_handle,
+                         node_dest, node.name,
+                         None, None,
+                         None, None,
+                         services=[])
 
 
 def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
@@ -59,6 +58,3 @@ def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
 
         assert node_nym
         assert node_nym == expected_data
-
-
-

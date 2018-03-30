@@ -1,4 +1,3 @@
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -15,7 +14,7 @@ def test_not_check_if_no_new_requests(perf_chk_patched, looper, txnPoolNodeSet,
     Checks that node does not do performance check if there were no new
     requests since previous check
     """
-    
+
     # Ensure that nodes participating, because otherwise they do not do check
     for node in txnPoolNodeSet:
         assert node.isParticipating

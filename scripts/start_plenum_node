@@ -11,8 +11,7 @@ from stp_core.types import HA
 from plenum.common.config_util import getConfig
 from plenum.server.config_helper import NodeConfigHelper
 from plenum.server.node import Node
-from stp_core.common.log import Logger, getRAETLogLevelFromConfig, \
-    getRAETLogFilePath
+from stp_core.common.log import Logger
 
 config = getConfig()
 
@@ -30,13 +29,7 @@ if __name__ == "__main__":
 
     logFileName = os.path.join(config_helper.log_dir, selfName + ".log")
 
-    RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-                                                Console.Wordage.mute,
-                                                config)
-    RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", config)
-
     Logger().enableFileLogging(logFileName)
-    Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
     print("Start plenum node:\n"
           "------------------\n"
