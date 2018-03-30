@@ -1,5 +1,7 @@
 import json
 
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from indy.did import create_and_store_my_did
 from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
 from indy.pool import refresh_pool_ledger
@@ -53,15 +55,6 @@ def sendAddNewClient(role, name, creatorClient, creatorWallet):
     return req, wallet
 
 
-def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
-                 name: str):
-    req, wallet = sendAddNewClient(role, name, creatorClient, creatorWallet)
-    waitForSufficientRepliesForRequests(looper, creatorClient,
-                                        requests=[req])
-
-    return wallet
-
-
 def sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
                    transformOpFunc=None):
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
@@ -113,23 +106,6 @@ def send_new_node_txn(sigseed,
            sigseed
 
 
-def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-               transformOpFunc=None, do_post_node_creation: Callable = None):
-    nodeClass = nodeClass or TestNode
-    req, nodeIp, nodePort, clientIp, clientPort, sigseed \
-        = sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
-                         transformOpFunc)
-    waitForSufficientRepliesForRequests(looper, stewardClient,
-                                        requests=[req])
-
-    return create_and_start_new_node(looper, newNodeName, tdir, sigseed,
-                                     (nodeIp, nodePort), (clientIp, clientPort),
-                                     tconf, autoStart, allPluginsPath,
-                                     nodeClass,
-                                     do_post_node_creation=do_post_node_creation)
-
-
 def start_not_added_node(looper,
                          tdir, tconf, allPluginsPath,
                          newNodeName):
@@ -152,32 +128,33 @@ def add_started_node(looper,
                      node_ha,
                      client_ha,
                      txnPoolNodeSet,
-                     client_tdir,
-                     stewardClient, stewardWallet,
-                     sigseed,
+                     sdk_pool_handle,
+                     sdk_wallet_steward,
                      bls_key):
     '''
     Adds already created node to the pool,
     that is sends NODE txn.
     Makes sure that node is actually added and connected to all otehr nodes.
     '''
-    newSteward, newStewardWallet = addNewSteward(looper, client_tdir,
-                                                 stewardClient, stewardWallet,
-                                                 "Steward" + new_node.name,
-                                                 clientClass=TestClient)
+    new_steward_wallet_handle = sdk_add_new_nym(looper, sdk_pool_handle,
+                                                sdk_wallet_steward,
+                                                "Steward" + new_node.name,
+                                                role=STEWARD_STRING)
     node_name = new_node.name
-    send_new_node_txn(sigseed,
-                      node_ha[0],
-                      node_ha[1],
-                      client_ha[0],
-                      client_ha[1],
-                      bls_key,
-                      node_name,
-                      newSteward, newStewardWallet)
+    node_dest = hexToFriendly(new_node.nodestack.verhex)
+    sdk_send_update_node(looper, new_steward_wallet_handle,
+                         sdk_pool_handle, node_dest, node_name,
+                         node_ha[0], node_ha[1],
+                         client_ha[0], client_ha[1],
+                         services=[VALIDATOR],
+                         bls_key=bls_key)
 
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward, *txnPoolNodeSet)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
@@ -225,45 +202,6 @@ def new_node(
     return node
 
 
-def addNewSteward(looper, client_tdir,
-                  creatorClient, creatorWallet, stewardName,
-                  clientClass=TestClient):
-    clientClass = clientClass or TestClient
-    newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
-                                    creatorWallet, stewardName)
-    newSteward = clientClass(name=stewardName,
-                             nodeReg=None, ha=genHa(),
-                             basedirpath=client_tdir)
-
-    looper.add(newSteward)
-    looper.run(newSteward.ensureConnectedToNodes())
-    return newSteward, newStewardWallet
-
-
-def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, client_tdir, tconf, allPluginsPath=None,
-                         autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient, transformNodeOpFunc=None,
-                         do_post_node_creation: Callable = None):
-    newSteward, newStewardWallet = addNewSteward(looper, client_tdir, creatorClient,
-                                                 creatorWallet, stewardName,
-                                                 clientClass=clientClass)
-
-    newNode = addNewNode(
-        looper,
-        newSteward,
-        newStewardWallet,
-        newNodeName,
-        tdir,
-        tconf,
-        allPluginsPath,
-        autoStart=autoStart,
-        nodeClass=nodeClass,
-        transformOpFunc=transformNodeOpFunc,
-        do_post_node_creation=do_post_node_creation)
-    return newSteward, newStewardWallet, newNode
-
-
 def sdk_add_new_steward_and_node(looper,
                                  sdk_pool_handle,
                                  sdk_wallet_steward,
@@ -282,7 +220,7 @@ def sdk_add_new_steward_and_node(looper,
                                                 sdk_wallet_steward,
                                                 alias=new_steward_name,
                                                 role=STEWARD_STRING)
-    newNode = sdk_add_new_node(
+    new_node = sdk_add_new_node(
         looper,
         sdk_pool_handle,
         new_steward_wallet_handle,
@@ -295,7 +233,7 @@ def sdk_add_new_steward_and_node(looper,
         transformOpFunc=transformNodeOpFunc,
         do_post_node_creation=do_post_node_creation,
         services=services)
-    return new_steward_wallet_handle, newNode
+    return new_steward_wallet_handle, new_node
 
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
@@ -408,19 +346,6 @@ def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, stri
     return request_couple
 
 
-def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
-    nodeNym = hexToFriendly(node.nodestack.verhex)
-    op = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nodeNym,
-        DATA: node_data,
-    }
-
-    req = stewardWallet.signOp(op)
-    stewardClient.submitReqs(req)
-    return req
-
-
 def sdk_send_update_node(looper, sdk_submitter_wallet,
                          sdk_pool_handle,
                          destination, alias,
@@ -449,12 +374,6 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
     sdk_pool_refresh(looper, sdk_pool_handle)
     return reply
-
-
-def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
-    req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
-    waitForSufficientRepliesForRequests(looper, stewardClient,
-                                        requests=[req])
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
@@ -508,31 +427,6 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     return restartedNode
 
 
-def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
-    nodeNym = hexToFriendly(node.nodestack.verhex)
-
-    op = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nodeNym,
-        VERKEY: verkey,
-        DATA: {
-            ALIAS: node.name
-        }
-    }
-    req = stewardWallet.signOp(op)
-    stewardClient.submitReqs(req)
-
-    waitForSufficientRepliesForRequests(looper, stewardClient,
-                                        requests=[req])
-
-    node.nodestack.clearLocalRoleKeep()
-    node.nodestack.clearRemoteRoleKeeps()
-    node.nodestack.clearAllDir()
-    node.clientstack.clearLocalRoleKeep()
-    node.clientstack.clearRemoteRoleKeeps()
-    node.clientstack.clearAllDir()
-
-
 def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verkey):
     _, steward_did = sdk_wallet_steward
     node_dest = hexToFriendly(node.nodestack.verhex)
@@ -557,37 +451,24 @@ def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verk
     node.clientstack.clearAllDir()
 
 
-def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
-    op = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nodeNym,
-        DATA: {
-            SERVICES: [],
-            ALIAS: nodeName
-        }
-    }
-    req = stewardWallet.signOp(op)
-    stewardClient.submitReqs(req)
-
-    waitForSufficientRepliesForRequests(looper, stewardClient,
-                                        requests=[req])
+def demote_node(looper, steward_wallet, sdk_pool_handle,
+                node):
+    node_nym = hexToFriendly(node.nodestack.verhex)
+    sdk_send_update_node(looper, steward_wallet,
+                         sdk_pool_handle, node_nym, node.name,
+                         None, None,
+                         None, None,
+                         services=[])
 
 
-def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
-                         nodeName):
-    op = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nodeNym,
-        DATA: {
-            SERVICES: [VALIDATOR],
-            ALIAS: nodeName
-        }
-    }
-
-    req = stewardWallet.signOp(op)
-    stewardClient.submitReqs(req)
-    waitForSufficientRepliesForRequests(looper, stewardClient,
-                                        requests=[req])
+def promote_node(looper, steward_wallet, sdk_pool_handle,
+                 node):
+    node_nym = hexToFriendly(node.nodestack.verhex)
+    sdk_send_update_node(looper, steward_wallet,
+                         sdk_pool_handle, node_nym, node.name,
+                         None, None,
+                         None, None,
+                         services=[VALIDATOR])
 
 
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=None):
@@ -693,30 +574,6 @@ def reconnect_node_and_ensure_connected(looper: Looper,
 
     reconnectPoolNode(looper, poolNodes, connect)
     looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))
-
-
-def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
-                tdir, client_tdir, tconf, all_plugins_path, names=None):
-    assert names is None or (isinstance(names, list) and len(names) == 2)
-    names = names or ("Zeta", "Eta")
-    new_nodes = []
-    for node_name in names:
-        new_steward_name = "testClientSteward" + randomString(3)
-        new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
-                                                                         steward,
-                                                                         steward_wallet,
-                                                                         new_steward_name,
-                                                                         node_name,
-                                                                         tdir,
-                                                                         client_tdir,
-                                                                         tconf,
-                                                                         all_plugins_path)
-        existing_nodes.append(new_node)
-        looper.run(checkNodesConnected(existing_nodes))
-        waitNodeDataEquality(looper, new_node, *existing_nodes[:-1])
-        new_nodes.append(new_node)
-
-    return new_nodes
 
 
 def sdk_add_2_nodes(looper, txnPoolNodeSet,

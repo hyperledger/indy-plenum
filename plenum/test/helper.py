@@ -188,55 +188,6 @@ def assertEquality(observed: Any, expected: Any, details=None):
                                  "was {}, details: {}".format(observed, expected, details)
 
 
-def setupNodesAndClient(
-        looper: Looper,
-        nodes: Sequence[TestNode],
-        nodeReg=None,
-        tmpdir=None):
-    looper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=looper, nodes=nodes)
-    return setupClient(looper, nodes, nodeReg=nodeReg, tmpdir=tmpdir)
-
-
-def setupClient(looper: Looper,
-                nodes: Sequence[TestNode] = None,
-                nodeReg=None,
-                tmpdir=None,
-                identifier=None,
-                verkey=None):
-    client1, wallet = genTestClient(nodes=nodes,
-                                    nodeReg=nodeReg,
-                                    tmpdir=tmpdir,
-                                    identifier=identifier,
-                                    verkey=verkey)
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    return client1, wallet
-
-
-def setupClients(count: int,
-                 looper: Looper,
-                 nodes: Sequence[TestNode] = None,
-                 nodeReg=None,
-                 tmpdir=None):
-    wallets = {}
-    clients = {}
-    for i in range(count):
-        name = "test-wallet-{}".format(i)
-        wallet = Wallet(name)
-        idr, _ = wallet.addIdentifier()
-        verkey = wallet.getVerkey(idr)
-        client, _ = setupClient(looper,
-                                nodes,
-                                nodeReg,
-                                tmpdir,
-                                identifier=idr,
-                                verkey=verkey)
-        clients[client.name] = client
-        wallets[client.name] = wallet
-    return clients, wallets
-
-
 def randomOperation():
     return {
         "type": "buy",
@@ -251,19 +202,6 @@ def random_requests(count):
 def random_request_objects(count, protocol_version):
     req_dicts = random_requests(count)
     return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
-
-
-def sign_request_objects(wallet, reqs: Sequence):
-    return [wallet.signRequest(req) for req in reqs]
-
-
-def sign_requests(wallet, reqs: Sequence):
-    return [wallet.signOp(req) for req in reqs]
-
-
-def signed_random_requests(wallet, count):
-    reqs = random_requests(count)
-    return sign_requests(wallet, reqs)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -422,12 +360,6 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
                                       request.identifier,
                                       request.reqId,
                                       inst_id)
-
-
-def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client, requests=[request])
-    check_request_is_not_returned_to_nodes(nodes, request)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
@@ -1087,3 +1019,14 @@ def sdk_json_couples_to_request_list(json_couples):
     for json_couple in json_couples:
         req_list.append(sdk_json_to_request_object(json_couple[0]))
     return req_list
+
+
+def sdk_request_object_to_json(request: Request):
+    json_req = {}
+    json_req['identifier'] = request.identifier
+    json_req['reqId'] = request.reqId
+    json_req['operation'] = request.operation
+    if request.signature: json_req['signature'] = request.signature
+    if request.protocolVersion: json_req['protocolVersion'] = \
+        request.protocolVersion
+    return json_req

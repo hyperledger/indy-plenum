@@ -55,7 +55,8 @@ from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
-    create_new_test_node
+    create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, sdk_get_and_check_replies, \
+    sdk_request_object_to_json
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -469,46 +470,26 @@ def wallet1(clientAndWallet1):
 
 
 @pytest.fixture(scope="module")
-def request1(wallet1):
-    op = randomOperation()
-    req = wallet1.signOp(op)
-    return req
+def sent1(looper, sdk_pool_handle,
+          sdk_wallet_client):
+    request_couple_json = sdk_send_random_requests(
+        looper, sdk_pool_handle, sdk_wallet_client, 1)
+    return request_couple_json
 
 
 @pytest.fixture(scope="module")
-def sent1(client1, request1):
-    return client1.submitReqs(request1)[0][0]
-
-
-@pytest.fixture(scope="module")
-def reqAcked1(looper, txnPoolNodeSet, client1, sent1, faultyNodes):
+def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
     numerOfNodes = len(txnPoolNodeSet)
+
+    request = sdk_json_to_request_object(sent1[0][0])
 
     # Wait until request received by all nodes
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
-    coros = [partial(checkLastClientReqForNode, node, sent1)
+    coros = [partial(checkLastClientReqForNode, node, request)
              for node in txnPoolNodeSet]
-    # looper.run(eventuallyAll(*coros,
-    #                          totalTimeout=propTimeout,
-    #                          acceptableFails=faultyNodes))
     chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
                   timeout=propTimeout)
-
-    # Wait until sufficient number of acks received
-    coros2 = [
-        partial(
-            checkReqAck,
-            client1,
-            node,
-            sent1.identifier,
-            sent1.reqId) for node in txnPoolNodeSet]
-    ackTimeout = waits.expectedReqAckQuorumTime()
-    # looper.run(eventuallyAll(*coros2,
-    #                          totalTimeout=ackTimeout,
-    #                          acceptableFails=faultyNodes))
-    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes,
-                  timeout=ackTimeout)
-    return sent1
+    return request
 
 
 @pytest.fixture(scope="module")
@@ -551,7 +532,7 @@ def preprepared1(looper, txnPoolNodeSet, propagated1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def prepared1(looper, txnPoolNodeSet, client1, preprepared1, faultyNodes):
+def prepared1(looper, txnPoolNodeSet, preprepared1, faultyNodes):
     checkPrepared(looper,
                   txnPoolNodeSet,
                   preprepared1,
@@ -561,7 +542,7 @@ def prepared1(looper, txnPoolNodeSet, client1, preprepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def committed1(looper, txnPoolNodeSet, client1, prepared1, faultyNodes):
+def committed1(looper, txnPoolNodeSet, prepared1, faultyNodes):
     checkCommitted(looper,
                    txnPoolNodeSet,
                    prepared1,
@@ -571,14 +552,17 @@ def committed1(looper, txnPoolNodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, txnPoolNodeSet, client1, committed1, wallet1, faultyNodes):
+def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
+             committed1, faultyNodes, sent1):
     numOfNodes = len(txnPoolNodeSet)
     numOfInstances = getNoInstances(numOfNodes)
     quorum = numOfInstances * (numOfNodes - faultyNodes)
 
+    _, did = sdk_wallet_client
+
     def checkOrderedCount():
         resp = [requestReturnedToNode(node,
-                                      wallet1.defaultId,
+                                      did,
                                       committed1.reqId,
                                       instId)
                 for node in txnPoolNodeSet for instId in range(numOfInstances)]
@@ -589,7 +573,7 @@ def replied1(looper, txnPoolNodeSet, client1, committed1, wallet1, faultyNodes):
                           retryWait=1,
                           timeout=orderingTimeout))
 
-    waitForSufficientRepliesForRequests(looper, client1, requests=[committed1])
+    sdk_get_and_check_replies(looper, sent1)
     return committed1
 
 

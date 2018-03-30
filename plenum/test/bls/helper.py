@@ -7,16 +7,16 @@ from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
+from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet, hexToFriendly
+from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node, \
-    sdk_pool_refresh
+from plenum.test.pool_transactions.helper import sdk_send_update_node, \
+    sdk_pool_refresh, sdk_add_new_nym
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -203,35 +203,13 @@ def create_prepare(req_key, state_root):
     return Prepare(*params)
 
 
-def change_bls_key(looper, txnPoolNodeSet,
-                   node,
-                   steward_client, steward_wallet,
-                   add_wrong=False):
-    new_blspk = init_bls_keys(node.keys_dir, node.name)
-
-    key_in_txn = \
-        new_blspk \
-            if not add_wrong \
-            else ''.join(random_from_alphabet(32, base58.alphabet))
-
-    node_data = {
-        ALIAS: node.name,
-        BLS_KEY: key_in_txn
-    }
-
-    updateNodeData(looper, steward_client, steward_wallet, node, node_data)
-    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
-                                                  *txnPoolNodeSet)
-    return new_blspk
-
-
 def sdk_change_bls_key(looper, txnPoolNodeSet,
                        node,
                        sdk_pool_handle,
                        sdk_wallet_steward,
                        add_wrong=False,
-                       new_bls=None):
+                       new_bls=None,
+                       use_in_plenum=True):
     new_blspk = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
@@ -248,7 +226,13 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    if (use_in_plenum):
+        sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                                   sdk_wallet_steward, sdk_pool_handle)
+    else:
+        sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
+                        alias=randomString(5))
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     return new_blspk
 
 

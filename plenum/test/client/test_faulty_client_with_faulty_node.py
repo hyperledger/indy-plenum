@@ -28,6 +28,7 @@ def nodeChangesRequest(txnPoolNodeSet):
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
+pytest.mark.skip(reason='sdk integration')
 def testReplyUnaffectedByFaultyNode(looper, txnPoolNodeSet, nodeChangesRequest,
                                     fClient, replied1):
     """

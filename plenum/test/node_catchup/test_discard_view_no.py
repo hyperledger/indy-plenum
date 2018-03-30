@@ -6,9 +6,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import checkDiscardMsg
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test.test_node import checkNodesConnected, \
-    checkProtocolInstanceSetup, getPrimaryReplica
+from plenum.test.test_node import checkProtocolInstanceSetup, \
+    getPrimaryReplica
 from plenum.test import waits
 
 whitelist = ['found legacy entry']  # warnings
