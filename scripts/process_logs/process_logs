@@ -216,7 +216,7 @@ def match_func(name):
 
 
 def match_message(pattern):
-    m = re.compile(pattern).search
+    m = re.compile(str(pattern)).search
     return lambda message: m(message.body) is not None
 
 
@@ -674,6 +674,9 @@ class NodeRequestData:
     def __init__(self):
         self.requests = {}
         self._match_req_id = re.compile("'reqId': (\d+)").search
+        self._match_req_idr = re.compile("'reqIdr': (\[(?:\['\w+', \d+\](?:, )?)*\])").search
+        self._match_pp_seq_no = re.compile("'ppSeqNo': (\d+)").search
+        self._match_view_no = re.compile("'viewNo': (\d+)").search
         self._pattern_req_list = "\[(?:\('\w+', \d+\)(?:, )?)*\]"
         self._match_ordered_req_list = re.compile("requests ordered ({})".format(self._pattern_req_list)).search
         self._match_discarded_req_list = re.compile("discarded ({})".format(self._pattern_req_list)).search
@@ -721,9 +724,37 @@ class NodeRequestData:
         if not m: return
         return m.group(1)
 
+    def _parse_reqIdr(self, message):
+        if "'reqIdr':" not in message.body:
+            return []
+        m = self._match_req_idr(message.body)
+        if not m: return []
+        return [str(r[1]) for r in literal_eval(m.group(1))]
+
+    def _parse_ppSeqNo(self, message):
+        if "'ppSeqNo':" not in message.body:
+            return
+        m = self._match_pp_seq_no(message.body)
+        if not m: return
+        return m.group(1)
+
+    def _parse_viewNo(self, message):
+        if "'viewNo':" not in message.body:
+            return
+        m = self._match_view_no(message.body)
+        if not m: return
+        return m.group(1)
+
     def _set_attributes(self, message):
         reqId = self._parse_reqId(message)
         if reqId: message.set_attribute("reqId", reqId)
+        reqIdr = self._parse_reqIdr(message)
+        for reqId in reqIdr:
+            message.set_attribute("reqId", reqId)
+        ppSeqNo = self._parse_ppSeqNo(message)
+        if ppSeqNo: message.set_attribute("ppSeqNo", ppSeqNo)
+        viewNo = self._parse_viewNo(message)
+        if viewNo: message.set_attribute("viewNo", viewNo)
 
     def _check_received(self, message):
         if "received client request" not in message.body:
