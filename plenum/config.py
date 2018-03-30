@@ -153,6 +153,7 @@ logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
+logRotationCompress = False
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
