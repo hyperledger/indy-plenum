@@ -1,7 +1,6 @@
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
-    sendRandomRequests, checkViewNoForNodes
+from plenum.test.helper import checkViewNoForNodes
 from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
     get_timestamp_suspicion_count
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas

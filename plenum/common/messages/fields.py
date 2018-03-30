@@ -394,18 +394,39 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
+class FullVerkeyField(FieldBase):
+    _base_types = (str,)
+    _validator = Base58Field(byte_lengths=(32,))
+
+    def _specific_validation(self, val):
+        # full base58
+        return self._validator.validate(val)
+
+
+class AbbreviatedVerkeyField(FieldBase):
+    _base_types = (str,)
+    _validator = Base58Field(byte_lengths=(16,))
+
+    def _specific_validation(self, val):
+        if not val.startswith('~'):
+            return 'should start with a ~'
+        # abbreviated base58
+        return self._validator.validate(val[1:])
+
+
 # TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str,)
-    _b58abbreviated = Base58Field(byte_lengths=(16,))
-    _b58full = Base58Field(byte_lengths=(32,))
+    _b58abbreviated = AbbreviatedVerkeyField()
+    _b58full = FullVerkeyField()
 
     def _specific_validation(self, val):
-        if val.startswith('~'):
-            # abbreviated base58
-            return self._b58abbreviated.validate(val[1:])
-        # full base58
-        return self._b58full.validate(val)
+        err_ab = self._b58abbreviated.validate(val)
+        err_fl = self._b58full.validate(val)
+        if err_ab and err_fl:
+            return 'Neither a full verkey nor an abbreviated one. One of ' \
+                   'these errors should be resolved:\n {}\n{}'.\
+                format(err_ab, err_fl)
 
 
 class HexField(FieldBase):

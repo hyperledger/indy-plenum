@@ -1,10 +1,12 @@
 import pytest
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.common.util import randomString
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.view_change.helper import ensure_several_view_change
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 
 def _get_ppseqno(nodes):
@@ -25,8 +27,8 @@ def _set_ppseqno(nodes, new_ppsn):
 
 
 @pytest.mark.parametrize('do_view_change', [0, 1])
-def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, steward1,
-                                                        stewardWallet, tdir, client_tdir, allPluginsPath):
+def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, sdk_pool_handle,
+                                                        sdk_wallet_steward, tdir, client_tdir, allPluginsPath):
     """
     Adding a node to the pool while ppSeqNo is big caused a node to stash all the
     requests because of incorrect watermarks limits set.
@@ -44,27 +46,36 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
     assert (big_ppseqno > cur_ppseqno)
 
     # ensure pool is working properly
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_steward, 3)
     assert (cur_ppseqno < _get_ppseqno(txnPoolNodeSet))
 
     _set_ppseqno(txnPoolNodeSet, big_ppseqno)
     cur_ppseqno = _get_ppseqno(txnPoolNodeSet)
     assert (big_ppseqno == cur_ppseqno)
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_steward, 3)
+
     assert (cur_ppseqno < _get_ppseqno(txnPoolNodeSet))
 
     new_steward_name = "testClientSteward" + randomString(4)
     new_node_name = "TestTheta" + randomString(4)
-    new_steward, new_steward_wallet, new_node = \
-        addNewStewardAndNode(looper, steward1, stewardWallet, new_steward_name,
-                             new_node_name, tdir, client_tdir, tconf, allPluginsPath)
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf,
+        allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1, *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, new_steward, *txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               new_steward_wallet_handle,
+                               sdk_pool_handle)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_steward, 3)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])

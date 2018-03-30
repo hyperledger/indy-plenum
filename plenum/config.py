@@ -72,6 +72,8 @@ reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 stateSignatureStorage = KeyValueStorageType.Leveldb
 
+transactionLogDefaultStorage = KeyValueStorageType.Leveldb
+
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",
@@ -211,6 +213,7 @@ CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
+INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 

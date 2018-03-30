@@ -654,13 +654,13 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.debug('{} got ping from {}'.format(self, frm))
+                logger.trace('{} got ping from {}'.format(self, frm))
                 self.sendPingPong(frm, is_ping=False)
 
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
-                logger.debug('{} got pong from {}'.format(self, frm))
+                logger.trace('{} got pong from {}'.format(self, frm))
             return True
         return False
 
@@ -713,7 +713,7 @@ class ZStack(NetworkInterface):
                 msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
-            logger.debug('{} transmitting message {} to {}'
+            logger.trace('{} transmitting message {} to {}'
                          .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.debug('Remote {} is not connected - '

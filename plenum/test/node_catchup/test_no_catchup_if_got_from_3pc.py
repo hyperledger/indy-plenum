@@ -1,3 +1,5 @@
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Commit, ConsistencyProof
 from plenum.test.delayers import cpDelay, cDelay
@@ -5,21 +7,25 @@ from plenum.test.delayers import cpDelay, cDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataInequality, waitNodeDataEquality
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 
 
-def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1):
+def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet,
+                                    sdk_pool_handle,
+                                    sdk_wallet_client):
     """
     A node is slow to receive COMMIT messages so after a view change it
     starts catchup. But before it can start requesting txns, the COMMITs messages
     are received and are ordered. The node should not request any transactions.
     :return:
     """
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 2 * 3, 3)
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           2 * 3,
+                                           3)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
@@ -40,8 +46,11 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1):
 
     old_count = domain_cr_count()
     sent_batches = 10
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           2 * sent_batches, sent_batches)
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           2 * sent_batches,
+                                           sent_batches)
     ensure_view_change(looper, nodes=txnPoolNodeSet)
 
     # After view change, the `slow_node` is behind
@@ -64,4 +73,6 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1):
     rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
     assert sent_batches in rv
 
-    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_client,
+                               sdk_pool_handle)

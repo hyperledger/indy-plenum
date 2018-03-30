@@ -10,7 +10,8 @@ from ledger.merkle_tree import MerkleTree
 from ledger.tree_hasher import TreeHasher
 from ledger.util import F, ConsistencyVerificationFailed
 from storage.kv_store import KeyValueStorage
-from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+from storage.helper import initKeyValueStorageIntKeys
+from plenum.common.config_util import getConfig
 
 
 class Ledger(ImmutableStore):
@@ -18,8 +19,11 @@ class Ledger(ImmutableStore):
     def _defaultStore(dataDir,
                       logName,
                       ensureDurability,
-                      open=True) -> KeyValueStorage:
-        return KeyValueStorageRocksdbIntKeys(dataDir, logName, open)
+                      open=True,
+                      config=None) -> KeyValueStorage:
+        config = config or getConfig()
+        return initKeyValueStorageIntKeys(config.transactionLogDefaultStorage,
+                                          dataDir, logName, open)
 
     def __init__(self,
                  tree: MerkleTree,
@@ -29,7 +33,8 @@ class Ledger(ImmutableStore):
                  fileName: str = None,
                  ensureDurability: bool = True,
                  transactionLogStore: KeyValueStorage = None,
-                 genesis_txn_initiator: GenesisTxnInitiator = None):
+                 genesis_txn_initiator: GenesisTxnInitiator = None,
+                 config=None):
         """
         :param tree: an implementation of MerkleTree
         :param dataDir: the directory where the transaction log is stored
@@ -42,6 +47,7 @@ class Ledger(ImmutableStore):
 
         self.dataDir = dataDir
         self.tree = tree
+        self.config = config or getConfig()
         self.txn_serializer = txn_serializer or ledger_txn_serializer  # type: MappingSerializer
         # type: MappingSerializer
         self.hash_serializer = hash_serializer or ledger_hash_serializer
@@ -204,7 +210,8 @@ class Ledger(ImmutableStore):
                 self._customTransactionLogStore or \
                 self._defaultStore(self.dataDir,
                                    self._transactionLogName,
-                                   ensureDurability)
+                                   ensureDurability,
+                                   config=self.config)
             if self._transactionLog.closed:
                 self._transactionLog.open()
             if self.tree.hashStore.closed:

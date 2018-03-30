@@ -1,9 +1,7 @@
-import pytest
-
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
     start_stopped_node
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -22,7 +20,7 @@ def catchuped(node):
 
 def test_node_catchup_when_3_not_primary_node_restarted(
         looper, txnPoolNodeSet, tdir, tconf,
-        allPluginsPath, steward1, stewardWallet):
+        allPluginsPath, sdk_wallet_steward, sdk_pool_handle):
     """
     Test case:
     1. Create pool of 4 nodes
@@ -57,7 +55,8 @@ def test_node_catchup_when_3_not_primary_node_restarted(
         ensure_all_nodes_have_same_data(looper,
                                         remaining_nodes,
                                         custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
-        sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 1)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_steward, 1)
         node_to_restart = start_stopped_node(node_to_restart,
                                              looper,
                                              tconf,
@@ -83,7 +82,8 @@ def test_node_catchup_when_3_not_primary_node_restarted(
         node_to_restart = [n for n in pool_of_nodes if n.name == nodes_names[__]][0]
         assert not node_to_restart.has_master_primary
         pool_of_nodes = start_stop_one_node(node_to_restart, pool_of_nodes)
-        sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 1)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_steward, 1)
         ensure_all_nodes_have_same_data(looper,
                                         pool_of_nodes,
                                         custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)

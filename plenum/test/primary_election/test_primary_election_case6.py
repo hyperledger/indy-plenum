@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.test.delayers import delay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
 from stp_core.loop.eventually import eventually
@@ -56,11 +56,14 @@ def elections_done(case_6_setup, looper, txnPoolNodeSet):
 
 
 @pytest.mark.skip('Nodes use round robin primary selection')
-def test_primary_election_case6(elections_done, looper, client1, wallet1):
+def test_primary_election_case6(elections_done, txnPoolNodeSet, looper,
+                                sdk_pool_handle,
+                                sdk_wallet_steward):
     """
     A is disconnected with B so A does not get any Nomination/Primary from
     B (simulated by a large delay). A gets Nominations delayed due to which is
     sends Primary only after it has received Primary from other 2 nodes.
     A should still be able to select a primary and the pool should function.
     """
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 5)

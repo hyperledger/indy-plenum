@@ -4,10 +4,6 @@ RUN apt-get update -y && apt-get install -y \
         apt-transport-https \
         ca-certificates
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 68DB5E88 && \
-    echo "deb https://repo.sovrin.org/test/deb xenial rocksdb" >> /etc/apt/sources.list && \
-    apt-get update
-
 RUN apt-get update -y && apt-get install -y \
     # common stuff
         git \
@@ -27,8 +23,7 @@ RUN apt-get update -y && apt-get install -y \
         libbz2-dev \
         zlib1g-dev \
         liblz4-dev \
-        libsnappy-dev \
-        rocksdb=5.8.8
+        libsnappy-dev
 
 RUN pip3 install -U setuptools
 

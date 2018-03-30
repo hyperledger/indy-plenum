@@ -4,7 +4,7 @@ from stp_core.common.log import getlogger
 
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
+    sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node
@@ -24,7 +24,8 @@ def tconf(tconf):
 
 
 def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolNodeSet,
-                                               allPluginsPath, tdir, tconf, client1, wallet1):
+                                               allPluginsPath, tdir, tconf, sdk_pool_handle,
+                                               sdk_wallet_steward):
     """
     Test that we can recover after having more than f nodes disconnected:
     - send txns
@@ -39,7 +40,8 @@ def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolN
 
     logger.info("send at least one checkpoint")
     assert nodes_do_not_have_checkpoints(*active_nodes)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2 * checkpoint_size)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 2 * checkpoint_size)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -59,6 +61,7 @@ def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolN
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("Check if the pool is able to process requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10 * checkpoint_size)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
     assert nodes_have_checkpoints(*active_nodes)

@@ -15,8 +15,8 @@ TestRunningTimeLimitSec = 200
 def test_state_regenerated_from_ledger(
         looper,
         txnPoolNodeSet,
-        client1,
-        wallet1,
+        sdk_pool_handle,
+        sdk_wallet_client,
         tdir,
         tconf,
         allPluginsPath):
@@ -24,8 +24,11 @@ def test_state_regenerated_from_ledger(
     Node loses its state database but recreates it from ledger after start
     """
     sent_batches = 10
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           5 * sent_batches, sent_batches)
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           5 * sent_batches,
+                                           sent_batches)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     node_to_stop = txnPoolNodeSet[-1]
     node_state = node_to_stop.states[DOMAIN_LEDGER_ID]
