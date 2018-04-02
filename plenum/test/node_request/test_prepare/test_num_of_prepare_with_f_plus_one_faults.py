@@ -19,11 +19,11 @@ delayPrePrepareSec = 60
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
+def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
-    E = startedNodes.Eta
-    G = startedNodes.Gamma
-    Z = startedNodes.Zeta
+    E = txnPoolNodeSet[-3]
+    G = txnPoolNodeSet[-2]
+    Z = txnPoolNodeSet[-1]
     for node in E, G, Z:
         makeNodeFaulty(node,
                        changesRequest, partial(delaysPrePrepareProcessing,
@@ -34,19 +34,19 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary
 
 
 @pytest.fixture(scope="module")
-def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
-    timeouts = waits.expectedPrePrepareTime(len(nodeSet)) + delayPrePrepareSec
+def preprepared1WithDelay(looper, txnPoolNodeSet, propagated1, faultyNodes):
+    timeouts = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delayPrePrepareSec
     checkPrePrepared(looper,
-                     nodeSet,
+                     txnPoolNodeSet,
                      propagated1,
-                     range(getNoInstances(len(nodeSet))),
+                     range(getNoInstances(len(txnPoolNodeSet))),
                      faultyNodes,
                      timeout=timeouts)
 

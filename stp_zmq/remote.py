@@ -45,8 +45,6 @@ class Remote:
         self._isConnected = False
         self._lastConnectedAt = None
         self.config = config or getConfig()
-
-        # Currently keeping uid field to resemble RAET RemoteEstate
         self.uid = name
 
     def __repr__(self):

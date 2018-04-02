@@ -1,0 +1,829 @@
+#!/usr/bin/env python3
+
+import os, sys, re, gzip, yaml
+from collections import namedtuple
+from datetime import datetime, timedelta
+from string import Formatter
+from ast import literal_eval
+from multiprocessing import Pool
+
+import matplotlib.pyplot as plt
+
+###########################################################################################
+# Configuration
+###########################################################################################
+
+if len(sys.argv) < 2:
+    print("Usage: process_log config.yml")
+    exit(1)
+
+# Load default config
+with open(sys.argv[0] + ".yml") as f:
+    global_config = yaml.load(f.read())
+
+
+def _merge_dict(dst, src):
+    for k, v in src.items():
+        if isinstance(v, dict):
+            node = dst.setdefault(k, {})
+            _merge_dict(node, v)
+        else:
+            dst[k] = v
+
+
+# Override with values from user-defined config
+with open(sys.argv[1]) as f:
+    _merge_dict(global_config, yaml.load(f.read()))
+
+
+def kv_from_item(item):
+    try:
+        return next(iter(item.items()))
+    except AttributeError:
+        return item, None
+
+
+def parse_format_string(src):
+    return src.replace('<', '{').replace('>', '}')
+
+
+###########################################################################################
+# Input log info
+###########################################################################################
+
+InputLogInfo = namedtuple("InputLogInfo", "filename node rule")
+
+
+def _parse_input_log_names(filenames, rule):
+    matcher = re.compile(rule["pattern"])
+    for name in filenames:
+        m = matcher.search(name)
+        if m:
+            yield InputLogInfo(name, node=m.group(rule["node_group"]), rule=rule)
+
+
+def _input_logs_from_rule(rule):
+    path = rule["path"]
+    if rule["recursive"]:
+        for root, _, files in os.walk(path):
+            yield from _parse_input_log_names((os.path.join(root, name) for name in files), rule)
+    else:
+        yield from _parse_input_log_names((os.path.join(path, name) for name in os.listdir(path)), rule)
+
+
+def input_logs():
+    for rule in global_config["input_logs"]:
+        yield from _input_logs_from_rule(rule)
+
+
+###########################################################################################
+# Log message
+###########################################################################################
+
+REPLICA_NONE = "-"
+
+
+class LogMessage:
+    def __init__(self, body, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
+        self.body = body
+        self.timestamp = timestamp
+        self.node = node
+        self.replica = replica
+        self.level = level
+        self.source = source
+        self.func = func
+        self.attributes = {}
+
+    def set_attribute(self, name, value=None):
+        if value:
+            try:
+                self.attributes[name].add(value)
+            except KeyError:
+                self.attributes[name] = set([value])
+        else:
+            self.attributes.setdefault(name, set())
+
+
+_replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
+
+
+def _parse_messages(f, node):
+    for line in f:
+        tokens = [t.strip() for t in line.split('|', maxsplit=4)]
+        if len(tokens) < 5:
+            yield LogMessage(line, node)
+        else:
+            # The following is just a much faster version of
+            # timestamp = datetime.strptime(tokens[0], "%Y-%m-%d %H:%M:%S,%f")
+            timestamp = datetime(year=int(tokens[0][0:4]),
+                                 month=int(tokens[0][5:7]),
+                                 day=int(tokens[0][8:10]),
+                                 hour=int(tokens[0][11:13]),
+                                 minute=int(tokens[0][14:16]),
+                                 second=int(tokens[0][17:19]),
+                                 microsecond=int(tokens[0][20:23]) * 1000)
+            body = tokens[4]
+            replica = REPLICA_NONE
+            if body.startswith("REPLICA:"):
+                m = _replica_matcher(body)
+                replica = int(m.group(2))
+                body = body[m.end():]
+            yield LogMessage(body, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
+
+
+def messages_in_log(log):
+    print("Processing {}...".format(log.filename))
+    open_fn = open
+    if log.filename.endswith(".gz"):
+        open_fn = gzip.open
+    with open_fn(log.filename, "rt") as f:
+        if log.rule["only_timestamped"]:
+            for message in _parse_messages(f, log.node):
+                if message.timestamp is not None:
+                    yield message
+            return
+
+        last_time = None
+        stashed_messages = []
+        for message in _parse_messages(f, log.node):
+            cur_time = message.timestamp
+            if cur_time is not None:
+                for m in stashed_messages:
+                    m.timestamp = cur_time
+                    yield m
+                stashed_messages = []
+                last_time = cur_time
+                yield message
+            elif last_time is not None:
+                message.timestamp = last_time
+                yield message
+            else:
+                stashed_messages.append(message)
+
+        if len(stashed_messages) > 0:
+            print("WARNING: none of lines in {} were timestamped!".format(log.filename))
+
+
+###########################################################################################
+# Matchers
+###########################################################################################
+
+def match_timestamp(params):
+    min_timestamp = params.get("min")
+    max_timestamp = params.get("max")
+
+    def match(message):
+        if min_timestamp is not None and message.timestamp < min_timestamp:
+            return False
+        if max_timestamp is not None and message.timestamp > max_timestamp:
+            return False
+        return True
+
+    return match
+
+
+def match_level(params):
+    def _severity(level):
+        levels = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR"]
+        try:
+            return levels.index(level)
+        except ValueError:
+            return None
+
+    try:
+        min_level = _severity(params.get("min"))
+        max_level = _severity(params.get("max"))
+    except AttributeError:
+        min_level = max_level = _severity(params)
+
+    def match(message):
+        level = _severity(message.level)
+        if level is None:
+            return True
+        if min_level is not None and level < min_level:
+            return False
+        if max_level is not None and level > max_level:
+            return False
+        return True
+
+    return match
+
+
+def match_func(name):
+    return lambda message: message.func == name
+
+
+def match_message(pattern):
+    m = re.compile(pattern).search
+
+    def match(message):
+        return m(message.body) is not None
+
+    return match
+
+
+def match_replica(replica):
+    if replica == "node":
+        return lambda message: message.replica == REPLICA_NONE
+    if replica == "master":
+        return lambda message: message.replica in [REPLICA_NONE, 0]
+    if replica == "backup":
+        return lambda message: message.replica not in [REPLICA_NONE, 0]
+    return lambda message: message.replica == replica
+
+
+def match_attribute(params):
+    name, value = kv_from_item(params)
+    if value is None:
+        return lambda message: name in message.attributes
+
+    def match(message):
+        try:
+            return str(value) in message.attributes[name]
+        except KeyError:
+            return False
+
+    return match
+
+
+def _create_matcher(config):
+    name, params = kv_from_item(config)
+
+    if name == "timestamp":
+        return match_timestamp(params)
+    if name == "level":
+        return match_level(params)
+    if name == "func":
+        return match_func(params)
+    if name == "message":
+        return match_message(params)
+    if name == "replica":
+        return match_replica(params)
+    if name == "any":
+        matchers = [_create_matcher(p) for p in params]
+        return lambda message: any(m(message) for m in matchers)
+    if name == "all":
+        matchers = [_create_matcher(p) for p in params]
+        return lambda message: all(m(message) for m in matchers)
+
+    params = global_config["matchers"].get(name)
+    if params is not None:
+        return _create_matcher({"any": params})
+
+    return match_attribute(config)
+
+
+###########################################################################################
+# Rules
+###########################################################################################
+
+ACTION_RETURN = "return"
+ACTION_DROP = "drop"
+
+
+def rule_process(chain):
+    return lambda m, c: chain
+
+
+def rule_match(operation, condition, action, config):
+    if isinstance(config, str):
+        config = [config]
+    matchers = [_create_matcher(matcher) for matcher in config]
+
+    if operation == "all":
+        if condition == "or":
+            return lambda message, _: action if not all(m(message) for m in matchers) else None
+        if condition == "and":
+            return lambda message, _: action if all(m(message) for m in matchers) else None
+
+    if operation == "any":
+        if condition == "or":
+            return lambda message, _: action if not any(m(message) for m in matchers) else None
+        if condition == "and":
+            return lambda message, _: action if any(m(message) for m in matchers) else None
+
+    print("WARNING: Unknown combo of", operation, condition)
+    return rule_process(None)
+
+
+def rule_timeshift(params):
+    delta = {str(name): timedelta(seconds=float(delta)) for name, delta in params.items()}
+
+    def process(message, output):
+        try:
+            message.timestamp += delta[message.node]
+        except KeyError:
+            pass
+
+    return process
+
+
+def rule_tag(params):
+    match = re.compile(params.get("pattern", "")).search
+    attributes = params.get("attributes", {})
+
+    def process(message, output):
+        m = match(message.body)
+        if m is None:
+            return
+        for name, value in attributes.items():
+            if value is None:
+                message.set_attribute(name)
+                return
+            if isinstance(value, str) and value.startswith("group "):
+                message.set_attribute(name, m.group(int(value[6:])))
+                return
+            message.set_attribute(name, value)
+
+    return process
+
+
+def rule_log_time(target):
+    log, graph = kv_from_item(target)
+    assert graph is not None
+
+    def process(message, output):
+        output.timelogs[log].add_event(message, graph)
+
+    return process
+
+
+def rule_log_line(target):
+    def process(message, output):
+        output.logs[target].add_message(message)
+
+    return process
+
+
+def rule_log_count(target):
+    log, target = kv_from_item(target)
+    assert target is not None
+
+    def process(message, output):
+        output.counters[log].add_event(message, target)
+
+    return process
+
+
+def track_requests(message, output):
+    output.requests.process_message(message)
+
+
+def _create_rule(config):
+    name, params = kv_from_item(config)
+
+    match = re.match("match\s*(all|any|)\s*((and|or)\s*(return|drop)|)", name)
+    if match is not None:
+        operation = match.group(1) if match.group(1) else "any"
+        condition = match.group(3) if match.group(3) else "or"
+        action = match.group(4) if match.group(4) else "return"
+        return rule_match(operation, condition, action, params)
+
+    if name == "timeshift":
+        return rule_timeshift(params)
+    if name == "tag":
+        return rule_tag(params)
+    if name == "log time":
+        return rule_log_time(params)
+    if name == "log line":
+        return rule_log_line(params)
+    if name == "log count":
+        return rule_log_count(params)
+    if name == "track_requests":
+        return track_requests
+
+    return rule_process(name)
+
+
+###########################################################################################
+# Processing chain
+###########################################################################################
+
+def _create_chain(config):
+    return [_create_rule(rule) for rule in config]
+
+
+class ChainSet:
+    def __init__(self, config):
+        self.chains = {name: _create_chain(params) for name, params in config.items()}
+
+    def process(self, chain, message, output):
+        for rule in self.chains[chain]:
+            action = rule(message, output)
+            if action is None:
+                continue
+            if action == ACTION_RETURN:
+                break
+            if action == ACTION_DROP:
+                return ACTION_DROP
+            if self.process(action, message, output) == ACTION_DROP:
+                return ACTION_DROP
+
+
+global_chain_set = ChainSet(global_config["chains"])
+
+
+###########################################################################################
+# Output log
+###########################################################################################
+
+class OutputLogFile:
+    def __init__(self, filename):
+        self.filename = filename
+        self.lines = []
+
+    def append(self, timestamp, line):
+        self.lines.append((timestamp, line))
+
+    def merge(self, other):
+        self.lines += other.lines
+
+    def dump(self):
+        self.lines.sort()
+        with open(self.filename, 'w') as f:
+            for _, line in self.lines:
+                f.write(line)
+                f.write('\n')
+
+
+class OutputLog:
+    def __init__(self, config):
+        self.filename = parse_format_string(config.get("filename", "output.log"))
+        self.pattern = parse_format_string(
+            config.get("pattern", "<timestamp> | <node> <replica> | <source> | <func> | <body>"))
+        self.log_files = {}
+
+    def add_message(self, message):
+        line = self.pattern.format(**vars(message), **message.attributes)
+        filename = self.filename.format(node=message.node,
+                                        replica=message.replica if message.replica != REPLICA_NONE else 0)
+        self._log_file(filename).append(message.timestamp, line)
+
+    def merge(self, other):
+        for filename, log_file in other.log_files.items():
+            self._log_file(filename).merge(log_file)
+
+    def dump(self):
+        for file in self.log_files.values():
+            file.dump()
+
+    def _log_file(self, filename):
+        try:
+            return self.log_files[filename]
+        except KeyError:
+            log_file = OutputLogFile(filename)
+            self.log_files[filename] = log_file
+            return log_file
+
+
+###########################################################################################
+# Timelog
+###########################################################################################
+
+class TimeLogGraph:
+    def __init__(self, color):
+        self.color = color
+        self.events = {}
+
+    def add_event(self, timestamp, increment=1):
+        try:
+            self.events[timestamp] += increment
+        except KeyError:
+            self.events[timestamp] = increment
+
+    def merge(self, other):
+        for timestamp, counter in other.events.items():
+            self.add_event(timestamp, counter)
+
+    def fill_gaps(self, interval):
+        if not self.events:
+            return
+        timestamp = min(self.events.keys())
+        max_timestamp = max(self.events.keys())
+        delta = timedelta(seconds=interval)
+        while timestamp < max_timestamp:
+            self.events.setdefault(timestamp, 0)
+            timestamp += delta
+
+
+class NodeTimeLog:
+    def __init__(self, config):
+        self.graphs = {}
+        for graph in config:
+            name, color = kv_from_item(graph)
+            self.graphs[name] = TimeLogGraph(color)
+
+    def add_event(self, timestamp, graph):
+        self.graphs[graph].add_event(timestamp)
+
+    def merge(self, other):
+        for name in set(self.graphs) & set(other.graphs):
+            self.graphs[name].merge(other.graphs[name])
+
+    def fill_gaps(self, interval):
+        for graph in self.graphs.values():
+            graph.fill_gaps(interval)
+
+
+class TimeLog:
+    def __init__(self, config):
+        self.interval = config.get("interval", 10)
+        self.graphs = config["graphs"]
+        self.nodes = {}
+
+    def add_event(self, message, graph):
+        timestamp = self._round_timestamp(message.timestamp)
+        self._node(message.node).add_event(timestamp, graph)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self, title):
+        for node in self.nodes.values():
+            node.fill_gaps(self.interval)
+
+        fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
+        if len(self.nodes) == 1:
+            axs = [axs]
+        fig.suptitle(title)
+        fig.subplots_adjust(hspace=0)
+        names, nodes = zip(*sorted(self.nodes.items()))
+
+        for name, node, ax in zip(names, nodes, axs):
+            ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
+            ax.tick_params(axis='y', which='both', labelleft='off')
+
+            for graph in node.graphs.values():
+                if len(graph.events) == 0:
+                    continue
+
+                dates, values = zip(*sorted(graph.events.items()))
+                ax.plot_date(dates, values,
+                             marker=None,
+                             linestyle='solid',
+                             color=graph.color)
+                ax.fill_between(dates, 0, values, color=graph.color)
+
+        fig.autofmt_xdate()
+
+    def _round_timestamp(self, timestamp):
+        return datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day,
+                        hour=timestamp.hour, minute=timestamp.minute,
+                        second=timestamp.second // self.interval * self.interval)
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            result = NodeTimeLog(self.graphs)
+            self.nodes[node] = result
+            return result
+
+
+###########################################################################################
+# Counter
+###########################################################################################
+
+class NodeLogCounter:
+    def __init__(self, format):
+        self.format = format
+        self.targets = {target: 0 for _, target, _, _ in Formatter().parse(format) if target and target != "node"}
+
+    def add_event(self, target, increment=1):
+        try:
+            self.targets[target] += increment
+        except KeyError:
+            self.targets[target] = increment
+
+    def merge(self, other):
+        for target, value in other.targets.items():
+            self.add_event(target, value)
+
+    def dump(self, node):
+        print(self.format.format(node=node, **self.targets))
+
+
+class LogCounter:
+    def __init__(self, config):
+        self.format = parse_format_string(config["format"])
+        self.nodes = {}
+
+    def add_event(self, message, target):
+        self._node(message.node).add_event(target)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self, name):
+        print(name, "counters:")
+        for node_name, node in sorted(self.nodes.items()):
+            node.dump(node_name)
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            node_counter = NodeLogCounter(self.format)
+            self.nodes[node] = node_counter
+            return node_counter
+
+
+###########################################################################################
+# Request tracking facilities
+###########################################################################################
+
+def _merge_timestamps(self, other):
+    if not self:
+        return other
+    if not other:
+        return self
+    return min(self, other)
+
+
+class RequestData:
+    def __init__(self):
+        self.received = None
+        self.ordered = None
+
+    def set_received(self, timestamp):
+        self.received = _merge_timestamps(self.received, timestamp)
+
+    def set_ordered(self, timestamp):
+        self.ordered = _merge_timestamps(self.ordered, timestamp)
+
+    @property
+    def is_received(self):
+        return self.received is not None
+
+    @property
+    def is_ordered(self):
+        return self.ordered is not None
+
+    @property
+    def time_to_order(self):
+        return self.ordered - self.received
+
+    def merge(self, other):
+        self.received = _merge_timestamps(self.received, other.received)
+        self.ordered = _merge_timestamps(self.ordered, other.ordered)
+
+
+class NodeRequestData:
+    def __init__(self):
+        self.requests = {}
+        self._match_req_id = re.compile("'reqId': (\d+)").search
+        self._pattern_req_list = "\[(?:\('\w+', \d+\)(?:, )?)*\]"
+        self._match_ordered_req_list = re.compile("requests ordered ({})".format(self._pattern_req_list)).search
+        self._match_discarded_req_list = re.compile("discarded ({})".format(self._pattern_req_list)).search
+
+    def process_message(self, message):
+        self._set_attributes(message)
+        if self._check_received(message):
+            return
+        if self._check_already_processed(message):
+            return
+        if self._check_batch_ordered(message):
+            return
+
+    def merge(self, other):
+        for name, request in other.requests.items():
+            self._request(name).merge(request)
+
+    def dump(self, name):
+        received = set(id for id, req in self.requests.items() if req.is_received)
+        ordered = set(id for id, req in self.requests.items() if req.is_ordered)
+        time_to_order = [self.requests[id].time_to_order.total_seconds() for id in received & ordered]
+        if time_to_order:
+            print("{}: {}/{} received/ordered, {}/{}/{} min/avg/max seconds to process".format(
+                name, len(self.requests), len(ordered),
+                round(min(time_to_order), 2),
+                round(sum(time_to_order) / len(time_to_order), 2),
+                round(max(time_to_order), 2)))
+        else:
+            print("{}: {}/{} received/ordered".format(name, len(self.requests), len(ordered)))
+
+    def _request(self, name):
+        try:
+            return self.requests[name]
+        except:
+            request = RequestData()
+            self.requests[name] = request
+            return request
+
+    def _parse_reqId(self, message):
+        if "'reqId':" not in message.body:
+            return
+        m = self._match_req_id(message.body)
+        if not m: return
+        return m.group(1)
+
+    def _set_attributes(self, message):
+        reqId = self._parse_reqId(message)
+        if reqId: message.set_attribute("reqId", reqId)
+
+    def _check_received(self, message):
+        if "received client request" not in message.body:
+            return
+        message.set_attribute("request", "received")
+        reqId = self._parse_reqId(message)
+        self._request(reqId).set_received(message.timestamp)
+        return True
+
+    def _check_already_processed(self, message):
+        if "returning REPLY from already processed REQUEST" not in message.body:
+            return
+        message.set_attribute("request", "already_processed")
+        return True
+
+    def _check_batch_ordered(self, message):
+        if "ordered batch request" not in message.body:
+            return
+        message.set_attribute("request", "ordered")
+        ordered = self._match_ordered_req_list(message.body)
+        ordered = literal_eval(ordered.group(1))
+        for _, reqId in ordered:
+            reqId = str(reqId)
+            message.set_attribute("reqId", reqId)
+            self._request(reqId).set_ordered(message.timestamp)
+        return True
+
+
+class AllRequestData:
+    def __init__(self):
+        self.nodes = {}
+
+    def process_message(self, message):
+        self._node(message.node).process_message(message)
+
+    def merge(self, other):
+        for name, node in other.nodes.items():
+            self._node(name).merge(node)
+
+    def dump(self):
+        if not self.nodes:
+            return
+        print("Requests statistics:")
+        for name, node in self.nodes.items():
+            node.dump(name)
+
+    def _node(self, node):
+        try:
+            return self.nodes[node]
+        except KeyError:
+            node_data = NodeRequestData()
+            self.nodes[node] = node_data
+            return node_data
+
+
+###########################################################################################
+# Output data
+###########################################################################################
+
+
+class OutputData:
+    def __init__(self, config):
+        self.logs = {name: OutputLog(params) for name, params in config.get("logs", {}).items()}
+        self.timelogs = {name: TimeLog(params) for name, params in config.get("timelogs", {}).items()}
+        self.counters = {name: LogCounter(params) for name, params in config.get("counters", {}).items()}
+        self.requests = AllRequestData()
+
+    def merge(self, other):
+        for name in set(self.logs) & set(other.logs):
+            self.logs[name].merge(other.logs[name])
+        for name in set(self.timelogs) & set(other.timelogs):
+            self.timelogs[name].merge(other.timelogs[name])
+        for name in set(self.counters) & set(other.counters):
+            self.counters[name].merge(other.counters[name])
+        self.requests.merge(other.requests)
+
+    def dump(self):
+        self.requests.dump()
+        for log in self.logs.values():
+            log.dump()
+        for name, timelog in self.timelogs.items():
+            timelog.dump(name)
+        for name, counter in self.counters.items():
+            counter.dump(name)
+        plt.show()
+
+
+###########################################################################################
+# Main
+###########################################################################################
+
+def process_log(log):
+    output_data = OutputData(global_config.get("outputs", {}))
+    for message in messages_in_log(log):
+        global_chain_set.process("main", message, output_data)
+    return output_data
+
+
+with Pool() as pool:
+    results = pool.map(process_log, input_logs())
+
+for result in results[1:]:
+    results[0].merge(result)
+
+results[0].dump()

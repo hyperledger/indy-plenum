@@ -7,7 +7,6 @@ from plenum.test.helper import sdk_send_random_and_check
 
 @pytest.fixture(scope="module")
 def teardown(request, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
-
     def tear():
         # Repair any broken network
         for node in txnPoolNodeSet:

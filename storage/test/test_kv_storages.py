@@ -1,15 +1,23 @@
-import os
-
 import pytest
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_rocksdb import KeyValueStorageRocksdb
+from storage.kv_in_memory import KeyValueStorageInMemory
+from storage.kv_store import KeyValueStorage
 
 i = 0
 
 
-@pytest.yield_fixture(scope="function")
-def kv(tempdir) -> KeyValueStorageLeveldb:
+@pytest.yield_fixture(scope="function", params=['rocksdb', 'leveldb', 'in_memory'])
+def kv(request, tempdir) -> KeyValueStorage:
     global i
-    kv = KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i))
+
+    if request.param == 'leveldb':
+        kv = KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i))
+    elif request.param == 'rocksdb':
+        kv = KeyValueStorageRocksdb(tempdir, 'kv{}'.format(i))
+    else:
+        kv = KeyValueStorageInMemory()
+
     i += 1
     yield kv
     kv.close()
@@ -38,6 +46,13 @@ def test_drop(kv):
 
     assert hasKeyBeforeDrop
     assert not hasKeyAfterDrop
+
+
+def test_put_none(kv):
+    if isinstance(kv, KeyValueStorageInMemory):
+        kv.put('k1', None)
+    else:
+        pass
 
 
 def test_put_string(kv):
