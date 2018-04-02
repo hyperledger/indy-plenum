@@ -1,7 +1,8 @@
 import pytest
 
 from plenum.common.util import randomString
-from plenum.test.helper import sdk_send_random_and_check, sdk_ensure_pool_functional
+from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.view_change.helper import ensure_several_view_change
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected

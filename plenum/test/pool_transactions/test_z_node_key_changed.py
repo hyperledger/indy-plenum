@@ -2,7 +2,7 @@ import pytest
 import base58
 import types
 
-from plenum.test.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common import stack_manager
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, \

@@ -2,7 +2,8 @@ import types
 
 import pytest
 
-from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, sdk_ensure_pool_functional
+from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.exceptions import EventuallyTimeoutException

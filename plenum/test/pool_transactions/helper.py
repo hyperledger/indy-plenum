@@ -19,7 +19,8 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_ensure_pool_functional
+    sdk_get_and_check_replies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected

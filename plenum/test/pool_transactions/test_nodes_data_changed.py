@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.exceptions import RequestRejectedException
-from plenum.test.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString, hexToFriendly

@@ -19,7 +19,7 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
@@ -31,7 +31,6 @@ from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
@@ -72,6 +71,7 @@ def check_sufficient_replies_received(client: Client,
     raise AssertionError("There is no proved reply and no "
                          "quorum achieved for request {}"
                          .format(full_request_id))
+
 
 # TODO: delete after removal from node
 def waitForSufficientRepliesForRequests(looper,
@@ -959,18 +959,3 @@ def sdk_json_couples_to_request_list(json_couples):
     for json_couple in json_couples:
         req_list.append(sdk_json_to_request_object(json_couple[0]))
     return req_list
-
-
-def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
-                               num_reqs=10, num_batches=2):
-    sdk_send_batches_of_random_and_check(looper,
-                                         nodes,
-                                         sdk_pool,
-                                         sdk_wallet,
-                                         num_reqs,
-                                         num_batches)
-    ensure_all_nodes_have_same_data(looper, nodes)
-
-
-def get_node_by_name(txnPoolNodeSet, name):
-    return next(node for node in txnPoolNodeSet if node.name == name)

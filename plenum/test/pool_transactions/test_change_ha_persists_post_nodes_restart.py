@@ -1,7 +1,7 @@
 from plenum.common.util import hexToFriendly, randomString
 from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh, \
     sdk_add_new_steward_and_node
 from plenum.test.test_node import TestNode, checkNodesConnected

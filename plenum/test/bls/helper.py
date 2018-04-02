@@ -12,7 +12,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MUL
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
-from plenum.test.helper import sdk_send_random_and_check, sdk_ensure_pool_functional
+from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
     sdk_pool_refresh, sdk_add_new_nym
