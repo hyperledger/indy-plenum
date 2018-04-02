@@ -1,4 +1,5 @@
-import os, gzip
+import os
+import gzip
 from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
 
@@ -17,7 +18,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     def shouldRollover(self, record):
         return bool(TimedRotatingFileHandler.shouldRollover(self, record)) or \
-               bool(RotatingFileHandler.shouldRollover(self, record))
+            bool(RotatingFileHandler.shouldRollover(self, record))
 
     def rotate(self, source, dest):
         source_gz = source.endswith(".gz")
