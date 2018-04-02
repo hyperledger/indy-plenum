@@ -25,22 +25,6 @@ def txnPoolMasterNodes(txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def stewardAndWalletForMasterNode(looper, poolTxnData, poolTxnStewardNames,
-                                  tdirWithClientPoolTxns, txnPoolNodeSet, txnPoolMasterNodes):
-    primariesIdxs = getPrimaryNodesIdxs(txnPoolNodeSet)
-    master_node = txnPoolMasterNodes[0]
-    stewardName = poolTxnStewardNames[primariesIdxs[0]]
-    stewardsSeed = poolTxnData["seeds"][stewardName].encode()
-
-    stewardClient, stewardWallet = buildPoolClientAndWallet(
-        (stewardName, stewardsSeed), tdirWithClientPoolTxns)
-    looper.add(stewardClient)
-    looper.run(stewardClient.ensureConnectedToNodes())
-
-    return stewardClient, stewardWallet
-
-
-@pytest.fixture(scope="module")
 def checkpoint_size(tconf, request):
     oldChkFreq = tconf.CHK_FREQ
     oldLogSize = tconf.LOG_SIZE

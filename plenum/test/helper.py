@@ -10,7 +10,6 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
-import pytest
 from psutil import Popen
 import json
 import asyncio
@@ -20,7 +19,6 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
-from plenum.client.wallet import Wallet
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
@@ -33,11 +31,11 @@ from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
-from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
+from plenum.test.test_node import TestNode, TestReplica, \
+    getPrimaryReplica
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -75,7 +73,7 @@ def check_sufficient_replies_received(client: Client,
                          "quorum achieved for request {}"
                          .format(full_request_id))
 
-
+# TODO: delete after removal from node
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
@@ -403,64 +401,6 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         received = len(replica.commits[key][1])
         minimum = replica.quorums.commit.value
         assert received > minimum
-
-
-def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
-def checkReqNackWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found, "there is no Nack with reason: {}".format(reason)
-
-
-def wait_negative_resp(looper, client, reason, sender, timeout, chk_method):
-    return looper.run(eventually(chk_method,
-                                 client,
-                                 reason,
-                                 sender,
-                                 timeout=timeout))
-
-
-def waitReqNackWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqNAckQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkReqNackWithReason)
-
-
-def checkRejectWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found
-
-
-def waitRejectWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqRejectQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkRejectWithReason)
-
-
-def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
-    for node in nodes:
-        looper.run(eventually(checkRejectWithReason, client, reason,
-                              node.clientstack.name, retryWait=1,
-                              timeout=timeout))
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -1021,12 +961,16 @@ def sdk_json_couples_to_request_list(json_couples):
     return req_list
 
 
-def sdk_request_object_to_json(request: Request):
-    json_req = {}
-    json_req['identifier'] = request.identifier
-    json_req['reqId'] = request.reqId
-    json_req['operation'] = request.operation
-    if request.signature: json_req['signature'] = request.signature
-    if request.protocolVersion: json_req['protocolVersion'] = \
-        request.protocolVersion
-    return json_req
+def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
+                               num_reqs=10, num_batches=2):
+    sdk_send_batches_of_random_and_check(looper,
+                                         nodes,
+                                         sdk_pool,
+                                         sdk_wallet,
+                                         num_reqs,
+                                         num_batches)
+    ensure_all_nodes_have_same_data(looper, nodes)
+
+
+def get_node_by_name(txnPoolNodeSet, name):
+    return next(node for node in txnPoolNodeSet if node.name == name)

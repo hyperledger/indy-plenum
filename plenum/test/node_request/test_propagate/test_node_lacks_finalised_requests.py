@@ -2,8 +2,7 @@ import pytest
 from plenum.test.delayers import ppgDelay, req_delay
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.helper import sdk_send_random_and_check, sdk_ensure_pool_functional
 
 
 @pytest.fixture(scope='function', params=['client_requests',

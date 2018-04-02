@@ -1,7 +1,7 @@
 import pytest
 from plenum.test.test_node import ensure_node_disconnected, checkNodesConnected
 from plenum.test import waits
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.helper import sdk_ensure_pool_functional
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import TestNode
 

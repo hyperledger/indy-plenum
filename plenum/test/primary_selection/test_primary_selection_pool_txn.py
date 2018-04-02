@@ -1,5 +1,5 @@
 import pytest
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.helper import sdk_ensure_pool_functional
 
 from plenum.test.pool_transactions.helper import sdk_add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes

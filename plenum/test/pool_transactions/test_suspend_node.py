@@ -47,8 +47,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
     # node
     steward1.stop()
     looper.removeProdable(steward1)
-    steward1, stewardWallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                                       tdirWithPoolTxns)
+    steward1, stewardWallet 
     looper.add(steward1)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)

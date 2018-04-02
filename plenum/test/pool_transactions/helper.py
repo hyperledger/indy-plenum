@@ -1,7 +1,5 @@
 import json
 
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
 from indy.did import create_and_store_my_did
 from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
 from indy.pool import refresh_pool_ledger
@@ -11,22 +9,20 @@ from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
-from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, BLS_KEY, CLIENT_STACK_SUFFIX, STEWARD_STRING
+    VALIDATOR, BLS_KEY, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import waitForSufficientRepliesForRequests, \
-    sdk_sign_request_objects, sdk_send_signed_requests, \
-    sdk_json_to_request_object, sdk_get_and_check_replies
+from plenum.test.helper import sdk_sign_request_objects, \
+    sdk_send_signed_requests, sdk_json_to_request_object, \
+    sdk_get_and_check_replies, sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
-from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
@@ -49,23 +45,6 @@ def new_client_request(role, name, creatorWallet):
     return creatorWallet.signOp(op), wallet
 
 
-def sendAddNewClient(role, name, creatorClient, creatorWallet):
-    req, wallet = new_client_request(role, name, creatorWallet)
-    creatorClient.submitReqs(req)
-    return req, wallet
-
-
-def sendAddNewNode(tdir, tconf, newNodeName, stewardClient, stewardWallet,
-                   transformOpFunc=None):
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
-        prepare_new_node_data(tconf, tdir, newNodeName)
-    return send_new_node_txn(sigseed,
-                             nodeIp, nodePort, clientIp, clientPort,
-                             bls_key,
-                             newNodeName, stewardClient, stewardWallet,
-                             transformOpFunc)
-
-
 def prepare_new_node_data(tconf, tdir,
                           newNodeName):
     sigseed = randomString(32).encode()
@@ -74,36 +53,6 @@ def prepare_new_node_data(tconf, tdir,
     _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
                                                    sigseed, override=True)
     return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort
-
-
-def send_new_node_txn(sigseed,
-                      nodeIp, nodePort, clientIp, clientPort,
-                      bls_key,
-                      newNodeName, stewardClient, stewardWallet,
-                      transformOpFunc=None):
-    nodeSigner = SimpleSigner(seed=sigseed)
-    op = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nodeSigner.identifier,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: nodePort,
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: clientPort,
-            ALIAS: newNodeName,
-            SERVICES: [VALIDATOR, ],
-            BLS_KEY: bls_key
-        }
-    }
-    if transformOpFunc is not None:
-        transformOpFunc(op)
-
-    req = stewardWallet.signOp(op)
-    stewardClient.submitReqs(req)
-    return req, \
-           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
-           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
-           sigseed
 
 
 def start_not_added_node(looper,
@@ -295,6 +244,18 @@ def sdk_add_new_node(looper,
                                      do_post_node_creation=do_post_node_creation)
 
 
+async def prepare_schema_request(wallet, named_seed, alias, role):
+    wh, submitter_did = wallet
+    (named_did, named_verkey) = await create_and_store_my_did(wh,
+                                                              json.dumps({
+                                                                  'seed': named_seed,
+                                                                  'cid': True})
+                                                              )
+    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
+                                          alias, role)
+    return nym_request, named_did
+
+
 async def prepare_nym_request(wallet, named_seed, alias, role):
     wh, submitter_did = wallet
     (named_did, named_verkey) = await create_and_store_my_did(wh,
@@ -481,16 +442,6 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)
     return client, w
-
-
-def new_client(looper, poolTxnClientData, txnPoolNodeSet, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              client_tdir)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
-                                                  *txnPoolNodeSet)
-    return client, wallet
 
 
 def disconnectPoolNode(poolNodes: Iterable,
