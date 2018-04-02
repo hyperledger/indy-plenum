@@ -96,6 +96,14 @@ class ValidatorNodeInfoTool:
             general_info.update(self.__node_info)
         return general_info
 
+    def _prepare_for_json(self, item):
+        try:
+            json.dumps(item)
+        except TypeError as ex:
+            return str(item)
+        else:
+            return item
+
     @property
     @none_on_fail
     def __alias(self):
@@ -202,8 +210,8 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __software_info(self):
-        os_version = platform.platform()
-        installed_packages = [str(pack) for pack in pip.get_installed_distributions()]
+        os_version = self._prepare_for_json(platform.platform())
+        installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
 
         return {
             "Software": {
@@ -236,13 +244,13 @@ class ValidatorNodeInfoTool:
             read_only = not self._node.poolCfg.writes
         return {
             "Pool info": {
-                "Read_only": read_only,
-                "Total_nodes": self._node.totalNodes,
-                "f_value": self._node.f,
-                "Quorums": str(self._node.quorums),
-                "Reachable_nodes": self.__reachable_list,
-                "Unreachable_nodes": self.__unreachable_list,
-                "Blacklisted_nodes": list(self._node.nodeBlacklister.blacklisted),
+                "Read_only": self._prepare_for_json(read_only),
+                "Total_nodes": self._prepare_for_json(self._node.totalNodes),
+                "f_value": self._prepare_for_json(self._node.f),
+                "Quorums": self._prepare_for_json(self._node.quorums),
+                "Reachable_nodes": self._prepare_for_json(self.__reachable_list),
+                "Unreachable_nodes": self._prepare_for_json(self.__unreachable_list),
+                "Blacklisted_nodes": self._prepare_for_json(list(self._node.nodeBlacklister.blacklisted)),
                 "Suspicious_nodes": "",
 
             }
@@ -262,15 +270,15 @@ class ValidatorNodeInfoTool:
         res = {}
         for replica in self._node.replicas:
             replica_stat = {}
-            replica_stat["Primary"] = replica.primaryName
+            replica_stat["Primary"] = self._prepare_for_json(replica.primaryName)
             replica_stat["Watermarks"] = "{}:{}".format(replica.h, replica.H)
-            replica_stat["Last_ordered_3PC"] = str(replica.last_ordered_3pc)
+            replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
-            stashed_txns["Stashed_checkoints"] = len(replica.stashedRecvdCheckpoints)
+            stashed_txns["Stashed_checkoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
             if replica.prePreparesPendingPrevPP:
-                stashed_txns["Min_stashed_PrePrepare"] = str(replica.prePreparesPendingPrevPP.itervalues[-1])
+                stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(replica.prePreparesPendingPrevPP.itervalues[-1])
             replica_stat["Stashed_txns"] = stashed_txns
-            res[replica.name] = replica_stat
+            res[replica.name] = self._prepare_for_json(replica_stat)
 
     @property
     @none_on_fail
@@ -283,50 +291,50 @@ class ValidatorNodeInfoTool:
         uncommited_root_hashes = {}
         uncommited_txns = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            ledger_statuses[idx] = linfo.state.name
-            waiting_cp[idx] = str(linfo.catchUpTill)
-            num_txns_in_catchup[idx] = linfo.num_txns_caught_up
-            last_txn_3PC_keys[idx] = str(linfo.last_txn_3PC_key)
+            ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
+            waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
+            num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
+            last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
-                uncommited_root_hashes[idx] = base58.b58encode(linfo.ledger.uncommittedRootHash)
-            uncommited_txns[idx] = [str(txn) for txn in linfo.ledger.uncommittedTxns]
+                uncommited_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
+            uncommited_txns[idx] = [self._prepare_for_json(txn) for txn in linfo.ledger.uncommittedTxns]
             if linfo.ledger.tree.root_hash:
-                root_hashes[idx] = base58.b58encode(linfo.ledger.tree.root_hash)
+                root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
 
-        replicas_status = self.__replicas_status
+        replicas_status = self._prepare_for_json(self.__replicas_status)
         ic_queue = {}
         for view_no, queue in self._node.view_changer.instanceChanges.items():
             ics = {}
-            ics["Vouters"] = list(queue.voters)
-            ics["Message"] = str(queue.msg)
-            ic_queue[view_no] = ics
+            ics["Vouters"] = self._prepare_for_json(list(queue.voters))
+            ics["Message"] = self._prepare_for_json(queue.msg)
+            ic_queue[view_no] = self._prepare_for_json(ics)
         metrics = self._node.monitor.metrics()
         if metrics:
-            metrics = [str(m) for m in metrics]
+            metrics = [self._prepare_for_json(m) for m in metrics]
         return {
             "Node info": {
-                "Name": self._node.name,
+                "Name": self._prepare_for_json(self._node.name),
                 "Last N pool ledger txns": "",
-                "Mode": self._node.mode.name,
-                "Metrics": metrics,
-                "Root_hashes": root_hashes,
-                "Uncommited_root_hashes": uncommited_root_hashes,
-                "Uncommited_txns": uncommited_txns,
+                "Mode": self._prepare_for_json(self._node.mode.name),
+                "Metrics": self._prepare_for_json(metrics),
+                "Root_hashes": self._prepare_for_json(root_hashes),
+                "Uncommited_root_hashes": self._prepare_for_json(uncommited_root_hashes),
+                "Uncommited_txns": self._prepare_for_json(uncommited_txns),
                 "View_change_status": {
-                    "View_No": self._node.viewNo,
-                    "VC_in_progress": str(self._node.view_changer.view_change_in_progress),
-                    "IC_queue": ic_queue,
-                    "VCDone_queue": str(self._node.view_changer._view_change_done)
+                    "View_No": self._prepare_for_json(self._node.viewNo),
+                    "VC_in_progress": self._prepare_for_json(self._node.view_changer.view_change_in_progress),
+                    "IC_queue": self._prepare_for_json(ic_queue),
+                    "VCDone_queue": self._prepare_for_json(self._node.view_changer._view_change_done)
                 },
                 "Catchup_status": {
-                    "Ledgers_statuses": ledger_statuses,
+                    "Ledgers_statuses": self._prepare_for_json(ledger_statuses),
                     "Received_LedgerStatus": "",
-                    "Waiting_consistency_proof_msgs": waiting_cp,
-                    "Number txns_in_catchup": num_txns_in_catchup,
-                    "Last_txn_3PC_keys": last_txn_3PC_keys,
+                    "Waiting_consistency_proof_msgs": self._prepare_for_json(waiting_cp),
+                    "Number txns_in_catchup": self._prepare_for_json(num_txns_in_catchup),
+                    "Last_txn_3PC_keys": self._prepare_for_json(last_txn_3PC_keys),
                 },
-                "Count_of_replicas": len(self._node.replicas),
-                "Replicas_status": replicas_status,
+                "Count_of_replicas": self._prepare_for_json(len(self._node.replicas)),
+                "Replicas_status": self._prepare_for_json(replicas_status),
             }
         }
 
