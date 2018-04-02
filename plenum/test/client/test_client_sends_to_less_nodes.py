@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.client.conftest import passThroughReqAcked1
 
 from plenum.client.client import Client
@@ -10,6 +12,7 @@ reqAcked1 = passThroughReqAcked1
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason='sdk integration')
 def testReplyWhenRequestSentToLessThanFPlusOneNodes(looper, txnPoolNodeSet,
                                                     fClient: Client, replied1):
     """
