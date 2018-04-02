@@ -255,52 +255,6 @@ def createClientAndConnect(cli, nodeNames, clientName):
     waitClientConnected(cli, nodeNames, clientName)
 
 
-def checkRequest(cli, operation):
-    cName = "Joe"
-    cli.enterCmd("new client {}".format(cName))
-    # Let client connect to the nodes
-
-    nodeNames = list(cli.nodes.keys())
-    waitClientConnected(cli, nodeNames, cName)
-
-    # Send request to all nodes
-
-    createNewKeyring(cName, cli)
-
-    cli.enterCmd("new key {}".format("testkey1"))
-    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
-
-    cli.enterCmd('client {} send {}'.format(cName, operation))
-    client = cli.clients[cName]
-    wallet = cli.wallets[cName]  # type: Wallet
-    # Ensure client gets back the replies
-    lastReqId = client.reqRepStore.lastReqId
-
-    request = Request(identifier=wallet.defaultId,
-                      reqId=lastReqId,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-
-    waitForSufficientRepliesForRequests(cli.looper, client,
-                                        requests=[request])
-
-    txn, status = client.getReply(wallet.defaultId, lastReqId)
-
-    # Ensure the cli shows appropriate output
-    cli.enterCmd('client {} show {}'.format(cName, lastReqId))
-    printeds = cli.printeds
-    printedReply = printeds[1]
-    printedStatus = printeds[0]
-    # txnTimePattern = "'txnTime', \d+\.*\d*"
-    # txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
-    txnTimePattern = "\'txnTime\': \d+\.*\d*"
-    # DEPR
-    # txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
-    # assert re.search(txnIdPattern, printedReply['msg'])
-    assert re.search(txnTimePattern, printedReply['msg'])
-    assert printedStatus['msg'] == "Status: {}".format(status)
-    return client, wallet
-
-
 def newCLI(looper, basedir, ledger_base_dir,
            cliClass=TestCli,
            nodeClass=TestNode,
@@ -681,7 +635,6 @@ def restartCliAndAssert(cli, do, expectedRestoredWalletName,
     assert len(cli._activeWallet.identifiers) == expectedIdentifiers
 
 
-
 def _newStewardsAddedByName(cli):
     cli.enterCmd(
         "add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role={role}".format(
@@ -703,7 +656,6 @@ def _newStewardsAddedByValue(cli):
         'add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06421 '
         'with data {{"alias": "Ty"}} role={role}'.format(
             nym=NYM, role=Roles.STEWARD.name))
-
 
 
 def _newNodesAddedByName(cli):
