@@ -180,7 +180,7 @@ class CoreAuthMixin:
     ).union(
         DomainRequestHandler.query_types
     )
-    action_types = ActionReqHandler.action_types
+    action_types = ActionReqHandler.operation_types
 
     @classmethod
     def is_query(cls, typ):

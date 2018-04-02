@@ -21,6 +21,9 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     state control
     """
 
+    query_types = set()
+    write_types = set()
+
     def __init__(self, ledger: Ledger, state: State):
         self.state = state
         self.ledger = ledger
@@ -50,11 +53,9 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         self.state.commit(rootHash=stateRoot)
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
-    @abstractmethod
     def onBatchCreated(self, state_root):
         pass
 
-    @abstractmethod
     def onBatchRejected(self):
         pass
 
@@ -72,3 +73,6 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     def transform_txn_for_ledger(txn):
         return txn
 
+    @property
+    def operation_types(self) -> set:
+        return self.write_types.union(self.query_types)

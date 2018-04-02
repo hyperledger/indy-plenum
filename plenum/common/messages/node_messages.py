@@ -6,8 +6,7 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, \
-    ACTION_RESULT
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
