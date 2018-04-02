@@ -190,6 +190,8 @@ class NodeHooks(UniqueSet):
     POST_REQUEST_APPLICATION = 8
     PRE_REQUEST_COMMIT = 9
     POST_REQUEST_COMMIT = 10
+    PRE_SEND_REPLY = 11
+    POST_SEND_REPLY = 12
 
 
 class ReplicaHooks(UniqueSet):

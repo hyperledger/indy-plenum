@@ -10,11 +10,7 @@ class IntegerComparator(rocksdb.IComparator):
     def compare(self, a, b):
         a = int(a)
         b = int(b)
-        if (a < b):
-            return -1
-        if (a > b):
-            return 1
-        return 0
+        return a - b
 
     def name(self):
         return b'IntegerComparator'
@@ -36,14 +32,11 @@ class KeyValueStorageRocksdbIntKeys(KeyValueStorageRocksdb):
         #    Equal by key if key exist in DB
         #    Previous if key does not exist in Db, but there is key less than required
 
-        if isinstance(key, int):
-            key = str(key)
-        if isinstance(key, str):
-            key = key.encode()
-        iter = self._db.itervalues()
-        iter.seek_for_prev(key)
+        key = self.to_byte_repr(key)
+        itr = self._db.itervalues()
+        itr.seek_for_prev(key)
         try:
-            value = next(iter)
+            value = next(itr)
         except StopIteration:
             value = None
         return value
