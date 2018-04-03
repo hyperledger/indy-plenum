@@ -1,10 +1,10 @@
 import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.test.helper import waitReqNackFromPoolWithReason, \
-    send_signed_requests, sign_requests, \
-    waitRejectFromPoolWithReason, sdk_gen_request, sdk_sign_and_submit_req_obj, \
-    sdk_get_reply
+from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
+from plenum.test.helper import sdk_gen_request, \
+    sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_send_signed_requests, \
+    sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
 
@@ -16,8 +16,7 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     sdk_get_reply(looper, req)
 
 
-def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
-                                  steward1,
+def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
                                   sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin static validation fails and passes
@@ -25,17 +24,21 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
     op = {
         TXN_TYPE: AUCTION_START
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'attribute is missing or not in proper format')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(CommonSdkIOException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: 'should be a dict but giving a string'
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'attribute is missing or not in proper format')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(CommonSdkIOException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -48,9 +51,11 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
         TXN_TYPE: PLACE_BID,
         DATA: {'id': 'abc', AMOUNT: -3}
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitReqNackFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                  'must be present and should be a number')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(CommonSdkIOException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -59,8 +64,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper, stewa
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
-def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stewardWallet,
-                                   steward1, 
+def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
                                    sdk_wallet_steward, sdk_pool_handle):
     """
     Check plugin dynamic validation fails and passes
@@ -69,9 +73,11 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stew
         TXN_TYPE: AUCTION_END,
         DATA: {'id': 'abcdef'}
     }
-    send_signed_requests(steward1, sign_requests(stewardWallet, [op, ]))
-    waitRejectFromPoolWithReason(looper, txn_pool_node_set_post_creation, steward1,
-                                 'unknown auction')
+    reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    with pytest.raises(CommonSdkIOException) as exc_info:
+        sdk_get_and_check_replies(looper, reqs)
+    exc_info.match('Got an error with code 113')
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -87,8 +93,7 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper, stew
 
 
 @pytest.fixture(scope="module")
-def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
-                  steward1, 
+def some_requests(txn_pool_node_set_post_creation, looper,
                   sdk_wallet_steward, sdk_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,
@@ -102,10 +107,11 @@ def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
+    _, did = sdk_wallet_steward
     for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
-        assert auctions['pqr'][stewardWallet.defaultId] == 20
+        assert auctions['pqr'][did] == 20
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -116,7 +122,7 @@ def some_requests(txn_pool_node_set_post_creation, looper, stewardWallet,
     for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
-        assert auctions['pqr'][stewardWallet.defaultId] == 40
+        assert auctions['pqr'][did] == 40
 
     op = {
         TXN_TYPE: AUCTION_END,

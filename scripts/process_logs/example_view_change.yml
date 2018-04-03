@@ -9,19 +9,21 @@ input_logs:                                       # List of input logs
 
 chains:                                           # List of processing chains
   main:                                           # Main processing chain
-  - match or drop: [view_change_event]            # Drop everything except view change messages
+  - match all or drop:                            # Drop unless message...
+    - replica: master                             # ...is from node or master replica...
+    - view_change_event:                          # ...and is related to view change
   - log line: view_change                         # Save message to view_change log sink
   - log_view_change_start:                        # Call chain log_view_change_start
   - log_view_change_done:                         # Call chain log_view_change_done
 
   log_view_change_start:
-  - match: [view_change_start]                    # Return unless message is view change start
+  - match: view_change_start                      # Return unless message is view change start
   - log line: view_change_start_done              # Save message to view_change_start_done log sink
   - log time: {view_change: start}                # Add message to view_change-start timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
 
   log_view_change_done:
-  - match: [view_change_done]                     # Return unless message is view change done
+  - match: view_change_done                       # Return unless message is view change done
   - log line: view_change_start_done              # Save message to view_change_start_done log sink
   - log time: {view_change: done}                 # Add message to view_change-done timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
@@ -30,12 +32,10 @@ outputs:
   logs:                                           # List of output log sinks
     view_change:                                  # View change log sink
       filename: view_change.log                   # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
+      pattern: <timestamp> | <node> | <body>      # Message format
     view_change_start_done:                       # View change start/done log sink
-      filename: view_change_sd.log                # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
-      merge_nodes: yes                            # Merge messages from all nodes into one log file
+      filename: view_change_sd_<replica>.log      # Filename where to put messages
+      pattern: <timestamp> | <node> | <body>      # Message format
 
   timelogs:                                       # List of timelog
     view_change:                                  # View changes timelog

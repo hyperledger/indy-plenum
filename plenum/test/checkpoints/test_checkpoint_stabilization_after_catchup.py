@@ -1,7 +1,7 @@
 from plenum.test import waits
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
 
 CHK_FREQ = 5
@@ -9,32 +9,33 @@ LOG_SIZE = 3 * CHK_FREQ
 
 
 def test_second_checkpoint_after_catchup_can_be_stabilized(
-        chkFreqPatched, looper, txnPoolNodeSet, steward1, stewardWallet,
-        client1, wallet1, tdir, client_tdir, tconf,
+        chkFreqPatched, looper, txnPoolNodeSet, steward1, sdk_wallet_steward,
+        sdk_wallet_client, sdk_pool_handle, tdir, client_tdir, tconf,
         allPluginsPath):
-    _, _, epsilon = addNewStewardAndNode(looper, steward1, stewardWallet,
-                                         'EpsilonSteward', 'Epsilon',
-                                         tdir, client_tdir, tconf,
-                                         allPluginsPath)
-    txnPoolNodeSet.append(epsilon)
+    _, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        'EpsilonSteward', 'Epsilon', tdir, tconf,
+        allPluginsPath=allPluginsPath)
+    txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, epsilon, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
 
-    for replica in epsilon.replicas:
+    for replica in new_node.replicas:
         assert len(replica.checkpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 7)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_client, 7)
     stabilization_timeout = \
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
 
-    for replica in epsilon.replicas:
+    for replica in new_node.replicas:
         assert len(replica.checkpoints) == 2
         keys_iter = iter(replica.checkpoints)
 
@@ -51,10 +52,11 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.h == 2
         assert replica.H == 17
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_client, 1)
     looper.runFor(stabilization_timeout)
 
-    for replica in epsilon.replicas:
+    for replica in new_node.replicas:
         assert len(replica.checkpoints) == 1
         keys_iter = iter(replica.checkpoints)
 

@@ -1,5 +1,6 @@
 from collections import deque
 from typing import List, Optional, Tuple
+from functools import partial
 
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
@@ -61,6 +62,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.set_defaults()
 
         self.initInsChngThrottling()
+
+        # Action for _schedule instanceChange messages
+        self.instance_change_action = None
+
+        # Count of instance change rounds
+        self.instance_change_rounds = 0
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -198,6 +205,28 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.sendInstanceChange(view_no)
         self.do_view_change_if_possible(view_no)
 
+    def send_instance_change_if_needed(self, proposed_view_no, reason):
+        can, whyNot = self._canViewChange(proposed_view_no)
+        # if scheduled action will be awakened after view change completed,
+        # then this action must be stopped also.
+        if not can and self.view_no < proposed_view_no:
+            # Resend the same instance change message if we are not archive
+            # InstanceChange quorum
+            logger.debug("Resend instance change message to all recipients")
+            self.sendInstanceChange(proposed_view_no, reason)
+            self._schedule(action=self.instance_change_action,
+                           seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+            logger.debug("Count of rounds without quorum of "
+                         "instance change messages: {}".format(self.instance_change_rounds))
+            self.instance_change_rounds += 1
+        else:
+            # ViewChange procedure was started, therefore stop scheduling
+            # resending instanceChange messages
+            logger.debug("Stop scheduling instance change resending")
+            self._cancel(action=self.instance_change_action)
+            self.instance_change_action = None
+            self.instance_change_rounds = 0
+
     def on_primary_loss(self):
         view_no = self.view_no + 1
         logger.info("{} sending instance with view_no = {} and trying "
@@ -205,6 +234,16 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                     "".format(self, view_no))
         self.sendInstanceChange(view_no,
                                 Suspicions.PRIMARY_DISCONNECTED)
+        if self.instance_change_action:
+            # It's an action, scheduled for previous instanceChange round
+            logger.debug("Stop previous instance change resending schedule")
+            self._cancel(action=self.instance_change_action)
+            self.instance_change_rounds = 0
+        self.instance_change_action = partial(self.send_instance_change_if_needed,
+                                              view_no,
+                                              Suspicions.PRIMARY_DISCONNECTED)
+        self._schedule(self.instance_change_action,
+                       seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
         self.do_view_change_if_possible(view_no)
 
     # TODO we have `on_primary_loss`, do we need that one?

@@ -8,6 +8,7 @@ from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
     check_stacks_communicating, get_file_permission_mask, get_zstack_key_paths
 from stp_zmq.zstack import ZStack
 from stp_core.common.util import adict
+from stp_zmq.test.conftest import BIG_NUM_OF_MSGS
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):
@@ -132,7 +133,7 @@ def test_high_load(set_info_log_level, tdir, looper, tconf):
                'V', 'W', 'X', 'Y', 'Z']
 
     num_of_senders = 3
-    num_of_requests_per_sender = 100000
+    num_of_requests_per_sender = BIG_NUM_OF_MSGS
 
     expected_messages = []
     received_messages = []
@@ -150,13 +151,12 @@ def test_high_load(set_info_log_level, tdir, looper, tconf):
     gamma = create_stack("Gamma", handler)
     prepStacks(looper, *senders, gamma, connect=True, useKeys=True)
 
-    for i in range(num_of_requests_per_sender):
-        for sender in senders:
+    for sender in senders:
+        for i in range(num_of_requests_per_sender):
             msg = {sender.name: i}
             expected_messages.append(msg)
             sender.send(msg, gamma.name)
-
-    looper.runFor(5)
+        looper.runFor(5)
 
     assert len(received_messages) != 0
     assert len(expected_messages) == len(received_messages), \

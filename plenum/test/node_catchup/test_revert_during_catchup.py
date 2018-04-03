@@ -3,8 +3,8 @@ from itertools import combinations
 from plenum.common.constants import DOMAIN_LEDGER_ID, COMMIT
 from plenum.test import waits
 from plenum.test.delayers import cDelay, cr_delay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    check_last_ordered_3pc, assertEquality
+from plenum.test.helper import check_last_ordered_3pc, \
+    assertEquality, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     make_a_node_catchup_twice, ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import getAllReturnVals
@@ -22,8 +22,8 @@ from plenum.test.batching_3pc.conftest import tconf  # noqa
 
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
                                                           txnPoolNodeSet,
-                                                          client1,
-                                                          wallet1):
+                                                          sdk_pool_handle,
+                                                          sdk_wallet_client):
     """
     Delay COMMITs to a node such that when it needs to catchup, it needs to
     revert some unordered state. Also till this time the node should have
@@ -34,21 +34,21 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     try to process delayed COMMITs, some COMMITs will be rejected but some will
     be processed since catchup was done for older ledger.
     """
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        3 * Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 3 * Max3PCBatchSize)
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
     slow_node = nprs[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     slow_master_replica = slow_node.master_replica
 
     commit_delay = 150
-    catchup_rep_delay = 15
+    catchup_rep_delay = 25
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        6 * Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 6 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, other_nodes)
     waitNodeDataInequality(looper, slow_node, *other_nodes)
 
@@ -122,6 +122,6 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        2 * Max3PCBatchSize)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 2 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

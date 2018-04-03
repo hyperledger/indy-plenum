@@ -10,7 +10,7 @@ logger = getlogger()
 txnCount = 5
 
 
-def testNewNodeCatchup(newNodeCaughtUp):
+def testNewNodeCatchup(sdk_new_node_caught_up):
     """
     A new node that joins after some transactions are done should eventually get
     those transactions.
@@ -22,7 +22,7 @@ def testNewNodeCatchup(newNodeCaughtUp):
 
 
 def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
-                                                  newNodeCaughtUp):
+                                                  sdk_new_node_caught_up):
     """
     For new node, this should be the sequence of events:
      1. Pool ledger starts catching up.
@@ -31,7 +31,7 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
      4. Domain ledger completes catching up
     Every node's pool ledger starts catching up before it
     """
-    newNode = newNodeCaughtUp
+    newNode = sdk_new_node_caught_up
     starts = newNode.ledgerManager.spylog.getAll(
         TestLedgerManager.startCatchUpProcess.__name__)
     completes = newNode.ledgerManager.spylog.getAll(

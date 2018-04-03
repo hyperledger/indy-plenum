@@ -115,77 +115,30 @@ def waitForSufficientRepliesForRequests(looper,
                   override_eventually_timeout=override_timeout_limit)
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
-                                        wallet: Wallet,
-                                        client: TestClient,
-                                        numReqs: int,
-                                        customTimeoutPerReq: float = None,
-                                        add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
-def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
-                                              wallet: Wallet,
-                                              client: TestClient,
-                                              numReqs: int,
-                                              customTimeoutPerReq: float = None,
-                                              add_delay_to_timeout: float = 0,
-                                              override_timeout_limit=False,
-                                              total_timeout=None):
-    requests = sendRandomRequests(wallet, client, numReqs)
-    nodeCount = len(client.nodeReg)
-    # wait till more than nodeCount replies are received (that is all nodes
-    # answered)
-    waitForSufficientRepliesForRequests(
-        looper,
-        client,
-        requests=requests,
-        customTimeoutPerReq=customTimeoutPerReq,
-        add_delay_to_timeout=add_delay_to_timeout,
-        override_timeout_limit=override_timeout_limit,
-        total_timeout=total_timeout)
-    return requests
-
-
 def send_reqs_batches_and_get_suff_replies(
         looper: Looper,
-        wallet: Wallet,
-        client: TestClient,
+        txnPoolNodeSet,
+        sdk_pool_handle,
+        sdk_wallet_client,
         num_reqs: int,
         num_batches=1,
         **kwargs):
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
     if num_batches == 1:
-        return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                                   num_reqs, **kwargs)
+        return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_client, num_reqs)
     else:
         requests = []
         for _ in range(num_batches - 1):
             requests.extend(
-                sendReqsToNodesAndVerifySuffReplies(
-                    looper,
-                    wallet,
-                    client,
-                    num_reqs // num_batches,
-                    **kwargs))
+                sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                          sdk_wallet_client, num_reqs // num_batches))
         rem = num_reqs % num_batches
         if rem == 0:
             rem = num_reqs // num_batches
-        requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
-                                                            client,
-                                                            rem,
-                                                            **kwargs))
+        requests.extend(
+            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                      sdk_wallet_client, rem))
         return requests
 
 
@@ -315,10 +268,6 @@ def signed_random_requests(wallet, count):
 
 def send_signed_requests(client: Client, signed_reqs: Sequence):
     return client.submitReqs(*signed_reqs)[0]
-
-
-def sendRandomRequest(wallet: Wallet, client: Client):
-    return sendRandomRequests(wallet, client, 1)[0]
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
@@ -545,34 +494,6 @@ def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
     assert client.inBox.count(expected) > 0
 
 
-def checkReqNack(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQNACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
-def checkReplyCount(client, idr, reqId, count):
-    senders = set()
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REPLY and \
-                msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
-                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
-            senders.add(sdr)
-    assertLength(senders, count)
-
-
-def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
-    timeout = custom_timeout or waits.expectedTransactionExecutionTime(
-        len(client.nodeReg))
-    looper.run(eventually(checkReplyCount, client, idr, reqId, count,
-                          timeout=timeout))
-
-
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
@@ -618,18 +539,6 @@ def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
         looper.run(eventually(checkRejectWithReason, client, reason,
                               node.clientstack.name, retryWait=1,
                               timeout=timeout))
-
-
-def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitReqNackWithReason(looper, client, reason,
-                              node.clientstack.name)
-
-
-def waitRejectFromPoolWithReason(looper, nodes, client, reason):
-    for node in nodes:
-        waitRejectWithReason(looper, client, reason,
-                             node.clientstack.name)
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -989,6 +898,14 @@ def sdk_random_request_objects(count, protocol_version, identifier=None,
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
+
+
+def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
+    reqs_str = [json.dumps(req) for req in reqs]
     reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs
