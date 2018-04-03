@@ -39,6 +39,26 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
     yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
+@pytest.yield_fixture("module")
+def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=False,
+        do_post_node_creation=do_post_node_creation)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+
+
 @pytest.fixture("module")
 def sdk_node_set_with_node_added_after_some_txns(
         txnPoolNodeSet, sdk_node_created_after_some_txns):
