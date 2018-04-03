@@ -7,10 +7,8 @@ from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
-
 
 TestRunningTimeLimitSec = 150
 

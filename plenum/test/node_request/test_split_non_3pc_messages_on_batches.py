@@ -1,24 +1,13 @@
-from functools import partial
-
-import pytest
-
-from plenum.test import waits
-
-from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, checkReqAck
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
-from stp_core.loop.eventually import eventuallyAll
+from plenum.test.helper import sdk_send_random_requests, sdk_eval_timeout, \
+    sdk_get_and_check_replies
 from stp_core.validators.message_length_validator import MessageLenValidator
-
-from plenum.test.pool_transactions.conftest import looper, client1Connected  # noqa
-from plenum.test.pool_transactions.conftest import clientAndWallet1, client1, wallet1  # noqa
 
 
 def test_msg_max_length_check_node_to_node(looper,
                                            txnPoolNodeSet,
-                                           client1,
-                                           wallet1,
-                                           client1Connected,
-                                           clientAndWallet2):
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           sdk_wallet_client2):
     """
     Two clients send 2*N requests each at the same time.
     N < MSG_LEN_LIMIT but 2*N > MSG_LEN_LIMIT so the requests pass the max
@@ -32,16 +21,12 @@ def test_msg_max_length_check_node_to_node(looper,
 
     patch_msg_len_validators(max_len_limit, txnPoolNodeSet)
 
-    client2, wallet2 = clientAndWallet2
+    reqs1 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, N)
+    reqs2 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client2, N)
 
-    reqs1 = sendRandomRequests(wallet1, client1, N)
-    reqs2 = sendRandomRequests(wallet2, client2, N)
-
-    check_reqacks(client1, looper, reqs1, txnPoolNodeSet)
-    check_reqacks(client2, looper, reqs2, txnPoolNodeSet)
-
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs1)
-    waitForSufficientRepliesForRequests(looper, client2, requests=reqs2)
+    total_timeout = sdk_eval_timeout(N, len(txnPoolNodeSet))
+    sdk_get_and_check_replies(looper, reqs1, timeout=total_timeout)
+    sdk_get_and_check_replies(looper, reqs2, timeout=total_timeout)
 
 
 def patch_msg_len_validators(max_len_limit, txnPoolNodeSet):
@@ -50,23 +35,3 @@ def patch_msg_len_validators(max_len_limit, txnPoolNodeSet):
         assert hasattr(node.nodestack, 'msg_len_val')
         node.nodestack.msgLenVal = MessageLenValidator(max_len_limit)
         node.nodestack.msg_len_val = MessageLenValidator(max_len_limit)
-
-
-def check_reqacks(client, looper, reqs, txnPoolNodeSet):
-    reqack_coros = []
-    for req in reqs:
-        reqack_coros.extend([partial(checkReqAck, client, node, req.identifier,
-                                     req.reqId, None) for node in txnPoolNodeSet])
-    timeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*reqack_coros, totalTimeout=timeout))
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet2(looper, poolTxnClientData, tdirWithClientPoolTxns):
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              tdirWithClientPoolTxns)
-
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    yield client, wallet
-    client.stop()

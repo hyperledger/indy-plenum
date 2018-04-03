@@ -24,13 +24,6 @@ MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 1
 # Enables/disables debug mode for Looper class
 LOOPER_DEBUG = False
 
-# RAET Configuration
-RAETLogLevel = "terse"
-RAETLogLevelCli = "mute"
-RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "test.log")
-RAETLogFilePathCli = None
-RAETMessageTimeout = 60
-
 
 # Zeromq configuration
 DEFAULT_LISTENER_QUOTA = 100
@@ -41,7 +34,7 @@ KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
 ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5      # seconds
-ZMQ_INTERNAL_QUEUE_SIZE = 0  # messages (0 - no limit)
+ZMQ_INTERNAL_QUEUE_SIZE = 10000  # messages (0 - no limit)
 
 
 # All messages exceeding the limit will be rejected without processing

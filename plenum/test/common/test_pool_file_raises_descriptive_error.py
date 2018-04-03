@@ -5,13 +5,12 @@ from ledger.ledger import Ledger
 from plenum.common.stack_manager import TxnStackManager
 from json.decoder import JSONDecodeError
 
-
 errMsg = 'Pool transaction file corrupted. Rebuild pool transactions.'
 whitelist = [errMsg]
 
 
 class DummyLedger(Ledger):
-    def getAllTxn(self, frm: int=None, to: int=None):
+    def getAllTxn(self, frm: int = None, to: int = None):
         raise JSONDecodeError('', '', 0)
 
 
