@@ -23,7 +23,7 @@ from plenum.test.helper import waitForSufficientRepliesForRequests, \
     sdk_json_to_request_object, sdk_get_and_check_replies
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
-    ensure_node_disconnected, checkNodesConnected
+    ensure_node_disconnected, checkNodesConnected, ensureElectionsDone
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
@@ -502,6 +502,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     except StopIteration:
         raise Exception('{} is not the pool'.format(node))
     txnPoolNodeSet[idx] = restartedNode
+
+    ensureElectionsDone(looper, txnPoolNodeSet)
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
