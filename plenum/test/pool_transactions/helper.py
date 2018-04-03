@@ -503,8 +503,6 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
         raise Exception('{} is not the pool'.format(node))
     txnPoolNodeSet[idx] = restartedNode
 
-    ensureElectionsDone(looper, txnPoolNodeSet)
-
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
     return restartedNode
