@@ -828,7 +828,8 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                 if fails >= acceptable_fails:
                     logger.debug('Too many fails, the last one: {}'.format(repr(ex)))
                 last_ex = ex
-        assert fails <= acceptable_fails, str(last_ex)
+        assert fails <= acceptable_fails, '{} out of {} failed. Last exception:' \
+                                          ' {}'.format(fails, len(funcs), last_ex)
 
     kwargs = {}
     if retry_wait:
