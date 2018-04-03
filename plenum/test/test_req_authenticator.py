@@ -6,6 +6,7 @@ from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.client_authn import SimpleAuthNr, CoreAuthNr
 from plenum.server.req_authenticator import ReqAuthenticator
+from plenum.test.helper import sdk_sign_and_submit_op
 from plenum.test.plugin.helper import submitOp
 from plenum.test.pool_transactions.helper import new_client_request
 
@@ -38,7 +39,10 @@ def test_authenticator_registration(pre_reqs, registration):
     assert req_authnr.get_authnr_by_type(CoreAuthNr) == core_authnr
 
 
-def test_authentication(pre_reqs, registration, client1, wallet1):
+@pytest.mark.skip(reason='sdk integration')
+def test_authentication(looper, pre_reqs, registration,
+                        sdk_wallet_client,
+                        sdk_pool_handle):
     _, core_authnr, req_authnr = pre_reqs
 
     # Remove simple_authnr
@@ -51,9 +55,10 @@ def test_authentication(pre_reqs, registration, client1, wallet1):
         DATA: 1
     }
     # Just creating the request
-    req = submitOp(wallet1, client1, op)
+    req = sdk_sign_and_submit_op(looper, sdk_pool_handle,
+                                  sdk_wallet_client, op)
     with pytest.raises(NoAuthenticatorFound):
-        req_authnr.authenticate(req.as_dict)
+        req_authnr.authenticate(req[0])
 
     # Empty set for query txn type
     op = {
@@ -62,11 +67,13 @@ def test_authentication(pre_reqs, registration, client1, wallet1):
         DATA: 1
     }
     # Just creating the request
-    req = submitOp(wallet1, client1, op)
-    assert set() == req_authnr.authenticate(req.as_dict)
+    req = sdk_sign_and_submit_op(looper, sdk_pool_handle,
+                                  sdk_wallet_client, op)
+    assert set() == req_authnr.authenticate(req[0])
 
     # identifier for write type
+    _, did = sdk_wallet_client
     req, new_wallet = new_client_request(None, randomString(), wallet1)
-    core_authnr.addIdr(wallet1.defaultId,
-                       wallet1.getVerkey(wallet1.defaultId))
+    core_authnr.addIdr(did,
+                       wallet1.getVerkey(did))
     assert req_authnr.authenticate(req.as_dict) == {wallet1.defaultId, }

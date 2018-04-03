@@ -447,15 +447,6 @@ def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
 
 
 @pytest.fixture(scope="module")
-def steward1(looper, txnPoolNodeSet, stewardAndWallet1):
-    steward, wallet = stewardAndWallet1
-    looper.add(steward)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward,
-                                                  *txnPoolNodeSet)
-    return steward
-
-
-@pytest.fixture(scope="module")
 def client1(looper, clientAndWallet1):
     client = clientAndWallet1[0]
     looper.add(client)

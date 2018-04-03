@@ -807,6 +807,14 @@ def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
     return sdk_send_signed_requests(pool_handle, [s_req])[0]
 
 
+def sdk_sign_and_submit_op(looper, pool_handle, sdk_wallet, op):
+    _, did = sdk_wallet
+    req_obj = sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+                              identifier=did)
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
+
+
 def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     req_json, resp_task = sdk_req_resp
     try:

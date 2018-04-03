@@ -17,10 +17,8 @@ from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
-from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
@@ -28,8 +26,6 @@ from plenum.test.testable import spyable
 from pygments.token import Token
 from functools import partial
 from plenum.test import waits
-from plenum.common import util
-from plenum.common.request import Request
 
 logger = getlogger()
 
