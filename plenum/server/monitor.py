@@ -291,7 +291,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug(
                     "Got ordered request with identifier {} and reqId {} "
                     "but it was from a previous view".
-                        format(identifier, reqId))
+                    format(identifier, reqId))
                 continue
             duration = self.requestTracker.order(instId, identifier, reqId, now)
             if byMaster:
@@ -442,7 +442,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
-                        format(self, avgLatM, avgLatB))
+                    format(self, avgLatM, avgLatB))
                 return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))
