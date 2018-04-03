@@ -119,7 +119,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA]=None,
                  clientAuthNr: ClientAuthNr=None,
                  ha: HA=None,
                  cliname: str=None,
@@ -139,7 +138,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Create a new node.
 
-        :param nodeRegistry: names and host addresses of all nodes in the pool
         :param clientAuthNr: client authenticator implementation to be used
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
@@ -178,7 +176,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
-        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+        self.initPoolManager(ha, cliname, cliha)
 
         # init BLS after pool manager!
         # init before domain req handler!
@@ -565,8 +563,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return get_utc_epoch()
 
-    def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
-        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+    def initPoolManager(self, ha, cliname, cliha):
+        HasPoolManager.__init__(self, ha, cliname, cliha)
 
     def __repr__(self):
         return self.name

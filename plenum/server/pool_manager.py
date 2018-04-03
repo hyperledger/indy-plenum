@@ -93,7 +93,7 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, nodeRegistry=None, ha=None, cliname=None, cliha=None):
+    def __init__(self, ha=None, cliname=None, cliha=None):
         self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                           cliha=cliha)
         self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
