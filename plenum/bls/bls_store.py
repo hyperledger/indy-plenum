@@ -1,5 +1,5 @@
 from common.serializers.serialization import multi_sig_store_serializer
-from plenum.persistence.storage import initKeyValueStorage
+from storage.helper import initKeyValueStorage
 from crypto.bls.bls_multi_signature import MultiSignature
 from typing import Optional
 

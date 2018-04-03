@@ -1,27 +1,29 @@
 import types
 
 import pytest
-from plenum.test.helper import waitForViewChange, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
+from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.primary_selection.test_primary_selection_pool_txn import \
-    ensure_pool_functional
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.exceptions import EventuallyTimeoutException
 
 nodeCount = 7
 
 
-def patch_has_ordered_till_last_prepared_certificate(nodeSet):
+def patch_has_ordered_till_last_prepared_certificate(txnPoolNodeSet):
     def patched_has_ordered_till_last_prepared_certificate(self) -> bool:
         return False
 
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.has_ordered_till_last_prepared_certificate = \
             types.MethodType(
                 patched_has_ordered_till_last_prepared_certificate, node)
 
 
-def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
+def test_view_change_min_catchup_timeout(txnPoolNodeSet, looper,
+                                         sdk_pool_handle,
+                                         sdk_wallet_client,
                                          tconf,
                                          viewNo):
     """
@@ -39,30 +41,33 @@ def test_view_change_min_catchup_timeout(nodeSet, up, looper, wallet1, client1,
     """
 
     # 1. Send some txns
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 4)
 
     # 2. make the only condition to finish catch-up is
     # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    patch_has_ordered_till_last_prepared_certificate(nodeSet)
+    patch_has_ordered_till_last_prepared_certificate(txnPoolNodeSet)
 
     # 3. start view change
     expected_view_no = viewNo + 1
-    for node in nodeSet:
+    for node in txnPoolNodeSet:
         node.view_changer.startViewChange(expected_view_no)
 
     # 4. check that it's not finished till
     # MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     no_view_chanage_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     with pytest.raises(EventuallyTimeoutException):
-        ensureElectionsDone(looper=looper, nodes=nodeSet,
+        ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                             customTimeout=no_view_chanage_timeout)
 
     # 5. make sure that view change is finished eventually
     # (it should be finished quite soon after we waited for MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE)
-    ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=2)
-    waitForViewChange(looper=looper, nodeSet=nodeSet,
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, customTimeout=2)
+    waitForViewChange(looper=looper, txnPoolNodeSet=txnPoolNodeSet,
                       expectedViewNo=expected_view_no)
-    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     # 6. ensure that the pool is still functional.
-    ensure_pool_functional(looper, nodeSet, wallet1, client1)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_client,
+                               sdk_pool_handle)

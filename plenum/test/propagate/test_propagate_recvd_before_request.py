@@ -8,21 +8,20 @@ from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate, forwardedRequest
 from plenum.test import waits
 
-
 nodeCount = 4
 howlong = 10
 delaySec = 5
 
 
 @pytest.fixture()
-def setup(nodeSet):
-    A, B, C, D = nodeSet.nodes.values()
+def setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
     A.clientIbStasher.delay(lambda x: delaySec)
     delay(Propagate, frm=[C, D], to=A, howlong=howlong)
 
 
-def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
-    A, B, C, D = nodeSet.nodes.values()
+def testPropagateRecvdBeforeRequest(setup, looper, txnPoolNodeSet, sent1):
+    A, B, C, D = txnPoolNodeSet
 
     def x():
         # A should not have received a request from the client
@@ -49,5 +48,5 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         assertLength(forwardedRequest(A), 1)
 
     timeout = waits.expectedClientRequestPropagationTime(
-        len(nodeSet)) + delaySec
+        len(txnPoolNodeSet)) + delaySec
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

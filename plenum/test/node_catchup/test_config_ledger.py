@@ -39,13 +39,13 @@ def read(key, looper, sdk_pool_handle, sdk_wallet):
                 for op in [read_conf_op(key)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
     sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    (req, resp),  = sdk_get_replies(looper, sent_reqs, timeout=10)
+    (req, resp), = sdk_get_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 
 
 def send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys):
     for i in range(5):
-        key, val = 'key_{}'.format(i+1), randomString()
+        key, val = 'key_{}'.format(i + 1), randomString()
         write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
         keys[key] = val
     return keys
@@ -114,12 +114,12 @@ def some_config_txns_done(looper, setup, txnPoolNodeSet, keys,
 
 
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
-                                        txnPoolNodeSet, newNodeCaughtUp):
+                                        txnPoolNodeSet, sdk_new_node_caught_up):
     """
     A new node catches up the config ledger too
     """
-    assert len(newNodeCaughtUp.getLedger(CONFIG_LEDGER_ID)) >= \
-        len(some_config_txns_done)
+    assert len(sdk_new_node_caught_up.getLedger(CONFIG_LEDGER_ID)) >= \
+           len(some_config_txns_done)
 
 
 def test_disconnected_node_catchup_config_ledger_txns(looper,
@@ -127,15 +127,14 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
                                                       txnPoolNodeSet,
                                                       sdk_wallet_client,
                                                       sdk_pool_handle,
-                                                      newNodeCaughtUp, keys):
+                                                      sdk_new_node_caught_up, keys):
     """
     A node gets disconnected, a few config ledger txns happen,
     the disconnected node comes back up and catches up the config ledger
     """
-    new_node = newNodeCaughtUp
+    new_node = sdk_new_node_caught_up
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)
-    looper.removeProdable(new_node)
 
     # Do some config txns; using a fixture as a method, passing some arguments
     # as None as they only make sense for the fixture (pre-requisites)
@@ -144,6 +143,5 @@ def test_disconnected_node_catchup_config_ledger_txns(looper,
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])
 
-    looper.add(new_node)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, new_node)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])

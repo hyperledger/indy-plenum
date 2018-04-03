@@ -128,7 +128,7 @@ def testSendManyNoExceptionsIfDestPortFromSourceRange():
         statsPublisher.send(message="testMessage{}".format(i))
 
     assert N == len(statsPublisher.refused) + \
-        len(statsPublisher.unexpected) + len(statsPublisher.sent)
+           len(statsPublisher.unexpected) + len(statsPublisher.sent)
 
 
 class TestStatsPublisher(StatsPublisher):

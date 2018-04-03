@@ -3,7 +3,6 @@ import pytest
 from plenum.common.messages.fields import VersionField
 from plenum.config import VERSION_FIELD_LIMIT
 
-
 validator = VersionField(components_number=(2, 3,), max_length=VERSION_FIELD_LIMIT)
 
 

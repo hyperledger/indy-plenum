@@ -75,5 +75,16 @@ class KeyValueStorage(metaclass=ABCMeta):
         except KeyError:
             return False
 
+    def get_equal_or_prev(self, key):
+        raise NotImplementedError()
+
     def __contains__(self, key):
         return self._has_key(key)
+
+    @staticmethod
+    def to_byte_repr(val):
+        if isinstance(val, int):
+            return str(val).encode()
+        if isinstance(val, str):
+            return str(val).encode()
+        return val

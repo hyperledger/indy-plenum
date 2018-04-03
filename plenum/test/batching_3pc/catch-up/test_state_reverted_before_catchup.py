@@ -2,7 +2,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import cDelay
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check,\
+from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check, \
     sdk_send_random_requests, sdk_get_replies
 
 
@@ -45,7 +45,6 @@ def test_unordered_state_reverted_before_catchup(
     # send requests
     reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
     sdk_get_replies(looper, reqs, timeout=40)
-
 
     committed_ledger_during_3pc = non_primary_node.getLedger(
         ledger_id).tree.root_hash

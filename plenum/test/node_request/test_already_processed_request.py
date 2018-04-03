@@ -1,12 +1,11 @@
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    send_signed_requests, waitForSufficientRepliesForRequests
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.test.helper import sdk_send_random_and_check, \
+    sdk_send_signed_requests, sdk_eval_timeout, \
+    sdk_get_replies, sdk_check_reply, sdk_signed_random_requests
 from plenum.test.spy_helpers import getAllReturnVals
 
 
-def test_already_processed_requests(looper, txnPoolNodeSet, client1,
-                                    wallet1, client1Connected):
+def test_already_processed_requests(looper, txnPoolNodeSet,
+                                    sdk_pool_handle, sdk_wallet_client):
     """
     Client re-sending request and checking that nodes picked the reply from
     ledger and did not process the request again
@@ -37,49 +36,61 @@ def test_already_processed_requests(looper, txnPoolNodeSet, client1,
         assert rvs.count(rvs[0]) == len(txnPoolNodeSet)
         return rvs[0]
 
-    # Send a request
     rlc1 = get_getReplyFromLedger_call_count()
     rpc1 = get_recordAndPropagate_call_count()
-    req1, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+
+    # Request which will be send twice
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
+
+    # Send, check and getting reply from first request
+    sdk_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet))
+    request1 = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
+    for req_res in request1:
+        sdk_check_reply(req_res)
+    first_req_id = request1[0][0]['reqId']
+
     rlc2 = get_getReplyFromLedger_call_count()
     rpc2 = get_recordAndPropagate_call_count()
-    assert rlc2 - rlc1 == 1     # getReplyFromLedger was called
-    assert rpc2 - rpc1 == 1     # recordAndPropagate was called
+    assert rlc2 - rlc1 == 1  # getReplyFromLedger was called
+    assert rpc2 - rpc1 == 1  # recordAndPropagate was called
     r1 = get_last_returned_val()
-    assert r1 is None       # getReplyFromLedger returned None since had not seen request
+    assert r1 is None  # getReplyFromLedger returned None since had not seen request
 
-    req2, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-    assert req2.reqId != req1.reqId
+    # Request which we will send only once
+    request2 = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    second_req_id = request2[0][0]['reqId']
+
+    assert second_req_id != first_req_id
     rlc3 = get_getReplyFromLedger_call_count()
     rpc3 = get_recordAndPropagate_call_count()
-    assert rlc3 - rlc2 == 1     # getReplyFromLedger was called again
-    assert rpc3 - rpc2 == 1     # recordAndPropagate was called again
+    assert rlc3 - rlc2 == 1  # getReplyFromLedger was called again
+    assert rpc3 - rpc2 == 1  # recordAndPropagate was called again
     r2 = get_last_returned_val()
-    assert r2 is None       # getReplyFromLedger returned None since had not seen request
+    assert r2 is None  # getReplyFromLedger returned None since had not seen request
 
     # Reply for the first request, which is going to be sent again
-    rep1 = client1.getReply(req1.identifier, req1.reqId)
+    rep1 = request1[0][1]['result']
 
-    # Clear the client so that test waits for client getting reply
-    client1.inBox.clear()
-    client1.txnLog.reset()
+    # Client re-sending first request
+    request3 = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    total_timeout = sdk_eval_timeout(len(request3), len(txnPoolNodeSet))
+    request3 = sdk_get_replies(looper, request3, timeout=total_timeout)
+    third_req_id = request3[0][0]['reqId']
 
-    # Client re-sending request
-    req3, = send_signed_requests(client1, [req1, ])
-    waitForSufficientRepliesForRequests(looper, client1, requests=[req3, ])
-    assert req3.reqId == req1.reqId
+    assert third_req_id == first_req_id
     rlc4 = get_getReplyFromLedger_call_count()
     rpc4 = get_recordAndPropagate_call_count()
-    assert rlc4 - rlc3 == 1     # getReplyFromLedger was called again
-    assert rpc4 - rpc3 == 0     # recordAndPropagate was not called
+    assert rlc4 - rlc3 == 1  # getReplyFromLedger was called again
+    assert rpc4 - rpc3 == 0  # recordAndPropagate was not called
     r3 = get_last_returned_val()
     # getReplyFromLedger did not return None this time since had seen request
     assert r3 is not None
-    rep3 = client1.getReply(req3.identifier, req3.reqId)
+    rep3 = request3[0][1]['result']
 
     # Since txnTime is not stored in ledger and reading from ledger return
     # all possible fields from transactions
-    rep3 = {k: v for k, v in rep3[0].items() if v is not None}
-    rep1 = {k: v for k, v in rep1[0].items() if k in rep3}
+    rep3 = {k: v for k, v in rep3.items() if v is not None}
+    rep1 = {k: v for k, v in rep1.items() if k in rep3}
 
-    assert rep3 == rep1     # The reply client got is same as the previous one
+    assert rep3 == rep1  # The reply client got is same as the previous one
