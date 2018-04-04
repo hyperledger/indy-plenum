@@ -28,7 +28,8 @@ def cli2(cliLooper, tdir, tdirWithClientPoolTxns,
     cli.close()
 
 
-def testEachClientOnDifferentPort(cli1, cli2):
+@pytest.mark.skip(reason='node registry removal')
+def testEachClientOnDifferentPort(cli1, cli2, txnPoolNodeSet):
     c1, c2 = "client1", "client2"
     newKeyPair(cli1)
     newKeyPair(cli2)
@@ -39,7 +40,8 @@ def testEachClientOnDifferentPort(cli1, cli2):
     assert client1.nodestack.ha != client2.nodestack.ha
 
 
-def testClientListeningIp(cli, validNodeNames, createAllNodes):
+@pytest.mark.skip(reason='node registry removal')
+def testClientListeningIp(cli, validNodeNames, createAllNodes, txnPoolNodeSet):
     """
     Test that a client should always listen at 0.0.0.0
     """
