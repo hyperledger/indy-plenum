@@ -130,6 +130,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests = []  # type: List[Tuple[int, int]]
 
         # Utility object for tracking requests order start and end
+        # TODO: Has very similar cleanup logic to propagator.Requests
         self.requestTracker = RequestTimeTracker(instances.count)
 
         # Request latencies for the master protocol instances. Key of the
@@ -289,8 +290,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         for identifier, reqId in reqIdrs:
             if (identifier, reqId) not in self.requestTracker:
                 logger.debug(
-                    "Got ordered request with identifier {} and reqId {} "
-                    "but it was from a previous view".
+                    "Got untracked ordered request with identifier {} and reqId {}".
                     format(identifier, reqId))
                 continue
             duration = self.requestTracker.order(instId, identifier, reqId, now)
