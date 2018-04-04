@@ -55,7 +55,6 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
     assert has_some_warn(slow_node), \
         'slow node has the warning'
 
-    ordered_requests_keys_len_before = len(monitor.ordered_requests_keys)
     # wait at least windows time
     looper.runFor(monitor.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
@@ -66,8 +65,6 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
     assert no_last_warn(slow_node), \
         'the last call of warn_has_lot_unordered_requests returned False ' \
         'so slow node has no the warning for now'
-    assert len(monitor.ordered_requests_keys) < ordered_requests_keys_len_before, \
-        "ordered_requests_keys was cleaned up"
 
 
 def no_any_warn(*nodes):
