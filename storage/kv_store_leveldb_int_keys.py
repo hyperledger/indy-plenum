@@ -14,11 +14,7 @@ class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
     def compare(a, b):
         a = int(a)
         b = int(b)
-        if (a < b):
-            return -1
-        if (a > b):
-            return 1
-        return 0
+        return a - b
 
     def open(self):
         self._db = leveldb.LevelDB(self.db_path, comparator=(

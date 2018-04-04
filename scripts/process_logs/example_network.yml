@@ -9,7 +9,7 @@ input_logs:                                       # List of input logs
 
 chains:                                           # List of processing chains
   main:                                           # Main processing chain
-  - match or drop: [network_message]              # Drop everything except network-related messages
+  - match or drop: network_message                # Drop everything except network-related messages
   - log_total:                                    # Call chain log_total
   - log_ping_pong:                                # Call chain log_ping_pong
   - log_disconnect:                               # Call chain log_disconnect
@@ -20,12 +20,12 @@ chains:                                           # List of processing chains
                                                   # By default return message to calling chain
 
   log_ping_pong:
-  - match: [network_ping_pong]                    # Return unless message is network ping pong
+  - match: network_ping_pong                      # Return unless message is network ping pong
   - log time: {general: ping_pong}                # Add message to general-ping_pong timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
 
   log_disconnect:
-  - match: [network_disconnect]                   # Return unless message is network disconnect
+  - match: network_disconnect                     # Return unless message is network disconnect
   - log time: {general: disconnect}               # Add message to general-disconnect timelog sink
   - log time: {alarms: disconnect}                # Add message to alarms-disconnect timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
@@ -34,7 +34,7 @@ outputs:
   logs:                                           # List of output log sinks
     network:                                      # Network log sink
       filename: output.log                        # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
+      pattern: <timestamp> | <node> | <body>      # Message format
 
   timelogs:                                       # List of timelog
     general:                                      # General timelog

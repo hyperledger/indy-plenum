@@ -17,13 +17,13 @@ chains:                                           # List of processing chains
   - log_view_change_done:                         # Call chain log_view_change_done
 
   log_view_change_start:
-  - match: [view_change_start]                    # Return unless message is view change start
+  - match: view_change_start                      # Return unless message is view change start
   - log line: view_change_start_done              # Save message to view_change_start_done log sink
   - log time: {view_change: start}                # Add message to view_change-start timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
 
   log_view_change_done:
-  - match: [view_change_done]                     # Return unless message is view change done
+  - match: view_change_done                       # Return unless message is view change done
   - log line: view_change_start_done              # Save message to view_change_start_done log sink
   - log time: {view_change: done}                 # Add message to view_change-done timelog sink
   - drop:                                         # Drop message, since we'll no longer need it
@@ -32,10 +32,10 @@ outputs:
   logs:                                           # List of output log sinks
     view_change:                                  # View change log sink
       filename: view_change.log                   # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
+      pattern: <timestamp> | <node> | <body>      # Message format
     view_change_start_done:                       # View change start/done log sink
       filename: view_change_sd_<replica>.log      # Filename where to put messages
-      pattern: <timestamp> | <node> | <message>   # Message format
+      pattern: <timestamp> | <node> | <body>      # Message format
 
   timelogs:                                       # List of timelog
     view_change:                                  # View changes timelog

@@ -4,9 +4,10 @@ from stp_core.common.log import getlogger
 
 from plenum.test import waits
 from plenum.test.delayers import cpDelay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, \
+    sdk_pool_refresh
 from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
@@ -17,8 +18,11 @@ whitelist = ['found legacy entry']  # logged errors to ignore
 
 
 @pytest.mark.skip(reason="SOV-551. Incomplete implementation")
-def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
-                            txnPoolCliNodeReg, tdirWithPoolTxns, tconf,
+def testCatchupDelayedNodes(txnPoolNodeSet,
+                            sdk_node_set_with_node_added_after_some_txns,
+                            sdk_wallet_steward,
+                            txnPoolCliNodeReg, tdirWithPoolTxns,
+                            tconf, tdir,
                             allPluginsPath):
     """
     Node sends catchup request to other nodes for only those sequence numbers
@@ -28,7 +32,8 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     not receive any catchup requests
     :return:
     """
-    looper, _, _, _, client, wallet = nodeSetWithNodeAddedAfterSomeTxns
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_set_with_node_added_after_some_txns
     stewardXName = "testClientStewardX"
     nodeXName = "Zeta"
     stewardYName = "testClientStewardY"
@@ -37,14 +42,25 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     nodeZName = "Theta"
     delayX = 45
     delayY = 2
-    stewardX, nodeX = addNewStewardAndNode(looper, client, stewardXName,
-                                           nodeXName,
-                                           tdirWithPoolTxns, tconf,
-                                           allPluginsPath, autoStart=False)
-    stewardY, nodeY = addNewStewardAndNode(looper, client, stewardYName,
-                                           nodeYName,
-                                           tdirWithPoolTxns, tconf,
-                                           allPluginsPath, autoStart=False)
+    stewardX, nodeX = sdk_add_new_steward_and_node(looper,
+                                                   sdk_pool_handle,
+                                                   sdk_wallet_steward,
+                                                   stewardXName,
+                                                   nodeXName,
+                                                   tdir,
+                                                   tconf,
+                                                   autoStart=False,
+                                                   allPluginsPath=allPluginsPath)
+
+    stewardY, nodeY = sdk_add_new_steward_and_node(looper,
+                                                   sdk_pool_handle,
+                                                   sdk_wallet_steward,
+                                                   stewardYName,
+                                                   nodeYName,
+                                                   tdir,
+                                                   tconf,
+                                                   autoStart=False,
+                                                   allPluginsPath=allPluginsPath)
     nodeX.nodeIbStasher.delay(cpDelay(delayX))
     nodeY.nodeIbStasher.delay(cpDelay(delayY))
     looper.add(nodeX)
@@ -60,7 +76,9 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     nodeX.stop()
     nodeY.stop()
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 50)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 50)
     logger.debug("Starting the 2 stopped nodes, {} and {}".format(nodeX.name,
                                                                   nodeY.name))
     nodeX.start(looper.loop)

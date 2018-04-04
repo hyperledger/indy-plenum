@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
@@ -33,11 +33,8 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
     fVal = 1
     for (client, wallet) in clients:
         logger.debug("{} sending {} requests".format(client, numRequests))
-        sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
-                                            wallet,
-                                            client,
-                                            numRequests,
-                                            fVal)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_steward, numRequests)
         logger.debug("{} sent {} requests".format(client, numRequests))
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".

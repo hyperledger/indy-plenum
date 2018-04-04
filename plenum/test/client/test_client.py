@@ -10,10 +10,9 @@ from plenum.common.constants import OP_FIELD_NAME, REPLY, REQACK
 from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import checkResponseCorrectnessFromNodes, \
-    randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
-    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import randomOperation, \
+    checkLastClientReqForNode, getRepliesFromClientInbox, \
+    waitForSufficientRepliesForRequests, assertLength
 
 from plenum.test.test_client import genTestClient
 
@@ -30,28 +29,6 @@ whitelist = ['signer not configured so not signing',
              'got error while verifying message']  # warnings
 
 logger = getlogger()
-
-
-def checkResponseRecvdFromNodes(client, expectedCount: int,
-                                expectedReqId: int):
-    # Checks if the client has unique `expectedCount` number of REQACKs and
-    # REPLYs from nodes. It ignores more than one REQACK or REPLY since a
-    # client might be retrying
-    acks = set()
-    replies = set()
-    for (resp, nodeNm) in client.inBox:
-        op = resp.get(OP_FIELD_NAME)
-        if op == REPLY:
-            reqId = resp.get(f.RESULT.nm, {}).get(f.REQ_ID.nm)
-            coll = replies
-        elif op == REQACK:
-            reqId = resp.get(f.REQ_ID.nm)
-            coll = acks
-        else:
-            continue
-        if reqId == expectedReqId:
-            coll.add(nodeNm)
-    assert len(replies) == len(acks) == expectedCount
 
 
 # noinspection PyIncorrectDocstring
@@ -147,51 +124,6 @@ def testEveryNodeRepliesWithNoFaultyNodes(looper, client1, replied1):
         assert len(receivedReplies) == nodeCount
 
     looper.run(eventually(chk))
-
-
-# noinspection PyIncorrectDocstring
-def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
-    """
-    When there are not faulty nodes, the client must get a reply from all the
-    nodes.
-    """
-    request = sendRandomRequest(wallet1, client1)
-    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
-    looper.run(
-        eventually(checkResponseRecvdFromNodes, client1,
-                   nodeCount, request.reqId,
-                   retryWait=1, timeout=responseTimeout))
-    checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
-
-
-# noinspection PyIncorrectDocstring
-def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
-                                                        client1,
-                                                        wallet1):
-    """
-    When only :math:`f+1` replies from the nodes are matching, the client
-    would accept the reply
-    """
-    request = sendRandomRequest(wallet1, client1)
-    # exactly f + 1 => (3) nodes have correct responses
-    # modify some (numOfResponses of type REPLY - (f + 1)) => 4 responses to
-    # have a different operations
-    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
-    looper.run(
-        eventually(checkResponseRecvdFromNodes, client1,
-                   nodeCount, request.reqId,
-                   retryWait=1, timeout=responseTimeout))
-
-    replies = (msg for msg, frm in client1.inBox
-               if msg[OP_FIELD_NAME] == REPLY and
-               msg[f.RESULT.nm][f.REQ_ID.nm] == request.reqId)
-
-    # change two responses to something different
-    for i in range(2):
-        msg = next(replies)
-        msg[f.RESULT.nm][f.SIG.nm] = str(i) + "Some random id"
-
-    checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
 # noinspection PyIncorrectDocstring

@@ -8,8 +8,7 @@ from plenum.test.helper import sdk_send_random_and_check
 txnCount = 20
 Max3PCBatchSize = 4
 
-from plenum.test.node_catchup.conftest import nodeCreatedAfterSomeTxns, \
-    nodeSetWithNodeAddedAfterSomeTxns
+from plenum.test.node_catchup.conftest import sdk_node_created_after_some_txns
 from plenum.test.batching_3pc.conftest import tconf
 
 # lot of requests will be sent
@@ -17,12 +16,12 @@ TestRunningTimeLimitSec = 200
 
 
 def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
-                                    nodeSetWithNodeAddedAfterSomeTxns,
+                                    sdk_node_created_after_some_txns,
                                     sdk_wallet_client, sdk_pool_handle):
     """
     A new node joins the pool and is able to function properly without
     """
-    _, new_node, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    _, new_node, _, _ = sdk_node_created_after_some_txns
     old_susp_count = get_timestamp_suspicion_count(new_node)
     # Don't wait for node to catchup, start sending requests
     sdk_send_random_and_check(looper,

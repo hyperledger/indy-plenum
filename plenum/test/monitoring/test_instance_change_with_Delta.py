@@ -5,7 +5,7 @@ import pytest
 from stp_core.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change
@@ -66,7 +66,7 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
 
 
 @pytest.fixture(scope="module")
-def step1(looper, txnPoolNodeSet, wallet1, client1):
+def step1(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     startedNodes = txnPoolNodeSet
     """
     stand up a pool of nodes and send 5 requests to client
@@ -74,7 +74,7 @@ def step1(looper, txnPoolNodeSet, wallet1, client1):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    requests = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,
@@ -116,11 +116,11 @@ def step3(step2):
 
 
 @pytest.mark.skip(reason="SOV-1123 - fails intermittently")
-def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
+def testInstChangeWithLowerRatioThanDelta(looper, step3, sdk_pool_handle, sdk_wallet_client):
     # from plenum.test.test_node import ensureElectionsDone
     # ensureElectionsDone(looper, [])
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 9)
+    sdk_send_random_and_check(looper, step3.nodes, sdk_pool_handle, sdk_wallet_client, 9)
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
-    provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
+    provoke_and_wait_for_view_change(looper, step3.nodes, 1, sdk_pool_handle, sdk_wallet_client)
