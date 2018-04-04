@@ -23,7 +23,7 @@ from plenum.test.helper import waitForSufficientRepliesForRequests, \
     sdk_json_to_request_object, sdk_get_and_check_replies
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
-    ensure_node_disconnected, checkNodesConnected, ensureElectionsDone
+    ensure_node_disconnected, checkNodesConnected
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
