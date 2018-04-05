@@ -5,6 +5,7 @@ from indy.ledger import build_node_request, build_nym_request, build_get_txn_req
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
@@ -504,7 +505,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               steward_wallet, sdk_pool_handle)
     return restartedNode
 
 
