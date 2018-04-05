@@ -9,8 +9,7 @@ from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change, start_stopped_node
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
-    checkViewNoForNodes, stopNodes, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.pool_transactions.conftest import nodeThetaAdded
 from plenum.test.primary_selection.conftest import one_node_added
 
@@ -23,12 +22,10 @@ logger = getlogger()
 def all_nodes_view_change(
         looper,
         txnPoolNodeSet,
-        stewardWallet,
-        steward1,
-        client1,
-        wallet1):
+        sdk_pool_handle,
+        sdk_wallet_client):
     for _ in range(5):
-        send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
@@ -36,7 +33,7 @@ def all_nodes_view_change(
 
 @pytest.fixture(scope='module')
 def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
-                             one_node_added, wallet1, client1):
+                             one_node_added, sdk_pool_handle, sdk_wallet_client):
     new_node = one_node_added
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, retryWait=1,
                           timeout=10))
@@ -44,7 +41,8 @@ def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
                                 new_node.view_changer._start_view_change_if_possible,
                                 compare_val_to=True)) > 0
     assert not new_node.view_changer._next_view_indications
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 2)
 
 
 def test_new_node_has_same_view_as_others(new_node_in_correct_view):
@@ -57,7 +55,8 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                                    looper, txnPoolNodeSet,
                                                    tdir,
                                                    allPluginsPath, tconf,
-                                                   wallet1, client1):
+                                                   sdk_pool_handle,
+                                                   sdk_wallet_client):
     """
     An existing non-primary node crashes and then view change happens,
     the crashed node comes back up after view change
@@ -72,11 +71,13 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     remaining_nodes = list(set(txnPoolNodeSet) - {node_to_stop})
 
     # Send some requests before view change
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     ensure_view_change(looper, remaining_nodes, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
     ensureElectionsDone(looper, remaining_nodes)
     # Send some requests after view change
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
 
     restarted_node = start_stopped_node(node_to_stop, looper, tconf,
                                         tdir, allPluginsPath)

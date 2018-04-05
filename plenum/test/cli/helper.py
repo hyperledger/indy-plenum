@@ -9,7 +9,10 @@ import time
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
+    CURRENT_PROTOCOL_VERSION, NODE, NYM
+from plenum.common.roles import Roles
+from plenum.common.transactions import PlenumTransactions
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
@@ -676,3 +679,58 @@ def restartCliAndAssert(cli, do, expectedRestoredWalletName,
     ], within=5)
     assert cli._activeWallet is not None
     assert len(cli._activeWallet.identifiers) == expectedIdentifiers
+
+
+
+def _newStewardsAddedByName(cli):
+    cli.enterCmd(
+        "add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role={role}".format(
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name))
+    cli.enterCmd(
+        'add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 '
+        'with data {{"alias": "Ty"}} role={role}'.format(
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name))
+
+
+def _newStewardsAddedByValue(cli):
+    cli.enterCmd(
+        "add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 role={role}".format(
+            nym=NYM,
+            role=Roles.STEWARD.name))
+    cli.enterCmd(
+        'add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06421 '
+        'with data {{"alias": "Ty"}} role={role}'.format(
+            nym=NYM, role=Roles.STEWARD.name))
+
+
+
+def _newNodesAddedByName(cli):
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=PlenumTransactions.NODE.name))
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=PlenumTransactions.NODE.name))
+
+
+def _newNodesAddedByValue(cli):
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=NODE))
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06421 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=NODE))

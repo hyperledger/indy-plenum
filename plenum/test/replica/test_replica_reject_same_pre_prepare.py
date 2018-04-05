@@ -9,7 +9,8 @@ from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
-    checkPrepareReqSent, check_sufficient_replies_received, sendRandomRequest
+    checkPrepareReqSent, sdk_send_random_requests, \
+    sdk_json_to_request_object, sdk_get_replies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
@@ -20,7 +21,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, client1, wallet1):
+def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -39,7 +40,11 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, client1, wallet1
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(delay=c_delay, instId=1))
 
-    request1 = sendRandomRequest(wallet1, client1)
+    req1 = sdk_send_random_requests(looper,
+                                    sdk_pool_handle,
+                                    sdk_wallet_client,
+                                    1)[0]
+    request1 = sdk_json_to_request_object(req1[0])
     for npr in nonPrimaryReplicas:
         looper.run(eventually(checkPrepareReqSent,
                               npr,
@@ -68,7 +73,11 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, client1, wallet1
         "one...")
     primaryRepl._lastPrePrepareSeqNo -= 1
     view_no = primaryRepl.viewNo
-    request2 = sendRandomRequest(wallet1, client1)
+    request2 = sdk_json_to_request_object(
+        sdk_send_random_requests(looper,
+                                 sdk_pool_handle,
+                                 sdk_wallet_client,
+                                 1)[0][0])
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=timeout))
@@ -118,8 +127,5 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, client1, wallet1
                                   timeout=timeout))
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + c_delay
-    result1 = \
-        looper.run(eventually(check_sufficient_replies_received,
-                              client1, request1.identifier, request1.reqId,
-                              retryWait=1, timeout=timeout))
+    result1 = sdk_get_replies(looper, [req1])[0][1]
     logger.debug("request {} gives result {}".format(request1, result1))

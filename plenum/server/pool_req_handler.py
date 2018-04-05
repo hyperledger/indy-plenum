@@ -53,7 +53,6 @@ class PoolRequestHandler(LedgerRequestHandler):
         else:
             logger.debug(
                 'Cannot apply request of type {} to state'.format(typ))
-            return None
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:

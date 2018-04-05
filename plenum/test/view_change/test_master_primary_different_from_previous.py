@@ -41,7 +41,7 @@ def test_master_primary_different_from_previous(txnPoolNodeSet, looper,
 
 @pytest.mark.skip(reason='Nodes use round robin primary selection')
 def test_master_primary_different_from_previous_view_for_itself(
-        txnPoolNodeSet, looper, client1, wallet1):
+        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     """
     After a view change, primary must be different from previous primary for
     master instance, it does not matter for other instance. Break it into
@@ -67,8 +67,8 @@ def test_master_primary_different_from_previous_view_for_itself(
     provoke_and_wait_for_view_change(looper,
                                      txnPoolNodeSet,
                                      old_view_no + 1,
-                                     wallet1,
-                                     client1)
+                                     sdk_pool_handle,
+                                     sdk_wallet_client)
 
     # Elections done
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -82,4 +82,7 @@ def test_master_primary_different_from_previous_view_for_itself(
                                   'of master in previous view too') == 1
 
     # The new primary can still process requests
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              5)

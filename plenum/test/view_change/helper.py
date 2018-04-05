@@ -2,9 +2,10 @@ import types
 
 from stp_core.types import HA
 
-from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds
-from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
-    sendReqsToNodesAndVerifySuffReplies, send_reqs_to_nodes_and_verify_all_replies
+from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
+    reset_delays_and_process_delayeds
+from plenum.test.helper import checkViewNoForNodes, \
+    sdk_send_random_requests, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -34,7 +35,7 @@ def start_stopped_node(stopped_node, looper, tconf,
     return restarted_node
 
 
-def provoke_and_check_view_change(nodes, newViewNo, wallet, client):
+def provoke_and_check_view_change(looper, nodes, newViewNo, sdk_pool_handle, sdk_wallet_client):
     if {n.viewNo for n in nodes} == {newViewNo}:
         return True
 
@@ -47,34 +48,36 @@ def provoke_and_check_view_change(nodes, newViewNo, wallet, client):
     else:
         logger.info('Master instance has not degraded yet, '
                     'sending more requests')
-        sendRandomRequests(wallet, client, 10)
+        sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client)
         assert False
 
 
 def provoke_and_wait_for_view_change(looper,
                                      nodeSet,
                                      expectedViewNo,
-                                     wallet,
-                                     client,
+                                     sdk_pool_handle,
+                                     sdk_wallet_client,
                                      customTimeout=None):
     timeout = customTimeout or waits.expectedPoolViewChangeStartedTimeout(
         len(nodeSet))
     # timeout *= 30
     return looper.run(eventually(provoke_and_check_view_change,
+                                 looper,
                                  nodeSet,
                                  expectedViewNo,
-                                 wallet,
-                                 client,
+                                 sdk_pool_handle,
+                                 sdk_wallet_client,
                                  timeout=timeout))
 
 
-def simulate_slow_master(looper, txnPoolNodeSet, wallet,
-                         client, delay=10, num_reqs=4):
+def simulate_slow_master(looper, txnPoolNodeSet, sdk_pool_handle,
+                         sdk_wallet_steward, delay=10, num_reqs=4):
     m_primary_node = get_master_primary_node(list(txnPoolNodeSet))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, delay)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, num_reqs)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, num_reqs)
     return m_primary_node
 
 
@@ -226,14 +229,6 @@ def check_each_node_reaches_same_end_for_view(nodes, view_no):
         assert v == val
 
 
-def do_vc(looper, nodes, client, wallet, old_view_no=None):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    new_view_no = ensure_view_change(looper, nodes)
-    if old_view_no:
-        assert new_view_no - old_view_no >= 1
-    return new_view_no
-
-
 def disconnect_master_primary(nodes):
     pr_node = get_master_primary_node(nodes)
     for node in nodes:
@@ -278,12 +273,14 @@ def ensure_view_change_complete_by_primary_restart(
     return nodes
 
 
-def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client1,
+def view_change_in_between_3pc(looper, nodes, slow_nodes,
+                               sdk_pool_handle,
+                               sdk_wallet_client,
                                slow_delay=1, wait=None):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client1, 4)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
-    sendRandomRequests(wallet, client1, 10)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
     if wait:
         looper.runFor(wait)
 
@@ -291,28 +288,28 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client1,
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    sendReqsToNodesAndVerifySuffReplies(
-        looper, wallet, client1, 5, total_timeout=30)
-    send_reqs_to_nodes_and_verify_all_replies(
-        looper, wallet, client1, 5, total_timeout=30)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
+                              sdk_wallet_client, 5, total_timeout=30)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
+                              sdk_wallet_client, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(
         looper,
         nodes,
         slow_nodes,
-        wallet1,
-        client1,
+        sdk_pool_handle,
+        sdk_wallet_client,
         tconf,
         min_delay=0,
         max_delay=0):
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 4)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
 
     # max delay should not be more than catchup timeout.
     max_delay = max_delay or tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
-    sendRandomRequests(wallet1, client1, 10)
+    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
 
     ensure_view_change_complete(looper,
                                 nodes,
@@ -321,4 +318,4 @@ def view_change_in_between_3pc_random_delays(
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 10)
+    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)

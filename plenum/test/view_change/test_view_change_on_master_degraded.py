@@ -1,11 +1,9 @@
 import types
 
-import pytest
-
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
+    sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
     ensureElectionsDone
@@ -18,7 +16,8 @@ nodeCount = 7
 
 
 def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
-                                             wallet1, client1):
+                                             sdk_pool_handle,
+                                             sdk_wallet_steward):
     """
     Test that a view change is done when the performance of master goes down
     Send multiple requests from the client and delay some requests by master
@@ -27,7 +26,8 @@ def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
     """
     old_primary_node = get_master_primary_node(list(txnPoolNodeSet))
 
-    simulate_slow_master(looper, txnPoolNodeSet, wallet1, client1)
+    simulate_slow_master(looper, txnPoolNodeSet, sdk_pool_handle,
+                         sdk_wallet_steward)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)
 
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -37,7 +37,9 @@ def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
 
 
 def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
-                                                  wallet1, client1, viewNo):
+                                                  sdk_pool_handle,
+                                                  sdk_wallet_steward,
+                                                  viewNo):
     """
     Node will change view even though it does not find the master to be degraded
     when a quorum of nodes agree that master performance degraded
@@ -62,7 +64,8 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
         lambda x: False, relucatantNode.monitor)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 4)
 
     # Check that view change happened for all nodes
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)

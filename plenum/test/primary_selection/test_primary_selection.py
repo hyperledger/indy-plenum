@@ -2,7 +2,7 @@ import operator
 
 import pytest
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.primary_selection.helper import \
     check_rank_consistent_across_each_node
 from plenum.test.view_change.helper import ensure_view_change
@@ -11,12 +11,6 @@ from plenum.common.util import getNoInstances
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica, ensureElectionsDone
-
-# noinspection PyUnresolvedReferences
-from plenum.test.view_change.conftest import viewNo
-
-# noinspection PyUnresolvedReferences
-from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
 
@@ -29,7 +23,7 @@ def primaryReplicas(txnPoolNodeSet):
 
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterPoolReady(
-        looper, txnPoolNodeSet, wallet1, client1):
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
     """
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
@@ -72,7 +66,8 @@ def testPrimarySelectionAfterPoolReady(
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 5)
 
 
 @pytest.fixture(scope='module')
@@ -93,13 +88,15 @@ def testPrimarySelectionAfterViewChange(  # noqa
         looper,
         txnPoolNodeSet,
         primaryReplicas,
-        catchup_complete_count,
-        view_change_done):
+        catchup_complete_count):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.
     """
     # TODO: This test can fail due to view change.
+
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     for n in txnPoolNodeSet:
         assert n.spylog.count(

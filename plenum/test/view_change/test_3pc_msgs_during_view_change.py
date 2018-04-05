@@ -1,8 +1,9 @@
 import pytest
+
+from plenum.common.exceptions import RequestRejectedException
 from plenum.test.delayers import ppgDelay
 from plenum.test.helper import send_pre_prepare, send_prepare, send_commit, \
-    sendRandomRequests, waitRejectFromPoolWithReason, \
-    waitForSufficientRepliesForRequests
+    sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import check_replica_queue_empty, \
     check_all_replica_queue_empty
@@ -10,17 +11,15 @@ from plenum.test.view_change.helper import check_replica_queue_empty, \
 
 @pytest.mark.skip('Currently we stash client requests during view change')
 def test_no_requests_processed_during_view_change(looper, txnPoolNodeSet,
-                                                  client1, wallet1):
+                                                  sdk_pool_handle, sdk_wallet_client):
     for node in txnPoolNodeSet:
         node.view_change_in_progress = True
 
-    sendRandomRequests(wallet1, client1, 10)
-
-    waitRejectFromPoolWithReason(
-        looper,
-        txnPoolNodeSet,
-        client1,
-        'Can not process requests when view change is in progress')
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle, sdk_wallet_client, 10)
+    assert 'Can not process requests when view change is in progress' in \
+           e._excinfo[1].args[0]
 
     for node in txnPoolNodeSet:
         check_replica_queue_empty(node)
@@ -50,7 +49,8 @@ def test_no_new_view_3pc_messages_processed_during_view_change(
 
 @pytest.mark.skip('The filter is not enabled now')
 def test_old_view_requests_processed_during_view_change(looper, txnPoolNodeSet,
-                                                        client1, wallet1):
+                                                        sdk_wallet_handle,
+                                                        sdk_wallet_client):
     """
     Make sure that requests sent before view change started are processed and replies are returned:
      - delay Propogates (to make sure that requests are not ordered before view change is started)
@@ -61,10 +61,11 @@ def test_old_view_requests_processed_during_view_change(looper, txnPoolNodeSet,
         node.view_change_in_progress = False
         node.nodeIbStasher.delay(ppgDelay(3, 0))
 
-    reqs = sendRandomRequests(wallet1, client1, 2)
+    requests = sdk_send_random_requests(looper, sdk_wallet_handle,
+                                        sdk_wallet_client, 2)
     looper.runFor(1)
 
     for node in txnPoolNodeSet:
         node.view_change_in_progress = True
 
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+    sdk_get_replies(looper, requests)

@@ -1,24 +1,22 @@
 from plenum.test.node_catchup.conftest import whitelist, \
-    looper, nodeCreatedAfterSomeTxns, nodeSetWithNodeAddedAfterSomeTxns, \
-    newNodeCaughtUp
+    sdk_node_set_with_node_added_after_some_txns, \
+    sdk_new_node_caught_up, sdk_node_created_after_some_txns
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    waitNodeDataInequality, checkNodeDataForEquality
+    disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 
 
-def test_current_state_propagation(newNodeCaughtUp,
+def test_current_state_propagation(sdk_new_node_caught_up,
                                    txnPoolNodeSet,
-                                   nodeSetWithNodeAddedAfterSomeTxns,
+                                   sdk_node_set_with_node_added_after_some_txns,
                                    tconf, tdir, allPluginsPath):
     """
     Checks that nodes send CurrentState to lagged nodes.
     """
 
     # 1. Start pool
-    looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
 
     # 2. Stop one node
     disconnect_node_and_ensure_disconnected(looper,
