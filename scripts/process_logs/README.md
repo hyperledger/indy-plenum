@@ -88,7 +88,15 @@ Contains dictionary of output event counters, each with simple option
 `format` containing string, which will be output for each node when all
 input logs are processed. This string can contain `<node>` placeholder,
 as well as any `<subcounter>` placeholder which were used in `log count` 
-commands, explained later in *chains* section 
+commands, explained later in *chains* section
+
+#### requests
+
+Contains reporting options of request tracker:
+- `report_stats`: whether to report statistics at all
+- `report_lags`: whether to report request id's which took more than minute 
+  to order
+- `plot_graphs`: whether to plot graphs of requests time to order 
 
 ### matchers
 
