@@ -1017,7 +1017,7 @@ class LedgerManager(HasActionQueue):
                          .format(self, seqNoEnd, ledgerSize))
             return
         if seqNoEnd < seqNoStart:
-            self.error(
+            logger.error(
                 '{} cannot build consistency proof since end {} is '
                 'lesser than start {}'.format(
                     self, seqNoEnd, seqNoStart))
