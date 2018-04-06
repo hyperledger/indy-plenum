@@ -21,20 +21,6 @@ logger = getlogger()
 # reaches it
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_retry_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
-    old_retry_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
-
-    tconf.RETRY_TIMEOUT_RESTRICTED = 0.3 * old_retry_timeout_restricted
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 0.3 * old_retry_timeout_not_restricted
-
-    yield tconf
-
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_retry_timeout_restricted
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_retry_timeout_not_restricted
-
-
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                                                 sdk_wallet_steward,
                                                 sdk_pool_handle,

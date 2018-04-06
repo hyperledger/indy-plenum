@@ -7,11 +7,20 @@ import pytest
 
 from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
+from stp_core.common.log import Logger
 
 
 @pytest.fixture(params=[False, True], ids=["plain", "compressed"])
 def log_compression(request):
     return request.param
+
+def test_default_log_rotation_config_is_correct(tdir_for_func):
+    logDirPath = tdir_for_func
+    logFile = os.path.join(logDirPath, "log")
+    logger = Logger()
+
+    # Assert this doesn't fail
+    logger.enableFileLogging(logFile)
 
 
 def test_time_log_rotation(tdir_for_func, log_compression):
