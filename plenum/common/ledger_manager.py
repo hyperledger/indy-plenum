@@ -100,7 +100,8 @@ class LedgerManager(HasActionQueue):
 
         quorum = Quorums(self.owner.totalNodes)
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
-        if quorum.same_consistency_proof.is_reached(null_proofs_count):
+        if quorum.same_consistency_proof.is_reached(null_proofs_count)\
+                or len(groupedProofs) == 0:
             return
         result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
         if not result:
@@ -723,6 +724,7 @@ class LedgerManager(HasActionQueue):
             # from other nodes, see `request_CPs_if_needed`
 
             ledgerInfo.consistencyProofsTimer = time.perf_counter()
+            # TODO: find appropriate moment to unschedule this event!
             self._schedule(partial(self.request_CPs_if_needed, ledgerId),
                            self.config.ConsistencyProofsTimeout * (
                                self.owner.totalNodes - 1))
@@ -1017,7 +1019,7 @@ class LedgerManager(HasActionQueue):
                          .format(self, seqNoEnd, ledgerSize))
             return
         if seqNoEnd < seqNoStart:
-            self.error(
+            logger.error(
                 '{} cannot build consistency proof since end {} is '
                 'lesser than start {}'.format(
                     self, seqNoEnd, seqNoStart))
