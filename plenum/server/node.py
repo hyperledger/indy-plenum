@@ -748,15 +748,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledger_id is not None:
             self.ledger_to_req_handler[ledger_id] = req_handler
         for txn_type in req_handler.operation_types:
-            if txn_type in self.txn_type_to_req_handler:
-                raise ValueError('{} already registered for {}'
-                                 .format(txn_type, self.txn_type_to_req_handler[txn_type]))
-            self.txn_type_to_req_handler[txn_type] = req_handler
-            if ledger_id is not None:
-                self.txn_type_to_ledger_id[txn_type] = ledger_id
-        self.register_txn_type(txn_type, ledger_id, req_handler)
+            self.register_txn_type(txn_type, req_handler, ledger_id)
 
-    def register_txn_type(self, txn_type, req_handler: RequestHandler):
+    def register_txn_type(self, txn_type, req_handler: RequestHandler,
+                          ledger_id: int = None):
         if txn_type in self.txn_type_to_req_handler:
             raise ValueError('{} already registered for {}'
                              .format(txn_type, self.txn_type_to_req_handler[txn_type]))
