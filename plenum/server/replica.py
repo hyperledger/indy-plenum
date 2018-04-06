@@ -565,6 +565,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Return whether this replica was primary in the given view
         """
+        if viewNo not in self.primaryNames:
+            return False
         return self.primaryNames[viewNo] == self.name
 
     def isMsgForCurrentView(self, msg):
