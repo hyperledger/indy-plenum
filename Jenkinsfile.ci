@@ -89,7 +89,7 @@ def test(options=[:]) {
 
     try {
         if (options.useRunner) {
-            sh "RUST_LOG=trace RUSTPYTHONASYNCIODEBUG='0' $options.python runner.py --pytest -s \"$options.python -m pytest\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
+            sh "RUST_LOG=trace RUSTPYTHONASYNCIODEBUG='0' $options.python runner.py --pytest \"$options.python -m pytest -s\" --dir $options.testDir --output \"$options.resFile\" --test-only-slice \"$options.testOnlySlice\""
         } else {
             sh "RUST_LOG=trace $options.python -m pytest -s --junitxml=$options.resFile $options.testDir"
         }
