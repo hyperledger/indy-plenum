@@ -121,14 +121,16 @@ def create_and_start_new_node(
         auto_start,
         plugin_path,
         nodeClass,
-        do_post_node_creation: Callable = None):
+        do_post_node_creation: Callable = None,
+        configClass=PNodeConfigHelper):
     node = new_node(node_name=node_name,
                     tdir=tdir,
                     node_ha=node_ha,
                     client_ha=client_ha,
                     tconf=tconf,
                     plugin_path=plugin_path,
-                    nodeClass=nodeClass)
+                    nodeClass=nodeClass,
+                    configClass=configClass)
     if do_post_node_creation:
         do_post_node_creation(node)
     if auto_start:
@@ -143,8 +145,9 @@ def new_node(
         client_ha,
         tconf,
         plugin_path,
-        nodeClass):
-    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+        nodeClass,
+        configClass=PNodeConfigHelper):
+    config_helper = configClass(node_name, tconf, chroot=tdir)
     node = nodeClass(node_name,
                      config_helper=config_helper,
                      config=tconf,
@@ -214,7 +217,7 @@ def sdk_add_new_node(looper,
                      new_node_name,
                      tdir, tconf,
                      allPluginsPath=None, autoStart=True, nodeClass=TestNode,
-                     transformOpFunc=None, do_post_node_creation: Callable = None,
+                     do_post_node_creation: Callable = None,
                      services=[VALIDATOR]):
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
@@ -244,7 +247,8 @@ def sdk_add_new_node(looper,
                                      (nodeIp, nodePort), (clientIp, clientPort),
                                      tconf, autoStart, allPluginsPath,
                                      nodeClass,
-                                     do_post_node_creation=do_post_node_creation)
+                                     do_post_node_creation=do_post_node_creation,
+                                     configClass=PNodeConfigHelper)
 
 
 async def prepare_schema_request(wallet, named_seed, alias, role):

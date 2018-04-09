@@ -1,9 +1,10 @@
 import pytest
 
 from plenum.common.util import randomString
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test.pool_transactions.helper import \
     sdk_add_new_steward_and_node, sdk_pool_refresh
+
 
 
 @pytest.fixture(scope="module")
@@ -24,7 +25,7 @@ def sdk_node_theta_added(looper,
                          sdk_pool_handle,
                          sdk_wallet_steward,
                          allPluginsPath,
-                         testNodeClass=None,
+                         testNodeClass=TestNode,
                          name=None):
     new_steward_name = "testClientSteward" + randomString(3)
     new_node_name = name or "Theta"
@@ -36,7 +37,8 @@ def sdk_node_theta_added(looper,
                                      new_node_name,
                                      tdir,
                                      tconf,
-                                     allPluginsPath)
+                                     allPluginsPath,
+                                     nodeClass=testNodeClass)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
