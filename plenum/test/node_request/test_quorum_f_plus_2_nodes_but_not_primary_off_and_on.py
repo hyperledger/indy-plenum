@@ -22,7 +22,6 @@ def stop_node(node_to_stop, looper, pool_nodes):
     looper.removeProdable(node_to_stop)
 
 
-@pytest.mark.skip("test failed on jenkins")
 def test_quorum_after_f_plus_2_nodes_but_not_primary_turned_off_and_later_on(
         looper, allPluginsPath, tdir, tconf,
         txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
@@ -90,7 +89,7 @@ def test_quorum_after_f_plus_2_nodes_but_not_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    sdk_get_replies(looper, [sdk_reqs3[0], sdk_reqs4[0], sdk_reqs5[0], sdk_reqs6[0]])
+    sdk_get_replies(looper, sdk_reqs6)
 
     nodes[2] = start_stopped_node(nodes[2], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes,

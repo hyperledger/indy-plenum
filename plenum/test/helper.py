@@ -948,11 +948,16 @@ def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
 
 def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     req_json, resp_task = sdk_req_resp
+    # TODO: change timeout evaluating logic, when sdk will can tuning timeout from outside
+    if timeout is None:
+        timeout = waits.expectedTransactionExecutionTime(7)
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
     except IndyError as e:
         resp = e.error_code
+    except TimeoutError as e:
+        resp = ErrorCode.PoolLedgerTimeout
 
     return req_json, resp
 
@@ -962,6 +967,9 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
 # validity
 def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
     resp_tasks = [resp for _, resp in sdk_req_resp]
+    # TODO: change timeout evaluating logic, when sdk will can tuning timeout from outside
+    if timeout is None:
+        timeout = waits.expectedTransactionExecutionTime(7)
 
     def get_res(task, done_list):
         if task in done_list:
@@ -970,14 +978,13 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             except IndyError as e:
                 resp = e.error_code
         else:
-            resp = None
+            resp = ErrorCode.PoolLedgerTimeout
         return resp
 
     done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pending:
         for task in pending:
             task.cancel()
-        raise TimeoutError("{} requests timed out".format(len(pending)))
     ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
     return ret
 
@@ -985,7 +992,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 def sdk_check_reply(req_res):
     req, res = req_res
     if isinstance(res, ErrorCode):
-        if res == 307:
+        if res == ErrorCode.PoolLedgerTimeout:
             raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
                                              .format(req))
         else:
