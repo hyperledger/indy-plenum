@@ -1533,7 +1533,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.verifySignature(message)
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
-        logger.trace("{} received node message from {}: {}".
+        logger.debug("{} received node message from {}: {}".
                      format(self, frm, message),
                      extra={"cli": False})
         return message, frm
@@ -1564,7 +1564,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} appending to nodeInbox {}".format(self, msg))
+        logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
     async def processNodeInBox(self):
