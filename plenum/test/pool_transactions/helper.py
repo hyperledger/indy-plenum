@@ -505,6 +505,7 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                steward_wallet, sdk_pool_handle)
     return restartedNode
