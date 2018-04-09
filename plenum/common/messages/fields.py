@@ -194,14 +194,28 @@ class ConstantField(FieldBase):
 class IterableField(FieldBase):
     _base_types = (list, tuple)
 
-    def __init__(self, inner_field_type: FieldValidator, **kwargs):
+    def __init__(self, inner_field_type: FieldValidator, min_length=None,
+                 max_length=None, **kwargs):
         assert inner_field_type
         assert isinstance(inner_field_type, FieldValidator)
+        for m in (min_length, max_length):
+            if m is not None:
+                assert isinstance(m, int)
+                assert m > 0
 
         self.inner_field_type = inner_field_type
+        self.min_length = min_length
+        self.max_length = max_length
         super().__init__(**kwargs)
 
     def _specific_validation(self, val):
+        if self.min_length is not None:
+            if len(val) < self.min_length:
+                return 'length should be at least {}'.format(self.min_length)
+        if self.max_length is not None:
+            if len(val) > self.max_length:
+                return 'length should be at most {}'.format(self.max_length)
+
         for v in val:
             check_er = self.inner_field_type.validate(v)
             if check_er:
