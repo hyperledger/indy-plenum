@@ -190,6 +190,7 @@ def sdk_add_new_steward_and_node(looper,
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
                     alias=None, role=None, seed=None):
     seed = seed or randomString(32)
+    alias = alias or randomString(5)
     wh, _ = creators_wallet
 
     # filling nym request and getting steward did
