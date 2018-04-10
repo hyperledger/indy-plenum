@@ -16,7 +16,6 @@ from plenum.test.test_node import TestNode
 from plenum.test import waits
 import pytest
 
-
 logger = getlogger()
 
 
@@ -25,7 +24,6 @@ logger = getlogger()
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
                              exclude_from_check=None):
-
     def chk_ledger_and_state(first_node, second_node, ledger_id):
         checkLedgerEquality(first_node.getLedger(ledger_id),
                             second_node.getLedger(ledger_id))

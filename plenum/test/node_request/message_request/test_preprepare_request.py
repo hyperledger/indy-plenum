@@ -7,7 +7,6 @@ from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import getAllReturnVals, get_count
 from stp_core.loop.eventually import eventually
 
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 
@@ -31,7 +30,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
     Node requests PRE-PREPARE only once after getting PREPAREs.
     """
     slow_node, other_nodes, primary_node, \
-        other_primary_nodes = split_nodes(txnPoolNodeSet)
+    other_primary_nodes = split_nodes(txnPoolNodeSet)
     # Drop PrePrepares and Prepares
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
     slow_node.nodeIbStasher.delay(pDelay(300, 0))

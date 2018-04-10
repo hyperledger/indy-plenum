@@ -2,12 +2,12 @@ import json
 
 import pytest
 from stp_core.loop.eventually import eventually
-
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, prepStacks, CollectingMsgsHandler, CounterMsgsHandler, MessageSender
 from stp_zmq.test.helper import genKeys
 from stp_zmq.zstack import ZStack
+from stp_zmq.test.conftest import BIG_NUM_OF_MSGS
 
 
 def testMessageQuota(set_info_log_level, tdir, looper):
@@ -38,7 +38,7 @@ def testMessageQuota(set_info_log_level, tdir, looper):
                           timeout=5))
 
 
-def testManyMessages(set_info_log_level, tdir, looper):
+def testManyMessages(set_info_log_level, tdir, looper, tconf):
     names = ['Alpha', 'Beta']
     genKeys(tdir, names)
     alphaP = Printer(names[0])
@@ -58,7 +58,7 @@ def testManyMessages(set_info_log_level, tdir, looper):
 
     looper.runFor(1)
 
-    msgNum = 100000
+    msgNum = BIG_NUM_OF_MSGS
     msgSender = MessageSender(msgNum, alpha, beta.name)
     looper.add(msgSender)
 

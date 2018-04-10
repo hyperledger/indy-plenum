@@ -180,13 +180,11 @@ class CoreAuthMixin:
         DomainRequestHandler.query_types
     )
 
-    @classmethod
-    def is_query(cls, typ):
-        return typ in cls.query_types
+    def is_query(self, typ):
+        return typ in self.query_types
 
-    @classmethod
-    def is_write(cls, typ):
-        return typ in cls.write_types
+    def is_write(self, typ):
+        return typ in self.write_types
 
     @staticmethod
     def _extract_signature(msg):

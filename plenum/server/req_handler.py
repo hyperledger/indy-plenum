@@ -48,7 +48,7 @@ class RequestHandler:
         not committed transactions
         """
 
-    def commit(self, txnCount, stateRoot, txnRoot) -> List:
+    def commit(self, txnCount, stateRoot, txnRoot, ppTime) -> List:
         """
         :param txnCount: The number of requests to commit (The actual requests
         are picked up from the uncommitted list from the ledger)

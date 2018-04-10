@@ -5,6 +5,23 @@ set -x
 
 OUTPUT_PATH=${1:-.}
 
+function build_rocksdb_deb {
+    VERSION=$1
+    VERSION_TAG="rocksdb-$VERSION"
+
+    git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb
+    cd /tmp/rocksdb
+    git checkout $VERSION_TAG
+    sed -i 's/-m rocksdb@fb.com/-m "Hyperledger <hyperledger-indy@lists.hyperledger.org>"/g' \
+        ./build_tools/make_package.sh
+    PORTABLE=1 EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" ./build_tools/make_package.sh $VERSION
+    cp ./package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
+    # Install it in the system as it is needed by python-rocksdb.
+    make install
+    cd -
+    rm -rf /tmp/rocksdb
+}
+
 function build_from_pypi {
     PACKAGE_NAME=$1
 
@@ -17,8 +34,13 @@ function build_from_pypi {
     PREREM_TMP=prerm-${PACKAGE_NAME}
     cp postinst ${POSTINST_TMP}
     cp prerm ${PREREM_TMP}
-    sed -i 's/{package_name}/python3-'${PACKAGE_NAME}'/' ${POSTINST_TMP}
-    sed -i 's/{package_name}/python3-'${PACKAGE_NAME}'/' ${PREREM_TMP}
+    if [[ ${PACKAGE_NAME} =~ ^python-* ]]; then
+        PACKAGE_NAME_TMP="${PACKAGE_NAME/python-/}"
+    else
+        PACKAGE_NAME_TMP=$PACKAGE_NAME
+    fi
+    sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${POSTINST_TMP}
+    sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${PREREM_TMP}
 
     fpm --input-type "python" \
         --output-type "deb" \
@@ -38,14 +60,21 @@ function build_from_pypi {
     rm ${PREREM_TMP}
 }
 
+# Build rocksdb at first
+build_rocksdb_deb 5.8.8
+
 build_from_pypi ioflo 1.5.4
 build_from_pypi orderedset 2.0
 build_from_pypi base58 0.2.4
 build_from_pypi prompt-toolkit 0.57
 build_from_pypi rlp 0.5.1
 build_from_pypi sha3 0.2.1
-build_from_pypi raet 0.6.6
+build_from_pypi libnacl 1.6.1
+build_from_pypi six 1.11.0
 build_from_pypi pyzmq 16.0.2
 build_from_pypi intervaltree 2.1.0
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7
+build_from_pypi setuptools 38.5.2
+# TODO: add libsnappy dependency for python-rocksdb package
+build_from_pypi python-rocksdb 0.6.9

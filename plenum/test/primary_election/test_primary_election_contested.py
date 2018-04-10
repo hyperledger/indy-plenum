@@ -5,10 +5,9 @@ from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import Nomination
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination
-from plenum.test.test_node import TestNodeSet, checkPoolReady, \
+from plenum.test.test_node import checkPoolReady, \
     checkProtocolInstanceSetup
 from plenum.test import waits
-
 
 nodeCount = 4
 
@@ -16,8 +15,8 @@ logger = getlogger()
 
 
 @pytest.fixture()
-def electContFixture(startedNodes: TestNodeSet):
-    A, B, C, D = startedNodes.nodes.values()
+def electContFixture(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     # Delaying nodeB' self nomination so nodeA's nomination can reach NodeC
     # and NodeD
@@ -34,7 +33,7 @@ def electContFixture(startedNodes: TestNodeSet):
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
+def testPrimaryElectionContested(electContFixture, looper, txnPoolNodeSet):
     """
     Primary selection (Rainy Day)
     A, B, C, D, E
@@ -51,10 +50,9 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     All see the others have sent Primary A, and then the nodes record who is the Primary.
     """
 
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
-    checkPoolReady(looper, nodeSet)
+    checkPoolReady(looper, txnPoolNodeSet)
 
     logger.debug("Check nomination")
     timeout = waits.expectedPoolNominationTimeout(nodeCount)
@@ -72,7 +70,7 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
         looper.run(eventually(checkNomination, n, A.name,
                               retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
+    checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1)
 
     # Node D should not be primary
     assert not D.hasPrimary

@@ -12,15 +12,15 @@ def setup(client1):
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-def testDoNotBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
+def testDoNotBlacklistClient(setup, looper, txnPoolNodeSet, client1, sent1):
     """
     Client should be not be blacklisted by node on sending an unsigned request
     """
 
     # No node should blacklist the client
     def chk():
-        for node in nodeSet:
+        for node in txnPoolNodeSet:
             assert not node.isClientBlacklisted(client1.name)
 
-    timeout = waits.expectedClientToPoolConnectionTimeout(len(nodeSet))
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

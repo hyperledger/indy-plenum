@@ -1,21 +1,23 @@
 from typing import Iterable
 
 import pytest
+
+from plenum.test.node_request.helper import get_node_by_name
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import addNodeBack, ordinal
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import checkNodesConnected, \
     checkNodeRemotes
 from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 from plenum.test import waits
 
-
-whitelist = ['discarding message']
-
 logger = getlogger()
+
+nodeCount = 13
+f = 4
+minimumNodesToBeUp = nodeCount - f
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -25,63 +27,64 @@ def limitTestRunningTime():
 
 # noinspection PyIncorrectDocstring
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
-        tconf_for_func, tdir_for_func):
+        txnPoolNodeSet, looper, tconf, tdir):
     """
     A protocol instance must have at least 4 nodes to come up.
     The status of the nodes will change from starting to started only after the
     addition of the fourth node to the system.
     """
-    nodeCount = 13
-    f = 4
-    minimumNodesToBeUp = nodeCount - f
 
     nodeNames = genNodeNames(nodeCount)
-    with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
+    current_node_set = list(txnPoolNodeSet)
 
-            # helpers
+    def genExpectedStates(connecteds: Iterable[str]):
+        return {
+            nn: CONNECTED if nn in connecteds else JOINED_NOT_ALLOWED
+            for nn in nodeNames}
 
-            def genExpectedStates(connecteds: Iterable[str]):
-                return {
-                    nn: CONNECTED if nn in connecteds else JOINED_NOT_ALLOWED
-                    for nn in nodeNames}
+    def checkNodeStatusRemotesAndF(expectedStatus: Status,
+                                   nodeIdx: int):
+        for node in current_node_set:
+            checkNodeRemotes(node,
+                             genExpectedStates(nodeNames[:nodeIdx + 1]))
+            assert node.status == expectedStatus
 
-            def checkNodeStatusRemotesAndF(expectedStatus: Status,
-                                           nodeIdx: int):
-                for node in nodeSet.nodes.values():
-                    checkNodeRemotes(node,
-                                     genExpectedStates(nodeNames[:nodeIdx + 1]))
-                    assert node.status == expectedStatus
+    def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
+        logger.info("Add back the {} node and see status of {}".
+                    format(ordinal(nodeIdx + 1), expectedStatus))
+        addNodeBack(
+            current_node_set, looper,
+            get_node_by_name(txnPoolNodeSet, nodeNames[nodeIdx]),
+            tconf, tdir)
+        looper.run(checkNodesConnected(current_node_set))
+        timeout = waits.expectedNodeStartUpTimeout() + \
+                  waits.expectedPoolInterconnectionTime(len(current_node_set))
+        # TODO: Probably it's better to modify waits.* functions
+        timeout *= 1.5
+        looper.run(eventually(checkNodeStatusRemotesAndF,
+                              expectedStatus,
+                              nodeIdx,
+                              retryWait=1, timeout=timeout))
 
-            def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
-                logger.info("Add back the {} node and see status of {}".
-                            format(ordinal(nodeIdx + 1), expectedStatus))
-                addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
+    logger.debug("Sharing keys")
+    looper.run(checkNodesConnected(current_node_set))
 
-                timeout = waits.expectedNodeStartUpTimeout() + \
-                    waits.expectedPoolInterconnectionTime(len(nodeSet))
-                looper.run(eventually(checkNodeStatusRemotesAndF,
-                                      expectedStatus,
-                                      nodeIdx,
-                                      retryWait=1, timeout=timeout))
+    logger.debug("Remove all the nodes")
+    for n in nodeNames:
+        node_n = get_node_by_name(current_node_set, n)
+        looper.removeProdable(node_n)
+        node_n.stop()
+        current_node_set.remove(node_n)
 
-            logger.debug("Sharing keys")
-            looper.run(checkNodesConnected(nodeSet))
+    looper.runFor(10)
 
-            logger.debug("Remove all the nodes")
-            for n in nodeNames:
-                looper.removeProdable(nodeSet.nodes[n])
-                nodeSet.removeNode(n, shouldClean=False)
-
-            looper.runFor(10)
-
-            logger.debug("Add nodes back one at a time")
-            for i in range(nodeCount):
-                nodes = i + 1
-                if nodes < minimumNodesToBeUp:
-                    expectedStatus = Status.starting
-                elif nodes < nodeCount:
-                    expectedStatus = Status.started_hungry
-                else:
-                    expectedStatus = Status.started
-                addNodeBackAndCheck(i, expectedStatus)
+    logger.debug("Add nodes back one at a time")
+    for i in range(nodeCount):
+        nodes = i + 1
+        if nodes < minimumNodesToBeUp:
+            expectedStatus = Status.starting
+        elif nodes < nodeCount:
+            expectedStatus = Status.started_hungry
+        else:
+            expectedStatus = Status.started
+        addNodeBackAndCheck(i, expectedStatus)

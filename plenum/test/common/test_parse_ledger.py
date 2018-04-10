@@ -3,7 +3,8 @@ import base58
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, CLIENT_PORT, NODE_IP
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, \
+    CLIENT_PORT, NODE_IP
 from plenum.common.stack_manager import TxnStackManager
 
 errMsg1 = 'Invalid verkey. Rebuild pool transactions.'

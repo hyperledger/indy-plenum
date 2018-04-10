@@ -12,15 +12,15 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
-
-whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
-             'cannot process incoming COMMIT']
+from plenum.test.node_request.conftest import committed1, \
+    prepared1, preprepared1, propagated1, reqAcked1, \
+    sent1, noRetryReq, faultyNodes
 
 
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     faultyRep = nonPrimaryReps[0]
     makeNodeFaulty(faultyRep.node, partial(sendDuplicate3PhaseMsg,
@@ -32,13 +32,14 @@ def setup(nodeSet, up):
     # want to check for a particular suspicion
 
     whitelistNode(faultyRep.node.name,
-                  [node for node in nodeSet if node != faultyRep.node],
+                  [node for node in txnPoolNodeSet if node != faultyRep.node],
                   Suspicions.DUPLICATE_CM_SENT.code)
 
     # If the request is ordered then COMMIT will be rejected much earlier
     for r in [primaryRep, *nonPrimaryReps]:
         def do_nothing(self, commit):
             pass
+
         r.doOrder = types.MethodType(do_nothing, r)
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
@@ -53,7 +54,7 @@ def testMultipleCommit(setup, looper, sent1):
     should count only one COMMIT from that sender
     """
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-        setup.nonPrimaryReps, setup.faultyRep
+                                            setup.nonPrimaryReps, setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):

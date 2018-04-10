@@ -1,7 +1,5 @@
 import pytest
 
-from plenum.test.pool_transactions.conftest import looper
-
 nodeCount = 7
 
 

@@ -13,7 +13,6 @@ from plenum.test.view_change.helper import ensure_view_change
 # noinspection PyUnresolvedReferences
 from plenum.test.batching_3pc.conftest import tconf
 
-
 Max3PCBatchSize = 2
 
 

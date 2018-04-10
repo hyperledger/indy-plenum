@@ -1,6 +1,5 @@
 from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.view_change.helper import ensure_view_change_complete
 
 
