@@ -47,11 +47,10 @@ def new_client_request(role, name, creatorWallet):
     return creatorWallet.signOp(op), wallet
 
 
-def prepare_new_node_data(tconf, tdir,
-                          newNodeName):
+def prepare_new_node_data(tconf, tdir, newNodeName, configClass=PNodeConfigHelper):
     sigseed = randomString(32).encode()
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
+    config_helper = configClass(newNodeName, tconf, chroot=tdir)
     _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
                                                    sigseed, override=True)
     return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort
@@ -184,7 +183,6 @@ def sdk_add_new_steward_and_node(looper,
         allPluginsPath,
         autoStart=autoStart,
         nodeClass=nodeClass,
-        transformOpFunc=transformNodeOpFunc,
         do_post_node_creation=do_post_node_creation,
         services=services)
     return new_steward_wallet_handle, new_node
@@ -252,15 +250,7 @@ def sdk_add_new_node(looper,
 
 
 async def prepare_schema_request(wallet, named_seed, alias, role):
-    wh, submitter_did = wallet
-    (named_did, named_verkey) = await create_and_store_my_did(wh,
-                                                              json.dumps({
-                                                                  'seed': named_seed,
-                                                                  'cid': True})
-                                                              )
-    nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
-                                          alias, role)
-    return nym_request, named_did
+    pass
 
 
 async def prepare_nym_request(wallet, named_seed, alias, role):
