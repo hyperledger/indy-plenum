@@ -149,11 +149,10 @@ CatchupTransactionsTimeout = 6
 
 
 # Log configuration
-logRotationWhen = 'W6'
+logRotationWhen = 'D'
 logRotationInterval = 1
-logRotationBackupCount = 50
+logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
-logRotationCompress = True
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
