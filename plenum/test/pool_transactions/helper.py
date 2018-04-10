@@ -27,6 +27,14 @@ from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
+from stp_core.common.log import getlogger
+from indy.error import ErrorCode, IndyError
+
+
+logger = getlogger()
+
+
+REFRESH_TRY_COUNT = 4
 
 
 def new_client_request(role, name, creatorWallet):
@@ -335,9 +343,15 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
-    looper.loop.run_until_complete(
-        refresh_pool_ledger(sdk_pool_handle))
-
+    for tries in range(REFRESH_TRY_COUNT):
+        try:
+            looper.loop.run_until_complete(
+                refresh_pool_ledger(sdk_pool_handle))
+        except IndyError as e:
+            if e.error_code == ErrorCode.PoolLedgerTerminated:
+                logger.debug("Refresh try number: {}".format(tries))
+        else:
+            return
 
 def sdk_build_get_txn_request(looper, steward_did, data):
     request = looper.loop.run_until_complete(
