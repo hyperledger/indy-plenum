@@ -5,7 +5,6 @@ import collections
 
 from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
-from stp_core.common.log import Logger
 
 
 def test_time_log_rotation(tdir_for_func):
