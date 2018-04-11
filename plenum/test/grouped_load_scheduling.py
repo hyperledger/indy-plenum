@@ -54,4 +54,5 @@ class GroupedLoadScheduling(LoadScheduling):
         def grouper(p):
             name = self.collection[p]
             return '::'.join(name.split('::')[:-1])
+
         return itertools.groupby(self.pending, key=grouper)

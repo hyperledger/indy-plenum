@@ -11,8 +11,6 @@ from plenum.test.test_node import get_master_primary_node
 
 Max3PCBatchSize = 3
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.pool_transactions.conftest import looper
-
 
 TestRunningTimeLimitSec = 200
 
@@ -38,7 +36,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
 
     looper.run(eventually(chk1, retryWait=1))
     timeout = tconf.PerfCheckFreq + \
-        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+              waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     waitForViewChange(looper, txnPoolNodeSet, old_view_no + 1,
                       customTimeout=timeout)
 

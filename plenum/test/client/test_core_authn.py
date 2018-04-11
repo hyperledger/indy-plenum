@@ -7,7 +7,6 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import f
 from plenum.server.client_authn import CoreAuthNr
 
-
 idr = '5G72199XZB7wREviUbQma7'
 msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 

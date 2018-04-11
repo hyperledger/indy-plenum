@@ -7,10 +7,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change.helper import start_stopped_node
 
 
-# Do not remove these imports
-from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
-
-
 def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
                                      tdir, tconf, sdk_pool_handle, sdk_wallet_client):
     """

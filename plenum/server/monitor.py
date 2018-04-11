@@ -14,7 +14,7 @@ from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
-    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
+    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS, \
     EVENT_PERIODIC_STATS_NODE_INFO, EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
 from plenum.server.blacklister import Blacklister
 from plenum.server.has_action_queue import HasActionQueue
@@ -25,6 +25,68 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
+
+
+class RequestTimeTracker:
+    """
+    Request time tracking utility
+    """
+
+    class Request:
+        def __init__(self, timestamp, instance_count):
+            self.timestamp = timestamp
+            self.ordered = [False] * instance_count
+
+        def order(self, instId):
+            if 0 <= instId < len(self.ordered):
+                self.ordered[instId] = True
+
+        def remove_instance(self, instId):
+            del self.ordered[instId]
+
+        @property
+        def is_ordered(self):
+            return self.ordered[0]
+
+        @property
+        def is_ordered_by_all(self):
+            return all(self.ordered)
+
+    def __init__(self, instance_count):
+        self.instance_count = instance_count
+        self._requests = {}
+
+    def __contains__(self, item):
+        return item in self._requests
+
+    def start(self, identifier, reqId, timestamp):
+        self._requests[identifier, reqId] = RequestTimeTracker.Request(timestamp, self.instance_count)
+
+    def order(self, instId, identifier, reqId, timestamp):
+        key = (identifier, reqId)
+        req = self._requests[key]
+        tto = timestamp - req.timestamp
+        req.order(instId)
+        if req.is_ordered_by_all:
+            del self._requests[key]
+        return tto
+
+    def reset(self):
+        self._requests.clear()
+
+    def unordered(self):
+        return ((key, req.timestamp) for key, req in self._requests.items() if not req.is_ordered)
+
+    def add_instance(self):
+        self.instance_count += 1
+
+    def remove_instance(self, instId):
+        for req in self._requests.values():
+            req.remove_instance(instId)
+        reqs_to_del = [key for key, req in self._requests.items() if req.is_ordered_by_all]
+        for req in reqs_to_del:
+            del self._requests[req]
+        self.instance_count -= 1
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -43,7 +105,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                  instances: Instances, nodestack,
                  blacklister: Blacklister, nodeInfo: Dict,
                  notifierEventTriggeringConfig: Dict,
-                 pluginPaths: Iterable[str]=None,
+                 pluginPaths: Iterable[str] = None,
                  notifierEventsEnabled: bool = True):
         self.name = name
         self.instances = instances
@@ -67,13 +129,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # protocol instance
         self.numOrderedRequests = []  # type: List[Tuple[int, int]]
 
-        # Requests that have been sent for ordering. Key of the dictionary is a
-        # tuple of client id and request id and the value is the time at which
-        # the request was submitted for ordering
-        self.requestOrderingStarted = {}  # type: Dict[Tuple[str, int], float]
-
-        # Contains keys of ordered requests
-        self.ordered_requests_keys = set()  # type: Set[Tuple[str, int]]
+        # Utility object for tracking requests order start and end
+        # TODO: Has very similar cleanup logic to propagator.Requests
+        self.requestTracker = RequestTimeTracker(instances.count)
 
         # Request latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
@@ -195,8 +253,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         logger.debug("{}'s Monitor being reset".format(self))
         num_instances = len(self.instances.started)
         self.numOrderedRequests = [(0, 0)] * num_instances
-        self.requestOrderingStarted = {}
-        self.ordered_requests_keys.clear()
+        self.requestTracker.reset()
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
@@ -208,6 +265,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Add one protocol instance for monitoring.
         """
         self.instances.add()
+        self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
@@ -216,6 +274,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             if index is None:
                 index = self.instances.count - 1
             self.instances.remove(index)
+            self.requestTracker.remove_instance(index)
             del self.numOrderedRequests[index]
             del self.clientAvgReqLatencies[index]
 
@@ -229,22 +288,18 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         now = time.perf_counter()
         durations = {}
         for identifier, reqId in reqIdrs:
-            if (identifier, reqId) not in self.requestOrderingStarted:
+            if (identifier, reqId) not in self.requestTracker:
                 logger.debug(
-                    "Got ordered request with identifier {} and reqId {} "
-                    "but it was from a previous view".
+                    "Got untracked ordered request with identifier {} and reqId {}".
                     format(identifier, reqId))
                 continue
-            duration = now - self.requestOrderingStarted[(identifier, reqId)]
+            duration = self.requestTracker.order(instId, identifier, reqId, now)
             if byMaster:
                 self.masterReqLatencies[(identifier, reqId)] = duration
-                self.ordered_requests_keys.add((identifier, reqId))
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
-                if instId not in self.latenciesByBackupsInLast:
-                    self.latenciesByBackupsInLast[instId] = []
-                self.latenciesByBackupsInLast[instId].append((now, duration))
+                self.latenciesByBackupsInLast.setdefault(instId, []).append((now, duration))
 
             if identifier not in self.clientAvgReqLatencies[instId]:
                 self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
@@ -279,21 +334,20 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Record the time at which request ordering started.
         """
-        self.requestOrderingStarted[(identifier, reqId)] = time.perf_counter()
+        self.requestTracker.start(identifier, reqId, time.perf_counter())
         self.warn_has_lot_unordered_requests()
 
     def warn_has_lot_unordered_requests(self):
         unordered_started_at = []
         now = time.perf_counter()
-        sorted_by_started_at = sorted(self.requestOrderingStarted.items(), key=itemgetter(1))
-        for key, started_at in sorted_by_started_at:
+        sorted_by_started_at = sorted(self.requestTracker.unordered(), key=itemgetter(1))
+        for _, started_at in sorted_by_started_at:
             in_window = (now - started_at) < self.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60
-            if in_window and key not in self.ordered_requests_keys:
-                    dt = (started_at - unordered_started_at[-1]) if unordered_started_at else None
-                    if dt is None or dt > self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC:
-                        unordered_started_at.append(started_at)
-            elif not in_window and key in self.ordered_requests_keys:
-                self.ordered_requests_keys.remove(key)
+            if not in_window:
+                continue
+            dt = (started_at - unordered_started_at[-1]) if unordered_started_at else None
+            if dt is None or dt > self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC:
+                unordered_started_at.append(started_at)
 
         if len(unordered_started_at) >= self.WARN_NOT_PARTICIPATING_UNORDERED_NUM:
             logger.warning('It looks like {} does not participate in processing messages '
@@ -528,7 +582,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def masterLatency(self):
         now = time.perf_counter()
         while self.latenciesByMasterInLast and \
-            (now - self.latenciesByMasterInLast[0][0]) > \
+                (now - self.latenciesByMasterInLast[0][0]) > \
                 self.config.LatencyWindowSize:
             self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
         return (sum(l[1] for l in self.latenciesByMasterInLast) /

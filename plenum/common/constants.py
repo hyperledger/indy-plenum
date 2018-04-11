@@ -117,6 +117,7 @@ MULTI_SIGNATURE_VALUE_TIMESTAMP = 'timestamp'
 # ROLES
 STEWARD = Roles.STEWARD.value
 TRUSTEE = Roles.TRUSTEE.value
+STEWARD_STRING = 'STEWARD'
 
 # TXNs
 NODE = PlenumTransactions.NODE.value
@@ -140,6 +141,7 @@ class StorageType(IntEnum):
 class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
+    Rocksdb = 3
 
 
 @unique
@@ -164,11 +166,13 @@ NODE_HASH_STORE_SUFFIX = "HS"
 HS_FILE = "file"
 HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
+HS_ROCKSDB = 'rocksdb'
 
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
 CONFIG_LEDGER_ID = 2
+INVALID_LEDGER_ID = 5908
 
 VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID)
 
@@ -186,6 +190,8 @@ class NodeHooks(UniqueSet):
     POST_REQUEST_APPLICATION = 8
     PRE_REQUEST_COMMIT = 9
     POST_REQUEST_COMMIT = 10
+    PRE_SEND_REPLY = 11
+    POST_SEND_REPLY = 12
 
 
 class ReplicaHooks(UniqueSet):
@@ -196,3 +202,6 @@ class ReplicaHooks(UniqueSet):
     RECV_PPR = 5
     RECV_PR = 6
     RECV_CM = 7
+
+
+INVALID_SEQ_NO = -23

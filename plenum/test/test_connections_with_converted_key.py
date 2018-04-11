@@ -3,8 +3,8 @@ from binascii import unhexlify
 from stp_core.crypto.util import ed25519SkToCurve25519, ed25519PkToCurve25519
 
 
-def testNodesConnectedUsingConvertedKeys(nodeSet, up):
-    for node in nodeSet:
+def testNodesConnectedUsingConvertedKeys(txnPoolNodeSet):
+    for node in txnPoolNodeSet:
         secretKey = ed25519SkToCurve25519(node.nodestack.keyhex)
         publicKey = ed25519PkToCurve25519(node.nodestack.verhex)
         assert unhexlify(node.nodestack.prihex) == secretKey
@@ -16,7 +16,7 @@ def testNodesConnectedUsingConvertedKeys(nodeSet, up):
         assert unhexlify(node.clientstack.pubhex) == publicKey
 
 
-def testClientConnectedUsingConvertedKeys(nodeSet, up, client1, replied1):
+def testClientConnectedUsingConvertedKeys(txnPoolNodeSet, client1, replied1):
     secretKey = ed25519SkToCurve25519(client1.nodestack.keyhex)
     publicKey = ed25519PkToCurve25519(client1.nodestack.verhex)
     assert unhexlify(client1.nodestack.prihex) == secretKey

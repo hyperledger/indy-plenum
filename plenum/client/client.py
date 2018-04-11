@@ -107,7 +107,6 @@ class Client(Motor,
         self.keys_dir = os.path.join(_keys_dir, "keys")
 
         cha = None
-        # If client information already exists is RAET then use that
         if self.exists(self.stackName, self.keys_dir):
             cha = self.nodeStackClass.getHaFromLocal(
                 self.stackName, self.keys_dir)

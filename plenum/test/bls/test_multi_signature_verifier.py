@@ -18,7 +18,7 @@ def create_crypto_signer(bls_crypto_factory):
 
 
 def test_bls_crypto_verifier(bls_crypto_factory):
-    bls_crypto_factory =  bls_crypto_factory # type: BlsFactoryIndyCrypto
+    bls_crypto_factory = bls_crypto_factory  # type: BlsFactoryIndyCrypto
     bls_crypto_verifier = bls_crypto_factory.create_bls_crypto_verifier()
     assert bls_crypto_verifier
 
@@ -32,4 +32,3 @@ def test_bls_crypto_verifier(bls_crypto_factory):
 
     multi_signature = bls_crypto_verifier.create_multi_sig(sigs)
     assert bls_crypto_verifier.verify_multi_sig(multi_signature, message, keys)
-

@@ -4,7 +4,6 @@ from importlib import import_module
 from plenum.common.config_util import extend_with_external_config, \
     extend_with_default_external_config
 
-
 TEST_NETWORK_NAME = 'test_network'
 GENERAL_CONFIG_FILE_NAME = 'test_config.py'
 USER_CONFIG_FILE_NAME = 'user_config.py'
