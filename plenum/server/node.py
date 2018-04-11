@@ -1417,7 +1417,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
-            logger.debug("{} queueing message {} for future protocol "
+            logger.info("{} queueing message {} for future protocol "
                          "instance {}".format(self, msg, instId))
             return False
         return True
@@ -1439,7 +1439,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
-            logger.debug('{} stashing a message for a future view: {}'.
+            logger.info('{} stashing a message for a future view: {}'.
                          format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
@@ -1533,7 +1533,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.verifySignature(message)
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
-        logger.trace("{} received node message from {}: {}".
+        logger.info("{} received node message from {}: {}".
                      format(self, frm, message),
                      extra={"cli": False})
         return message, frm

@@ -63,7 +63,7 @@ class KITNetworkInterface:
             self._conns = value
             ins = value - old
             outs = old - value
-            logger.debug("{}'s connections changed from {} to {}".format(self,
+            logger.info("{}'s connections changed from {} to {}".format(self,
                                                                          old,
                                                                          value))
             self._connsChanged(ins, outs)
