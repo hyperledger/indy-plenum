@@ -828,8 +828,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.node.reportSuspiciousNodeEx(ex)
         else:
             self.logger.info("{} stashing 3 phase message {} since ppSeqNo {} is "
-                                "not between {} and {}".format(
-                                    self, msg, msg.ppSeqNo, self.h, self.H))
+                             "not between {} and {}".format(
+                                 self, msg, msg.ppSeqNo, self.h, self.H))
             self.stashOutsideWatermarks((msg, sender))
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
@@ -2072,7 +2072,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def enqueue_commit(self, request: Commit, sender: str):
         self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                          "Request {} from {}".format(request, sender))
+                         "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()

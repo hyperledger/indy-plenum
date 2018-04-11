@@ -1418,7 +1418,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
             logger.info("{} queueing message {} for future protocol "
-                         "instance {}".format(self, msg, instId))
+                        "instance {}".format(self, msg, instId))
             return False
         return True
 
@@ -1440,7 +1440,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.info('{} stashing a message for a future view: {}'.
-                         format(self, msg))
+                        format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
@@ -1534,8 +1534,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
         logger.info("{} received node message from {}: {}".
-                     format(self, frm, message),
-                     extra={"cli": False})
+                    format(self, frm, message),
+                    extra={"cli": False})
         return message, frm
 
     def unpackNodeMsg(self, msg, frm) -> None:
@@ -2875,8 +2875,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            self.nodestack.remotes.values()]
             recipientsNum = 'all'
 
-        logger.debug("{} sending message {} to {} recipients: {}"
-                     .format(self, msg, recipientsNum, remoteNames))
+        logger.info("{} sending message {} to {} recipients: {}"
+                    .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):

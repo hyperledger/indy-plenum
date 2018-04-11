@@ -64,8 +64,8 @@ class KITNetworkInterface:
             ins = value - old
             outs = old - value
             logger.info("{}'s connections changed from {} to {}".format(self,
-                                                                         old,
-                                                                         value))
+                                                                        old,
+                                                                        value))
             self._connsChanged(ins, outs)
 
     def checkConns(self):

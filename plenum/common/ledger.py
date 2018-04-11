@@ -82,9 +82,9 @@ class Ledger(_Ledger):
                 self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
         logger.info('Discarding {} txns and root hash {} and new root hash '
-                     'is {}. {} are still uncommitted'.
-                     format(count, old_hash, self.uncommittedRootHash,
-                            len(self.uncommittedTxns)))
+                    'is {}. {} are still uncommitted'.
+                    format(count, old_hash, self.uncommittedRootHash,
+                           len(self.uncommittedTxns)))
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """

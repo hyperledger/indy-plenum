@@ -717,9 +717,9 @@ class ZStack(NetworkInterface):
                          .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.info('Remote {} is not connected - '
-                             'message will not be sent immediately.'
-                             'If this problem does not resolve itself - '
-                             'check your firewall settings'.format(uid))
+                            'message will not be sent immediately.'
+                            'If this problem does not resolve itself - '
+                            'check your firewall settings'.format(uid))
             return True, err_str
         except zmq.Again:
             logger.debug(

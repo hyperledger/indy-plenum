@@ -1093,7 +1093,7 @@ class LedgerManager(HasActionQueue):
 
     def stashLedgerStatus(self, ledgerId: int, status, frm: str):
         logger.info("{} stashing ledger status {} from {}".
-                     format(self, status, frm))
+                    format(self, status, frm))
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.stashedLedgerStatuses.append((status, frm))
 
