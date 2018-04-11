@@ -1417,8 +1417,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
-            logger.debug("{} queueing message {} for future protocol "
-                         "instance {}".format(self, msg, instId))
+            logger.info("{} queueing message {} for future protocol "
+                        "instance {}".format(self, msg, instId))
             return False
         return True
 
@@ -1439,8 +1439,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
-            logger.debug('{} stashing a message for a future view: {}'.
-                         format(self, msg))
+            logger.info('{} stashing a message for a future view: {}'.
+                        format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
@@ -1533,9 +1533,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.verifySignature(message)
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
-        logger.trace("{} received node message from {}: {}".
-                     format(self, frm, message),
-                     extra={"cli": False})
+        logger.info("{} received node message from {}: {}".
+                    format(self, frm, message),
+                    extra={"cli": False})
         return message, frm
 
     def unpackNodeMsg(self, msg, frm) -> None:
@@ -2875,8 +2875,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            self.nodestack.remotes.values()]
             recipientsNum = 'all'
 
-        logger.debug("{} sending message {} to {} recipients: {}"
-                     .format(self, msg, recipientsNum, remoteNames))
+        logger.info("{} sending message {} to {} recipients: {}"
+                    .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):

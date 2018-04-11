@@ -71,11 +71,6 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
                         retryWait=1,
                         customTimeout=electionTimeout)
 
-    # start client and check the node HA
-    # anotherClient, _ = genTestClient(tmpdir=tdirWithClientPoolTxns,
-    # #                                  usePoolLedger=True)
-    # looper.add(anotherClient)
-    # looper.run(eventually(anotherClient.ensureConnectedToNodes))
     sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
