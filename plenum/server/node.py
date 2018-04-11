@@ -2060,9 +2060,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                       ) and handler.is_query(txn_type)
 
     def is_action(self, txn_type) -> bool:
-        handler = self.get_req_handler(txn_type=txn_type)
-        return handler and (
-            txn_type in self.actionReqHandler.operation_types)
+        return txn_type in self.actionReqHandler.operation_types
 
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
