@@ -72,7 +72,7 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
         for i, tests in enumerate(test_list_sliced):
             # testRep = '{}.rep'.format(test.split("/")[-1])
             testStartTime = time.time()
-            pytest_cmd = 'RUST_LOG=indy=debug {} {} 2>{} 1>&2'.format(pytest, tests, testRep)
+            pytest_cmd = '{} {} > {}'.format(pytest, tests, testRep)
             log(pytest_cmd)
             r = os.system(pytest_cmd)
             testExecutionTime = time.time() - testStartTime
