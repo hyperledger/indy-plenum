@@ -473,7 +473,12 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
                 refresh_pool_ledger(sdk_pool_handle))
         except IndyError as e:
             if e.error_code == ErrorCode.PoolLedgerTerminated:
-                logger.debug("Refresh try number: {}".format(tries))
+                logger.debug("PoolLedgerTerminated: Refresh try number: {}".format(tries))
+            elif e.error_code == ErrorCode.CommonIOError:
+                logger.debug("CommonIOError: Refresh try number: {}".format(tries))
+            else:
+                logger.debug("Unexpected IndyError: {}".format(e))
+
         else:
             return
 
