@@ -33,7 +33,7 @@ exec(compile(open(METADATA).read(), METADATA, 'exec'))
 tests_require = ['pytest', 'pytest-xdist', 'python3-indy==1.3.1-dev-452']
 
 setup(
-    name='indy-plenum-dev',
+    name='indy-plenum',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
