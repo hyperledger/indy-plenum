@@ -149,7 +149,7 @@ CatchupTransactionsTimeout = 6
 
 
 # Log configuration
-logRotationWhen = 'W6'
+logRotationWhen = 'W'
 logRotationInterval = 1
 logRotationBackupCount = 50
 logRotationMaxBytes = 100 * 1024 * 1024
