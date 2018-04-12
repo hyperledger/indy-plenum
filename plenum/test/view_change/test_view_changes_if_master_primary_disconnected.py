@@ -1,4 +1,3 @@
-
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import start_stopped_node
@@ -7,7 +6,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.test.test_node import get_master_primary_node, ensure_node_disconnected
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
 
 

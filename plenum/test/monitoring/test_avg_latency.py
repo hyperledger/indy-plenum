@@ -1,7 +1,5 @@
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.pool_transactions.conftest import looper
-
 
 nodeCount = 4
 logger = getlogger()

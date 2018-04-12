@@ -4,7 +4,7 @@ def createNewKeyring(name, cli):
     assert 'Active wallet set to "{}"'.format(name) in cli.lastCmdOutput
     assert 'New wallet {} created'.format(name) in cli.lastCmdOutput
     assert not oldKeyring or (
-        oldKeyring and oldKeyring.name != cli._activeWallet.name)
+            oldKeyring and oldKeyring.name != cli._activeWallet.name)
     assert cli.activeWallet.name == name
     assert len(cli._activeWallet.identifiers) == 0
 

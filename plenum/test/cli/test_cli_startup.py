@@ -11,8 +11,8 @@ def assertPrintsDefaultClientAndIdentifier(cli):
     assert cli.printeds[1]['msg'] == "Current wallet set to {walletName}". \
         format(walletName=dc.name)
     assert cli.printeds[0]['msg'] == \
-        "Current identifier set to {alias} ({cryptonym})". \
-        format(alias=dc.name, cryptonym=verstr)
+           "Current identifier set to {alias} ({cryptonym})". \
+               format(alias=dc.name, cryptonym=verstr)
 
 
 def printedMessages(cli):

@@ -2,7 +2,6 @@ from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 

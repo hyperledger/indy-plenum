@@ -10,7 +10,6 @@ from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
 
-
 logger = getLogger()
 
 TestRunningTimeLimitSec = 200
@@ -20,9 +19,8 @@ def test_node_catchup_after_checkpoints(
         looper,
         chk_freq_patched,
         txnPoolNodeSet,
-        wallet1,
-        client1,
-        client1Connected,
+        sdk_pool_handle,
+        sdk_wallet_client,
         broken_node_and_others):
     """
     For some reason a node misses 3pc messages but eventually the node stashes
@@ -32,10 +30,11 @@ def test_node_catchup_after_checkpoints(
     completed_catchups_before = get_number_of_completed_catchups(broken_node)
 
     logger.info("Step 1: The node misses quite a lot requests")
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=chk_freq_patched + 1,
-                                           num_batches=chk_freq_patched + 1,
-                                           )
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           chk_freq_patched + 1,
+                                           chk_freq_patched + 1)
     waitNodeDataInequality(looper, broken_node, *other_nodes)
 
     logger.info(
@@ -43,10 +42,11 @@ def test_node_catchup_after_checkpoints(
         "missed ones. But the nodes eventually stashes some amount checkpoints "
         "after that the node starts catch up")
     repaired_node = repair_broken_node(broken_node)
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=2 * chk_freq_patched,
-                                           num_batches=2 * chk_freq_patched
-                                           )
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           2 * chk_freq_patched,
+                                           2 * chk_freq_patched)
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
     # check if there was at least 1 catchup
@@ -54,10 +54,11 @@ def test_node_catchup_after_checkpoints(
     assert completed_catchups_after >= completed_catchups_before + 1
 
     logger.info("Step 3: Check if the node is able to process requests")
-    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                           num_reqs=chk_freq_patched + 2,
-                                           num_batches=chk_freq_patched + 2
-                                           )
+    send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
+                                           sdk_pool_handle,
+                                           sdk_wallet_client,
+                                           chk_freq_patched + 2,
+                                           chk_freq_patched + 2)
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
 
