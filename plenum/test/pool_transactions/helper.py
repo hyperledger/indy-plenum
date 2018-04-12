@@ -456,7 +456,6 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
     # waitng for replies
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
-    sdk_pool_refresh(looper, sdk_pool_handle)
     return reply
 
 
@@ -512,6 +511,7 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                steward_wallet, sdk_pool_handle)
     return restartedNode

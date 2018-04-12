@@ -2,7 +2,7 @@ from plenum.common.util import hexToFriendly
 
 from stp_core.common.log import getlogger
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
 
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
@@ -65,6 +65,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     looper.run(checkNodesConnected(restNodes))
     ensureElectionsDone(looper, restNodes)
     checkViewNoForNodes(restNodes, 0)
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 

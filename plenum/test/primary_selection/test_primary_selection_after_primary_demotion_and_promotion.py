@@ -1,7 +1,7 @@
 from plenum.common.util import hexToFriendly
 
 from plenum.common.constants import VALIDATOR
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
 
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.helper import sdk_send_random_and_check
@@ -44,6 +44,7 @@ def test_primary_selection_after_demoted_primary_node_promotion(
     assert primariesIdxs[0] == 1
 
     # Ensure pool is working properly.
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 
@@ -55,7 +56,10 @@ def test_primary_selection_after_demoted_primary_node_promotion(
                          None, None,
                          services=[VALIDATOR])
 
+    ensureElectionsDone(looper, restNodes)
+
     # Ensure pool is working properly.
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 

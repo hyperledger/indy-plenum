@@ -2,7 +2,7 @@ from plenum.common.util import hexToFriendly
 
 from stp_core.common.log import getlogger
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
 
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import ensureElectionsDone
@@ -45,6 +45,7 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
 
     # ensure pool is working properly
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 

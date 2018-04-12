@@ -8,7 +8,7 @@ from plenum.common.constants import VALIDATOR
 from plenum.test.helper import sdk_send_random_and_check
 
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, sdk_send_update_node
+    disconnect_node_and_ensure_disconnected, sdk_send_update_node, sdk_pool_refresh
 from plenum.test.pool_transactions.conftest import sdk_node_theta_added
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -58,6 +58,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     check_all_nodes_the_same_pool_list(remainingNodes)
     # ensure pool is working properly
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # TODO view change might happen unexpectedly by unknown reason
@@ -71,6 +72,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     check_all_nodes_the_same_pool_list(txnPoolNodeSet)
     # ensure pool is working properly
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
