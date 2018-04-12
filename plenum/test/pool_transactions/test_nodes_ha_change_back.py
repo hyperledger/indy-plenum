@@ -1,6 +1,6 @@
 from plenum.common.util import hexToFriendly
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
@@ -58,3 +58,5 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet,
     # check Theta HA
     for n in txnPoolNodeSet:
         assert n.nodeReg['Theta'] == correct_node_ha
+
+    sdk_pool_refresh(looper, sdk_pool_handle)
