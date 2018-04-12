@@ -2074,14 +2074,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.transmitToClient(Reply(result), frm)
 
     def process_action(self, request, frm):
-        # Process a execute action request
+        # Process an execute action request
         try:
             self.actionReqHandler.validate(request)
-            result = self.actionReqHandler.apply(request)
-            self.transmitToClient(Reply(result), frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
                                          request.reqId, ex), frm)
+
+        result = self.actionReqHandler.apply(request)
+        self.transmitToClient(Reply(result), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
