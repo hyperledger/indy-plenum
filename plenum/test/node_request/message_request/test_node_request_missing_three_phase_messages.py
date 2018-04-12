@@ -4,9 +4,7 @@ from stp_core.loop.eventually import eventually
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
-
 
 logger = getlogger()
 
@@ -33,8 +31,10 @@ def test_node_requests_missing_three_phase_messages(looper, txnPoolNodeSet,
                               INIT_REQS_CNT)
     init_ledger_size = txnPoolNodeSet[0].domainLedger.size
 
+    current_node_set = set(txnPoolNodeSet)
     for node in disconnected_nodes:
-        disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
+        disconnect_node_and_ensure_disconnected(looper, current_node_set, node, stopNode=False)
+        current_node_set.remove(node)
 
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, MISSING_REQS_CNT)
 
@@ -60,7 +60,8 @@ def test_node_requests_missing_three_phase_messages(looper, txnPoolNodeSet,
                               len(txnPoolNodeSet))))
 
     for node in disconnected_nodes:
-        reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
+        current_node_set.add(node)
+        reconnect_node_and_ensure_connected(looper, current_node_set, node)
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,

@@ -1,7 +1,5 @@
 import pytest
-from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
-from plenum.test.pool_transactions.conftest import looper
+from plenum.test.helper import checkViewNoForNodes
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import sdk_send_random_and_check
 

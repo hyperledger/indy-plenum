@@ -9,16 +9,12 @@ from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
-from plenum.test.pool_transactions.conftest import looper
-
 
 invalid_type_discard_log = "unknown value 'invalid_type'"
 invalid_req_discard_log = "cannot serve request"
 invalid_rep_discard_log = "cannot process requested message response"
 
-
 whitelist = [invalid_type_discard_log, ]
-
 
 patched_schema = (
     (f.MSG_TYPE.nm, ChooseField(values={'invalid_type', LEDGER_STATUS,
@@ -31,6 +27,7 @@ patched_schema = (
 def patched_MessageReq():
     class PMessageReq(MessageReq):
         schema = patched_schema
+
     return PMessageReq
 
 
@@ -40,6 +37,7 @@ def patched_MessageRep():
             *patched_schema,
             (f.MSG.nm, AnyField())
         )
+
     return PMessageRep
 
 

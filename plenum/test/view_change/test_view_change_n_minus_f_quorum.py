@@ -5,9 +5,6 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import stopNodes
 
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper
-
 
 def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
     """
@@ -45,5 +42,4 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
                                "Delta -> Ratio: None"
                                .format(current_view_no,
                                        current_view_no + 1)) as exc_info:
-
         ensure_view_change(looper, active)

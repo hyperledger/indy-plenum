@@ -1,7 +1,6 @@
 from plenum.test.delayers import pDelay
 
 from plenum.test.test_node import get_master_primary_node
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_and_check
 
 

@@ -9,7 +9,6 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
 
-
 whitelist = ['public key from disk', 'verification key from disk',
              'doesnt have enough info to connect']
 

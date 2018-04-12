@@ -50,4 +50,4 @@ def testSystemStats(monkeypatch, testNode):
     assert data2['cpu']['value'] == cpu
     assert data2['ram']['value'] == ram
     assert data2['traffic']['value'] == bytes / \
-        1024 - data1['traffic']['value']
+           1024 - data1['traffic']['value']

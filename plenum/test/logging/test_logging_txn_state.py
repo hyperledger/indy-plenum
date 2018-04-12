@@ -1,18 +1,20 @@
 import functools
+import json
 
+import pytest
+
+from plenum.common.exceptions import RequestRejectedException
+from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 
-from plenum.common.constants import STEWARD, DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 
-from plenum.test.pool_transactions.conftest import looper, stewardAndWallet1, \
-    steward1, stewardWallet, client1, clientAndWallet1, client1Connected
-from plenum.test.pool_transactions.helper import sendAddNewClient
+from plenum.test.pool_transactions.helper import prepare_nym_request, \
+    sdk_sign_and_send_prepared_request
 from plenum.test import waits
-from plenum.test.helper import ensureRejectsRecvd, sdk_send_random_and_check
-
+from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
 
 ERORR_MSG = "something went wrong"
-whitelist = [ERORR_MSG]
 
 
 def testLoggingTxnStateForValidRequest(
@@ -33,7 +35,8 @@ def testLoggingTxnStateForValidRequest(
         funcs=['executeBatch'], msgs=['committed batch request']
     )
 
-    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                     sdk_wallet_client, 1)
     req, _ = reqs[0]
 
     reqId = str(req['reqId'])
@@ -43,10 +46,7 @@ def testLoggingTxnStateForValidRequest(
 
 
 def testLoggingTxnStateForInvalidRequest(
-        looper, txnPoolNodeSet, clientAndWallet1, client1Connected, logsearch):
-
-    client, clientWallet = clientAndWallet1
-
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, logsearch):
     logsPropagate, _ = logsearch(
         levels=['INFO'], files=['propagator.py'],
         funcs=['propagate'], msgs=['propagating.*request.*from client']
@@ -58,21 +58,28 @@ def testLoggingTxnStateForInvalidRequest(
         msgs=['encountered exception.*while processing.*will reject']
     )
 
-    req, wallet = sendAddNewClient(STEWARD, "name", client, clientWallet)
+    seed = randomString(32)
+    wh, _ = sdk_wallet_client
 
-    ensureRejectsRecvd(
-        looper, txnPoolNodeSet, client,
-        reason="Only Steward is allowed to do these transactions",
-        timeout=waits.expectedReqRejectQuorumTime()
-    )
+    nym_request, _ = looper.loop.run_until_complete(
+        prepare_nym_request(sdk_wallet_client, seed,
+                            "name", STEWARD_STRING))
 
-    reqId = str(req.reqId)
+    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
+                                                        sdk_pool_handle, nym_request)
+
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_get_and_check_replies(looper, [request_couple])
+
+    assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
+
+    reqId = str(json.loads(nym_request)['reqId'])
     assert any(reqId in record.getMessage() for record in logsPropagate)
     assert any(reqId in record.getMessage() for record in logsReject)
 
 
 def testLoggingTxnStateWhenCommitFails(
-        looper, txnPoolNodeSet, steward1, stewardWallet, logsearch):
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, logsearch):
     logsPropagate, _ = logsearch(
         levels=['INFO'], files=['propagator.py'],
         funcs=['propagate'], msgs=['propagating.*request.*from client']
@@ -88,7 +95,15 @@ def testLoggingTxnStateWhenCommitFails(
         funcs=['executeBatch'], msgs=['commit failed for batch request']
     )
 
-    req, wallet = sendAddNewClient(None, "name", steward1, stewardWallet)
+    seed = randomString(32)
+    wh, _ = sdk_wallet_steward
+
+    nym_request, _ = looper.loop.run_until_complete(
+        prepare_nym_request(sdk_wallet_steward, seed,
+                            "name", None))
+
+    sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
+                                       sdk_pool_handle, nym_request)
 
     class SomeError(Exception):
         pass
@@ -127,7 +142,7 @@ def testLoggingTxnStateWhenCommitFails(
         eventually(checkSufficientExceptionsHappend,
                    retryWait=1, timeout=timeout))
 
-    reqId = str(req.reqId)
+    reqId = str(json.loads(nym_request)['reqId'])
     assert any(reqId in record.getMessage() for record in logsPropagate)
     assert any(reqId in record.getMessage() for record in logsOrdered)
     assert any(reqId in record.getMessage() for record in logsCommitFail)
