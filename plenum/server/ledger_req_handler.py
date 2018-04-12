@@ -74,5 +74,5 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         return txn
 
     @property
-    def operation_types(cls) -> set:
-        return cls.write_types.union(cls.query_types)
+    def operation_types(self) -> set:
+        return self.write_types.union(self.query_types)
