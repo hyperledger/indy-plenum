@@ -32,6 +32,16 @@ def highest_bit_set(i):
     return hiBit
 
 
+def has_nth_bit_set(number, n):
+    """
+    Check if a specific bit is set in a number.
+    :param number: The number to check.
+    :param n: The bit if set
+    :return:
+    """
+    return ((1 << n) & number) > 0
+
+
 def highestPowerOf2LessThan(n):
     return n.bit_length() - 1
 

@@ -162,7 +162,7 @@ class DomainRequestHandler(RequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def make_proof(self, path):
+    def make_proof(self, path, head_hash=None):
         '''
         Creates a state proof for the given path in state trie.
         Returns None if there is no BLS multi-signature for the given state (it can
@@ -171,10 +171,10 @@ class DomainRequestHandler(RequestHandler):
         :param path: the path generate a state proof for
         :return: a state proof or None
         '''
+        root_hash = head_hash if head_hash else self.state.committedHeadHash
         proof = self.state.generate_state_proof(key=path,
-                                                root=self.state.committedHead,
+                                                root=self.state.get_head_by_hash(root_hash),
                                                 serialize=True)
-        root_hash = self.state.committedHeadHash
         encoded_proof = proof_nodes_serializer.serialize(proof)
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 

@@ -1,10 +1,13 @@
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay
-from plenum.test.helper import countDiscarded
+from plenum.test.helper import countDiscarded, sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_random_and_check
+
+CHK_FREQ = 5
+LOG_SIZE = 3 * CHK_FREQ
 
 
 def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle,
@@ -25,6 +28,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, loo
     slowNode = slowReplica.node
     slowNode.nodeIbStasher.delay(ppDelay(delay, instId))
     slowNode.nodeIbStasher.delay(pDelay(delay, instId))
+    slowReplica.H = 5
 
     def discardCounts(replicas, pat):
         counts = {}
@@ -35,6 +39,9 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(chkFreqPatched, loo
     oldStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
     oldDiscardCounts = discardCounts([n.replicas[instId] for n in txnPoolNodeSet if n != slowNode],
                                      'achieved stable checkpoint')
+
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                                         num_reqs=1 * 7, num_batches=7)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqsToSend)
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))

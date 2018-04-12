@@ -5,7 +5,7 @@ from plenum.common.messages.node_messages import Primary
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test import waits
 from plenum.test.primary_election.helpers import primaryByNode
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import checkNodesConnected, \
     ensureElectionsDone
 
 nodeCount = 4
@@ -18,8 +18,8 @@ delaySelfNomination = 5
 
 
 @pytest.fixture()
-def case4Setup(keySharedNodes: TestNodeSet):
-    allNodes = keySharedNodes.nodes.values()
+def case4Setup(txnPoolNodeSet):
+    allNodes = txnPoolNodeSet
     A, B, C, D = allNodes
 
     # Delay each of the nodes A, B and C's self nomination so Node B gets to
@@ -68,7 +68,7 @@ def testPrimaryElectionCase4(case4Setup, looper):
 
     # also have to take into account the catchup procedure
     timeout = waits.expectedPoolNominationTimeout(len(allNodes)) + \
-        waits.expectedPoolCatchupTime(len(allNodes))
+              waits.expectedPoolCatchupTime(len(allNodes))
 
     for node in (A, C, D):
         looper.run(eventually(x, retryWait=.5, timeout=timeout))

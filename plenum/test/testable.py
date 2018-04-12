@@ -126,12 +126,12 @@ def spyable(name: str = None, methods: SpyableMethods = None,
                          if callable(getattr(clas, method))]:
             isInit = nm == "__init__"
             matched = (nm if methods and nm in methods else
-                       func if methods and func in methods else
-                       None)
+            func if methods and func in methods else
+            None)
             # if method was specified to be spied on or is `__init__` method
             # or is does not have name starting with `__`
             shouldSpy = bool(matched) if methods else (
-                not nm.startswith("__") or isInit)
+                    not nm.startswith("__") or isInit)
             if shouldSpy or isInit:
                 newFunc = spy(func, isInit, shouldSpy)
                 morphed[func] = newFunc

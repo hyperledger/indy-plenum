@@ -1,5 +1,3 @@
-
-
 def checkPrompt(cli, checkWith: str):
     promptTokens = cli.cli.application.layout.children[1].children[
         0].content.content.get_tokens("")

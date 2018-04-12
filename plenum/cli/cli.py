@@ -40,7 +40,6 @@ from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
-from stp_raet.util import getLocalEstateData
 from plenum.common.config_helper import PNodeConfigHelper
 
 import configparser
@@ -231,19 +230,12 @@ class Cli:
             eventloop=eventloop,
             output=out)
 
-        # RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-        #                                           Console.Wordage.mute,
-        #                                           self.config)
-        # RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
 
         if logFileName:
             Logger().enableFileLogging(logFileName)
-
-        # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
-        # Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
@@ -1062,8 +1054,7 @@ class Cli:
             if not areKeysSetup(clientName, self.basedirpath):
                 client_addr = genHa(ip='0.0.0.0')
             else:
-                client_addr = tuple(getLocalEstateData(clientName,
-                                                       self.basedirpath)['ha'])
+                raise Exception("Usage of deprecated code")
             nodeReg = None if self.nodeRegLoadedFromFile else self.cliNodeReg
             client = self.ClientClass(clientName,
                                       ha=client_addr,
