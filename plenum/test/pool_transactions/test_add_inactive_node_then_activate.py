@@ -1,17 +1,12 @@
 import pytest
 
-from plenum.common.exceptions import RequestRejectedException
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
-from plenum.common.constants import CLIENT_STACK_SUFFIX
-from plenum.common.util import randomString, hexToFriendly
-from plenum.test.pool_transactions.helper import sdk_send_update_node, \
-    sdk_add_new_steward_and_node, sdk_pool_refresh, \
+from plenum.common.util import randomString
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh, \
     update_node_data_and_reconnect
 from plenum.test.test_node import checkNodesConnected
-
 from stp_core.common.log import getlogger
-from stp_core.network.port_dispenser import genHa
+
 
 logger = getlogger()
 
