@@ -1,5 +1,5 @@
 from plenum.test.storage.helper import checkReplyIsPersisted
 
 
-def testReplyPersistedInLedger(nodeSet, looper, replied1):
-    checkReplyIsPersisted(nodeSet, looper, replied1)
+def testReplyPersistedInLedger(txnPoolNodeSet, looper, replied1):
+    checkReplyIsPersisted(txnPoolNodeSet, looper, replied1)

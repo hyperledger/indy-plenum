@@ -12,8 +12,8 @@ whitelist = ['cannot process incoming PREPARE']
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
-    A = startedNodes.Gamma
+def setup(txnPoolNodeSet):
+    A = txnPoolNodeSet[-1]
     makeNodeFaulty(A,
                    partial(delaysPrePrepareProcessing, delay=60))
     # A.delaySelfNomination(10)
@@ -21,7 +21,7 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for r in setup.faulties.replicas:
         assert not r.isPrimary
 

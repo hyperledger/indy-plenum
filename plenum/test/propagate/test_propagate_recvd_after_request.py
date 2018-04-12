@@ -13,16 +13,16 @@ howlong = 5
 
 
 @pytest.fixture()
-def setup(nodeSet):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
-    A.nodeIbStasher.delay(msg_rep_delay(10*howlong, [PROPAGATE, ]))
+    A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
 
 
-def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet, sent1):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
 
     def x():
         # A should have received a request from the client

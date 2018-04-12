@@ -1,14 +1,15 @@
 import types
 import pytest
-from plenum.common.exceptions import UnauthorizedClientRequest
+from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedException
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import sendRandomRequests, checkRejectWithReason, waitForSufficientRepliesForRequests
+from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
+from plenum.common.request import Request
 
 
-def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
+def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
                                 sdk_wallet_client):
     """
     Check that for requests which fail static validation, REQNACK is sent
@@ -16,11 +17,12 @@ def testRequestStaticValidation(tconf, looper,txnPoolNodeSet,
     """
     node = txnPoolNodeSet[0]
     req = sdk_sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
+    req = Request(**req)
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 
 
-def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
+def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet,
                                       sdk_wallet_client, sdk_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
@@ -57,7 +59,7 @@ def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
 
 
 def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
-                                 client, wallet1):
+                                 sdk_pool_handle, sdk_wallet_client):
     """
     Check that for requests which fail dynamic (state based) validation,
     REJECT is sent to the client
@@ -80,16 +82,14 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         origMethods.append(node.doDynamicValidation)
         node.doDynamicValidation = types.MethodType(rejectingMethod, node)
 
-    reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs[:-1])
+    reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                    sdk_wallet_client,
+                                    tconf.Max3PCBatchSize)
+    sdk_get_and_check_replies(looper, reqs[:-1])
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_get_and_check_replies(looper, reqs[-1:])
 
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client, requests=reqs[-1:])
-
-    for node in txnPoolNodeSet:
-        looper.run(eventually(checkRejectWithReason, client,
-                              'Simulated rejection', node.clientstack.name,
-                              retryWait=1))
+    assert 'Simulated rejection' in e._excinfo[1].args[0]
 
     for i, node in enumerate(txnPoolNodeSet):
         node.doDynamicValidation = origMethods[i]

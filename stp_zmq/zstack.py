@@ -654,13 +654,13 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.debug('{} got ping from {}'.format(self, frm))
+                logger.trace('{} got ping from {}'.format(self, frm))
                 self.sendPingPong(frm, is_ping=False)
 
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
-                logger.debug('{} got pong from {}'.format(self, frm))
+                logger.trace('{} got pong from {}'.format(self, frm))
             return True
         return False
 
@@ -713,13 +713,13 @@ class ZStack(NetworkInterface):
                 msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
-            logger.debug('{} transmitting message {} to {}'
+            logger.trace('{} transmitting message {} to {}'
                          .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
-                logger.debug('Remote {} is not connected - '
-                             'message will not be sent immediately.'
-                             'If this problem does not resolve itself - '
-                             'check your firewall settings'.format(uid))
+                logger.info('Remote {} is not connected - '
+                            'message will not be sent immediately.'
+                            'If this problem does not resolve itself - '
+                            'check your firewall settings'.format(uid))
             return True, err_str
         except zmq.Again:
             logger.debug(
@@ -922,28 +922,6 @@ class ZStack(NetworkInterface):
 
     def clearAllDir(self):
         shutil.rmtree(self.homeDir)
-
-    # TODO: Members below are just for the time till RAET replacement is
-    # complete, they need to be removed then.
-    @property
-    def nameRemotes(self):
-        logger.debug('{} proxy method used on {}'.
-                     format(inspect.stack()[0][3], self))
-        return self.remotes
-
-    @property
-    def keep(self):
-        logger.debug('{} proxy method used on {}'.
-                     format(inspect.stack()[0][3], self))
-        if not hasattr(self, '_keep'):
-            self._keep = DummyKeep(self)
-        return self._keep
-
-    def clearLocalKeep(self):
-        pass
-
-    def clearRemoteKeeps(self):
-        pass
 
     def prepare_to_send(self, msg: Any):
         msg_bytes = self.serializeMsg(msg)

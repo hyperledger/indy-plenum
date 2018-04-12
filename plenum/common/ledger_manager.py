@@ -91,13 +91,17 @@ class LedgerManager(HasActionQueue):
         if ledgerInfo.consistencyProofsTimer is None:
             return
 
+        proofs = ledgerInfo.recvdConsistencyProofs
+        # there is no any received ConsistencyProofs
+        if not proofs:
+            return
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
         quorum = Quorums(self.owner.totalNodes)
-        proofs = ledgerInfo.recvdConsistencyProofs
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
-        if quorum.same_consistency_proof.is_reached(null_proofs_count):
+        if quorum.same_consistency_proof.is_reached(null_proofs_count)\
+                or len(groupedProofs) == 0:
             return
         result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
         if not result:
@@ -650,7 +654,7 @@ class LedgerManager(HasActionQueue):
         for k, catchupReps in ledgerInfo.recvdCatchupRepliesFrm.items():
             for rep in catchupReps:
                 txns = getattr(rep, f.TXNS.nm)
-                # Transfers of odcits in RAET converts integer keys to string
+
                 if str(seqNo) in txns:
                     return k, rep
 
@@ -720,6 +724,7 @@ class LedgerManager(HasActionQueue):
             # from other nodes, see `request_CPs_if_needed`
 
             ledgerInfo.consistencyProofsTimer = time.perf_counter()
+            # TODO: find appropriate moment to unschedule this event!
             self._schedule(partial(self.request_CPs_if_needed, ledgerId),
                            self.config.ConsistencyProofsTimeout * (
                                self.owner.totalNodes - 1))
@@ -878,7 +883,6 @@ class LedgerManager(HasActionQueue):
         if last_3PC is not None \
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
-
         self.mark_ledger_synced(ledgerId)
         self.catchup_next_ledger(ledgerId)
 
@@ -1015,7 +1019,7 @@ class LedgerManager(HasActionQueue):
                          .format(self, seqNoEnd, ledgerSize))
             return
         if seqNoEnd < seqNoStart:
-            self.error(
+            logger.error(
                 '{} cannot build consistency proof since end {} is '
                 'lesser than start {}'.format(
                     self, seqNoEnd, seqNoStart))
@@ -1088,8 +1092,8 @@ class LedgerManager(HasActionQueue):
         return ledgerInfo.ledger.append(txn)
 
     def stashLedgerStatus(self, ledgerId: int, status, frm: str):
-        logger.debug("{} stashing ledger status {} from {}".
-                     format(self, status, frm))
+        logger.info("{} stashing ledger status {} from {}".
+                    format(self, status, frm))
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.stashedLedgerStatuses.append((status, frm))
 

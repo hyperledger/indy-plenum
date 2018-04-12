@@ -4,17 +4,12 @@ from stp_core.loop.eventually import eventually
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
-from plenum.test.helper import sendRandomRequest, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import suspendNode, \
     buildPoolClientAndWallet, cancelNodeSuspension
 from plenum.test.test_node import TestNode, checkNodesConnected
-
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message']
 
 
 def checkNodeNotInNodeReg(nodeOrClient, nodeName):
@@ -36,7 +31,6 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             nodeThetaAdded,
                             poolTxnStewardData,
                             allPluginsPath):
-
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     newNodeNym = hexToFriendly(newNode.nodestack.verhex)
     suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)
@@ -50,7 +44,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
         looper.run(eventually(checkNodeNotInNodeReg, client, newNode.name))
 
     # Check a client can send request and receive replies
-    req = sendRandomRequest(newStewardWallet, newSteward)
+    # req = sendRandomRequest(newStewardWallet, newSteward)
     waitForSufficientRepliesForRequests(looper, newSteward,
                                         requests=[req])
 

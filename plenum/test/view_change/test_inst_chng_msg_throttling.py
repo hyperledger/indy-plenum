@@ -1,7 +1,7 @@
 import types
 
 
-def testInstChngMsgThrottling(nodeSet, looper, up, viewNo):
+def testInstChngMsgThrottling(txnPoolNodeSet, looper, viewNo):
     """
     2 nodes out of 4 keep on sending INSTANCE_CHANGE messages as they
     find the master to be slow but since we need 3 out of 4 (n-f) to say that
@@ -12,8 +12,8 @@ def testInstChngMsgThrottling(nodeSet, looper, up, viewNo):
     THE TEST BELOW SHOULD TERMINATE. IF IT DOES NOT TERMINATE THEN THE BUG IS
     STILL PRESENT
     """
-    nodeA = nodeSet.Alpha
-    nodeB = nodeSet.Beta
+    nodeA = txnPoolNodeSet[0]
+    nodeB = txnPoolNodeSet[0]
     # Nodes that always find master as degraded
     for node in (nodeA, nodeB):
         node.monitor.isMasterDegraded = types.MethodType(

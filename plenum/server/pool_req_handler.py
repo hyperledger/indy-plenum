@@ -52,7 +52,6 @@ class PoolRequestHandler(RequestHandler):
         else:
             logger.debug(
                 'Cannot apply request of type {} to state'.format(typ))
-            return None
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
@@ -80,7 +79,7 @@ class PoolRequestHandler(RequestHandler):
                 origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
-        if self.isNodeDataConflicting(operation.get(DATA, {})):
+        if self.isNodeDataConflicting(data):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))
 
@@ -156,14 +155,14 @@ class PoolRequestHandler(RequestHandler):
         nodeInfo.pop(f.IDENTIFIER.nm, None)
         return nodeInfo == newData
 
-    def isNodeDataConflicting(self, data, nodeNym=None):
+    def isNodeDataConflicting(self, data, updatingNym=None):
         # Check if node's ALIAS or IPs or ports conflicts with other nodes,
         # also, the node is not allowed to change its alias.
 
         # Check ALIAS change
         nodeData = {}
-        if nodeNym:
-            nodeData = self.getNodeData(nodeNym, isCommitted=False)
+        if updatingNym:
+            nodeData = self.getNodeData(updatingNym, isCommitted=False)
             if nodeData.get(ALIAS) != data.get(ALIAS):
                 return True
             else:
@@ -177,7 +176,7 @@ class PoolRequestHandler(RequestHandler):
             otherNodeData = self.stateSerializer.deserialize(otherNodeData)
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)
-            if not nodeNym or otherNode != nodeNym:
+            if not updatingNym or otherNode != updatingNym:
                 # The node's ip, port and alias shuuld be unique
                 bag = set()
                 for d in (nodeData, otherNodeData):
@@ -191,6 +190,9 @@ class PoolRequestHandler(RequestHandler):
                 if (not nodeData and len(bag) != 3) or (
                         nodeData and len(bag) != 6):
                     return True
+            if data.get(ALIAS) == otherNodeData.get(
+                    ALIAS) and not updatingNym:
+                return True
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):
         error = self.dataErrorWhileValidating(data, skipKeys=True)

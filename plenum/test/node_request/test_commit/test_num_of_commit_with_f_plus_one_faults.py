@@ -18,11 +18,11 @@ whitelist = ['InvalidSignature',
 
 
 @pytest.fixture(scope="module")
-def setup(startedNodes):
+def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
-    A = startedNodes.Eta
-    B = startedNodes.Gamma
-    G = startedNodes.Zeta
+    A = txnPoolNodeSet[-3]
+    B = txnPoolNodeSet[-2]
+    G = txnPoolNodeSet[-1]
     for node in A, B, G:
         makeNodeFaulty(
             node, changesRequest, partial(
@@ -33,18 +33,18 @@ def setup(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def afterElection(setup, up):
+def afterElection(setup):
     for n in setup.faulties:
         for r in n.replicas:
             assert not r.isPrimary
 
 
 def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
-                                          nodeSet, prepared1, noRetryReq):
+                                          txnPoolNodeSet, prepared1, noRetryReq):
     with pytest.raises(AssertionError):
         # To raise an error pass less than the actual number of faults
         checkCommitted(looper,
-                       nodeSet,
+                       txnPoolNodeSet,
                        prepared1,
-                       range(getNoInstances(len(nodeSet))),
+                       range(getNoInstances(len(txnPoolNodeSet))),
                        faultyNodes - 1)

@@ -12,7 +12,7 @@ def test_hook_registration():
         manager.register_hook(9, lambda x, y: print(x, y))
     for i in hook_ids:
         assert len(manager.hooks[i]) == 0
-        manager.register_hook(i, lambda x, y: print(+y+i))
+        manager.register_hook(i, lambda x, y: print(+y + i))
         assert len(manager.hooks[i]) == 1
 
 

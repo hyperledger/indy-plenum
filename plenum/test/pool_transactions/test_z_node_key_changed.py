@@ -2,14 +2,15 @@ import pytest
 import base58
 import types
 
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
 from plenum.common import stack_manager
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, \
     initRemoteKeys
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import changeNodeKeys
+from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.pool_transactions.helper import sdk_change_node_keys
 from plenum.test.test_node import TestNode, checkNodesConnected
 from plenum.common.config_helper import PNodeConfigHelper
 from stp_core.common.log import getlogger
@@ -17,35 +18,32 @@ from stp_core.types import HA
 
 logger = getlogger()
 
-# logged errors to ignore
-whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
-             'missing', 'conflicts', 'matches', 'nodeReg',
-             'conflicting address', 'unable to send message',
-             'got error while verifying message']
+
 # Whitelisting "got error while verifying message" since a node while not have
 # initialised a connection for a new node by the time the new node's message
 # reaches it
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
-                        tconf, steward1, nodeThetaAdded,
+                        tconf, sdk_node_theta_added,
+                        sdk_pool_handle,
                         allPluginsPath=None):
-    newSteward, newStewardWallet, newNode = nodeThetaAdded
+    new_steward_wallet, new_node = sdk_node_theta_added
 
-    newNode.stop()
-    looper.removeProdable(name=newNode.name)
-    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    new_node.stop()
+    looper.removeProdable(name=new_node.name)
+    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
-    changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
+    sdk_change_node_keys(looper, new_node, new_steward_wallet, sdk_pool_handle, verkey)
 
-    config_helper = PNodeConfigHelper(newNode.name, tconf, chroot=tdir)
-    initNodeKeysForBothStacks(newNode.name, config_helper.keys_dir, sigseed,
+    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
+    initNodeKeysForBothStacks(new_node.name, config_helper.keys_dir, sigseed,
                               override=True)
 
-    logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
+    logger.debug("{} starting with HAs {} {}".format(new_node, nodeHa, nodeCHa))
 
-    node = TestNode(newNode.name,
+    node = TestNode(new_node.name,
                     config_helper=config_helper,
                     config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
@@ -54,24 +52,22 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     # stopped
     txnPoolNodeSet[-1] = node
 
-    looper.run(checkNodesConnected(stacks=txnPoolNodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
-                                                  *txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
 
 def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
-                                              nodeThetaAdded, monkeypatch):
-
+                                              sdk_node_theta_added,
+                                              monkeypatch,
+                                              sdk_pool_handle):
     TEST_EXCEPTION_MESSAGE = 'Failed to create some cert files'
 
-    newSteward, newStewardWallet, newNode = nodeThetaAdded
+    new_steward_wallet, new_node = sdk_node_theta_added
 
-    newNode.stop()
-    looper.removeProdable(name=newNode.name)
-    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    new_node.stop()
+    looper.removeProdable(name=new_node.name)
+    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
 
@@ -99,6 +95,6 @@ def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
 
     monkeypatch.setattr(stack_manager, 'initRemoteKeys', initRemoteKeysMock)
 
-    changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
+    sdk_change_node_keys(looper, new_node, new_steward_wallet, sdk_pool_handle, verkey)
 
     monkeypatch.undo()

@@ -66,7 +66,7 @@ class PluginManager:
         assert 'enabled' in config
 
         if not (enabled and config['enabled']):
-            logger.debug('Suspicious Spike check is disabled')
+            logger.trace('Suspicious Spike check is disabled')
             return None
 
         coefficient = config['coefficient']
