@@ -57,7 +57,7 @@ setup(
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'libnacl==1.6.1',
                       'six==1.11.0', 'psutil', 'intervaltree',
-                      'msgpack-python==0.4.6', 'indy-crypto==0.2.0',
+                      'msgpack-python==0.4.6', 'indy-crypto==0.4.0',
                       'python-rocksdb==0.6.9'],
     setup_requires=['pytest-runner'],
     extras_require={
