@@ -2,7 +2,7 @@
 
 [*] --> Finished
 
-Finished --> Checking : CheckIfLag(x) / request LedgerStatuses(x) from others
+Finished --> Checking : CheckIfLedgerLagged(x) / request LedgerStatuses(x) from others
 Finished --> CatchingUpLedgers : StartCatchup / lastTxn3PCs = []; StartLedgerCatchup(0)
 
 state Checking_LedgerStatus <<choice>>

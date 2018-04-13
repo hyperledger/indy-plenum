@@ -11,7 +11,7 @@ state Active {
 
     LedgerStatusServantActive_LS --> LedgerStatusServantActive : [older] / send ConsistencyProof
     LedgerStatusServantActive_LS --> LedgerStatusServantActive : [same]
-    LedgerStatusServantActive_LS --> LedgerStatusServantActive : [newer] / send CheckIfLag(ledgerId)
+    LedgerStatusServantActive_LS --> LedgerStatusServantActive : [newer] / send CheckIfLedgerLagged(ledgerId)
     --
 
     [*] --> ConsistenyProofServantActive
@@ -21,11 +21,11 @@ state Active {
     state ConsistenyProofServantActive_CP <<choice>>
     ConsistenyProofServantActive --> ConsistenyProofServantActive_CP : ConsistencyProof
 
-    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end <= len(ledger)] / send ConsistencyProof(..., end)
-    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end > len(ledger)]
+    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end <= ledger.size] / send ConsistencyProof(..., end)
+    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end > ledger.size]
 
-    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end <= len(ledger)]
-    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end > len(ledger)] / send CheckIfLag(ledgerId)
+    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end <= ledger.size]
+    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end > ledger.size] / send CheckIfLedgerLagged(ledgerId)
     --
 
     [*] --> CatchupReqServantActive
@@ -33,8 +33,8 @@ state Active {
     state CatchupReqServantActive_CatchupReq <<choice>>
     CatchupReqServantActive --> CatchupReqServantActive_CatchupReq : CatchupReq(..., catchUpTill)
 
-    CatchupReqServantActive_CatchupReq --> CatchupReqServantActive : [catchUpTill <= len(ledger)] / send CatchupRep(...)
-    CatchupReqServantActive_CatchupReq --> CatchupReqServantActive : [catchUpTill > len(ledger)]
+    CatchupReqServantActive_CatchupReq --> CatchupReqServantActive : [catchUpTill <= ledger.size] / send CatchupRep(...)
+    CatchupReqServantActive_CatchupReq --> CatchupReqServantActive : [catchUpTill > ledger.size]
 }
 
 @enduml
