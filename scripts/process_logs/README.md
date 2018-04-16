@@ -118,9 +118,9 @@ provided, if attribute contains given value. For example, matcher
 ``` 
 checks that message has attribute `is_request`, and matcher
 ```yaml
-- reqId: 42
+- reqId: xz 42
 ```
-checks that message has attribute `reqId` containing value `42`
+checks that message has attribute `reqId` containing value `xz 42`
 
 
 #### Builtin matchers
@@ -279,7 +279,10 @@ commands.
   - `drop`: action to perform is to drop message altogether
 - `track_requests`: track requests, adding multiple attributes to relevant
   messages:
-  - reqId: request identifier
+  - `reqId`: request identifier, composed from `identifier` and `reqId` 
+    separated by space
+  - `viewNo`: view number
+  - `ppSeqNo`: pre-prepare sequence number 
   - TODO: list other attibutes
 - `tag`: optionally checks if message matches some regex pattern and sets
   custom tags and/or attributes on it. Parameter for this command is dictionary
