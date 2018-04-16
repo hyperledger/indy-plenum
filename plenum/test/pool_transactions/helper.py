@@ -30,9 +30,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from stp_core.common.log import getlogger
 from indy.error import ErrorCode, IndyError
 
-
 logger = getlogger()
-
 
 REFRESH_TRY_COUNT = 4
 
@@ -197,7 +195,8 @@ def sdk_add_new_steward_and_node(looper,
 
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
-                    alias=None, role=None, seed=None):
+                    alias=None, role=None, seed=None,
+                    dest=None, verkey=None):
     seed = seed or randomString(32)
     alias = alias or randomString(5)
     wh, _ = creators_wallet
@@ -206,7 +205,7 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     # if role == None, we are adding client
     nym_request, new_did = looper.loop.run_until_complete(
         prepare_nym_request(creators_wallet, seed,
-                            alias, role))
+                            alias, role, dest, verkey))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
@@ -261,13 +260,17 @@ async def prepare_schema_request(wallet, named_seed, alias, role):
     pass
 
 
-async def prepare_nym_request(wallet, named_seed, alias, role):
+async def prepare_nym_request(wallet, named_seed, alias,
+                              role, dest=None, verkey=None):
     wh, submitter_did = wallet
-    (named_did, named_verkey) = await create_and_store_my_did(wh,
-                                                              json.dumps({
-                                                                  'seed': named_seed,
-                                                                  'cid': True})
-                                                              )
+    (named_did, named_verkey) = \
+        await create_and_store_my_did(wh,
+                                      json.dumps({
+                                          'seed': named_seed,
+                                          'cid': True})
+                                      )
+    if dest: named_did = dest
+    if verkey: named_verkey = verkey
     nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
                                           alias, role)
     return nym_request, named_did
@@ -352,6 +355,7 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
                 logger.debug("Refresh try number: {}".format(tries))
         else:
             return
+
 
 def sdk_build_get_txn_request(looper, steward_did, data):
     request = looper.loop.run_until_complete(

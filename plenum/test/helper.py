@@ -10,6 +10,7 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
+import pytest
 from psutil import Popen
 import json
 import asyncio
@@ -975,3 +976,9 @@ def sdk_json_couples_to_request_list(json_couples):
     for json_couple in json_couples:
         req_list.append(sdk_json_to_request_object(json_couple[0]))
     return req_list
+
+
+def sdk_get_bad_response(looper, reqs, exception, message):
+    with pytest.raises(exception) as e:
+        sdk_get_and_check_replies(looper, reqs)
+    assert message in e._excinfo[1].args[0]
