@@ -301,9 +301,6 @@ class Client(Motor,
         errs = []
 
         for request in reqs:
-            with open('/home/artem/Developement/client-requests.txt', 'a') as out:
-                out.write(json.dumps(request.as_dict) + '\n')
-                out.write('\n\n\n')
             is_read_only = request.txn_type in self._read_only_requests
             if self.can_send_request(request):
                 recipients = self._connected_node_names
