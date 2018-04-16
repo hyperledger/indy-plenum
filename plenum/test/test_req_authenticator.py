@@ -7,7 +7,6 @@ from plenum.common.util import randomString
 from plenum.server.client_authn import SimpleAuthNr, CoreAuthNr
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.test.helper import sdk_sign_and_submit_op
-from plenum.test.plugin.helper import submitOp
 from plenum.test.pool_transactions.helper import new_client_request
 
 
