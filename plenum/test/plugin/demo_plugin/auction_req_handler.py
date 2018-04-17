@@ -5,12 +5,13 @@ from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
     AUCTION_START, GET_BAL, AMOUNT
 
 
-class AuctionReqHandler(RequestHandler):
+class AuctionReqHandler(LedgerRequestHandler):
     write_types = {AUCTION_START, AUCTION_END, PLACE_BID}
     query_types = {GET_BAL, }
 
