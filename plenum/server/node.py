@@ -74,8 +74,7 @@ from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
-    RegistryPoolManager
+from plenum.server.pool_manager import HasPoolManager, TxnPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
@@ -121,7 +120,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA]=None,
                  clientAuthNr: ClientAuthNr=None,
                  ha: HA=None,
                  cliname: str=None,
@@ -141,7 +139,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Create a new node.
 
-        :param nodeRegistry: names and host addresses of all nodes in the pool
         :param clientAuthNr: client authenticator implementation to be used
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
@@ -180,7 +177,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
-        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+        self.initPoolManager(ha, cliname, cliha)
 
         # init BLS after pool manager!
         # init before domain req handler!
@@ -195,11 +192,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.addGenesisNyms()
 
-        if isinstance(self.poolManager, RegistryPoolManager):
-            self.mode = Mode.discovered
-        else:
-            self.mode = None  # type: Optional[Mode]
-            self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
+        self.mode = None  # type: Optional[Mode]
+        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
 
         self.nodeReg = self.poolManager.nodeReg
 
@@ -578,8 +572,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return get_utc_epoch()
 
-    def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
-        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+    def initPoolManager(self, ha, cliname, cliha):
+        HasPoolManager.__init__(self, ha, cliname, cliha)
 
     def __repr__(self):
         return self.name
@@ -858,15 +852,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.nodestack.maintainConnections(force=True)
 
-            if isinstance(self.poolManager, RegistryPoolManager):
-                # Node not using pool ledger so start syncing config ledger
-                self.mode = Mode.discovered
-                self.ledgerManager.setLedgerCanSync(
-                    self.ledgerManager.ledger_sync_order[1], True)
-            else:
-                # Node using pool ledger so first sync pool ledger
-                self.mode = Mode.starting
-                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
+            # Node using pool ledger so first sync pool ledger
+            self.mode = Mode.starting
+            self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
 
         self.logNodeInfo()
 
@@ -1577,7 +1565,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} appending to nodeInbox {}".format(self, msg))
+        logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
     async def processNodeInBox(self):

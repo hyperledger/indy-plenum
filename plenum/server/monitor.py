@@ -97,9 +97,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     monitors the performance of each instance. Throughput of requests and
     latency per client request are measured.
     """
-    WARN_NOT_PARTICIPATING_WINDOW_MINS = 5
-    WARN_NOT_PARTICIPATING_UNORDERED_NUM = 10
-    WARN_NOT_PARTICIPATING_MIN_DIFF_SEC = 3
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack,
@@ -174,6 +171,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        self.unordered_requests_handlers = []  # type: List[Callable]
+
         # Monitoring suspicious spikes in cluster throughput
         self.clusterThroughputSpikeMonitorData = {
             'value': 0,
@@ -195,6 +194,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.startRepeating(
             self.checkPerformance,
             self.config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+
+        self.startRepeating(self.check_unordered, self.config.UnorderedCheckFreq)
 
         if 'disable_view_change' in self.config.unsafe:
             self.isMasterDegraded = lambda: False
@@ -289,9 +290,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         durations = {}
         for identifier, reqId in reqIdrs:
             if (identifier, reqId) not in self.requestTracker:
-                logger.debug(
-                    "Got untracked ordered request with identifier {} and reqId {}".
-                    format(identifier, reqId))
+                logger.debug("Got untracked ordered request with identifier {} and reqId {}".
+                             format(identifier, reqId))
                 continue
             duration = self.requestTracker.order(instId, identifier, reqId, now)
             if byMaster:
@@ -335,30 +335,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Record the time at which request ordering started.
         """
         self.requestTracker.start(identifier, reqId, time.perf_counter())
-        self.warn_has_lot_unordered_requests()
 
-    def warn_has_lot_unordered_requests(self):
-        unordered_started_at = []
+    def check_unordered(self):
         now = time.perf_counter()
-        sorted_by_started_at = sorted(self.requestTracker.unordered(), key=itemgetter(1))
-        for _, started_at in sorted_by_started_at:
-            in_window = (now - started_at) < self.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60
-            if not in_window:
-                continue
-            dt = (started_at - unordered_started_at[-1]) if unordered_started_at else None
-            if dt is None or dt > self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC:
-                unordered_started_at.append(started_at)
-
-        if len(unordered_started_at) >= self.WARN_NOT_PARTICIPATING_UNORDERED_NUM:
-            logger.warning('It looks like {} does not participate in processing messages '
-                           'because it has {} unordered requests '
-                           'in the last {} minutes (assumed that minimum difference between unordered '
-                           'requests is at least {} seconds)'
-                           .format(self, len(unordered_started_at),
-                                   self.WARN_NOT_PARTICIPATING_WINDOW_MINS,
-                                   self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC))
-            return True
-        return False
+        unordered = [req for req, started in self.requestTracker.unordered()
+                     if now - started < self.config.UnorderedCheckFreq]
+        if len(unordered) == 0:
+            return
+        for handler in self.unordered_requests_handlers:
+            handler(unordered)
+        logger.warning('Following requests were not ordered for more than {} seconds: {}'
+                       .format(self.config.UnorderedCheckFreq, unordered))
 
     def isMasterDegraded(self):
         """
@@ -441,8 +428,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                             "threshold".format(MONITORING_PREFIX, self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
-                    "avg request latency is {} ".
-                    format(self, avgLatM, avgLatB))
+                    "avg request latency is {}".format(self, avgLatM, avgLatB))
                 return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))

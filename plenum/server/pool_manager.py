@@ -49,8 +49,7 @@ class PoolManager:
     @staticmethod
     def _get_rank(needle_id: str, haystack_ids: List[str]):
         # Return the rank of the node where rank is defined by the order in
-        # which node was added to the pool or on the alphabetical order of name
-        # if using RegistryPoolManager
+        # which node was added to the pool
         try:
             return haystack_ids.index(needle_id)
         except ValueError:
@@ -94,15 +93,10 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, nodeRegistry=None, ha=None, cliname=None, cliha=None):
-        if not nodeRegistry:
-            self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
-                                              cliha=cliha)
-            self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
-        else:
-            self.poolManager = RegistryPoolManager(self.name, self.keys_dir,
-                                                   nodeRegistry, ha, cliname,
-                                                   cliha)
+    def __init__(self, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
+                                          cliha=cliha)
+        self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
@@ -421,8 +415,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if curName is None:
             self._ordered_node_ids[nodeNym] = nodeName
             logger.info("{} sets node {} ({}) order to {}".format(
-                        self.name, nodeName, nodeNym,
-                        len(self._ordered_node_ids[nodeNym])))
+                self.name, nodeName, nodeNym,
+                len(self._ordered_node_ids[nodeNym])))
         elif curName != nodeName:
             msg = ("{} is trying to order already ordered node {} ({}) "
                    "with other alias {}".format(self.name, curName, nodeNym, nodeName))
@@ -459,119 +453,3 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if name == node_name:
                 return nym
         return None
-
-
-class RegistryPoolManager(PoolManager):
-    # This is the old way of managing the pool nodes information and
-    # should be deprecated.
-    def __init__(self, name, keys_dir, nodeRegistry, ha, cliname, cliha):
-        self._ordered_node_names = None
-
-        self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
-            self.getStackParamsAndNodeReg(name=name, keys_dir=keys_dir,
-                                          nodeRegistry=nodeRegistry, ha=ha,
-                                          cliname=cliname, cliha=cliha)
-
-    def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
-                                 ha=None, cliname=None, cliha=None):
-        nstack, nodeReg, cliNodeReg = self.getNodeStackParams(name,
-                                                              nodeRegistry,
-                                                              ha,
-                                                              keys_dir)
-
-        cstack = self.getClientStackParams(name, nodeRegistry,
-                                           cliname=cliname, cliha=cliha,
-                                           keys_dir=keys_dir)
-
-        return nstack, cstack, nodeReg, cliNodeReg
-
-    @staticmethod
-    def getNodeStackParams(name, nodeRegistry: Dict[str, HA],
-                           ha: HA = None,
-                           keys_dir: str = None) -> Tuple[dict, dict, dict]:
-        """
-        Return tuple(nodeStack params, nodeReg)
-        """
-        me = nodeRegistry[name]
-        if isinstance(me, NodeDetail):
-            sha = me.ha
-            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
-        else:
-            sha = me if isinstance(me, HA) else HA(*me[0])
-            nodeReg = {k: v if isinstance(v, HA) else HA(*v[0])
-                       for k, v in nodeRegistry.items()}
-        if not ha:  # pull it from the registry
-            ha = sha
-
-        cliNodeReg = {r.cliname: r.cliha for r in nodeRegistry.values()}
-
-        nstack = dict(name=name,
-                      ha=ha,
-                      main=True,
-                      auth_mode=AuthMode.RESTRICTED.value)
-
-        if keys_dir:
-            nstack['basedirpath'] = keys_dir
-
-        return nstack, nodeReg, cliNodeReg
-
-    @staticmethod
-    def getClientStackParams(name, nodeRegistry: Dict[str, HA], cliname,
-                             cliha, keys_dir) -> dict:
-        """
-        Return clientStack params
-        """
-        me = nodeRegistry[name]
-        if isinstance(me, NodeDetail):
-            sha = me.ha
-            scliname = me.cliname
-            scliha = me.cliha
-        else:
-            sha = me if isinstance(me, HA) else HA(*me[0])
-            scliname = None
-            scliha = None
-
-        if not cliname:  # default to the name plus the suffix
-            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
-        if not cliha:  # default to same ip, port + 1
-            cliha = scliha if scliha else HA(sha[0], sha[1] + 1)
-
-        cstack = dict(name=cliname,
-                      ha=cliha,
-                      main=True,
-                      auth_mode=AuthMode.ALLOW_ANY.value)
-
-        if keys_dir:
-            cstack['basedirpath'] = keys_dir
-
-        return cstack
-
-    @property
-    def merkleRootHash(self):
-        raise UnsupportedOperation
-
-    @property
-    def txnSeqNo(self):
-        raise UnsupportedOperation
-
-    @property
-    def id(self):
-        return self.nstack['name']
-
-    def node_names_ordered_by_rank(self, nodeReg=None) -> List:
-        if nodeReg is None:
-            nodeReg = self.nodeReg
-        return sorted(nodeReg.keys())
-
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
-        # TODO node_id here has got another meaning
-        return self._get_rank(node_id, self.node_names_ordered_by_rank(nodeReg))
-
-    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
-        return self.get_rank_of(name, nodeReg)
-
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
-        try:
-            return self.node_names_ordered_by_rank(nodeReg)[rank]
-        except IndexError:
-            return None

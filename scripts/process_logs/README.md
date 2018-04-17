@@ -53,6 +53,8 @@ they belong to. Options are:
 - `pattern`: log file name regex pattern to look for
 - `node_group`: regex group number that matches node identifier
 - `only_timestamped`: whether to discard non-timestamped messages
+- `min_timestamp`: minimum timestamp of accepted messages
+- `max_timestamp`: maximum timestamp of accepted messages
 
 ### outputs
 
@@ -118,9 +120,9 @@ provided, if attribute contains given value. For example, matcher
 ``` 
 checks that message has attribute `is_request`, and matcher
 ```yaml
-- reqId: 42
+- reqId: xz 42
 ```
-checks that message has attribute `reqId` containing value `42`
+checks that message has attribute `reqId` containing value `xz 42`
 
 
 #### Builtin matchers
@@ -133,6 +135,9 @@ checks that message has attribute `reqId` containing value `42`
       max: 2018-03-15 10:30:16
   ```
   Any of `min` or `max` can be omitted to skip check of lower or upper bound.
+  Note that using `min/max_timestamp` attributes from `input_logs` section
+  is preferred since they can skip processing whole files which greatly
+  improves performance.
 - `level`: checks if message severity level is within defined limits. 
   Parameters for this matcher is either dictionary with `min` and `max` 
   values containing lower and upper bounds for message severity (`DEBUG`, 
@@ -279,7 +284,10 @@ commands.
   - `drop`: action to perform is to drop message altogether
 - `track_requests`: track requests, adding multiple attributes to relevant
   messages:
-  - reqId: request identifier
+  - `reqId`: request identifier, composed from `identifier` and `reqId` 
+    separated by space
+  - `viewNo`: view number
+  - `ppSeqNo`: pre-prepare sequence number 
   - TODO: list other attibutes
 - `tag`: optionally checks if message matches some regex pattern and sets
   custom tags and/or attributes on it. Parameter for this command is dictionary
