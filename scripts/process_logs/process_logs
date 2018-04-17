@@ -727,9 +727,9 @@ class NodeRequestData:
         self._forward_req = MessageParser("forwarding request",
                                           "forwarding request \('(\w+)', (\d+)\) to")
         self._ordered = MessageParser("ordered batch request",
-                                      "ordered batch request, view no (\d+), ppSeqNo (\d+), ledger (\d+), "\
-                                      "state root \w+, txn root \w+, "\
-                                      "requests ordered (\[(?:\('\w+', \d+\)(?:, )?)*\]), "\
+                                      "ordered batch request, view no (\d+), ppSeqNo (\d+), ledger (\d+), " \
+                                      "state root \w+, txn root \w+, " \
+                                      "requests ordered (\[(?:\('\w+', \d+\)(?:, )?)*\]), " \
                                       "discarded (\[(?:\('\w+', \d+\)(?:, )?)*\])")
 
     def process_message(self, message):
@@ -936,10 +936,13 @@ class OutputData:
 # Main
 ###########################################################################################
 
-def process_log(log):
+def process_log(log: InputLogInfo):
     output_data = OutputData(global_config.get("outputs", {}))
-    for message in messages_in_log(log):
-        global_chain_set.process("main", message, output_data)
+    try:
+        for message in messages_in_log(log):
+            global_chain_set.process("main", message, output_data)
+    except EOFError as e:
+        print("{}: {}".format(log.filename, e))
     return output_data
 
 
