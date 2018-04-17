@@ -737,11 +737,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_req_handler(self, ledger_id: int, req_handler: RequestHandler):
         self.ledger_to_req_handler[ledger_id] = req_handler
         for txn_type in req_handler.valid_txn_types:
-            if txn_type in self.txn_type_to_req_handler:
-                raise ValueError('{} already registered for {}'
-                                 .format(txn_type, self.txn_type_to_req_handler[txn_type]))
-            self.txn_type_to_req_handler[txn_type] = req_handler
-            self.txn_type_to_ledger_id[txn_type] = ledger_id
+            self.register_txn_type(txn_type, ledger_id, req_handler)
+
+    def register_txn_type(self, txn_type, ledger_id: int, req_handler: RequestHandler):
+        if txn_type in self.txn_type_to_req_handler:
+            raise ValueError('{} already registered for {}'
+                             .format(txn_type, self.txn_type_to_req_handler[txn_type]))
+        self.txn_type_to_req_handler[txn_type] = req_handler
+        self.txn_type_to_ledger_id[txn_type] = ledger_id
 
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
@@ -1414,8 +1417,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
-            logger.debug("{} queueing message {} for future protocol "
-                         "instance {}".format(self, msg, instId))
+            logger.info("{} queueing message {} for future protocol "
+                        "instance {}".format(self, msg, instId))
             return False
         return True
 
@@ -1436,8 +1439,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif view_no > self.viewNo:
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
-            logger.debug('{} stashing a message for a future view: {}'.
-                         format(self, msg))
+            logger.info('{} stashing a message for a future view: {}'.
+                        format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
@@ -1493,7 +1496,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
-                logger.debug("{} msg validated {}".format(self, wrappedMsg),
+                logger.trace("{} msg validated {}".format(self, wrappedMsg),
                              extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
@@ -1530,9 +1533,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.verifySignature(message)
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
-        logger.debug("{} received node message from {}: {}".
-                     format(self, frm, message),
-                     extra={"cli": False})
+        logger.info("{} received node message from {}: {}".
+                    format(self, frm, message),
+                    extra={"cli": False})
         return message, frm
 
     def unpackNodeMsg(self, msg, frm) -> None:
@@ -1547,7 +1550,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # a transport, it should be encapsulated.
 
         if isinstance(msg, Batch):
-            logger.debug("{} processing a batch {}".format(self, msg))
+            logger.trace("{} processing a batch {}".format(self, msg))
             for m in msg.messages:
                 m = self.nodestack.deserializeMsg(m)
                 self.handleOneNodeMsg((m, frm))
@@ -1561,7 +1564,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} appending to nodeInbox {}".format(self, msg))
+        logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
     async def processNodeInBox(self):
@@ -1756,8 +1759,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # revert uncommitted txns and state for unordered requests
         r = self.master_replica.revert_unordered_batches()
-        logger.info('{} reverted {} batches before starting catch up for '
-                    'ledger {}'.format(self, r, ledger_id))
+        logger.debug('{} reverted {} batches before starting catch up for '
+                     'ledger {}'.format(self, r, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
@@ -1930,6 +1933,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
             if not req_handler:
+                # TODO: This code should probably be removed.
                 if self.opVerifiers:
                     try:
                         for v in self.opVerifiers:
@@ -2281,12 +2285,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.view_changer.on_master_degradation()
                 return False
             else:
-                logger.debug("{}'s master has higher performance than backups".
+                logger.trace("{}'s master has higher performance than backups".
                              format(self))
         return True
 
     def checkNodeRequestSpike(self):
-        logger.debug("{} checking its request amount".format(self))
+        logger.trace("{} checking its request amount".format(self))
 
         if not self.isParticipating:
             return
@@ -2563,11 +2567,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
+        logger.trace('{} going to commit and send replies to client'.format(self))
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
         self.updateSeqNoMap(committedTxns)
-        self.sendRepliesToClients(
-            map(self.update_txn_with_extra_data, committedTxns),
-            ppTime)
+        updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
+        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
+                          pp_time=ppTime)
+        self.sendRepliesToClients(updated_committed_txns, ppTime)
+        self.execute_hook(NodeHooks.POST_SEND_REPLY,
+                          committed_txns=updated_committed_txns,
+                          pp_time=ppTime)
         return committedTxns
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
@@ -2635,7 +2644,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isProcessingReq(*reqKey):
             sender = self.requestSender[reqKey]
             if sender:
-                logger.debug(
+                logger.trace(
                     '{} sending reply for {} to client'.format(
                         self, reqKey))
                 self.transmitToClient(reply, self.requestSender[reqKey])
@@ -2866,8 +2875,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            self.nodestack.remotes.values()]
             recipientsNum = 'all'
 
-        logger.debug("{} sending message {} to {} recipients: {}"
-                     .format(self, msg, recipientsNum, remoteNames))
+        logger.info("{} sending message {} to {} recipients: {}"
+                    .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):

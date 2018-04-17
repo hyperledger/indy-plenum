@@ -1,9 +1,7 @@
-import pytest
-
 from stp_core.common.log import getlogger
 
-from plenum.test.helper import stopNodes, waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import waitForViewChange, \
+    sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -14,7 +12,8 @@ logger = getlogger()
 
 
 def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
-                                allPluginsPath, tdir, tconf, client1, wallet1):
+                                allPluginsPath, tdir, tconf, sdk_pool_handle,
+                                sdk_wallet_steward):
     """
     Test that we can recover after having more than f nodes disconnected:
     - stop current master primary (Alpha)
@@ -38,7 +37,8 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
 
     logger.info("send at least one checkpoint")
     assert nodes_do_not_have_checkpoints(*active_nodes)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=2 * checkpoint_size)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 2 * checkpoint_size)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -58,7 +58,8 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("Check if the pool is able to process requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10 * checkpoint_size)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
     assert nodes_have_checkpoints(*active_nodes)
 

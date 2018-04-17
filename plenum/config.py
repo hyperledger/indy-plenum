@@ -86,6 +86,7 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
+UnorderedCheckFreq = 60
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
@@ -149,10 +150,11 @@ CatchupTransactionsTimeout = 6
 
 
 # Log configuration
-logRotationWhen = 'D'
+logRotationWhen = 'W6'
 logRotationInterval = 1
-logRotationBackupCount = 10
+logRotationBackupCount = 50
 logRotationMaxBytes = 100 * 1024 * 1024
+logRotationCompress = True
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
@@ -213,6 +215,7 @@ CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
+INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 

@@ -9,22 +9,20 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.perf_util import get_memory_usage, timeit
 from plenum.test.delayers import cr_delay
-from plenum.test.test_client import TestClient
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
 from stp_core.common.log import getlogger, Logger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, buildPoolClientAndWallet
+    disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
 
 # noinspection PyUnresolvedReferences
-from plenum.test.node_catchup.conftest import whitelist, \
-    nodeCreatedAfterSomeTxns, nodeSetWithNodeAddedAfterSomeTxns, newNodeCaughtUp
+from plenum.test.node_catchup.conftest import whitelist
 
 
 @pytest.fixture
@@ -65,22 +63,16 @@ def change_checkpoint_freq(tconf):
 
 
 @skipper
-def test_node_load(looper, txnPoolNodeSet, tconf,
-                   tdirWithPoolTxns, allPluginsPath,
-                   poolTxnStewardData, capsys):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
-                                              clientClass=TestClient)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-
+def test_node_load(looper, txnPoolNodeSet,
+                   sdk_pool_handle,
+                   sdk_wallet_client,
+                   capsys):
     client_batches = 150
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))
@@ -89,14 +81,9 @@ def test_node_load(looper, txnPoolNodeSet, tconf,
 @skipper
 def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                                    disable_node_monitor_config, looper,
-                                   txnPoolNodeSet, tdirWithPoolTxns,
-                                   allPluginsPath, poolTxnStewardData, capsys):
+                                   txnPoolNodeSet, capsys,
+                                   sdk_pool_handle, sdk_wallet_client):
     # One of the reason memory grows is because spylog grows
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
-                                              clientClass=TestClient)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
 
     client_batches = 300
     txns_per_batch = 25
@@ -122,9 +109,8 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
 
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         t = perf_counter() - s
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
@@ -161,23 +147,18 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
             sd = tolerance_factor * pstdev(time_log)
             assert m > t or abs(t - m) <= sd, '{} {}'.format(abs(t - m), sd)
         time_log.append(t)
-        # Since client checks inbox for sufficient replies, clear inbox so that
-        #  it takes constant time to check replies for each batch
-        client.inBox.clear()
-        client.txnLog.reset()
 
 
 @skipper
-def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
-                             tdirWithPoolTxns, allPluginsPath,
-                             poolTxnStewardData, looper, client1, wallet1,
-                             capsys):
+def test_node_load_after_add(sdk_new_node_caught_up, txnPoolNodeSet,
+                             looper, sdk_pool_handle,
+                             sdk_wallet_client, capsys):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
     :return:
     """
-    new_node = newNodeCaughtUp
+    new_node = sdk_new_node_caught_up
     logger.debug("Sending requests")
 
     # Here's where we apply some load
@@ -185,29 +166,30 @@ def test_node_load_after_add(newNodeCaughtUp, txnPoolNodeSet, tconf,
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))
 
     logger.debug("Starting the stopped node, {}".format(new_node))
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
 
 @skipper
-def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
-                                             tconf, looper, client1, wallet1,
+def test_node_load_after_add_then_disconnect(sdk_new_node_caught_up, txnPoolNodeSet,
+                                             tconf, looper, sdk_pool_handle,
+                                             sdk_wallet_client,
                                              tdirWithPoolTxns, allPluginsPath,
-                                             poolTxnStewardData, capsys):
+                                             capsys):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
     :return:
     """
-    new_node = newNodeCaughtUp
+    new_node = sdk_new_node_caught_up
     with capsys.disabled():
         print("Stopping node {} with pool ledger size {}".
               format(new_node, new_node.poolManager.txnSeqNo))
@@ -218,9 +200,8 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
     txns_per_batch = 10
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))
@@ -254,7 +235,8 @@ def test_node_load_after_add_then_disconnect(newNodeCaughtUp, txnPoolNodeSet,
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
                          customTimeout=timeout)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 5)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
 
@@ -269,14 +251,11 @@ def test_nodestack_contexts_are_discrete(txnPoolNodeSet):
 
 @skipper
 def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
-                                    tdirWithPoolTxns, allPluginsPath,
-                                    poolTxnStewardData, capsys):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
-                                              clientClass=TestClient)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-
+                                    allPluginsPath,
+                                    tdirWithPoolTxns,
+                                    sdk_pool_handle,
+                                    sdk_wallet_client,
+                                    capsys):
     nodes = txnPoolNodeSet
     x = nodes[-1]
 
@@ -291,9 +270,8 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
     txns_per_batch = 10
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))
@@ -310,17 +288,9 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
 def test_node_load_after_one_node_drops_all_msgs(
         looper,
         txnPoolNodeSet,
-        tconf,
-        tdirWithPoolTxns,
-        allPluginsPath,
-        poolTxnStewardData,
+        sdk_pool_handle,
+        sdk_wallet_client,
         capsys):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              tdirWithPoolTxns,
-                                              clientClass=TestClient)
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-
     nodes = txnPoolNodeSet
     x = nodes[-1]
 
@@ -337,9 +307,8 @@ def test_node_load_after_one_node_drops_all_msgs(
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                            txns_per_batch,
-                                            override_timeout_limit=True)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                  sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))

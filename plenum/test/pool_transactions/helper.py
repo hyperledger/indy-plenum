@@ -5,6 +5,7 @@ from indy.ledger import build_node_request, build_nym_request, build_get_txn_req
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
@@ -27,6 +28,14 @@ from plenum.test.test_node import TestNode, \
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
+from stp_core.common.log import getlogger
+from indy.error import ErrorCode, IndyError
+
+
+logger = getlogger()
+
+
+REFRESH_TRY_COUNT = 4
 
 
 def new_client_request(role, name, creatorWallet):
@@ -447,6 +456,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
     # waitng for replies
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
+    sdk_pool_refresh(looper, sdk_pool_handle)
     return reply
 
 
@@ -459,7 +469,6 @@ def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
 def sdk_pool_refresh(looper, sdk_pool_handle):
     looper.loop.run_until_complete(
         refresh_pool_ledger(sdk_pool_handle))
-
 
 def sdk_build_get_txn_request(looper, steward_did, data):
     request = looper.loop.run_until_complete(
@@ -503,7 +512,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               steward_wallet, sdk_pool_handle)
     return restartedNode
 
 

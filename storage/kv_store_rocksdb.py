@@ -34,32 +34,26 @@ class KeyValueStorageRocksdb(KeyValueStorage):
         return self._db_path
 
     def put(self, key, value):
-        if isinstance(key, str):
-            key = key.encode()
-        if isinstance(value, str):
-            value = value.encode()
+        key = self.to_byte_repr(key)
+        value = self.to_byte_repr(value)
         self._db.put(key, value)
 
     def get(self, key):
-        if isinstance(key, str):
-            key = key.encode()
+        key = self.to_byte_repr(key)
         vv = self._db.get(key)
         if vv is None:
             raise KeyError
         return vv
 
     def remove(self, key):
-        if isinstance(key, str):
-            key = key.encode()
+        key = self.to_byte_repr(key)
         self._db.delete(key)
 
     def setBatch(self, batch: Iterable[Tuple]):
         b = rocksdb.WriteBatch()
         for key, value in batch:
-            if isinstance(key, str):
-                key = key.encode()
-            if isinstance(value, str):
-                value = value.encode()
+            key = self.to_byte_repr(key)
+            value = self.to_byte_repr(value)
             b.put(key, value)
         self._db.write(b, sync=False)
 
@@ -77,20 +71,33 @@ class KeyValueStorageRocksdb(KeyValueStorage):
         self.open()
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
+        start = self.to_byte_repr(start) if start is not None else None
+        end = self.to_byte_repr(end) if end is not None else None
+
+        #  TODO: Figure out why this does not work
+        # opts = {}
+        # if start:
+        #     opts['iterate_lower_bound'] = start
+        # if end:
+        #     opts['iterate_upper_bound'] = end
+        # if not include_value:
+        #     itr = self._db.iterkeys(opts)
+        # else:
+        #     itr = self._db.iteritems(opts)
+
         if not include_value:
             itr = self._db.iterkeys()
         else:
             itr = self._db.iteritems()
 
-        if start and isinstance(start, int):
-            start = str(start)
-        if start and isinstance(start, str):
-            start = start.encode()
-
         if start:
             itr.seek(start)
         else:
             itr.seek_to_first()
+
+        if end:
+            itr = self._new_wrapped_iterator(itr, end)
+
         return itr
 
     def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
@@ -101,10 +108,34 @@ class KeyValueStorageRocksdb(KeyValueStorage):
         return True
 
     def has_key(self, key):
-        if isinstance(key, str):
-            key = key.encode()
+        key = self.to_byte_repr(key)
         return self._db.key_may_exist(key)[0]
 
     @property
     def closed(self):
         return self._db is None
+
+    @staticmethod
+    def _new_wrapped_iterator(itr, upper_bound):
+        # Takes Rocksdb iterator and an upper bound and returns another
+        # iterator which goes till the upper bound (inclusive)
+        return WrappingIter(itr, upper_bound)
+
+
+class WrappingIter:
+    def __init__(self, iterator, upper_bound):
+        self.iterator = iterator
+        self.upper_bound = upper_bound
+        self.reached_end = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.reached_end is True:
+            raise StopIteration
+        item = next(self.iterator)
+        key = item[0] if isinstance(item, tuple) else item
+        if key == self.upper_bound:
+            self.reached_end = True
+        return item

@@ -11,15 +11,17 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'conflicting address', 'unable to send message',
              'got error while verifying message']
 
+TestRunningTimeLimitSec = 200
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
 def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
-                               poolTxnData, poolTxnStewardNames, tconf, tdir):
+                               poolTxnData, poolTxnStewardNames, tconf, tdir,
+                               sdk_pool_handle, sdk_wallet_stewards):
     changeNodeHa(looper,
                  txnPoolNodeSet,
                  tdirWithClientPoolTxns,
-                 poolTxnData,
-                 poolTxnStewardNames,
                  tconf,
                  shouldBePrimary=True,
-                 tdir=tdir)
+                 tdir=tdir,
+                 sdk_pool_handle=sdk_pool_handle,
+                 sdk_wallet_stewards=sdk_wallet_stewards)

@@ -273,7 +273,7 @@ class Propagator:
             # to move ahead
             self.forward(request)
         else:
-            logger.debug("{} not forwarding request {} to its replicas "
+            logger.trace("{} not forwarding request {} to its replicas "
                          "since {}".format(self, request, cannot_reason_msg))
 
     def request_propagates(self, req_keys):

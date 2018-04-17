@@ -7,10 +7,11 @@ import logging
 baseDir = os.getcwd()
 
 # Log configuration
-logRotationWhen = 'D'
+logRotationWhen = 'W6'
 logRotationInterval = 1
-logRotationBackupCount = 10
+logRotationBackupCount = 50
 logRotationMaxBytes = 100 * 1024 * 1024
+logRotationCompress = True
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 
@@ -34,7 +35,7 @@ KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
 ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5      # seconds
-ZMQ_INTERNAL_QUEUE_SIZE = 0  # messages (0 - no limit)
+ZMQ_INTERNAL_QUEUE_SIZE = 10000  # messages (0 - no limit)
 
 
 # All messages exceeding the limit will be rejected without processing
