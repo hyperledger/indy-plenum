@@ -54,7 +54,7 @@ setup(
                       'prompt_toolkit==0.57', 'pygments',
                       'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip==9.0.3',
+                      'sortedcontainers==1.5.7', 'psutil', 'pip<10.0.0',
                       'portalocker==0.5.7', 'pyzmq', 'libnacl==1.6.1',
                       'six==1.11.0', 'psutil', 'intervaltree',
                       'msgpack-python==0.4.6', 'indy-crypto==0.4.0',
