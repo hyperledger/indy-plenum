@@ -117,7 +117,7 @@ def test_6th_node_join_after_view_change_by_master_restart(
 
         timeout = waits.expectedPoolCatchupTime(nodeCount=len(pool_of_nodes))
         for node in pool_of_nodes:
-            looper.run(eventually(catchuped, node, timeout=2 * timeout))
+            looper.run(eventually(catchuped, node, timeout=3 * timeout))
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 2)
     new_psi_node = add_new_node(looper,
