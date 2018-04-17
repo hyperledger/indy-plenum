@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, re, gzip, yaml
+import os, sys, re, gzip, lzma, yaml
 from typing import Iterable
 from collections import namedtuple
 from datetime import datetime, timedelta
@@ -155,9 +155,14 @@ def _parse_messages(f, node):
 
 def messages_in_log(log):
     print("Processing {}...".format(log.filename))
-    open_fn = open
+    
     if log.filename.endswith(".gz"):
         open_fn = gzip.open
+    elif log.filename.endswith(".xz"):
+        open_fn = lzma.open
+    else:
+        open_fn = open
+
     with open_fn(log.filename, "rt") as f:
         if log.rule["only_timestamped"]:
             for message in _parse_messages(f, log.node):
