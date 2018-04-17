@@ -11,31 +11,26 @@ logger = getlogger()
 
 whitelist = ['public key from disk', 'verification key from disk',
              'doesnt have enough info to connect']
+nodeCount = 5
 
 
 # noinspection PyIncorrectDocstring
-def testKeyShareParty(tdir_for_func, tconf_for_func):
+def testKeyShareParty(looper, txnPoolNodeSet, tdir_for_func, tconf_for_func):
     """
     connections to all nodes should be successfully established when key
     sharing is enabled.
     """
-    nodeReg = genNodeReg(5)
 
     logger.debug("-----sharing keys-----")
-    with TestNodeSet(tconf_for_func, nodeReg=nodeReg,
-                     tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
-            looper.run(checkNodesConnected(nodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     logger.debug("-----key sharing done, connect after key sharing-----")
-    with TestNodeSet(tconf_for_func, nodeReg=nodeReg,
-                     tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as loop:
-            loop.run(checkNodesConnected(nodeSet),
-                     msgAll(nodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet),
+             msgAll(txnPoolNodeSet))
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason='get rid of registry pool')
 def testConnectWithoutKeySharingFails(tdir_for_func, tconf_for_func):
     """
     attempts at connecting to nodes when key sharing is disabled must fail

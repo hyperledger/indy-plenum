@@ -873,6 +873,30 @@ def txnPoolNodeSet(node_config_helper_class,
 
 
 @pytest.fixture(scope="module")
+def txnPoolNodeSetNotStarted(node_config_helper_class,
+                             patchPluginManager,
+                             txnPoolNodesLooper,
+                             tdirWithPoolTxns,
+                             tdirWithDomainTxns,
+                             tdir,
+                             tconf,
+                             poolTxnNodeNames,
+                             allPluginsPath,
+                             tdirWithNodeKeepInited,
+                             testNodeClass,
+                             do_post_node_creation):
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
+            nodes.append(node)
+        yield nodes
+
+
+@pytest.fixture(scope="module")
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:

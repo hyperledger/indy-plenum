@@ -53,7 +53,7 @@ if __name__ == "__main__":
     cliha = HA("0.0.0.0", ncliport)
     config_helper = NodeConfigHelper(nname, config)
 
-    node = Node(nname, nodeRegistry=None,
+    node = Node(nname,
                 ha=ha,
                 cliha=cliha,
                 config_helper=config_helper,
