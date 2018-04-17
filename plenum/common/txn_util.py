@@ -137,5 +137,8 @@ def sdk_reqToTxn(sdk_req, cons_time=None):
         f.SIGS.nm: data.get(f.SIGS.nm, None),
         TXN_TIME: cons_time or data.get(TXN_TIME)
     }
+    if data.get(f.FEES.nm):
+        res[f.FEES.nm] = data[f.FEES.nm]
+
     res.update(data[OPERATION])
     return res

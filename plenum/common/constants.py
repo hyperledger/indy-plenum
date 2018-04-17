@@ -192,6 +192,10 @@ class NodeHooks(UniqueSet):
     POST_REQUEST_COMMIT = 10
     PRE_SEND_REPLY = 11
     POST_SEND_REPLY = 12
+    POST_BATCH_CREATED = 13
+    POST_BATCH_REJECTED = 14
+    PRE_BATCH_COMMITTED = 15
+    POST_BATCH_COMMITTED = 16
 
 
 class ReplicaHooks(UniqueSet):
@@ -199,9 +203,9 @@ class ReplicaHooks(UniqueSet):
     CREATE_PR = 2
     CREATE_CM = 3
     CREATE_ORD = 4
-    RECV_PPR = 5
-    RECV_PR = 6
-    RECV_CM = 7
+    APPLY_PPR = 5
+    VALIDATE_PR = 6
+    VALIDATE_CM = 7
 
 
 INVALID_SEQ_NO = -23

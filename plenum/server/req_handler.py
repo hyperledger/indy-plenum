@@ -58,14 +58,8 @@ class RequestHandler:
         :return: list of committed transactions
         """
 
-        (seqNoStart, seqNoEnd), committedTxns = \
-            self.ledger.commitTxns(txnCount)
-        stateRoot = base58.b58decode(stateRoot.encode())
-        # Probably the following assertion fail should trigger catchup
-        assert self.ledger.root_hash == txnRoot, '{} {}'.format(
-            self.ledger.root_hash, txnRoot)
-        self.state.commit(rootHash=stateRoot)
-        return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
+        return self._commit(self.ledger, self.state, txnCount, stateRoot,
+                            txnRoot, ppTime)
 
     def onBatchCreated(self, state_root):
         pass
@@ -82,6 +76,19 @@ class RequestHandler:
     @staticmethod
     def transform_txn_for_ledger(txn):
         return txn
+
+    @staticmethod
+    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime,
+                ignore_txn_root_check=False):
+        (seqNoStart, seqNoEnd), committedTxns = ledger.commitTxns(txnCount)
+        stateRoot = base58.b58decode(stateRoot.encode()) if isinstance(
+            stateRoot, str) else stateRoot
+        if not ignore_txn_root_check:
+            # Probably the following assertion fail should trigger catchup
+            assert ledger.root_hash == txnRoot, '{} {}'.format(ledger.root_hash,
+                                                               txnRoot)
+        state.commit(rootHash=stateRoot)
+        return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
     @property
     def valid_txn_types(self) -> set:
