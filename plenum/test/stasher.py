@@ -47,7 +47,7 @@ class Stasher:
             for rx in list(self.queue):
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
-                    logger.debug("{} stashing message {} for "
+                    logger.info("{} stashing message {} for "
                                  "{} seconds".
                                  format(self.name, rx, secondsToDelay))
                     self.delayeds.append(StasherDelayed(item=rx, timestamp=age + secondsToDelay, rule=tester.__name__))
@@ -75,7 +75,7 @@ class Stasher:
                 else:
                     msg = '({:.0f} milliseconds overdue)'.format(
                         (age - d.timestamp) * 1000)
-                logger.debug(
+                logger.info(
                     "{} unstashing message {} {}".
                         format(self.name, d.item, msg))
                 self.queue.appendleft(d.item)

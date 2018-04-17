@@ -999,7 +999,10 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
-    looper.loop.run_until_complete(close_pool_ledger(pool_handle))
+    try:
+        looper.loop.run_until_complete(close_pool_ledger(pool_handle))
+    except Exception as e:
+        logger.debug("Unhandled exception: {}".format(e))
 
 
 async def _gen_wallet_handler(pool_name, wallet_name):

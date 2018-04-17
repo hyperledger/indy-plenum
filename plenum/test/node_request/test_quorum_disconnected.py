@@ -1,6 +1,7 @@
 import pytest
 import json
 
+from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test.node_request.helper import nodes_by_rank
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
@@ -34,7 +35,7 @@ def test_6_nodes_pool_cannot_reach_quorum_with_2_disconnected(
         current_node_set.remove(node)
 
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(PoolLedgerTimeoutException):
         sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
     check_request_is_not_returned_to_nodes(
         txnPoolNodeSet, sdk_json_to_request_object(json.loads(reqs[0])))

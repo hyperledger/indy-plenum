@@ -8,6 +8,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
+from plenum.common.exceptions import PoolLedgerTimeoutException
 
 TestRunningTimeLimitSec = 200
 
@@ -51,7 +52,7 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(PoolLedgerTimeoutException):
         req_res = sdk_get_replies(looper, sdk_reqs3, timeout=timeout)
         sdk_check_reply(req_res[0])
 
@@ -64,7 +65,7 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(PoolLedgerTimeoutException):
         req_res = sdk_get_replies(looper, sdk_reqs4, timeout=timeout)
         sdk_check_reply(req_res[0])
 
@@ -76,7 +77,7 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
                                          sdk_pool_handle,
                                          sdk_wallet_client,
                                          1)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(PoolLedgerTimeoutException):
         req_res = sdk_get_replies(looper, sdk_reqs5, timeout=timeout)
         sdk_check_reply(req_res[0])
 
