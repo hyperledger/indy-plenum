@@ -1066,7 +1066,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         prepare = Prepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
@@ -1636,7 +1636,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash)
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
 
         # TODO: Should not order or add to checkpoint while syncing
