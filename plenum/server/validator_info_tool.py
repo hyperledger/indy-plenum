@@ -225,9 +225,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __config_info(self):
-        main_config = ""
-        network_config = ""
-        user_config = ""
+        main_config = {}
+        network_config = {}
+        user_config = {}
+
         return {
             "Config": {
                 "Main_config": main_config,
@@ -279,6 +280,7 @@ class ValidatorNodeInfoTool:
                 stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(replica.prePreparesPendingPrevPP.itervalues[-1])
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
+        return res
 
     @property
     @none_on_fail
@@ -318,8 +320,8 @@ class ValidatorNodeInfoTool:
                 "Mode": self._prepare_for_json(self._node.mode.name),
                 "Metrics": self._prepare_for_json(metrics),
                 "Root_hashes": self._prepare_for_json(root_hashes),
-                "Uncommited_root_hashes": self._prepare_for_json(uncommited_root_hashes),
-                "Uncommited_txns": self._prepare_for_json(uncommited_txns),
+                "Uncommitted_root_hashes": self._prepare_for_json(uncommited_root_hashes),
+                "Uncommitted_txns": self._prepare_for_json(uncommited_txns),
                 "View_change_status": {
                     "View_No": self._prepare_for_json(self._node.viewNo),
                     "VC_in_progress": self._prepare_for_json(self._node.view_changer.view_change_in_progress),
@@ -327,14 +329,14 @@ class ValidatorNodeInfoTool:
                     "VCDone_queue": self._prepare_for_json(self._node.view_changer._view_change_done)
                 },
                 "Catchup_status": {
-                    "Ledgers_statuses": self._prepare_for_json(ledger_statuses),
+                    "Ledger_statuses": self._prepare_for_json(ledger_statuses),
                     "Received_LedgerStatus": "",
                     "Waiting_consistency_proof_msgs": self._prepare_for_json(waiting_cp),
-                    "Number txns_in_catchup": self._prepare_for_json(num_txns_in_catchup),
+                    "Number_txns_in_catchup": self._prepare_for_json(num_txns_in_catchup),
                     "Last_txn_3PC_keys": self._prepare_for_json(last_txn_3PC_keys),
                 },
                 "Count_of_replicas": self._prepare_for_json(len(self._node.replicas)),
-                "Replicas_status": self._prepare_for_json(replicas_status),
+                "Replicas_status": replicas_status,
             }
         }
 
