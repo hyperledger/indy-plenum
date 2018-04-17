@@ -86,6 +86,7 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
+UnorderedCheckFreq = 60
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
