@@ -4,8 +4,7 @@ import pytest
 
 from random import randint
 
-from plenum.common.constants import INVALID_LEDGER_ID, \
-    INVALID_SEQ_NO, DATA
+from plenum.common.constants import DATA
 from plenum.common.exceptions import RequestNackedException
 from plenum.test.pool_transactions.helper import \
     sdk_sign_and_send_prepared_request, prepare_nym_request, \
@@ -16,6 +15,10 @@ from plenum.common.util import getMaxFailures, randomString
 
 c_delay = 10
 fValue = getMaxFailures(4)
+
+
+INVALID_LEDGER_ID = 5908
+INVALID_SEQ_NO = -23
 
 
 def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
