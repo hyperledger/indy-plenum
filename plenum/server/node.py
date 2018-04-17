@@ -2082,7 +2082,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
-                                         request.reqId, ex), frm)
+                                         request.reqId, str(ex)), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
