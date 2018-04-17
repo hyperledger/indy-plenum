@@ -15,8 +15,9 @@ from plenum.test import waits
 from plenum.test.helper import check_sufficient_replies_received, \
     sdk_send_random_and_check
 # noinspection PyUnresolvedReferences
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
+    reconnect_node_and_ensure_connected
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
@@ -178,6 +179,99 @@ def test_validator_info_file_handle_fails(info,
     assert latest_info['pool']['unreachable']['count'] is None
     assert latest_info['pool']['unreachable']['list'] is None
     assert latest_info['pool']['total-count'] is None
+
+
+def test_hardware_info_section(info):
+    assert info['Hardware']
+    assert info['Hardware']['HDD_all']
+    assert info['Hardware']['RAM_all_free']
+    assert info['Hardware']['RAM_used_by_node']
+    assert info['Hardware']['HDD_used_by_node']
+
+
+def test_software_info_section(info):
+    assert info['Software']
+    assert info['Software']['OS_version']
+    assert info['Software']['Installed_packages']
+    # TODO uncomment this, when this field would be implemented
+    # assert info['Software']['Indy_packages']
+
+
+def test_node_info_section(info):
+    assert info['Node info']
+    assert info['Node info']['Catchup_status']
+    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']
+    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['0']
+    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['1']
+    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['2']
+    assert info['Node info']['Catchup_status']['Ledger_statuses']
+    assert info['Node info']['Catchup_status']['Ledger_statuses']['0']
+    assert info['Node info']['Catchup_status']['Ledger_statuses']['1']
+    assert info['Node info']['Catchup_status']['Ledger_statuses']['2']
+    assert info['Node info']['Catchup_status']['Number_txns_in_catchup']
+    # TODO uncomment this, when this field would be implemented
+    # assert info['Node info']['Catchup_status']['Received_LedgerStatus']
+    assert info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert '0' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert '1' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert '2' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert info['Node info']['Count_of_replicas']
+    # TODO uncomment this, when this field would be implemented
+    # assert info['Node info']['Last N pool ledger txns']
+    assert info['Node info']['Metrics']
+    assert info['Node info']['Mode']
+    assert info['Node info']['Name']
+    assert info['Node info']['Replicas_status']
+    assert info['Node info']['Root_hashes']
+    assert info['Node info']['Root_hashes']['0']
+    assert info['Node info']['Root_hashes']['1']
+    assert info['Node info']['Root_hashes']['2']
+    assert 'Uncommitted_root_hashes' in info['Node info']
+    assert 'Uncommitted_txns' in info['Node info']
+    assert info['Node info']['View_change_status']
+    assert 'IC_queue'       in info['Node info']['View_change_status']
+    assert 'VCDone_queue'   in info['Node info']['View_change_status']
+    assert 'VC_in_progress' in info['Node info']['View_change_status']
+    assert 'View_No'        in info['Node info']['View_change_status']
+
+
+def test_number_txns_in_catchup_valid(looper,
+                                      txnPoolNodeSet,
+                                      node,
+                                      sdk_pool_handle,
+                                      sdk_wallet_steward):
+    num_txns = 5
+
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, num_txns)
+    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[-1:])
+    latest_info = node._info_tool.info
+    assert latest_info['Node info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
+
+
+
+
+def test_pool_info_section(info):
+    assert info['Pool info']
+    assert 'Blacklisted_nodes' in info['Pool info']
+    assert info['Pool info']['Quorums']
+    assert info['Pool info']['Reachable_nodes']
+    assert 'Read_only' in info['Pool info']
+    assert 'Suspicious_nodes' in info['Pool info']
+    assert info['Pool info']['Total_nodes']
+    assert 'Unreachable_nodes' in info['Pool info']
+    assert info['Pool info']['f_value']
+
+
+def test_config_info_section(info):
+    assert 'Main_config' in info['Config']
+    assert 'Network_config' in info['Config']
+    assert 'User_config' in info['Config']
+
+
+def test_protocol_info_section(info):
+    assert 'Protocol' in info
 
 
 @pytest.fixture(scope='module')
