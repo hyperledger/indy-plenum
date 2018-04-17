@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional
 
 from plenum.common.constants import TXN_TYPE
@@ -34,7 +35,7 @@ class ReqAuthenticator:
                 return set()
             if not authenticator.is_write(typ):
                 continue
-            rv = authenticator.authenticate(req_data) or set()
+            rv = authenticator.authenticate(deepcopy(req_data)) or set()
             identifiers.update(rv)
 
         if not identifiers:

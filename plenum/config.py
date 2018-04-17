@@ -249,4 +249,4 @@ BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
 
 PLUGIN_ROOT = 'plenum.server.plugin'
-ENABLED_PLUGINS = []
+ENABLED_PLUGINS = ['token', 'fees']
