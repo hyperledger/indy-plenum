@@ -11,8 +11,7 @@ RUN apt-get update -y && apt-get install -y \
 	python3-pip \
 	python-setuptools \
 	python3-nacl
-RUN pip3 install -U \ 
-	pip \ 
+RUN pip3 install -U \
 	setuptools \
 	pep8 \
 	pep8-naming \
