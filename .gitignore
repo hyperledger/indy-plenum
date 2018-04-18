@@ -102,3 +102,7 @@ target/
 
 # Hidden files
 .*
+
+#plugins
+/plenum/server/plugin/fees/*
+/plenum/server/plugin/token/*
