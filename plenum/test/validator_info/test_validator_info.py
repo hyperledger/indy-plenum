@@ -276,6 +276,8 @@ def test_config_info_section(info):
     assert 'Main_config' in info['Config']
     assert 'Network_config' in info['Config']
     assert 'User_config' in info['Config']
+    assert info['Config']['Main_config']
+    assert info['Config']['Network_config']
 
 
 def test_protocol_info_section(info):
