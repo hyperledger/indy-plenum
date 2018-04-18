@@ -21,7 +21,6 @@ NODE_CONTROL_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node-control.service"
 
 
 def none_on_fail(func):
-
     def wrap(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -29,6 +28,7 @@ def none_on_fail(func):
             logger.debug('Validator info tool fails to '
                          'execute {} because {}'.format(func.__name__, repr(ex)))
             return None
+
     return wrap
 
 
@@ -247,11 +247,11 @@ class ValidatorNodeInfoTool:
     def _get_genesis_txns(self):
         genesis_txns = {}
         genesis_pool_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
-                                              self._node.config.poolTransactionsFile))
+                                                               self._node.config.poolTransactionsFile))
         genesis_domain_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
-                                                self._node.config.domainTransactionsFile))
+                                                                 self._node.config.domainTransactionsFile))
         genesis_config_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
-                                                self._node.config.configTransactionsFile))
+                                                                 self._node.config.configTransactionsFile))
         if os.path.exists(genesis_pool_txns_path):
             genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
         if os.path.exists(genesis_domain_txns_path):
@@ -281,11 +281,10 @@ class ValidatorNodeInfoTool:
                                              self._node.config.USER_CONFIG_FILE)
             user_config = self._cat_file(path_to_user_conf)
 
-        return {
-                "Main_config": main_config,
+        return {"Main_config": main_config,
                 "Network_config": network_config,
                 "User_config": user_config,
-        }
+                }
 
     def _get_indy_env_file(self):
         indy_env = ""
@@ -298,7 +297,7 @@ class ValidatorNodeInfoTool:
     def _get_node_control_file(self):
         node_control = ""
         path_to_node_control = os.path.join(self._node.config.GENERAL_CONFIG_DIR,
-                                        NODE_CONTROL_CONFIG_FILE)
+                                            NODE_CONTROL_CONFIG_FILE)
         if os.path.exists(path_to_node_control):
             node_control = self._cat_file(path_to_node_control)
         return node_control
@@ -317,7 +316,6 @@ class ValidatorNodeInfoTool:
 
     def _get_iptables_config(self):
         return []
-
 
     @property
     @none_on_fail
@@ -339,7 +337,6 @@ class ValidatorNodeInfoTool:
             self._get_iptables_config())
 
         return configuration
-
 
     @property
     @none_on_fail
@@ -381,7 +378,8 @@ class ValidatorNodeInfoTool:
             stashed_txns = {}
             stashed_txns["Stashed_checkoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
             if replica.prePreparesPendingPrevPP:
-                stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(replica.prePreparesPendingPrevPP.itervalues[-1])
+                stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(
+                    replica.prePreparesPendingPrevPP.itervalues[-1])
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res

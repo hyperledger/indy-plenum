@@ -2,6 +2,8 @@ import base58
 import pytest
 import re
 
+import time
+
 from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
     CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
@@ -21,6 +23,7 @@ TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
 PERIOD_SEC = 1
 nodeCount = 5
+MAX_TIME_FOR_INFO_BUILDING = 2
 
 
 def test_validator_info_file_schema_is_valid(info):
@@ -249,6 +252,12 @@ def test_config_info_section(info):
     assert 'indy-node.service' in info['Configuration']
     assert 'indy-node-control.service' in info['Configuration']
     assert 'iptables_config' in info['Configuration']
+
+def test_build_node_info_time(node):
+    after = time.perf_counter()
+    node._info_tool.info
+    before = time.perf_counter()
+    assert before - after < MAX_TIME_FOR_INFO_BUILDING
 
 
 def test_protocol_info_section(info):
