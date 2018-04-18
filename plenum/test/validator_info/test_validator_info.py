@@ -273,11 +273,17 @@ def test_pool_info_section(info):
 
 
 def test_config_info_section(info):
-    assert 'Main_config' in info['Config']
-    assert 'Network_config' in info['Config']
-    assert 'User_config' in info['Config']
-    assert info['Config']['Main_config']
-    assert info['Config']['Network_config']
+    assert 'Main_config' in info['Configuration']['Config']
+    assert 'Network_config' in info['Configuration']['Config']
+    assert 'User_config' in info['Configuration']['Config']
+    assert info['Configuration']['Config']['Main_config']
+    assert info['Configuration']['Config']['Network_config']
+    assert info['Configuration']['Genesis_txns']
+    assert info['Configuration']['indy.env']
+    assert info['Configuration']['node_control.conf']
+    assert info['Configuration']['indy-node.service']
+    assert info['Configuration']['indy-node-control.service']
+    assert info['Configuration']['iptables_config']
 
 
 def test_protocol_info_section(info):
