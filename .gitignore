@@ -104,5 +104,4 @@ target/
 .*
 
 #plugins
-/plenum/server/plugin/fees/*
-/plenum/server/plugin/token/*
+plenum/server/plugin/*
