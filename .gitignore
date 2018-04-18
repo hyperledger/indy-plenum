@@ -78,6 +78,7 @@ dist/*/*
 
 # virtual environment
 include/
+venv/
 
 # cli command history file
 .*-cli-history
@@ -105,3 +106,4 @@ target/
 
 #plugins
 plenum/server/plugin/*
+
