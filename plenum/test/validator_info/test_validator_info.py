@@ -17,7 +17,7 @@ from plenum.test.helper import check_sufficient_replies_received, \
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
+    reconnect_node_and_ensure_connected, sdk_pool_refresh
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
@@ -237,12 +237,13 @@ def test_node_info_section(info):
 
 def test_number_txns_in_catchup_valid(looper,
                                       txnPoolNodeSet,
-                                      node,
                                       sdk_pool_handle,
                                       sdk_wallet_steward):
     num_txns = 5
-
+    node = txnPoolNodeSet[-1]
+    assert not node.has_master_primary
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
+    sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, num_txns)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[-1:])
