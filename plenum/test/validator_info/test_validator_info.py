@@ -13,7 +13,7 @@ from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test import waits
 from plenum.test.helper import check_sufficient_replies_received, \
-    sdk_send_random_and_check
+    sdk_send_random_and_check, checkViewNoForNodes
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
@@ -193,8 +193,7 @@ def test_software_info_section(info):
     assert info['Software']
     assert info['Software']['OS_version']
     assert info['Software']['Installed_packages']
-    # TODO uncomment this, when this field would be implemented
-    # assert info['Software']['Indy_packages']
+    assert info['Software']['Indy_packages']
 
 
 def test_node_info_section(info):
@@ -235,20 +234,28 @@ def test_node_info_section(info):
     assert 'View_No'        in info['Node info']['View_change_status']
 
 
-def test_number_txns_in_catchup_valid(looper,
-                                      txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_steward):
+def test_number_txns_in_catchup_and_vc_queue_valid(looper,
+                                                   txnPoolNodeSet,
+                                                   node,
+                                                   tconf,
+                                                   sdk_pool_handle,
+                                                   sdk_wallet_steward):
     num_txns = 5
-    node = txnPoolNodeSet[-1]
-    assert not node.has_master_primary
+    expected_view_no = 1
+    assert node.has_master_primary
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
+    looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet[1:], expected_view_no, retryWait=1, timeout=tconf.VIEW_CHANGE_TIMEOUT))
     sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, num_txns)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[-1:])
     latest_info = node._info_tool.info
     assert latest_info['Node info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
+    assert latest_info['Node info']['View_change_status']['View_No'] == expected_view_no
+    node_names = [n.name for n in txnPoolNodeSet[1:]]
+    for node_name in node_names:
+        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][0] == node.master_primary_name
+        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][1]
 
 
 
