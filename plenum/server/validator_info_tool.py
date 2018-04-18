@@ -7,6 +7,7 @@ import os
 import base58
 import subprocess
 
+from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
 
@@ -245,18 +246,18 @@ class ValidatorNodeInfoTool:
 
     def _get_genesis_txns(self):
         genesis_txns = {}
-        genesis_pool_txns_path = os.path.join(self._node.config.GENESIS_DIR,
-                                                self._node.config.poolTransactionsFile)
-        genesis_domain_txns_path = os.path.join(self._node.config.GENESIS_DIR,
-                                                self._node.config.domainTransactionsFile)
-        genesis_config_txns_path = os.path.join(self._node.config.GENESIS_DIR,
-                                                self._node.config.configTransactionsFile)
+        genesis_pool_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
+                                              self._node.config.poolTransactionsFile))
+        genesis_domain_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
+                                                self._node.config.domainTransactionsFile))
+        genesis_config_txns_path = os.path.join(genesis_txn_path(self._node.genesis_dir,
+                                                self._node.config.configTransactionsFile))
         if os.path.exists(genesis_pool_txns_path):
             genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
         if os.path.exists(genesis_domain_txns_path):
-            genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
+            genesis_txns['domain_txns'] = self._cat_file(genesis_domain_txns_path)
         if os.path.exists(genesis_config_txns_path):
-            genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
+            genesis_txns['config_txns'] = self._cat_file(genesis_config_txns_path)
 
         return genesis_txns
 
@@ -301,6 +302,21 @@ class ValidatorNodeInfoTool:
         if os.path.exists(path_to_node_control):
             node_control = self._cat_file(path_to_node_control)
         return node_control
+
+    def _get_indy_node_service(self):
+        service_file = []
+        if os.path.exists(INDY_NODE_SERVICE_FILE_PATH):
+            service_file = self._cat_file(INDY_NODE_SERVICE_FILE_PATH)
+        return service_file
+
+    def _get_node_control_service(self):
+        service_file = []
+        if os.path.exists(NODE_CONTROL_SERVICE_FILE_PATH):
+            service_file = self._cat_file(NODE_CONTROL_SERVICE_FILE_PATH)
+        return service_file
+
+    def _get_iptables_config(self):
+        return []
 
 
     @property
@@ -436,18 +452,3 @@ class ValidatorNodeInfoTool:
                 json.dump(self.info, fd)
             except Exception as ex:
                 logger.error("Error while dumping into json: {}".format(repr(ex)))
-
-    def _get_indy_node_service(self):
-        service_file = []
-        if os.path.exists(INDY_NODE_SERVICE_FILE_PATH):
-            service_file = self._cat_file(INDY_NODE_SERVICE_FILE_PATH)
-        return service_file
-
-    def _get_node_control_service(self):
-        service_file = []
-        if os.path.exists(NODE_CONTROL_SERVICE_FILE_PATH):
-            service_file = self._cat_file(NODE_CONTROL_SERVICE_FILE_PATH)
-        return service_file
-
-    def _get_iptables_config(self):
-        return []

@@ -1,6 +1,3 @@
-import json
-import os
-
 import base58
 import pytest
 import re
@@ -13,11 +10,9 @@ from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test import waits
 from plenum.test.helper import check_sufficient_replies_received, \
-    sdk_send_random_and_check, checkViewNoForNodes
-# noinspection PyUnresolvedReferences
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame, waitNodeDataEquality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected, sdk_pool_refresh
+    sdk_send_random_and_check
+from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
@@ -92,10 +87,12 @@ def test_validator_info_file_response_version_field_valid(info):
     assert info['response-version'] == ValidatorNodeInfoTool.JSON_SCHEMA_VERSION
 
 
-def test_validator_info_file_timestamp_field_valid(load_latest_info,
-                                                   info):
+def test_validator_info_file_timestamp_field_valid(node,
+                                                   info,
+                                                   looper):
+    looper.runFor(2)
     assert re.match('\d{10}', str(info['timestamp']))
-    latest_info = load_latest_info()
+    latest_info = node._info_tool.info
     assert latest_info['timestamp'] > info['timestamp']
 
 
@@ -127,15 +124,14 @@ def test_validator_info_file_metrics_count_pool_field_valid(info):
     assert info['metrics']['transaction-count']['pool'] == nodeCount
 
 
-def test_validator_info_file_metrics_uptime_field_valid(load_latest_info,
+def test_validator_info_file_metrics_uptime_field_valid(node,
                                                         info):
     assert info['metrics']['uptime'] > 0
-    latest_info = load_latest_info()
+    latest_info = node._info_tool.info
     assert latest_info['metrics']['uptime'] > info['metrics']['uptime']
 
 
-def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPoolNodeSet,
-                                               load_latest_info):
+def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper, txnPoolNodeSet, node):
     assert info['pool']['reachable']['count'] == nodeCount
     assert info['pool']['reachable']['list'] == sorted(list(node.name for node in txnPoolNodeSet))
     assert info['pool']['unreachable']['count'] == 0
@@ -144,7 +140,7 @@ def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPool
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
     disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, txnPoolNodeSet, disconnected)
-    latest_info = load_latest_info()
+    latest_info = node._info_tool.info
 
     assert latest_info['pool']['reachable']['count'] == nodeCount - 1
     assert latest_info['pool']['reachable']['list'] == sorted(list(node.name for node in others))
@@ -154,10 +150,10 @@ def test_validator_info_file_pool_fields_valid(info, txnPoolNodesLooper, txnPool
 
 
 def test_validator_info_file_handle_fails(info,
-                                          node,
-                                          load_latest_info):
+                                          node):
+    node_instance  = node._info_tool._node
     node._info_tool._node = None
-    latest_info = load_latest_info()
+    latest_info = node._info_tool.info
 
     assert latest_info['alias'] is None
     # assert latest_info['bindings']['client']['ip'] is None
@@ -179,6 +175,7 @@ def test_validator_info_file_handle_fails(info,
     assert latest_info['pool']['unreachable']['count'] is None
     assert latest_info['pool']['unreachable']['list'] is None
     assert latest_info['pool']['total-count'] is None
+    node._info_tool._node = node_instance
 
 
 def test_hardware_info_section(info):
@@ -200,20 +197,14 @@ def test_node_info_section(info):
     assert info['Node info']
     assert info['Node info']['Catchup_status']
     assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']
-    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['0']
-    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['1']
-    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']['2']
+    assert len(info['Node info']['Catchup_status']['Last_txn_3PC_keys']) == 3
     assert info['Node info']['Catchup_status']['Ledger_statuses']
-    assert info['Node info']['Catchup_status']['Ledger_statuses']['0']
-    assert info['Node info']['Catchup_status']['Ledger_statuses']['1']
-    assert info['Node info']['Catchup_status']['Ledger_statuses']['2']
+    assert len(info['Node info']['Catchup_status']['Ledger_statuses']) == 3
     assert info['Node info']['Catchup_status']['Number_txns_in_catchup']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node info']['Catchup_status']['Received_LedgerStatus']
     assert info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
-    assert '0' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
-    assert '1' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
-    assert '2' in info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert len(info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']) == 3
     assert info['Node info']['Count_of_replicas']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node info']['Last N pool ledger txns']
@@ -222,9 +213,9 @@ def test_node_info_section(info):
     assert info['Node info']['Name']
     assert info['Node info']['Replicas_status']
     assert info['Node info']['Root_hashes']
-    assert info['Node info']['Root_hashes']['0']
-    assert info['Node info']['Root_hashes']['1']
-    assert info['Node info']['Root_hashes']['2']
+    assert info['Node info']['Root_hashes'][0]
+    assert info['Node info']['Root_hashes'][1]
+    assert info['Node info']['Root_hashes'][2]
     assert 'Uncommitted_root_hashes' in info['Node info']
     assert 'Uncommitted_txns' in info['Node info']
     assert info['Node info']['View_change_status']
@@ -232,32 +223,6 @@ def test_node_info_section(info):
     assert 'VCDone_queue'   in info['Node info']['View_change_status']
     assert 'VC_in_progress' in info['Node info']['View_change_status']
     assert 'View_No'        in info['Node info']['View_change_status']
-
-
-def test_number_txns_in_catchup_and_vc_queue_valid(looper,
-                                                   txnPoolNodeSet,
-                                                   node,
-                                                   tconf,
-                                                   sdk_pool_handle,
-                                                   sdk_wallet_steward):
-    num_txns = 5
-    expected_view_no = 1
-    assert node.has_master_primary
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node, stopNode=False)
-    looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet[1:], expected_view_no, retryWait=1, timeout=tconf.VIEW_CHANGE_TIMEOUT))
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, num_txns)
-    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node)
-    waitNodeDataEquality(looper, node, *txnPoolNodeSet[-1:])
-    latest_info = node._info_tool.info
-    assert latest_info['Node info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
-    assert latest_info['Node info']['View_change_status']['View_No'] == expected_view_no
-    node_names = [n.name for n in txnPoolNodeSet[1:]]
-    for node_name in node_names:
-        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][0] == node.master_primary_name
-        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][1]
-
-
 
 
 def test_pool_info_section(info):
@@ -279,11 +244,11 @@ def test_config_info_section(info):
     assert info['Configuration']['Config']['Main_config']
     assert info['Configuration']['Config']['Network_config']
     assert info['Configuration']['Genesis_txns']
-    assert info['Configuration']['indy.env']
-    assert info['Configuration']['node_control.conf']
-    assert info['Configuration']['indy-node.service']
-    assert info['Configuration']['indy-node-control.service']
-    assert info['Configuration']['iptables_config']
+    assert 'indy.env' in info['Configuration']
+    assert 'node_control.conf' in info['Configuration']
+    assert 'indy-node.service' in info['Configuration']
+    assert 'indy-node-control.service' in info['Configuration']
+    assert 'iptables_config' in info['Configuration']
 
 
 def test_protocol_info_section(info):
@@ -291,30 +256,8 @@ def test_protocol_info_section(info):
 
 
 @pytest.fixture(scope='module')
-def info(info_path):
-    return load_info(info_path)
-
-
-def load_info(path):
-    with open(path) as fd:
-        info = json.load(fd)
-    return info
-
-
-@pytest.fixture(scope='module')
-def info_path(patched_dump_info_period, txnPoolNodesLooper, txnPoolNodeSet, node):
-    path = os.path.join(node.node_info_dir, INFO_FILENAME)
-    txnPoolNodesLooper.runFor(patched_dump_info_period)
-    assert os.path.exists(path), '{} exists'.format(path)
-    return path
-
-
-@pytest.fixture(scope='module')
-def patched_dump_info_period(tconf):
-    old_period = tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
-    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = PERIOD_SEC
-    yield tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC
-    tconf.DUMP_VALIDATOR_INFO_PERIOD_SEC = old_period
+def info(node):
+    return node._info_tool.info
 
 
 @pytest.fixture(scope='module')
@@ -326,8 +269,8 @@ def node(txnPoolNodeSet):
 
 
 @pytest.fixture
-def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
-                                 client_and_wallet, info_path):
+def read_txn_and_get_latest_info(txnPoolNodesLooper,
+                                 client_and_wallet, node):
     client, wallet = client_and_wallet
 
     def read_wrapped(txn_type):
@@ -348,8 +291,7 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
             eventually(check_sufficient_replies_received,
                        client, req.identifier, req.reqId,
                        retryWait=1, timeout=timeout))
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
-        return load_info(info_path)
+        return node._info_tool.info
 
     return read_wrapped
 
@@ -358,24 +300,21 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
 def write_txn_and_get_latest_info(txnPoolNodesLooper,
                                   sdk_pool_handle,
                                   sdk_wallet_client,
-                                  patched_dump_info_period,
-                                  info_path):
+                                  node):
     def write_wrapped():
         sdk_send_random_and_check(txnPoolNodesLooper, range(nodeCount),
                                   sdk_pool_handle,
                                   sdk_wallet_client,
                                   1)
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
-        return load_info(info_path)
+        return node._info_tool.info
 
     return write_wrapped
 
 
 @pytest.fixture(scope="function")
-def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
+def load_latest_info(node):
     def wrapped():
-        txnPoolNodesLooper.runFor(patched_dump_info_period + 1)
-        return load_info(info_path)
+        return node._info_tool.info
 
     return wrapped
 
