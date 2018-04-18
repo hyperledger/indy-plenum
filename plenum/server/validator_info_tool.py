@@ -213,7 +213,6 @@ class ValidatorNodeInfoTool:
     def __software_info(self):
         os_version = self._prepare_for_json(platform.platform())
         installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
-        indy_packages = ""
         ret = subprocess.run("dpkg-query --list | grep indy",
                              shell=True,
                              check=True,
@@ -231,12 +230,36 @@ class ValidatorNodeInfoTool:
             }
         }
 
+    def _cat_file(self, path_to_file):
+        ret = subprocess.run("cat {}".format(path_to_file),
+                             shell=True,
+                             check=True,
+                             universal_newlines=True,
+                             stdout=subprocess.PIPE,
+                             timeout=5)
+        return ret.stdout.split(os.linesep) if ret.returncode == 0 else []
+
     @property
     @none_on_fail
     def __config_info(self):
-        main_config = {}
-        network_config = {}
-        user_config = {}
+        main_config = []
+        network_config = []
+        user_config = []
+        path_to_main_conf = os.path.join(self._node.config.GENERAL_CONFIG_DIR,
+                                         self._node.config.GENERAL_CONFIG_FILE)
+        if os.path.exists(path_to_main_conf):
+            main_config = self._cat_file(path_to_main_conf)
+
+        network_config_dir = os.path.join(self._node.config.GENERAL_CONFIG_DIR,
+                                          self._node.config.NETWORK_NAME)
+        if os.path.exists(network_config_dir):
+            path_to_network_conf = os.path.join(network_config_dir,
+                                                self._node.config.NETWORK_CONFIG_FILE)
+            network_config = self._cat_file(path_to_network_conf)
+        if self._node.config.USER_CONFIG_DIR:
+            path_to_user_conf = os.path.join(self._node.config.USER_CONFIG_DIR,
+                                             self._node.config.USER_CONFIG_FILE)
+            user_config = self._cat_file(path_to_user_conf)
 
         return {
             "Config": {
