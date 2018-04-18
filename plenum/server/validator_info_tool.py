@@ -5,6 +5,7 @@ import platform
 import pip
 import os
 import base58
+import subprocess
 
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
@@ -212,13 +213,21 @@ class ValidatorNodeInfoTool:
     def __software_info(self):
         os_version = self._prepare_for_json(platform.platform())
         installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
+        indy_packages = ""
+        ret = subprocess.run("dpkg-query --list | grep indy",
+                             shell=True,
+                             check=True,
+                             universal_newlines=True,
+                             stdout=subprocess.PIPE,
+                             timeout=5)
+        indy_packages = ret.stdout.split(os.linesep)
 
         return {
             "Software": {
                 "OS_version": os_version,
                 "Installed_packages": installed_packages,
                 # TODO add this field
-                "Indy_packages": "",
+                "Indy_packages": self._prepare_for_json(indy_packages),
             }
         }
 
