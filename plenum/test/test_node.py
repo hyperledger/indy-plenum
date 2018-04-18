@@ -388,6 +388,9 @@ class TestNode(TestNodeCore, Node):
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
 
+    def schedule_node_status_dump(self):
+        pass
+
 
 elector_spyables = [
     PrimaryElector.discard,

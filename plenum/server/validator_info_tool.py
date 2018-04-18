@@ -13,6 +13,10 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 MBs = 1024 * 1024
+INDY_ENV_FILE = "indy.env"
+NODE_CONTROL_CONFIG_FILE = "node_control.conf"
+INDY_NODE_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node.service"
+NODE_CONTROL_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node-control.service"
 
 
 def none_on_fail(func):
@@ -239,9 +243,24 @@ class ValidatorNodeInfoTool:
                              timeout=5)
         return ret.stdout.split(os.linesep) if ret.returncode == 0 else []
 
-    @property
-    @none_on_fail
-    def __config_info(self):
+    def _get_genesis_txns(self):
+        genesis_txns = {}
+        genesis_pool_txns_path = os.path.join(self._node.config.GENESIS_DIR,
+                                                self._node.config.poolTransactionsFile)
+        genesis_domain_txns_path = os.path.join(self._node.config.GENESIS_DIR,
+                                                self._node.config.domainTransactionsFile)
+        genesis_config_txns_path = os.path.join(self._node.config.GENESIS_DIR,
+                                                self._node.config.configTransactionsFile)
+        if os.path.exists(genesis_pool_txns_path):
+            genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
+        if os.path.exists(genesis_domain_txns_path):
+            genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
+        if os.path.exists(genesis_config_txns_path):
+            genesis_txns['pool_txns'] = self._cat_file(genesis_pool_txns_path)
+
+        return genesis_txns
+
+    def _get_configs(self):
         main_config = []
         network_config = []
         user_config = []
@@ -262,12 +281,49 @@ class ValidatorNodeInfoTool:
             user_config = self._cat_file(path_to_user_conf)
 
         return {
-            "Config": {
                 "Main_config": main_config,
                 "Network_config": network_config,
                 "User_config": user_config,
-            }
         }
+
+    def _get_indy_env_file(self):
+        indy_env = ""
+        path_to_indy_env = os.path.join(self._node.config.GENERAL_CONFIG_DIR,
+                                        INDY_ENV_FILE)
+        if os.path.exists(path_to_indy_env):
+            indy_env = self._cat_file(path_to_indy_env)
+        return indy_env
+
+    def _get_node_control_file(self):
+        node_control = ""
+        path_to_node_control = os.path.join(self._node.config.GENERAL_CONFIG_DIR,
+                                        NODE_CONTROL_CONFIG_FILE)
+        if os.path.exists(path_to_node_control):
+            node_control = self._cat_file(path_to_node_control)
+        return node_control
+
+
+    @property
+    @none_on_fail
+    def __config_info(self):
+        configuration = {"Configuration": {}}
+        configuration['Configuration']['Config'] = self._prepare_for_json(
+            self._get_configs())
+        configuration['Configuration']['Genesis_txns'] = self._prepare_for_json(
+            self._get_genesis_txns())
+        configuration['Configuration']['indy.env'] = self._prepare_for_json(
+            self._get_indy_env_file())
+        configuration['Configuration']['node_control.conf'] = self._prepare_for_json(
+            self._get_node_control_file())
+        configuration['Configuration']['indy-node.service'] = self._prepare_for_json(
+            self._get_indy_node_service())
+        configuration['Configuration']['indy-node-control.service'] = self._prepare_for_json(
+            self._get_node_control_service())
+        configuration['Configuration']['iptables_config'] = self._prepare_for_json(
+            self._get_iptables_config())
+
+        return configuration
+
 
     @property
     @none_on_fail
@@ -380,3 +436,18 @@ class ValidatorNodeInfoTool:
                 json.dump(self.info, fd)
             except Exception as ex:
                 logger.error("Error while dumping into json: {}".format(repr(ex)))
+
+    def _get_indy_node_service(self):
+        service_file = []
+        if os.path.exists(INDY_NODE_SERVICE_FILE_PATH):
+            service_file = self._cat_file(INDY_NODE_SERVICE_FILE_PATH)
+        return service_file
+
+    def _get_node_control_service(self):
+        service_file = []
+        if os.path.exists(NODE_CONTROL_SERVICE_FILE_PATH):
+            service_file = self._cat_file(NODE_CONTROL_SERVICE_FILE_PATH)
+        return service_file
+
+    def _get_iptables_config(self):
+        return []
