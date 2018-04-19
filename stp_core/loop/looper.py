@@ -103,6 +103,7 @@ class Looper:
             asyncio.set_event_loop(evl)
             self.loop = evl
 
+        logger.info("Starting up indy-node")
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
 

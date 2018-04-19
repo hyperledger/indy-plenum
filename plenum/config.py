@@ -86,6 +86,7 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
+UnorderedCheckFreq = 60
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
@@ -100,17 +101,19 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'borders_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_borders_coeff': True,
         'enabled': True
     },
     'nodeRequestSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'borders_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_borders_coeff': True,
         'enabled': True
     }
 }
@@ -149,10 +152,11 @@ CatchupTransactionsTimeout = 6
 
 
 # Log configuration
-logRotationWhen = 'D'
+logRotationWhen = 'W6'
 logRotationInterval = 1
-logRotationBackupCount = 10
+logRotationBackupCount = 50
 logRotationMaxBytes = 100 * 1024 * 1024
+logRotationCompress = True
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
