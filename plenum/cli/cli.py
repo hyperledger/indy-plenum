@@ -927,14 +927,10 @@ class Cli:
         nodes = []
         for name in names:
             try:
-                nodeRegistry = None if self.nodeRegLoadedFromFile \
-                    else self.nodeRegistry
-
                 config_helper = PNodeConfigHelper(name, self.config, chroot=self.nodes_chroot)
                 learnKeysFromOthers(config_helper.keys_dir, name,
                                     self.nodes.values())
                 node = self.NodeClass(name,
-                                      nodeRegistry=nodeRegistry,
                                       config_helper=config_helper,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
