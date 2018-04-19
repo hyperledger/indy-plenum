@@ -1203,7 +1203,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 # TODO DRY, view change done messages are managed by routes
-                self.sendToViewChanger(message, frm)
+                self.sendToViewChanger(message, frm, from_current_state=True)
         except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
@@ -1422,7 +1422,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def msgHasAcceptableViewNo(self, msg, frm) -> bool:
+    def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
         """
         Return true if the view no of message corresponds to the current view
         no or a view no in the future
@@ -1436,7 +1436,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        elif view_no > self.viewNo:
+        elif (view_no > self.viewNo) or (self.viewNo == 0 and from_current_state):
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.info('{} stashing a message for a future view: {}'.
@@ -1444,7 +1444,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
-                self.view_changer.on_future_view_vchd_msg(view_no, frm)
+                self.view_changer.on_future_view_vchd_msg(view_no, frm, from_current_state=from_current_state)
         else:
             return True
         return False
@@ -1462,7 +1462,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.msgHasAcceptableViewNo(msg, frm):
                 self.replicas.pass_message((msg, frm), msg.instId)
 
-    def sendToViewChanger(self, msg, frm):
+    def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """
         Send the message to the intended view changer.
 
@@ -1470,7 +1470,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if (isinstance(msg, InstanceChange) or
-                self.msgHasAcceptableViewNo(msg, frm)):
+                self.msgHasAcceptableViewNo(msg, frm, from_current_state=from_current_state)):
             logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
             self.msgsToViewChanger.append((msg, frm))
