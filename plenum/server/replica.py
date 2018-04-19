@@ -860,6 +860,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
+        self.addToPrePrepares(pre_prepare)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         if not self.node.isParticipating:
             self.stashingWhileCatchingUp.add(key)
@@ -869,7 +870,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
         if why_not_applied is not None:
             return why_not_applied
-        self.addToPrePrepares(pre_prepare)
         if self.isMaster:
             # TODO: can old_state_root be used here instead?
             state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
