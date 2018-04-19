@@ -473,14 +473,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.primaryName = primaryName
         self._setup_for_non_master()
 
-    def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
-        """
-        Replica should only participating in the consensus process and the
-        replica did not stash any of this request's 3-phase request
-        """
-        return (self.node.isParticipating and
-                ((viewNo, ppSeqNo) not in self.stashingWhileCatchingUp))
-
     def on_view_change_start(self):
         if self.isMaster:
             lst = self.last_prepared_certificate_in_view()
@@ -860,16 +852,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
-        self.addToPrePrepares(pre_prepare)
-        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         if not self.node.isParticipating:
-            self.stashingWhileCatchingUp.add(key)
-            self.logger.warning('{} stashing PRE-PREPARE{}'.format(self, key))
+            self.discard(pre_prepare, 'node is not participating',
+                         self.logger.warning)
             return None
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
         if why_not_applied is not None:
             return why_not_applied
+        self.addToPrePrepares(pre_prepare)
         if self.isMaster:
             # TODO: can old_state_root be used here instead?
             state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
@@ -878,6 +869,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
             self.logger.trace("{} saved shared multi signature for root".format(self, old_state_root))
         self.trackBatches(pre_prepare, old_state_root)
+        key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                           extra={"tags": ["processing"]})
         return None
@@ -1274,9 +1266,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param ppReq: any object with identifier and requestId attributes
         """
-        if not self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo):
-            return False, 'should not participate in consensus for {}'.format(
-                ppReq)
+        if not self.isParticipating:
+            return False, 'node is not participating'
         if self.has_sent_prepare(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
@@ -1403,9 +1394,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param prepare: the PREPARE
         """
-        if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
-            return False, 'should not participate in consensus for {}'.format(
-                prepare)
+        if not self.isParticipating:
+            return False, 'node is not participating'
         quorum = self.quorums.prepare.value
         if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
@@ -1614,21 +1604,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
             ordered = rv if rv is not None else ordered
-
-        # TODO: Should not order or add to checkpoint while syncing
-        # 3 phase state.
-        if key in self.stashingWhileCatchingUp:
-            if self.isMaster and self.node.isParticipating:
-                # While this request arrived the node was catching up but the
-                # node has caught up and applied the stash so apply this
-                # request
-                self.logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
-                                  'catchup process'.format(self, pp.ppSeqNo))
-                self.node.apply_stashed_reqs(pp.reqIdr[:pp.discarded],
-                                             pp.ppTime,
-                                             pp.ledgerId)
-
-            self.stashingWhileCatchingUp.remove(key)
 
         self._discard_ordered_req_keys(pp)
 
