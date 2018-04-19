@@ -18,6 +18,7 @@ INDY_ENV_FILE = "indy.env"
 NODE_CONTROL_CONFIG_FILE = "node_control.conf"
 INDY_NODE_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node.service"
 NODE_CONTROL_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node-control.service"
+NUMBER_TXNS_FOR_DISPLAY = 10
 
 
 def none_on_fail(func):
@@ -88,19 +89,33 @@ class ValidatorNodeInfoTool:
                 'total-count': self.__total_count,
             },
         }
-        if self.__hardware_info:
-            general_info.update(self.__hardware_info)
-        if self.__software_info:
-            general_info.update(self.__software_info)
-        if self.__config_info:
-            general_info.update(self.__config_info)
-        if self.__pool_info:
-            general_info.update(self.__pool_info)
-        if self.__protocol_info:
-            general_info.update(self.__protocol_info)
-        if self.__node_info:
-            general_info.update(self.__node_info)
+        hardware_info = self.__hardware_info
+        software_info = self.__software_info
+        pool_info = self.__pool_info
+        protocol_info = self.__protocol_info
+        node_info = self.__node_info
+        if hardware_info:
+            general_info.update(hardware_info)
+        if software_info:
+            general_info.update(software_info)
+        if pool_info:
+            general_info.update(pool_info)
+        if protocol_info:
+            general_info.update(protocol_info)
+        if node_info:
+            general_info.update(node_info)
         return general_info
+
+    @property
+    def additional_info(self):
+        additional_info = {}
+        config_info = self.__config_info
+        extractions_info = self.__extractions
+        if config_info:
+            additional_info.update(config_info)
+        if extractions_info:
+            additional_info.update(extractions_info)
+        return additional_info
 
     def _prepare_for_json(self, item):
         try:
@@ -218,13 +233,8 @@ class ValidatorNodeInfoTool:
     def __software_info(self):
         os_version = self._prepare_for_json(platform.platform())
         installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
-        ret = subprocess.run("dpkg-query --list | grep indy",
-                             shell=True,
-                             check=True,
-                             universal_newlines=True,
-                             stdout=subprocess.PIPE,
-                             timeout=5)
-        indy_packages = ret.stdout.split(os.linesep)
+        output = self._run_external_cmd("dpkg-query --list | grep indy")
+        indy_packages = output.split(os.linesep)
 
         return {
             "Software": {
@@ -236,13 +246,8 @@ class ValidatorNodeInfoTool:
         }
 
     def _cat_file(self, path_to_file):
-        ret = subprocess.run("cat {}".format(path_to_file),
-                             shell=True,
-                             check=True,
-                             universal_newlines=True,
-                             stdout=subprocess.PIPE,
-                             timeout=5)
-        return ret.stdout.split(os.linesep) if ret.returncode == 0 else []
+        output = self._run_external_cmd("cat {}".format(path_to_file))
+        return output.split(os.linesep)
 
     def _get_genesis_txns(self):
         genesis_txns = {}
@@ -354,7 +359,6 @@ class ValidatorNodeInfoTool:
                 "Unreachable_nodes": self._prepare_for_json(self.__unreachable_list),
                 "Blacklisted_nodes": self._prepare_for_json(list(self._node.nodeBlacklister.blacklisted)),
                 "Suspicious_nodes": "",
-
             }
         }
 
@@ -418,7 +422,6 @@ class ValidatorNodeInfoTool:
         return {
             "Node info": {
                 "Name": self._prepare_for_json(self._node.name),
-                "Last N pool ledger txns": "",
                 "Mode": self._prepare_for_json(self._node.mode.name),
                 "Metrics": self._prepare_for_json(metrics),
                 "Root_hashes": self._prepare_for_json(root_hashes),
@@ -441,6 +444,103 @@ class ValidatorNodeInfoTool:
                 "Replicas_status": replicas_status,
             }
         }
+
+    @property
+    @none_on_fail
+    def __extractions(self):
+        return {
+            "Extractions":
+                {
+                    "journalctl_exceptions": self._prepare_for_json(
+                        self._get_journalctl_exceptions()),
+                    "indy-node_status": self._prepare_for_json(
+                        self._get_indy_node_status()),
+                    "node-control status": self._prepare_for_json(
+                        self._get_node_control_status()),
+                    "upgrade_log": self._prepare_for_json(
+                        self._get_upgrade_log()),
+                    "Last_N_pool_ledger_txns": self._prepare_for_json(
+                        self._get_last_n_from_pool_ledger()),
+                    "Last_N_domain_ledger_txns": self._prepare_for_json(
+                        self._get_last_n_from_domain_ledger()),
+                    "Last_N_config_ledger_txns": self._prepare_for_json(
+                        self._get_last_n_from_config_ledger()),
+                    "Pool_ledger_size": self._prepare_for_json(
+                        self._get_pool_ledger_size()),
+                    "Domain_ledger_size": self._prepare_for_json(
+                        self._get_domain_ledger_size()),
+                    "Config_ledger_size": self._prepare_for_json(
+                        self._get_config_ledger_size()),
+                }
+        }
+
+    def _run_external_cmd(self, cmd):
+        ret = subprocess.run(cmd,
+                             shell=True,
+                             universal_newlines=True,
+                             stdout=subprocess.PIPE,
+                             timeout=5)
+        return ret.stdout
+
+    def _get_journalctl_exceptions(self):
+        output = self._run_external_cmd("journalctl | sed -n '/Traceback/,/Error/p'")
+        return output.split(os.linesep)
+
+    def _get_indy_node_status(self):
+        output = self._run_external_cmd("systemctl status indy-node")
+        return output.split(os.linesep)
+
+    def _get_node_control_status(self):
+        output = self._run_external_cmd("systemctl status indy-node-control")
+        return output.split(os.linesep)
+
+    def _get_upgrade_log(self):
+        output = ""
+        if hasattr(self._node.config, 'upgradeLogFile'):
+            path_to_upgrade_log = os.path.join(os.path.join(self._node.ledger_dir,
+                                                            self._node.config.upgradeLogFile))
+            if os.path.exists(path_to_upgrade_log):
+                output = self._run_external_cmd(path_to_upgrade_log)
+        return output.split(os.linesep)
+
+    def _get_last_n_from_pool_ledger(self):
+        i = 0
+        txns = []
+        for _, txn in self._node.poolLedger.getAllTxn():
+            if i >= NUMBER_TXNS_FOR_DISPLAY:
+                break
+            txns.append(txn)
+            i += 1
+        return txns
+
+    def _get_last_n_from_domain_ledger(self):
+        i = 0
+        txns = []
+        for _, txn in self._node.domainLedger.getAllTxn():
+            if i >= NUMBER_TXNS_FOR_DISPLAY:
+                break
+            txns.append(txn)
+            i += 1
+        return txns
+
+    def _get_last_n_from_config_ledger(self):
+        i = 0
+        txns = []
+        for _, txn in self._node.configLedger.getAllTxn():
+            if i >= NUMBER_TXNS_FOR_DISPLAY:
+                break
+            txns.append(txn)
+            i += 1
+        return txns
+
+    def _get_pool_ledger_size(self):
+        return self._node.poolLedger.size
+
+    def _get_domain_ledger_size(self):
+        return self._node.domainLedger.size
+
+    def _get_config_ledger_size(self):
+        return self._node.configLedger.size
 
     def dump_json_file(self):
         file_name = self.FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
