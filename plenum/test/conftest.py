@@ -872,6 +872,30 @@ def txnPoolNodeSet(node_config_helper_class,
 
 
 @pytest.fixture(scope="module")
+def txnPoolNodeSetNotStarted(node_config_helper_class,
+                             patchPluginManager,
+                             txnPoolNodesLooper,
+                             tdirWithPoolTxns,
+                             tdirWithDomainTxns,
+                             tdir,
+                             tconf,
+                             poolTxnNodeNames,
+                             allPluginsPath,
+                             tdirWithNodeKeepInited,
+                             testNodeClass,
+                             do_post_node_creation):
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
+            nodes.append(node)
+        yield nodes
+
+
+@pytest.fixture(scope="module")
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:
@@ -999,7 +1023,10 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
-    looper.loop.run_until_complete(close_pool_ledger(pool_handle))
+    try:
+        looper.loop.run_until_complete(close_pool_ledger(pool_handle))
+    except Exception as e:
+        logger.debug("Unhandled exception: {}".format(e))
 
 
 async def _gen_wallet_handler(pool_name, wallet_name):

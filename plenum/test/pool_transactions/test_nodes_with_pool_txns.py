@@ -226,7 +226,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                         node_request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'should not contain the following chars' in e._excinfo[1].args[0]
+    assert 'client request invalid' in e._excinfo[1].args[0]
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
