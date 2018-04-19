@@ -18,6 +18,7 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
+from plenum.server.validator_info_tool import NUMBER_TXNS_FOR_DISPLAY
 
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
@@ -240,7 +241,8 @@ def test_pool_info_section(info):
     assert info['Pool info']['f_value']
 
 
-def test_config_info_section(info):
+def test_config_info_section(node):
+    info = node._info_tool.additional_info
     assert 'Main_config' in info['Configuration']['Config']
     assert 'Network_config' in info['Configuration']['Config']
     assert 'User_config' in info['Configuration']['Config']
@@ -252,6 +254,36 @@ def test_config_info_section(info):
     assert 'indy-node.service' in info['Configuration']
     assert 'indy-node-control.service' in info['Configuration']
     assert 'iptables_config' in info['Configuration']
+
+
+def test_extractions_section(node):
+    info = node._info_tool.additional_info
+    assert "journalctl_exceptions" in info["Extractions"]
+    assert "indy-node_status" in info["Extractions"]
+    assert "node-control status" in info["Extractions"]
+    assert "upgrade_log" in info["Extractions"]
+    assert "Last_N_pool_ledger_txns" in info["Extractions"]
+    assert "Last_N_domain_ledger_txns" in info["Extractions"]
+    assert "Last_N_config_ledger_txns" in info["Extractions"]
+    assert "Pool_ledger_size" in info["Extractions"]
+    assert "Domain_ledger_size" in info["Extractions"]
+    assert "Config_ledger_size" in info["Extractions"]
+    assert info["Extractions"]['Pool_ledger_size'] == node.poolLedger.size
+    assert info["Extractions"]['Domain_ledger_size'] == node.domainLedger.size
+    assert info["Extractions"]['Config_ledger_size'] == node.configLedger.size
+
+
+def test_last_exactly_N_txn_from_ledger(node,
+                                        looper,
+                                        txnPoolNodeSet,
+                                        sdk_pool_handle,
+                                        sdk_wallet_steward):
+    txnCount = 10
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, txnCount)
+    assert node.domainLedger.size > NUMBER_TXNS_FOR_DISPLAY
+    extractions = node._info_tool.additional_info['Extractions']
+    assert len(extractions["Last_N_domain_ledger_txns"]) == NUMBER_TXNS_FOR_DISPLAY
+
 
 def test_build_node_info_time(node):
     after = time.perf_counter()
