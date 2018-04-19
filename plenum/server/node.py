@@ -1799,18 +1799,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
-
-        # The next processing of stashed Ordereds is the last chance
-        # during catch-up to re-apply 3PC-batches which are in progress.
         self.processStashedOrderedReqs()
-        # After catch-up is completed, normal processing of Ordereds
-        # will not re-apply them before executing, so remove
-        # all the 3PC-batches which are in progress to avoid attempts
-        # to execute them without re-applying.
-        for replica in self.replicas:
-            replica.sentPrePrepares.clear()
-            replica.prePrepares.clear()
-
         if self.is_catchup_needed():
             logger.info('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -1896,6 +1885,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return count
 
     def no_more_catchups_needed(self):
+        # After all the rounds of catch-up are completed, normal processing
+        # of Ordereds will not re-apply them before executing,
+        # so remove all the 3PC-batches which are in progress to avoid attempts
+        # to execute them without re-applying.
+        for replica in self.replicas:
+            replica.sentPrePrepares.clear()
+            replica.prePrepares.clear()
+
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
         self.mode = Mode.synced
