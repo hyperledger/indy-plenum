@@ -32,6 +32,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason='get rid of registry pool')
 def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
@@ -54,6 +55,7 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason='get rid of registry pool')
 def testSendRequestWithoutSignatureFails(pool):
     """
     A client request sent without a signature fails with an EmptySignature

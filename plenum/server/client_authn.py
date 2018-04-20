@@ -14,6 +14,7 @@ from plenum.common.exceptions import EmptySignature, \
     InsufficientSignatures, InsufficientCorrectSignatures
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
+from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.pool_req_handler import PoolRequestHandler
 from stp_core.common.log import getlogger
@@ -179,12 +180,17 @@ class CoreAuthMixin:
     ).union(
         DomainRequestHandler.query_types
     )
+    action_types = ActionReqHandler.operation_types
 
     def is_query(self, typ):
         return typ in self.query_types
 
     def is_write(self, typ):
         return typ in self.write_types
+
+    @classmethod
+    def is_action(cls, typ):
+        return typ in cls.action_types
 
     @staticmethod
     def _extract_signature(msg):
