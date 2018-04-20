@@ -217,10 +217,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # replica during that view
         self.primaryNames = OrderedDict()  # type: OrderedDict[int, str]
 
-        # Holds tuple of view no and prepare seq no of 3-phase messages it
-        # received while it was not participating
-        self.stashingWhileCatchingUp = set()  # type: Set[Tuple]
-
         # Commits which are not being ordered since commits with lower
         # sequence numbers have not been ordered yet. Key is the
         # viewNo and value a map of pre-prepare sequence number to commit
