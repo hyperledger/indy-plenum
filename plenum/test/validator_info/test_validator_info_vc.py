@@ -23,9 +23,9 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, master_node)
     waitNodeDataEquality(looper, master_node, *txnPoolNodeSet[-1:])
     latest_info = master_node._info_tool.info
-    assert latest_info['Node info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
-    assert latest_info['Node info']['View_change_status']['View_No'] == expected_view_no
+    assert latest_info['Node_info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
+    assert latest_info['Node_info']['View_change_status']['View_No'] == expected_view_no
     node_names = [n.name for n in txnPoolNodeSet[1:]]
     for node_name in node_names:
-        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][0] == master_node.master_primary_name
-        assert latest_info['Node info']['View_change_status']['VCDone_queue'][node_name][1]
+        assert latest_info['Node_info']['View_change_status']['VCDone_queue'][node_name][0] == master_node.master_primary_name
+        assert latest_info['Node_info']['View_change_status']['VCDone_queue'][node_name][1]
