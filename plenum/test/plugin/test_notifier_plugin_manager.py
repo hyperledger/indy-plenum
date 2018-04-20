@@ -1,5 +1,4 @@
 import pip.utils as utils
-import pytest
 
 from plenum.test.helper import randomText, mockGetInstalledDistributions, \
     mockImportModule
@@ -109,7 +108,6 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
     assert sent == 3
 
 
-@pytest.mark.skip(reason='get rid of registry pool')
 def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     def mockProcessRequest(obj, inc=1):
         obj.nodeRequestSpikeMonitorData['accum'] += inc
@@ -131,7 +129,6 @@ def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     assert sent == 3
 
 
-@pytest.mark.skip(reason='get rid of registry pool')
 def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
                                           testNode):
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [1]
