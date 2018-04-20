@@ -44,51 +44,9 @@ class ValidatorNodeInfoTool:
 
     @property
     def info(self):
-        general_info = {
-            'alias': self.__alias,
-            'bindings': {
-                'client': {
-                    # ip address is going to be set in
-                    # validator-info script
-                    # 'ip': self.__client_ip,
-                    'port': self.__client_port,
-                    'protocol': ZMQ_NETWORK_PROTOCOL,
-                },
-                'node': {
-                    # ip address is going to be set in
-                    # validator-info script
-                    # 'ip': self.__node_ip,
-                    'port': self.__node_port,
-                    'protocol': ZMQ_NETWORK_PROTOCOL,
-                }
-            },
-            'did': self.__did,
-            'response-version': self.JSON_SCHEMA_VERSION,
-            'timestamp': int(time.time()),
-            'verkey': self.__verkey,
-            'metrics': {
-                'average-per-second': {
-                    'read-transactions': self.__avg_read,
-                    'write-transactions': self.__avg_write,
-                },
-                'transaction-count': {
-                    'ledger': self.__domain_ledger_size,
-                    'pool': self.__pool_ledger_size,
-                },
-                'uptime': self.__uptime,
-            },
-            'pool': {
-                'reachable': {
-                    'count': self.__reachable_count,
-                    'list': self.__reachable_list,
-                },
-                'unreachable': {
-                    'count': self.__unreachable_count,
-                    'list': self.__unreachable_list,
-                },
-                'total-count': self.__total_count,
-            },
-        }
+        general_info = {}
+        general_info['response-version'] = self.JSON_SCHEMA_VERSION
+        general_info['timestamp'] = int(time.time())
         hardware_info = self.__hardware_info
         software_info = self.__software_info
         pool_info = self.__pool_info
@@ -350,13 +308,15 @@ class ValidatorNodeInfoTool:
         if "poolCfg" in self._node.__dict__:
             read_only = not self._node.poolCfg.writes
         return {
-            "Pool info": {
+            "Pool_info": {
                 "Read_only": self._prepare_for_json(read_only),
-                "Total_nodes": self._prepare_for_json(self._node.totalNodes),
+                "Total_nodes_count": self._prepare_for_json(self.__total_count),
                 "f_value": self._prepare_for_json(self._node.f),
                 "Quorums": self._prepare_for_json(self._node.quorums),
                 "Reachable_nodes": self._prepare_for_json(self.__reachable_list),
                 "Unreachable_nodes": self._prepare_for_json(self.__unreachable_list),
+                "Reachable_nodes_count": self._prepare_for_json(self.__reachable_count),
+                "Unreachable_nodes_count": self._prepare_for_json(self.__unreachable_count),
                 "Blacklisted_nodes": self._prepare_for_json(list(self._node.nodeBlacklister.blacklisted)),
                 "Suspicious_nodes": "",
             }
@@ -388,6 +348,33 @@ class ValidatorNodeInfoTool:
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
 
+    def _get_node_metrics(self):
+        metrics = {}
+        for metrica in self._node.monitor.metrics():
+            metrics[metrica[0]] = metrica[1]
+        metrics.update(
+            {
+                'average-per-second': {
+                    'read-transactions': self.__avg_read,
+                    'write-transactions': self.__avg_write,
+                },
+                'transaction-count': {
+                    'ledger': self.__domain_ledger_size,
+                    'pool': self.__pool_ledger_size,
+                },
+                'uptime': self.__uptime,
+            })
+        return metrics
+
+    def _get_ic_queue(self):
+        ic_queue = {}
+        for view_no, queue in self._node.view_changer.instanceChanges.items():
+            ics = {}
+            ics["Vouters"] = self._prepare_for_json(list(queue.voters))
+            ics["Message"] = self._prepare_for_json(queue.msg)
+            ic_queue[view_no] = self._prepare_for_json(ics)
+        return ic_queue
+
     @property
     @none_on_fail
     def __node_info(self):
@@ -409,39 +396,57 @@ class ValidatorNodeInfoTool:
             if linfo.ledger.tree.root_hash:
                 root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
 
-        replicas_status = self._prepare_for_json(self.__replicas_status)
-        ic_queue = {}
-        for view_no, queue in self._node.view_changer.instanceChanges.items():
-            ics = {}
-            ics["Vouters"] = self._prepare_for_json(list(queue.voters))
-            ics["Message"] = self._prepare_for_json(queue.msg)
-            ic_queue[view_no] = self._prepare_for_json(ics)
-        metrics = self._node.monitor.metrics()
-        if metrics:
-            metrics = [self._prepare_for_json(m) for m in metrics]
         return {
-            "Node info": {
-                "Name": self._prepare_for_json(self._node.name),
-                "Mode": self._prepare_for_json(self._node.mode.name),
-                "Metrics": self._prepare_for_json(metrics),
-                "Root_hashes": self._prepare_for_json(root_hashes),
-                "Uncommitted_root_hashes": self._prepare_for_json(uncommited_root_hashes),
-                "Uncommitted_txns": self._prepare_for_json(uncommited_txns),
+            "Node_info": {
+                "Name": self._prepare_for_json(
+                    self.__alias),
+                "Mode": self._prepare_for_json(
+                    self._node.mode.name),
+                "Client_port": self._prepare_for_json(
+                    self.__client_port),
+                "Client_protocol": self._prepare_for_json(
+                    ZMQ_NETWORK_PROTOCOL),
+                "Node_port": self._prepare_for_json(
+                    self.__node_port),
+                "Node_protocol": self._prepare_for_json(
+                    ZMQ_NETWORK_PROTOCOL),
+                "did": self._prepare_for_json(
+                    self.__did),
+                'verkey': self._prepare_for_json(
+                    self.__verkey),
+                "Metrics": self._prepare_for_json(
+                    self._get_node_metrics()),
+                "Root_hashes": self._prepare_for_json(
+                    root_hashes),
+                "Uncommitted_root_hashes": self._prepare_for_json(
+                    uncommited_root_hashes),
+                "Uncommitted_txns": self._prepare_for_json(
+                    uncommited_txns),
                 "View_change_status": {
-                    "View_No": self._prepare_for_json(self._node.viewNo),
-                    "VC_in_progress": self._prepare_for_json(self._node.view_changer.view_change_in_progress),
-                    "IC_queue": self._prepare_for_json(ic_queue),
-                    "VCDone_queue": self._prepare_for_json(self._node.view_changer._view_change_done)
+                    "View_No": self._prepare_for_json(
+                        self._node.viewNo),
+                    "VC_in_progress": self._prepare_for_json(
+                        self._node.view_changer.view_change_in_progress),
+                    "IC_queue": self._prepare_for_json(
+                        self._get_ic_queue()),
+                    "VCDone_queue": self._prepare_for_json(
+                        self._node.view_changer._view_change_done)
                 },
                 "Catchup_status": {
-                    "Ledger_statuses": self._prepare_for_json(ledger_statuses),
+                    "Ledger_statuses": self._prepare_for_json(
+                        ledger_statuses),
                     "Received_LedgerStatus": "",
-                    "Waiting_consistency_proof_msgs": self._prepare_for_json(waiting_cp),
-                    "Number_txns_in_catchup": self._prepare_for_json(num_txns_in_catchup),
-                    "Last_txn_3PC_keys": self._prepare_for_json(last_txn_3PC_keys),
+                    "Waiting_consistency_proof_msgs": self._prepare_for_json(
+                        waiting_cp),
+                    "Number_txns_in_catchup": self._prepare_for_json(
+                        num_txns_in_catchup),
+                    "Last_txn_3PC_keys": self._prepare_for_json(
+                        last_txn_3PC_keys),
                 },
-                "Count_of_replicas": self._prepare_for_json(len(self._node.replicas)),
-                "Replicas_status": replicas_status,
+                "Count_of_replicas": self._prepare_for_json(
+                    len(self._node.replicas)),
+                "Replicas_status": self._prepare_for_json(
+                    self.__replicas_status),
             }
         }
 

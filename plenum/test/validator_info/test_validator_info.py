@@ -27,64 +27,26 @@ nodeCount = 5
 MAX_TIME_FOR_INFO_BUILDING = 2
 
 
-def test_validator_info_file_schema_is_valid(info):
-    assert isinstance(info, dict)
-    assert 'alias' in info
-
-    assert 'bindings' in info
-    assert 'client' in info['bindings']
-    assert 'ip' not in info['bindings']['client']
-    assert 'port' in info['bindings']['client']
-    assert 'protocol' in info['bindings']['client']
-    assert 'node' in info['bindings']
-    assert 'ip' not in info['bindings']['node']
-    assert 'port' in info['bindings']['node']
-    assert 'protocol' in info['bindings']['node']
-
-    assert 'did' in info
-    assert 'response-version' in info
-    assert 'timestamp' in info
-    assert 'verkey' in info
-
-    assert 'metrics' in info
-    assert 'average-per-second' in info['metrics']
-    assert 'read-transactions' in info['metrics']['average-per-second']
-    assert 'write-transactions' in info['metrics']['average-per-second']
-    assert 'transaction-count' in info['metrics']
-    assert 'ledger' in info['metrics']['transaction-count']
-    assert 'pool' in info['metrics']['transaction-count']
-    assert 'uptime' in info['metrics']
-
-    assert 'pool' in info
-    assert 'reachable' in info['pool']
-    assert 'count' in info['pool']['reachable']
-    assert 'list' in info['pool']['reachable']
-    assert 'unreachable' in info['pool']
-    assert 'count' in info['pool']['unreachable']
-    assert 'list' in info['pool']['unreachable']
-    assert 'total-count' in info['pool']
-
-
 def test_validator_info_file_alias_field_valid(info):
-    assert info['alias'] == 'Alpha'
+    assert info['Node_info']['Name'] == 'Alpha'
 
 
 def test_validator_info_file_bindings_field_valid(info, node):
     # don't forget enable this check if ip comes back
-    # assert info['bindings']['client']['ip'] == node.clientstack.ha.host
-    assert 'ip' not in info['bindings']['client']
-    assert info['bindings']['client']['port'] == node.clientstack.ha.port
-    assert info['bindings']['client']['protocol'] == ZMQ_NETWORK_PROTOCOL
+    # assert info['Node_info']['Client_ip'] == node.clientstack.ha.host
+    assert 'Client_ip' not in info['Node_info']
+    assert info['Node_info']['Client_port'] == node.clientstack.ha.port
+    assert info['Node_info']['Client_protocol'] == ZMQ_NETWORK_PROTOCOL
 
     # don't forget enable this check if ip comes back
-    # assert info['bindings']['node']['ip'] == node.nodestack.ha.host
-    assert 'ip' not in info['bindings']['node']
-    assert info['bindings']['node']['port'] == node.nodestack.ha.port
-    assert info['bindings']['node']['protocol'] == ZMQ_NETWORK_PROTOCOL
+    # assert info['Node_info']['Node_ip'] == node.nodestack.ha.host
+    assert 'Node_ip' not in info['Node_info']
+    assert info['Node_info']['Node_port'] == node.nodestack.ha.port
+    assert info['Node_info']['Node_protocol'] == ZMQ_NETWORK_PROTOCOL
 
 
 def test_validator_info_file_did_field_valid(info):
-    assert info['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
+    assert info['Node_info']['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
 
 
 def test_validator_info_file_response_version_field_valid(info):
@@ -101,85 +63,58 @@ def test_validator_info_file_timestamp_field_valid(node,
 
 
 def test_validator_info_file_verkey_field_valid(node, info):
-    assert info['verkey'] == base58.b58encode(node.nodestack.verKey)
+    assert info['Node_info']['verkey'] == base58.b58encode(node.nodestack.verKey)
 
 
 def test_validator_info_file_metrics_avg_write_field_valid(info,
                                                            write_txn_and_get_latest_info):
-    assert info['metrics']['average-per-second']['write-transactions'] == 0
+    assert info['Node_info']['Metrics']['average-per-second']['write-transactions'] == 0
     latest_info = write_txn_and_get_latest_info()
-    assert latest_info['metrics']['average-per-second']['write-transactions'] > 0
+    assert latest_info['Node_info']['Metrics']['average-per-second']['write-transactions'] > 0
 
 
 def test_validator_info_file_metrics_avg_read_field_valid(info,
                                                           read_txn_and_get_latest_info
                                                           ):
-    assert info['metrics']['average-per-second']['read-transactions'] == 0
+    assert info['Node_info']['Metrics']['average-per-second']['read-transactions'] == 0
     latest_info = read_txn_and_get_latest_info(GET_TXN)
-    assert latest_info['metrics']['average-per-second']['read-transactions'] > 0
+    assert latest_info['Node_info']['Metrics']['average-per-second']['read-transactions'] > 0
 
 
 def test_validator_info_file_metrics_count_ledger_field_valid(poolTxnData, info):
     txns_num = sum(1 for item in poolTxnData["txns"] if item.get(TXN_TYPE) != NODE)
-    assert info['metrics']['transaction-count']['ledger'] == txns_num
+    assert info['Node_info']['Metrics']['transaction-count']['ledger'] == txns_num
 
 
 def test_validator_info_file_metrics_count_pool_field_valid(info):
-    assert info['metrics']['transaction-count']['pool'] == nodeCount
+    assert info['Node_info']['Metrics']['transaction-count']['pool'] == nodeCount
 
 
-def test_validator_info_file_metrics_uptime_field_valid(node,
+def test_validator_info_file_metrics_uptime_field_valid(looper,
+                                                        node,
                                                         info):
-    assert info['metrics']['uptime'] > 0
+    assert info['Node_info']['Metrics']['uptime'] > 0
+    looper.runFor(2)
     latest_info = node._info_tool.info
-    assert latest_info['metrics']['uptime'] > info['metrics']['uptime']
+    assert latest_info['Node_info']['Metrics']['uptime'] > info['Node_info']['Metrics']['uptime']
 
 
 def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper, txnPoolNodeSet, node):
-    assert info['pool']['reachable']['count'] == nodeCount
-    assert info['pool']['reachable']['list'] == sorted(list(node.name for node in txnPoolNodeSet))
-    assert info['pool']['unreachable']['count'] == 0
-    assert info['pool']['unreachable']['list'] == []
-    assert info['pool']['total-count'] == nodeCount
+    assert info['Pool_info']['Reachable_nodes_count'] == nodeCount
+    assert info['Pool_info']['Reachable_nodes'] == sorted(list(node.name for node in txnPoolNodeSet))
+    assert info['Pool_info']['Unreachable_nodes_count'] == 0
+    assert info['Pool_info']['Unreachable_nodes'] == []
+    assert info['Pool_info']['Total_nodes_count'] == nodeCount
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
     disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, txnPoolNodeSet, disconnected)
     latest_info = node._info_tool.info
 
-    assert latest_info['pool']['reachable']['count'] == nodeCount - 1
-    assert latest_info['pool']['reachable']['list'] == sorted(list(node.name for node in others))
-    assert latest_info['pool']['unreachable']['count'] == 1
-    assert latest_info['pool']['unreachable']['list'] == [txnPoolNodeSet[-1].name]
-    assert latest_info['pool']['total-count'] == nodeCount
-
-
-def test_validator_info_file_handle_fails(info,
-                                          node):
-    node_instance  = node._info_tool._node
-    node._info_tool._node = None
-    latest_info = node._info_tool.info
-
-    assert latest_info['alias'] is None
-    # assert latest_info['bindings']['client']['ip'] is None
-    assert 'ip' not in info['bindings']['client']
-    assert latest_info['bindings']['client']['port'] is None
-    # assert latest_info['bindings']['node']['ip'] is None
-    assert 'ip' not in info['bindings']['node']
-    assert latest_info['bindings']['node']['port'] is None
-    assert latest_info['did'] is None
-    assert latest_info['timestamp'] is not None
-    assert latest_info['verkey'] is None
-    assert latest_info['metrics']['average-per-second']['read-transactions'] is None
-    assert latest_info['metrics']['average-per-second']['write-transactions'] is None
-    assert latest_info['metrics']['transaction-count']['ledger'] is None
-    assert latest_info['metrics']['transaction-count']['pool'] is None
-    assert latest_info['metrics']['uptime'] is None
-    assert latest_info['pool']['reachable']['count'] is None
-    assert latest_info['pool']['reachable']['list'] is None
-    assert latest_info['pool']['unreachable']['count'] is None
-    assert latest_info['pool']['unreachable']['list'] is None
-    assert latest_info['pool']['total-count'] is None
-    node._info_tool._node = node_instance
+    assert latest_info['Pool_info']['Reachable_nodes_count'] == nodeCount - 1
+    assert latest_info['Pool_info']['Reachable_nodes'] == sorted(list(node.name for node in others))
+    assert latest_info['Pool_info']['Unreachable_nodes_count'] == 1
+    assert latest_info['Pool_info']['Unreachable_nodes'] == [txnPoolNodeSet[-1].name]
+    assert latest_info['Pool_info']['Total_nodes_count'] == nodeCount
 
 
 def test_hardware_info_section(info):
@@ -198,47 +133,50 @@ def test_software_info_section(info):
 
 
 def test_node_info_section(info):
-    assert info['Node info']
-    assert info['Node info']['Catchup_status']
-    assert info['Node info']['Catchup_status']['Last_txn_3PC_keys']
-    assert len(info['Node info']['Catchup_status']['Last_txn_3PC_keys']) == 3
-    assert info['Node info']['Catchup_status']['Ledger_statuses']
-    assert len(info['Node info']['Catchup_status']['Ledger_statuses']) == 3
-    assert info['Node info']['Catchup_status']['Number_txns_in_catchup']
+    assert info['Node_info']
+    assert info['Node_info']['Catchup_status']
+    assert info['Node_info']['Catchup_status']['Last_txn_3PC_keys']
+    assert len(info['Node_info']['Catchup_status']['Last_txn_3PC_keys']) == 3
+    assert info['Node_info']['Catchup_status']['Ledger_statuses']
+    assert len(info['Node_info']['Catchup_status']['Ledger_statuses']) == 3
+    assert info['Node_info']['Catchup_status']['Number_txns_in_catchup']
     # TODO uncomment this, when this field would be implemented
-    # assert info['Node info']['Catchup_status']['Received_LedgerStatus']
-    assert info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']
-    assert len(info['Node info']['Catchup_status']['Waiting_consistency_proof_msgs']) == 3
-    assert info['Node info']['Count_of_replicas']
+    # assert info['Node_info']['Catchup_status']['Received_LedgerStatus']
+    assert info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']
+    assert len(info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']) == 3
+    assert info['Node_info']['Count_of_replicas']
     # TODO uncomment this, when this field would be implemented
-    # assert info['Node info']['Last N pool ledger txns']
-    assert info['Node info']['Metrics']
-    assert info['Node info']['Mode']
-    assert info['Node info']['Name']
-    assert info['Node info']['Replicas_status']
-    assert info['Node info']['Root_hashes']
-    assert info['Node info']['Root_hashes'][0]
-    assert info['Node info']['Root_hashes'][1]
-    assert info['Node info']['Root_hashes'][2]
-    assert 'Uncommitted_root_hashes' in info['Node info']
-    assert 'Uncommitted_txns' in info['Node info']
-    assert info['Node info']['View_change_status']
-    assert 'IC_queue'       in info['Node info']['View_change_status']
-    assert 'VCDone_queue'   in info['Node info']['View_change_status']
-    assert 'VC_in_progress' in info['Node info']['View_change_status']
-    assert 'View_No'        in info['Node info']['View_change_status']
+    # assert info['Node_info']['Last N pool ledger txns']
+    assert info['Node_info']['Metrics']
+    assert info['Node_info']['Mode']
+    assert info['Node_info']['Name']
+    assert info['Node_info']['Replicas_status']
+    assert info['Node_info']['Root_hashes']
+    assert info['Node_info']['Root_hashes'][0]
+    assert info['Node_info']['Root_hashes'][1]
+    assert info['Node_info']['Root_hashes'][2]
+    assert 'Uncommitted_root_hashes' in info['Node_info']
+    assert 'Uncommitted_txns' in info['Node_info']
+    assert info['Node_info']['View_change_status']
+    assert 'IC_queue'       in info['Node_info']['View_change_status']
+    assert 'VCDone_queue'   in info['Node_info']['View_change_status']
+    assert 'VC_in_progress' in info['Node_info']['View_change_status']
+    assert 'View_No'        in info['Node_info']['View_change_status']
 
 
 def test_pool_info_section(info):
-    assert info['Pool info']
-    assert 'Blacklisted_nodes' in info['Pool info']
-    assert info['Pool info']['Quorums']
-    assert info['Pool info']['Reachable_nodes']
-    assert 'Read_only' in info['Pool info']
-    assert 'Suspicious_nodes' in info['Pool info']
-    assert info['Pool info']['Total_nodes']
-    assert 'Unreachable_nodes' in info['Pool info']
-    assert info['Pool info']['f_value']
+    assert info['Pool_info']
+    assert info['Pool_info']["Total_nodes_count"]
+    assert 'Blacklisted_nodes' in info['Pool_info']
+    assert info['Pool_info']['Quorums']
+    assert info['Pool_info']['Reachable_nodes']
+    assert 'Read_only' in info['Pool_info']
+    assert 'Suspicious_nodes' in info['Pool_info']
+    assert 'Unreachable_nodes' in info['Pool_info']
+    assert 'Reachable_nodes' in info['Pool_info']
+    assert "Reachable_nodes_count" in info['Pool_info']
+    assert "Unreachable_nodes_count" in info['Pool_info']
+    assert info['Pool_info']['f_value']
 
 
 def test_config_info_section(node):
