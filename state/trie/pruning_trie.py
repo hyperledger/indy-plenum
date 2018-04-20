@@ -389,6 +389,42 @@ class Trie:
             else:
                 return BLANK_NODE
 
+    def _get_last_node_for_prfx(self, node, key_prfx):
+        """ get value inside a node
+
+        :param node: node in form of list, or BLANK_NODE
+        :param key: nibble list without terminator
+        :return:
+            BLANK_NODE if does not exist, otherwise value or hash
+        """
+        node_type = self._get_node_type(node)
+
+        if node_type == NODE_TYPE_BLANK:
+            return BLANK_NODE
+
+        if node_type == NODE_TYPE_BRANCH:
+            # already reach the expected node
+            if not key_prfx:
+                return node[-1]
+            sub_node = self._decode_to_node(node[key_prfx[0]])
+            return self._get_last_node_for_prfx(sub_node, key_prfx[1:])
+
+        # key value node
+        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        if node_type == NODE_TYPE_LEAF:
+            if starts_with(curr_key, key_prfx):
+                return node
+            else:
+                return BLANK_NODE
+
+        if node_type == NODE_TYPE_EXTENSION:
+            # traverse child nodes
+            if starts_with(curr_key, key_prfx):
+                self._decode_to_node(node[1])
+                return node
+            else:
+                return BLANK_NODE
+
     def _update(self, node, key, value):
         # sys.stderr.write('u\n')
         """ update item inside a node
@@ -974,6 +1010,14 @@ class Trie:
         root = root or self.root_node
         proof.push(RECORDING)
         self.get_at(root, key)
+        o = proof.get_nodelist()
+        proof.pop()
+        return o
+
+    def produce_spv_proof_for_key_prfx(self, key, root=None):
+        root = root or self.root_node
+        proof.push(RECORDING)
+        self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key)))
         o = proof.get_nodelist()
         proof.pop()
         return o
