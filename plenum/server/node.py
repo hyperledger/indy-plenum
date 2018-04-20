@@ -6,7 +6,7 @@ from collections import deque
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
-
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -58,6 +58,7 @@ from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage
+from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr, CoreAuthNr
@@ -182,7 +183,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
-        self.register_req_handler(DOMAIN_LEDGER_ID, self.getDomainReqHandler())
+        self.register_req_handler(self.getDomainReqHandler(), DOMAIN_LEDGER_ID)
         self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
 
         self.initDomainState()
@@ -192,7 +193,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.addGenesisNyms()
 
         self.mode = None  # type: Optional[Mode]
-        self.register_req_handler(POOL_LEDGER_ID, self.poolManager.reqHandler)
+        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
 
         self.nodeReg = self.poolManager.nodeReg
 
@@ -424,6 +425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def init_config_state(self):
         self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
         self.setup_config_req_handler()
+        self.setup_action_req_handler()
         self.initConfigState()
 
     def _add_config_ledger(self):
@@ -436,7 +438,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def setup_config_req_handler(self):
         self.configReqHandler = self.getConfigReqHandler()
-        self.register_req_handler(CONFIG_LEDGER_ID, self.configReqHandler)
+        self.register_req_handler(self.configReqHandler, CONFIG_LEDGER_ID)
+
+    def setup_action_req_handler(self):
+        self.actionReqHandler = self.get_action_req_handler()
+        self.register_req_handler(self.actionReqHandler)
 
     def getConfigLedger(self):
         return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
@@ -459,6 +465,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getConfigReqHandler(self):
         return ConfigReqHandler(self.configLedger,
                                 self.states[CONFIG_LEDGER_ID])
+
+    def get_action_req_handler(self):
+        return ActionReqHandler()
 
     def postConfigLedgerCaughtUp(self, **kwargs):
         pass
@@ -728,17 +737,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_state(self, ledger_id, state):
         self.states[ledger_id] = state
 
-    def register_req_handler(self, ledger_id: int, req_handler: RequestHandler):
-        self.ledger_to_req_handler[ledger_id] = req_handler
-        for txn_type in req_handler.valid_txn_types:
-            self.register_txn_type(txn_type, ledger_id, req_handler)
+    def register_req_handler(self, req_handler: RequestHandler,
+                             ledger_id: int = None):
+        if ledger_id is not None:
+            self.ledger_to_req_handler[ledger_id] = req_handler
+        for txn_type in req_handler.operation_types:
+            self.register_txn_type(txn_type, req_handler, ledger_id)
 
-    def register_txn_type(self, txn_type, ledger_id: int, req_handler: RequestHandler):
+    def register_txn_type(self, txn_type, req_handler: RequestHandler,
+                          ledger_id: int = None):
         if txn_type in self.txn_type_to_req_handler:
             raise ValueError('{} already registered for {}'
                              .format(txn_type, self.txn_type_to_req_handler[txn_type]))
         self.txn_type_to_req_handler[txn_type] = req_handler
-        self.txn_type_to_ledger_id[txn_type] = ledger_id
+        if ledger_id is not None:
+            self.txn_type_to_ledger_id[txn_type] = ledger_id
 
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
@@ -2030,7 +2043,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
         handler = self.get_req_handler(txn_type=txn_type)
-        return handler and handler.is_query(txn_type)
+        return handler and isinstance(handler,
+                                      LedgerRequestHandler
+                                      ) and handler.is_query(txn_type)
+
+    def is_action(self, txn_type) -> bool:
+        return txn_type in self.actionReqHandler.operation_types
 
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
@@ -2042,6 +2060,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.send_nack_to_client(request.key, str(ex), frm)
         result = handler.get_query_response(request)
         self.transmitToClient(Reply(result), frm)
+
+    def process_action(self, request, frm):
+        # Process an execute action request
+        self.send_ack_to_client(request.key, frm)
+        try:
+            self.actionReqHandler.validate(request)
+            result = self.actionReqHandler.apply(request)
+            self.transmitToClient(Reply(result), frm)
+        except Exception as ex:
+            self.transmitToClient(Reject(request.identifier,
+                                         request.reqId, str(ex)), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
