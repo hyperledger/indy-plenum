@@ -3,24 +3,20 @@ import json
 from indy.did import create_and_store_my_did
 from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
 from indy.pool import refresh_pool_ledger
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
 from plenum.client.wallet import Wallet
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
-    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, BLS_KEY, STEWARD_STRING
+from plenum.common.constants import VERKEY, VALIDATOR, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, sdk_sign_request_strings
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
@@ -28,29 +24,27 @@ from plenum.test.test_node import TestNode, \
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 from stp_core.common.log import getlogger
-from indy.error import ErrorCode, IndyError
 
 logger = getlogger()
 
 REFRESH_TRY_COUNT = 4
 
 
-def new_client_request(role, name, creatorWallet):
-    wallet = Wallet(name)
-    wallet.addIdentifier()
-    idr = wallet.defaultId
+def new_client_request(role, name, looper, sdk_wallet):
+    wh, did = sdk_wallet
+    seed = randomString(32)
+    (named_did, named_verkey) = looper.loop.run_until_complete(
+        create_and_store_my_did(wh,
+                                json.dumps({
+                                    'seed': seed,
+                                    'cid': True})
+                                ))
+    nym_request = looper.loop.run_until_complete(
+        build_nym_request(did, named_did, named_verkey,
+                          name, role))
 
-    op = {
-        TXN_TYPE: NYM,
-        TARGET_NYM: idr,
-        ALIAS: name,
-        VERKEY: wallet.getVerkey(idr)
-    }
-
-    if role:
-        op[ROLE] = role
-
-    return creatorWallet.signOp(op), wallet
+    return sdk_sign_request_strings(looper, sdk_wallet,
+                                    [json.loads(nym_request)])[0]
 
 
 def prepare_new_node_data(tconf, tdir, newNodeName, configClass=PNodeConfigHelper):

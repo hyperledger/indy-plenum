@@ -14,9 +14,9 @@ from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
 from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
-    sdk_pool_refresh, sdk_add_new_nym
+    sdk_pool_refresh
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -24,45 +24,6 @@ logger = getlogger()
 
 def generate_state_root():
     return base58.b58encode(os.urandom(32))
-
-
-def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_handle,
-                                       saved_multi_sigs_count):
-    # at least two because first request could have no
-    # signature since state can be clear
-    number_of_requests = 3
-
-    # 1. send requests
-    # Using loop to avoid 3pc batching
-    state_roots = []
-    for i in range(number_of_requests):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_handle, 1)
-        waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
-        state_roots.append(
-            state_roots_serializer.serialize(
-                bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
-
-    # 2. get all saved multi-sigs
-    multi_sigs_for_batch = []
-    for state_root in state_roots:
-        multi_sigs = []
-        for node in txnPoolNodeSet:
-            multi_sig = node.bls_bft.bls_store.get(state_root)
-            if multi_sig:
-                multi_sigs.append(multi_sig)
-        multi_sigs_for_batch.append(multi_sigs)
-
-    # 3. check how many multi-sigs are saved
-    for multi_sigs in multi_sigs_for_batch:
-        assert len(multi_sigs) == saved_multi_sigs_count, \
-            "{} != {}".format(len(multi_sigs), saved_multi_sigs_count)
-
-    # 3. check that bls multi-sig is the same for all nodes we get PrePrepare for (that is for all expect the last one)
-    for multi_sigs in multi_sigs_for_batch[:-1]:
-        if multi_sigs:
-            assert multi_sigs.count(multi_sigs[0]) == len(multi_sigs)
 
 
 def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -208,8 +169,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        sdk_pool_handle,
                        sdk_wallet_steward,
                        add_wrong=False,
-                       new_bls=None,
-                       use_in_plenum=True):
+                       new_bls=None):
     new_blspk = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
@@ -226,13 +186,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
-    if (use_in_plenum):
-        sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                                   sdk_wallet_steward, sdk_pool_handle)
-    else:
-        sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward,
-                        alias=randomString(5))
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
