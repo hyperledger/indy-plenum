@@ -35,6 +35,7 @@ def test_time_log_rotation(tdir_for_func, log_compression):
     for i in range(3):
         time.sleep(1)
         logger.debug("line")
+    handler._finish_compression()
     assert len(os.listdir(logDirPath)) == 4  # initial + 3 new
 
 
@@ -50,6 +51,7 @@ def test_size_log_rotation(tdir_for_func, log_compression):
     for i in range(20):
         logger.debug("line")
     handler.flush()
+    handler._finish_compression()
 
     assert len(os.listdir(logDirPath)) == 5
 
@@ -70,6 +72,8 @@ def test_time_and_size_log_rotation(tdir_for_func, log_compression):
     for i in range(3):
         time.sleep(1)
         logger.debug("line")
+
+    handler._finish_compression()
 
     assert len(os.listdir(logDirPath)) == 8
 
@@ -102,6 +106,8 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
             # waiting since last modified time cannot offer good enough
             # precision
             time.sleep(.5)
+
+    handler._finish_compression()
 
     circ_buffer_set = set(cir_buffer)
     assert len(cir_buffer) == len(circ_buffer_set)
