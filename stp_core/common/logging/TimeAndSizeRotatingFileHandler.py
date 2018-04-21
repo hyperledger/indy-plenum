@@ -1,8 +1,12 @@
 import os
 import gzip
 import lzma
+from logging import Logger
+from datetime import datetime, timedelta
+from multiprocessing import Process
 from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
+
 
 
 class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
@@ -16,6 +20,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
                                           utc, atTime)
         self.maxBytes = maxBytes
         self.compression = compression
+        self.compressor = None
 
     def shouldRollover(self, record):
         return bool(TimedRotatingFileHandler.shouldRollover(self, record)) or \
@@ -27,9 +32,15 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
         if source_compression == dest_compression:
             os.rename(source, dest)
             return
-        self._recompress(source, dest)
+
+        self._finish_compression()
+        self.compressor = Process(target=TimeAndSizeRotatingFileHandler._recompress, args=(source, dest))
+        self.compressor.start()
+        # self._finish_compression()
 
     def rotation_filename(self, default_name: str):
+        self._finish_compression()
+
         compressed_name = self._compressed_filename(default_name)
         if not os.path.exists(compressed_name):
             return compressed_name
@@ -48,6 +59,23 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     def _compressed_filename(self, file_name):
         return "{}.{}".format(file_name, self.compression) if self.compression else file_name
+
+    def _finish_compression(self):
+        if self.compressor is None:
+            return
+
+        if not self.compressor.is_alive():
+            self.compressor = None
+            return
+
+        #logger = Logger()
+        now = datetime.now()
+        #logger.warning("Log compression in progress while new log needs to be compressed, joining process")
+        self.compressor.join()
+        delta = datetime.now() - now
+        #if delta > timedelta(2):
+        #    logger.warning("Waiting for log compression worker took more than 2 seconds")
+        self.compressor = None
 
     @staticmethod
     def _file_compression(file_name):
