@@ -531,9 +531,11 @@ class ZStack(NetworkInterface):
         for num_processed in range(limit):
             if len(self.rxMsgs) == 0:
                 return num_processed
+
             msg, ident = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
+
             if self.handlePingPong(msg, frm, ident):
                 continue
             try:

@@ -250,3 +250,7 @@ VERSION_FIELD_LIMIT = 128
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []
+
+# TODO: Fixme, change it to non-zero, tests should set it to non-zero or else it
+# should be set to non-zero outside of this module
+USE_WITH_STACK = 1
