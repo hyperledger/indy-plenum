@@ -98,7 +98,7 @@ class Logger(metaclass=Singleton):
             backupCount=self._config.logRotationBackupCount,
             utc=True,
             maxBytes=self._config.logRotationMaxBytes,
-            compress=self._config.logRotationCompress)
+            compression=self._config.logRotationCompression)
         self._setHandler('file', new)
 
     def _setHandler(self, typ: str, new_handler):
