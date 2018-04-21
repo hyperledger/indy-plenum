@@ -10,7 +10,7 @@ from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
 from stp_core.common.log import Logger
 
 
-@pytest.fixture(params=[False, True], ids=["plain", "compressed"])
+@pytest.fixture(params=[None, "gz", "xz"], ids=["uncompressed", "gzipped", "xzipped"])
 def log_compression(request):
     return request.param
 
@@ -30,7 +30,7 @@ def test_time_log_rotation(tdir_for_func, log_compression):
 
     logger.setLevel(logging.DEBUG)
     handler = TimeAndSizeRotatingFileHandler(
-        logFile, interval=1, when='s', compress=log_compression)
+        logFile, interval=1, when='s', compression=log_compression)
     logger.addHandler(handler)
     for i in range(3):
         time.sleep(1)
@@ -45,7 +45,7 @@ def test_size_log_rotation(tdir_for_func, log_compression):
 
     logger.setLevel(logging.DEBUG)
     handler = TimeAndSizeRotatingFileHandler(
-        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compress=log_compression)
+        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compression=log_compression)
     logger.addHandler(handler)
     for i in range(20):
         logger.debug("line")
@@ -61,7 +61,7 @@ def test_time_and_size_log_rotation(tdir_for_func, log_compression):
 
     logger.setLevel(logging.DEBUG)
     handler = TimeAndSizeRotatingFileHandler(
-        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, interval=1, when="s", compress=log_compression)
+        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, interval=1, when="s", compression=log_compression)
     logger.addHandler(handler)
 
     for i in range(20):
@@ -90,7 +90,7 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
     handler = TimeAndSizeRotatingFileHandler(
         logFile,
         maxBytes=(record_length + len(os.linesep)) * record_per_file + 1,
-        interval=1, when="h", backupCount=backup_count, utc=True, compress=log_compression)
+        interval=1, when="h", backupCount=backup_count, utc=True, compression=log_compression)
     logger.addHandler(handler)
 
     for i in range(1, record_count + 1):
@@ -107,7 +107,6 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
     assert len(cir_buffer) == len(circ_buffer_set)
     assert len(os.listdir(log_dir_path)) == (backup_count + 1)
     for file_name in os.listdir(log_dir_path):
-        open_fn = gzip.open if file_name.endswith(".gz") else open
-        with open_fn(os.path.join(log_dir_path, file_name), "rt") as file:
+        with TimeAndSizeRotatingFileHandler._open_log(os.path.join(log_dir_path, file_name), "rt") as file:
             for line in file.readlines():
                 assert line.strip() in circ_buffer_set
