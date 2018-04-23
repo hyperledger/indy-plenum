@@ -99,7 +99,7 @@ def test_validator_info_file_timestamp_field_valid(load_latest_info,
 
 
 def test_validator_info_file_verkey_field_valid(node, info):
-    assert info['verkey'] == base58.b58encode(node.nodestack.verKey)
+    assert info['verkey'] == base58.b58encode(node.nodestack.verKey).decode("utf-8")
 
 
 def test_validator_info_file_metrics_avg_write_field_valid(info,

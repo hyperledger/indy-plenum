@@ -113,7 +113,7 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __verkey(self):
-        return base58.b58encode(self._node.nodestack.verKey)
+        return base58.b58encode(self._node.nodestack.verKey).decode("utf-8")
 
     @property
     @none_on_fail
