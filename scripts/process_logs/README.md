@@ -163,8 +163,8 @@ checks that message has attribute `reqId` containing value `xz 42`
   ```yaml
   - message: cannot send COMMIT since does not have prepare quorum for PREPARE
   ```
-- `replica`: checks if message is from given replica, which could be a number 
-  or one of special strings:
+- `replica`: checks if message is from given replica, which could be a replica
+  index or one of special strings:
   - `node`: message is actually from node, not replica
   - `master`: message is from master replica or from node
   - `backup`: message is from any of backup replicas
