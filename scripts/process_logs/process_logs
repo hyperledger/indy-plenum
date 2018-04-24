@@ -782,6 +782,8 @@ class NodeRequestData:
                                       "'viewNo': (\d+)")
         self._prepare = MessageParser("PREPARE",
                                       "PREPARE\s?\((\d+), (\d+)\)")
+        self._commit = MessageParser("COMMIT",
+                                     "COMMIT\s?\((\d+), (\d+)\)")
         self._propagate_req = MessageParser("propagating request",
                                             "propagating request \('(\w+)', (\d+)\) from client")
         self._forward_req = MessageParser("forwarding request",
@@ -834,6 +836,7 @@ class NodeRequestData:
         self._extract_ppSeqNo(message, attrs)
         self._extract_viewNo(message, attrs)
         self._process_prepare(message, attrs)
+        self._process_commit(message, attrs)
         self._process_propagate_req(message, attrs)
         self._process_forward_req(message, attrs)
         self._process_ordered(message, attrs)
@@ -876,6 +879,12 @@ class NodeRequestData:
 
     def _process_prepare(self, message, attrs):
         m = self._prepare.parse(message)
+        if m is not None:
+            attrs.add('viewNo', m[0])
+            attrs.add('ppSeqNo', m[1])
+
+    def _process_commit(self, message, attrs):
+        m = self._commit.parse(message)
         if m is not None:
             attrs.add('viewNo', m[0])
             attrs.add('ppSeqNo', m[1])

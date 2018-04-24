@@ -1,16 +1,11 @@
 import pytest
-from stp_core.network.exceptions import PublicKeyNotFoundOnDisk
+from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
-from plenum.test.greek import genNodeNames
 
-from stp_core.loop.looper import Looper
-from plenum.test.helper import msgAll
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
+from plenum.test.helper import msgAll, sendMessageToAll
+from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
-
-whitelist = ['public key from disk', 'verification key from disk',
-             'doesnt have enough info to connect']
 nodeCount = 5
 
 
@@ -26,19 +21,15 @@ def testKeyShareParty(looper, txnPoolNodeSet, tdir_for_func, tconf_for_func):
 
     logger.debug("-----key sharing done, connect after key sharing-----")
     looper.run(checkNodesConnected(txnPoolNodeSet),
-             msgAll(txnPoolNodeSet))
+               msgAll(txnPoolNodeSet))
+    for node in txnPoolNodeSet:
+        node.stop()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason='get rid of registry pool')
-def testConnectWithoutKeySharingFails(tdir_for_func, tconf_for_func):
+def testConnectWithoutKeySharingFails(looper, txnPoolNodeSetNotStarted):
     """
     attempts at connecting to nodes when key sharing is disabled must fail
     """
-    nodeNames = genNodeNames(5)
-
-    with pytest.raises(PublicKeyNotFoundOnDisk):
-        with TestNodeSet(tconf_for_func, names=nodeNames, tmpdir=tdir_for_func,
-                         keyshare=False) as nodes:
-            with Looper(nodes) as looper:
-                looper.run()
+    with pytest.raises(RemoteNotFound):
+        sendMessageToAll(txnPoolNodeSetNotStarted, txnPoolNodeSetNotStarted[0])
