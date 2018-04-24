@@ -42,7 +42,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     slow_master_replica = slow_node.master_replica
 
     commit_delay = 150
-    catchup_rep_delay = 35
+    catchup_rep_delay = 25
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
