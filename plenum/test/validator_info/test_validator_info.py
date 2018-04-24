@@ -1,4 +1,5 @@
 import base58
+import os
 import pytest
 import re
 
@@ -81,8 +82,8 @@ def test_validator_info_file_metrics_avg_read_field_valid(info,
     assert latest_info['Node_info']['Metrics']['average-per-second']['read-transactions'] > 0
 
 
-def test_validator_info_file_metrics_count_ledger_field_valid(poolTxnData, info):
-    txns_num = sum(1 for item in poolTxnData["txns"] if item.get(TXN_TYPE) != NODE)
+def test_validator_info_file_metrics_count_ledger_field_valid(node, info):
+    txns_num = node.domainLedger.size
     assert info['Node_info']['Metrics']['transaction-count']['ledger'] == txns_num
 
 
@@ -132,7 +133,7 @@ def test_software_info_section(info):
     assert info['Software']['Indy_packages']
 
 
-def test_node_info_section(info):
+def test_node_info_section(info, node):
     assert info['Node_info']
     assert info['Node_info']['Catchup_status']
     assert info['Node_info']['Catchup_status']['Last_txn_3PC_keys']
@@ -162,6 +163,12 @@ def test_node_info_section(info):
     assert 'VCDone_queue'   in info['Node_info']['View_change_status']
     assert 'VC_in_progress' in info['Node_info']['View_change_status']
     assert 'View_No'        in info['Node_info']['View_change_status']
+    assert "Pool_ledger_size" in info["Node_info"]
+    assert "Domain_ledger_size" in info["Node_info"]
+    assert "Config_ledger_size" in info["Node_info"]
+    assert info["Node_info"]['Pool_ledger_size'] == node.poolLedger.size
+    assert info["Node_info"]['Domain_ledger_size'] == node.domainLedger.size
+    assert info["Node_info"]['Config_ledger_size'] == node.configLedger.size
 
 
 def test_pool_info_section(info):
@@ -200,27 +207,28 @@ def test_extractions_section(node):
     assert "indy-node_status" in info["Extractions"]
     assert "node-control status" in info["Extractions"]
     assert "upgrade_log" in info["Extractions"]
-    assert "Last_N_pool_ledger_txns" in info["Extractions"]
-    assert "Last_N_domain_ledger_txns" in info["Extractions"]
-    assert "Last_N_config_ledger_txns" in info["Extractions"]
-    assert "Pool_ledger_size" in info["Extractions"]
-    assert "Domain_ledger_size" in info["Extractions"]
-    assert "Config_ledger_size" in info["Extractions"]
-    assert info["Extractions"]['Pool_ledger_size'] == node.poolLedger.size
-    assert info["Extractions"]['Domain_ledger_size'] == node.domainLedger.size
-    assert info["Extractions"]['Config_ledger_size'] == node.configLedger.size
+    assert "stops_stat" in info["Extractions"]
+    # TODO effective with rocksdb as storage type.
+    # In leveldb it would be iteration over all txns
+
+    # assert "Last_N_pool_ledger_txns" in info["Extractions"]
+    # assert "Last_N_domain_ledger_txns" in info["Extractions"]
+    # assert "Last_N_config_ledger_txns" in info["Extractions"]
 
 
-def test_last_exactly_N_txn_from_ledger(node,
-                                        looper,
-                                        txnPoolNodeSet,
-                                        sdk_pool_handle,
-                                        sdk_wallet_steward):
-    txnCount = 10
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, txnCount)
-    assert node.domainLedger.size > NUMBER_TXNS_FOR_DISPLAY
-    extractions = node._info_tool.additional_info['Extractions']
-    assert len(extractions["Last_N_domain_ledger_txns"]) == NUMBER_TXNS_FOR_DISPLAY
+# TODO effective with rocksdb as storage type.
+# In leveldb it would be iteration over all txns
+
+# def test_last_exactly_N_txn_from_ledger(node,
+#                                         looper,
+#                                         txnPoolNodeSet,
+#                                         sdk_pool_handle,
+#                                         sdk_wallet_steward):
+#     txnCount = 10
+#     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, txnCount)
+#     assert node.domainLedger.size > NUMBER_TXNS_FOR_DISPLAY
+#     extractions = node._info_tool.additional_info['Extractions']
+#     assert len(extractions["Last_N_domain_ledger_txns"]) == NUMBER_TXNS_FOR_DISPLAY
 
 
 def test_build_node_info_time(node):
@@ -234,7 +242,14 @@ def test_protocol_info_section(info):
     assert 'Protocol' in info
 
 
-@pytest.fixture(scope='module')
+def test_dump_additional_info(node):
+    file_name = node._info_tool.ADDITIONAL_FILE_NAME_TEMPLATE.format(node_name=node.name.lower())
+    file_path = os.path.join(node.node_info_dir, file_name)
+    assert os.path.exists(file_path)
+
+
+
+@pytest.fixture(scope='function')
 def info(node):
     return node._info_tool.info
 

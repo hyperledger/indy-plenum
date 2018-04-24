@@ -6,6 +6,7 @@ import pip
 import os
 import base58
 import subprocess
+from dateutil import parser
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
@@ -35,7 +36,8 @@ def none_on_fail(func):
 
 class ValidatorNodeInfoTool:
     JSON_SCHEMA_VERSION = '0.0.1'
-    FILE_NAME_TEMPLATE = '{node_name}_info.json'
+    GENERAL_FILE_NAME_TEMPLATE = '{node_name}_info.json'
+    ADDITIONAL_FILE_NAME_TEMPLATE = '{node_name}_additional_info.json'
 
     def __init__(self, node):
         self._node = node
@@ -447,6 +449,12 @@ class ValidatorNodeInfoTool:
                     len(self._node.replicas)),
                 "Replicas_status": self._prepare_for_json(
                     self.__replicas_status),
+                "Pool_ledger_size": self._prepare_for_json(
+                    self._get_pool_ledger_size()),
+                "Domain_ledger_size": self._prepare_for_json(
+                    self._get_domain_ledger_size()),
+                "Config_ledger_size": self._prepare_for_json(
+                    self._get_config_ledger_size()),
             }
         }
 
@@ -464,18 +472,18 @@ class ValidatorNodeInfoTool:
                         self._get_node_control_status()),
                     "upgrade_log": self._prepare_for_json(
                         self._get_upgrade_log()),
-                    "Last_N_pool_ledger_txns": self._prepare_for_json(
-                        self._get_last_n_from_pool_ledger()),
-                    "Last_N_domain_ledger_txns": self._prepare_for_json(
-                        self._get_last_n_from_domain_ledger()),
-                    "Last_N_config_ledger_txns": self._prepare_for_json(
-                        self._get_last_n_from_config_ledger()),
-                    "Pool_ledger_size": self._prepare_for_json(
-                        self._get_pool_ledger_size()),
-                    "Domain_ledger_size": self._prepare_for_json(
-                        self._get_domain_ledger_size()),
-                    "Config_ledger_size": self._prepare_for_json(
-                        self._get_config_ledger_size()),
+                    "stops_stat": self._prepare_for_json(
+                        self._get_stop_stat()),
+
+                    # TODO effective with rocksdb as storage type.
+                    # In leveldb it would be iteration over all txns
+
+                    # "Last_N_pool_ledger_txns": self._prepare_for_json(
+                    #     self._get_last_n_from_pool_ledger()),
+                    # "Last_N_domain_ledger_txns": self._prepare_for_json(
+                    #     self._get_last_n_from_domain_ledger()),
+                    # "Last_N_config_ledger_txns": self._prepare_for_json(
+                    #     self._get_last_n_from_config_ledger()),
                 }
         }
 
@@ -547,11 +555,48 @@ class ValidatorNodeInfoTool:
     def _get_config_ledger_size(self):
         return self._node.configLedger.size
 
-    def dump_json_file(self):
-        file_name = self.FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+    def dump_general_info(self):
+        file_name = self.GENERAL_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
         path = os.path.join(self.__node_info_dir, file_name)
         with open(path, 'w') as fd:
             try:
                 json.dump(self.info, fd)
             except Exception as ex:
                 logger.error("Error while dumping into json: {}".format(repr(ex)))
+
+    def dump_additional_info(self):
+        file_name = self.ADDITIONAL_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+        path = os.path.join(self.__node_info_dir, file_name)
+        with open(path, 'w') as fd:
+            try:
+                json.dump(self.additional_info, fd)
+            except Exception as ex:
+                logger.error("Error while dumping into json: {}".format(repr(ex)))
+
+    def _get_time_from_journalctl_line(self, line):
+        items = line.split(' ')
+        success_items = []
+        dtime = None
+        for item in items:
+            success_items.append(item)
+            try:
+                dtime = parser.parse(" ".join(success_items))
+            except ValueError:
+                break
+        return dtime
+
+    def _get_stop_stat(self):
+        stops = self._run_external_cmd("grep 'Stopped Indy Node' /tmp/Node2.jctl").strip()
+        stops = stops.split(os.linesep)
+        res = None
+        if stops:
+            first_stop = self._get_time_from_journalctl_line(stops[0])
+            last_stop = self._get_time_from_journalctl_line(stops[-1])
+            measurement_period = last_stop - first_stop
+            res = {
+                "first_stop": str(first_stop),
+                "last_stop": str(last_stop),
+                "measurement_period": str(measurement_period),
+                "total_count": len(stops),
+            }
+        return res
