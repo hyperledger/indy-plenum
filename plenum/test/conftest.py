@@ -8,7 +8,6 @@ import re
 import warnings
 import json
 from contextlib import ExitStack
-from copy import copy
 from functools import partial
 import time
 from typing import Dict, Any
@@ -34,7 +33,6 @@ from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
 from stp_core.common.logging.handlers import TestingHandler
-from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from _pytest.recwarn import WarningsRecorder
@@ -938,17 +936,28 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(pluginManager, tdir, tconf, node_config_helper_class):
-    name = randomText(20)
-    nodeReg = genNodeReg(names=[name])
-    ha, cliname, cliha = nodeReg[name]
-    config_helper = node_config_helper_class(name, tconf, chroot=tdir)
-    node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
-                    nodeRegistry=copy(nodeReg),
-                    config_helper=config_helper,
-                    config=tconf,
-                    primaryDecider=None, pluginPaths=None, seed=randomSeed())
-    node.start(None)
+def testNode(pluginManager,
+             node_config_helper_class,
+             txnPoolNodesLooper,
+             tdirWithPoolTxns,
+             tdirWithDomainTxns,
+             tdir,
+             tconf,
+             allPluginsPath,
+             tdirWithNodeKeepInited,
+             do_post_node_creation,
+             poolTxnNodeNames):
+    node = None
+    for p in txnPoolNodesLooper.prodables:
+        if 'Alpha' == p.name:
+            node = p
+    if not node:
+        node = create_new_test_node(
+            TestNode, node_config_helper_class, 'Alpha', tconf, tdir,
+            None)
+        do_post_node_creation(node)
+        txnPoolNodesLooper.add(node)
+        txnPoolNodesLooper.run(checkNodesConnected([node]))
     yield node
     node.stop()
 
