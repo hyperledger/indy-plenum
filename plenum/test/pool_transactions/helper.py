@@ -34,11 +34,7 @@ def new_client_request(role, name, looper, sdk_wallet):
     wh, did = sdk_wallet
     seed = randomString(32)
     (named_did, named_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(wh,
-                                json.dumps({
-                                    'seed': seed,
-                                    'cid': True})
-                                ))
+        create_and_store_my_did(wh, json.dumps({'seed': seed})))
     nym_request = looper.loop.run_until_complete(
         build_nym_request(did, named_did, named_verkey,
                           name, role))
@@ -190,7 +186,7 @@ def sdk_add_new_steward_and_node(looper,
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
                     alias=None, role=None, seed=None,
-                    dest=None, verkey=None):
+                    dest=None, verkey=None,skipverkey=False):
     seed = seed or randomString(32)
     alias = alias or randomString(5)
     wh, _ = creators_wallet
@@ -199,7 +195,7 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     # if role == None, we are adding client
     nym_request, new_did = looper.loop.run_until_complete(
         prepare_nym_request(creators_wallet, seed,
-                            alias, role, dest, verkey))
+                            alias, role, dest, verkey, skipverkey))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
@@ -255,16 +251,13 @@ async def prepare_schema_request(wallet, named_seed, alias, role):
 
 
 async def prepare_nym_request(wallet, named_seed, alias,
-                              role, dest=None, verkey=None):
+                              role, dest=None, verkey=None, skipverkey=False):
     wh, submitter_did = wallet
     (named_did, named_verkey) = \
-        await create_and_store_my_did(wh,
-                                      json.dumps({
-                                          'seed': named_seed,
-                                          'cid': True})
-                                      )
-    if dest: named_did = dest
-    if verkey: named_verkey = verkey
+        await create_and_store_my_did(wh, json.dumps({'seed': named_seed}))
+    named_did = dest or named_did
+    named_verkey = verkey or named_verkey
+    named_verkey = None if skipverkey else named_verkey
     nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
                                           alias, role)
     return nym_request, named_did
