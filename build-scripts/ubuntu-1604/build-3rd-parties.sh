@@ -65,7 +65,7 @@ build_rocksdb_deb 5.8.8
 
 build_from_pypi ioflo 1.5.4
 build_from_pypi orderedset 2.0
-build_from_pypi base58 0.2.4
+build_from_pypi base58 1.0.0
 build_from_pypi prompt-toolkit 0.57
 build_from_pypi rlp 0.5.1
 build_from_pypi sha3 0.2.1
