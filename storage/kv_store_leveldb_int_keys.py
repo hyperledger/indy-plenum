@@ -47,5 +47,3 @@ class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
             if len(all_keys) > 0:
                 last_key = all_keys[-1]
         return last_key
-
-

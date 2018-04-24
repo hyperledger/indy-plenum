@@ -715,7 +715,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 tm < self.last_accepted_pre_prepare_time:
             tm = self.last_accepted_pre_prepare_time
 
-
         validReqs = []
         inValidReqs = []
         rejects = []
