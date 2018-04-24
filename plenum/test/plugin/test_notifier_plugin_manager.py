@@ -112,7 +112,6 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
     assert sent == 3
 
 
-@pytest.mark.skip(reason='INDY-1251')
 def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     def mockProcessRequest(obj, inc=1):
         obj.nodeRequestSpikeMonitorData['accum'] += inc
@@ -134,14 +133,13 @@ def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
         assert testNode.sendNodeRequestSpike() is None
     mockProcessRequest(testNode, 2)
     assert testNode.sendNodeRequestSpike() is None
-    mockProcessRequest(testNode, 10)
+    mockProcessRequest(testNode, 8)
     assert testNode.sendNodeRequestSpike() is None
     mockProcessRequest(testNode, 100)
     sent, found = testNode.sendNodeRequestSpike()
     assert sent == 3
 
 
-@pytest.mark.skip(reason='INDY-1251')
 def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
                                           testNode):
     N = 15
@@ -159,7 +157,7 @@ def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
         assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [2]
     assert testNode.monitor.sendClusterThroughputSpike() is None
-    testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [4, 6]
+    testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [7, 9]
     assert testNode.monitor.sendClusterThroughputSpike() is None
     testNode.monitor.clusterThroughputSpikeMonitorData['accum'] = [100]
     sent, found = testNode.monitor.sendClusterThroughputSpike()
