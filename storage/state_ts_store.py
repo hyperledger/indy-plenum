@@ -24,3 +24,6 @@ class StateTsDbStorage():
 
     def get_equal_or_prev(self, timestamp):
         return self._storage.get_equal_or_prev(str(timestamp))
+
+    def get_last_key(self):
+        return self._storage.get_last_key()

@@ -4,8 +4,8 @@ from plenum.common.constants import KeyValueStorageType
 from storage.state_ts_store import StateTsDbStorage
 
 
-@pytest.fixture(scope="module", params=['rocksdb', 'leveldb'])
-def storage_with_ts_root_hashes(request, tmpdir_factory):
+@pytest.fixture(scope="function", params=['rocksdb', 'leveldb'])
+def empty_storage(request, tmpdir_factory):
     if request.param == 'leveldb':
         kv_storage_type = KeyValueStorageType.Leveldb
     else:
@@ -16,6 +16,13 @@ def storage_with_ts_root_hashes(request, tmpdir_factory):
                                    kv_storage_type,
                                    tmpdir_factory.mktemp('').strpath,
                                    "test_db"))
+    return storage
+
+
+@pytest.fixture(scope="function")
+def storage_with_ts_root_hashes(empty_storage):
+    storage = empty_storage
+
     ts_list = {
         2: "aaaa",
         4: "bbbb",
@@ -41,3 +48,13 @@ def test_previous_key_for_given(storage_with_ts_root_hashes):
 def test_get_required_key(storage_with_ts_root_hashes):
     storage, ts_list = storage_with_ts_root_hashes
     assert storage.get_equal_or_prev(2).decode("utf-8") == ts_list[2]
+
+
+def test_get_last_key(storage_with_ts_root_hashes):
+    storage, ts_list = storage_with_ts_root_hashes
+    assert storage.get_last_key().decode() == '100'
+
+
+def test_empty_storage_get_last_key(empty_storage):
+    storage = empty_storage
+    assert storage.get_last_key() is None
