@@ -88,7 +88,8 @@ from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
-from storage.helper import initKeyValueStorage, initHashStore
+from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
+from storage.state_ts_store import StateTsDbStorage
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
@@ -174,6 +175,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.states = {}  # type: Dict[int, State]
 
         self.primaryStorage = storage or self.getPrimaryStorage()
+
+        self.stateTsDbStorage = None
 
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
@@ -583,7 +586,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.states[DOMAIN_LEDGER_ID],
                                     self.config,
                                     self.reqProcessors,
-                                    self.bls_bft.bls_store)
+                                    self.bls_bft.bls_store,
+                                    self.getStateTsDbStorage())
+
+    def getStateTsDbStorage(self):
+        if self.stateTsDbStorage is None:
+            self.stateTsDbStorage = StateTsDbStorage(
+                self.name,
+                initKeyValueStorageIntKeys(self.config.stateTsStorage,
+                                           self.dataLocation,
+                                           self.config.stateTsDbName)
+            )
+        return self.stateTsDbStorage
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(

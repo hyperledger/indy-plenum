@@ -47,9 +47,12 @@ poolTransactionsFile = pool_transactions_file_base
 domainTransactionsFile = domain_transactions_file_base
 configTransactionsFile = config_transactions_file_base
 
+stateTsStorage = KeyValueStorageType.Rocksdb
+
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 configStateDbName = 'config_state'
+stateTsDbName = "state_ts_db"
 
 stateSignatureDbName = 'state_signature'
 

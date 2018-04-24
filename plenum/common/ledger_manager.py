@@ -12,7 +12,7 @@ from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
-    CONSISTENCY_PROOF, CATCH_UP_PREFIX
+    CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
@@ -583,6 +583,14 @@ class LedgerManager(HasActionQueue):
         merkleInfo = ledger.add(self._transform(txn))
         txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
         ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
+        if self.ownedByNode:
+            node = self.owner
+            req_handler = node.get_req_handler(ledgerId)
+            # Assume, that state updating was called before
+            # state
+            if req_handler and ledgerId == DOMAIN_LEDGER_ID:
+                    req_handler.tsRevoc_store.set(txn[TXN_TIME],
+                                                  req_handler.state.headHash)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
