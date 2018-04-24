@@ -1743,7 +1743,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for k in previousCheckpoints:
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self._gc((self.viewNo, seqNo))
+        self.gc((self.viewNo, seqNo))
         self.logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
@@ -1827,17 +1827,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return total_processed
 
-    def _gc(self, till3PCKey):
-        self.logger.debug("{} cleaning up till {}".format(self, till3PCKey))
+    def gc(self, till3PCKey=None):
+        self.logger.debug("{} cleaning up ".format(self) +
+                          ("till {}".format(till3PCKey) if till3PCKey else "all"))
         tpcKeys = set()
         reqKeys = set()
         for key3PC, pp in self.sentPrePrepares.items():
-            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+            if till3PCKey is None or compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
         for key3PC, pp in self.prePrepares.items():
-            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+            if till3PCKey is None or compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
@@ -1872,9 +1873,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.gc(till3PCKey)
 
     def _gc_before_new_view(self):
-        # Trigger GC for all batches of old view
-        # Clear any checkpoints, since they are valid only in a view
-        self._gc(self.last_ordered_3pc)
+        # Trigger GC for old view.
+        # Clear any checkpoints and stashed pre-prepares.
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
         self._clear_prev_view_pre_prepares()

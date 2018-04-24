@@ -1885,16 +1885,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return count
 
     def no_more_catchups_needed(self):
-        # After all the rounds of catch-up are completed, normal processing
-        # of Ordereds will not re-apply them before executing,
-        # so remove all the 3PC-batches which are in progress to avoid attempts
-        # to execute them without re-applying.
-        for replica in self.replicas:
-            replica.sentPrePrepares.clear()
-            replica.prePrepares.clear()
-
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        for replica in self.replicas:
+            replica.gc()
         self.mode = Mode.synced
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
