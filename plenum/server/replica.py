@@ -2448,8 +2448,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         last_timestamp = None
         if ledger_id == DOMAIN_LEDGER_ID:
             req_handler = self.node.ledger_to_req_handler.get(ledger_id)
-            if req_handler.tsRevoc_store:
-                last_timestamp = req_handler.tsRevoc_store.get_last_key()
+            if req_handler.ts_store:
+                last_timestamp = req_handler.ts_store.get_last_key()
                 if last_timestamp:
                     last_timestamp = int(last_timestamp.decode())
                 self.logger.debug("Last ordered timestamp from store is : {}"

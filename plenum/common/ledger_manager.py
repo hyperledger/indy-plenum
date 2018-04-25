@@ -589,7 +589,7 @@ class LedgerManager(HasActionQueue):
             # Assume, that state updating was called before
             # state
             if req_handler and ledgerId == DOMAIN_LEDGER_ID:
-                    req_handler.tsRevoc_store.set(txn[TXN_TIME],
+                    req_handler.ts_store.set(txn[TXN_TIME],
                                                   req_handler.state.headHash)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):

@@ -44,7 +44,7 @@ def test_choose_ts_from_state(looper,
     primary_node = get_master_primary_node(txnPoolNodeSet)
     excpected_ts = get_utc_epoch() + 30
     req_handler = primary_node.getDomainReqHandler()
-    req_handler.tsRevoc_store.set(excpected_ts,
+    req_handler.ts_store.set(excpected_ts,
                                   req_handler.state.headHash)
     primary_node.master_replica.last_accepted_pre_prepare_time = None
     reply = sdk_send_random_and_check(looper,

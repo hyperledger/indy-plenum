@@ -22,8 +22,8 @@ class DomainRequestHandler(LedgerRequestHandler):
     stateSerializer = domain_state_serializer
     write_types = {NYM, }
 
-    def __init__(self, ledger, state, config, reqProcessors, bls_store, tsRevoc_store=None):
-        super().__init__(ledger, state, tsRevoc_store=tsRevoc_store)
+    def __init__(self, ledger, state, config, reqProcessors, bls_store, ts_store=None):
+        super().__init__(ledger, state, ts_store=ts_store)
         self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store

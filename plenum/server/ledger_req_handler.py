@@ -25,10 +25,10 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     query_types = set()
     write_types = set()
 
-    def __init__(self, ledger: Ledger, state: State, tsRevoc_store=None):
+    def __init__(self, ledger: Ledger, state: State, ts_store=None):
         self.state = state
         self.ledger = ledger
-        self.tsRevoc_store = tsRevoc_store
+        self.ts_store = ts_store
 
     def updateState(self, txns, isCommitted=False):
         """
@@ -53,8 +53,8 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         assert self.ledger.root_hash == txnRoot, '{} {}'.format(
             self.ledger.root_hash, txnRoot)
         self.state.commit(rootHash=stateRoot)
-        if self.tsRevoc_store:
-            self.tsRevoc_store.set(ppTime, stateRoot)
+        if self.ts_store:
+            self.ts_store.set(ppTime, stateRoot)
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
     def onBatchCreated(self, state_root):
