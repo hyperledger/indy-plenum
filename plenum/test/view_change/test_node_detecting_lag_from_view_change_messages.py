@@ -5,7 +5,7 @@ import pytest
 from plenum.common.util import compare_3PC_keys
 from plenum.test.delayers import delay_3pc_messages, icDelay, cDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
-    sendRandomRequests, sdk_send_random_requests
+    sdk_send_random_requests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas
