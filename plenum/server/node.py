@@ -944,7 +944,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = None
         self.ledgerManager.prepare_ledgers_for_sync()
 
-        def closeAllKVStores(self):
+    def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.debug("{} closing key-value storages".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgerRegistry:
