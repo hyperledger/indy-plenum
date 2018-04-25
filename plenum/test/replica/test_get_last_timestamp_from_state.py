@@ -1,6 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import get_master_primary_node
@@ -27,6 +28,7 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
                                       sdk_wallet_steward,
                                       1)[0][1]
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node_to_disconnect)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet[:-1])
     ts_from_state = node_to_disconnect.master_replica._get_last_timestamp_from_state(DOMAIN_LEDGER_ID)
     assert ts_from_state == reply['result']['txnTime']
     assert ts_from_state != reply_before['result']['txnTime']

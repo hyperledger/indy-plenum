@@ -4,7 +4,7 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
     reconnect_node_and_ensure_connected
 
 
-def test_fill_ts_revoc_after_catchup(txnPoolNodeSet,
+def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                      looper,
                                      sdk_pool_handle,
                                      sdk_wallet_steward):
@@ -24,6 +24,7 @@ def test_fill_ts_revoc_after_catchup(txnPoolNodeSet,
     for reply in sdk_replies:
         key = req_handler.prepare_buy_key(reply[1]['result']['identifier'],
                                            reply[1]['result']['reqId'])
+        assert root_hash
         root_hash = req_handler.ts_store.get_equal_or_prev(reply[1]['result']['txnTime'])
         from_state = req_handler.state.get_for_root_hash(root_hash=root_hash,
                                                          key=key)
