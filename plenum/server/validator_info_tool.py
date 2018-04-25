@@ -586,7 +586,7 @@ class ValidatorNodeInfoTool:
         return dtime
 
     def _get_stop_stat(self):
-        stops = self._run_external_cmd("grep 'Stopped Indy Node' /tmp/Node2.jctl").strip()
+        stops = self._run_external_cmd("journalctl | grep 'Stopped Indy Node'").strip()
         stops = stops.split(os.linesep)
         res = None
         if stops:
