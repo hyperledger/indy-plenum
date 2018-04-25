@@ -20,6 +20,7 @@ from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.loop.eventually import eventually
 from plenum.server.validator_info_tool import NUMBER_TXNS_FOR_DISPLAY
+from plenum.server.node import Node
 
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
@@ -243,6 +244,7 @@ def test_protocol_info_section(info):
 
 
 def test_dump_additional_info(node):
+    Node.dump_additional_info(node)
     file_name = node._info_tool.ADDITIONAL_FILE_NAME_TEMPLATE.format(node_name=node.name.lower())
     file_path = os.path.join(node.node_info_dir, file_name)
     assert os.path.exists(file_path)
