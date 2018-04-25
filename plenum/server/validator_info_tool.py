@@ -587,16 +587,17 @@ class ValidatorNodeInfoTool:
 
     def _get_stop_stat(self):
         stops = self._run_external_cmd("journalctl | grep 'Stopped Indy Node'").strip()
-        stops = stops.split(os.linesep)
         res = None
         if stops:
-            first_stop = self._get_time_from_journalctl_line(stops[0])
-            last_stop = self._get_time_from_journalctl_line(stops[-1])
-            measurement_period = last_stop - first_stop
-            res = {
-                "first_stop": str(first_stop),
-                "last_stop": str(last_stop),
-                "measurement_period": str(measurement_period),
-                "total_count": len(stops),
-            }
+            stop_lines = stops.split(os.linesep)
+            if stop_lines:
+                first_stop = self._get_time_from_journalctl_line(stop_lines[0])
+                last_stop = self._get_time_from_journalctl_line(stop_lines[-1])
+                measurement_period = last_stop - first_stop
+                res = {
+                    "first_stop": str(first_stop),
+                    "last_stop": str(last_stop),
+                    "measurement_period": str(measurement_period),
+                    "total_count": len(stops),
+                }
         return res
