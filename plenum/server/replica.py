@@ -2445,13 +2445,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return removed
 
     def _get_last_timestamp_from_state(self, ledger_id):
-        last_timestamp = None
         if ledger_id == DOMAIN_LEDGER_ID:
             req_handler = self.node.ledger_to_req_handler.get(ledger_id)
             if req_handler.ts_store:
                 last_timestamp = req_handler.ts_store.get_last_key()
                 if last_timestamp:
                     last_timestamp = int(last_timestamp.decode())
-                self.logger.debug("Last ordered timestamp from store is : {}"
-                                  "".format(last_timestamp))
-        return last_timestamp
+                    self.logger.debug("Last ordered timestamp from store is : {}"
+                                      "".format(last_timestamp))
+                    return last_timestamp
+        return None
