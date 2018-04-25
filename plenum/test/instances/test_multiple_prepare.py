@@ -11,9 +11,6 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
-from plenum.test.node_request.conftest import committed1, \
-    prepared1, preprepared1, propagated1, reqAcked1, \
-    sent1, noRetryReq, faultyNodes
 
 
 @pytest.fixture("module")
