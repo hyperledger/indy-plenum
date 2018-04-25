@@ -147,7 +147,7 @@ enableStdOutLogging = True
 # OPTIONS RELATED TO TESTS
 
 # TODO test 60sec
-TestRunningTimeLimitSec = 400
+TestRunningTimeLimitSec = 100
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
