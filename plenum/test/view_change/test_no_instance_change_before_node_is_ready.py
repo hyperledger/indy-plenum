@@ -11,7 +11,7 @@ logger = getlogger()
 @pytest.fixture(scope="module", autouse=True)
 def tconf(tconf):
     old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.VIEW_CHANGE_TIMEOUT = 5
+    tconf.VIEW_CHANGE_TIMEOUT = 10
     yield tconf
     tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
 
@@ -40,6 +40,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
 
     # 3. make sure no InstanceChange sent by the new node
     assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
+
+    logger.info("Start added node {}".format(new_node))
 
     # 4. add the node to the pool (send NODE txn) and make sure that the node is ready now.
     add_started_node(looper,
