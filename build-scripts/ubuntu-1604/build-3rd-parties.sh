@@ -76,5 +76,6 @@ build_from_pypi intervaltree 2.1.0
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7
 build_from_pypi setuptools 38.5.2
+build_from_pypi python-dateutil 2.6.1
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9
