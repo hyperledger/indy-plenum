@@ -1,8 +1,9 @@
 import pytest
+
 from plenum.common.util import hexToFriendly
 
 from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, CLIENT_STACK_SUFFIX
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import sdk_send_update_node, demote_node
 
 nodeCount = 7
 nodes_wth_bls = 0
@@ -34,17 +35,9 @@ def test_get_nym_by_name_demoted(txnPoolNodeSet, pool_node_txns,
                                  looper, sdk_wallet_steward, sdk_pool_handle):
     # sdk_wallet_steward fixture is a steward for [0] node,
     # so we can do things below:
-    demote_node(txnPoolNodeSet[0], looper, sdk_wallet_steward, sdk_pool_handle)
+    demote_node(looper, sdk_wallet_steward, sdk_pool_handle,
+                txnPoolNodeSet[0])
     check_get_nym_by_name(txnPoolNodeSet, pool_node_txns)
-
-
-def demote_node(node, looper, sdk_steward_wallet, sdk_pool_handle):
-    node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, sdk_steward_wallet, sdk_pool_handle,
-                         node_dest, node.name,
-                         None, None,
-                         None, None,
-                         services=[])
 
 
 def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):

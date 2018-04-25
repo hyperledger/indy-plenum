@@ -10,8 +10,8 @@ from plenum.test.view_change.helper import ensure_view_change, start_stopped_nod
 from stp_core.loop.eventually import eventually
 
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
-from plenum.test.pool_transactions.conftest import nodeThetaAdded
-from plenum.test.primary_selection.conftest import one_node_added
+from plenum.test.pool_transactions.conftest import sdk_node_theta_added
+from plenum.test.primary_selection.conftest import sdk_one_node_added
 
 from stp_core.common.log import getlogger
 
@@ -33,8 +33,8 @@ def all_nodes_view_change(
 
 @pytest.fixture(scope='module')
 def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
-                             one_node_added, sdk_pool_handle, sdk_wallet_client):
-    new_node = one_node_added
+                             sdk_one_node_added, sdk_pool_handle, sdk_wallet_client):
+    new_node = sdk_one_node_added
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, retryWait=1,
                           timeout=10))
     assert len(getAllReturnVals(new_node.view_changer,

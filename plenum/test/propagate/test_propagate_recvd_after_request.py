@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import PROPAGATE
+from plenum.test.helper import sdk_json_to_request_object
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay, msg_rep_delay
@@ -23,6 +24,7 @@ def setup(txnPoolNodeSet):
 
 def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet, sent1):
     A, B, C, D = txnPoolNodeSet  # type: TestNode
+    sent1 = sdk_json_to_request_object(sent1[0][0])
 
     def x():
         # A should have received a request from the client

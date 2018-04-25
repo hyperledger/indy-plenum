@@ -5,12 +5,8 @@ from plenum.test.client.conftest import passThroughReqAcked1
 from plenum.test.helper import whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
 
-from plenum.test.malicious_behaviors_client import \
-    genDoesntSendRequestToSomeNodes
-
 nodeCount = 4
 faultyNodes = 1
-clientFault = genDoesntSendRequestToSomeNodes("GammaC", "DeltaC")
 reqAcked1 = passThroughReqAcked1
 
 whitelist = ['for InvalidSignature', 'discarding message']
@@ -25,11 +21,12 @@ def nodeChangesRequest(txnPoolNodeSet):
                   [node for node in txnPoolNodeSet if node != alpha],
                   InvalidSignature.code)
     makeNodeFaulty(alpha, changesRequest, )
+    for node in txnPoolNodeSet[3:]: node.clientstack.stop()
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
 def testReplyUnaffectedByFaultyNode(looper, txnPoolNodeSet, nodeChangesRequest,
-                                    fClient, replied1):
+                                    replied1):
     """
     Client is malicious - sends requests to Alpha and Beta only
     Node Alpha is malicious - it alters the request

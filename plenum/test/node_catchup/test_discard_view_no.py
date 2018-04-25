@@ -6,9 +6,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import checkDiscardMsg
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test.test_node import checkNodesConnected, \
-    checkProtocolInstanceSetup, getPrimaryReplica
+from plenum.test.test_node import checkProtocolInstanceSetup, \
+    getPrimaryReplica
 from plenum.test import waits
 
 whitelist = ['found legacy entry']  # warnings
@@ -17,7 +16,7 @@ whitelist = ['found legacy entry']  # warnings
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           sdk_node_set_with_node_added_after_some_txns,
                                           sdk_new_node_caught_up,
-                                          allPluginsPath, wallet1):
+                                          allPluginsPath, sdk_wallet_client):
     """
     Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)
@@ -41,13 +40,14 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
 
     # 3 pc msg (PrePrepare) needs to be discarded
+    _, did = sdk_wallet_client
     primaryRepl = getPrimaryReplica(txnPoolNodeSet)
     three_pc = PrePrepare(
         0,
         viewNo,
         10,
         get_utc_epoch(),
-        [[wallet1.defaultId, Request.gen_req_id()]],
+        [[did, Request.gen_req_id()]],
         1,
         "random digest",
         DOMAIN_LEDGER_ID,

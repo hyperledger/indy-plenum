@@ -1,7 +1,6 @@
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, \
     sdk_eval_timeout, sdk_get_and_check_replies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, \
     prepare_new_node_data, prepare_node_request, sdk_sign_and_send_prepared_request
