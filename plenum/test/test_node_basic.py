@@ -5,8 +5,8 @@ from plenum.test.test_node import checkProtocolInstanceSetup
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
 from plenum.common.util import getMaxFailures
 from stp_core.common.util import adict
-from plenum.test.helper import checkNodesConnected, \
-    sendMessageAndCheckDelivery, msgAll
+from plenum.test.helper import sendMessageAndCheckDelivery, msgAll
+from plenum.test.test_node import checkNodesConnected
 from plenum.test.msgs import randomMsg
 
 nodeCount = 4
