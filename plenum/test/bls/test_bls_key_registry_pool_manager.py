@@ -1,10 +1,9 @@
 import base58
 import pytest
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
-from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA, ALIAS
+from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA
 from plenum.common.util import randomString
 from plenum.test.bls.helper import sdk_change_bls_key
-from plenum.test.pool_transactions.helper import updateNodeData
 
 nodeCount = 4
 
@@ -83,17 +82,3 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                                       new_pool_root_hash)
     assert bls_key
     assert bls_key == new_bls_key
-
-
-def change_bls_keys(new_bls_key, node,
-                    looper, client, wallet):
-    node_data = {
-        ALIAS: node.name,
-        BLS_KEY: new_bls_key
-    }
-    updateNodeData(looper,
-                   client,
-                   wallet,
-                   node,
-                   node_data)
-    return
