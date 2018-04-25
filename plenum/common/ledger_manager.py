@@ -583,14 +583,6 @@ class LedgerManager(HasActionQueue):
         merkleInfo = ledger.add(self._transform(txn))
         txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
         ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
-        if self.ownedByNode:
-            node = self.owner
-            req_handler = node.get_req_handler(ledgerId)
-            # Assume, that state updating was called before
-            # state
-            if req_handler and ledgerId == DOMAIN_LEDGER_ID:
-                    req_handler.ts_store.set(txn[TXN_TIME],
-                                                  req_handler.state.headHash)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)

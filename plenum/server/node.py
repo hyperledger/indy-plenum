@@ -1785,6 +1785,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rh.updateState([txn], isCommitted=True)
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
+            if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
+                rh.ts_store.set(txn[TXN_TIME],
+                                state.headHash)
         self.updateSeqNoMap([txn])
         self._clear_req_key_for_txn(ledger_id, txn)
 
