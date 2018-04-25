@@ -24,8 +24,8 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     for reply in sdk_replies:
         key = req_handler.prepare_buy_key(reply[1]['result']['identifier'],
                                            reply[1]['result']['reqId'])
-        assert root_hash
         root_hash = req_handler.ts_store.get_equal_or_prev(reply[1]['result']['txnTime'])
+        assert root_hash
         from_state = req_handler.state.get_for_root_hash(root_hash=root_hash,
                                                          key=key)
         assert req_handler.stateSerializer.deserialize(from_state)['amount'] == \
