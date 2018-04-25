@@ -2,6 +2,7 @@ from copy import copy
 from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
+from plenum.common.txn_util import transform_to_new_format
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -25,14 +26,25 @@ class Ledger(_Ledger):
         # These transactions are not yet committed so they do not go to
         # the ledger
         uncommittedSize = self.size + len(self.uncommittedTxns)
-        self.uncommittedTree = self.treeWithAppliedTxns(txns,
+        txns_to_commit = txns # self._transform_txns(txns)
+        self.uncommittedTree = self.treeWithAppliedTxns(txns_to_commit,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
-        self.uncommittedTxns.extend(txns)
+        self.uncommittedTxns.extend(txns_to_commit)
         if txns:
             return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
         else:
             return (uncommittedSize, uncommittedSize), txns
+
+    def _transform_txns(self, txns):
+        seq_no = self.seqNo
+        transformed_txns = []
+        for txn in txns:
+            seq_no += 1
+            transformed_txns.append(
+                transform_to_new_format(txn, seq_no)
+            )
+        return transformed_txns
 
     def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """

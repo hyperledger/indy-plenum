@@ -1,13 +1,13 @@
-from collections import OrderedDict
 import json
+from collections import OrderedDict
+from copy import deepcopy
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, FORCE
-from plenum.common.types import f, OPERATION
 from plenum.common.request import Request
+from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
-
 
 logger = getlogger()
 
@@ -139,3 +139,40 @@ def sdk_reqToTxn(sdk_req, cons_time=None):
     }
     res.update(data[OPERATION])
     return res
+
+
+def transform_to_new_format(txn, seq_no):
+    t = deepcopy(txn)
+
+    result = {}
+    result["txn"] = {}
+    result["txnMetadata"] = {}
+    result["reqSignature"] = {}
+
+    result["txnMetadata"]["creationTime"] = t.pop(TXN_TIME, None)
+    result["txnMetadata"]["seqNo"] = seq_no
+
+    result["reqSignature"]["type"] = "ED25519"
+    signatures = {t.get(f.IDENTIFIER.nm, None): t.get(f.SIG.nm, None)} if t.get(f.SIG.nm, None) is not None \
+        else t.get(f.SIGS.nm, {})
+    t.pop(f.SIG.nm, None)
+    t.pop(f.SIGS.nm, None)
+
+    result["reqSignature"]["values"] = [
+        {
+            "from": frm,
+            "value": sign,
+        }
+        for frm, sign in signatures.items()
+    ]
+
+    txn_res = {}
+    txn_res["type"] = t.pop(TXN_TYPE)
+    txn_res["protocolVersion"] = t.pop(f.PROTOCOL_VERSION.nm, None)
+    txn_res["metadata"] = {}
+    txn_res["metadata"]["from"] = t.pop(f.IDENTIFIER.nm, None)
+    txn_res["metadata"]["reqId"] = t.pop(f.REQ_ID.nm, None)
+    txn_res["data"] = t
+    result["txn"] = txn_res
+
+    return result
