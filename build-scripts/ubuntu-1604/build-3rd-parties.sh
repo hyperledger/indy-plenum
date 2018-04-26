@@ -80,5 +80,6 @@ build_from_pypi leveldb 0.194
 build_from_pypi psutil 5.4.3
 build_from_pypi pyzmq 17.0.0
 build_from_pypi intervaltree 2.1.0
+build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9
