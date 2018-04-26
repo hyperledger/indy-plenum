@@ -176,6 +176,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.primaryStorage = storage or self.getPrimaryStorage()
 
+        # This is storage for storing map: timestamp/state.headHash
+        # Now it used in domainLedger
         self.stateTsDbStorage = None
 
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
