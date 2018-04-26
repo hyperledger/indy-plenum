@@ -20,8 +20,7 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
-from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
@@ -35,9 +34,8 @@ from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
-from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
+from plenum.test.test_node import TestNode, TestReplica, \
+    getPrimaryReplica
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -76,6 +74,7 @@ def check_sufficient_replies_received(client: Client,
                          .format(full_request_id))
 
 
+# TODO: delete after removal from node
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
@@ -188,55 +187,6 @@ def assertEquality(observed: Any, expected: Any, details=None):
                                  "was {}, details: {}".format(observed, expected, details)
 
 
-def setupNodesAndClient(
-        looper: Looper,
-        nodes: Sequence[TestNode],
-        nodeReg=None,
-        tmpdir=None):
-    looper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=looper, nodes=nodes)
-    return setupClient(looper, nodes, nodeReg=nodeReg, tmpdir=tmpdir)
-
-
-def setupClient(looper: Looper,
-                nodes: Sequence[TestNode] = None,
-                nodeReg=None,
-                tmpdir=None,
-                identifier=None,
-                verkey=None):
-    client1, wallet = genTestClient(nodes=nodes,
-                                    nodeReg=nodeReg,
-                                    tmpdir=tmpdir,
-                                    identifier=identifier,
-                                    verkey=verkey)
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    return client1, wallet
-
-
-def setupClients(count: int,
-                 looper: Looper,
-                 nodes: Sequence[TestNode] = None,
-                 nodeReg=None,
-                 tmpdir=None):
-    wallets = {}
-    clients = {}
-    for i in range(count):
-        name = "test-wallet-{}".format(i)
-        wallet = Wallet(name)
-        idr, _ = wallet.addIdentifier()
-        verkey = wallet.getVerkey(idr)
-        client, _ = setupClient(looper,
-                                nodes,
-                                nodeReg,
-                                tmpdir,
-                                identifier=idr,
-                                verkey=verkey)
-        clients[client.name] = client
-        wallets[client.name] = wallet
-    return clients, wallets
-
-
 def randomOperation():
     return {
         "type": "buy",
@@ -251,29 +201,6 @@ def random_requests(count):
 def random_request_objects(count, protocol_version):
     req_dicts = random_requests(count)
     return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
-
-
-def sign_request_objects(wallet, reqs: Sequence):
-    return [wallet.signRequest(req) for req in reqs]
-
-
-def sign_requests(wallet, reqs: Sequence):
-    return [wallet.signOp(req) for req in reqs]
-
-
-def signed_random_requests(wallet, count):
-    reqs = random_requests(count)
-    return sign_requests(wallet, reqs)
-
-
-def send_signed_requests(client: Client, signed_reqs: Sequence):
-    return client.submitReqs(*signed_reqs)[0]
-
-
-def sendRandomRequests(wallet: Wallet, client: Client, count: int):
-    logger.debug('Sending {} random requests'.format(count))
-    return send_signed_requests(client,
-                                signed_random_requests(wallet, count))
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -434,12 +361,6 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
                                       inst_id)
 
 
-def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client, requests=[request])
-    check_request_is_not_returned_to_nodes(nodes, request)
-
-
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
@@ -481,64 +402,6 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         received = len(replica.commits[key][1])
         minimum = replica.quorums.commit.value
         assert received > minimum
-
-
-def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
-def checkReqNackWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found, "there is no Nack with reason: {}".format(reason)
-
-
-def wait_negative_resp(looper, client, reason, sender, timeout, chk_method):
-    return looper.run(eventually(chk_method,
-                                 client,
-                                 reason,
-                                 sender,
-                                 timeout=timeout))
-
-
-def waitReqNackWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqNAckQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkReqNackWithReason)
-
-
-def checkRejectWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found
-
-
-def waitRejectWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqRejectQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkRejectWithReason)
-
-
-def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
-    for node in nodes:
-        looper.run(eventually(checkRejectWithReason, client, reason,
-                              node.clientstack.name, retryWait=1,
-                              timeout=timeout))
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -946,6 +809,14 @@ def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
     return sdk_send_signed_requests(pool_handle, [s_req])[0]
 
 
+def sdk_sign_and_submit_op(looper, pool_handle, sdk_wallet, op):
+    _, did = sdk_wallet
+    req_obj = sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+                              identifier=did)
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
+
+
 def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     req_json, resp_task = sdk_req_resp
     # TODO: change timeout evaluating logic, when sdk will can tuning timeout from outside
@@ -1105,3 +976,9 @@ def sdk_json_couples_to_request_list(json_couples):
     for json_couple in json_couples:
         req_list.append(sdk_json_to_request_object(json_couple[0]))
     return req_list
+
+
+def sdk_get_bad_response(looper, reqs, exception, message):
+    with pytest.raises(exception) as e:
+        sdk_get_and_check_replies(looper, reqs)
+    assert message in e._excinfo[1].args[0]

@@ -1,4 +1,3 @@
-
 import os
 import sys
 from collections import OrderedDict
@@ -8,22 +7,6 @@ import logging
 from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
     HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-
-# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-
-nodeReg = OrderedDict([
-    ('Alpha', ('127.0.0.1', 9701)),
-    ('Beta', ('127.0.0.1', 9703)),
-    ('Gamma', ('127.0.0.1', 9705)),
-    ('Delta', ('127.0.0.1', 9707))
-])
-
-cliNodeReg = OrderedDict([
-    ('AlphaC', ('127.0.0.1', 9702)),
-    ('BetaC', ('127.0.0.1', 9704)),
-    ('GammaC', ('127.0.0.1', 9706)),
-    ('DeltaC', ('127.0.0.1', 9708))
-])
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -104,17 +87,19 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'borders_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_borders_coeff': True,
         'enabled': True
     },
     'nodeRequestSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'borders_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_borders_coeff': True,
         'enabled': True
     }
 }
@@ -151,7 +136,6 @@ ConsistencyProofsTimeout = 5
 # Timeout for pool catchuping would be nodeCount * CatchupTransactionsTimeout
 CatchupTransactionsTimeout = 6
 
-
 # Log configuration
 logRotationWhen = 'W6'
 logRotationInterval = 1
@@ -179,7 +163,6 @@ EnsureLedgerDurability = False
 
 log_override_tags = dict(cli={}, demo={})
 
-
 # Number of messages zstack accepts at once
 LISTENER_MESSAGE_QUOTA = 100
 REMOTES_MESSAGE_QUOTA = 100
@@ -191,11 +174,9 @@ Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = .001
 
-
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
 ProcessedBatchMapsToKeep = 100
-
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
@@ -204,13 +185,11 @@ MaxStateProofSize = 10
 # State proof timeout
 MaxStateProofTime = 3
 
-
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
 CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3 * CHK_FREQ
-
 
 CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 15

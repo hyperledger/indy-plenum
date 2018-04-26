@@ -1,9 +1,9 @@
 # Start with 8 nodes
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import NYM, ROLE, STEWARD
 from plenum.common.constants import TXN_TYPE
 from plenum.test.helper import assertEquality
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 nodeCount = 8
 

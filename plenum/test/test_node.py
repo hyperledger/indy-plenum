@@ -3,10 +3,9 @@ import time
 import types
 from collections import OrderedDict
 from contextlib import ExitStack
-from copy import copy
 from functools import partial
-from itertools import combinations, permutations
-from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
+from itertools import combinations
+from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
@@ -26,7 +25,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, NYM, STATE_PROOF
+    DOMAIN_LEDGER_ID, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -41,10 +40,9 @@ from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
     getAllMsgReceivedForNode, getAllArgs
 from plenum.test.stasher import Stasher
-from plenum.test.test_client import TestClient
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
-    checkRemoteExists, RemoteState, checkState
+from plenum.test.test_stack import StackedTester, getTestableStack, \
+    RemoteState, checkState
 from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
@@ -471,6 +469,7 @@ class TestReplicas(Replicas):
         return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
 
 
+# TODO: probably delete when remove from node
 class TestNodeSet(ExitStack):
 
     def __init__(self,
@@ -530,7 +529,6 @@ class TestNodeSet(ExitStack):
                           ha=ha,
                           cliname=cliname,
                           cliha=cliha,
-                          nodeRegistry=copy(self.nodeReg),
                           config_helper=config_helper,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
