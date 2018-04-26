@@ -78,7 +78,6 @@ build_from_pypi sortedcontainers 1.5.7
 build_from_pypi setuptools 38.5.2
 build_from_pypi semver 2.7.9
 build_from_pypi pygments 2.1
-build_from_pypi orderedset 2.0
 build_from_pypi leveldb 0.194
 build_from_pypi psutil 5.4.3
 build_from_pypi pyzmq 17.0.0
