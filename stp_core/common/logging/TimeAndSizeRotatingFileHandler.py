@@ -30,7 +30,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     def shouldRollover(self, record):
         return bool(TimedRotatingFileHandler.shouldRollover(self, record)) or \
-               bool(RotatingFileHandler.shouldRollover(self, record))
+            bool(RotatingFileHandler.shouldRollover(self, record))
 
     def rotate(self, source, dest):
         self.max_index += 1
@@ -64,10 +64,10 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
             return
 
         # logger = Logger()
-        now = datetime.now()
+        # now = datetime.now()
         # logger.warning("Log compression in progress while new log needs to be compressed, joining process")
         self.compressor.join()
-        delta = datetime.now() - now
+        # delta = datetime.now() - now
         # if delta > timedelta(2):
         #     logger.warning("Waiting for log compression worker took more than 2 seconds")
         self.compressor = None
@@ -84,8 +84,10 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     @staticmethod
     def _file_compression(filename):
-        if filename.endswith(".gz"): return "gz"
-        if filename.endswith(".xz"): return "xz"
+        if filename.endswith(".gz"):
+            return "gz"
+        if filename.endswith(".xz"):
+            return "xz"
         return None
 
     @staticmethod
@@ -99,8 +101,10 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
     @staticmethod
     def _open_log(filename, mode):
         compression = TimeAndSizeRotatingFileHandler._file_compression(filename)
-        if compression == "gz": return gzip.open(filename, mode)
-        if compression == "xz": return lzma.open(filename, mode)
+        if compression == "gz":
+            return gzip.open(filename, mode)
+        if compression == "xz":
+            return lzma.open(filename, mode)
         return open(filename, mode)
 
     @staticmethod
