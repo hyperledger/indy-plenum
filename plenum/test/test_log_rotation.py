@@ -2,7 +2,6 @@ import os
 import logging
 import time
 import collections
-import gzip
 import pytest
 
 from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
