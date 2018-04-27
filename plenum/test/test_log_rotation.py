@@ -22,6 +22,29 @@ def test_default_log_rotation_config_is_correct(tdir_for_func):
     logger.enableFileLogging(logFile)
 
 
+def test_log_file_matcher_works_as_expected(tdir_for_func, log_compression):
+    logDirPath = tdir_for_func
+    logFile = os.path.join(logDirPath, "log")
+    handler = TimeAndSizeRotatingFileHandler(
+        logFile, delay=True, interval=1, when='s', compression=log_compression)
+
+    assert handler.log_pattern.match("log")
+    assert handler.log_pattern.match("log.42")
+    assert handler.log_pattern.match("log.42.gz")
+    assert handler.log_pattern.match("log.42.xz")
+
+    assert not handler.log_pattern.match("log.tmp")
+    assert not handler.log_pattern.match("log.tmp.gz")
+    assert not handler.log_pattern.match("log.42.tmp")
+    assert not handler.log_pattern.match("log.tmp.42")
+
+    assert not handler.log_pattern.match("tmp_log")
+    assert not handler.log_pattern.match("tmp_log.42")
+    assert not handler.log_pattern.match("tmp_log.42.gz")
+    assert not handler.log_pattern.match("tmp_log.42.xz")
+
+
+
 def test_time_log_rotation(tdir_for_func, log_compression):
     logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
@@ -35,6 +58,7 @@ def test_time_log_rotation(tdir_for_func, log_compression):
         time.sleep(1)
         logger.debug("line")
     handler._finish_compression()
+    assert all(handler.log_pattern.match(name) for name in os.listdir(logDirPath))
     assert len(os.listdir(logDirPath)) == 4  # initial + 3 new
 
 
@@ -52,6 +76,7 @@ def test_size_log_rotation(tdir_for_func, log_compression):
     handler.flush()
     handler._finish_compression()
 
+    assert all(handler.log_pattern.match(name) for name in os.listdir(logDirPath))
     assert len(os.listdir(logDirPath)) == 5
 
 
@@ -74,6 +99,7 @@ def test_time_and_size_log_rotation(tdir_for_func, log_compression):
 
     handler._finish_compression()
 
+    assert all(handler.log_pattern.match(name) for name in os.listdir(logDirPath))
     assert len(os.listdir(logDirPath)) == 8
 
 
@@ -110,6 +136,7 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
 
     circ_buffer_set = set(cir_buffer)
     assert len(cir_buffer) == len(circ_buffer_set)
+    assert all(handler.log_pattern.match(name) for name in os.listdir(log_dir_path))
     assert len(os.listdir(log_dir_path)) == (backup_count + 1)
     for file_name in os.listdir(log_dir_path):
         with TimeAndSizeRotatingFileHandler._open_log(os.path.join(log_dir_path, file_name), "rt") as file:
