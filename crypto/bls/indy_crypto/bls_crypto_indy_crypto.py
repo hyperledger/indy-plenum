@@ -25,7 +25,7 @@ class IndyCryptoBlsUtils:
     @staticmethod
     def bls_to_str(v: BlsEntity) -> str:
         try:
-            return base58.b58encode(v.as_bytes())
+            return base58.b58encode(v.as_bytes()).decode("utf-8")
         except ValueError:
             logger.error('BLS: BLS Entity can not be encoded as base58')
 

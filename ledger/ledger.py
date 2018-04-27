@@ -237,7 +237,7 @@ class Ledger(ImmutableStore):
 
     @staticmethod
     def hashToStr(h):
-        return base58.b58encode(h)
+        return base58.b58encode(h).decode("utf-8")
 
     @staticmethod
     def strToHash(s):
