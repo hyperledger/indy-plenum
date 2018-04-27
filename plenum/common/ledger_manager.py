@@ -253,54 +253,72 @@ class LedgerManager(HasActionQueue):
                          format(self, frm))
             return
 
-        # Nodes might not be using pool txn ledger, might be using simple node
-        # registries (old approach)
         ledgerStatus = LedgerStatus(*status)
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence number "
                                         "from {}".format(frm),
                          logMethod=logger.warning)
             return
+
         ledgerId = getattr(status, f.LEDGER_ID.nm)
 
-        # If this is a node's ledger manager and sender of this ledger status
-        #  is a client and its pool ledger is same as this node's pool ledger
-        # then send the pool ledger status since client wont be receiving the
-        # consistency proof in this case:
-        statusFromClient = self.getStack(frm) == self.clientstack
-        if self.ownedByNode and statusFromClient:
-            if ledgerId != POOL_LEDGER_ID:
-                logger.debug("{} received inappropriate "
-                             "ledger status {} from client {}"
-                             .format(self, status, frm))
+        if self.ownedByNode:
+            statusFromClient = self.getStack(frm) == self.clientstack
+
+            if statusFromClient:
+                if ledgerId != POOL_LEDGER_ID:
+                    # A client has only the pool ledger, so it should not send
+                    # ledger statuses related to other ledgers
+                    logger.debug("{} received inappropriate "
+                                 "ledger status {} from client {}"
+                                 .format(self, status, frm))
+                    return
+
+                # If our node is not ahead the client which has sent
+                # the ledger status then reply to it that its ledger is OK
+                if not self.isLedgerNew(ledgerStatus):
+                    ledger_status = self.owner.build_ledger_status(ledgerId)
+                    self.sendTo(ledger_status, frm)
+
+            # If our node is ahead the sender of the ledger status
+            # then reply to it with the consistency proof
+            if self.isLedgerNew(ledgerStatus):
+                consistencyProof = self.getConsistencyProof(ledgerStatus)
+                if consistencyProof:
+                    self.sendTo(consistencyProof, frm)
+
+            # If the ledger status is from client then we do nothing more
+            if statusFromClient:
                 return
-            if self.isLedgerSame(ledgerStatus):
-                ledger_status = self.owner.build_ledger_status(POOL_LEDGER_ID)
-                self.sendTo(ledger_status, frm)
-
-        # If this manager is owned by a node and this node's ledger is ahead of
-        # the received ledger status
-        if self.ownedByNode and self.isLedgerNew(ledgerStatus):
-            consistencyProof = self.getConsistencyProof(ledgerStatus)
-            if consistencyProof:
-                self.sendTo(consistencyProof, frm)
-
-        if statusFromClient:
-            return
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
 
+        # If we are performing a catch-up of the corresponding ledger
         if ledgerInfo.state == LedgerState.not_synced and ledgerInfo.canSync:
-            # This node's ledger is not older so it will not receive a
-            # consistency proof unless the other node processes a transaction
-            # post sending this ledger status
-            ledgerInfo.recvdConsistencyProofs[frm] = None
-            ledgerInfo.ledgerStatusOk.add(frm)
+            # If we are behind the node which has sent the ledger status
+            # then send our ledger status to it
+            # in order to get the consistency proof from it
+            if self.isLedgerOld(ledgerStatus):
+                ledger_status = self.owner.build_ledger_status(ledgerId)
+                self.sendTo(ledger_status, frm)
+                return
 
+            # We are not behind the node which has sent the ledger status,
+            # so our ledger is OK in comparison with that node
+            # and we will not get a consistency proof from it
+            ledgerInfo.ledgerStatusOk.add(frm)
+            ledgerInfo.recvdConsistencyProofs[frm] = None
+
+            # If we are even with the node which has sent the ledger status
+            # then save the last txn master 3PC-key from it
             if self.isLedgerSame(ledgerStatus):
                 ledgerInfo.last_txn_3PC_key[frm] = \
                     (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
 
+            # If we gathered the quorum of ledger statuses indicating
+            # that our ledger is OK then we do not need to perform actual
+            # synchronization of our ledger (however, we still need to do
+            # the ledger pre-catchup and post-catchup procedures)
             if self.has_ledger_status_quorum(
                     len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
                 logger.debug("{} found out from {} that its "
@@ -308,8 +326,6 @@ class LedgerManager(HasActionQueue):
                              format(self, ledgerInfo.ledgerStatusOk, ledgerId))
                 logger.debug('{} found from ledger status {} that it does '
                              'not need catchup'.format(self, ledgerStatus))
-                # Any state cleanup that is part of pre-catchup should be
-                # done
                 self.do_pre_catchup(ledgerId)
                 last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
                 self.catchupCompleted(ledgerId, last_3PC_key)
