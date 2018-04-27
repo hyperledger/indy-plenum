@@ -47,7 +47,7 @@ class DomainRequestHandler(RequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request, cons_time: int):
+    def _reqToTxn(self, req: Request, cons_time):
         txn = reqToTxn(req, cons_time)
         for processor in self.reqProcessors:
             res = processor.process(req)

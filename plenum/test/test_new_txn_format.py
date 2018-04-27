@@ -45,7 +45,7 @@ def old_and_expected(request):
             "type": "1",
         },
         "txnMetadata": {
-            "creationTime": 1513945121,
+            "txnTime": 1513945121,
             "seqNo": 143,
         },
 

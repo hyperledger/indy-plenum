@@ -1,7 +1,8 @@
 import pytest
 
 from plenum.common.types import f
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.util import get_utc_epoch
 from plenum.test.helper import signed_random_requests
 from stp_core.common.log import getlogger
 
@@ -18,9 +19,8 @@ def test_req_id_key_error(looper, txnPoolNodeSetNotStarted, wallet1):
     txns = []
     # prepare transactions and remove reqId from
     for i, req in enumerate(reqs):
-        txnreq = reqToTxn(req)
-        txnreq[f.SEQ_NO.nm] = i
-        txnreq.pop(f.REQ_ID.nm)
+        txnreq = reqToTxn(req, get_utc_epoch())
+        txnreq = append_txn_metadata(txnreq, seq_no=i)
         txns.append(txnreq)
     node, = txnPoolNodeSetNotStarted
     looper.add(node)

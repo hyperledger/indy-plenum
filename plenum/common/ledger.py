@@ -2,7 +2,8 @@ from copy import copy
 from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
-from plenum.common.txn_util import transform_to_new_format
+from plenum.common.constants import TXN_PAYLOAD_METADATA, TXN_METADATA_SEQ_NO
+from plenum.common.txn_util import append_txn_metadata, has_seq_no
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -26,25 +27,27 @@ class Ledger(_Ledger):
         # These transactions are not yet committed so they do not go to
         # the ledger
         uncommittedSize = self.size + len(self.uncommittedTxns)
-        txns_to_commit = txns # self._transform_txns(txns)
-        self.uncommittedTree = self.treeWithAppliedTxns(txns_to_commit,
+        txns = self._append_seq_no(txns)
+        self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
-        self.uncommittedTxns.extend(txns_to_commit)
+        self.uncommittedTxns.extend(txns)
         if txns:
             return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
         else:
             return (uncommittedSize, uncommittedSize), txns
 
-    def _transform_txns(self, txns):
+    def add(self, txn):
+        if not has_seq_no(txn):
+            txn = self._append_seq_no([txn])
+        return super().add(txn)
+
+    def _append_seq_no(self, txns):
         seq_no = self.seqNo
-        transformed_txns = []
         for txn in txns:
             seq_no += 1
-            transformed_txns.append(
-                transform_to_new_format(txn, seq_no)
-            )
-        return transformed_txns
+            append_txn_metadata(txn, seq_no=seq_no)
+        return txns
 
     def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """

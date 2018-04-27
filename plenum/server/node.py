@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, TXN_PAYLOAD, TXN_PAYLOAD_TYPE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2623,8 +2623,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
-            # TODO: Send txn and state proof to the client
-            txn[TXN_TIME] = ppTime
             self.sendReplyToClient(Reply(txn),
                                    (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
 
@@ -2898,7 +2896,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
+        txn_type = txn[TXN_PAYLOAD][TXN_PAYLOAD_TYPE]
+        return self.get_req_handler(txn_type=txn_type).\
             transform_txn_for_ledger(txn)
 
     def __enter__(self):
