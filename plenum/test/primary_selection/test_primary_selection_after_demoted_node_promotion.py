@@ -27,6 +27,7 @@ def check_all_nodes_the_same_pool_list(nodes):
         assert sorted(node.nodeReg.keys()) == _allNodeNames
 
 
+@pytest.mark.skip("Too many sdk_pool_refresh")
 def test_primary_selection_after_demoted_node_promotion(
         looper, txnPoolNodeSet, sdk_node_theta_added,
         sdk_pool_handle,
