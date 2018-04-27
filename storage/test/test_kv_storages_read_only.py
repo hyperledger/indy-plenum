@@ -15,7 +15,7 @@ def kv(request, tempdir) -> KeyValueStorage:
     else:
         kv = KeyValueStorageRocksdb(tempdir, 'kv{}'.format(i))
 
-    assert kv.read_only == False
+    assert kv.read_only is False
 
     kv.put('k1', 'v1')
     kv.put('k2', 'v2')
@@ -33,7 +33,7 @@ def kv(request, tempdir) -> KeyValueStorage:
 
 
 def test_read_only_get(kv):
-    assert kv.read_only == True
+    assert kv.read_only is True
 
     v = kv.get('k1')
     assert b'v1' == v
@@ -46,14 +46,14 @@ def test_read_only_get(kv):
 
 
 def test_read_only_put(kv):
-    assert kv.read_only == True
+    assert kv.read_only is True
 
     with pytest.raises(Exception, match="Not supported operation in read only mode."):
         kv.put('k4', 'v4')
 
 
 def test_read_only_remove(kv):
-    assert kv.read_only == True
+    assert kv.read_only is True
 
     with pytest.raises(Exception, match="Not supported operation in read only mode."):
         kv.remove('k1')
