@@ -40,3 +40,12 @@ class KeyValueStorageRocksdbIntKeys(KeyValueStorageRocksdb):
         except StopIteration:
             value = None
         return value
+
+    def get_last_key(self):
+        itr = self._db.iterkeys()
+        itr.seek_to_last()
+        try:
+            key = next(itr)
+        except StopIteration:
+            key = None
+        return key

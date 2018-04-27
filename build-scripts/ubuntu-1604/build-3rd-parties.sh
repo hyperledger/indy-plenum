@@ -71,10 +71,15 @@ build_from_pypi rlp 0.5.1
 build_from_pypi sha3 0.2.1
 build_from_pypi libnacl 1.6.1
 build_from_pypi six 1.11.0
-build_from_pypi pyzmq 16.0.2
-build_from_pypi intervaltree 2.1.0
 build_from_pypi portalocker 0.5.7
 build_from_pypi sortedcontainers 1.5.7
 build_from_pypi setuptools 38.5.2
+build_from_pypi semver 2.7.9
+build_from_pypi pygments 2.1
+build_from_pypi leveldb 0.194
+build_from_pypi psutil 5.4.3
+build_from_pypi pyzmq 17.0.0
+build_from_pypi intervaltree 2.1.0
+build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9

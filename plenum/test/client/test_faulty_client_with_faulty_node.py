@@ -13,19 +13,21 @@ whitelist = ['for InvalidSignature', 'discarding message']
 
 
 @pytest.fixture(scope="module")
-def nodeChangesRequest(txnPoolNodeSet):
-    alpha = txnPoolNodeSet[0]
+def txnPoolNodeSet(txnPoolNodeSet):
+    delta = txnPoolNodeSet[-1]
+    assert not delta.master_replica.isPrimary
 
     # Alpha should not be blacklisted for Invalid Signature by all other nodes
-    whitelistNode(alpha.name,
-                  [node for node in txnPoolNodeSet if node != alpha],
+    whitelistNode(delta.name,
+                  [node for node in txnPoolNodeSet if node != delta],
                   InvalidSignature.code)
-    makeNodeFaulty(alpha, changesRequest, )
-    for node in txnPoolNodeSet[3:]: node.clientstack.stop()
+    makeNodeFaulty(delta, changesRequest, )
+    txnPoolNodeSet[2].clientstack.stop()
+    return txnPoolNodeSet
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-def testReplyUnaffectedByFaultyNode(looper, txnPoolNodeSet, nodeChangesRequest,
+def testReplyUnaffectedByFaultyNode(looper,
                                     replied1):
     """
     Client is malicious - sends requests to Alpha and Beta only
