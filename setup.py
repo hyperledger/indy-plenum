@@ -50,7 +50,7 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
-    install_requires=['jsonpickle==0.9.2', 'ujson==1.33',
+    install_requires=['jsonpickle==0.9.6', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments==2.1',
                       'rlp==0.5.1', 'sha3==0.2.1', 'leveldb==0.194',
                       'ioflo==1.5.4', 'semver==2.7.9', 'base58==0.2.4', 'orderedset==2.0',
