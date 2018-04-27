@@ -120,5 +120,5 @@ class DidSigner(DidIdentity, Signer):
         """
         ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
-        sig = base58.b58encode(bsig)
+        sig = base58.b58encode(bsig).decode("utf-8")
         return sig
