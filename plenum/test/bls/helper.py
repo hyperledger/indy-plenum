@@ -23,7 +23,7 @@ logger = getlogger()
 
 
 def generate_state_root():
-    return base58.b58encode(os.urandom(32))
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
 
 
 def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -173,7 +173,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     new_blspk = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
-        else base58.b58encode(randomString(128).encode())
+        else base58.b58encode(randomString(128).encode()).decode("utf-8")
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,

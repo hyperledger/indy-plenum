@@ -29,5 +29,5 @@ def test_compare_identities():
     did_verkey = 'Bf9Z1tKWpcJAvKJVhZhvVZ'
 
     did_to_cryptonym = base58.b58encode(
-        base58.b58decode(did_id) + base58.b58decode(did_verkey))
+        base58.b58decode(did_id) + base58.b58decode(did_verkey)).decode("utf-8")
     assert cryptonym == did_to_cryptonym
