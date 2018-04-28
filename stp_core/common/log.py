@@ -2,7 +2,7 @@ import inspect
 import logging
 import os
 import sys
-from ioflo.base.consoling import getConsole, Console
+import time
 from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRotatingFileHandler
 from stp_core.common.util import Singleton
 from stp_core.common.logging.handlers import CliHandler
@@ -64,6 +64,7 @@ class Logger(metaclass=Singleton):
         self._clearAllHandlers()
         self._format = logging.Formatter(fmt=self._config.logFormat,
                                          style=self._config.logFormatStyle)
+        self._format.converter = time.gmtime
 
         if self._config.enableStdOutLogging:
             self.enableStdLogging()
