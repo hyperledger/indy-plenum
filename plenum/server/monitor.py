@@ -345,6 +345,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         for handler in self.unordered_requests_handlers:
             handler(unordereds)
+        for unordered in unordereds:
+            logger.debug('Following requests were not ordered for more than {} seconds: {}'
+                         .format(self.config.UnorderedCheckFreq, unordered[0]))
 
     def isMasterDegraded(self):
         """
