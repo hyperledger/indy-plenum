@@ -9,7 +9,7 @@ from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
 
 
-class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
+class CompressingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
 
     def __init__(self, filename, when='h', interval=1, backupCount=0,
                  encoding=None, delay=False, utc=False, atTime=None,
@@ -47,7 +47,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
         os.rename(source, tmp_file)
 
         self._finish_compression()
-        self.compressor = Process(target=TimeAndSizeRotatingFileHandler._recompress, args=(tmp_file, dest))
+        self.compressor = Process(target=CompressingFileHandler._recompress, args=(tmp_file, dest))
         self.compressor.start()
 
     def rotation_filename(self, default_name: str):
@@ -100,7 +100,7 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     @staticmethod
     def _open_log(filename, mode):
-        compression = TimeAndSizeRotatingFileHandler._file_compression(filename)
+        compression = CompressingFileHandler._file_compression(filename)
         if compression == "gz":
             return gzip.open(filename, mode)
         if compression == "xz":
@@ -109,8 +109,8 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
 
     @staticmethod
     def _recompress(source, dest):
-        with TimeAndSizeRotatingFileHandler._open_log(source, 'rb') as f_in, \
-                TimeAndSizeRotatingFileHandler._open_log(dest, 'wb') as f_out:
+        with CompressingFileHandler._open_log(source, 'rb') as f_in, \
+                CompressingFileHandler._open_log(dest, 'wb') as f_out:
             f_out.write(f_in.read())
         os.remove(source)
 

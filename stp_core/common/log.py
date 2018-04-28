@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 import time
-from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRotatingFileHandler
+from stp_core.common.logging.CompressingFileHandler import CompressingFileHandler
 from stp_core.common.util import Singleton
 from stp_core.common.logging.handlers import CliHandler
 from stp_core.common.config.util import getConfig
@@ -92,7 +92,7 @@ class Logger(metaclass=Singleton):
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        new = TimeAndSizeRotatingFileHandler(
+        new = CompressingFileHandler(
             filename,
             when=self._config.logRotationWhen,
             interval=self._config.logRotationInterval,
