@@ -57,7 +57,7 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            sdk_wallet_steward,
                                            sdk_pool_handle):
     old_bls_key = pool_node_txns[0][DATA][BLS_KEY]
-    new_bls_key = base58.b58encode(randomString(128).encode())
+    new_bls_key = base58.b58encode(randomString(128).encode()).decode("utf-8")
     old_pool_root_hash = node.poolManager.state.committedHeadHash
 
     # change BLS keys
