@@ -26,7 +26,7 @@ def test_request_tracker_order_by_master_makes_request_ordered_and_returns_time_
     tto = req_tracker.order(0, req[0], req[1], now + 5)
 
     assert req not in [req for req, _ in req_tracker.unordered()]
-    assert tto == 5
+    assert int(tto) == 5
 
 
 def test_request_tracker_order_by_backup_returns_time_to_order():
@@ -38,7 +38,7 @@ def test_request_tracker_order_by_backup_returns_time_to_order():
     tto = req_tracker.order(1, req[0], req[1], now + 5)
 
     assert req in [req for req, _ in req_tracker.unordered()]
-    assert tto == 5
+    assert int(tto) == 5
 
 
 def test_request_tracker_deletes_request_only_when_it_is_ordered_by_all_instances():

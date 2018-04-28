@@ -8,9 +8,9 @@ from plenum.bls.bls_store import BlsStore
 from plenum.common.util import get_utc_epoch
 import plenum.config as plenum_config
 
-state_root_hash = base58.b58encode(b"somefakeroothashsomefakeroothash")
-pool_state_root_hash = base58.b58encode(b"somefakepoolroothashsomefakepoolroothash")
-txn_root_hash = base58.b58encode(b"somefaketxnroothashsomefaketxnroothash")
+state_root_hash = base58.b58encode(b"somefakeroothashsomefakeroothash").decode("utf-8")
+pool_state_root_hash = base58.b58encode(b"somefakepoolroothashsomefakepoolroothash").decode("utf-8")
+txn_root_hash = base58.b58encode(b"somefaketxnroothashsomefaketxnroothash").decode("utf-8")
 ledger_id = 1
 timestamp = get_utc_epoch()
 

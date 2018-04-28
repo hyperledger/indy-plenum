@@ -12,7 +12,7 @@ from plenum.test.view_change.helper import ensure_view_change
 
 
 @pytest.fixture(scope='module', params=['some', 'all'])
-def setup(request, looper, txnPoolNodeSet, client1, wallet1):
+def setup(request, looper, txnPoolNodeSet):
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[1].node
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     # Delay catchup reply so that the test gets time to make the check,

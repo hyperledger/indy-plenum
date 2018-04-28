@@ -5,31 +5,30 @@ from plenum.test.client.conftest import passThroughReqAcked1
 from plenum.test.helper import whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
 
-from plenum.test.malicious_behaviors_client import \
-    genDoesntSendRequestToSomeNodes
-
 nodeCount = 4
 faultyNodes = 1
-clientFault = genDoesntSendRequestToSomeNodes("GammaC", "DeltaC")
 reqAcked1 = passThroughReqAcked1
 
 whitelist = ['for InvalidSignature', 'discarding message']
 
 
 @pytest.fixture(scope="module")
-def nodeChangesRequest(txnPoolNodeSet):
-    alpha = txnPoolNodeSet[0]
+def txnPoolNodeSet(txnPoolNodeSet):
+    delta = txnPoolNodeSet[-1]
+    assert not delta.master_replica.isPrimary
 
     # Alpha should not be blacklisted for Invalid Signature by all other nodes
-    whitelistNode(alpha.name,
-                  [node for node in txnPoolNodeSet if node != alpha],
+    whitelistNode(delta.name,
+                  [node for node in txnPoolNodeSet if node != delta],
                   InvalidSignature.code)
-    makeNodeFaulty(alpha, changesRequest, )
+    makeNodeFaulty(delta, changesRequest, )
+    txnPoolNodeSet[2].clientstack.stop()
+    return txnPoolNodeSet
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-def testReplyUnaffectedByFaultyNode(looper, txnPoolNodeSet, nodeChangesRequest,
-                                    fClient, replied1):
+def testReplyUnaffectedByFaultyNode(looper,
+                                    replied1):
     """
     Client is malicious - sends requests to Alpha and Beta only
     Node Alpha is malicious - it alters the request
