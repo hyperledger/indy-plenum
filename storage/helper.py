@@ -16,29 +16,29 @@ from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 
-def initKeyValueStorage(keyValueType, dataLocation,
-                        keyValueStorageName, open=True) -> KeyValueStorage:
+def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
+                        open=True, read_only=False) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
-        return KeyValueStorageLeveldb(dataLocation, keyValueStorageName, open)
+        return KeyValueStorageLeveldb(dataLocation, keyValueStorageName, open, read_only)
     if keyValueType == KeyValueStorageType.Rocksdb:
-        return KeyValueStorageRocksdb(dataLocation, keyValueStorageName, open)
+        return KeyValueStorageRocksdb(dataLocation, keyValueStorageName, open, read_only)
     elif keyValueType == KeyValueStorageType.Memory:
         return KeyValueStorageInMemory()
     else:
         raise KeyValueStorageConfigNotFound
 
 
-def initKeyValueStorageIntKeys(keyValueType, dataLocation,
-                               keyValueStorageName, open=True) -> KeyValueStorage:
+def initKeyValueStorageIntKeys(keyValueType, dataLocation, keyValueStorageName,
+                               open=True, read_only=False) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
-        return KeyValueStorageLeveldbIntKeys(dataLocation, keyValueStorageName, open)
+        return KeyValueStorageLeveldbIntKeys(dataLocation, keyValueStorageName, open, read_only)
     if keyValueType == KeyValueStorageType.Rocksdb:
-        return KeyValueStorageRocksdbIntKeys(dataLocation, keyValueStorageName, open)
+        return KeyValueStorageRocksdbIntKeys(dataLocation, keyValueStorageName, open, read_only)
     else:
         raise KeyValueStorageConfigNotFound
 
 
-def initHashStore(data_dir, name, config=None) -> HashStore:
+def initHashStore(data_dir, name, config=None, read_only=False) -> HashStore:
     """
     Create and return a hashStore implementation based on configuration
     """
@@ -50,6 +50,7 @@ def initHashStore(data_dir, name, config=None) -> HashStore:
     elif hsConfig == HS_LEVELDB or hsConfig == HS_ROCKSDB:
         return DbHashStore(dataDir=data_dir,
                            fileNamePrefix=name,
-                           db_type=hsConfig)
+                           db_type=hsConfig,
+                           read_only=read_only)
     else:
         return MemoryHashStore()
