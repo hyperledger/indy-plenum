@@ -4,8 +4,8 @@ import time
 import collections
 import pytest
 
-from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
-    import TimeAndSizeRotatingFileHandler
+from stp_core.common.logging.CompressingFileHandler \
+    import CompressingFileHandler
 from stp_core.common.log import Logger
 
 
@@ -25,7 +25,7 @@ def test_default_log_rotation_config_is_correct(tdir_for_func):
 def test_log_file_matcher_works_as_expected(tdir_for_func, log_compression):
     logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
-    handler = TimeAndSizeRotatingFileHandler(
+    handler = CompressingFileHandler(
         logFile, delay=True, interval=1, when='s', compression=log_compression)
 
     assert handler.log_pattern.match("log")
@@ -51,7 +51,7 @@ def test_time_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = TimeAndSizeRotatingFileHandler(
+    handler = CompressingFileHandler(
         logFile, interval=1, when='s', compression=log_compression)
     logger.addHandler(handler)
     for i in range(3):
@@ -68,7 +68,7 @@ def test_size_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = TimeAndSizeRotatingFileHandler(
+    handler = CompressingFileHandler(
         logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compression=log_compression)
     logger.addHandler(handler)
     for i in range(20):
@@ -86,7 +86,7 @@ def test_time_and_size_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_and_size_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = TimeAndSizeRotatingFileHandler(
+    handler = CompressingFileHandler(
         logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, interval=1, when="s", compression=log_compression)
     logger.addHandler(handler)
 
@@ -116,7 +116,7 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
     record_text = 'line'
     record_length = len(record_text) + len(str(record_count))
 
-    handler = TimeAndSizeRotatingFileHandler(
+    handler = CompressingFileHandler(
         logFile,
         maxBytes=(record_length + len(os.linesep)) * record_per_file + 1,
         interval=1, when="h", backupCount=backup_count, utc=True, compression=log_compression)
@@ -139,6 +139,6 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
     assert all(handler.log_pattern.match(name) for name in os.listdir(log_dir_path))
     assert len(os.listdir(log_dir_path)) == (backup_count + 1)
     for file_name in os.listdir(log_dir_path):
-        with TimeAndSizeRotatingFileHandler._open_log(os.path.join(log_dir_path, file_name), "rt") as file:
+        with CompressingFileHandler._open_log(os.path.join(log_dir_path, file_name), "rt") as file:
             for line in file.readlines():
                 assert line.strip() in circ_buffer_set
