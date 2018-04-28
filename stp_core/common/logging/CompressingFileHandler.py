@@ -22,9 +22,25 @@ class CompressingFileHandler(RotatingFileHandler):
         file_indexes = [idx for name, idx in self._log_files()]
         self.max_index = max(file_indexes) if file_indexes else 0
 
-    def rotate(self, source, dest):
-        self.max_index += 1
+    def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
 
+        if self.backupCount > 0:
+            files_to_delete = self.get_files_to_delete()
+            for file in files_to_delete:
+                os.remove(file)
+
+        self.max_index += 1
+        backup_name = "{}.{}".format(self.baseFilename, self.max_index)
+        backup_name = self._file_update_compression(backup_name, self.compression)
+        self.rotate(self.baseFilename, backup_name)
+
+        if not self.delay:
+            self.stream = self._open()
+
+    def rotate(self, source, dest):
         source_compression = self._file_compression(source)
         dest_compression = self._file_compression(dest)
         if source_compression == dest_compression:
@@ -39,11 +55,6 @@ class CompressingFileHandler(RotatingFileHandler):
         self._finish_compression()
         self.compressor = Process(target=CompressingFileHandler._recompress, args=(tmp_file, dest))
         self.compressor.start()
-
-    def rotation_filename(self, default_name: str):
-        log_name = "{}.{}".format(self.baseFilename, self.max_index + 1)
-        log_name = self._file_update_compression(log_name, self.compression)
-        return log_name
 
     def _finish_compression(self):
         if self.compressor is None:
@@ -104,7 +115,7 @@ class CompressingFileHandler(RotatingFileHandler):
             f_out.write(f_in.read())
         os.remove(source)
 
-    def getFilesToDelete(self):
+    def get_files_to_delete(self):
         log_files = [(name, idx) for name, idx in self._log_files()]
         if len(log_files) == 0:
             return []
