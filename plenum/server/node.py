@@ -265,7 +265,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                notifierEventsEnabled=self.config.SpikeEventsEnabled)
 
         self.replicas = self.create_replicas()
-        self.monitor.setReplicas(self.replicas)
+        self.replicas.set_default_handlers()
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a

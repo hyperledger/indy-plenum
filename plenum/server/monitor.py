@@ -270,9 +270,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
-    def setReplicas(self, replicas):
-        self.replicas = replicas
-
     def removeInstance(self, index=None):
         if self.instances.count > 0:
             if index is None:
@@ -346,64 +343,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if len(unordereds) == 0:
             return
 
-        unordered_reqs = [req for req, _ in unordereds]
         for handler in self.unordered_requests_handlers:
-            handler(unordered_reqs)
-
-        replica = self.replicas._master_replica
-        for unordered in unordereds:
-            req, duration = unordered
-            reqId = req[1]
-
-            # get ppSeqNo and viewNo
-            preprepares = replica.sentPrePrepares if replica.isPrimary else replica.prePrepares
-            ppSeqNo = None
-            viewNo = None
-            for key in preprepares:
-                if any([req[1] == reqId for req in preprepares[key].reqIdr]):
-                    ppSeqNo = preprepares[key].ppSeqNo
-                    viewNo = preprepares[key].viewNo
-                    break
-            if ppSeqNo is None or viewNo is None:
-                logger.warning('Unordered request with reqId: {} was not found in prePrepares'.format(reqId))
-                return
-
-            # get pre-prepare sender
-            prepre_sender = replica.primaryNames[viewNo]
-
-            # get prepares info
-            prepares = replica.prepares[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.prepares else []
-            n_prepares = len(prepares)
-            str_prepares = 'noone'
-            if n_prepares:
-                str_prepares = ', '.join(prepares)
-
-            # get commits info
-            commits = replica.commits[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.commits else []
-            n_commits = len(commits)
-            str_commits = 'noone'
-            if n_commits:
-                str_commits = ', '.join(prepares)
-
-            # get txn content
-            content = replica.requests[req].finalised.as_dict \
-                if req in replica.requests else 'no content saved'
-
-            logger.warning('Consensus for ReqId: {} was not achieved within {} seconds. '
-                           'Primary node is {}. '
-                           'Received Pre-Prepare from {}. '
-                           'Received {} Prepares from {}. '
-                           'Received {} Commits from {}. '
-                           'Transaction contents: {}. '
-                           .format(reqId, duration,
-                                   replica.primaryName.split(':')[0],
-                                   prepre_sender,
-                                   n_prepares, str_prepares,
-                                   n_commits, str_commits,
-                                   content
-                                   ))
+            handler(unordereds)
 
     def isMasterDegraded(self):
         """
