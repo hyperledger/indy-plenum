@@ -87,9 +87,9 @@ class DbHashStore(HashStore):
 
     def open(self):
         self.nodesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.nodes_db_name, self._read_only)
+            self.db_type, self.dataDir, self.nodes_db_name, read_only=self._read_only)
         self.leavesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.leaves_db_name, self._read_only)
+            self.db_type, self.dataDir, self.leaves_db_name, read_only=self._read_only)
         self._leafCount = self.leavesDb.size
 
     def close(self):
