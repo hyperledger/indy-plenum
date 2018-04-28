@@ -1,92 +1,59 @@
 import pytest
-from plenum.client.client import Client
+
+from stp_core.network.exceptions import RemoteNotFound
+
+from plenum.test.helper import sendMessageAndCheckDelivery
+
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.view_change.helper import start_stopped_node
+
 from stp_core.loop.eventually import eventually
-from plenum.common.constants import CLIENT_STACK_SUFFIX
-from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
-from plenum.test.helper import waitForSufficientRepliesForRequests
-from plenum.test.node_catchup.helper import \
-    ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import suspendNode, \
-    buildPoolClientAndWallet, cancelNodeSuspension
-from plenum.test.test_node import TestNode, checkNodesConnected
+from plenum.test.pool_transactions.helper import demote_node, \
+    promote_node, sdk_pool_refresh
+from plenum.test.test_node import checkNodesConnected
 
 
-def checkNodeNotInNodeReg(nodeOrClient, nodeName):
-    if isinstance(nodeOrClient, Node):
-        assert nodeName not in nodeOrClient.nodeReg
-        assert nodeName not in nodeOrClient.nodestack.connecteds
-    elif isinstance(nodeOrClient, Client):
-        clientStackName = nodeName + CLIENT_STACK_SUFFIX
-        assert clientStackName not in nodeOrClient.nodeReg
-        assert clientStackName not in nodeOrClient.nodestack.connecteds
+def checkNodeNotInNodeReg(node, nodeName):
+    if isinstance(node, Node):
+        assert nodeName not in node.nodeReg
+        assert nodeName not in node.nodestack.connecteds
     else:
         raise ValueError("pass a node or client object as first argument")
 
 
-@pytest.mark.skip(reason="SOV-383")
 def testStewardSuspendsNode(looper, txnPoolNodeSet,
-                            tdirWithPoolTxns, tconf,
-                            steward1, stewardWallet,
-                            nodeThetaAdded,
+                            tdir, tconf,
+                            sdk_pool_handle,
+                            sdk_wallet_steward,
+                            sdk_node_theta_added,
                             poolTxnStewardData,
                             allPluginsPath):
-    newSteward, newStewardWallet, newNode = nodeThetaAdded
-    newNodeNym = hexToFriendly(newNode.nodestack.verhex)
-    suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)
+    new_steward_wallet, new_node = sdk_node_theta_added
+    demote_node(looper, new_steward_wallet, sdk_pool_handle, new_node)
     # Check suspended node does not exist in any nodeReg or remotes of
     # nodes or clients
 
     txnPoolNodeSet = txnPoolNodeSet[:-1]
     for node in txnPoolNodeSet:
-        looper.run(eventually(checkNodeNotInNodeReg, node, newNode.name))
-    for client in (steward1, newSteward):
-        looper.run(eventually(checkNodeNotInNodeReg, client, newNode.name))
-
-    # Check a client can send request and receive replies
-    # req = sendRandomRequest(newStewardWallet, newSteward)
-    waitForSufficientRepliesForRequests(looper, newSteward,
-                                        requests=[req])
-
-    # Check that a restarted client or node does not connect to the suspended
+        looper.run(eventually(checkNodeNotInNodeReg, node, new_node.name))
+    # Check that a node does not connect to the suspended
     # node
-    steward1.stop()
-    looper.removeProdable(steward1)
-    steward1, stewardWallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                                       tdirWithPoolTxns)
-    looper.add(steward1)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    looper.run(eventually(checkNodeNotInNodeReg, steward1, newNode.name))
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
+    with pytest.raises(RemoteNotFound):
+        looper.loop.run_until_complete(sendMessageAndCheckDelivery(txnPoolNodeSet[0], new_node))
 
-    newNode.stop()
-    looper.removeProdable(newNode)
-
-    # TODO: There is a bug that if a primary node is turned off, it sends
-    # duplicate Pre-Prepare and gets blacklisted. Here is the gist
-    # https://gist.github.com/lovesh/c16989616ebb6856f9fa2905c14dc4b7
-    oldNodeIdx, oldNode = [(i, n) for i, n in enumerate(txnPoolNodeSet)
-                           if not n.hasPrimary][0]
-    oldNode.stop()
-    looper.removeProdable(oldNode)
-    oldNode = TestNode(oldNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
-                       config=tconf, pluginPaths=allPluginsPath)
-    looper.add(oldNode)
-    txnPoolNodeSet[oldNodeIdx] = oldNode
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.run(eventually(checkNodeNotInNodeReg, oldNode, newNode.name))
+    new_node.stop()
+    looper.removeProdable(new_node)
 
     # Check that a node whose suspension is revoked can reconnect to other
     # nodes and clients can also connect to that node
-    cancelNodeSuspension(looper, newSteward, newStewardWallet, newNodeNym,
-                         newNode.name)
-    nodeTheta = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, base_data_dir=tdirWithPoolTxns,
-                         config=tconf, pluginPaths=allPluginsPath,
-                         ha=newNode.nodestack.ha, cliha=newNode.clientstack.ha)
-    looper.add(nodeTheta)
+
+    promote_node(looper, new_steward_wallet, sdk_pool_handle, new_node)
+    nodeTheta = start_stopped_node(new_node, looper, tconf,
+                                   tdir, allPluginsPath,
+                                   delay_instance_change_msgs=False)
     txnPoolNodeSet.append(nodeTheta)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
-                                                  *txnPoolNodeSet)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

@@ -1,6 +1,6 @@
 import base58
 
-VALID_BASE58 = base58.alphabet
+VALID_BASE58 = base58.alphabet.decode("utf-8")
 
 TEST_TARGET_NYM = 'HebGWgHmicPtzr4BTHmSmXkDNL7CngDjYVcxqT5oprMw'
 

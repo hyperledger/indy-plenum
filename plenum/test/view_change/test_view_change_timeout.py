@@ -1,8 +1,8 @@
 import pytest
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
 from plenum.test.helper import waitForViewChange, stopNodes
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import get_master_primary_node, \

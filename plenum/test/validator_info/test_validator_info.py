@@ -5,21 +5,16 @@ import base58
 import pytest
 import re
 
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
-    CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
-from plenum.common.request import Request
-from plenum.common.types import f
-from plenum.common.util import getTimeBasedId
+from plenum.common.constants import TXN_TYPE, NODE
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.test import waits
-from plenum.test.helper import check_sufficient_replies_received, \
-    sdk_send_random_and_check
+
+from plenum.test.helper import sdk_send_random_and_check
 # noinspection PyUnresolvedReferences
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_build_get_txn_request, \
+    sdk_sign_and_send_prepared_request
 from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
-from stp_core.loop.eventually import eventually
 
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
@@ -99,7 +94,7 @@ def test_validator_info_file_timestamp_field_valid(load_latest_info,
 
 
 def test_validator_info_file_verkey_field_valid(node, info):
-    assert info['verkey'] == base58.b58encode(node.nodestack.verKey)
+    assert info['verkey'] == base58.b58encode(node.nodestack.verKey).decode("utf-8")
 
 
 def test_validator_info_file_metrics_avg_write_field_valid(info,
@@ -113,7 +108,7 @@ def test_validator_info_file_metrics_avg_read_field_valid(info,
                                                           read_txn_and_get_latest_info
                                                           ):
     assert info['metrics']['average-per-second']['read-transactions'] == 0
-    latest_info = read_txn_and_get_latest_info(GET_TXN)
+    latest_info = read_txn_and_get_latest_info()
     assert latest_info['metrics']['average-per-second']['read-transactions'] > 0
 
 
@@ -216,29 +211,18 @@ def node(txnPoolNodeSet):
 
 
 @pytest.fixture
-def read_txn_and_get_latest_info(txnPoolNodesLooper, patched_dump_info_period,
-                                 client_and_wallet, info_path):
-    client, wallet = client_and_wallet
+def read_txn_and_get_latest_info(looper, sdk_wallet_steward,
+                                 sdk_pool_handle, info_path,
+                                 patched_dump_info_period):
+    def read_wrapped():
+        _, steward_did = sdk_wallet_steward
+        request = sdk_build_get_txn_request(looper, steward_did, 1)
+        sdk_sign_and_send_prepared_request(looper,
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle,
+                                           request)
 
-    def read_wrapped(txn_type):
-        op = {
-            TXN_TYPE: txn_type,
-            f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-            DATA: 1
-        }
-        req = Request(identifier=wallet.defaultId,
-                      operation=op, reqId=getTimeBasedId(),
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-        client.submitReqs(req)
-
-        timeout = waits.expectedTransactionExecutionTime(
-            len(client.inBox))
-
-        txnPoolNodesLooper.run(
-            eventually(check_sufficient_replies_received,
-                       client, req.identifier, req.reqId,
-                       retryWait=1, timeout=timeout))
-        txnPoolNodesLooper.runFor(patched_dump_info_period)
+        looper.runFor(patched_dump_info_period)
         return load_info(info_path)
 
     return read_wrapped
@@ -268,13 +252,3 @@ def load_latest_info(txnPoolNodesLooper, patched_dump_info_period, info_path):
         return load_info(info_path)
 
     return wrapped
-
-
-@pytest.fixture
-def client_and_wallet(txnPoolNodesLooper, tdirWithClientPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithClientPoolTxns, nodes=txnPoolNodeSet,
-                                   name='reader', usePoolLedger=True)
-    txnPoolNodesLooper.add(client)
-    ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
-                                                  *txnPoolNodeSet)
-    return client, wallet

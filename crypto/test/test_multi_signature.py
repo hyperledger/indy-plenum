@@ -7,9 +7,9 @@ from common.serializers.serialization import multi_signature_value_serializer
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.util import get_utc_epoch
 
-state_root_hash = base58.b58encode(b"somefakeroothashsomefakeroothash")
-pool_state_root_hash = base58.b58encode(b"somefakepoolroothashsomefakepoolroothash")
-txn_root_hash = base58.b58encode(b"somefaketxnroothashsomefaketxnroothash")
+state_root_hash = base58.b58encode(b"somefakeroothashsomefakeroothash").decode("utf-8")
+pool_state_root_hash = base58.b58encode(b"somefakepoolroothashsomefakepoolroothash").decode("utf-8")
+txn_root_hash = base58.b58encode(b"somefaketxnroothashsomefaketxnroothash").decode("utf-8")
 ledger_id = 1
 timestamp = get_utc_epoch()
 participants = ["Node1", "Node2", "Node3"]

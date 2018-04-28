@@ -88,7 +88,8 @@ from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.common.config_helper import PNodeConfigHelper
 from state.pruning_state import PruningState
 from state.state import State
-from storage.helper import initKeyValueStorage, initHashStore
+from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
+from storage.state_ts_store import StateTsDbStorage
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
@@ -174,6 +175,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.states = {}  # type: Dict[int, State]
 
         self.primaryStorage = storage or self.getPrimaryStorage()
+
+        # This is storage for storing map: timestamp/state.headHash
+        # Now it used in domainLedger
+        self.stateTsDbStorage = None
 
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
 
@@ -583,7 +588,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.states[DOMAIN_LEDGER_ID],
                                     self.config,
                                     self.reqProcessors,
-                                    self.bls_bft.bls_store)
+                                    self.bls_bft.bls_store,
+                                    self.getStateTsDbStorage())
+
+    def getStateTsDbStorage(self):
+        if self.stateTsDbStorage is None:
+            self.stateTsDbStorage = StateTsDbStorage(
+                self.name,
+                initKeyValueStorageIntKeys(self.config.stateTsStorage,
+                                           self.dataLocation,
+                                           self.config.stateTsDbName)
+            )
+        return self.stateTsDbStorage
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(
@@ -941,6 +957,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.close()
         if self.bls_bft.bls_store:
             self.bls_bft.bls_store.close()
+        if self.stateTsDbStorage:
+            self.stateTsDbStorage.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -1204,7 +1222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 # TODO DRY, view change done messages are managed by routes
-                self.sendToViewChanger(message, frm)
+                self.sendToViewChanger(message, frm, from_current_state=True)
         except TypeError:
             self.discard(msg,
                          reason="{}invalid election messages".format(
@@ -1423,7 +1441,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def msgHasAcceptableViewNo(self, msg, frm) -> bool:
+    def _should_accept_current_state(self):
+        return self.viewNo == 0 and self.mode == Mode.starting and self.master_primary_name is None
+
+    def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
         """
         Return true if the view no of message corresponds to the current view
         no or a view no in the future
@@ -1437,7 +1458,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        elif view_no > self.viewNo:
+        elif (view_no > self.viewNo) or (from_current_state and self._should_accept_current_state()):
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.info('{} stashing a message for a future view: {}'.
@@ -1445,7 +1466,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
                 # TODO this is put of the msgs queue scope
-                self.view_changer.on_future_view_vchd_msg(view_no, frm)
+                self.view_changer.on_future_view_vchd_msg(view_no, frm, from_current_state=from_current_state)
         else:
             return True
         return False
@@ -1463,7 +1484,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.msgHasAcceptableViewNo(msg, frm):
                 self.replicas.pass_message((msg, frm), msg.instId)
 
-    def sendToViewChanger(self, msg, frm):
+    def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """
         Send the message to the intended view changer.
 
@@ -1471,7 +1492,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if (isinstance(msg, InstanceChange) or
-                self.msgHasAcceptableViewNo(msg, frm)):
+                self.msgHasAcceptableViewNo(msg, frm, from_current_state=from_current_state)):
             logger.debug("{} sending message to view changer: {}".
                          format(self, (msg, frm)))
             self.msgsToViewChanger.append((msg, frm))
@@ -1769,6 +1790,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rh.updateState([txn], isCommitted=True)
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
+            if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
+                rh.ts_store.set(txn[TXN_TIME],
+                                state.headHash)
         self.updateSeqNoMap([txn])
         self._clear_req_key_for_txn(ledger_id, txn)
 

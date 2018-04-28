@@ -12,7 +12,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks
+    ReplicaHooks, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -707,6 +707,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self, ppSeqNo, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
         tm = self.utc_epoch
+        if self.last_accepted_pre_prepare_time is None:
+            last_ordered_ts = self._get_last_timestamp_from_state(ledger_id)
+            if last_ordered_ts:
+                self.last_accepted_pre_prepare_time = last_ordered_ts
+        if self.last_accepted_pre_prepare_time and \
+                tm < self.last_accepted_pre_prepare_time:
+            tm = self.last_accepted_pre_prepare_time
 
         validReqs = []
         inValidReqs = []
@@ -2436,3 +2443,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             removed.insert(0, self.outBox[i])
             del self.outBox[i]
         return removed
+
+    def _get_last_timestamp_from_state(self, ledger_id):
+        if ledger_id == DOMAIN_LEDGER_ID:
+            req_handler = self.node.ledger_to_req_handler.get(ledger_id)
+            if req_handler.ts_store:
+                last_timestamp = req_handler.ts_store.get_last_key()
+                if last_timestamp:
+                    last_timestamp = int(last_timestamp.decode())
+                    self.logger.debug("Last ordered timestamp from store is : {}"
+                                      "".format(last_timestamp))
+                    return last_timestamp
+        return None

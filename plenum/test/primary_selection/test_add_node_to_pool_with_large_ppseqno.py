@@ -1,8 +1,8 @@
 import pytest
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.view_change.helper import ensure_several_view_change
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
@@ -36,8 +36,6 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
     The test emulates big ppSeqNo number, adds a node and checks all the pool nodes
     are functional. The test is run with several starting view_no, including 0
     """
-
-    # TODO: for now this test will use old client api, after moving node txn to sdk it will be rewritten
 
     ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
 

@@ -38,3 +38,12 @@ class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
                 prev_value = v
             value = prev_value
         return value
+
+    def get_last_key(self):
+        last_key = None
+        itr = self.iterator(include_value=False)
+        if itr:
+            all_keys = [_ for _ in itr]
+            if len(all_keys) > 0:
+                last_key = all_keys[-1]
+        return last_key
