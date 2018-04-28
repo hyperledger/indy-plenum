@@ -141,6 +141,7 @@ class TestNodeCore(StackedTester):
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
+        self.monitor.setReplicas(self.replicas)
 
     def create_replicas(self, config=None):
         return TestReplicas(self, self.monitor, config)
