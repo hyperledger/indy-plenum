@@ -364,7 +364,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                     ppSeqNo = preprepares[key].ppSeqNo
                     viewNo = preprepares[key].viewNo
                     break
-            if ppSeqNo == None or viewNo == None:
+            if ppSeqNo is None or viewNo is None:
                 logger.warning('Unordered request with reqId: {} was not found in prePrepares'.format(reqId))
                 return
 
