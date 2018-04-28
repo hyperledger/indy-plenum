@@ -16,8 +16,9 @@ class CompressingFileHandler(RotatingFileHandler):
         self.compression = compression
         self.compressor = None
 
-        log_prefix = os.path.basename(self.baseFilename)
-        self.log_pattern = re.compile("^{}(?:|\.(\d+)(?:|\.gz|\.xz))$".format(log_prefix))
+        log_dir, log_name = os.path.split(self.baseFilename)
+        self.tmp_filename = os.path.join(log_dir, ".tmp_{}".format(log_name))
+        self.log_pattern = re.compile("^{}(?:|\.(\d+)(?:|\.gz|\.xz))$".format(log_name))
 
         file_indexes = [idx for name, idx in self._log_files()]
         self.max_index = max(file_indexes) if file_indexes else 0
@@ -27,34 +28,23 @@ class CompressingFileHandler(RotatingFileHandler):
             self.stream.close()
             self.stream = None
 
-        if self.backupCount > 0:
-            files_to_delete = self.get_files_to_delete()
-            for file in files_to_delete:
-                os.remove(file)
+        self._remove_old_files()
 
         self.max_index += 1
-        backup_name = "{}.{}".format(self.baseFilename, self.max_index)
-        backup_name = self._file_update_compression(backup_name, self.compression)
-        self.rotate(self.baseFilename, backup_name)
+        self._finish_compression()
+        os.rename(self.baseFilename, self.tmp_filename)
+        dest = self._rotated_filename(self.max_index)
+        self.compressor = Process(target=CompressingFileHandler._recompress, args=(self.tmp_filename, dest))
+        self.compressor.start()
 
         if not self.delay:
             self.stream = self._open()
 
-    def rotate(self, source, dest):
-        source_compression = self._file_compression(source)
-        dest_compression = self._file_compression(dest)
-        if source_compression == dest_compression:
-            os.rename(source, dest)
-            return
-
-        tmp_dir, tmp_file = os.path.split(dest)
-        tmp_file = self._file_update_compression(tmp_file, source_compression)
-        tmp_file = os.path.join(tmp_dir, ".tmp_{}".format(tmp_file))
-        os.rename(source, tmp_file)
-
-        self._finish_compression()
-        self.compressor = Process(target=CompressingFileHandler._recompress, args=(tmp_file, dest))
-        self.compressor.start()
+    def _rotated_filename(self, index):
+        result = "{}.{}".format(self.baseFilename, index)
+        if self.compression is not None:
+            result = "{}.{}".format(result, self.compression)
+        return result
 
     def _finish_compression(self):
         if self.compressor is None:
@@ -84,27 +74,10 @@ class CompressingFileHandler(RotatingFileHandler):
         return (log_info(m) for m in matches if m is not None)
 
     @staticmethod
-    def _file_compression(filename):
-        if filename.endswith(".gz"):
-            return "gz"
-        if filename.endswith(".xz"):
-            return "xz"
-        return None
-
-    @staticmethod
-    def _file_update_compression(filename, compression):
-        if filename.endswith(".gz") or filename.endswith(".xz"):
-            filename = filename[:-3]
-        if compression is None:
-            return filename
-        return "{}.{}".format(filename, compression)
-
-    @staticmethod
     def _open_log(filename, mode):
-        compression = CompressingFileHandler._file_compression(filename)
-        if compression == "gz":
+        if filename.endswith(".gz"):
             return gzip.open(filename, mode)
-        if compression == "xz":
+        if filename.endswith(".xz"):
             return lzma.open(filename, mode)
         return open(filename, mode)
 
@@ -115,10 +88,13 @@ class CompressingFileHandler(RotatingFileHandler):
             f_out.write(f_in.read())
         os.remove(source)
 
-    def get_files_to_delete(self):
+    def _remove_old_files(self):
+        if self.backupCount == 0:
+            return
+
         log_files = [(name, idx) for name, idx in self._log_files()]
         if len(log_files) == 0:
-            return []
+            return
 
         log_files, log_indexes = zip(*log_files)
         keep_count = self.backupCount
@@ -128,8 +104,9 @@ class CompressingFileHandler(RotatingFileHandler):
             keep_count -= 1
 
         if len(log_files) <= keep_count:
-            return []
+            return
 
         log_files = list(log_files)
         log_files.sort(key=os.path.getmtime)
-        return log_files[:-keep_count]
+        for file in log_files[:-keep_count]:
+            os.remove(file)
