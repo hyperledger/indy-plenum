@@ -534,14 +534,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return n
         return None
 
-    def _setup_for_non_master(self):
+    def _setup_for_non_master(self, is_catchup=True):
         """
         Since last ordered view_no and pp_seq_no are only communicated for
         master instance, `last_ordered_3pc` if backup instance and clear
         last view messages
         :return:
         """
-        if not self.isMaster:
+        if not self.isMaster and (is_catchup or self.last_ordered_3pc[1] == 0):
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
             lowest_prepared = self.get_lowest_probable_prepared_certificate_in_view(
@@ -552,6 +552,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 else lowest_prepared - 1
             self.logger.debug('{} Setting last ordered for non-master as {}'.format(
                 self, self.last_ordered_3pc))
+            # now after catch up we have in last_ordered_3pc value from
+            # master replica and should change last_ordered_3pc
+            # to lowest_ordered or 0
+            self.last_ordered_3pc = (self.viewNo, lowest_ordered) \
+                if is_catchup or lowest_ordered > self.last_ordered_3pc[1] \
+                else self.last_ordered_3pc
             self.last_ordered_3pc = (self.viewNo, lowest_ordered)
             self._clear_last_view_message_for_non_master(self.viewNo)
 
@@ -954,7 +960,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                         "going to request".format(self, seq_frm, seq_to))
                     self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
-            self._setup_for_non_master()
             self.enqueue_pre_prepare(pre_prepare, sender)
         elif why_not == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
@@ -965,6 +970,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
             self.logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
+        self._setup_for_non_master(is_catchup=False)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1000,6 +1006,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
+                self._setup_for_non_master(is_catchup=False)
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
