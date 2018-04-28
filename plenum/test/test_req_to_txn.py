@@ -1,32 +1,47 @@
 import pytest
 
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import SortedDict
+from plenum.test.helper import sdk_sign_request_from_dict
 
 
-@pytest.fixture(params=['all', 'sig_only', 'sigs_only', 'no_protocol_vers'])
-def req_and_expected(request):
+@pytest.fixture(params=['all', 'sig_only', 'sigs_only', 'no_protocol_vers',
+                        'all_sdk', 'sig_only_sdk', 'sigs_only_sdk', 'no_protocol_vers_sdk'])
+def req_and_expected(request, looper, sdk_wallet_client):
     op = {'type': '1',
           'something': 'nothing'}
-    req = Request(operation=op, reqId=1513945121191691,
-                  protocolVersion=3, identifier="L5AD5g65TDQr1PPHHRoiGf")
-    req.signature = "3SyRto3MGcBy1o4UmHoDezy1TJiNHDdU9o7TjHtYcSqgtpWzejMoHDrz3dpT93Xe8QXMF2tJVCQTtGmebmS2DkLS"
-    req.add_signature("L5AD5g65TDQr1PPHHRoiGf",
-                      "3SyRto3MGcBy1o4UmHoDezy1TJiNHDdU9o7TjHtYcSqgtpWzejMoHDrz3dpT93Xe8QXMF2tJVCQTtGmebmS2DkLS")
-    if request.param == 'sig_only':
-        req.signatures = None
-    if request.param == 'sigs_only':
-        req.signature = None
-    if request.param == 'no_protocol_vers':
-        req.protocolVersion = None
+    if request.param.endswith('_sdk'):
+        req = sdk_sign_request_from_dict(looper, sdk_wallet_client,
+                                         op, reqId=1513945121191691)
+        request.param = request.param[:-4]
+        # TODO: support multi-sig in SDK
+        # if request.param == 'sig_only':
+        #     req.pop('signatures')
+        # if request.param == 'sigs_only':
+        #     req.pop('signature')
+        if request.param == 'no_protocol_vers':
+            req.pop('protocolVersion')
+    else:
+        req = Request(operation=op, reqId=1513945121191691,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd")
+        req.signature = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+        req.add_signature("6ouriXMZkLeHsuXrN1X1fd",
+                          "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM")
+        if request.param == 'sig_only':
+            req.signatures = None
+        if request.param == 'sigs_only':
+            req.signature = None
+        if request.param == 'no_protocol_vers':
+            req.protocolVersion = None
 
     new_expected = SortedDict({
         "reqSignature": {
             "type": "ED25519",
             "values": [{
-                "from": "L5AD5g65TDQr1PPHHRoiGf",
-                "value": "3SyRto3MGcBy1o4UmHoDezy1TJiNHDdU9o7TjHtYcSqgtpWzejMoHDrz3dpT93Xe8QXMF2tJVCQTtGmebmS2DkLS"
+                "from": "6ouriXMZkLeHsuXrN1X1fd",
+                "value": "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
             }]
         },
         "txn": {
@@ -35,11 +50,11 @@ def req_and_expected(request):
             },
 
             "metadata": {
-                "from": "L5AD5g65TDQr1PPHHRoiGf",
+                "from": "6ouriXMZkLeHsuXrN1X1fd",
                 "reqId": 1513945121191691,
             },
 
-            "protocolVersion": 3,
+            "protocolVersion": CURRENT_PROTOCOL_VERSION,
             "type": "1",
         },
         "txnMetadata": {

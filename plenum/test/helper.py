@@ -1068,9 +1068,10 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     return sdk_replies
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
     wallet_h, did = sdk_wallet
-    request = Request(operation=op, reqId=random.randint(10, 100000),
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
