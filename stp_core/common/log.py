@@ -92,14 +92,9 @@ class Logger(metaclass=Singleton):
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        new = CompressingFileHandler(
-            filename,
-            when=self._config.logRotationWhen,
-            interval=self._config.logRotationInterval,
-            backupCount=self._config.logRotationBackupCount,
-            utc=True,
-            maxBytes=self._config.logRotationMaxBytes,
-            compression=self._config.logRotationCompression)
+        new = CompressingFileHandler(filename, maxBytes=self._config.logRotationMaxBytes,
+                                     backupCount=self._config.logRotationBackupCount,
+                                     compression=self._config.logRotationCompression)
         self._setHandler('file', new)
 
     def _setHandler(self, typ: str, new_handler):

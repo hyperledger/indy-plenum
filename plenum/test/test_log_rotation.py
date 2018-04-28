@@ -25,8 +25,7 @@ def test_default_log_rotation_config_is_correct(tdir_for_func):
 def test_log_file_matcher_works_as_expected(tdir_for_func, log_compression):
     logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
-    handler = CompressingFileHandler(
-        logFile, delay=True, interval=1, when='s', compression=log_compression)
+    handler = CompressingFileHandler(logFile, delay=True, compression=log_compression)
 
     assert handler.log_pattern.match("log")
     assert handler.log_pattern.match("log.42")
@@ -51,8 +50,7 @@ def test_time_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = CompressingFileHandler(
-        logFile, interval=1, when='s', compression=log_compression)
+    handler = CompressingFileHandler(logFile, compression=log_compression)
     logger.addHandler(handler)
     for i in range(3):
         time.sleep(1)
@@ -68,8 +66,7 @@ def test_size_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = CompressingFileHandler(
-        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compression=log_compression)
+    handler = CompressingFileHandler(logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compression=log_compression)
     logger.addHandler(handler)
     for i in range(20):
         logger.debug("line")
@@ -86,8 +83,7 @@ def test_time_and_size_log_rotation(tdir_for_func, log_compression):
     logger = logging.getLogger('test_time_and_size_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = CompressingFileHandler(
-        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, interval=1, when="s", compression=log_compression)
+    handler = CompressingFileHandler(logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, compression=log_compression)
     logger.addHandler(handler)
 
     for i in range(20):
@@ -116,10 +112,8 @@ def test_time_and_size_log_rotation1(tdir_for_func, log_compression):
     record_text = 'line'
     record_length = len(record_text) + len(str(record_count))
 
-    handler = CompressingFileHandler(
-        logFile,
-        maxBytes=(record_length + len(os.linesep)) * record_per_file + 1,
-        interval=1, when="h", backupCount=backup_count, utc=True, compression=log_compression)
+    handler = CompressingFileHandler(logFile, maxBytes=(record_length + len(os.linesep)) * record_per_file + 1,
+                                     backupCount=backup_count, compression=log_compression)
     logger.addHandler(handler)
 
     for i in range(1, record_count + 1):

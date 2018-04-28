@@ -7,8 +7,6 @@ import logging
 baseDir = os.getcwd()
 
 # Log configuration
-logRotationWhen = 'W6'
-logRotationInterval = 1
 logRotationBackupCount = 300
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"

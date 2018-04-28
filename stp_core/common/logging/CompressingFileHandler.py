@@ -5,20 +5,14 @@ import lzma
 from logging import Logger
 from datetime import datetime, timedelta
 from multiprocessing import Process
-from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
 
 
-class CompressingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
+class CompressingFileHandler(RotatingFileHandler):
 
-    def __init__(self, filename, when='h', interval=1, backupCount=0,
-                 encoding=None, delay=False, utc=False, atTime=None,
-                 maxBytes=0, compression=None):
+    def __init__(self, filename, maxBytes=0, backupCount=0, delay=False, compression=None):
+        RotatingFileHandler.__init__(self, filename, maxBytes=maxBytes, backupCount=backupCount, delay=delay)
 
-        TimedRotatingFileHandler.__init__(self, filename, when, interval,
-                                          backupCount, encoding, delay,
-                                          utc, atTime)
-        self.maxBytes = maxBytes
         self.compression = compression
         self.compressor = None
 
@@ -27,10 +21,6 @@ class CompressingFileHandler(TimedRotatingFileHandler, RotatingFileHandler):
 
         file_indexes = [idx for name, idx in self._log_files()]
         self.max_index = max(file_indexes) if file_indexes else 0
-
-    def shouldRollover(self, record):
-        return bool(TimedRotatingFileHandler.shouldRollover(self, record)) or \
-            bool(RotatingFileHandler.shouldRollover(self, record))
 
     def rotate(self, source, dest):
         self.max_index += 1
