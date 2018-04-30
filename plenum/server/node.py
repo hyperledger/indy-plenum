@@ -2519,9 +2519,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
-        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, committed_txns=committedTxns,
-                          state_root=state_root, txn_root=txn_root)
+        # self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
+        #                   pp_time=pp_time, committed_txns=committedTxns,
+        #                   state_root=state_root, txn_root=txn_root)
 
         if not committedTxns:
             return
@@ -2574,10 +2574,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.addBatch((idr_from_req_data(txn), txn[f.REQ_ID.nm],
                                    txn[F.seqNo.name]) for txn in committedTxns)
 
-    def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
+    def commitAndSendReplies(self, ledger_id, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
+                          pp_time=ppTime, committed_txns=committedTxns,
+                          state_root=stateRoot, txn_root=txnRoot)
         self.updateSeqNoMap(committedTxns)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
@@ -2590,9 +2593,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
-        return self.commitAndSendReplies(
-            self.get_req_handler(ledger_id), pp_time, reqs, state_root,
-            txn_root)
+        return self.commitAndSendReplies(ledger_id,
+                                         self.get_req_handler(ledger_id),
+                                         pp_time, reqs, state_root, txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
