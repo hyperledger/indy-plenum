@@ -150,7 +150,6 @@ class NodeStateComparator():
     s2_transformed_and_scrubbed = None
 
     def __init__(self, log_level=0, cleanup=True, replay=False):
-        print("log_level={}".format(log_level))
         logger.setLevel(log_level)
         logger.debug("Initializing NodeStateComparator...")
         self.cleanup = cleanup
