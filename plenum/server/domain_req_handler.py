@@ -10,7 +10,6 @@ from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
 from plenum.common.types import f
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger

@@ -1,0 +1,74 @@
+@startuml
+
+class SignedMessage {
+type: str
+from: str
+serialization: str
+msg: bytes
+signature: Signature
+}
+
+class Message {
+type: str
+protocolVersion: str
+data: MessageData
+metadata: MessageMetadata
+\n
+msgSerialized: bytes
+signature: Signature
+\n
+schemaData: dict
+schemaMetadata: dict
+}
+
+abstract class Reply {
+}
+
+abstract class Request {
+}
+
+abstract class WriteRequest {
+}
+
+abstract class ReadRequest {
+}
+
+abstract class NodeMessage {
+}
+
+SignedMessage *-- Message
+
+Message <|-- Request
+Request <|-- WriteRequest
+Request <|-- ReadRequest
+
+Message <|-- Reply
+Reply <|-- WriteReply
+Reply <|-- ReadReply
+
+Message <|-- NodeMessage
+
+Message <|-- Ack
+Message <|-- Nack
+Message <|-- Reject
+
+WriteRequest <|-- Nym
+ReadRequest <|-- GetNym
+
+NodeMessage <|-- PrePrepareData
+NodeMessage <|-- PrepareData
+NodeMessage <|-- CommitData
+
+note as N
+1) Receive MSG via ZMQ in MsgPack format
+2) Deserialize Msg to dict
+3) If this is a SignedMsg:
+    - verify Signature
+    - Reject the message if signature is invalid
+    - Deserialize the message payload to dict
+4) Instantiate Msg from dict based on type using MsgFactory
+    - provide serialized msg and signature if needed
+5) Validate Message fields based on Schema
+end note
+
+@enduml
