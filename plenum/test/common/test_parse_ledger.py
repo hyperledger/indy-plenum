@@ -30,7 +30,7 @@ def invalid_verkey_tdir(tdir_for_func):
 @pytest.fixture(scope="function")
 def invalid_identifier_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
-    txn = Steward.node_txn(nym=base58.b58encode(b'whatever'),
+    txn = Steward.node_txn(nym=base58.b58encode(b'whatever').decode("utf-8"),
                            steward_nym="invalid====",
                            node_name='test' + str(2),
                            ip='127.0.0.1',

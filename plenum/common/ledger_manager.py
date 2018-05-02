@@ -11,7 +11,7 @@ from typing import Optional
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
-    CONSISTENCY_PROOF, CATCH_UP_PREFIX
+    CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \

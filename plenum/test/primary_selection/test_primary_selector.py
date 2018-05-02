@@ -23,7 +23,7 @@ whitelist = ['but majority declared']
 class FakeLedger:
     def __init__(self, ledger_id, size):
         self._size = size
-        self.root_hash = base58.b58encode(str(ledger_id).encode() * 32)
+        self.root_hash = base58.b58encode(str(ledger_id).encode() * 32).decode("utf-8")
         self.hasher = None
 
     def __len__(self):

@@ -1,10 +1,9 @@
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-
 from plenum.test.pool_transactions.helper import sdk_pool_refresh
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test import waits
 from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_node import checkNodesConnected, TestNode, \
     ensureElectionsDone
 from plenum.common.config_helper import PNodeConfigHelper
