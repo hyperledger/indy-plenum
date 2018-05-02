@@ -108,6 +108,7 @@ from state.pruning_state import PruningState
 
 import argparse
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -115,6 +116,8 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+
+logger = logging.getLogger()
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -130,17 +133,9 @@ class ArchiveError(Error):
     def __init__(self, message):
         self.message = message
 
-# TODO: use standard python 'logging' module and map -v, -vv, etc. to logging
-#       log levels? STDERR can be the file to which the 'logging' module writes.
-#       Eliminates the need to check LOG_LEVEL (if >= LOG_LEVEL... logic)
-class LOG_LEVEL(Enum):
-    WARN = 1
-    INFO = 2
-    DEBUG = 3
-    TRACE = 4
-
 class NodeStateComparator():
-    verbosity = 0
+    logger = None
+    log_level = logging.WARNING
     cleanup = True
     replay = False
 
@@ -154,59 +149,51 @@ class NodeStateComparator():
     s2_is_temp = False
     s2_transformed_and_scrubbed = None
 
-    def __init__(self, verbosity=0, cleanup=True, replay=False):
-        if self.verbosity >= LOG_LEVEL.DEBUG.value:
-            print("Initializing NodeStateComparator...")
-        self.verbosity = verbosity
+    def __init__(self, log_level=0, cleanup=True, replay=False):
+        print("log_level={}".format(log_level))
+        logger.setLevel(log_level)
+        logger.debug("Initializing NodeStateComparator...")
         self.cleanup = cleanup
         self.replay = replay
 
+
     def _cleanup(self):
-        if self.verbosity >= LOG_LEVEL.DEBUG.value:
-            print("Cleaning up...")
+        logger.debug("Cleaning up...")
         # Clean-up temp dirs if tar/zip unpacked using a temp dir
         if self.s1_is_temp: 
             if self.cleanup:
-                # Trace level debug
-                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                    print("Removing temp dir {} containing {} contents".format(
-                        self.s1dir, self.s1))
+                logger.info("Removing temp dir {} containing {} contents"
+                    .format(self.s1dir, self.s1))
                 shutil.rmtree(self.s1dir)
             else:
-                print("Skipping removal of temp directory {}".format(
+                logger.debug("Skipping removal of temp directory {}".format(
                     self.s1dir))
         if self.s2_is_temp: 
             if self.cleanup:
-                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                    print("Removing temp dir {} containing {} contents".format(
-                        self.s2dir, self.s2))
+                logger.info("Removing temp dir {} containing {} contents"
+                    .format(self.s2dir, self.s2))
                 shutil.rmtree(self.s2dir)
             else:
-                print("Skipping removal of temp directory {}".format(
+                logger.debug("Skipping removal of temp directory {}".format(
                     self.s2dir))
         # Clean-up temp dirs used to store transformed and scrubbed state data
         if self.cleanup:
             if self.s1_transformed_and_scrubbed:
-                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                    s = """Removing temp dir {} containing transformed and
-                           scrubbed contents from {}"""
-                    print(s.format(self.s1_transformed_and_scrubbed,
+                s = """Removing temp dir {} containing transformed and
+                       scrubbed contents from {}"""
+                logger.info(s.format(self.s1_transformed_and_scrubbed,
                         self.s1dir))
                 shutil.rmtree(self.s1_transformed_and_scrubbed)
             if self.s2_transformed_and_scrubbed:
-                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                    s = """Removing temp dir {} containing transformed and
-                           scrubbed contents from {}"""
-                    print(s.format(self.s2_transformed_and_scrubbed,
+                s = """Removing temp dir {} containing transformed and
+                       scrubbed contents from {}"""
+                logger.info(s.format(self.s2_transformed_and_scrubbed,
                         self.s2dir))
                 shutil.rmtree(self.s2_transformed_and_scrubbed)
     
     # Print an error message to stderr and conditionally exit
     def _eprint(self, *args, **kwargs):
-        doexit = False
-        if 'exit' in kwargs:
-            doexit = kwargs['exit']
-            del kwargs['exit']
+        doexit = kwargs.pop('exit', None)
         print(*args, file=sys.stderr, **kwargs)
         if doexit:
             self._cleanup()
@@ -215,59 +202,73 @@ class NodeStateComparator():
     # Print the contents of a tarfile root directory. Does not traverse
     # directories.
     def print_tarfile(self, filename):
-        f = tarfile.open(filename)
-        for info in f:
-            if info.isdir():
-                file_type = 'directory'
-            elif info.isfile():
-                file_type = 'file'
-            else:
-                file_type = 'unknown'
-            print('{} is a {}'.format(info.name, file_type))
+        with tarfile.open(filename, "r") as tar:
+            for info in tar:
+                if info.isdir():
+                    file_type = 'directory'
+                elif info.isfile():
+                    file_type = 'file'
+                else:
+                    file_type = 'unknown'
+                logger.debug('{} is a {}'.format(info.name, file_type))
     
     # Print the contents of a zipfile root directory. Does not traverse
     # directories.
     def print_zipfile(self, filename):
         f = zipfile.ZipFile(filename)
-        f.printdir()
+        for info in f.infolist():
+            logger.debug(info.filename)
     
     # Print the contents of a directory
     def print_directory(self, dir):
         onlyfiles = [f for f in listdir(dir) if isfile(join(dir, f))]
+        onlydirs = [f for f in listdir(dir) if isdir(join(dir, f))]
+        logger.debug("In {}:".format(dir))
+        for file in onlyfiles:
+            logger.debug("\t{}".format(file))
+        for dirent in onlydirs:
+            self.print_directory("{}/{}".format(dir, dirent))
+
+    # Extract a tarball
+    def _extract_tarball(self, file):
+        tempdir = None
+        logger.debug("Extracting tarball {}".format(file))
+        if self.log_level >= logging.INFO:
+            self.print_tarfile(file)
+        tempdir = tempfile.mkdtemp()
+        if ( tempdir ):
+            with tarfile.open(file, "r") as tar:
+                tar.extractall(tempdir)
+        else:
+            s = "Failed to create tempdir in which to unpack {}"
+            raise ArchiveError(s.format(file))
+        return tempdir
+
+    # Extract a zipfile
+    def _extract_zipfile(self, file):
+        tempdir = None
+        logger.debug("Extracting zipfile {}".format(file))
+        if self.log_level >= logging.INFO:
+            self.print_zipfile(file)
+        tempdir = tempfile.mkdtemp()
+        if ( tempdir ):
+            with zipfile.ZipFile(file, 'r') as zip:
+                zip.extractall(tempdir)
+        else:
+            s = "Failed to create tempdir in which to unpack {}"
+            raise ArchiveError(s.format(file))
+        return tempdir
     
     # Extract a tarball/zipfile into a temprary directory
     def _extract_archive(self, file):
-        tempdir = None
+        logger.debug("Extracting archive {}".format(file))
         # Is the file a tarfile (tar, gz2, zip, tar.gz, etc.) or zipfile?
         if tarfile.is_tarfile(file):
-            if self.verbosity >= LOG_LEVEL.DEBUG.value:
-                print("Extracting tarball {}".format(file))
-            if self.verbosity >= LOG_LEVEL.TRACE.value:
-                self.print_tarfile(file)
-            tempdir = tempfile.mkdtemp()
-            if ( tempdir ):
-                tar = tarfile.open(file)
-                tar.extractall(tempdir)
-                tar.close()
-            else:
-                s = "Failed to create tempdir in which to unpack {}"
-                raise ArchiveError(s.format(file))
+            return self._extract_tarball(file)
         elif zipfile.is_zipfile(file):
-            if self.verbosity >= LOG_LEVEL.DEBUG.value:
-                print("Extracting zipfile {}".format(file))
-            if self.verbosity >= LOG_LEVEL.TRACE.value:
-                self.print_zipfile(file)
-            tempdir = tempfile.mkdtemp()
-            if ( tempdir ):
-                zip = zipfile.ZipFile(file, "r")
-                zip.extractall(tempdir)
-                zip.close()
-            else:
-                s = "Failed to create tempdir in which to unpack {}"
-                raise ArchiveError(s.format(file))
+            return self._extract_zipfile(file)
         else:
             raise ArchiveError("{} must be a tarfile or a zipfile".format(file))
-        return tempdir
     
     def split_name(self, file):
         abs_file = abspath(file)
@@ -315,21 +316,23 @@ class NodeStateComparator():
               once we have concrete examples.
            5. All other files and directories are unaltered.
         """
-        if self.verbosity >= LOG_LEVEL.DEBUG.value:
-            print("Transforming and scrubbing {} into {}".format(sin, sout))
+        logger.debug("Transforming and scrubbing {} into {}".format(sin, sout))
     
+        # The set of filenames that must exist in a directory to be assumed a
+        # LevelDB instance. Will be used in the following for-loop.
+        leveldb_filenames = [ 'CURRENT', 'LOG' ]
+
         # Traverse directory sin
         for dirName, subdirList, fileList in os.walk(sin):
-            if self.verbosity >= LOG_LEVEL.TRACE.value:
-                print('dirName: %s' % dirName)
+            if self.log_level >= logging.INFO:
+                logger.info('dirName: %s' % dirName)
                 for fname in fileList:
-                    print('\t%s' % fname)
+                    logger.info('\t%s' % fname)
                 for dname in subdirList:
-                    print('+\t%s' % dname)
+                    logger.info('+\t%s' % dname)
     
             # Check if all of the leveldb_filenames are found in fileList
             # set is_leveldb_dir and break if any of the filenames are not found
-            leveldb_filenames = [ 'CURRENT', 'LOG' ]
             is_leveldb_dir = True
             for filename in leveldb_filenames:
                 if filename not in fileList:
@@ -362,13 +365,11 @@ class NodeStateComparator():
                     )
 
                     out_filename = join(sout, filename)
-                    file_handle = open(out_filename, "a")
-                    for txn in ledger.getAllTxn():
-                        if self.verbosity >= LOG_LEVEL.TRACE.value:
-                            print("Writing >txn={}< to {}".format(str(txn),
-                                out_filename))
-                        file_handle.write(str(txn))
-                    file_handle.close()
+                    with open(out_filename, "a") as file_handle:
+                        for txn in ledger.getAllTxn():
+                            logger.info("Writing >txn={}< to {}".format(
+                                str(txn), out_filename))
+                            file_handle.write(str(txn))
                     ledger.stop()
                 else:
                     # Assume utf-8 decoding by default.
@@ -382,46 +383,43 @@ class NodeStateComparator():
                             KeyValueStorageType.Leveldb, dirname, filename)
                     else:
                         out_filename = join(sout, filename)
-                        file_handle = open(out_filename, "a")
-                        if (filename == "state_signature" and not self.replay):
-                            for k, v in leveldb_handle.iterator():
-                                data=json.loads(v.decode('utf-8'))
-                                # The 'participants' and 'signature' can differ,
-                                # but the 'value' must be the same. Preserve
-                                # only the 'value' element in v.
-                                file_handle.write("{} {}\n".format(k,
-                                    json.dumps(data['value'])))
-                        elif (filename.endswith("_state")):
-                            state = PruningState(leveldb_handle)
-                            # Traverse keys and write a key-value pair per line.
-                            state_dict = state.as_dict
-                            for key in state_dict.keys():
-                                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                                    print("Writing >key={} value={}< to {}"
-                                        .format(key, state_dict[key],
-                                             out_filename))
-                                file_handle.write("{} {}".format(
-                                    key, state_dict[key]))
-                        elif (filename.endswith("_merkleLeaves")
-                            or filename.endswith("_merkleNodes")):
-                            for k, v in leveldb_handle.iterator():
-                                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                                    print("Writing >{} {}< to {}".format(k, v,
-                                        out_filename))
-                                file_handle.write("{} {}\n".format(k, v))
-                        else:
-                            for k, v in leveldb_handle.iterator():
-                                try:
-                                    v = v.decode("utf-8")
-                                except UnicodeDecodeError:
-                                    # v isn't utf-8 encoded
-                                    pass
-
-                                if self.verbosity >= LOG_LEVEL.TRACE.value:
-                                    print("Writing >{} {}< to {}".format(k, v,
-                                        out_filename))
-                                file_handle.write("{} {}\n".format(k, v))
-                        file_handle.close()
+                        with open(out_filename, "a") as file_handle:
+                            if (filename == "state_signature" and not
+                                self.replay):
+                                for k, v in leveldb_handle.iterator():
+                                    data=json.loads(v.decode('utf-8'))
+                                    # The 'participants' and 'signature' can
+                                    # differ, but the 'value' must be the same.
+                                    # Preserve only the 'value' element in v.
+                                    file_handle.write("{} {}\n".format(k,
+                                        json.dumps(data['value'])))
+                            elif (filename.endswith("_state")):
+                                state = PruningState(leveldb_handle)
+                                # Traverse keys and write a key-value pair per
+                                # line.
+                                state_dict = state.as_dict
+                                for key, val in state_dict.items():
+                                    logger.info(
+                                        "Writing >key={} value={}< to {}"
+                                        .format(key, val, out_filename))
+                                    file_handle.write("{} {}".format(key, val))
+                            elif (filename.endswith("_merkleLeaves")
+                                or filename.endswith("_merkleNodes")):
+                                for k, v in leveldb_handle.iterator():
+                                    logger.info("Writing >{} {}< to {}"
+                                        .format(k, v, out_filename))
+                                    file_handle.write("{} {}\n".format(k, v))
+                            else:
+                                for k, v in leveldb_handle.iterator():
+                                    try:
+                                        v = v.decode("utf-8")
+                                    except UnicodeDecodeError:
+                                        # v isn't utf-8 encoded
+                                        pass
+    
+                                    logger.info("Writing >{} {}< to {}"
+                                        .format(k, v, out_filename))
+                                    file_handle.write("{} {}\n".format(k, v))
                         leveldb_handle.close()
             else:
                 # Copy all files to sout and then walk each of the
@@ -435,10 +433,9 @@ class NodeStateComparator():
                                 data=nodeInfo.read()
                                 data=json.loads(data)
                                 out_filename = join(sout, fname)
-                                file_handle = open(out_filename, "a")
-                                file_handle.write("view: {}".format(
-                                    data['view']))
-                                file_handle.close()
+                                with open(out_filename, "a") as file_handle:
+                                    file_handle.write("view: {}".format(
+                                        data['view']))
                     else:
                         copyfile(join(abspath(dirName), fname), join(sout,
                             fname))
@@ -491,17 +488,15 @@ class NodeStateComparator():
             # Use the filename of "log" so that the *nix-diff can be done on a
             # single directory.
             out_filename = join(sout, "log")
-            file_handle = open(out_filename, "a")
-            file_handle.write("last batch ordered: {}".format(
-                batch_ordered_tuple.decode()))
-            file_handle.write("last batch executed: {}".format(
-                batch_executed_tuple.decode()))
-            file_handle.close()
+            with open(out_filename, "a") as file_handle:
+                file_handle.write("last batch ordered: {}".format(
+                    batch_ordered_tuple.decode()))
+                file_handle.write("last batch executed: {}".format(
+                    batch_executed_tuple.decode()))
 
     def diff(self, s1, s2):
         """Perform a recursive *nix-diff on two directories"""
-        if self.verbosity >= LOG_LEVEL.DEBUG.value:
-            print("*nix diffing {} with {}".format(s1, s2))
+        logger.debug("*nix diffing {} with {}".format(s1, s2))
     
         # Try 1:
         # os.system("diff -r {} {}".format(s1, s2))
@@ -522,6 +517,8 @@ class NodeStateComparator():
           self._eprint(result.stdout.decode('utf-8'), exit=True)
         
     def ndiff(self, s1, s2):
+        logger.debug("Performing node state diff on {} and {}".format(s1, s2))
+
         # Validate inputs
         validation_errors = []
     
@@ -542,7 +539,7 @@ class NodeStateComparator():
                 self.s1dir = tempdir
                 self.s1_is_temp = True
         elif ( isdir(s1) ):
-            if self.verbosity >= LOG_LEVEL.TRACE.value:
+            if self.log_level >= logging.INFO:
                 self.print_directory(s1)
             self.s1dir = s1
         else:
@@ -561,7 +558,7 @@ class NodeStateComparator():
                 self.s2dir = tempdir
                 self.s2_is_temp = True
         elif ( isdir(s2) ):
-            if self.verbosity >= LOG_LEVEL.TRACE.value:
+            if self.log_level >= logging.INFO:
                 self.print_directory(s2)
             self.s2dir = s2
         else:
@@ -589,10 +586,11 @@ class NodeStateComparator():
             self.s2dir = "{}/{}".format(self.s2dir, s2_name)
 
         # Trace level debug
-        if self.verbosity >= LOG_LEVEL.TRACE.value:
-           s = "Argument {}: dirname={} filename={} name={} extension={}"
-           print(s.format(1, s1_dirname, s1_filename, s1_name, s1_extension)) 
-           print(s.format(2, s2_dirname, s2_filename, s2_name, s2_extension)) 
+        s = "Argument {}: dirname={} filename={} name={} extension={}"
+        logger.info(s.format(1, s1_dirname, s1_filename, s1_name,
+            s1_extension)) 
+        logger.info(s.format(2, s2_dirname, s2_filename, s2_name,
+            s2_extension)) 
     
         # Create temp directory for s1 and s2 in which to store all scrubbed and
         # transformed files. A recursive *nix diff will be peformed on these
@@ -618,6 +616,23 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError(
             'Boolean value (yes, no, true, false, y, n, 1, or 0) expected.')
+
+levels = {
+   'notset': logging.NOTSET,
+   'debug': logging.DEBUG,
+   'info': logging.INFO,
+   'warning': logging.WARNING,
+   'error': logging.ERROR,
+   'critical': logging.CRITICAL
+}
+
+def loglevel(v):
+    if v.lower() in levels.keys():
+        return levels[v.lower()]
+    else:
+        raise argparse.ArgumentTypeError(
+            'Expected one of the following: {}.'.format(
+                ', '.join(levels.keys())))
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -625,18 +640,17 @@ if __name__ == '__main__':
     graceful = argparse.ArgumentParser(add_help=False)
     parser.add_argument("state1", help=".zip file or directory name")
     parser.add_argument("state2", help=".zip file or directory name")
-    verbose_help_string = """Increase output verbosity. Add additional -v
-                             arguments to increase verbosity. For example, -v =
-                             warn, -vv info, -vvv = debug, -vvvv trace"""
-    parser.add_argument("-v", "--verbose", action="count",
-        help=verbose_help_string,
-        default=0)
 
     cleanup_help="""Cleanup temporary files/directories?
                     [CLEANUP]: yes, no, true, false y, n, 1, 0
                     Default: True"""
     parser.add_argument("-c", "--cleanup", type=str2bool, nargs='?', const=True,
         default=True, help=cleanup_help)
+    log_level_help="""Logging level.
+                      [LOG-LEVEL]: notset, debug, info, warning, error, critical
+                      Default: notset"""
+    parser.add_argument("-l", "--log-level", type=loglevel, nargs='?',
+        const=logging.WARNING, default=logging.WARNING, help=log_level_help)
 
     replay_help="""Comparing a node to it's replay state?
                    Example: Comparing Alpha to Alpha'. Where Alpha' is the
@@ -655,6 +669,6 @@ if __name__ == '__main__':
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    comparator = NodeStateComparator(verbosity=args.verbose,
+    comparator = NodeStateComparator(log_level=args.log_level,
         cleanup=args.cleanup, replay=args.replay)
     comparator.ndiff(args.state1, args.state2)
