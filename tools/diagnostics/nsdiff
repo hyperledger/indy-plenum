@@ -447,7 +447,6 @@ class NodeStateComparator():
         (dirname, filename, name, extension) = self.split_name(sin)
         log_filename = "{}.log".format(filename)
         log_filepath = "{}/{}".format(dirname, log_filename)
-        import pdb; pdb.set_trace()
         if (os.path.exists(log_filepath)):
             # Extract (view no, ppSeqNo) tuple from log file(s)
             # Last "batch ordered"
