@@ -2,8 +2,34 @@
 
 # README:
 #
+# This script assumes that the entirety of a node's state is bundled as a zip
+# file and the zip file has the name <node_name>.zip where <node_name> is the
+# name of the node.
+# <node_name>.zip
+#    <node_name>.log* - A copy of the /var/log/<node_name>.log* files
+#    <node_name>/    - A copy of the /var/lib/indy/<node_name>
+#        attr_db
+#        config_merkleLeaves
+#        config_merkleNodes
+#        config_state
+#        config_transactions
+#        domain_merkleLeaves
+#        domain_merkleNodes
+#        domain_state
+#        domain_transactions
+#        idr_cache_db
+#        node_info
+#        pool_merkleLeaves
+#        pool_merkleNodes
+#        pool_state
+#        pool_transactions
+#        seq_no_db
+#        state_signature
+#        state_ts_db`
+#
 # This script depends on leveldb python bindings which in turn rely on the
 # leveldb C runtime libs and headers. You must install leveldb dependencies.
+# See Installation > Prerequisites section below.
 #
 # Until further notice, assume Python 3.5.2 is required and all references to
 # python3 or pip3 imply Python 3.5.2.
@@ -413,58 +439,66 @@ class NodeStateComparator():
                                 file_handle.write("view: {}".format(
                                     data['view']))
                                 file_handle.close()
-                    elif (fname == "log"):
-                        # Extract (view no, ppSeqNo) tuple from log file(s)
-                        # Last "batch ordered"
-                        process_grep = subprocess.Popen([ "grep", "-e"
-                            "{}:.* ordered batch request, view no".format(
-                            filename), "{}/{}/{}".format(dirname, filename,
-                            fname)], stdout=subprocess.PIPE, shell=False)
-                        process_tail = subprocess.Popen([ 'tail', '-1' ],
-                            stdin=process_grep.stdout, stdout=subprocess.PIPE,
-                            shell=False)
-                        process_cut1 = subprocess.Popen([ 'cut', '-f', '5',
-                            '-d', '|' ], stdin=process_tail.stdout,
-                            stdout=subprocess.PIPE, shell=False)
-                        process_cut2 = subprocess.Popen([ 'cut', '-d', ',', 
-                            '-f', '2,3' ], stdin=process_cut1.stdout,
-                            stdout=subprocess.PIPE, shell=False)
-                        process_grep.stdout.close()
-                        process_tail.stdout.close()
-                        process_cut1.stdout.close()
-                        
-                        batch_ordered_tuple = process_cut2.communicate()[0]
-
-                        # Last "batch executed"
-                        process_grep = subprocess.Popen([ "grep", "-e"
-                            "{} executing Ordered batch".format(
-                            filename), "{}/{}/{}".format(dirname, filename,
-                            fname)], stdout=subprocess.PIPE, shell=False)
-                        process_tail = subprocess.Popen([ 'tail', '-1' ],
-                            stdin=process_grep.stdout, stdout=subprocess.PIPE,
-                            shell=False)
-                        process_cut1 = subprocess.Popen([ 'cut', '-f', '5',
-                            '-d', '|' ], stdin=process_tail.stdout,
-                            stdout=subprocess.PIPE, shell=False)
-                        process_cut2 = subprocess.Popen([ 'cut', '-d', ' ', 
-                            '-f', '6,7' ], stdin=process_cut1.stdout,
-                            stdout=subprocess.PIPE, shell=False)
-                        process_grep.stdout.close()
-                        process_tail.stdout.close()
-                        process_cut1.stdout.close()
-
-                        batch_executed_tuple = process_cut2.communicate()[0]
-                        out_filename = join(sout, fname)
-                        file_handle = open(out_filename, "a")
-                        file_handle.write("last batch ordered: {}".format(
-                            batch_ordered_tuple.decode()))
-                        file_handle.write("last batch executed: {}".format(
-                            batch_executed_tuple.decode()))
-                        file_handle.close()
                     else:
                         copyfile(join(abspath(dirName), fname), join(sout,
                             fname))
-     
+
+        # Check for a log file
+        (dirname, filename, name, extension) = self.split_name(sin)
+        log_filename = "{}.log".format(filename)
+        log_filepath = "{}/{}".format(dirname, log_filename)
+        import pdb; pdb.set_trace()
+        if (os.path.exists(log_filepath)):
+            # Extract (view no, ppSeqNo) tuple from log file(s)
+            # Last "batch ordered"
+            process_grep = subprocess.Popen([ "grep", "-e"
+                "{}:.* ordered batch request, view no".format(
+                filename), log_filepath],
+                stdout=subprocess.PIPE, shell=False)
+            process_tail = subprocess.Popen([ 'tail', '-1' ],
+                stdin=process_grep.stdout, stdout=subprocess.PIPE,
+                shell=False)
+            process_cut1 = subprocess.Popen([ 'cut', '-f', '5',
+                '-d', '|' ], stdin=process_tail.stdout,
+                stdout=subprocess.PIPE, shell=False)
+            process_cut2 = subprocess.Popen([ 'cut', '-d', ',',
+                '-f', '2,3' ], stdin=process_cut1.stdout,
+                stdout=subprocess.PIPE, shell=False)
+            process_grep.stdout.close()
+            process_tail.stdout.close()
+            process_cut1.stdout.close()
+
+            batch_ordered_tuple = process_cut2.communicate()[0]
+
+            # Last "batch executed"
+            process_grep = subprocess.Popen([ "grep", "-e"
+                "{} executing Ordered batch".format(
+                filename), log_filepath],
+                stdout=subprocess.PIPE, shell=False)
+            process_tail = subprocess.Popen([ 'tail', '-1' ],
+                stdin=process_grep.stdout, stdout=subprocess.PIPE,
+                shell=False)
+            process_cut1 = subprocess.Popen([ 'cut', '-f', '5',
+                '-d', '|' ], stdin=process_tail.stdout,
+                stdout=subprocess.PIPE, shell=False)
+            process_cut2 = subprocess.Popen([ 'cut', '-d', ' ',
+                '-f', '6,7' ], stdin=process_cut1.stdout,
+                stdout=subprocess.PIPE, shell=False)
+            process_grep.stdout.close()
+            process_tail.stdout.close()
+            process_cut1.stdout.close()
+
+            batch_executed_tuple = process_cut2.communicate()[0]
+            # Use the filename of "log" so that the *nix-diff can be done on a
+            # single directory.
+            out_filename = join(sout, "log")
+            file_handle = open(out_filename, "a")
+            file_handle.write("last batch ordered: {}".format(
+                batch_ordered_tuple.decode()))
+            file_handle.write("last batch executed: {}".format(
+                batch_executed_tuple.decode()))
+            file_handle.close()
+
     def diff(self, s1, s2):
         """Perform a recursive *nix-diff on two directories"""
         if self.verbosity >= LOG_LEVEL.DEBUG.value:
