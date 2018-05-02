@@ -6,9 +6,8 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_from
 from plenum.common.types import f
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.req_handler import RequestHandler
 from state.state import State
@@ -47,7 +46,7 @@ class PoolRequestHandler(RequestHandler):
         if typ == NODE:
             txn = reqToTxn(req, cons_time)
             (start, end), _ = self.ledger.appendTxns([txn])
-            self.updateState(txnsWithSeqNo(start, end, [txn]))
+            self.updateState([txn])
             return start, txn
         else:
             logger.debug(
@@ -55,13 +54,13 @@ class PoolRequestHandler(RequestHandler):
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
-            nodeNym = txn.get(TARGET_NYM)
-            data = txn.get(DATA, {})
+            nodeNym = get_type(txn)
+            data = get_payload_data(txn).get(DATA, {})
             existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
             # Node data did not exist in state, so this is a new node txn,
             # hence store the author of the txn (steward of node)
             if not existingData:
-                existingData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm)
+                existingData[f.IDENTIFIER.nm] = get_from(txn)
             existingData.update(data)
             self.updateNodeData(nodeNym, existingData)
 

@@ -3,6 +3,7 @@ import os
 
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.txn_util import get_type
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
@@ -315,7 +316,7 @@ def validate_proof(result):
 
 
 def prepare_for_state(result):
-    if result[TXN_TYPE] == "buy":
+    if get_type(result) == "buy":
         from plenum.test.test_node import TestDomainRequestHandler
         key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
         return key, value

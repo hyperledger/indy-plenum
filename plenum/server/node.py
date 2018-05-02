@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, TXN_PAYLOAD, TXN_PAYLOAD_TYPE
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -50,7 +50,7 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data
+from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, get_seq_no, get_type, get_payload_data
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1137,8 +1137,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for lid in self.ledgerManager.ledger_sync_order[1:]:
                 self.sendLedgerStatus(node_name, lid)
 
-    def nodeJoined(self, txn):
-        logger.info("{} new node joined by txn {}".format(self, txn))
+    def nodeJoined(self, txn_data):
+        logger.info("{} new node joined by txn {}".format(self, txn_data))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
@@ -1148,8 +1148,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
 
-    def nodeLeft(self, txn):
-        logger.info("{} node left by txn {}".format(self, txn))
+    def nodeLeft(self, txn_data):
+        logger.info("{} node left by txn {}".format(self, txn_data))
         self.setPoolParams()
         self.adjustReplicas()
 
@@ -1760,9 +1760,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._clear_req_key_for_txn(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
-        if f.IDENTIFIER.nm in txn and f.REQ_ID.nm in txn:
+        frm = get_from(txn)
+        req_id = get_req_id(txn)
+        if (frm is not None) and (req_id is not None):
             self.master_replica.discard_req_key(
-                ledger_id, (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
+                ledger_id, (frm, req_id))
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
@@ -1893,7 +1895,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.states.get(ledgerId)
 
     def post_txn_from_catchup_added_to_domain_ledger(self, txn):
-        if txn.get(TXN_TYPE) == NYM:
+        if get_type(txn) == NYM:
             self.addNewRole(txn)
 
     def getLedgerStatus(self, ledgerId: int):
@@ -2549,9 +2551,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns):
-        if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
-            self.seqNoDB.addBatch((idr_from_req_data(txn), txn[f.REQ_ID.nm],
-                                   txn[F.seqNo.name]) for txn in committedTxns)
+        if all([get_req_id(txn) for txn in committedTxns]):
+            self.seqNoDB.addBatch((get_from(txn), get_req_id(txn), get_seq_no(txn)
+                                   for txn in committedTxns))
 
     def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
@@ -2582,7 +2584,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # require authentication based on an in-memory map. This would be
         # removed later when we migrate old-style tests
         for txn in committed_txns:
-            if txn[TXN_TYPE] == NYM:
+            if get_type(txn) == NYM:
                 self.addNewRole(txn)
 
         return committed_txns
@@ -2624,7 +2626,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
             self.sendReplyToClient(Reply(txn),
-                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
+                                   (get_from(txn), get_req_id(txn)))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
@@ -2647,11 +2649,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #  For a custom authenticator, handle appropriately.
         # NOTE: The following code should not be used in production
         if isinstance(self.clientAuthNr.core_authenticator, SimpleAuthNr):
-            identifier = txn[TARGET_NYM]
-            verkey = txn.get(VERKEY)
+            txn_data = get_payload_data(txn)
+            identifier = txn_data[TARGET_NYM]
+            verkey = txn_data.get(VERKEY)
             v = DidVerifier(verkey, identifier=identifier)
             if identifier not in self.clientAuthNr.core_authenticator.clients:
-                role = txn.get(ROLE)
+                role = txn_data.get(ROLE)
                 if role not in (STEWARD, TRUSTEE, None):
                     logger.debug("Role if present must be {} and not {}".
                                  format(Roles.STEWARD.name, role))
@@ -2669,7 +2672,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{} found state to be empty, recreating from '
                         'ledger'.format(self))
             for seq_no, txn in ledger.getAllTxn():
-                txn[f.SEQ_NO.nm] = seq_no
                 txn = self.update_txn_with_extra_data(txn)
                 reqHandler.updateState([txn, ], isCommitted=True)
                 state.commit(rootHash=state.headHash)
@@ -2681,7 +2683,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
         for _, txn in self.domainLedger.getAllTxn():
-            if txn.get(TXN_TYPE) == NYM:
+            if get_type(txn) == NYM:
                 self.addNewRole(txn)
 
     def init_core_authenticator(self):
@@ -2880,7 +2882,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
-                txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
                 txn = self.update_txn_with_extra_data(txn)
                 return Reply(txn)
 
@@ -2896,7 +2897,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        txn_type = txn[TXN_PAYLOAD][TXN_PAYLOAD_TYPE]
+        txn_type = get_type(txn)
         return self.get_req_handler(txn_type=txn_type).\
             transform_txn_for_ledger(txn)
 
@@ -2939,7 +2940,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         nodeAddress = None
         if self.poolLedger:
             for _, txn in self.poolLedger.getAllTxn():
-                data = txn[DATA]
+                data = get_payload_data(txn)[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
                     break

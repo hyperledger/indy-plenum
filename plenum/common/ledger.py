@@ -2,8 +2,7 @@ from copy import copy
 from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
-from plenum.common.constants import TXN_PAYLOAD_METADATA, TXN_METADATA_SEQ_NO
-from plenum.common.txn_util import append_txn_metadata, has_seq_no
+from plenum.common.txn_util import append_txn_metadata, get_seq_no
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -38,7 +37,7 @@ class Ledger(_Ledger):
             return (uncommittedSize, uncommittedSize), txns
 
     def add(self, txn):
-        if not has_seq_no(txn):
+        if get_seq_no(txn) is None:
             txn = self._append_seq_no([txn])
         return super().add(txn)
 

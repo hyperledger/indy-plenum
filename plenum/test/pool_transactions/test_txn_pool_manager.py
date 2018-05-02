@@ -1,7 +1,9 @@
 import pytest
+
+from plenum.common.txn_util import get_type
 from plenum.common.util import hexToFriendly
 
-from plenum.common.constants import TARGET_NYM, TXN_TYPE, NODE, CLIENT_STACK_SUFFIX
+from plenum.common.constants import TARGET_NYM, NODE, CLIENT_STACK_SUFFIX
 from plenum.test.pool_transactions.helper import sdk_send_update_node
 
 nodeCount = 7
@@ -12,7 +14,7 @@ nodes_wth_bls = 0
 def pool_node_txns(poolTxnData):
     node_txns = []
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NODE:
+        if get_type(txn) == NODE:
             node_txns.append(txn)
     return node_txns
 

@@ -19,8 +19,8 @@ def test_req_id_key_error(looper, txnPoolNodeSetNotStarted, wallet1):
     txns = []
     # prepare transactions and remove reqId from
     for i, req in enumerate(reqs):
-        txnreq = reqToTxn(req, get_utc_epoch())
-        txnreq = append_txn_metadata(txnreq, seq_no=i)
+        txnreq = append_txn_metadata(reqToTxn(req, get_utc_epoch()),
+                                     seq_no=i)
         txns.append(txnreq)
     node, = txnPoolNodeSetNotStarted
     looper.add(node)

@@ -26,6 +26,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQA
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
+from plenum.common.txn_util import get_req_id, get_from
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
@@ -845,13 +846,13 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
 def check_request_ordered(node, request: Request):
     # it's ok to iterate through all txns since this is a test
     for seq_no, txn in node.domainLedger.getAllTxn():
-        if f.REQ_ID.nm not in txn:
+        if get_req_id(txn) is None:
             continue
-        if f.IDENTIFIER.nm not in txn:
+        if get_from(txn) is None:
             continue
-        if txn[f.REQ_ID.nm] != request.reqId:
+        if get_req_id(txn) != request.reqId:
             continue
-        if txn[f.IDENTIFIER.nm] != request.identifier:
+        if get_from(txn) != request.identifier:
             continue
         return True
     raise ValueError('{} request not ordered by node {}'.format(request, node.name))

@@ -1,5 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.common.txn_util import get_req_id
 from plenum.test.helper import \
     send_signed_requests, \
     waitForSufficientRepliesForRequests, \
@@ -52,6 +53,6 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
 
     expected = [request.reqId for request in requests]
     for node in txnPoolNodeSet:
-        real_ledger_state = [txn[1]['reqId']
-                             for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn() if 'reqId' in txn[1]]
+        real_ledger_state = [get_req_id(txn)
+                             for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn() if get_req_id(txn) is not None]
         assert expected == real_ledger_state

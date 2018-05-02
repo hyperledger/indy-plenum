@@ -1,7 +1,8 @@
 import base58
 import pytest
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
-from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA, ALIAS
+from plenum.common.constants import NODE, BLS_KEY, DATA, ALIAS
+from plenum.common.txn_util import get_type
 from plenum.common.util import randomString
 from plenum.test.bls.helper import sdk_change_bls_key
 from plenum.test.pool_transactions.helper import updateNodeData
@@ -18,7 +19,7 @@ def node(txnPoolNodeSet):
 def pool_node_txns(poolTxnData):
     node_txns = []
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NODE:
+        if get_type(txn) == NODE:
             node_txns.append(txn)
     return node_txns
 

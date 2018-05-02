@@ -8,9 +8,8 @@ from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
@@ -58,7 +57,7 @@ class DomainRequestHandler(RequestHandler):
         txn = self._reqToTxn(req, cons_time)
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
-        self.updateState(txnsWithSeqNo(start, end, [txn]))
+        self.updateState([txn])
         return start, txn
 
     @staticmethod
@@ -75,9 +74,9 @@ class DomainRequestHandler(RequestHandler):
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = txn.get(TXN_TYPE)
+        typ = get_type(txn)
         if typ == NYM:
-            nym = txn.get(TARGET_NYM)
+            nym = get_payload_data(txn).get(TARGET_NYM)
             self.updateNym(nym, txn, isCommitted=isCommitted)
         else:
             logger.debug(
@@ -91,7 +90,7 @@ class DomainRequestHandler(RequestHandler):
         """
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
         return sum(1 for _, txn in self.ledger.getAllTxn() if
-                   (txn[TXN_TYPE] == NYM) and (txn.get(ROLE) == STEWARD))
+                   (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE)  == STEWARD))
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
@@ -101,10 +100,11 @@ class DomainRequestHandler(RequestHandler):
     def updateNym(self, nym, txn, isCommitted=True):
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
+        txn_data = get_payload_data(txn)
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm)
+            newData[f.IDENTIFIER.nm] = txn_data.get(f.IDENTIFIER.nm)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a
@@ -113,11 +113,11 @@ class DomainRequestHandler(RequestHandler):
             newData[VERKEY] = None
 
         if ROLE in txn:
-            newData[ROLE] = txn[ROLE]
+            newData[ROLE] = txn_data[ROLE]
         if VERKEY in txn:
-            newData[VERKEY] = txn[VERKEY]
-        newData[F.seqNo.name] = txn.get(F.seqNo.name)
-        newData[TXN_TIME] = txn.get(TXN_TIME)
+            newData[VERKEY] = txn_data[VERKEY]
+        newData[F.seqNo.name] = get_seq_no(txn)
+        newData[TXN_TIME] = get_txn_time(txn)
         existingData.update(newData)
         val = self.stateSerializer.serialize(existingData)
         key = self.nym_to_state_key(nym)

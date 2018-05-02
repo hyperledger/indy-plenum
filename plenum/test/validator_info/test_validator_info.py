@@ -8,6 +8,7 @@ import re
 from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
     CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
+from plenum.common.txn_util import get_type
 from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
@@ -118,7 +119,7 @@ def test_validator_info_file_metrics_avg_read_field_valid(info,
 
 
 def test_validator_info_file_metrics_count_ledger_field_valid(poolTxnData, info):
-    txns_num = sum(1 for item in poolTxnData["txns"] if item.get(TXN_TYPE) != NODE)
+    txns_num = sum(1 for item in poolTxnData["txns"] if get_type(item) != NODE)
     assert info['metrics']['transaction-count']['ledger'] == txns_num
 
 
