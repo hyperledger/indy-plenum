@@ -19,7 +19,7 @@ class Member:
         if role is not None:
             txn_data[ROLE] = role
         if name is not None:
-            txn_data[ALIAS] = alias
+            txn_data[ALIAS] = name
         set_payload_data(txn, txn_data)
 
         txn = append_payload_metadata(txn,

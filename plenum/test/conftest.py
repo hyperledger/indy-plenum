@@ -651,16 +651,14 @@ def poolTxnData(request):
                                name=steward_name)
         )
 
-        node_txn = {
-            Steward.node_txn(steward_nym=s_idr.identifier,
-                             node_name=node_name,
-                             nym=n_idr,
-                             ip='127.0.0.1',
-                             node_port=genHa()[1],
-                             client_port=genHa()[1],
-                             client_ip='127.0.0.1',
-                             services=[VALIDATOR])
-        }
+        node_txn = Steward.node_txn(steward_nym=s_idr.identifier,
+                                    node_name=node_name,
+                                    nym=n_idr,
+                                    ip='127.0.0.1',
+                                    node_port=genHa()[1],
+                                    client_port=genHa()[1],
+                                    client_ip='127.0.0.1',
+                                    services=[VALIDATOR])
 
         if i <= nodes_with_bls:
             _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(

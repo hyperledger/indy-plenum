@@ -38,7 +38,7 @@ class Ledger(_Ledger):
 
     def add(self, txn):
         if get_seq_no(txn) is None:
-            txn = self._append_seq_no([txn])
+            self._append_seq_no([txn])
         return super().add(txn)
 
     def _append_seq_no(self, txns):

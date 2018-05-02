@@ -8,7 +8,7 @@ from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
 from plenum.common.types import f
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
@@ -104,7 +104,7 @@ class DomainRequestHandler(RequestHandler):
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn_data.get(f.IDENTIFIER.nm)
+            newData[f.IDENTIFIER.nm] = get_from(txn)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a

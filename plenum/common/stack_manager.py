@@ -4,7 +4,7 @@ from collections import OrderedDict
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.tools import lazy_field
-from plenum.common.txn_util import get_payload_data, get_type
+from plenum.common.txn_util import get_payload_data, get_type, get_from
 from storage.helper import initHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
@@ -12,7 +12,7 @@ from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
+    CLIENT_PORT, NODE_PORT, VERKEY, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
 
@@ -122,7 +122,7 @@ class TxnStackManager(metaclass=ABCMeta):
                     key_type = 'verkey'
                     verkey = cryptonymToHex(txn_data[TARGET_NYM])
                     key_type = 'identifier'
-                    cryptonymToHex(txn_data[IDENTIFIER])
+                    cryptonymToHex(get_from(txn))
                 except ValueError:
                     logger.exception(
                         'Invalid {}. Rebuild pool transactions.'.format(key_type))

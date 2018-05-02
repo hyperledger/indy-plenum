@@ -79,15 +79,19 @@ def get_req_id(txn):
 
 
 def get_seq_no(txn):
-    return txn[TXN_PAYLOAD_METADATA].get(TXN_METADATA_SEQ_NO, None)
+    return txn[TXN_METADATA].get(TXN_METADATA_SEQ_NO, None)
 
 
 def get_txn_time(txn):
-    return txn[TXN_PAYLOAD_METADATA].get(TXN_METADATA_TIME, None)
+    return txn[TXN_METADATA].get(TXN_METADATA_TIME, None)
+
+
+def get_txn_id(txn):
+    return txn[TXN_METADATA].get(TXN_METADATA_ID, None)
 
 
 def is_forced(txn):
-    force = txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA].get(FORCE, None)
+    force = get_payload_data(txn).get(FORCE, None)
     if force is None:
         return False
     return str(force) == 'True'
@@ -101,12 +105,11 @@ def init_empty_txn(txn_type, protocol_version=None):
 
     set_type(result, txn_type)
     result[TXN_PAYLOAD][TXN_PAYLOAD_DATA] = {}
-    if protocol_version is not None:
-        result[TXN_PAYLOAD][TXN_PAYLOAD_PROTOCOL_VERSION] = protocol_version
+    result[TXN_PAYLOAD][TXN_PAYLOAD_PROTOCOL_VERSION] = protocol_version
 
     result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA] = {}
-    result[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
-    result[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
+    result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
+    result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
 
     result[TXN_METADATA][TXN_METADATA_SEQ_NO] = None
     result[TXN_METADATA][TXN_METADATA_TIME] = None
@@ -122,9 +125,19 @@ def set_payload_data(txn, data):
 
 def append_payload_metadata(txn, frm=None, req_id=None):
     if frm is not None:
-        txn[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = frm
+        txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = frm
     if req_id is not None:
-        txn[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = req_id
+        txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = req_id
+    return txn
+
+
+def append_txn_metadata(txn, seq_no=None, txn_time=None, txn_id=None):
+    if seq_no is not None:
+        txn[TXN_METADATA][TXN_METADATA_SEQ_NO] = seq_no
+    if txn_time is not None:
+        txn[TXN_METADATA][TXN_METADATA_TIME] = txn_time
+    if txn_id is not None:
+        txn[TXN_METADATA][TXN_METADATA_ID] = txn_id
     return txn
 
 
@@ -137,7 +150,7 @@ def reqToTxn(req, txn_time=None):
     """
 
     if isinstance(req, dict):
-        req_data = req
+        req_data = deepcopy(req)
     elif isinstance(req, str):
         req_data = json.loads(req)
     elif isinstance(req, Request):
@@ -146,10 +159,25 @@ def reqToTxn(req, txn_time=None):
         raise TypeError(
             "Expected dict or str as input, but got: {}".format(type(req)))
 
+    return __do_req_to_txn(req_data=req_data,
+                           req_op=req_data[OPERATION],
+                           txn_time=txn_time)
+
+
+def transform_to_new_format(txn, seq_no):
+    t = deepcopy(txn)
+    txn_time = t.pop(TXN_TIME, None)
+    txn = __do_req_to_txn(req_data=t,
+                          req_op=t,
+                          txn_time=txn_time)
+    append_txn_metadata(txn, seq_no=seq_no)
+    return txn
+
+
+def __do_req_to_txn(req_data, req_op, txn_time=None):
     # 1. init new txn
-    req_op = req_data[OPERATION]
     result = init_empty_txn(txn_type=req_op.pop(TXN_TYPE, None),
-                            protocol_version=req_data.get(f.PROTOCOL_VERSION.nm, None))
+                            protocol_version=req_data.pop(f.PROTOCOL_VERSION.nm, None))
 
     # 2. Fill txn metadata (txnTime)
     # more metadata will be added by the Ledger
@@ -168,61 +196,16 @@ def reqToTxn(req, txn_time=None):
         }
         for frm, sign in signatures.items()
     ]
+    req_data.pop(f.SIG.nm, None)
+    req_data.pop(f.SIGS.nm, None)
 
     # 4. Fill Payload metadata
 
     append_payload_metadata(result,
-                            frm=req_data.get(f.IDENTIFIER.nm, None),
-                            req_id=req_data.get(f.REQ_ID.nm, None))
+                            frm=req_data.pop(f.IDENTIFIER.nm, None),
+                            req_id=req_data.pop(f.REQ_ID.nm, None))
 
     # 5. Fill Payload data
     set_payload_data(result, req_op)
-
-    return result
-
-
-def append_txn_metadata(txn, seq_no=None, txn_time=None, txn_id=None):
-    if seq_no is not None:
-        txn[TXN_METADATA][TXN_METADATA_SEQ_NO] = seq_no
-    if txn_time is not None:
-        txn[TXN_METADATA][TXN_METADATA_TIME] = txn_time
-    if txn_id is not None:
-        txn[TXN_METADATA][TXN_METADATA_ID] = txn_id
-    return txn
-
-
-def transform_to_new_format(txn, seq_no):
-    t = deepcopy(txn)
-
-    result = {}
-    result[TXN_PAYLOAD] = {}
-    result[TXN_METADATA] = {}
-    result[TXN_SIGNATURE] = {}
-
-    result[TXN_METADATA][TXN_METADATA_TIME] = t.pop(TXN_TIME, None)
-    result[TXN_METADATA][TXN_METADATA_SEQ_NO] = seq_no
-
-    result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25515
-    signatures = {t.get(f.IDENTIFIER.nm, None): t.get(f.SIG.nm, None)} if t.get(f.SIG.nm, None) is not None \
-        else t.get(f.SIGS.nm, {})
-    t.pop(f.SIG.nm, None)
-    t.pop(f.SIGS.nm, None)
-
-    result[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = [
-        {
-            TXN_SIGNATURE_FROM: frm,
-            TXN_SIGNATURE_VALUE: sign,
-        }
-        for frm, sign in signatures.items()
-    ]
-
-    txn_payload = {}
-    txn_payload[TXN_PAYLOAD_TYPE] = t.pop(TXN_TYPE)
-    txn_payload[TXN_PAYLOAD_PROTOCOL_VERSION] = t.pop(f.PROTOCOL_VERSION.nm, None)
-    txn_payload[TXN_PAYLOAD_METADATA] = {}
-    txn_payload[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = t.pop(f.IDENTIFIER.nm, None)
-    txn_payload[TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = t.pop(f.REQ_ID.nm, None)
-    txn_payload[TXN_PAYLOAD_DATA] = t
-    result[TXN_PAYLOAD] = txn_payload
 
     return result
