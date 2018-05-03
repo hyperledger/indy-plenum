@@ -1,8 +1,8 @@
 import ast
+import os
 import time
 from typing import Callable
 
-from plenum.common.util import lxor
 
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
@@ -16,6 +16,7 @@ class Recorder:
     INCOMING_FLAG = 0
     OUTGOING_FLAG = 1
     TIME_FACTOR = 10000
+    RECORDER_METADATA_FILENAME = 'recorder_metadata.json'
 
     def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys):
         self.store = kv_store
@@ -25,6 +26,10 @@ class Recorder:
         self.store_iterator = None
         self.item_for_next_get = None
         self.last_returned_at = None
+        from plenum.common.util import get_utc_epoch
+        with open(os.path.join(kv_store._db_path, self.RECORDER_METADATA_FILENAME), 'w') as f:
+            d = {'start_time': get_utc_epoch()}
+            f.write(json.dumps(d))
 
     def get_now_key(self):
         return str(int(time.perf_counter()*self.TIME_FACTOR))

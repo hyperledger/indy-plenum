@@ -1,3 +1,4 @@
+import math
 import time
 
 import pytest
@@ -7,15 +8,17 @@ from plenum.common.util import randomString
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
 
+TOTAL_TXNS = 2
+
 
 @pytest.fixture(scope="module")
 def some_txns_done(txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
                    sdk_wallet_steward):
-    for i in range(4):
+    for i in range(math.ceil(TOTAL_TXNS/2)):
         sdk_add_new_nym(txnPoolNodesLooper, sdk_pool_handle, sdk_wallet_steward,
                         alias='testSteward' + randomString(3),
                         role=STEWARD_STRING)
-    for i in range(3):
+    for i in range(math.floor(TOTAL_TXNS/2)):
         sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 

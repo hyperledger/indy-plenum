@@ -383,6 +383,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def utc_epoch(self):
         return self.node.utc_epoch()
 
+    # This is to enable replaying, inst_id, view_no and pp_seq_no are used
+    # while replaying
+    def get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
+        return self.utc_epoch
+
+    # def get_utc_epoch_for_prepare(self):
+    #     return self.utc_epoch
+
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -706,7 +714,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, ppSeqNo, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
-        tm = self.utc_epoch
+        # tm = self.utc_epoch
+        tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo, ppSeqNo)
 
         validReqs = []
         inValidReqs = []
@@ -2279,6 +2288,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return ((self.last_accepted_pre_prepare_time is None or
                  pp.ppTime >= self.last_accepted_pre_prepare_time) and
                 (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+                # (abs(pp.ppTime - self.get_utc_epoch_for_prepare()) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
