@@ -2150,7 +2150,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for pp_seq_no in range(seq_frm, seq_to + 1):
             key = (view_no, pp_seq_no)
             self._request_pre_prepare(key)
-            self._request_prepare(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
@@ -2182,6 +2181,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Request preprepare
         """
+        recipients = recipients if recipients is not None else self.primaryName
         return self._request_three_phase_msg(three_pc_key,
                                              self.requested_pre_prepares,
                                              PREPREPARE,
