@@ -56,7 +56,7 @@ def test_update_ha_passes():
 def test_update_bls_sign():
     op.validate({
         ALIAS: 'aNode',
-        BLS_KEY: base58.b58encode(randomString(128).encode()),
+        BLS_KEY: base58.b58encode(randomString(128).encode()).decode("utf-8"),
     })
 
 

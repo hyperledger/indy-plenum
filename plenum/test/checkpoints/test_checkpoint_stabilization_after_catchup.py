@@ -9,8 +9,8 @@ LOG_SIZE = 3 * CHK_FREQ
 
 
 def test_second_checkpoint_after_catchup_can_be_stabilized(
-        chkFreqPatched, looper, txnPoolNodeSet, steward1, sdk_wallet_steward,
-        sdk_wallet_client, sdk_pool_handle, tdir, client_tdir, tconf,
+        chkFreqPatched, looper, txnPoolNodeSet, sdk_wallet_steward,
+        sdk_wallet_client, sdk_pool_handle, tdir, tconf,
         allPluginsPath):
     _, new_node = sdk_add_new_steward_and_node(
         looper, sdk_pool_handle, sdk_wallet_steward,

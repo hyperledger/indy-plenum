@@ -78,6 +78,9 @@ class KeyValueStorage(metaclass=ABCMeta):
     def get_equal_or_prev(self, key):
         raise NotImplementedError()
 
+    def get_last_key(self):
+        raise NotImplementedError()
+
     def __contains__(self, key):
         return self._has_key(key)
 

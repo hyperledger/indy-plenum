@@ -32,7 +32,8 @@ class ReqAuthenticator:
         for authenticator in self._authenticators:
             if authenticator.is_query(typ):
                 return set()
-            if not authenticator.is_write(typ):
+            if not (authenticator.is_write(typ) or
+                    authenticator.is_action(typ)):
                 continue
             rv = authenticator.authenticate(req_data) or set()
             identifiers.update(rv)
