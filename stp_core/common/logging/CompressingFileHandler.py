@@ -92,21 +92,9 @@ class CompressingFileHandler(RotatingFileHandler):
         if self.backupCount == 0:
             return
 
-        log_files = [(name, idx) for name, idx in self._log_files()]
-        if len(log_files) == 0:
-            return
-
-        log_files, log_indexes = zip(*log_files)
-        keep_count = self.backupCount
-
-        # This can happen when compression is still in progress
-        if max(log_indexes) < self.max_index:
-            keep_count -= 1
-
-        if len(log_files) <= keep_count:
-            return
-
-        log_files = list(log_files)
-        log_files.sort(key=os.path.getmtime)
-        for file in log_files[:-keep_count]:
+        for file, idx in self._log_files():
+            if idx == 0:
+                continue
+            if idx > self.max_index - self.backupCount + 1:
+                continue
             os.remove(file)
