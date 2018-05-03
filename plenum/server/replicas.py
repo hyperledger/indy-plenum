@@ -22,6 +22,7 @@ class Replicas:
         self._config = config
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
+        self.register_monitor_handler()
 
     def grow(self) -> int:
         instance_id = self.num_replicas
@@ -132,7 +133,7 @@ class Replicas:
         for replica in self._replicas:
             replica.register_ledger(ledger_id)
 
-    def set_default_handlers(self):
+    def register_monitor_handler(self):
         self._monitor.unordered_requests_handlers.append(
             self.unordered_request_handler_logging)
 
@@ -147,7 +148,7 @@ class Replicas:
             ppSeqNo = None
             viewNo = None
             for key in preprepares:
-                if any([req[1] == reqId for req in preprepares[key].reqIdr]):
+                if any([pre_pre_req == req for pre_pre_req in preprepares[key].reqIdr]):
                     ppSeqNo = preprepares[key].ppSeqNo
                     viewNo = preprepares[key].viewNo
                     break
