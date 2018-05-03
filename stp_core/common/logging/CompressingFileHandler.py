@@ -61,16 +61,8 @@ class CompressingFileHandler(RotatingFileHandler):
         if delta < 1.0:
             return
 
-        msg = "Needed to join log compression process which took {} seconds in main process".format(delta)
-        try:
-            logger = importlib.import_module("stp_core.common.log").getlogger()
-            logger.warning(msg)
-        except ImportError as e:
-            print("ERROR: Failed to dynamically import stp_core.common.log")
-            print("WARNING: {}".format(msg))
-        except AttributeError as e:
-            print("ERROR: Failed to find getlogger() in stp_core.common.log")
-            print("WARNING: {}".format(msg))
+        logger = importlib.import_module("stp_core.common.log").getlogger()
+        logger.warning("Needed to join log compression process which took {} seconds in main process".format(delta))
 
     def _log_files(self):
         log_dir = os.path.dirname(self.baseFilename)

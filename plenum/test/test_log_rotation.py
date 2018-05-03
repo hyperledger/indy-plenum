@@ -2,6 +2,7 @@ import os
 import logging
 import collections
 import pytest
+import importlib
 
 from stp_core.common.logging.CompressingFileHandler \
     import CompressingFileHandler
@@ -20,6 +21,13 @@ def test_default_log_rotation_config_is_correct(tdir_for_func):
 
     # Assert this doesn't fail
     logger.enableFileLogging(log_file)
+
+
+def test_dynamic_log_import_works_as_expected():
+    # Assert that nothing here fails
+    log_module = importlib.import_module("stp_core.common.log")
+    logger = log_module.getlogger()
+    logger.info("test")
 
 
 def test_log_file_matcher_works_as_expected(tdir_for_func, log_compression):
