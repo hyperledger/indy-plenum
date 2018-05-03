@@ -28,12 +28,15 @@ def limitTestRunningTime():
 def tconf(tconf):
     old_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
     old_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
-    tconf.RETRY_TIMEOUT_RESTRICTED = 2
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 2
+    old_max_reconnect_retry = tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET
+    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 3
+    tconf.RETRY_TIMEOUT_RESTRICTED = 5
+    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 3
     yield tconf
 
     tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout_restricted
     tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
+    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = old_max_reconnect_retry
 
 
 # noinspection PyIncorrectDocstring
@@ -45,8 +48,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     addition of the fourth node to the system.
     """
 
-    nodeNames = genNodeNames(nodeCount)
     current_node_set = list(txnPoolNodeSet)
+    nodeNames = [n.name for n in current_node_set]
 
     def genExpectedStates(connecteds: Iterable[str]):
         return {
