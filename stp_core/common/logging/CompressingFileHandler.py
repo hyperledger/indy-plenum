@@ -2,8 +2,8 @@ import os
 import re
 import gzip
 import lzma
-from logging import Logger
-from datetime import datetime, timedelta
+import importlib
+from time import perf_counter
 from multiprocessing import Process
 from logging.handlers import RotatingFileHandler
 
@@ -54,14 +54,23 @@ class CompressingFileHandler(RotatingFileHandler):
             self.compressor = None
             return
 
-        # logger = Logger()
-        # now = datetime.now()
-        # logger.warning("Log compression in progress while new log needs to be compressed, joining process")
+        now = perf_counter()
         self.compressor.join()
-        # delta = datetime.now() - now
-        # if delta > timedelta(2):
-        #     logger.warning("Waiting for log compression worker took more than 2 seconds")
         self.compressor = None
+        delta = perf_counter() - now
+        if delta < 1.0:
+            return
+
+        msg = "Needed to join log compression process which took {} seconds in main process".format(delta)
+        try:
+            logger = importlib.import_module("stp_core.common.log").getlogger()
+            logger.warning(msg)
+        except ImportError as e:
+            print("ERROR: Failed to dynamically import stp_core.common.log")
+            print("WARNING: {}".format(msg))
+        except AttributeError as e:
+            print("ERROR: Failed to find getlogger() in stp_core.common.log")
+            print("WARNING: {}".format(msg))
 
     def _log_files(self):
         log_dir = os.path.dirname(self.baseFilename)
