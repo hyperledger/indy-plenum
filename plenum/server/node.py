@@ -121,10 +121,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 clientAuthNr: ClientAuthNr=None,
-                 ha: HA=None,
-                 cliname: str=None,
-                 cliha: HA=None,
+                 clientAuthNr: ClientAuthNr = None,
+                 ha: HA = None,
+                 cliname: str = None,
+                 cliha: HA = None,
                  config_helper=None,
                  ledger_dir: str = None,
                  keys_dir: str = None,
@@ -168,7 +168,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
-        self.requestExecuter = {}   # type: Dict[int, Callable]
+        self.requestExecuter = {}  # type: Dict[int, Callable]
 
         Motor.__init__(self)
 
@@ -425,7 +425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def view_change_in_progress(self):
         return (False if self.view_changer is None else
-                self.view_changer.view_change_in_progress)
+        self.view_changer.view_change_in_progress)
 
     def init_config_state(self):
         self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
@@ -979,7 +979,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.elector = None
         self.view_changer = None
 
-    async def prod(self, limit: int=None) -> int:
+    async def prod(self, limit: int = None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.
@@ -1064,7 +1064,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self._observable.serviceQueues(limit)
         return o + i
 
-    def _service_observable_out_box(self, limit: int=None) -> int:
+    def _service_observable_out_box(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the observable's outBox.
 
@@ -1325,7 +1325,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_view_change_not_completed_in_time()
         return True
 
-    def service_replicas_outbox(self, limit: int=None) -> int:
+    def service_replicas_outbox(self, limit: int = None) -> int:
         """
         Process `limit` number of replica messages
         """
@@ -1356,7 +1356,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def serviceViewChangerOutBox(self, limit: int=None) -> int:
+    def serviceViewChangerOutBox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1373,7 +1373,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(msg))
         return msgCount
 
-    async def serviceViewChangerInbox(self, limit: int=None) -> int:
+    async def serviceViewChangerInbox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -2180,7 +2180,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except KeyError:
             logger.debug(
                 "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}". format(self, str(seq_no)))
+                "have txn with seqNo={}".format(self, str(seq_no)))
             txn = None
 
         result = {
@@ -2401,7 +2401,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.lost_primary_at = time.perf_counter()
         self._schedule_view_change()
 
-    def select_primaries(self, nodeReg: Dict[str, HA]=None):
+    def select_primaries(self, nodeReg: Dict[str, HA] = None):
         primaries = set()
         primary_rank = None
         '''
@@ -2424,12 +2424,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             if instance_id == 0:
-                new_primary_name, new_primary_instance_name =\
+                new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
                 primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
             else:
-                if primary_rank is not None:
+                if primary_rank is None:
                     raise ValueError("primary rank is none")
                 new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_backup(
@@ -2570,9 +2570,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info(
             "{} committed batch request, view no {}, ppSeqNo {}, "
             "ledger {}, state root {}, txn root {}, requests: {}".
-            format(self, view_no, pp_seq_no, ledger_id, state_root,
-                   txn_root,
-                   [(req.identifier, req.reqId) for req in reqs])
+                format(self, view_no, pp_seq_no, ledger_id, state_root,
+                       txn_root,
+                       [(req.identifier, req.reqId) for req in reqs])
         )
 
         for txn in committedTxns:
@@ -2956,7 +2956,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        return self.get_req_handler(txn_type=txn[TXN_TYPE]).\
+        return self.get_req_handler(txn_type=txn[TXN_TYPE]). \
             transform_txn_for_ledger(txn)
 
     def __enter__(self):
