@@ -338,14 +338,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def check_unordered(self):
         now = time.perf_counter()
-        unordered = [req for req, started in self.requestTracker.unordered()
-                     if now - started < self.config.UnorderedCheckFreq]
-        if len(unordered) == 0:
+        unordereds = [(req, now - started) for req, started in self.requestTracker.unordered()
+                      if now - started > self.config.UnorderedCheckFreq]
+        if len(unordereds) == 0:
             return
+
         for handler in self.unordered_requests_handlers:
-            handler(unordered)
-        logger.warning('Following requests were not ordered for more than {} seconds: {}'
-                       .format(self.config.UnorderedCheckFreq, unordered))
+            handler(unordereds)
+        for unordered in unordereds:
+            logger.debug('Following requests were not ordered for more than {} seconds: {}'
+                         .format(self.config.UnorderedCheckFreq, unordered[0]))
 
     def isMasterDegraded(self):
         """
