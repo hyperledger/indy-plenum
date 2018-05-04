@@ -56,6 +56,8 @@ def idr_from_req_data(data):
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
 
+# TODO: Support real strategies and Data Class for transactions
+# instead of util functions
 
 def get_type(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_TYPE]

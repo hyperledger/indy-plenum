@@ -50,7 +50,8 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, get_seq_no, get_type, get_payload_data
+from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, get_seq_no, get_type, get_payload_data, \
+    get_txn_time
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1795,7 +1796,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
-                rh.ts_store.set(txn[TXN_TIME],
+                rh.ts_store.set(get_txn_time(txn),
                                 state.headHash)
         self.updateSeqNoMap([txn])
         self._clear_req_key_for_txn(ledger_id, txn)

@@ -59,7 +59,7 @@ class Steward(Member):
 
     @staticmethod
     def node_txn(steward_nym, node_name, nym, ip, node_port, client_port,
-                 client_ip=None, blskey=None, services=None):
+                 client_ip=None, blskey=None, services=None, txn_id=None):
         txn = init_empty_txn(txn_type=NODE)
         txn = append_payload_metadata(txn, frm=steward_nym)
         txn_data = {
@@ -75,5 +75,6 @@ class Steward(Member):
             },
         }
         txn = set_payload_data(txn, txn_data)
-        txn = append_txn_metadata(txn, txn_id=sha256(node_name.encode()).hexdigest())
+        txn_id = txn_id or sha256(node_name.encode()).hexdigest()
+        txn = append_txn_metadata(txn, txn_id=txn_id)
         return txn

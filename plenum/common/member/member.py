@@ -1,14 +1,14 @@
-
 from plenum.common.constants import NYM, TARGET_NYM, ROLE, VERKEY, ALIAS
-from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata
+from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata, append_txn_metadata
 
 
 class Member:
     """
     Base class for different network member contexts.
     """
+
     @staticmethod
-    def nym_txn(nym, name, verkey=None, role=None, creator=None):
+    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None):
         txn = init_empty_txn(NYM)
 
         txn_data = {
@@ -23,7 +23,8 @@ class Member:
         set_payload_data(txn, txn_data)
 
         txn = append_payload_metadata(txn,
-                                   frm=creator)
-        # txn = append_txn_metadata(txn,
-        #                           txn_id=sha256(name.encode()).hexdigest())
+                                      frm=creator)
+        if txn_id:
+            txn = append_txn_metadata(txn, txn_id=txn_id)
+
         return txn
