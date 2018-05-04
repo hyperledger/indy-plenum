@@ -2429,8 +2429,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
             else:
-                assert primary_rank is not None
-                new_primary_name, new_primary_instance_name =\
+                if primary_rank is not None:
+                    raise ValueError("primary rank is none")
+                new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_backup(
                         instance_id, primary_rank, primaries, nodeReg=nodeReg)
             primaries.add(new_primary_name)
