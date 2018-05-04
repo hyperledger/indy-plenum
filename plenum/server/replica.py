@@ -12,7 +12,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -262,13 +262,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
         self.requested_pre_prepares = {}
 
         # Tracks for which keys PREPAREs have been requested.
         # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
         self.requested_prepares = {}
+
+        # Tracks for which keys COMMITs have been requested.
+        # Cleared in `gc`
+        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
+        self.requested_commits = {}
 
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
@@ -1367,6 +1372,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return prepare
         return None
 
+    def get_sent_commit(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
+        if key in self.commits:
+            commit = self.commits[key].msg
+            if self.commits.hasCommitFrom(commit, self.name):
+                return commit
+        return None
+
     @property
     def lastPrePrepare(self):
         last_3pc = (0, 0)
@@ -1863,6 +1876,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.batches,
             self.requested_pre_prepares,
             self.requested_prepares,
+            self.requested_commits,
             self.pre_prepares_stashed_for_incorrect_time,
         )
         for request_key in tpcKeys:
@@ -1952,9 +1966,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.ordered.add((view_no, pp_seq_no))
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
-        # This might not be called always as Pre-Prepare might be requested
-        # but never received and catchup might be done
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
+        self.requested_prepares.pop((view_no, pp_seq_no), None)
+        self.requested_commits.pop((view_no, pp_seq_no), None)
 
     def compact_ordered(self):
         min_allowed_view_no = self.viewNo - 1
@@ -2115,12 +2129,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             key = (view_no, pp_seq_no)
             self._request_pre_prepare(key)
             self._request_prepare(key)
+            self._request_commit(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
-                                 stash: Dict[int, int],
+                                 stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
                                  msg_type: str,
                                  recipients: Optional[List[str]] = None,
-                                 stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                                 stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
         if three_pc_key in stash:
             self.logger.debug('{} not requesting {} since already '
                               'requested for {}'.format(self, msg_type, three_pc_key))
@@ -2142,7 +2157,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
                              recipients: List[str] = None,
-                             stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                             stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
         """
         Request preprepare
         """
@@ -2154,11 +2169,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
                          recipients: List[str] = None,
-                         stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
+                         stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
         """
         Request preprepare
         """
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
+
+    def _request_commit(self, three_pc_key: Tuple[int, int],
+                        recipients: List[str] = None) -> bool:
+        """
+        Request commit
+        """
+        return self._request_three_phase_msg(three_pc_key, self.requested_commits, COMMIT, recipients)
 
     def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
         """
@@ -2209,7 +2231,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _process_requested_three_phase_msg(self, msg: object,
                                            sender: List[str],
-                                           stash: Dict[int, int],
+                                           stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
                                            get_saved: Optional[Callable[[int, int], Optional[MessageBase]]] = None):
         if msg is None:
             self.logger.debug('{} received null from {}'.format(self, sender))
@@ -2232,8 +2254,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # There still might be stashed msg but not checking that
         # it is expensive, also reception of msgs is idempotent
         stashed_data = stash[key]
-        curr_data = (msg.digest, msg.stateRootHash, msg.txnRootHash)
-        if (curr_data == stashed_data) or (stashed_data is None):
+        curr_data = (msg.digest, msg.stateRootHash, msg.txnRootHash) \
+            if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
+            else None
+        if stashed_data is None or curr_data == stashed_data:
             return self.processThreePhaseMsg(msg, sender)
 
         self.discard(msg, reason='{} does not have expected state {}'.
@@ -2245,6 +2269,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
         return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
+
+    def process_requested_commit(self, commit: Commit, sender: str):
+        return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """
