@@ -34,7 +34,7 @@ class DidVerifier(Verifier):
             assert verkey, 'verkey must be provided'
             if verkey[0] == '~':  # abbreviated
                 verkey = b58encode(b58decode(identifier) +
-                                   b58decode(verkey[1:]))
+                                   b58decode(verkey[1:])).decode("utf-8")
         try:
             self.verkey = verkey
         except Exception as ex:

@@ -1,11 +1,11 @@
 import pytest
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
 from plenum.test.delayers import cqDelay
 from plenum.test.helper import sdk_send_random_requests
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_node import checkNodesConnected
 from plenum.test import waits
 

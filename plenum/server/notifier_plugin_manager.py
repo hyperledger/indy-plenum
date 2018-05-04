@@ -1,5 +1,6 @@
 import pip
 import importlib
+import math
 from typing import Dict
 import time
 
@@ -60,33 +61,42 @@ class PluginManager:
             enabled: bool):
         assert 'value' in historicalData
         assert 'cnt' in historicalData
-        assert 'minCnt' in config
-        assert 'coefficient' in config
-        assert 'minActivityThreshold' in config
+
+        assert 'min_cnt' in config
+        assert 'borders_coeff' in config
+        assert 'min_activity_threshold' in config
+        assert 'use_weighted_borders_coeff' in config
         assert 'enabled' in config
 
         if not (enabled and config['enabled']):
             logger.trace('Suspicious Spike check is disabled')
             return None
 
-        coefficient = config['coefficient']
-        minCnt = config['minCnt']
-        val_thres = config['minActivityThreshold']
+        min_cnt = config['min_cnt']
+        val_thres = config['min_activity_threshold']
+        borders_coeff = config['borders_coeff']
+        use_weighted_borders_coeff = config['use_weighted_borders_coeff']
+
         val = historicalData['value']
-        cnt = historicalData['cnt']
-        historicalData['value'] = \
-            val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
+        alpha = 2 / (min_cnt + 1)
+        historicalData['value'] = val * (1 - alpha) + newVal * alpha
         historicalData['cnt'] += 1
+        cnt = historicalData['cnt']
 
         if val < val_thres:
             logger.debug('Current activity {} is below threshold level {}'.format(val, val_thres))
             return None
 
-        if cnt < minCnt:
+        if cnt <= min_cnt:
             logger.debug('Not enough data to detect a {} spike'.format(event))
             return None
 
-        if (val / coefficient) <= newVal <= (val * coefficient):
+        log_base = 10
+        if use_weighted_borders_coeff and cnt > log_base:
+            # Weighted coefficient allows to adapt borders in accordance to values,
+            # growing values leads to lower borders.
+            borders_coeff /= math.log(cnt, log_base)
+        if (val / borders_coeff) <= newVal <= (val * borders_coeff):
             logger.debug(
                 '{}: New value {} is within bounds. Average: {}'.format(
                     event, newVal, val))

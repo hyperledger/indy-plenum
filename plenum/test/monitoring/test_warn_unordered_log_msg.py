@@ -45,17 +45,18 @@ def test_slow_node_has_warn_unordered_log_msg(looper,
     clear_unordered_requests(*txnPoolNodeSet)
 
     slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[0].node
-    delaysCommitProcessing(slow_node, delay=1.5 * UNORDERED_CHECK_FREQ)
+    delaysCommitProcessing(slow_node, delay=3 * UNORDERED_CHECK_FREQ)
 
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 5)
-    looper.runFor(1.2 * UNORDERED_CHECK_FREQ)
+    looper.runFor(2 * UNORDERED_CHECK_FREQ)
 
     assert all(len(node.monitor.unordered_requests) == 0 for node in txnPoolNodeSet if node.name != slow_node.name)
     assert len(slow_node.monitor.unordered_requests) != 0
 
     # Check that after being ordered request is no longer logged
+    looper.runFor(2 * UNORDERED_CHECK_FREQ)
     clear_unordered_requests(*txnPoolNodeSet)
-    looper.runFor(1.2 * UNORDERED_CHECK_FREQ)
+    looper.runFor(2 * UNORDERED_CHECK_FREQ)
     assert all(len(node.monitor.unordered_requests) == 0 for node in txnPoolNodeSet)
 
 
