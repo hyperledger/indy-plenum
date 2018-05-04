@@ -182,8 +182,8 @@ class Replicas:
             logger.error('Consensus for ReqId: {} was not achieved within {} seconds. '
                          'Primary node is {}. '
                          'Received Pre-Prepare from {}. '
-                         'Received {} Prepares from {}. '
-                         'Received {} Commits from {}. '
+                         'Received {} valid Prepares from {}. '
+                         'Received {} valid Commits from {}. '
                          'Transaction contents: {}. '
                          .format(reqId, duration,
                                  replica.primaryName.split(':')[0],
