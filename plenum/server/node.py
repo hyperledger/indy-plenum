@@ -2430,7 +2430,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     new_primary_name, nodeReg)
             else:
                 if primary_rank is None:
-                    raise ValueError("primary rank is none")
+                    raise BaseException("primary rank is none")
                 new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_backup(
                         instance_id, primary_rank, primaries, nodeReg=nodeReg)
