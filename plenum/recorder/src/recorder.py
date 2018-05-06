@@ -15,7 +15,7 @@ except ImportError:
 class Recorder:
     INCOMING_FLAG = 0
     OUTGOING_FLAG = 1
-    TIME_FACTOR = 10000
+    TIME_FACTOR = 100000000
     RECORDER_METADATA_FILENAME = 'recorder_metadata.json'
 
     def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys):

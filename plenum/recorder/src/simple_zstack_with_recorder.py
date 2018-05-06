@@ -1,8 +1,12 @@
 import os
 
+from stp_core.common.log import getlogger
+
 from plenum.recorder.src.recorder import Recorder
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 from stp_zmq.simple_zstack import SimpleZStack
+
+logger = getlogger()
 
 
 class SimpleZStackWithRecorder(SimpleZStack):
@@ -18,6 +22,7 @@ class SimpleZStackWithRecorder(SimpleZStack):
 
     def _verifyAndAppend(self, msg, ident):
         if super()._verifyAndAppend(msg, ident):
+            logger.trace('{} recording incoming {} from {}'.format(self, msg, ident))
             self.recorder.add_incoming(msg, ident)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):

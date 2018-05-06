@@ -54,6 +54,8 @@ class ZStack(NetworkInterface):
     # TODO: This is not implemented, implement this
     messageTimeout = 3
 
+    _RemoteClass = Remote
+
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None):
         self._name = name
@@ -137,6 +139,7 @@ class ZStack(NetworkInterface):
             self.remotes.pop(name)
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
+            # logger.trace('{} removing remote {} with key {}'.format(self, name, pkey))
         else:
             logger.debug('No remote named {} present')
 
@@ -621,7 +624,8 @@ class ZStack(NetworkInterface):
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
-        remote = Remote(name, ha, remoteVerkey, remotePublicKey)
+        # logger.trace('{} adding remote {} with key {}'.format(self, name, remotePublicKey))
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote

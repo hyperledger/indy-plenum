@@ -5,10 +5,17 @@ from stp_zmq.remote import Remote
 from stp_zmq.simple_zstack import SimpleZStack
 
 
+class Remote_(Remote):
+    @property
+    def hasLostConnection(self):
+        return False
+
+
 class SimpleZStackWithSilencer(SimpleZStack):
     # Used during replay
     def __init__(self, *args, **kwargs):
         self.silencer = Silencer()
+        self._RemoteClass = Remote_
         SimpleZStack.__init__(self, *args, **kwargs)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):

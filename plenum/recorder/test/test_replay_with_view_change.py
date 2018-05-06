@@ -1,22 +1,32 @@
 from plenum.recorder.test.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.view_change.conftest import viewNo
 from plenum.recorder.test.test_node_msgs_recording import some_txns_done
 
 
-TestRunningTimeLimitSec = 500
+TestRunningTimeLimitSec = 550
 
 whitelist = ['cannot find remote with name']
 
 
-def test_replay_recorded_msgs(txnPoolNodesLooper,
-                              txnPoolNodeSet, some_txns_done, testNodeClass,
-                              node_config_helper_class, tconf, tdir,
-                              allPluginsPath, tmpdir_factory):
-    # Run a pool of nodes with each having a recorder.
-    # After some txns, record state, replay each node's recorder on a
-    # clean node and check that state matches the initial state
+def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
+                                     some_txns_done, testNodeClass, viewNo,
+                                     sdk_pool_handle, sdk_wallet_client,
+                                     node_config_helper_class, tconf, tdir,
+                                     allPluginsPath, tmpdir_factory):
+    """
+    Check that view change is done after processing some of txns
+    """
+    ensure_view_change(txnPoolNodesLooper, txnPoolNodeSet)
+    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(txnPoolNodesLooper, nodes=txnPoolNodeSet)
 
+    sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 10)
     ensure_all_nodes_have_same_data(txnPoolNodesLooper, txnPoolNodeSet)
 
     for node in txnPoolNodeSet:
