@@ -10,7 +10,7 @@ from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -128,6 +128,19 @@ class LimitedLengthStringField(FieldBase):
     def _specific_validation(self, val):
         if not val:
             return 'empty string'
+        if len(val) > self._max_length:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, self._max_length)
+
+
+class DatetimeStringField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._max_length = DATETIME_LIMIT
+
+    def _specific_validation(self, val):
         if len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
