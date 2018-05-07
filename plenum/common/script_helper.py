@@ -197,7 +197,7 @@ def submitNodeIpChange(client, stewardWallet, name: str, nym: str,
     return req[0]
 
 
-def __checkClientConnected(cli, ):
+def _checkClientConnected(cli, ):
     assert cli.hasSufficientConnections
 
 
@@ -218,7 +218,7 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     client = Client(stewardName, ha=('0.0.0.0', randomClientPort), config=config, basedirpath=basedir)
     looper.add(client)
     timeout = waits.expectedClientToPoolConnectionTimeout(4)
-    looper.run(eventually(__checkClientConnected, client,
+    looper.run(eventually(_checkClientConnected, client,
                           retryWait=1, timeout=timeout))
 
     nodeVerKey = SimpleSigner(seed=nodeSeed).verkey
