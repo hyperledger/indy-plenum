@@ -4,6 +4,7 @@ import re
 from abc import ABCMeta, abstractmethod
 
 import base58
+import dateutil
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import VALID_LEDGER_IDS
@@ -135,15 +136,21 @@ class LimitedLengthStringField(FieldBase):
 
 class DatetimeStringField(FieldBase):
     _base_types = (str,)
+    _exception_values = []
 
-    def __init__(self, **kwargs):
+    def __init__(self, exception_values: []=None, **kwargs):
         super().__init__(**kwargs)
-        self._max_length = DATETIME_LIMIT
+        self._exception_values = exception_values
 
     def _specific_validation(self, val):
-        if len(val) > self._max_length:
+        if len(val) > DATETIME_LIMIT:
             val = val[:100] + ('...' if len(val) > 100 else '')
-            return '{} is longer than {} symbols'.format(val, self._max_length)
+            return '{} is longer than {} symbols'.format(val, DATETIME_LIMIT)
+        if val not in self._exception_values:
+            try:
+                dateutil.parser.parse(val)
+            except Exception:
+                return "time is not valid".format(val)
 
 
 class FixedLengthField(FieldBase):
