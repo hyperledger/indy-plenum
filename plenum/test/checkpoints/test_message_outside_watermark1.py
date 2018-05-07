@@ -14,7 +14,7 @@ PerfCheckFreq = 30
 
 logger = getlogger()
 
-whitelist = ['received an incorrect digest']
+whitelist = ['received an incorrect digest', 'Consensus for ReqId:']
 
 
 def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFreqPatched, looper, txnPoolNodeSet,
