@@ -558,7 +558,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = (self.viewNo, lowest_ordered) \
                 if is_catchup or lowest_ordered > self.last_ordered_3pc[1] \
                 else self.last_ordered_3pc
-            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
             self._clear_last_view_message_for_non_master(self.viewNo)
 
     def _clear_last_view_message_for_non_master(self, current_view):
@@ -2150,6 +2149,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for pp_seq_no in range(seq_frm, seq_to + 1):
             key = (view_no, pp_seq_no)
             self._request_pre_prepare(key)
+            self._request_prepare(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
                                  stash: Dict[int, int],
