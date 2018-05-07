@@ -62,6 +62,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
             "txnId": None,
             "txnTime": 1513945121,
         },
+        "ver": "1"
 
     })
 

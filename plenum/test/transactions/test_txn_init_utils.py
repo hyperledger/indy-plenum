@@ -20,7 +20,8 @@ def test_init_empty_txn_no_protocol_ver():
             "seqNo": None,
             "txnId": None,
             "txnTime": None,
-        }
+        },
+        "ver": "1"
     }
     assert SortedDict(expected) == SortedDict(txn)
 
@@ -42,7 +43,8 @@ def test_init_empty_txn_with_protocol_ver():
             "seqNo": None,
             "txnId": None,
             "txnTime": None,
-        }
+        },
+        "ver": "1"
     }
     assert SortedDict(expected) == SortedDict(txn)
 
@@ -65,7 +67,8 @@ def test_set_payload_metadata():
             "seqNo": None,
             "txnId": None,
             "txnTime": None,
-        }
+        },
+        "ver": "1"
     })
     assert SortedDict(expected) == SortedDict(txn)
 
@@ -89,7 +92,8 @@ def test_append_payload_metadata():
             "seqNo": None,
             "txnId": None,
             "txnTime": None,
-        }
+        },
+        "ver": "1"
     })
     assert SortedDict(expected) == SortedDict(txn)
 
@@ -114,6 +118,7 @@ def test_append_txn_metadata():
             "seqNo": 144,
             "txnId": "dddd",
             "txnTime": 12345678,
-        }
+        },
+        "ver": "1"
     })
     assert SortedDict(expected) == SortedDict(txn)

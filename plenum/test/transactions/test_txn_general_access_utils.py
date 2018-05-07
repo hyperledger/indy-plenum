@@ -35,7 +35,7 @@ def txn():
             "txnId": "aaaaa",
             "txnTime": 1513945121,
         },
-
+        "ver": "1"
     }
 
 

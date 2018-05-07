@@ -7,7 +7,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25515, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    TXN_METADATA_ID
+    TXN_METADATA_ID, TXN_VERSION
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -104,6 +104,7 @@ def init_empty_txn(txn_type, protocol_version=None):
     result[TXN_PAYLOAD] = {}
     result[TXN_METADATA] = {}
     result[TXN_SIGNATURE] = {}
+    result[TXN_VERSION] = "1"
 
     set_type(result, txn_type)
     result[TXN_PAYLOAD][TXN_PAYLOAD_DATA] = {}

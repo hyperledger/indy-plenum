@@ -49,7 +49,7 @@ def old_and_expected(request):
             "txnTime": 1513945121,
             "seqNo": 143,
         },
-
+        "ver": "1"
     })
 
     if request.param == 'sig_only':
