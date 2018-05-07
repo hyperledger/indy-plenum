@@ -7,6 +7,7 @@ from plenum.test.helper import sdk_send_random_requests
 
 nodeCount = 4
 logger = getlogger()
+whitelist = ['Consensus for ReqId:']
 
 UNORDERED_CHECK_FREQ = 5
 
