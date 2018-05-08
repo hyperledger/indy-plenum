@@ -141,7 +141,8 @@ class DatetimeStringField(FieldBase):
 
     def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
         super().__init__(**kwargs)
-        self._exceptional_values = exceptional_values
+        if exceptional_values is not None:
+            self._exceptional_values = exceptional_values
 
     def _specific_validation(self, val):
         if len(val) > DATETIME_LIMIT:
