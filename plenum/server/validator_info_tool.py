@@ -492,6 +492,7 @@ class ValidatorNodeInfoTool:
                              shell=True,
                              universal_newlines=True,
                              stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
                              timeout=5)
         return ret.stdout
 
