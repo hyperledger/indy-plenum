@@ -1,17 +1,19 @@
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.util import compare_3PC_keys
 from plenum.test.delayers import pDelay, cDelay, ppDelay
 from plenum.test.node_catchup.test_node_reject_invalid_txn_during_catchup import \
     get_any_non_primary_node
+from plenum.test.test_node import checkNodesConnected, TestNode
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import \
     waitNodeDataEquality, \
     waitNodeDataInequality
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
+    disconnect_node_and_ensure_disconnected
 
 from stp_core.loop.eventually import eventually
+from stp_core.types import HA
 
 logger = getlogger()
 txnCount = 5
@@ -42,7 +44,8 @@ def replicas_synced(node):
 
 
 def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
-                                       sdk_wallet_client, monkeypatch):
+                                       sdk_wallet_client, monkeypatch,
+                                       allPluginsPath, tconf, tdir,):
     """
     Checks that transactions received by catchup do not
     break performance monitoring
@@ -67,11 +70,25 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
     # After start it should fall in a such state that it needs to make catchup
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
-                                            lagging_node,
-                                            stopNode=False)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                            lagging_node)
+    looper.removeProdable(name=lagging_node.name)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
                               sdk_wallet_client, 5)
-    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, lagging_node)
+
+    nodeHa, nodeCHa = HA(*lagging_node.nodestack.ha), HA(
+        *lagging_node.clientstack.ha)
+    config_helper = PNodeConfigHelper(lagging_node.name, tconf, chroot=tdir)
+    lagging_node = TestNode(
+        lagging_node.name,
+        config_helper=config_helper,
+        config=tconf,
+        ha=nodeHa,
+        cliha=nodeCHa,
+        pluginPaths=allPluginsPath)
+    looper.add(lagging_node)
+    txnPoolNodeSet[-1] = lagging_node
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Check that catchup done
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
