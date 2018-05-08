@@ -156,7 +156,6 @@ class Ledger(ImmutableStore):
             data = self.txn_serializer.deserialize(value)
             # If `kwargs` is a subset of `data`
             if set(kwargs.values()) == {data.get(k) for k in kwargs.keys()}:
-                data[F.seqNo.name] = int(seqNo)
                 return data
 
     def getBySeqNo(self, seqNo):
@@ -164,7 +163,6 @@ class Ledger(ImmutableStore):
         value = self._transactionLog.get(key)
         if value:
             data = self.txn_serializer.deserialize(value)
-            data[F.seqNo.name] = int(seqNo)
             return data
         else:
             return value

@@ -2582,8 +2582,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
 
-        first_txn_seq_no = committedTxns[0][F.seqNo.name]
-        last_txn_seq_no = committedTxns[-1][F.seqNo.name]
+        first_txn_seq_no = get_seq_no(committedTxns[0])
+        last_txn_seq_no = get_seq_no(committedTxns[-1])
         if ledger_id not in self.txn_seq_range_to_3phase_key:
             self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
         # adding one to end of range since its exclusive

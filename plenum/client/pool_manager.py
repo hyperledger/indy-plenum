@@ -2,7 +2,7 @@ import collections
 import json
 
 from ledger.util import F
-from plenum.common.txn_util import get_payload_data
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from stp_core.network.exceptions import RemoteNotFound
 
 from plenum.common.stack_manager import TxnStackManager
@@ -37,7 +37,7 @@ class HasPoolManager(TxnStackManager):
         global t
         logger.debug("{} received pool txn {} from {}".format(self, msg, frm))
         txn = getattr(msg, t)
-        seqNo = txn.pop(F.seqNo.name)
+        seqNo = get_seq_no(txn)
         if seqNo not in self.tempNodeTxns:
             self.tempNodeTxns[seqNo] = {}
         self.tempNodeTxns[seqNo][frm] = txn
