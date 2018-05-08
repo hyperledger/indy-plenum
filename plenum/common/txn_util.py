@@ -154,7 +154,7 @@ def reqToTxn(req, txn_time=None):
     """
 
     if isinstance(req, dict):
-        req_data = deepcopy(req)
+        req_data = req
     elif isinstance(req, str):
         req_data = json.loads(req)
     elif isinstance(req, Request):
@@ -163,6 +163,7 @@ def reqToTxn(req, txn_time=None):
         raise TypeError(
             "Expected dict or str as input, but got: {}".format(type(req)))
 
+    req_data = deepcopy(req_data)
     return __do_req_to_txn(req_data=req_data,
                            req_op=req_data[OPERATION],
                            txn_time=txn_time)

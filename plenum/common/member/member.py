@@ -8,7 +8,7 @@ class Member:
     """
 
     @staticmethod
-    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None):
+    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None, seq_no=None):
         txn = init_empty_txn(NYM)
 
         txn_data = {
@@ -26,5 +26,7 @@ class Member:
                                       frm=creator)
         if txn_id:
             txn = append_txn_metadata(txn, txn_id=txn_id)
+        if seq_no:
+            txn = append_txn_metadata(txn, seq_no=seq_no)
 
         return txn

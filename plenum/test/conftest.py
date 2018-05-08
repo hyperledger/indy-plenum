@@ -620,7 +620,8 @@ def poolTxnData(request):
                 Member.nym_txn(nym=s_idr.identifier,
                                verkey=s_idr.verkey,
                                role=STEWARD,
-                               name=steward_name)
+                               name=steward_name,
+                               seq_no=i)
         )
 
         node_txn = Steward.node_txn(steward_nym=s_idr.identifier,
@@ -630,7 +631,8 @@ def poolTxnData(request):
                                     node_port=genHa()[1],
                                     client_port=genHa()[1],
                                     client_ip='127.0.0.1',
-                                    services=[VALIDATOR])
+                                    services=[VALIDATOR],
+                                    seq_no=i)
 
         if i <= nodes_with_bls:
             _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(

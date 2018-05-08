@@ -55,7 +55,7 @@ class PoolRequestHandler(LedgerRequestHandler):
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
-            nodeNym = get_type(txn)
+            nodeNym = get_payload_data(txn).get(TARGET_NYM)
             data = get_payload_data(txn).get(DATA, {})
             existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
             # Node data did not exist in state, so this is a new node txn,
