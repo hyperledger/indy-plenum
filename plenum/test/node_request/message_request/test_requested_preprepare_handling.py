@@ -21,8 +21,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     slow_node, other_nodes, primary_node, other_non_primary_nodes = \
         split_nodes(txnPoolNodeSet)
     # This node will send PRE-PREPARE again
-    confused_node = other_non_primary_nodes[0]
-    orig_method = confused_node.handlers[PREPREPARE].serve
+    orig_method = primary_node.handlers[PREPREPARE].serve
 
     last_pp = None
 
@@ -31,8 +30,9 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
         last_pp = orig_method(msg)
         return last_pp
 
-    confused_node.handlers[PREPREPARE].serve = types.MethodType(patched_method, confused_node.handlers[PREPREPARE])
-
+    primary_node.handlers[PREPREPARE].serve = types.MethodType(patched_method,
+                                                               primary_node.handlers[
+                                                                   PREPREPARE])
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
@@ -51,7 +51,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     count_pr_tpc = get_count(slow_master_replica,
                              slow_master_replica.processThreePhaseMsg)
 
-    confused_node.sendToNodes(MessageRep(**{
+    primary_node.sendToNodes(MessageRep(**{
         f.MSG_TYPE.nm: PREPREPARE,
         f.PARAMS.nm: {
             f.INST_ID.nm: last_pp.instId,

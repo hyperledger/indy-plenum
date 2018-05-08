@@ -23,7 +23,8 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     A node has bad network with primary and thus loses PRE-PREPARE,
     it requests PRE-PREPARE from non-primaries once it has sufficient PREPAREs
     """
-    slow_node, other_nodes, _, _ = split_nodes(txnPoolNodeSet)
+    slow_node, other_nodes, primary_node, other_non_primary_nodes = split_nodes(
+        txnPoolNodeSet)
 
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
@@ -53,11 +54,13 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
 
     # More than `f` nodes received `MessageReq`
     recv_reqs = set()
-    for n in other_nodes:
+    for n in other_non_primary_nodes:
         if get_count(n, n.process_message_req) > old_count_mrq[n.name]:
             recv_reqs.add(n.name)
 
-    assert len(recv_reqs) > slow_node.f
+    assert get_count(primary_node, primary_node.process_message_req) > \
+           old_count_mrq[primary_node.name]
+    assert len(recv_reqs) == 0
 
     # All nodes including the `slow_node` ordered the same requests
     assert check_if_all_equal_in_list([n.master_replica.ordered
@@ -137,6 +140,7 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
 
     old_reply_count_from_bad_node = get_reply_count_frm(bad_node)
     old_reply_count_from_good_node = get_reply_count_frm(good_non_primary_node)
+    old_reply_count_from_primary_node = get_reply_count_frm(primary_node)
     old_discarded = countDiscarded(slow_node.master_replica, 'does not have '
                                                              'expected state')
 
@@ -160,8 +164,9 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
         assert countDiscarded(slow_node.master_replica,
                               'does not have expected state') > old_discarded
 
-    assert get_reply_count_frm(good_non_primary_node) > \
-           old_reply_count_from_good_node
+    assert get_reply_count_frm(
+        good_non_primary_node) == old_reply_count_from_good_node
+    assert get_reply_count_frm(primary_node) > old_reply_count_from_primary_node
 
     slow_node.reset_delays_and_process_delayeds()
     bad_node.nodeMsgRouter.routes[MessageReq] = orig_method
