@@ -2,6 +2,7 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
+from typing import Iterable
 
 import base58
 import dateutil
@@ -136,17 +137,17 @@ class LimitedLengthStringField(FieldBase):
 
 class DatetimeStringField(FieldBase):
     _base_types = (str,)
-    _exception_values = []
+    _exceptional_values = []
 
-    def __init__(self, exception_values: []=None, **kwargs):
+    def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
         super().__init__(**kwargs)
-        self._exception_values = exception_values
+        self._exceptional_values = exceptional_values
 
     def _specific_validation(self, val):
         if len(val) > DATETIME_LIMIT:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, DATETIME_LIMIT)
-        if val not in self._exception_values:
+        if val not in self._exceptional_values:
             try:
                 dateutil.parser.parse(val)
             except Exception:
