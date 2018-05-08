@@ -150,7 +150,7 @@ class DatetimeStringField(FieldBase):
             try:
                 dateutil.parser.parse(val)
             except Exception:
-                return "time is not valid".format(val)
+                return "datetime {} is not valid".format(val)
 
 
 class FixedLengthField(FieldBase):
