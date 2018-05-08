@@ -234,6 +234,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.stashingWhileOutsideWaterMarks = deque()
 
+        # Flag being used for preterm exit from the loop in the method
+        # `processStashedMsgsForNewWaterMarks`. See that method for details.
+        self.consumedAllStashedMsgs = True
+
         # Low water mark
         self._h = 0  # type: int
         # Set high water mark (`H`) too
@@ -1911,12 +1915,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stashingWhileOutsideWaterMarks.append(item)
 
     def processStashedMsgsForNewWaterMarks(self):
-        # `stashingWhileOutsideWaterMarks` can grow from methods called in the
-        # loop below, so `stashingWhileOutsideWaterMarks` might never
+        # Items from `stashingWhileOutsideWaterMarks` can be re-enqueued back
+        # to this queue, so `stashingWhileOutsideWaterMarks` might never
         # become empty during the execution of this method resulting
-        # in an infinite loop
+        # in an infinite loop. So we should consume each item only once
+        # during one call of this method.
         itemsToConsume = len(self.stashingWhileOutsideWaterMarks)
-        while itemsToConsume:
+
+        # Moreover, the watermarks may be updated again while consuming items
+        # from `stashingWhileOutsideWaterMarks`. So this method may be called
+        # recursively. We should stop iteration in all the outward calls of
+        # this method in case we complete consuming of stashed messages in any
+        # recursive call of this method.
+        self.consumedAllStashedMsgs = False
+
+        while itemsToConsume and not self.consumedAllStashedMsgs:
             item = self.stashingWhileOutsideWaterMarks.popleft()
             self.logger.debug("{} processing stashed item {} after new stable "
                               "checkpoint".format(self, item))
@@ -1927,6 +1940,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.logger.debug("{} cannot process {} "
                                   "from stashingWhileOutsideWaterMarks".format(self, item))
             itemsToConsume -= 1
+
+        self.consumedAllStashedMsgs = True
 
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
