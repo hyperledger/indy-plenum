@@ -5,7 +5,8 @@ from plenum.common.util import SortedDict
 
 
 @pytest.fixture(
-    params=['all', 'sig_only', 'none_sig', 'sigs_only', 'none_sigs', 'no_protocol_vers', 'none_protocol_vers'])
+    params=['all', 'sig_only', 'none_sig', 'sigs_only', 'none_sigs', 'no_protocol_vers', 'none_protocol_vers',
+            'no_req_id', 'no_signatures'])
 def old_and_expected(request):
     old = {
         "dest": "GEzcdDLhCpGCYRHW82kjHd",
@@ -45,7 +46,6 @@ def old_and_expected(request):
             "type": "1",
         },
         "txnMetadata": {
-            "txnId": None,
             "txnTime": 1513945121,
             "seqNo": 143,
         },
@@ -62,10 +62,17 @@ def old_and_expected(request):
         old["signature"] = None
     if request.param == 'no_protocol_vers':
         old.pop("protocolVersion")
-        new_expected["txn"]["protocolVersion"] = None
+        new_expected["txn"].pop("protocolVersion", None)
     if request.param == 'none_protocol_vers':
         old["protocolVersion"] = None
-        new_expected["txn"]["protocolVersion"] = None
+        new_expected["txn"].pop("protocolVersion", None)
+    if request.param == 'no_req_id':
+        old["reqId"] = None
+        new_expected["txn"]["metadata"].pop("reqId", None)
+    if request.param == 'no_signatures':
+        old.pop("signatures")
+        old.pop("signature")
+        new_expected["reqSignature"] = {}
 
     return old, new_expected
 

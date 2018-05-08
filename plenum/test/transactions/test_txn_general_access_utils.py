@@ -60,17 +60,42 @@ def test_get_from(txn):
     assert get_from(txn) == "6ouriXMZkLeHsuXrN1X1fd"
 
 
+def test_get_from_none(txn):
+    txn["txn"]["metadata"].pop("from", None)
+    assert get_from(txn) is None
+
+
 def test_get_req_id(txn):
     assert get_req_id(txn) == 1513945121191691
+
+
+def test_get_req_id_none(txn):
+    txn["txn"]["metadata"].pop("reqId", None)
+    assert get_req_id(txn) is None
 
 
 def test_get_seq_no(txn):
     assert get_seq_no(txn) == 144
 
 
+def test_get_seq_no_none(txn):
+    txn["txnMetadata"].pop("seqNo", None)
+    assert get_seq_no(txn) is None
+
+
 def test_get_txn_time(txn):
     assert get_txn_time(txn) == 1513945121
 
 
+def test_get_txn_time_none(txn):
+    txn["txnMetadata"].pop("txnTime", None)
+    assert get_txn_time(txn) is None
+
+
 def test_get_txn_id(txn):
     assert get_txn_id(txn) == "aaaaa"
+
+
+def test_get_txn_id_none(txn):
+    txn["txnMetadata"].pop("txnId", None)
+    assert get_txn_id(txn) is None

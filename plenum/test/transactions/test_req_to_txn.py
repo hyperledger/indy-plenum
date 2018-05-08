@@ -58,8 +58,6 @@ def req_and_expected(request, looper, sdk_wallet_client):
             "type": "1",
         },
         "txnMetadata": {
-            "seqNo": None,
-            "txnId": None,
             "txnTime": 1513945121,
         },
         "ver": "1"
@@ -67,7 +65,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
     })
 
     if request.param == 'no_protocol_vers':
-        new_expected["txn"]["protocolVersion"] = None
+        new_expected["txn"].pop("protocolVersion", None)
 
     return req, new_expected
 

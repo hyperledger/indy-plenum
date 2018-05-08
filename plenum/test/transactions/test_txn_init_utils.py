@@ -10,16 +10,10 @@ def test_init_empty_txn_no_protocol_ver():
         "txn": {
             "data": {},
             "metadata": {
-                "from": None,
-                "reqId": None,
             },
-            "protocolVersion": None,
             "type": NYM,
         },
         "txnMetadata": {
-            "seqNo": None,
-            "txnId": None,
-            "txnTime": None,
         },
         "ver": "1"
     }
@@ -33,16 +27,11 @@ def test_init_empty_txn_with_protocol_ver():
         "txn": {
             "data": {},
             "metadata": {
-                "from": None,
-                "reqId": None,
             },
             "protocolVersion": "3",
             "type": NODE,
         },
         "txnMetadata": {
-            "seqNo": None,
-            "txnId": None,
-            "txnTime": None,
         },
         "ver": "1"
     }
@@ -57,16 +46,11 @@ def test_set_payload_metadata():
         "txn": {
             "data": {"somekey": "somevalue"},
             "metadata": {
-                "from": None,
-                "reqId": None,
             },
             "protocolVersion": "3",
             "type": NODE,
         },
         "txnMetadata": {
-            "seqNo": None,
-            "txnId": None,
-            "txnTime": None,
         },
         "ver": "1"
     })
@@ -89,9 +73,6 @@ def test_append_payload_metadata():
             "type": NODE,
         },
         "txnMetadata": {
-            "seqNo": None,
-            "txnId": None,
-            "txnTime": None,
         },
         "ver": "1"
     })
