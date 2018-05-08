@@ -2176,12 +2176,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return True
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
-                             recipients: List[str] = None,
                              stash_data: Optional[Tuple[int, int, int]] = None) -> bool:
         """
         Request preprepare
         """
-        recipients = recipients if recipients is not None else self.primaryName
+        recipients = self.primaryName
         return self._request_three_phase_msg(three_pc_key,
                                              self.requested_pre_prepares,
                                              PREPREPARE,
@@ -2217,7 +2216,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self, three_pc_key))
             return False
 
-        digest, state_root, txn_root, prepare_senders = \
+        digest, state_root, txn_root, _ = \
             self.get_acceptable_stashed_prepare_state(three_pc_key)
 
         # Choose a better data structure for `prePreparesPendingFinReqs`
@@ -2232,7 +2231,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return False
 
         self._request_pre_prepare(three_pc_key,
-                                  recipients=[self.getNodeName(s) for s in prepare_senders],
                                   stash_data=(digest, state_root, txn_root))
         return True
 
