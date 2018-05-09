@@ -35,12 +35,25 @@ class Recorder:
         return str(int(time.perf_counter()*self.TIME_FACTOR))
 
     def add_incoming(self, msg, frm):
-        self.store.put(self.get_now_key(),
-                       self.create_db_val_for_incoming(msg, frm))
+        key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm)
+        # self.store.put(self.get_now_key(),
+        #                self.create_db_val_for_incoming(msg, frm))
+        self.add_to_store(key, val)
 
     def add_outgoing(self, msg, *to):
-        self.store.put(self.get_now_key(),
-                       self.create_db_val_for_outgoing(msg, *to))
+        key, val = self.get_now_key(), self.create_db_val_for_outgoing(msg, *to)
+        # self.store.put(self.get_now_key(),
+        #                self.create_db_val_for_outgoing(msg, *to))
+        self.add_to_store(key, val)
+
+    def add_to_store(self, key, val):
+        try:
+            existing = self.store.get(key)
+            existing = json.loads(existing)
+        except KeyError:
+            existing = []
+
+        self.store.put(key, json.dumps([*existing, val]))
 
     def register_replay_target(self, id, target: Callable):
         assert id not in self.replay_targets
@@ -48,11 +61,13 @@ class Recorder:
 
     @staticmethod
     def create_db_val_for_incoming(msg, frm):
-        return json.dumps([Recorder.INCOMING_FLAG, msg, frm])
+        # return json.dumps([Recorder.INCOMING_FLAG, msg, frm])
+        return [Recorder.INCOMING_FLAG, msg, frm]
 
     @staticmethod
     def create_db_val_for_outgoing(msg, *to):
-        return json.dumps([Recorder.OUTGOING_FLAG, msg, *to])
+        # return json.dumps([Recorder.OUTGOING_FLAG, msg, *to])
+        return [Recorder.OUTGOING_FLAG, msg, *to]
 
     def start_playing(self):
         assert not self.is_playing
@@ -104,7 +119,26 @@ class Recorder:
             msg = msg.decode()
         msg = ast.literal_eval(msg)
         if only_incoming:
-            return msg[1:] if msg[0] == Recorder.INCOMING_FLAG else None
+            # incomings = []
+            # for m in msg:
+            #     if m[0] == Recorder.INCOMING_FLAG:
+            #         incomings.append(m[1:])
+            return Recorder.filter_incoming(msg)
+            # return msg[1:] if msg[0] == Recorder.INCOMING_FLAG else None
         if only_outgoing:
-            return msg[1:] if msg[0] == Recorder.OUTGOING_FLAG else None
+            # outgoings = []
+            # for m in msg:
+            #     if m[0] == Recorder.OUTGOING_FLAG:
+            #         outgoings.append(m[1:])
+            # return outgoings
+            return Recorder.filter_outgoing(msg)
+        # return msg[1:] if msg[0] == Recorder.OUTGOING_FLAG else None
         return msg
+
+    @staticmethod
+    def filter_incoming(msgs):
+        return [msg[1:] for msg in msgs if msg[0] == Recorder.INCOMING_FLAG]
+
+    @staticmethod
+    def filter_outgoing(msgs):
+        return [msg[1:] for msg in msgs if msg[0] == Recorder.OUTGOING_FLAG]

@@ -14,7 +14,8 @@ def replay_and_compare(looper, node, replaying_node):
     patch_replaying_node_for_time(replaying_node, node_rec)
     replay_patched_node(looper, replaying_node, node_rec, client_rec)
 
-    looper.runFor(10 + (node.domainLedger.size -
+    # TODO: use eventually
+    looper.runFor(5 + (node.domainLedger.size -
                         replaying_node.domainLedger.size))
 
     for lid in node.ledger_ids:

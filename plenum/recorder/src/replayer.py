@@ -41,27 +41,29 @@ def patch_replaying_node_for_time(replaying_node, node_recorder):
     pp_times = {}
     for k, v in node_recorder.store.iterator(include_value=True):
         parsed = Recorder.get_parsed(v.decode())
-        if parsed[0] == Recorder.OUTGOING_FLAG:
-            try:
-                msg = json.loads(parsed[1])
-                if isinstance(msg, dict) and OP_FIELD_NAME in msg:
-                    if msg[OP_FIELD_NAME] == PREPREPARE and msg[f.INST_ID.nm] == 0:
-                        pp_times[msg[f.VIEW_NO.nm], msg[f.PP_SEQ_NO.nm]] = msg[
-                            f.PP_TIME.nm]
-                    elif msg[OP_FIELD_NAME] == BATCH:
-                        for m in msg['messages']:
-                            try:
-                                m = json.loads(m)
-                                if m[OP_FIELD_NAME] == PREPREPARE and m[
-                                    f.INST_ID.nm] == 0:
-                                    v, p = m[f.VIEW_NO.nm], m[f.PP_SEQ_NO.nm]
-                                    pp_times[v, p] = m[f.PP_TIME.nm]
-                            except json.JSONDecodeError:
-                                continue
-                    else:
-                        continue
-            except json.JSONDecodeError:
-                continue
+        outgoings = Recorder.filter_outgoing(parsed)
+        if outgoings:
+            for out in outgoings:
+                try:
+                    msg = json.loads(out[0])
+                    if isinstance(msg, dict) and OP_FIELD_NAME in msg:
+                        op_name = msg[OP_FIELD_NAME]
+                        if op_name == PREPREPARE and msg[f.INST_ID.nm] == 0:
+                            v, p = msg[f.VIEW_NO.nm], msg[f.PP_SEQ_NO.nm]
+                            pp_times[v, p] = msg[f.PP_TIME.nm]
+                        elif op_name == BATCH:
+                            for m in msg['messages']:
+                                try:
+                                    m = json.loads(m)
+                                    if op_name == PREPREPARE and m[f.INST_ID.nm] == 0:
+                                        v, p = m[f.VIEW_NO.nm], m[f.PP_SEQ_NO.nm]
+                                        pp_times[v, p] = m[f.PP_TIME.nm]
+                                except json.JSONDecodeError:
+                                    continue
+                        else:
+                            continue
+                except json.JSONDecodeError:
+                    continue
 
     with open(os.path.join(node_recorder.store._db_path,
                            Recorder.RECORDER_METADATA_FILENAME), 'r') as fl:
@@ -79,20 +81,22 @@ def replay_patched_node(looper, replaying_node, node_recorder, client_recorder):
 
     while client_recorder.is_playing or node_recorder.is_playing:
         if node_recorder.is_playing:
-            val = node_recorder.get_next()
-            while val:
-                if val[0] == Recorder.INCOMING_FLAG:
-                    replaying_node.nodestack._verifyAndAppend(to_bytes(val[1]),
-                                                              to_bytes(val[2]))
-                val = node_recorder.get_next()
+            vals = node_recorder.get_next()
+            while vals:
+                incomings = Recorder.filter_incoming(vals)
+                for inc in incomings:
+                    replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
+                                                              to_bytes(inc[1]))
+                vals = node_recorder.get_next()
             looper.run(replaying_node.prod())
 
         if client_recorder.is_playing:
-            val = client_recorder.get_next()
-            while val:
-                if val[0] == Recorder.INCOMING_FLAG:
-                    replaying_node.clientstack._verifyAndAppend(
-                        to_bytes(val[1]), to_bytes(val[2]))
-                val = client_recorder.get_next()
+            vals = client_recorder.get_next()
+            while vals:
+                incomings = Recorder.filter_incoming(vals)
+                for inc in incomings:
+                    replaying_node.clientstack._verifyAndAppend(to_bytes(inc[0]),
+                                                                to_bytes(inc[1]))
+                vals = client_recorder.get_next()
             looper.run(replaying_node.prod())
 
