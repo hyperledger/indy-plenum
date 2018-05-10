@@ -3,6 +3,7 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import TestNode, checkNodesConnected
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.types import HA
 
 
@@ -25,16 +26,8 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     sdk_replies = sdk_send_random_and_check(looper, txnPoolNodeSet,
                                             sdk_pool_handle, sdk_wallet_steward, 2)
 
-    nodeHa, nodeCHa = HA(*node_to_disconnect.nodestack.ha), HA(*node_to_disconnect.clientstack.ha)
-    config_helper = PNodeConfigHelper(node_to_disconnect.name, tconf, chroot=tdir)
-    node_to_disconnect = TestNode(
-        node_to_disconnect.name,
-        config_helper=config_helper,
-        config=tconf,
-        ha=nodeHa,
-        cliha=nodeCHa,
-        pluginPaths=allPluginsPath)
-    looper.add(node_to_disconnect)
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
