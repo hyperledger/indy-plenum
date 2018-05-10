@@ -7,6 +7,7 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import get_master_primary_node, TestNode, \
     checkNodesConnected
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.types import HA
 
 
@@ -34,17 +35,8 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
                                       sdk_wallet_steward,
                                       1)[0][1]
 
-    nodeHa, nodeCHa = HA(*node_to_disconnect.nodestack.ha), HA(
-        *node_to_disconnect.clientstack.ha)
-    config_helper = PNodeConfigHelper(node_to_disconnect.name, tconf, chroot=tdir)
-    node_to_disconnect = TestNode(
-        node_to_disconnect.name,
-        config_helper=config_helper,
-        config=tconf,
-        ha=nodeHa,
-        cliha=nodeCHa,
-        pluginPaths=allPluginsPath)
-    looper.add(node_to_disconnect)
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet[:-1])

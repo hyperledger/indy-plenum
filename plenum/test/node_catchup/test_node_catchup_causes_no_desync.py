@@ -4,6 +4,7 @@ from plenum.test.delayers import pDelay, cDelay, ppDelay
 from plenum.test.node_catchup.test_node_reject_invalid_txn_during_catchup import \
     get_any_non_primary_node
 from plenum.test.test_node import checkNodesConnected, TestNode
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import \
@@ -76,17 +77,8 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_pool_handle,
                               sdk_wallet_client, 5)
 
-    nodeHa, nodeCHa = HA(*lagging_node.nodestack.ha), HA(
-        *lagging_node.clientstack.ha)
-    config_helper = PNodeConfigHelper(lagging_node.name, tconf, chroot=tdir)
-    lagging_node = TestNode(
-        lagging_node.name,
-        config_helper=config_helper,
-        config=tconf,
-        ha=nodeHa,
-        cliha=nodeCHa,
-        pluginPaths=allPluginsPath)
-    looper.add(lagging_node)
+    lagging_node = start_stopped_node(lagging_node, looper, tconf,
+                                      tdir, allPluginsPath)
     txnPoolNodeSet[-1] = lagging_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
