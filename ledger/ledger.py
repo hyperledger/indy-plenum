@@ -143,6 +143,7 @@ class Ledger(ImmutableStore):
 
     def _build_merkle_proof(self, audit_path):
         return {
+            F.seqNo.name: self.seqNo,
             F.rootHash.name: self.hashToStr(self.tree.root_hash),
             F.auditPath.name: [self.hashToStr(h) for h in audit_path]
         }

@@ -2,6 +2,7 @@ from copy import copy
 from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
+from ledger.util import F
 from plenum.common.txn_util import append_txn_metadata, get_seq_no
 from stp_core.common.log import getlogger
 
@@ -39,7 +40,10 @@ class Ledger(_Ledger):
     def add(self, txn):
         if get_seq_no(txn) is None:
             self._append_seq_no([txn])
-        return super().add(txn)
+        merkle_info =  super().add(txn)
+        # seqNo is part of the transaction itself, so no need to duplicate it here
+        merkle_info.pop(F.seqNo.name, None)
+        return merkle_info
 
     def _append_seq_no(self, txns):
         seq_no = self.seqNo

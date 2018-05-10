@@ -28,7 +28,6 @@ def testTxnPersistence(ledger):
         ledger.append(reply.result)
         txn_in_db = ledger.get(identifier=identifier,
                                reqId=reply.result['reqId'])
-        txn_in_db.pop(F.seqNo.name)
         assert txn_in_db == reply.result
         assert ledger.size == sizeBeforeInsert + 1
         ledger.reset()
