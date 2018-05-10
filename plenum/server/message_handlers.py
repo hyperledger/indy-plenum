@@ -132,7 +132,7 @@ class PreprepareHandler(BaseHandler):
 
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
         return self.node.replicas[params['inst_id']].sentPrePrepares(
-                params['view_no'], params['pp_seq_no'])
+            params['view_no'], params['pp_seq_no'])
 
     def processor(self, validated_msg: PrePrepare, params: Dict[str, Any], frm: str) -> None:
         inst_id = params['inst_id']
