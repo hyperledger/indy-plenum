@@ -1222,10 +1222,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pre_prepare, sender):
-            # Since PRE-PREPARE might be requested from others
-            if (pre_prepare.viewNo, pre_prepare.ppSeqNo) not \
-                    in self.requested_pre_prepares:
-                return PP_CHECK_NOT_FROM_PRIMARY
+            return PP_CHECK_NOT_FROM_PRIMARY
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pre_prepare) is True:
