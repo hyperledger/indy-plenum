@@ -2112,7 +2112,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the propagateRequest
         :param frm: the name of the node which sent this `msg`
         """
-        logger.debug("Node {} received propagated request: {}".
+        logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
         reqDict = msg.request

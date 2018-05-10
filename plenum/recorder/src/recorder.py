@@ -18,7 +18,8 @@ class Recorder:
     TIME_FACTOR = 100000000
     RECORDER_METADATA_FILENAME = 'recorder_metadata.json'
 
-    def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys):
+    def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys,
+                 skip_metadata_write=False):
         self.store = kv_store
         self.replay_targets = {}
         self.is_playing = False
@@ -27,23 +28,20 @@ class Recorder:
         self.item_for_next_get = None
         self.last_returned_at = None
         from plenum.common.util import get_utc_epoch
-        with open(os.path.join(kv_store._db_path, self.RECORDER_METADATA_FILENAME), 'w') as f:
-            d = {'start_time': get_utc_epoch()}
-            f.write(json.dumps(d))
+        if not skip_metadata_write:
+            with open(os.path.join(kv_store._db_path, self.RECORDER_METADATA_FILENAME), 'w') as f:
+                d = {'start_time': get_utc_epoch()}
+                f.write(json.dumps(d))
 
     def get_now_key(self):
         return str(int(time.perf_counter()*self.TIME_FACTOR))
 
     def add_incoming(self, msg, frm):
         key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm)
-        # self.store.put(self.get_now_key(),
-        #                self.create_db_val_for_incoming(msg, frm))
         self.add_to_store(key, val)
 
     def add_outgoing(self, msg, *to):
         key, val = self.get_now_key(), self.create_db_val_for_outgoing(msg, *to)
-        # self.store.put(self.get_now_key(),
-        #                self.create_db_val_for_outgoing(msg, *to))
         self.add_to_store(key, val)
 
     def add_to_store(self, key, val):
@@ -61,12 +59,10 @@ class Recorder:
 
     @staticmethod
     def create_db_val_for_incoming(msg, frm):
-        # return json.dumps([Recorder.INCOMING_FLAG, msg, frm])
         return [Recorder.INCOMING_FLAG, msg, frm]
 
     @staticmethod
     def create_db_val_for_outgoing(msg, *to):
-        # return json.dumps([Recorder.OUTGOING_FLAG, msg, *to])
         return [Recorder.OUTGOING_FLAG, msg, *to]
 
     def start_playing(self):
@@ -117,22 +113,11 @@ class Recorder:
         assert not (only_incoming and only_outgoing)
         if isinstance(msg, (bytes, bytearray)):
             msg = msg.decode()
-        msg = ast.literal_eval(msg)
+        msg = json.loads(msg)
         if only_incoming:
-            # incomings = []
-            # for m in msg:
-            #     if m[0] == Recorder.INCOMING_FLAG:
-            #         incomings.append(m[1:])
             return Recorder.filter_incoming(msg)
-            # return msg[1:] if msg[0] == Recorder.INCOMING_FLAG else None
         if only_outgoing:
-            # outgoings = []
-            # for m in msg:
-            #     if m[0] == Recorder.OUTGOING_FLAG:
-            #         outgoings.append(m[1:])
-            # return outgoings
             return Recorder.filter_outgoing(msg)
-        # return msg[1:] if msg[0] == Recorder.OUTGOING_FLAG else None
         return msg
 
     @staticmethod

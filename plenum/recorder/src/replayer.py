@@ -2,10 +2,13 @@ import json
 import os
 from typing import Dict
 
-from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH
+from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH, \
+    KeyValueStorageType
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
+from plenum.recorder.src.combined_recorder import CombinedRecorder
 from plenum.recorder.src.recorder import Recorder
+from storage.helper import initKeyValueStorageIntKeys
 from stp_core.loop.looper import Prodable
 
 
@@ -38,7 +41,7 @@ def to_bytes(v):
 
 
 def patch_replaying_node_for_time(replaying_node, node_recorder):
-    pp_times = {}
+    sent_pps = {}
     for k, v in node_recorder.store.iterator(include_value=True):
         parsed = Recorder.get_parsed(v.decode())
         outgoings = Recorder.filter_outgoing(parsed)
@@ -50,14 +53,20 @@ def patch_replaying_node_for_time(replaying_node, node_recorder):
                         op_name = msg[OP_FIELD_NAME]
                         if op_name == PREPREPARE and msg[f.INST_ID.nm] == 0:
                             v, p = msg[f.VIEW_NO.nm], msg[f.PP_SEQ_NO.nm]
-                            pp_times[v, p] = msg[f.PP_TIME.nm]
+                            sent_pps[v, p] = [msg[f.PP_TIME.nm],
+                                              [tuple(l) for l in msg[f.REQ_IDR.nm]],
+                                              msg[f.DISCARDED.nm],
+                                              ]
                         elif op_name == BATCH:
                             for m in msg['messages']:
                                 try:
                                     m = json.loads(m)
-                                    if op_name == PREPREPARE and m[f.INST_ID.nm] == 0:
+                                    if m[OP_FIELD_NAME] == PREPREPARE and m[f.INST_ID.nm] == 0:
                                         v, p = m[f.VIEW_NO.nm], m[f.PP_SEQ_NO.nm]
-                                        pp_times[v, p] = m[f.PP_TIME.nm]
+                                        sent_pps[v, p] = [m[f.PP_TIME.nm],
+                                                          [tuple(l) for l in m[f.REQ_IDR.nm]],
+                                                          m[f.DISCARDED.nm]
+                                                          ]
                                 except json.JSONDecodeError:
                                     continue
                         else:
@@ -71,32 +80,36 @@ def patch_replaying_node_for_time(replaying_node, node_recorder):
         start_time = json.loads(d)['start_time']
 
     replaying_node._time_diff = get_utc_epoch() - start_time
-    replaying_node.master_replica.pp_times = pp_times
+    replaying_node.master_replica.sent_pps = sent_pps
 
 
 def replay_patched_node(looper, replaying_node, node_recorder, client_recorder):
     looper.add(replaying_node)
-    node_recorder.start_playing()
-    client_recorder.start_playing()
+    kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
+                                          replaying_node.dataLocation,
+                                          'combined_recorder')
+    cr = CombinedRecorder(kv_store, skip_metadata_write=True)
+    # Always add node recorder first and then client recorder
+    cr.add_recorders(node_recorder, client_recorder)
+    cr.combine_recorders()
+    cr.start_playing()
+    while cr.is_playing:
+        vals = cr.get_next()
+        if not vals:
+            looper.runFor(.001)
+            continue
 
-    while client_recorder.is_playing or node_recorder.is_playing:
-        if node_recorder.is_playing:
-            vals = node_recorder.get_next()
-            while vals:
-                incomings = Recorder.filter_incoming(vals)
-                for inc in incomings:
-                    replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
-                                                              to_bytes(inc[1]))
-                vals = node_recorder.get_next()
-            looper.run(replaying_node.prod())
+        n_msgs, c_msgs = vals
+        if n_msgs:
+            incomings = Recorder.filter_incoming(n_msgs)
+            for inc in incomings:
+                replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
+                                                                  to_bytes(inc[1]))
 
-        if client_recorder.is_playing:
-            vals = client_recorder.get_next()
-            while vals:
-                incomings = Recorder.filter_incoming(vals)
-                for inc in incomings:
-                    replaying_node.clientstack._verifyAndAppend(to_bytes(inc[0]),
-                                                                to_bytes(inc[1]))
-                vals = client_recorder.get_next()
-            looper.run(replaying_node.prod())
+        if c_msgs:
+            incomings = Recorder.filter_incoming(c_msgs)
+            for inc in incomings:
+                replaying_node.clientstack._verifyAndAppend(to_bytes(inc[0]),
+                                                            to_bytes(inc[1]))
 
+        looper.run(replaying_node.prod())

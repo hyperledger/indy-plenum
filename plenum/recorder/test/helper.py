@@ -6,6 +6,7 @@ from plenum.recorder.src.replayer import patch_replaying_node_for_time, \
     replay_patched_node
 from plenum.test.helper import create_new_test_node
 from plenum.test.test_node import TestReplica, TestReplicas
+from stp_core.loop.eventually import eventually
 
 
 def replay_and_compare(looper, node, replaying_node):
@@ -14,15 +15,17 @@ def replay_and_compare(looper, node, replaying_node):
     patch_replaying_node_for_time(replaying_node, node_rec)
     replay_patched_node(looper, replaying_node, node_rec, client_rec)
 
-    # TODO: use eventually
-    looper.runFor(5 + (node.domainLedger.size -
-                        replaying_node.domainLedger.size))
+    def chk():
+        for lid in node.ledger_ids:
+            l = node.getLedger(lid)
+            l_r = replaying_node.getLedger(lid)
+            assert l_r.size == l.size, (l_r.size, l.size)
+            assert l_r.root_hash == l.root_hash, (l_r.root_hash, l.root_hash)
 
-    for lid in node.ledger_ids:
-        l = node.getLedger(lid)
-        l_r = replaying_node.getLedger(lid)
-        assert l_r.size == l.size, (l_r.size, l.size)
-        assert l_r.root_hash == l.root_hash, (l_r.root_hash, l.root_hash)
+    timeout = 5 + (node.domainLedger.size - replaying_node.domainLedger.size)
+
+    # TODO: use eventually
+    looper.run(eventually(chk, timeout=timeout))
 
 
 def reload_modules_for_replay(conf):

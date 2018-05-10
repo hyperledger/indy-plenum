@@ -475,10 +475,10 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
-    _testReplicaClass = TestReplica
+    _replica_class = TestReplica
 
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return self.__class__._testReplicaClass(self._node, instance_id,
+        return self.__class__._replica_class(self._node, instance_id,
                                                 self._config, is_master,
                                                 bls_bft)
 
