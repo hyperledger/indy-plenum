@@ -1,14 +1,10 @@
-from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
-from plenum.test.test_node import get_master_primary_node, TestNode, \
-    checkNodesConnected
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.test_node import get_master_primary_node, checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
-from stp_core.types import HA
 
 
 def test_get_last_ordered_timestamp_after_catchup(looper,
@@ -66,7 +62,3 @@ def test_choose_ts_from_state(looper,
                                       sdk_wallet_steward,
                                       1)[0][1]
     assert abs(excpected_ts - int(reply['result']['txnTime'])) < 3
-
-
-
-

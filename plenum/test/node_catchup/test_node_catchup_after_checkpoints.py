@@ -6,6 +6,8 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Ch
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 
+from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
+    reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -15,9 +17,14 @@ logger = getLogger()
 TestRunningTimeLimitSec = 200
 
 
+CHK_FREQ = 5
+LOG_SIZE = 3 * CHK_FREQ
+
+
 def test_node_catchup_after_checkpoints(
         looper,
-        chk_freq_patched,
+        chkFreqPatched,
+        reqs_for_checkpoint,
         txnPoolNodeSet,
         sdk_pool_handle,
         sdk_wallet_client,
@@ -26,15 +33,15 @@ def test_node_catchup_after_checkpoints(
     For some reason a node misses 3pc messages but eventually the node stashes
     some amount checkpoints and decides to catchup.
     """
-    logger.info("Step 1: The node misses quite a lot requests")
-
+    max_batch_size = chkFreqPatched.Max3PCBatchSize
     broken_node, other_nodes = broken_node_and_others
+
+    logger.info("Step 1: The node misses quite a lot requests")
 
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           chk_freq_patched + 1,
-                                           chk_freq_patched + 1)
+                                           reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataInequality(looper, broken_node, *other_nodes)
 
@@ -49,8 +56,7 @@ def test_node_catchup_after_checkpoints(
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           2 * chk_freq_patched - 1,
-                                           2 * chk_freq_patched - 1)
+                                           2 * reqs_for_checkpoint - max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
     # Note that the repaired node might not fill the gap of missed 3PC-messages
@@ -67,8 +73,7 @@ def test_node_catchup_after_checkpoints(
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           chk_freq_patched + 2,
-                                           chk_freq_patched + 2)
+                                           reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
@@ -104,23 +109,6 @@ def repair_broken_node(node):
         )
     )
     return node
-
-
-@pytest.fixture(scope="module")
-def chk_freq_patched(tconf, request):
-    oldChkFreq = tconf.CHK_FREQ
-    oldLogSize = tconf.LOG_SIZE
-
-    tconf.CHK_FREQ = 5
-    tconf.LOG_SIZE = 3 * tconf.CHK_FREQ
-
-    def reset():
-        tconf.CHK_FREQ = oldChkFreq
-        tconf.LOG_SIZE = oldLogSize
-
-    request.addfinalizer(reset)
-
-    return tconf.CHK_FREQ
 
 
 def get_number_of_completed_catchups(node):
