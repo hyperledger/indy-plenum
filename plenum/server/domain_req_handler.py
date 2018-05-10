@@ -113,9 +113,9 @@ class DomainRequestHandler(LedgerRequestHandler):
             newData[ROLE] = None
             newData[VERKEY] = None
 
-        if ROLE in txn:
+        if ROLE in txn_data:
             newData[ROLE] = txn_data[ROLE]
-        if VERKEY in txn:
+        if VERKEY in txn_data:
             newData[VERKEY] = txn_data[VERKEY]
         newData[F.seqNo.name] = get_seq_no(txn)
         newData[TXN_TIME] = get_txn_time(txn)

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.txn_util import get_type
+from plenum.common.txn_util import get_type, get_payload_data
 from plenum.common.util import hexToFriendly
 
 from plenum.common.constants import TARGET_NYM, NODE, CLIENT_STACK_SUFFIX
@@ -48,7 +48,7 @@ def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
         node_name = node.name
 
         node_nym = pool_manager.get_nym_by_name(node_name)
-        expected_data = pool_node_txns[i][TARGET_NYM]
+        expected_data = get_payload_data(pool_node_txns[i])[TARGET_NYM]
 
         assert node_nym
         assert node_nym == expected_data
