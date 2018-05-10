@@ -52,7 +52,7 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     # `slow_node` did receive `MessageRep`
     assert get_count(slow_node, slow_node.process_message_rep) > old_count_mrp
 
-    # More than `f` nodes received `MessageReq`
+    # Primary node should received `MessageReq` and other nodes shouldn't
     recv_reqs = set()
     for n in other_non_primary_nodes:
         if get_count(n, n.process_message_req) > old_count_mrq[n.name]:
@@ -118,7 +118,7 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
                                                     malicious_setup, teardown):
     """
     A node has bad network with primary and thus loses PRE-PREPARE,
-    it requests PRE-PREPARE from non-primaries once it has sufficient PREPAREs
+    it requests PRE-PREPARE from the primary once it has sufficient PREPAREs
     but one of the non-primary does not send the PRE-PREPARE
     """
     # primary_node = get_master_primary_node(txnPoolNodeSet)

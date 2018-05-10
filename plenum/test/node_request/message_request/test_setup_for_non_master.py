@@ -3,6 +3,7 @@ import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
+from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -17,15 +18,17 @@ def test_setup_for_non_master(looper,
                               tdirWithPoolTxns,
                               allPluginsPath,
                               monkeypatch):
+    """
+    test check last_ordered_3pc in backup replica from non primary node
+    after received pre-prepare from primary (should not to be change,
+    means that last_ordered_3pc was not re-calculate if it's already correct)
+    and added check that pre-prepare is in the prePrepares list
+    """
     INIT_REQS_CNT = 10
-    non_primary_node = txnPoolNodeSet[0].replicas[1]
-    for node in txnPoolNodeSet:
-        if not node.replicas[1].isPrimary:
-            non_primary_node = node.replicas[1]
-            break
-    monkeypatch.setattr(non_primary_node, '_can_process_pre_prepare',
+    non_primary_backup_replica = getNonPrimaryReplicas(txnPoolNodeSet, 1)[-1]
+    monkeypatch.setattr(non_primary_backup_replica, '_can_process_pre_prepare',
                         lambda x, y: None)
-    monkeypatch.setattr(non_primary_node, '_apply_pre_prepare',
+    monkeypatch.setattr(non_primary_backup_replica, '_apply_pre_prepare',
                         lambda x, y: None)
 
     sdk_send_random_and_check(looper,
@@ -48,7 +51,7 @@ def test_setup_for_non_master(looper,
         f.TXN_ROOT.nm: None,
     }
 
-    non_primary_node.dispatchThreePhaseMsg(PrePrepare(**msg),
-                                           non_primary_node.primaryName)
-    assert non_primary_node.last_ordered_3pc[1] == 1
-    assert (0, 2) in non_primary_node.prePrepares.keys()
+    non_primary_backup_replica.dispatchThreePhaseMsg(PrePrepare(**msg),
+                                           non_primary_backup_replica.primaryName)
+    assert non_primary_backup_replica.last_ordered_3pc[1] == 1
+    assert (0, 2) in non_primary_backup_replica.prePrepares.keys()
