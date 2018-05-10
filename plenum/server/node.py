@@ -2195,7 +2195,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if txn:
             result[DATA] = txn.result
-            result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
+            result[f.SEQ_NO.nm] = get_seq_no(txn.result)
 
         self.transmitToClient(Reply(result), frm)
 
@@ -2940,6 +2940,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
+                txn.update(ledger.merkleInfo(seq_no))
                 txn = self.update_txn_with_extra_data(txn)
                 return Reply(txn)
 
