@@ -97,7 +97,7 @@
 #            MacOS:
 #            `brew install leveldb rocksdb`
 #            Ubuntu:
-#            `apt-get install libleveldb1 librocksdb4.1 libleveldb-dev librocksdb-dev`
+#            `sudo apt-get install libleveldb1v5 librocksdb4.1 libleveldb-dev librocksdb-dev`
 #
 #     2. Clone indy-plenum
 #            `git clone git@github.com:hyperledger/indy-plenum.git -b <branch>`
@@ -132,7 +132,7 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
 from leveldb import LevelDBError
-from os import listdir
+from os import listdir, mkdir
 from os.path import abspath, basename, dirname, isfile, isdir, join, splitext
 from plenum.common.constants import KeyValueStorageType
 from shutil import copyfile
@@ -171,22 +171,26 @@ class NodeStateComparator():
     log_level = logging.WARNING
     cleanup = True
     replay = False
+    datadir = "./"
 
     s1 = "zipfile/tarfile"
+    s1tempdir = None
     s1dir = None
     s1_is_temp = False
     s1_transformed_and_scrubbed = None
 
     s2 = "zipfile/tarfile"
+    s2tempdir = None
     s2dir = None
     s2_is_temp = False
     s2_transformed_and_scrubbed = None
 
-    def __init__(self, log_level=0, cleanup=True, replay=False):
+    def __init__(self, log_level=0, cleanup=True, replay=False, datadir="./"):
         logger.setLevel(log_level)
         logger.debug("Initializing NodeStateComparator...")
         self.cleanup = cleanup
         self.replay = replay
+        self.datadir = datadir
 
 
     def _cleanup(self):
@@ -195,18 +199,22 @@ class NodeStateComparator():
         if self.s1_is_temp: 
             if self.cleanup:
                 logger.info("Removing temp dir {} containing {} contents"
-                    .format(self.s1dir, self.s1))
-                shutil.rmtree(self.s1dir)
+                    .format(self.s1tempdir, self.s1))
+                shutil.rmtree(self.s1tempdir)
             else:
                 logger.debug("Skipping removal of temp directory {}".format(
+                    self.s1dir))
+                print("Skipping removal of temp directory {}".format(
                     self.s1dir))
         if self.s2_is_temp: 
             if self.cleanup:
                 logger.info("Removing temp dir {} containing {} contents"
-                    .format(self.s2dir, self.s2))
-                shutil.rmtree(self.s2dir)
+                    .format(self.s2tempdir, self.s2))
+                shutil.rmtree(self.s2tempdir)
             else:
                 logger.debug("Skipping removal of temp directory {}".format(
+                    self.s2dir))
+                print("Skipping removal of temp directory {}".format(
                     self.s2dir))
         # Clean-up temp dirs used to store transformed and scrubbed state data
         if self.cleanup:
@@ -222,6 +230,14 @@ class NodeStateComparator():
                 logger.info(s.format(self.s2_transformed_and_scrubbed,
                         self.s2dir))
                 shutil.rmtree(self.s2_transformed_and_scrubbed)
+        else:
+            skip_message = ("Skipping removal of transform and scrub temp"
+                            " directory {}")
+            logger.debug(skip_message.format(self.s1_transformed_and_scrubbed))
+            logger.debug(skip_message.format(self.s2_transformed_and_scrubbed))
+            print(skip_message.format(self.s1_transformed_and_scrubbed))
+            print(skip_message.format(self.s2_transformed_and_scrubbed))
+            print("It is up to you to remove the above temporary directories.")
     
     # Print an error message to stderr and conditionally exit
     def _eprint(self, *args, **kwargs):
@@ -259,7 +275,7 @@ class NodeStateComparator():
         for file in onlyfiles:
             logger.debug("\t{}".format(file))
         for dirent in onlydirs:
-            self.print_directory("{}/{}".format(dir, dirent))
+            self.print_directory(join(dir, dirent))
 
     # Extract a tarball
     def _extract_tarball(self, file):
@@ -313,8 +329,17 @@ class NodeStateComparator():
         if len(baseNameElements) > 1:
             fileExtension = ".".join(baseNameElements[1:])
         return ( dirname(abs_file), baseName, fileName, fileExtension ) 
+
+    def _mkdir_p(self, path):
+        try:
+            os.makedirs(path)
+        except OSError as exc:  # Python >2.5
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
     
-    def transform_and_scrub(self, sin, sout):
+    def transform_and_scrub(self, sname, sin, sout):
         """Convert all state data to a *nix diff-able form
     
         Keyword arguments:
@@ -363,13 +388,9 @@ class NodeStateComparator():
         #
         #       2. Files in Non-LevelDB/RocksDB directories can be transformed
         #          and scrubbed in parallel.
-        for dirName, subdirList, fileList in os.walk(sin):
+        for dirName, subdirList, fileList in os.walk(abspath(sin)):
             if self.log_level <= logging.INFO:
                 logger.info("dirName: {}".format(dirName))
-                for fname in fileList:
-                    logger.info("\t{}".format(fname))
-                for dname in subdirList:
-                    logger.info("+\t{}".format(dname))
     
             # Check if all of the leveldb_rocksdb_filenames are found in
             # fileList set is_leveldb_rocksdb_dir and break if any of the
@@ -381,9 +402,21 @@ class NodeStateComparator():
                     break
     
             (dirname, filename, name, extension) = self.split_name(dirName)
+            # Do not include recordings in diff
+            if (filename == "recorder" and dirname.endswith(
+                "/{}".format(sname))):
+                subdirList[:] = []
+                continue
+
             if (is_leveldb_rocksdb_dir):
                 logger.debug("{} is a LevelDB/RocksDB directory!"
                     .format(dirName))
+
+                # Use "nodename" in place of the node's name when a directory
+                # (dirName in this case) matches the node name (sname)
+                if (sname == filename):
+                    filename = "nodename"
+
                 if (filename.endswith("_transactions")):
                     logger.debug("{} is a transaction LevelDB/RocksDB instance!"
                         .format(filename))
@@ -543,13 +576,23 @@ class NodeStateComparator():
                         logger.error(error_message.format(filename))
                         self._eprint(error_message.format(filename), exit=True)
             else:
+                # Use "nodename" in place of the node's name when a directory
+                # (filename in this case) matches the node name (sname)
+                if (sname == filename):
+                    sout = join(sout, "nodename")
+                else:
+                    sout = join(sout, filename)
+
+                # Make sure sout directory exists
+                self._mkdir_p(sout)
+
                 # Copy all files to sout and then walk each of the
-                # subdirectories
+                # subdirectories (continue outer for loop (os.walk))
                 for fname in fileList:
                     if (fname == "node_info" and not self.replay):
                         # When comparing different nodes, only preserve "view"
                         # number for comparison. All other fields can differ.
-                        with open("{}/{}/{}".format(dirname, filename, fname),
+                        with open(join(dirname, filename, fname),
                             'r') as nodeInfo:
                                 data=nodeInfo.read()
                                 data=json.loads(data)
@@ -561,10 +604,11 @@ class NodeStateComparator():
                         copyfile(join(abspath(dirName), fname), join(sout,
                             fname))
 
+
         # Check for a log file
         (dirname, filename, name, extension) = self.split_name(sin)
         log_filename = "{}.log".format(filename)
-        log_filepath = "{}/{}".format(dirname, log_filename)
+        log_filepath = join(dirname, log_filename)
         if (os.path.exists(log_filepath)):
             # Extract (view no, ppSeqNo) tuple from log file(s)
             # Last "batch ordered"
@@ -657,6 +701,7 @@ class NodeStateComparator():
             except ArchiveError as e:
                 validation_errors.append(e)
             else:
+                self.s1tempdir = tempdir
                 self.s1dir = tempdir
                 self.s1_is_temp = True
         elif ( isdir(s1) ):
@@ -676,6 +721,7 @@ class NodeStateComparator():
             except ArchiveError as e:
                 validation_errors.append(e)
             else:
+                self.s2tempdir = tempdir
                 self.s2dir = tempdir
                 self.s2_is_temp = True
         elif ( isdir(s2) ):
@@ -698,13 +744,13 @@ class NodeStateComparator():
             self.s1)
         if self.s1_is_temp:
             s1_dirname = self.s1dir
-            self.s1dir = "{}/{}".format(self.s1dir, s1_name)
+            self.s1dir = join(self.s1dir, self.datadir, s1_name)
         # Extract dirname, filename, name, and extension from s2
         (s2_dirname, s2_filename, s2_name, s2_extension) = self.split_name(
             self.s2)
         if self.s2_is_temp:
             s2_dirname = self.s2dir
-            self.s2dir = "{}/{}".format(self.s2dir, s2_name)
+            self.s2dir = join(self.s2dir, self.datadir, s2_name)
 
         # Trace level debug
         s = "Argument {}: dirname={} filename={} name={} extension={}"
@@ -720,8 +766,8 @@ class NodeStateComparator():
         self.s2_transformed_and_scrubbed = tempfile.mkdtemp()
     
         # Transform and scrub state directories
-        self.transform_and_scrub(self.s1dir, self.s1_transformed_and_scrubbed)
-        self.transform_and_scrub(self.s2dir, self.s2_transformed_and_scrubbed)
+        self.transform_and_scrub(s1_name, self.s1dir, self.s1_transformed_and_scrubbed)
+        self.transform_and_scrub(s2_name, self.s2dir, self.s2_transformed_and_scrubbed)
     
         # *nix diff s1_transformed_and_scrubbed with s2_transformed_and_scrubbed
         self.diff(self.s1_transformed_and_scrubbed,
@@ -759,29 +805,39 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     graceful = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("state1", help=".zip file or directory name")
-    parser.add_argument("state2", help=".zip file or directory name")
+    parser.add_argument("state1",
+        help=".zip, .tar.gz, .tgz file or directory name")
+    parser.add_argument("state2",
+        help=".zip, .tar.gz, .tgz file or directory name")
 
     cleanup_help=("Cleanup temporary files/directories?"
-                  "[CLEANUP]: yes, no, true, false y, n, 1, 0"
-                  "Default: True")
+                  " [CLEANUP]: yes, no, true, false y, n, 1, 0"
+                  " Default: True")
     parser.add_argument("-c", "--cleanup", type=str2bool, nargs='?', const=True,
         default=True, help=cleanup_help)
+
     log_level_help=("Logging level."
-                    "[LOG-LEVEL]: notset, debug, info, warning, error, critical"
-                    "Default: notset")
+                    " [LOG-LEVEL]: notset, debug, info, warning, error, critical"
+                    " Default: notset")
     parser.add_argument("-l", "--log-level", type=loglevel, nargs='?',
         const=logging.WARNING, default=logging.WARNING, help=log_level_help)
 
     replay_help=("Comparing a node to it's replay state?"
-                 "Example: Comparing Alpha to Alpha'. Where Alpha' is the"
-                 "result of replaying of all messages recorded on Alpha. No"
-                 "data is scrubbed from either node's state before comparing"
-                 "state."
-                 "[REPLAY]: yes, no, true, false y, n, 1, 0"
-                 "Default: False")
+                 " Example: Comparing Alpha to Alpha'. Where Alpha' is the"
+                 " result of replaying of all messages recorded on Alpha. No"
+                 " data is scrubbed from either node's state before comparing"
+                 " state."
+                 " [REPLAY]: yes, no, true, false y, n, 1, 0"
+                 " Default: False")
     parser.add_argument("-r", "--replay", type=str2bool, nargs='?',
         const=True, default=False, help=replay_help)
+
+    datadir_help=("A relative path to the \"data\" directory contained in the"
+                   " zip/tar/dir. If you are processing a zip/tar/dir named"
+                   " \"Node1.tar.gz\" and the \"Node1\" directory is located in"
+                   " sandbox/data, pass \"-d sandbox/data\"")
+    parser.add_argument("-d", "--datadir", nargs='?', const="./", default="./",
+        help=datadir_help)
 
     args = parser.parse_args()
   
@@ -791,5 +847,5 @@ if __name__ == '__main__':
         sys.exit(1)
 
     comparator = NodeStateComparator(log_level=args.log_level,
-        cleanup=args.cleanup, replay=args.replay)
+        datadir=args.datadir, cleanup=args.cleanup, replay=args.replay)
     comparator.ndiff(args.state1, args.state2)
