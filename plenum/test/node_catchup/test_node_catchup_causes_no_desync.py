@@ -1,23 +1,18 @@
-from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.util import compare_3PC_keys
 from plenum.test.delayers import pDelay, cDelay, ppDelay
 from plenum.test.node_catchup.test_node_reject_invalid_txn_during_catchup import \
     get_any_non_primary_node
-from plenum.test.test_node import checkNodesConnected, TestNode
-from plenum.test.view_change.helper import start_stopped_node
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import \
     waitNodeDataEquality, \
     waitNodeDataInequality
-from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
 
 from stp_core.loop.eventually import eventually
-from stp_core.types import HA
+from plenum.test.checkpoints.conftest import chkFreqPatched, tconf
+
 
 logger = getlogger()
-txnCount = 5
 
 
 def make_master_replica_lag(node):
@@ -44,9 +39,13 @@ def replicas_synced(node):
     assert compare_last_ordered_3pc(node) == 0
 
 
+CHK_FREQ = 5
+LOG_SIZE = 3 * CHK_FREQ
+
+
 def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
                                        sdk_wallet_client, monkeypatch,
-                                       allPluginsPath, tconf, tdir,):
+                                       chkFreqPatched, tconf):
     """
     Checks that transactions received by catchup do not
     break performance monitoring
@@ -63,32 +62,23 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
 
     # Send some requests and check that all replicas except master executed it
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 5)
+                              sdk_wallet_client, 4 * tconf.Max3PCBatchSize)
     waitNodeDataInequality(looper, lagging_node, *rest_nodes)
     looper.run(eventually(backup_replicas_run_forward, lagging_node))
 
-    # Disconnect lagging node, send some more requests and start it back
-    # After start it should fall in a such state that it needs to make catchup
-    disconnect_node_and_ensure_disconnected(looper,
-                                            txnPoolNodeSet,
-                                            lagging_node)
-    looper.removeProdable(name=lagging_node.name)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client, 5)
+    assert lagging_node.monitor.isMasterDegraded()
 
-    lagging_node = start_stopped_node(lagging_node, looper, tconf,
-                                      tdir, allPluginsPath)
-    txnPoolNodeSet[-1] = lagging_node
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 6 * tconf.Max3PCBatchSize)
     # Check that catchup done
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
+
+    lagging_node.reset_delays_and_process_delayeds()
 
     # Send some more requests to ensure that backup and master replicas
     # are in the same state
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 5)
+                              sdk_wallet_client, 4 * tconf.Max3PCBatchSize)
     looper.run(eventually(replicas_synced, lagging_node))
 
     # Check that master is not considered to be degraded
