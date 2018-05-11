@@ -190,3 +190,40 @@ we don't place any upper limit on this time.
    authors of PBFT state that allowing to get as many requests into new view
    as possible (even if they were not commited in previous view) improves
    overall performance of system.
+
+## Rough roadmap
+
+1. Implement PBFT view change as pluggable strategy that can cope with
+   resetting ppSeqNo. This will be simplest possible variant with disabled
+   request processing during view change, dropped requests that come after
+   gaps and so on. Check that this implementation works. If it does,
+   and performs better than current view change go ahead to we can take
+   faster route A, otherwise move to route B.
+
+Route A:
+
+1. Set new view change as default, remove implementation of old view change
+   and all related code, which should simplify next changes.
+
+2. Fix current code so that it doesn't rely on resetting ppSeqNo after
+   view change. After that we can go back to common route C.
+
+3. Implement other pieces of PBFT view change, which improve performance
+   and/or pool responsiveness during view change.
+
+Route B:
+
+1. Fix current code so that it doesn't rely on resetting ppSeqNo after view
+   change. Ensure that there're no regressions in current implementation of
+   view change.
+
+2. Implement critical pieces of PBFT view change that rely on ppSeqNo not
+   being reset. Check that this implementation works. If it does, and performs
+   better than current view change move to 3, otherwise additional analysis
+   will be required.
+
+3. Set new view change as default, remove implementation of old view change
+   and all related code, which should simplify next changes.
+
+4. Implement other pieces of PBFT view change, which improve performance
+   and/or pool responsiveness during view change.
