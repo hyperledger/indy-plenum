@@ -64,7 +64,7 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
-Logger.setLogLevel(logging.INFO)
+Logger.setLogLevel(logging.DEBUG)
 logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
