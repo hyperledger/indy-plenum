@@ -170,3 +170,23 @@ we don't place any upper limit on this time.
   that all requests pending to get into new view will be from same view,
   complex request selection algorithm can be simplified and view change
   algorithm will still work.
+
+## Summary of main deviations from PBFT
+
+1. Indy plenum resets ppSeqNo after each view change. This should either
+   be fixed (which can break a lot of things in current code), or PBFT view
+   change will need serious changes, like relying on digests to check if
+   request was ordered and disabling all request processing during view
+   change.
+
+2. Indy plenum performs dynamic validation of requests during pre-prepare
+   phase. This leads to changes in selection of requests that get into new
+   view. Also original PBFT approach of treating each request independent
+   from state seems more clean and probably more performant, so this could
+   be considered in future.
+
+3. Indy plenum doesn't implement null requests and probably won't support
+   ordering requests with gaps. While it doesn't seem to pose a real problem
+   authors of PBFT state that allowing to get as many requests into new view
+   as possible (even if they were not commited in previous view) improves
+   overall performance of system.
