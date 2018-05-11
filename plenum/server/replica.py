@@ -943,12 +943,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
             last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
-            if pp_view_no >= last_pp_view_no:
+            if pp_view_no >= last_pp_view_no and (
+                    self.isMaster or not self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
                 seq_to = pp_seq_no
                 if seq_frm <= seq_to:
-                    self.logger.warning("{} missing PRE-PREPAREs from {} to {}, "
-                                        "going to request".format(self, seq_frm, seq_to))
+                    self.logger.warning(
+                        "{} missing PRE-PREPAREs from {} to {}, "
+                        "going to request".format(self, seq_frm, seq_to))
                     self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
             self.enqueue_pre_prepare(pre_prepare, sender)
@@ -2052,7 +2054,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
         if key not in self.pre_prepares_stashed_for_incorrect_time:
-            self._request_pre_prepare_for_prepare(key)
+            if self.isMaster or not self.last_ordered_3pc[1] != 0:
+                self._request_pre_prepare_for_prepare(key)
         else:
             self._process_stashed_pre_prepare_for_time_if_possible(key)
 
