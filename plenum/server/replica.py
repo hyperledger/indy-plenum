@@ -547,10 +547,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # now after catch up we have in last_ordered_3pc value from
             # master replica and should change last_ordered_3pc
             # to lowest_ordered or 0
-            self.last_ordered_3pc = (self.viewNo, lowest_ordered) \
-                if is_catchup or lowest_ordered > self.last_ordered_3pc[1] \
-                else self.last_ordered_3pc
-            self.update_watermark_from_3pc()
+            if is_catchup or lowest_ordered > self.last_ordered_3pc[1]:
+                self.last_ordered_3pc = (self.viewNo, lowest_ordered)
+                self.update_watermark_from_3pc()
 
     def _clear_last_view_message_for_non_master(self, current_view):
         if not self.isMaster:
