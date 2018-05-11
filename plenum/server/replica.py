@@ -512,19 +512,28 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self, view_no) -> Optional[int]:
         """
         Return lowest pp_seq_no of the view for which can be prepared but
-        choose from unprocessed quorum of PREPAREs.
+        choose from unprocessed PRE-PREPAREs and PREPAREs.
         """
         # TODO: Naive implementation, dont need to iterate over the complete
         # data structures, fix this later
-        # last pp_seq_no of PREPAREs with quorum
-        last_seq_no_p = 0
+        seq_no_pp = SortedList()  # pp_seq_no of PRE-PREPAREs
+        # pp_seq_no of PREPAREs with count of PREPAREs for each
+        seq_no_p = set()
+
+        for (v, p) in self.prePreparesPendingPrevPP:
+            if v == view_no:
+                seq_no_pp.add(p)
+            if v > view_no:
+                break
 
         for (v, p), pr in self.preparesWaitingForPrePrepare.items():
-            if v == view_no and len(pr) >= self.quorums.prepare.value\
-                    and last_seq_no_p < p:
-                last_seq_no_p = p
+            if v == view_no and len(pr) >= self.quorums.prepare.value:
+                seq_no_p.add(p)
 
-        return last_seq_no_p if last_seq_no_p > 0 else None
+        for n in seq_no_pp:
+            if n in seq_no_p:
+                return n
+        return None
 
     def _setup_last_ordered_for_non_master(self, is_catchup=True):
         """
