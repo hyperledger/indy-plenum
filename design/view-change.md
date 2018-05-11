@@ -157,16 +157,16 @@ we don't place any upper limit on this time.
   it just skips it. However indy plenum implementation currently resets 
   ppSeqNo counter upon entering new view, so it cannot be relied upon.
   One possible workaround is to check if request was already ordered using
-  ledger, but this is _O(N)_ operation with yet undetermined bounds on _N_.
-  
-  Even if we come up with some acceptable workaround and still keep ppSeqNo 
-  reset logic there is one more problem - PBFT view-change protocol allows 
-  multiple consecutive view changes, keeps history of potentially ordered 
-  requests in different views and algorithm it uses to select requests to 
-  get into new view relies on ppSeqNo constantly growing.
-  
-  Given above two paragraphs it should be seriously considered that we stop
-  resetting ppSeqNo when entering new view, otherwise it will take probably
-  unacceptable amount of time to prove that modified algorithm is correct,
-  or go on without such proof, which will seriously undermine confidence in 
-  it.
+  ledger, but to be implemented efficiently it needs some mapping from
+  request digest to ledger state.
+
+  Even if we solve above mentioned problem and still keep ppSeqNo reset
+  logic there is one more thing to consider - PBFT view-change protocol
+  allows multiple consecutive view changes, keeps history of potentially
+  ordered requests in different views and algorithm it uses to select
+  requests to get into new view relies on ppSeqNo constantly growing.
+  Probably if we really stop processing of all 3PC messages during view
+  change (as mentioned in the beginning of this section) we can guarantee
+  that all requests pending to get into new view will be from same view,
+  complex request selection algorithm can be simplified and view change
+  algorithm will still work.
