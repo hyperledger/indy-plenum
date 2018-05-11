@@ -26,7 +26,7 @@ def test_setup_for_non_master_after_catchup(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = \
             (prepare, node.name)
-    replica._setup_for_non_master(is_catchup=False)
+    replica._setup_last_ordered_for_non_master(is_catchup=False)
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
 
@@ -47,7 +47,7 @@ def test_setup_for_non_master_in_catchup(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = \
             (prepare, node.name)
-    replica._setup_for_non_master()
+    replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
 
@@ -56,7 +56,7 @@ def test_setup_for_non_master_without_catchup(txnPoolNodeSet):
     last_ordered_3pc = (5, 12)
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica.last_ordered_3pc = last_ordered_3pc
-    replica._setup_for_non_master(is_catchup=False)
+    replica._setup_last_ordered_for_non_master(is_catchup=False)
     assert replica.last_ordered_3pc == last_ordered_3pc
 
 

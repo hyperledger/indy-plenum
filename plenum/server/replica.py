@@ -471,7 +471,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._setup_for_non_master()
+        self._setup_last_ordered_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
@@ -534,7 +534,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return n
         return None
 
-    def _setup_for_non_master(self, is_catchup=True):
+    def _setup_last_ordered_for_non_master(self, is_catchup=True):
         """
         Since last ordered view_no and pp_seq_no are only communicated for
         master instance, `last_ordered_3pc` if backup instance and clear
@@ -969,7 +969,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
             self.logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
-        self._setup_for_non_master(is_catchup=False)
+        self._setup_last_ordered_for_non_master(is_catchup=False)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1005,7 +1005,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
-                self._setup_for_non_master(is_catchup=False)
+                self._setup_last_ordered_for_non_master(is_catchup=False)
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
