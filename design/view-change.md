@@ -18,11 +18,11 @@ we don't place any upper limit on this time.
 
 - _i_, _j_ - node ID
 - _v_ - viewNo
-- _n_ - ppSeqNo of batch
+- _k_ - ppSeqNo of batch
 - _d_ - digest of batch
 - _h_ - ppSeqNo of stable checkpoint
 - _L_ - log size
-- _cn_ - checkpoint ppSeqNo
+- _ck_ - checkpoint ppSeqNo
 - _cd_ - checkpoint digest (state root in terms of indy plenum)
 - _vd_ - view-change message digest
 
@@ -30,7 +30,7 @@ we don't place any upper limit on this time.
  
 - When some replica suspects that primary is malicious it enters view _v+1_.
   This means that it will stop processing messages from view _v_, which
-  in turn ensures that we can rely on fact that if less than _2f+1_ nodes
+  in turn ensures that we can rely on fact that if less than _n-f_ nodes
   acquired prepare certificate then request is not (and won't be) ordered.
   
   It is unclear from articles whether replica should stop processing 3PC
@@ -45,51 +45,51 @@ we don't place any upper limit on this time.
   different views, which seemingly can happen only if we actually process
   pre-prepare messages from new view during view change.  
     
-- Each replica has sets _P_ and _Q_, containing tuples _(n, d, v)_, which are 
+- Each replica has sets _P_ and _Q_, containing tuples _(k, d, v)_, which are 
   normally empty, but updated upon entering new view as follows:
-  - for each _n_ in _h+1 .. h+L_:
-    - if _n_ is prepared (has a prepared certificate) add _(n, d, v)_ to _P_, 
-      remove all other tuples with same _n_ from _P_
-    - if _n_ is pre-prepared add _(n, d, v)_ to _Q_, remove all other tuples 
-      with same _n_ and _d_ from _Q_
+  - for each _k_ in _h+1 .. h+L_:
+    - if _k_ is prepared (has a prepared certificate) add _(k, d, v)_ to _P_, 
+      remove all other tuples with same _k_ from _P_
+    - if _k_ is pre-prepared add _(k, d, v)_ to _Q_, remove all other tuples 
+      with same _k_ and _d_ from _Q_
 
-  This means that _P_ can contain only one tuple for each distinct _n_, but
+  This means that _P_ can contain only one tuple for each distinct _k_, but
   _Q_ can contain multiple ones if different requests were pre-prepared 
-  with same _n_ in different views.
+  with same _k_ in different views.
   
   After updating _P_ and _Q_ replica clears its log and multicasts message
-  _VIEW-CHANGE(i, v+1, h, C, P, Q)_, where _C_ is a set of _(cn, cd)_ tuples.
+  _VIEW-CHANGE(i, v+1, h, C, P, Q)_, where _C_ is a set of _(ck, cd)_ tuples.
   
 - Upon receiving _VIEW-CHANGE_ message replica checks whether all tuples
   in _P_ and _Q_ are for view _v_ or less. If this is correct replica sends
   message _VIEW-CHANGE-ACK(j, i, v+1, vd)_ to new primary.
   
-- New primary collects _VIEW-CHANGE_ + corresponding _2f-1 VIEW-CHANGE-ACK_ 
+- New primary collects _VIEW-CHANGE_ + corresponding _n-f-2 VIEW-CHANGE-ACK_ 
   messages for each replica _i_, which (when considering _VIEW-CHANGE-ACK_ 
   which new primary could send to itself) form a view-change certificate, so 
-  it can be sure that _2f+1_ replicas have same _VIEW-CHANGE_ message for
+  it can be sure that _n-f_ replicas have same _VIEW-CHANGE_ message for
   replica _i_. Each view-change certificate is stored in _S_, and when
   each new view-change cerficate is added new primary makes an attempt to
   construct _NEW-VIEW_ message. Authors of PBFT state that when new primary
-  gets _2f+1_ view-change certificates from normal replicas it is guaranteed
+  gets _n-f_ view-change certificates from normal replicas it is guaranteed
   that this attempt will succeed.  
 
 - Attempt to form a _NEW-VIEW_ message is as follows:
-  - decide on checkpoint _(cn, cd)_ to use as a starting state for new view:
+  - decide on checkpoint _(ck, cd)_ to use as a starting state for new view:
     - it should be largest known checkpoint
     - it should be contained in _C_ of _f+1_ replicas
-    - it should be not less than _h_ of _2f+1_ replicas
-  - for each _n_ in _cn+1 .. cn+L_:
-    - for each _(n, d, v)_ in any _P_ from any replica it should get into
+    - it should be not less than _h_ of _n-f_ replicas
+  - for each _k_ in _ck+1 .. ck+L_:
+    - for each _(k, d, v)_ in any _P_ from any replica it should get into
       new view if:
-      - there are _2f+1_ replicas with _h < n_ in which for any _(n, d', v')_
+      - there are _n-f_ replicas with _h < k_ in which for any _(k, d', v')_
         in _P_ _v' < v_ or _v'=v_, _d'=d_, and  
-      - there are _f+1_ replicas with _Q_ containing _(n, d, v')_, _v' >= v_
-    - if _P_ from _2f+1_ replicas with _h < n_ doesn't contain request with
+      - there are _f+1_ replicas with _Q_ containing _(k, d, v')_, _v' >= v_
+    - if _P_ from _n-f_ replicas with _h < k_ doesn't contain request with
       this sequence number it was certainly not ordered and authors of PBFT
-      suggest to assign _null_ request to _n_
+      suggest to assign _null_ request to _k_
   
-  If we got requests for all _n_ in _cn+1 .. cn+L_ we can send _NEW-VIEW_
+  If we got requests for all _k_ in _ck+1 .. ck+L_ we can send _NEW-VIEW_
   message. Goal of original approach was to get as many requests to new view 
   as possible, but if we are okay with discarding requests that were not 
   commited then we could truncate request list for new view on first _null_ 
@@ -98,7 +98,7 @@ we don't place any upper limit on this time.
 - When new primary decided on list of requests to get into new view it 
   multicasts _NEW-VIEW(v+1, V, X)_ message, where _V_ is set of tuples 
   _(i, vd)_ for each view-change certificate in _S_, and _X_ is a structure
-  containing selected _(cn, cd)_ and list of requests to get into new view.
+  containing selected _(ck, cd)_ and list of requests to get into new view.
   
   Backups consider _NEW-VIEW_ message valid when they have correct matching
   _VIEW-CHANGE_ message for each entry in _V_ and agrees on contents of _X_.
@@ -118,13 +118,13 @@ we don't place any upper limit on this time.
   learn about missing messages and retransmit them.
   
 - After obtaining (or generating in case of new primary) correct _NEW-VIEW_
-  message each replica sets stable checkpoint to _(cn, cd)_ from _X_ and
+  message each replica sets stable checkpoint to _(ck, cd)_ from _X_ and
   records all requests in _X_ as pre-prepared. Backup replicas also broadcast
   _PREPARE_ messages for these requests. After that processing goes on in
   normal state. There are some caveats however.
   
   First one (also mentioned by authors of PBFT) is that it can happen so 
-  that some replica won't have checkpoint _(cn, cd)_ and it would require 
+  that some replica won't have checkpoint _(ck, cd)_ and it would require 
   state transfer protocol to get to correct state. This could be done 
   independent from normal request processing (they can still get prepare and 
   commit certificates), which will be executed when state is caught up.
