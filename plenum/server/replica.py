@@ -472,6 +472,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.primaryName = primaryName
         self._setup_last_ordered_for_non_master()
+        self._clear_last_view_message_for_non_master(self.viewNo)
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
@@ -511,28 +512,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self, view_no) -> Optional[int]:
         """
         Return lowest pp_seq_no of the view for which can be prepared but
-        choose from unprocessed PRE-PREPAREs and PREPAREs.
+        choose from unprocessed quorum of PREPAREs.
         """
         # TODO: Naive implementation, dont need to iterate over the complete
         # data structures, fix this later
-        seq_no_pp = SortedList()  # pp_seq_no of PRE-PREPAREs
-        # pp_seq_no of PREPAREs with count of PREPAREs for each
-        seq_no_p = set()
-
-        for (v, p) in self.prePreparesPendingPrevPP:
-            if v == view_no:
-                seq_no_pp.add(p)
-            if v > view_no:
-                break
+        # last pp_seq_no of PREPAREs with quorum
+        last_seq_no_p = 0
 
         for (v, p), pr in self.preparesWaitingForPrePrepare.items():
-            if v == view_no and len(pr) >= self.quorums.prepare.value:
-                seq_no_p.add(p)
+            if v == view_no and len(pr) >= self.quorums.prepare.value\
+                    and last_seq_no_p < p:
+                last_seq_no_p = p
 
-        for n in seq_no_pp:
-            if n in seq_no_p:
-                return n
-        return None
+        return last_seq_no_p if last_seq_no_p > 0 else None
 
     def _setup_last_ordered_for_non_master(self, is_catchup=True):
         """
@@ -558,13 +550,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = (self.viewNo, lowest_ordered) \
                 if is_catchup or lowest_ordered > self.last_ordered_3pc[1] \
                 else self.last_ordered_3pc
-            self._clear_last_view_message_for_non_master(self.viewNo)
+            self.update_watermark_from_3pc()
 
     def _clear_last_view_message_for_non_master(self, current_view):
-        assert not self.isMaster
-        for v in list(self.stashed_out_of_order_commits.keys()):
-            if v < current_view:
-                self.stashed_out_of_order_commits.pop(v)
+        if not self.isMaster:
+            for v in list(self.stashed_out_of_order_commits.keys()):
+                if v < current_view:
+                    self.stashed_out_of_order_commits.pop(v)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -906,7 +898,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
-
+        self._setup_last_ordered_for_non_master(is_catchup=False)
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
         req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
@@ -969,7 +961,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
             self.logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
-        self._setup_last_ordered_for_non_master(is_catchup=False)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1001,11 +992,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         try:
             if self.validatePrepare(prepare, sender):
+                self._setup_last_ordered_for_non_master(is_catchup=False)
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
-                self._setup_last_ordered_for_non_master(is_catchup=False)
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
