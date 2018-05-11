@@ -170,7 +170,6 @@ class NodeStateComparator():
     logger = None
     log_level = logging.WARNING
     cleanup = True
-    replay = False
     datadir = "./"
 
     s1 = "zipfile/tarfile"
@@ -184,13 +183,20 @@ class NodeStateComparator():
     s2dir = None
     s2_is_temp = False
     s2_transformed_and_scrubbed = None
+    
+    skipfiles = []
+    skipdirs = ['combined_recorder']
 
-    def __init__(self, log_level=0, cleanup=True, replay=False, datadir="./"):
+    def __init__(self, log_level=0, cleanup=True, datadir="./", skipfiles=[],
+        skipdirs=[]):
         logger.setLevel(log_level)
         logger.debug("Initializing NodeStateComparator...")
         self.cleanup = cleanup
-        self.replay = replay
         self.datadir = datadir
+        if (skipfiles):
+            self.skipfiles.extend(skipfiles)
+        if (skipdirs):
+            self.skipdirs.extend(skipdirs)
 
 
     def _cleanup(self):
@@ -389,8 +395,17 @@ class NodeStateComparator():
         #       2. Files in Non-LevelDB/RocksDB directories can be transformed
         #          and scrubbed in parallel.
         for dirName, subdirList, fileList in os.walk(abspath(sin)):
+            if (dirName in self.skipdirs):
+                logger.debug("Skipping dirName: {}".format(dirName))
+                break
+
             if self.log_level <= logging.INFO:
                 logger.info("dirName: {}".format(dirName))
+
+            # Skip specific directories
+            subdirList[:] = [x for x in subdirList if x not in self.skipdirs]
+            # Skip specific files
+            fileList[:] = [x for x in fileList if x not in self.skipfiles]
     
             # Check if all of the leveldb_rocksdb_filenames are found in
             # fileList set is_leveldb_rocksdb_dir and break if any of the
@@ -533,8 +548,7 @@ class NodeStateComparator():
                         logger.debug(debug_msg.format(filename))
                         out_filename = join(sout, filename)
                         with open(out_filename, "a") as file_handle:
-                            if (filename == "state_signature" and not
-                                self.replay):
+                            if (filename == "state_signature"):
                                 for k, v in leveldb_rocksdb_handle.iterator():
                                     data=json.loads(v.decode('utf-8'))
                                     # The 'participants' and 'signature' can
@@ -589,7 +603,7 @@ class NodeStateComparator():
                 # Copy all files to sout and then walk each of the
                 # subdirectories (continue outer for loop (os.walk))
                 for fname in fileList:
-                    if (fname == "node_info" and not self.replay):
+                    if (fname == "node_info"):
                         # When comparing different nodes, only preserve "view"
                         # number for comparison. All other fields can differ.
                         with open(join(dirname, filename, fname),
@@ -817,20 +831,10 @@ if __name__ == '__main__':
         default=True, help=cleanup_help)
 
     log_level_help=("Logging level."
-                    " [LOG-LEVEL]: notset, debug, info, warning, error, critical"
-                    " Default: notset")
+                    " [LOG-LEVEL]: notset, debug, info, warning, error,"
+                    " critical Default: notset")
     parser.add_argument("-l", "--log-level", type=loglevel, nargs='?',
         const=logging.WARNING, default=logging.WARNING, help=log_level_help)
-
-    replay_help=("Comparing a node to it's replay state?"
-                 " Example: Comparing Alpha to Alpha'. Where Alpha' is the"
-                 " result of replaying of all messages recorded on Alpha. No"
-                 " data is scrubbed from either node's state before comparing"
-                 " state."
-                 " [REPLAY]: yes, no, true, false y, n, 1, 0"
-                 " Default: False")
-    parser.add_argument("-r", "--replay", type=str2bool, nargs='?',
-        const=True, default=False, help=replay_help)
 
     datadir_help=("A relative path to the \"data\" directory contained in the"
                    " zip/tar/dir. If you are processing a zip/tar/dir named"
@@ -838,6 +842,17 @@ if __name__ == '__main__':
                    " sandbox/data, pass \"-d sandbox/data\"")
     parser.add_argument("-d", "--datadir", nargs='?', const="./", default="./",
         help=datadir_help)
+
+    skip_file_help=("Skip a file. Use -s or --skip-file for each"
+                    " file. Example: \"-s foo\" skips all files named foo.")
+    parser.add_argument("-s", '--skip-file', action='append',
+        help=skip_file_help)
+
+    skip_dir_help=("Skip a directory. Use -S or --skip-dir for each"
+                    " directory. Example: \"-s bar\" skips all directories"
+                    " named bar.")
+    parser.add_argument("-S", '--skip-dir', action='append',
+        help=skip_dir_help)
 
     args = parser.parse_args()
   
@@ -847,5 +862,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     comparator = NodeStateComparator(log_level=args.log_level,
-        datadir=args.datadir, cleanup=args.cleanup, replay=args.replay)
+        datadir=args.datadir, cleanup=args.cleanup, skipfiles=args.skip_file,
+        skipdirs=args.skip_dir)
     comparator.ndiff(args.state1, args.state2)
