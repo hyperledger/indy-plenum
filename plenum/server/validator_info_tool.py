@@ -345,7 +345,7 @@ class ValidatorNodeInfoTool:
             stashed_txns["Stashed_checkoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
             if replica.prePreparesPendingPrevPP:
                 stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(
-                    replica.prePreparesPendingPrevPP.itervalues[-1])
+                    [pp for pp in replica.prePreparesPendingPrevPP.itervalues()][-1])
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
@@ -353,7 +353,7 @@ class ValidatorNodeInfoTool:
     def _get_node_metrics(self):
         metrics = {}
         for metrica in self._node.monitor.metrics():
-            metrics[metrica[0]] = metrica[1]
+            metrics[metrica[0]] = self._prepare_for_json(metrica[1])
         metrics.update(
             {
                 'average-per-second': {
