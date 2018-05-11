@@ -88,13 +88,28 @@ we don't place any upper limit on this time.
     - if _P_ from _n-f_ replicas with _h < k_ doesn't contain request with
       this sequence number it was certainly not ordered and authors of PBFT
       suggest to assign _null_ request to _k_
-  
+
+  Since indy plenum performs dynamic validation of requests before sending
+  or accepting pre-prepare this also should be done for all requests selected
+  for ordering in new view. Those that fail validation were certainly not
+  ordered in previous view so they should be also transformed to _null_
+  requests. Also when doing this validation uncommited state gets updated.
+
   If we got requests for all _k_ in _ck+1 .. ck+L_ we can send _NEW-VIEW_
   message. Goal of original approach was to get as many requests to new view 
   as possible, but if we are okay with discarding requests that were not 
   commited then we could truncate request list for new view on first _null_ 
   request, since all later requests were certainly not commited either.
-  
+
+  Side note: authors of PBFT papers don't rely on dynamic validation during
+  pre-prepare as they solve abstract problem of making sure that all replicas
+  of state machine receive same events in same order. If we abstract state
+  from BFT protocol we can just move dynamic validation to execution step and
+  treat failures as yet another transition (which doesn't actually change
+  ledger). Also this approach can potentially increase throughput because
+  we'll no longer need to wait for all previous requests during pre-prepare
+  phase before continuing ordering.
+
 - When new primary decided on list of requests to get into new view it 
   multicasts _NEW-VIEW(v+1, V, X)_ message, where _V_ is set of tuples 
   _(i, vd)_ for each view-change certificate in _S_, and _X_ is a structure
@@ -116,13 +131,17 @@ we don't place any upper limit on this time.
   messages even if underlying network can randomly drop them. Their proposed 
   solution is to periodically broadcast status messages, so other nodes can 
   learn about missing messages and retransmit them.
-  
+
 - After obtaining (or generating in case of new primary) correct _NEW-VIEW_
   message each replica sets stable checkpoint to _(ck, cd)_ from _X_ and
   records all requests in _X_ as pre-prepared. Backup replicas also broadcast
-  _PREPARE_ messages for these requests. After that processing goes on in
-  normal state. There are some caveats however.
-  
+  _PREPARE_ messages for these requests. Since preparing (by primary) and
+  checking (by backups) of _X_ includes update of uncommited state and
+  dynamic validation of requests it is guaranteed that at this point all
+  correct replicas will have same uncommited state corresponding to
+  pre-prepared requests that got to new view. After that processing goes on
+  in normal state. There are some caveats however.
+
   First one (also mentioned by authors of PBFT) is that it can happen so 
   that some replica won't have checkpoint _(ck, cd)_ and it would require 
   state transfer protocol to get to correct state. This could be done 
