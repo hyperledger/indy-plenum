@@ -437,6 +437,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
             self.configLedger,
+            preCatchupStartClbk=self.preConfigLedgerCatchup,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
@@ -473,6 +474,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_action_req_handler(self):
         return ActionReqHandler()
+
+    def prePoolLedgerCatchup(self, **kwargs):
+        self.mode = Mode.discovering
+
+    def preConfigLedgerCatchup(self, **kwargs):
+        self.mode = Mode.syncing
+
+    def preDomainLedgerCatchup(self, **kwargs):
+        self.mode = Mode.syncing
 
     def postConfigLedgerCaughtUp(self, **kwargs):
         pass
@@ -716,6 +726,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.ledgerManager.addLedger(
                 POOL_LEDGER_ID,
                 self.poolLedger,
+                preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.on_new_ledger_added(POOL_LEDGER_ID)
@@ -724,6 +735,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager.addLedger(
             DOMAIN_LEDGER_ID,
             self.domainLedger,
+            preCatchupStartClbk=self.preDomainLedgerCatchup,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
@@ -869,9 +881,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.nodestack.maintainConnections(force=True)
 
-            # Node using pool ledger so first sync pool ledger
-            self.mode = Mode.starting
-            self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
+            self.start_catchup(just_started=True)
 
         self.logNodeInfo()
 
@@ -1164,13 +1174,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendLedgerStatus(node_name,
                               self.ledgerManager.ledger_sync_order[0])
-        # Send the domain ledger status only when it has discovered enough
-        # peers otherwise very few peers will know that this node is lagging
-        # behind and it will not receive sufficient consistency proofs to
-        # verify the exact state of the ledger.
-        if Mode.is_done_discovering(self.mode):
-            for lid in self.ledgerManager.ledger_sync_order[1:]:
-                self.sendLedgerStatus(node_name, lid)
 
     def nodeJoined(self, txn):
         logger.info("{} new node joined by txn {}".format(self, txn))
@@ -1780,9 +1783,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.force_process_ordered()
         self.processStashedOrderedReqs()
 
-        # make the node Syncing
-        self.mode = Mode.syncing
-
         # revert uncommitted txns and state for unordered requests
         r = self.master_replica.revert_unordered_batches()
         logger.debug('{} reverted {} batches before starting catch up for '
@@ -1915,6 +1915,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        for replica in self.replicas:
+            replica.gc()
         self.mode = Mode.synced
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
@@ -2462,7 +2464,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
-    def start_catchup(self):
+    def start_catchup(self, just_started=False):
         # Process any already Ordered requests by the replica
 
         if self.mode == Mode.starting:
@@ -2478,14 +2480,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
-        # Pool ledger should be synced first
-        ledger_id = POOL_LEDGER_ID if self._is_there_pool_ledger() else \
-            self.ledgerManager.ledger_sync_order[1]
-        self.ledgerManager.catchup_ledger(ledger_id)
-
-    def _is_there_pool_ledger(self):
-        # TODO isinstance is not OK
-        return isinstance(self.poolManager, TxnPoolManager)
+        self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
+                                          request_ledger_statuses=not just_started)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
         logger.debug('{} ordered previous view batch {} by instance {}'.
