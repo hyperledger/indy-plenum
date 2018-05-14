@@ -206,7 +206,7 @@ Route A:
    and all related code, which should simplify next changes.
 
 2. Fix current code so that it doesn't rely on resetting ppSeqNo after
-   view change. After that we can go back to common route C.
+   view change.
 
 3. Implement other pieces of PBFT view change, which improve performance
    and/or pool responsiveness during view change.
