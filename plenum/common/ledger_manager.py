@@ -100,7 +100,7 @@ class LedgerManager(HasActionQueue):
 
         quorum = Quorums(self.owner.totalNodes)
         groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
-        if quorum.same_consistency_proof.is_reached(null_proofs_count)\
+        if quorum.ledger_status.is_reached(null_proofs_count) \
                 or len(groupedProofs) == 0:
             return
         result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
@@ -253,86 +253,82 @@ class LedgerManager(HasActionQueue):
                          format(self, frm))
             return
 
-        # Nodes might not be using pool txn ledger, might be using simple node
-        # registries (old approach)
         ledgerStatus = LedgerStatus(*status)
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence number "
                                         "from {}".format(frm),
                          logMethod=logger.warning)
             return
+
         ledgerId = getattr(status, f.LEDGER_ID.nm)
 
-        # If this is a node's ledger manager and sender of this ledger status
-        #  is a client and its pool ledger is same as this node's pool ledger
-        # then send the pool ledger status since client wont be receiving the
-        # consistency proof in this case:
-        statusFromClient = self.getStack(frm) == self.clientstack
-        if self.ownedByNode and statusFromClient:
-            if ledgerId != POOL_LEDGER_ID:
-                logger.debug("{} received inappropriate "
-                             "ledger status {} from client {}"
-                             .format(self, status, frm))
+        if self.ownedByNode:
+            statusFromClient = self.getStack(frm) == self.clientstack
+
+            if statusFromClient:
+                if ledgerId != POOL_LEDGER_ID:
+                    # A client has only the pool ledger, so it should not send
+                    # ledger statuses related to other ledgers
+                    logger.debug("{} received inappropriate "
+                                 "ledger status {} from client {}"
+                                 .format(self, status, frm))
+                    return
+
+                # If our node is not ahead the client which has sent
+                # the ledger status then reply to it that its ledger is OK
+                if not self.isLedgerNew(ledgerStatus):
+                    ledger_status = self.owner.build_ledger_status(ledgerId)
+                    self.sendTo(ledger_status, frm)
+
+            # If our node is ahead the sender of the ledger status
+            # then reply to it with the consistency proof
+            if self.isLedgerNew(ledgerStatus):
+                consistencyProof = self.getConsistencyProof(ledgerStatus)
+                if consistencyProof:
+                    self.sendTo(consistencyProof, frm)
+
+            # If the ledger status is from client then we do nothing more
+            if statusFromClient:
                 return
-            if self.isLedgerSame(ledgerStatus):
-                ledger_status = self.owner.build_ledger_status(POOL_LEDGER_ID)
-                self.sendTo(ledger_status, frm)
 
-        # If a ledger is yet to sync and cannot sync right now,
-        # then stash the ledger status to be processed later
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        if ledgerInfo.state != LedgerState.synced and not ledgerInfo.canSync:
-            self.stashLedgerStatus(ledgerId, status, frm)
-            return
 
-        # If this manager is owned by a node and this node's ledger is ahead of
-        # the received ledger status
-        if self.ownedByNode and self.isLedgerNew(ledgerStatus):
-            consistencyProof = self.getConsistencyProof(ledgerStatus)
-            if not consistencyProof:
-                return None
-            self.sendTo(consistencyProof, frm)
-
-        if self.isLedgerOld(ledgerStatus):
-            # if ledgerInfo.state == LedgerState.synced:
-            if ledgerInfo.state != LedgerState.syncing:
-                self.setLedgerCanSync(ledgerId, True)
+        # If we are performing a catch-up of the corresponding ledger
+        if ledgerInfo.state == LedgerState.not_synced and ledgerInfo.canSync:
+            # If we are behind the node which has sent the ledger status
+            # then send our ledger status to it
+            # in order to get the consistency proof from it
+            if self.isLedgerOld(ledgerStatus):
                 ledger_status = self.owner.build_ledger_status(ledgerId)
                 self.sendTo(ledger_status, frm)
-            return
+                return
 
-        if statusFromClient:
-            return
+            # We are not behind the node which has sent the ledger status,
+            # so our ledger is OK in comparison with that node
+            # and we will not get a consistency proof from it
+            ledgerInfo.ledgerStatusOk.add(frm)
+            ledgerInfo.recvdConsistencyProofs[frm] = None
 
-        # This node's ledger is not older so it will not receive a
-        # consistency proof unless the other node processes a transaction
-        # post sending this ledger status
-        ledgerInfo.recvdConsistencyProofs[frm] = None
-        ledgerInfo.ledgerStatusOk.add(frm)
+            # If we are even with the node which has sent the ledger status
+            # then save the last txn master 3PC-key from it
+            if self.isLedgerSame(ledgerStatus):
+                ledgerInfo.last_txn_3PC_key[frm] = \
+                    (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
 
-        if self.isLedgerSame(ledgerStatus):
-            ledgerInfo.last_txn_3PC_key[frm] = \
-                (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
-
-        if self.has_ledger_status_quorum(
-                len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
-            logger.debug("{} found out from {} that its "
-                         "ledger of type {} is latest".
-                         format(self, ledgerInfo.ledgerStatusOk, ledgerId))
-            if ledgerInfo.state != LedgerState.synced:
+            # If we gathered the quorum of ledger statuses indicating
+            # that our ledger is OK then we do not need to perform actual
+            # synchronization of our ledger (however, we still need to do
+            # the ledger pre-catchup and post-catchup procedures)
+            if self.has_ledger_status_quorum(
+                    len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
+                logger.debug("{} found out from {} that its "
+                             "ledger of type {} is latest".
+                             format(self, ledgerInfo.ledgerStatusOk, ledgerId))
                 logger.debug('{} found from ledger status {} that it does '
                              'not need catchup'.format(self, ledgerStatus))
-                # If this node's ledger is same as the ledger status (which is
-                #  also the majority of the pool), then set the last ordered
-                # 3PC key
                 self.do_pre_catchup(ledgerId)
-                # Any state cleanup that is part of pre-catchup should be
-                # done
                 last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
                 self.catchupCompleted(ledgerId, last_3PC_key)
-            else:
-                # Ledger was already synced
-                self.mark_ledger_synced(ledgerId)
 
     def _get_last_txn_3PC_key(self, ledgerInfo):
         quorum = Quorums(self.owner.totalNodes)
@@ -377,28 +373,11 @@ class LedgerManager(HasActionQueue):
                          "proof since canSync is {}"
                          .format(self, ledgerInfo.canSync))
             return False
-        if ledgerInfo.state == LedgerState.syncing:
+        if ledgerInfo.state != LedgerState.not_synced:
             logger.debug("{} cannot process consistency "
                          "proof since ledger state is {}"
                          .format(self, ledgerInfo.state))
             return False
-        if ledgerInfo.state == LedgerState.synced:
-            if not self.checkLedgerIsOutOfSync(ledgerInfo):
-                logger.debug("{} cannot process consistency "
-                             "proof since in state {} and not enough "
-                             "CPs received"
-                             .format(self, ledgerInfo.state))
-                return False
-            logger.debug("{} is out of sync (based on CPs {} and total "
-                         "node cnt {}) -> updating ledger"
-                         " state from {} to {}"
-                         .format(self, ledgerInfo.recvdConsistencyProofs,
-                                 self.owner.totalNodes,
-                                 ledgerInfo.state, LedgerState.not_synced))
-            self.setLedgerState(ledgerId, LedgerState.not_synced)
-            if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
-                ledgerInfo.preCatchupStartClbk()
-            return self.canProcessConsistencyProof(proof)
 
         start = getattr(proof, f.SEQ_NO_START.nm)
         end = getattr(proof, f.SEQ_NO_END.nm)
@@ -416,15 +395,6 @@ class LedgerManager(HasActionQueue):
                          logMethod=logger.warning)
             return False
         return True
-
-    def checkLedgerIsOutOfSync(self, ledgerInfo) -> bool:
-        recvdConsProof = ledgerInfo.recvdConsistencyProofs
-        # Consider an f value when this node had not been added
-        adjustedQuorum = Quorums(self.owner.totalNodes)
-        equal_state_proofs = self.__get_equal_state_proofs_count(
-            recvdConsProof)
-        return not adjustedQuorum.same_consistency_proof.is_reached(
-            equal_state_proofs)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
@@ -716,7 +686,8 @@ class LedgerManager(HasActionQueue):
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         # Consider an f value when this node was not connected
         adjustedQuorum = Quorums(self.owner.totalNodes)
-        if len(recvdConsProof) == adjustedQuorum.f + 1:
+        if len([v for v in recvdConsProof.values() if v is not None]) == \
+                adjustedQuorum.f + 1:
             # At least once correct node believes that this node is behind.
 
             # Start timer that will expire in some time and if till that time
@@ -733,10 +704,9 @@ class LedgerManager(HasActionQueue):
                          format(self, recvdConsProof, adjustedQuorum.f))
             grpdPrf, null_proofs_count = self._groupConsistencyProofs(
                 recvdConsProof)
-            # If more than f nodes were found to be at the same state then this
-            #  node's state is good too
-            if adjustedQuorum.same_consistency_proof.is_reached(
-                    null_proofs_count):
+            # If at least n-f-1 nodes were found to be at the same state
+            # then this node's state is good too
+            if adjustedQuorum.ledger_status.is_reached(null_proofs_count):
                 return True, None
             result = self._latestReliableProof(grpdPrf,
                                                ledgerInfo.ledger)
@@ -821,6 +791,8 @@ class LedgerManager(HasActionQueue):
     def do_pre_catchup(self, ledger_id):
         if self.preCatchupClbk:
             self.preCatchupClbk(ledger_id)
+        ledgerInfo = self.getLedgerInfoByType(ledger_id)
+        ledgerInfo.pre_syncing()
 
     def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
         if ledgerId not in self.ledgerRegistry:
@@ -911,13 +883,13 @@ class LedgerManager(HasActionQueue):
             logger.debug('{} not found any ledger to catchup after {}'
                          .format(self, ledger_id))
 
-    def catchup_ledger(self, ledger_id):
+    def catchup_ledger(self, ledger_id, request_ledger_statuses=True):
         try:
             ledger_info = self.getLedgerInfoByType(ledger_id)
             ledger_info.set_defaults()
             ledger_info.canSync = True
-            self.owner.request_ledger_status_from_nodes(ledger_id)
-            self.processStashedLedgerStatuses(ledger_id)
+            if request_ledger_statuses:
+                self.owner.request_ledger_status_from_nodes(ledger_id)
         except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledger_id))
@@ -998,10 +970,6 @@ class LedgerManager(HasActionQueue):
         seqNoStart = getattr(status, f.TXN_SEQ_NO.nm)
         seqNoEnd = ledger.size
         return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
-
-    @staticmethod
-    def __get_equal_state_proofs_count(proofs):
-        return sum(1 for frm, proof in proofs.items() if not proof)
 
     def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
 
@@ -1090,29 +1058,6 @@ class LedgerManager(HasActionQueue):
     def appendToLedger(self, ledgerId: int, txn: Any) -> Dict:
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         return ledgerInfo.ledger.append(txn)
-
-    def stashLedgerStatus(self, ledgerId: int, status, frm: str):
-        logger.info("{} stashing ledger status {} from {}".
-                    format(self, status, frm))
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        ledgerInfo.stashedLedgerStatuses.append((status, frm))
-
-    def processStashedLedgerStatuses(self, ledgerId: int):
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        i = 0
-        max_iter = len(ledgerInfo.stashedLedgerStatuses)
-        logger.debug(
-            '{} going to process {} stashed ledger statuses for ledger'
-            ' {}'.format(
-                self, max_iter, ledgerId))
-        # Since `processLedgerStatus` can stash some ledger statuses, make sure
-        # each item in `ledgerInfo.stashedLedgerStatuses` is processed only
-        # once
-        while max_iter != i:
-            msg, frm = ledgerInfo.stashedLedgerStatuses.popleft()
-            i += 1
-            self.processLedgerStatus(msg, frm)
-        return i
 
     def getStack(self, remoteName: str):
         if self.ownedByNode and self.clientstack.hasRemote(remoteName):

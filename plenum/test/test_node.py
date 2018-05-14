@@ -141,6 +141,7 @@ class TestNodeCore(StackedTester):
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
+        self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
         return TestReplicas(self, self.monitor, config)
@@ -387,6 +388,12 @@ class TestNode(TestNodeCore, Node):
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
 
+    def schedule_node_status_dump(self):
+        pass
+
+    def dump_additional_info(self):
+        pass
+
 
 elector_spyables = [
     PrimaryElector.discard,
@@ -446,8 +453,13 @@ replica_spyables = [
     replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
-    replica.Replica.process_requested_pre_prepare,
+    replica.Replica._request_pre_prepare,
     replica.Replica._request_pre_prepare_for_prepare,
+    replica.Replica._request_prepare,
+    replica.Replica._request_commit,
+    replica.Replica.process_requested_pre_prepare,
+    replica.Replica.process_requested_prepare,
+    replica.Replica.process_requested_commit,
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,

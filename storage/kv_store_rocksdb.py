@@ -13,10 +13,11 @@ except ImportError:
 
 
 class KeyValueStorageRocksdb(KeyValueStorage):
-    def __init__(self, db_dir, db_name, open=True):
+    def __init__(self, db_dir, db_name, open=True, read_only=False):
         if 'rocksdb' not in globals():
             raise RuntimeError('Rocksdb is needed to use this class')
         self._db_path = os.path.join(db_dir, db_name)
+        self._read_only = read_only
         self._db = None
         if open:
             self.open()
@@ -24,14 +25,26 @@ class KeyValueStorageRocksdb(KeyValueStorage):
     def open(self):
         opts = rocksdb.Options()
         opts.create_if_missing = True
-        self._db = rocksdb.DB(self._db_path, opts)
+        self._db = rocksdb.DB(self._db_path, opts, read_only=self._read_only)
 
     def __repr__(self):
         return self._db_path
 
     @property
+    def is_byte(self) -> bool:
+        return True
+
+    @property
     def db_path(self) -> str:
         return self._db_path
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
+
+    @property
+    def closed(self):
+        return self._db is None
 
     def put(self, key, value):
         key = self.to_byte_repr(key)
@@ -103,17 +116,9 @@ class KeyValueStorageRocksdb(KeyValueStorage):
     def do_ops_in_batch(self, batch: Iterable[Tuple], is_committed=False):
         pass
 
-    @property
-    def is_byte(self) -> bool:
-        return True
-
     def has_key(self, key):
         key = self.to_byte_repr(key)
         return self._db.key_may_exist(key)[0]
-
-    @property
-    def closed(self):
-        return self._db is None
 
     @staticmethod
     def _new_wrapped_iterator(itr, upper_bound):
