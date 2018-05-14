@@ -348,8 +348,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def check_unordered(self):
         now = time.perf_counter()
         unordereds = [(req, now - started) for req, started in self.requestTracker.unordered()
-                      if now - started > self.config.UnorderedCheckFreq
-                      and req not in self.requestTracker.messaged_reqs]
+                      if now - started > self.config.UnorderedCheckFreq and
+                      req not in self.requestTracker.messaged_reqs]
         if len(unordereds) == 0:
             return
         self.requestTracker.messaged_reqs.extend([unordered[0] for unordered in unordereds])
