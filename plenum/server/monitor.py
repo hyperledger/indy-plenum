@@ -55,7 +55,7 @@ class RequestTimeTracker:
     def __init__(self, instance_count):
         self.instance_count = instance_count
         self._requests = {}
-        self.messaged = []
+        self.messaged_reqs = []
 
     def __contains__(self, item):
         return item in self._requests
@@ -287,8 +287,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         might have been reset due to view change due to which this method
         returns None
         """
-        self.requestTracker.messaged = \
-            [messaged for messaged in self.requestTracker.messaged if messaged[0] not in reqIdrs]
+        new_messaged = []
+        for messaged in self.requestTracker.messaged_reqs:
+            if messaged not in reqIdrs:
+                new_messaged.append(messaged)
+            else:
+                logger.info('Consensus for ReqId: {} was achieved'
+                            .format(messaged[0]))
+        self.requestTracker.messaged_reqs = new_messaged
         now = time.perf_counter()
         durations = {}
         for identifier, reqId in reqIdrs:
@@ -342,13 +348,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def check_unordered(self):
         now = time.perf_counter()
         unordereds = [(req, now - started) for req, started in self.requestTracker.unordered()
-                      if now - started > self.config.UnorderedCheckFreq]
+                      if now - started > self.config.UnorderedCheckFreq
+                      and req not in self.requestTracker.messaged_reqs]
         if len(unordereds) == 0:
             return
-
-        for messaged in self.requestTracker.messaged:
-            unordereds.remove(messaged)
-        self.requestTracker.messaged.extend(unordereds)
+        self.requestTracker.messaged_reqs.extend([unordered[0] for unordered in unordereds])
         for handler in self.unordered_requests_handlers:
             handler(unordereds)
         for unordered in unordereds:
