@@ -8,7 +8,7 @@ logger = getlogger()
 
 
 class DbHashStore(HashStore):
-    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB):
+    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB, read_only=False):
         self.dataDir = dataDir
         assert db_type == HS_ROCKSDB or db_type == HS_LEVELDB
         self.db_type = KeyValueStorageType.Leveldb if db_type == HS_LEVELDB \
@@ -16,6 +16,7 @@ class DbHashStore(HashStore):
         self.nodesDb = None
         self.leavesDb = None
         self._leafCount = 0
+        self._read_only = read_only
         self.nodes_db_name = fileNamePrefix + '_merkleNodes'
         self.leaves_db_name = fileNamePrefix + '_merkleLeaves'
         self.open()
@@ -23,6 +24,10 @@ class DbHashStore(HashStore):
     @property
     def is_persistent(self) -> bool:
         return True
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
 
     def writeLeaf(self, leafHash):
         self.leavesDb.put(str(self.leafCount + 1), leafHash)
@@ -82,9 +87,9 @@ class DbHashStore(HashStore):
 
     def open(self):
         self.nodesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.nodes_db_name)
+            self.db_type, self.dataDir, self.nodes_db_name, read_only=self._read_only)
         self.leavesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.leaves_db_name)
+            self.db_type, self.dataDir, self.leaves_db_name, read_only=self._read_only)
         self._leafCount = self.leavesDb.size
 
     def close(self):

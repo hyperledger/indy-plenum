@@ -7,8 +7,8 @@ except ImportError:
 
 
 class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
-    def __init__(self, db_dir, db_name, open=True):
-        super().__init__(db_dir, db_name, open)
+    def __init__(self, db_dir, db_name, open=True, read_only=False):
+        super().__init__(db_dir, db_name, open, read_only)
 
     @staticmethod
     def compare(a, b):

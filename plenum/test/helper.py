@@ -417,7 +417,8 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1, 'Expected 1, but got {}'.format(len(viewNos))
+    assert len(viewNos) == 1, 'Expected 1, but got {}. ' \
+                              'ViewNos: {}'.format(len(viewNos), [(n.name, n.viewNo) for n in nodes])
     vNo, = viewNos
     if expectedViewNo is not None:
         assert vNo >= expectedViewNo, \

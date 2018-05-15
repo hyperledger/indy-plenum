@@ -7,11 +7,9 @@ import logging
 baseDir = os.getcwd()
 
 # Log configuration
-logRotationWhen = 'W6'
-logRotationInterval = 1
-logRotationBackupCount = 50
+logRotationBackupCount = 300
 logRotationMaxBytes = 100 * 1024 * 1024
-logRotationCompress = True
+logRotationCompression = "xz"
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 

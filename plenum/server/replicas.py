@@ -22,6 +22,7 @@ class Replicas:
         self._config = config
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
+        self.register_monitor_handler()
 
     def grow(self) -> int:
         instance_id = self.num_replicas
@@ -131,6 +132,66 @@ class Replicas:
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas:
             replica.register_ledger(ledger_id)
+
+    def register_monitor_handler(self):
+        self._monitor.unordered_requests_handlers.append(
+            self.unordered_request_handler_logging)
+
+    def unordered_request_handler_logging(self, unordereds):
+        replica = self._master_replica
+        for unordered in unordereds:
+            req, duration = unordered
+            reqId = req[1]
+
+            # get ppSeqNo and viewNo
+            preprepares = replica.sentPrePrepares if replica.isPrimary else replica.prePrepares
+            ppSeqNo = None
+            viewNo = None
+            for key in preprepares:
+                if any([pre_pre_req == req for pre_pre_req in preprepares[key].reqIdr]):
+                    ppSeqNo = preprepares[key].ppSeqNo
+                    viewNo = preprepares[key].viewNo
+                    break
+            if ppSeqNo is None or viewNo is None:
+                logger.warning('Unordered request with reqId: {} was not found in prePrepares'.format(reqId))
+                return
+
+            # get pre-prepare sender
+            prepre_sender = replica.primaryNames[viewNo]
+
+            # get prepares info
+            prepares = replica.prepares[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica.prepares else []
+            n_prepares = len(prepares)
+            str_prepares = 'noone'
+            if n_prepares:
+                str_prepares = ', '.join(prepares)
+
+            # get commits info
+            commits = replica.commits[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica.commits else []
+            n_commits = len(commits)
+            str_commits = 'noone'
+            if n_commits:
+                str_commits = ', '.join(prepares)
+
+            # get txn content
+            content = replica.requests[req].finalised.as_dict \
+                if req in replica.requests else 'no content saved'
+
+            logger.error('Consensus for ReqId: {} was not achieved within {} seconds. '
+                         'Primary node is {}. '
+                         'Received Pre-Prepare from {}. '
+                         'Received {} valid Prepares from {}. '
+                         'Received {} valid Commits from {}. '
+                         'Transaction contents: {}. '
+                         .format(reqId, duration,
+                                 replica.primaryName.split(':')[0],
+                                 prepre_sender,
+                                 n_prepares, str_prepares,
+                                 n_commits, str_commits,
+                                 content
+                                 ))
 
     def __getitem__(self, item):
         assert isinstance(item, int)
