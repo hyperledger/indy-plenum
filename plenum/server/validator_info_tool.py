@@ -19,6 +19,7 @@ def decode_err_handler(error):
     length = error.end - error.start
     return length * ' ', error.end
 
+
 codecs.register_error('decode_errors', decode_err_handler)
 
 logger = getlogger()
