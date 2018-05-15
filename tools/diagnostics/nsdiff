@@ -551,6 +551,13 @@ class NodeStateComparator():
                             if (filename == "state_signature"):
                                 for k, v in leveldb_rocksdb_handle.iterator():
                                     data=json.loads(v.decode('utf-8'))
+
+                                    try:
+                                        k = bytes(k)
+                                    except TypeError:
+                                        # k isn't convertable to bytes
+                                        pass
+
                                     # The 'participants' and 'signature' can
                                     # differ, but the 'value' must be the same.
                                     # Preserve only the 'value' element in v.
@@ -561,7 +568,20 @@ class NodeStateComparator():
                                 # Traverse keys and write a key-value pair per
                                 # line.
                                 state_dict = state.as_dict
+
                                 for key, val in state_dict.items():
+                                    try:
+                                        key = bytes(key)
+                                    except TypeError:
+                                        # key isn't convertable to bytes
+                                        pass
+
+                                    try:
+                                        val = bytes(val)
+                                    except TypeError:
+                                        # val isn't convertable to bytes
+                                        pass
+
                                     logger.info(
                                         "Writing >key={} value={}< to {}"
                                         .format(key, val, out_filename))
@@ -569,6 +589,18 @@ class NodeStateComparator():
                             elif (filename.endswith("_merkleLeaves")
                                 or filename.endswith("_merkleNodes")):
                                 for k, v in leveldb_rocksdb_handle.iterator():
+                                    try:
+                                        key = bytes(k)
+                                    except TypeError:
+                                        # key isn't convertable to bytes
+                                        pass
+
+                                    try:
+                                        val = bytes(v)
+                                    except TypeError:
+                                        # val isn't convertable to bytes
+                                        pass
+
                                     logger.info("Writing >{} {}< to {}"
                                         .format(k, v, out_filename))
                                     file_handle.write("{} {}\n".format(k, v))
@@ -580,6 +612,18 @@ class NodeStateComparator():
                                         # v isn't utf-8 encoded
                                         pass
     
+                                    try:
+                                        k = bytes(k)
+                                    except TypeError:
+                                        # k isn't convertable to bytes
+                                        pass
+
+                                    try:
+                                        v = bytes(v)
+                                    except TypeError:
+                                        # v isn't convertable to bytes
+                                        pass
+
                                     logger.info("Writing >{} {}< to {}"
                                         .format(k, v, out_filename))
                                     file_handle.write("{} {}\n".format(k, v))
@@ -694,7 +738,7 @@ class NodeStateComparator():
           self._eprint("Return code of {} from command: diff -r {} {}".format(
               result.returncode, s1, s2))
           self._eprint(result.stdout.decode('utf-8'), exit=True)
-        
+
     def ndiff(self, s1, s2):
         logger.debug("Performing node state diff on {} and {}".format(s1, s2))
 
