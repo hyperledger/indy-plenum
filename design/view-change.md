@@ -227,3 +227,48 @@ Route B:
 
 4. Implement other pieces of PBFT view change, which improve performance
    and/or pool responsiveness during view change.
+
+## Implementation details
+
+Required changes in current code behaviour:
+- request which is already ordered should not be dropped from consensus
+  process, it should be ordered as if it is a new request but result in a no-op
+
+Ideally all complex logic should be contained in separate testable classes:
+- Network - interface for sending network messages
+- Executor - interface for requests dynamic validation and execution
+- Orderer - implementation of normal requests ordering
+- Checkpointer - implementation of checkpoints
+- Viewchanger - implementation of view-change, depends on all above interfaces
+  
+Good implementation details of Network, Executor, Orderer, and Checkpointer 
+are out of scope of this design. They are here to:
+- provide interface seams to make implementing and testing Viewchanger easier
+- provide better separation of state in replica
+- make dependencies clear
+- set basis for future refactorings
+
+However in order to make Viewchanger work in current codebase these 
+interfaces still need to be implemented. To make changes as noninvasive as
+possible they either should be made part of replica or implemented as thin
+adaptors on top of replica.
+
+ 
+
+-- draft --
+ 
+Required read-only external state:
+1) current view
+2) list of pre-prepared requests
+3) list of prepared requests
+4) list of checkpoints + stable checkpoint
+5) ledger to perform request validation
+
+Required actions to perform on external state:
+1) send messages
+2) enable/disable 3PC processing
+3) update current view
+4) update checkpoints
+5) put request into pre-prepared state with all side effects 
+6) start catchup and wait until it's done
+
