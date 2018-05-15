@@ -1,4 +1,5 @@
 import time
+from collections import deque
 from datetime import datetime
 from operator import itemgetter
 from statistics import mean
@@ -52,10 +53,11 @@ class RequestTimeTracker:
         def is_ordered_by_all(self):
             return all(self.ordered)
 
-    def __init__(self, instance_count):
+    def __init__(self, instance_count, config=None):
         self.instance_count = instance_count
         self._requests = {}
-        self.messaged_reqs = []
+        self._messaged_reqs = deque()
+        self.config = config or getConfig()
 
     def __contains__(self, item):
         return item in self._requests
@@ -88,6 +90,20 @@ class RequestTimeTracker:
         for req in reqs_to_del:
             del self._requests[req]
         self.instance_count -= 1
+
+    @property
+    def messaged_reqs(self):
+        return self._messaged_reqs
+
+    def extend_messaged_reqs(self, reqs):
+        self._messaged_reqs.extend(reqs)
+        over_count = len(self.messaged_reqs) - self.config.UnorderedTxnBuffer
+        if over_count > 0:
+            for i in range(over_count):
+                messaged = self._messaged_reqs.popleft()
+                logger.info('Consensus for ReqId: {} was not achieved. '
+                            'Message cleared from buffer.'
+                            .format(messaged[0]))
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -129,7 +145,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         # Utility object for tracking requests order start and end
         # TODO: Has very similar cleanup logic to propagator.Requests
-        self.requestTracker = RequestTimeTracker(instances.count)
+        self.requestTracker = RequestTimeTracker(instances.count, self.config)
 
         # Request latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
@@ -287,14 +303,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         might have been reset due to view change due to which this method
         returns None
         """
-        new_messaged = []
+        new_messaged = deque()
         for messaged in self.requestTracker.messaged_reqs:
             if messaged not in reqIdrs:
                 new_messaged.append(messaged)
             else:
                 logger.info('Consensus for ReqId: {} was achieved'
                             .format(messaged[0]))
-        self.requestTracker.messaged_reqs = new_messaged
+        self.requestTracker._messaged_reqs = new_messaged
         now = time.perf_counter()
         durations = {}
         for identifier, reqId in reqIdrs:
@@ -352,7 +368,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                       req not in self.requestTracker.messaged_reqs]
         if len(unordereds) == 0:
             return
-        self.requestTracker.messaged_reqs.extend([unordered[0] for unordered in unordereds])
+        self.requestTracker.extend_messaged_reqs([unordered[0] for unordered in unordereds])
         for handler in self.unordered_requests_handlers:
             handler(unordereds)
         for unordered in unordereds:

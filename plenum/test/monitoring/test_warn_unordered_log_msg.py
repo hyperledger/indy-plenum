@@ -10,14 +10,18 @@ logger = getlogger()
 whitelist = ['Consensus for ReqId:']
 
 UNORDERED_CHECK_FREQ = 5
-
+UNORDERED_TXN_BUFFER = 3
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
     oldUnorderedCheckFreq = tconf.UnorderedCheckFreq
+    oldUnorderedTxnBuffer = tconf.UnorderedTxnBuffer
+
     tconf.UnorderedCheckFreq = UNORDERED_CHECK_FREQ
+    tconf.UnorderedTxnBuffer = UNORDERED_TXN_BUFFER
     yield tconf
     tconf.UnorderedCheckFreq = oldUnorderedCheckFreq
+    tconf.UnorderedTxnBuffer = oldUnorderedTxnBuffer
 
 
 @pytest.fixture(scope="module")
