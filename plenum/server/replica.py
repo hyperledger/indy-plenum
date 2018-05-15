@@ -6,6 +6,8 @@ from typing import List, Dict, Optional, Any, Set, Tuple, Callable
 
 import math
 
+import sys
+
 import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -24,6 +26,7 @@ from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict
+from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
@@ -471,7 +474,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._setup_last_ordered_for_non_master()
         self._clear_last_view_message_for_non_master(self.viewNo)
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
@@ -535,14 +537,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return n
         return None
 
-    def _setup_last_ordered_for_non_master(self, is_catchup=True):
+    def _setup_last_ordered_for_non_master(self):
         """
         Since last ordered view_no and pp_seq_no are only communicated for
         master instance, `last_ordered_3pc` if backup instance and clear
         last view messages
         :return:
         """
-        if not self.isMaster and (is_catchup or self.last_ordered_3pc[1] == 0):
+        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
+                not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
             lowest_prepared = self.get_lowest_probable_prepared_certificate_in_view(
@@ -556,7 +559,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # now after catch up we have in last_ordered_3pc value from
             # master replica and should change last_ordered_3pc
             # to lowest_ordered or 0
-            if is_catchup or lowest_ordered > self.last_ordered_3pc[1]:
+            if lowest_ordered > self.last_ordered_3pc[1]:
                 self.last_ordered_3pc = (self.viewNo, lowest_ordered)
                 self.update_watermark_from_3pc()
 
@@ -906,7 +909,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
-        self._setup_last_ordered_for_non_master(is_catchup=False)
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
         req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
@@ -954,7 +956,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if pp_view_no >= last_pp_view_no and (
                     self.isMaster or self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
-                seq_to = pp_seq_no
+                seq_frm = max(seq_frm, pp_seq_no - CHK_FREQ + 1)
+                seq_to = pp_seq_no - 1
                 if seq_frm <= seq_to:
                     self.logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "
@@ -962,6 +965,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
             self.enqueue_pre_prepare(pre_prepare, sender)
+            self._setup_last_ordered_for_non_master()
         elif why_not == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
             item = (pre_prepare, sender, False)
@@ -1002,7 +1006,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         try:
             if self.validatePrepare(prepare, sender):
-                self._setup_last_ordered_for_non_master(is_catchup=False)
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
@@ -1323,6 +1326,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # network
             if not ppReq:
                 self.enqueue_prepare(prepare, sender)
+                self._setup_last_ordered_for_non_master()
                 return False
         # If primary replica
         if primaryStatus is True:
@@ -1337,6 +1341,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if primaryStatus is None and not ppReq:
             self.enqueue_prepare(prepare, sender)
+            self._setup_last_ordered_for_non_master()
             return False
 
         if prepare.digest != ppReq.digest:
@@ -2192,6 +2197,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Request preprepare
         """
+        recipients = self.node.nodestack.connecteds.pop(self.primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_pre_prepare_for_prepare(self, three_pc_key) -> bool:
@@ -2400,6 +2406,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
         self.update_watermark_from_3pc()
+
+    def catchup_clear_for_backup(self):
+        self.last_ordered_3pc = (self.viewNo, 0)
+        self.batches.clear()
+        self.sentPrePrepares.clear()
+        self.prePrepares.clear()
+        self.prepares.clear()
+        self.commits.clear()
+        self.outBox.clear()
+        self.h = 0
+        self.H = sys.maxsize
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """

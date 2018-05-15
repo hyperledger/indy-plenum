@@ -131,9 +131,10 @@ class PreprepareHandler(BaseHandler):
         return pp
 
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
-        if self.node.replicas[params['inst_id']].isPrimary:
-            return self.node.replicas[params['inst_id']].getPrePrepare(
-                params['view_no'], params['pp_seq_no'])
+        pp = self.node.replicas[params['inst_id']].sentPrePrepares.get((
+            params['view_no'], params['pp_seq_no']))
+        if pp is not None:
+            return pp
 
     def processor(self, validated_msg: PrePrepare, params: Dict[str, Any], frm: str) -> None:
         inst_id = params['inst_id']

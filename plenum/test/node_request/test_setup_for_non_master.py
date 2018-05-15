@@ -1,13 +1,11 @@
 import pytest
-import time
 
-from plenum.common.messages.node_messages import PrePrepare, Prepare
 from plenum.common.util import compare_3PC_keys
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.spy_helpers import get_count
-from plenum.test.test_node import getNonPrimaryReplicas, checkNodesConnected
+from plenum.test.test_node import checkNodesConnected
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -44,17 +42,9 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
-    # _setup_last_ordered_for_non_master() will call before processing next txn
-    # and last ordered will reestablish to last ordered - 1
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
-    # with processing this txn we response missing messages from last
-    # operation and fixed correct last ordered value
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(replicas_synced, new_node))
     for node in txnPoolNodeSet:
         for replica in node.replicas:
-            assert replica.last_ordered_3pc == (0, 6)
+            assert replica.last_ordered_3pc == (0, 4)
             if not replica.isMaster:
                 assert get_count(replica, replica._request_three_phase_msg) == 0
