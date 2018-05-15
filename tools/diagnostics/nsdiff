@@ -15,49 +15,38 @@
 # How to create the zip/tar file(s):
 # ----------------------------------
 #
-# The following sample tar command assumes /var/lib/indy/sandbox/data/Node24
-# exists. The first -C changes directory to /var/lib/indy/sandbox/data before
-# copying the Node24 directory into the tarball. Doing so removes (excludes) the
-# /var/lib/indy/sandbox path from the tarball. The second -C changes directory
-# to /var/log/indy/sandbox before copying Node24.log into the tarball. Doing so
-# removes (excludes) the /var/log/indy/sandbox path from the tarball.
+# TODO: use nscapture to create a tarfile
+# The following bash script is useful until it is ready:
+# #!/bin/bash -e
+# node="Node1"
+# pool="sandbox"
+# tmpdir=$(mktemp -d)
+# echo $tmpdir
+# sudo cp -rf /var/lib/indy/${pool}/* ${tmpdir}/
 # 
-# TODO: create a tool that helps the users of nsdiff create the zip/tar files.
-#
-# Note: Run the following command as a user that has sufficient permissions
-#       Perhaps 'root' or as user 'indy'. Copy the tar/zip files to a machine
-#       where nsdiff is installed.
-#
-#    tar -czvf Node24.tar.gz \
-#        -C /var/lib/indy/sandbox/data . \
-#        -C /var/log/indy/sandbox ./Node24.log
-#
-# Contents of the zip/tar file:
-# -----------------------------
-#
-# <node_name>.zip
-#    <node_name>.log* - A copy of the /var/log/indy/<pool>/<node_name>.log*
-#                       files. Example: /var/log/indy/sandbox/Node24.log
-#    <node_name>/    - A copy of the /var/lib/indy/<pool>/data/<node_name>
-#                      Example: /var/lib/indy/sandbox/data/Node24
-#        attr_db
-#        config_merkleLeaves
-#        config_merkleNodes
-#        config_state
-#        config_transactions
-#        domain_merkleLeaves
-#        domain_merkleNodes
-#        domain_state
-#        domain_transactions
-#        idr_cache_db
-#        node_info
-#        pool_merkleLeaves
-#        pool_merkleNodes
-#        pool_state
-#        pool_transactions
-#        seq_no_db
-#        state_signature
-#        state_ts_db`
+# # Remove all but the node data we want
+# shopt -s extglob
+# sudo rm -rf ${tmpdir}/data/!(${node}*)
+# 
+# # Capture node logs
+# mkdir -p ${tmpdir}/log && sudo cp -rf /var/log/indy/${pool}/${node}* ${tmpdir}/log
+# 
+# # Capture configuration
+# mkdir -p ${tmpdir}/config && sudo cp -rf /etc/indy/* ${tmpdir}/config
+# 
+# # Capture additional useful information
+# mkdir -p ${tmpdir}/capture && pip3 freeze > ${tmpdir}/capture/pip3.freeze
+# mkdir -p ${tmpdir}/capture && python3 --version > ${tmpdir}/capture/python3.version
+# mkdir -p ${tmpdir}/capture && apt list --installed > ${tmpdir}/capture/apt.list.installed
+# 
+# # Chown tmpdir contents
+# chown -R ubuntu:ubuntu ${tmpdir}
+# 
+# # Tar up results pruning off the tmpdir from the path
+# tarfile_name=${node}.${pool}.$(date '+%Y%m%d%H%M%S').tar.gz 
+# sudo tar -zcvf ./${tarfile_name} -C ${tmpdir} .
+# sudo chown ubuntu:ubuntu ./${tarfile_name}
+# sudo rm -rf ${tmpdir}
 #
 # Installation:
 # -------------
@@ -170,7 +159,7 @@ class NodeStateComparator():
     logger = None
     log_level = logging.WARNING
     cleanup = True
-    datadir = "./"
+    datadir = "./data/"
 
     s1 = "zipfile/tarfile"
     s1tempdir = None
@@ -187,7 +176,7 @@ class NodeStateComparator():
     skipfiles = []
     skipdirs = ['combined_recorder']
 
-    def __init__(self, log_level=0, cleanup=True, datadir="./", skipfiles=[],
+    def __init__(self, log_level=0, cleanup=True, datadir="./data/", skipfiles=[],
         skipdirs=[]):
         logger.setLevel(log_level)
         logger.debug("Initializing NodeStateComparator...")
@@ -553,10 +542,10 @@ class NodeStateComparator():
                                     data=json.loads(v.decode('utf-8'))
 
                                     try:
-                                        k = bytes(k)
+                                         k = bytes(k)
                                     except TypeError:
-                                        # k isn't convertable to bytes
-                                        pass
+                                         # k isn't convertable to bytes
+                                         pass
 
                                     # The 'participants' and 'signature' can
                                     # differ, but the 'value' must be the same.
@@ -569,37 +558,37 @@ class NodeStateComparator():
                                 # line.
                                 state_dict = state.as_dict
 
-                                for key, val in state_dict.items():
+                                for k, v in state_dict.items():
                                     try:
-                                        key = bytes(key)
+                                         k = bytes(k)
                                     except TypeError:
-                                        # key isn't convertable to bytes
-                                        pass
+                                         # k isn't convertable to bytes
+                                         pass
 
                                     try:
-                                        val = bytes(val)
+                                         v = bytes(v)
                                     except TypeError:
-                                        # val isn't convertable to bytes
-                                        pass
+                                         # v isn't convertable to bytes
+                                         pass
 
                                     logger.info(
                                         "Writing >key={} value={}< to {}"
-                                        .format(key, val, out_filename))
-                                    file_handle.write("{} {}".format(key, val))
+                                        .format(k, v, out_filename))
+                                    file_handle.write("{} {}".format(k, v))
                             elif (filename.endswith("_merkleLeaves")
                                 or filename.endswith("_merkleNodes")):
                                 for k, v in leveldb_rocksdb_handle.iterator():
                                     try:
-                                        key = bytes(k)
+                                         k = bytes(k)
                                     except TypeError:
-                                        # key isn't convertable to bytes
-                                        pass
+                                         # k isn't convertable to bytes
+                                         pass
 
                                     try:
-                                        val = bytes(v)
+                                         v = bytes(v)
                                     except TypeError:
-                                        # val isn't convertable to bytes
-                                        pass
+                                         # v isn't convertable to bytes
+                                         pass
 
                                     logger.info("Writing >{} {}< to {}"
                                         .format(k, v, out_filename))
@@ -613,16 +602,16 @@ class NodeStateComparator():
                                         pass
     
                                     try:
-                                        k = bytes(k)
+                                         k = bytes(k)
                                     except TypeError:
-                                        # k isn't convertable to bytes
-                                        pass
+                                         # k isn't convertable to bytes
+                                         pass
 
                                     try:
-                                        v = bytes(v)
+                                         v = bytes(v)
                                     except TypeError:
-                                        # v isn't convertable to bytes
-                                        pass
+                                         # v isn't convertable to bytes
+                                         pass
 
                                     logger.info("Writing >{} {}< to {}"
                                         .format(k, v, out_filename))
@@ -643,7 +632,7 @@ class NodeStateComparator():
 
                 # Make sure sout directory exists
                 self._mkdir_p(sout)
-
+                
                 # Copy all files to sout and then walk each of the
                 # subdirectories (continue outer for loop (os.walk))
                 for fname in fileList:
@@ -666,7 +655,7 @@ class NodeStateComparator():
         # Check for a log file
         (dirname, filename, name, extension) = self.split_name(sin)
         log_filename = "{}.log".format(filename)
-        log_filepath = join(dirname, log_filename)
+        log_filepath = join(dirname, "../", "log", log_filename)
         if (os.path.exists(log_filepath)):
             # Extract (view no, ppSeqNo) tuple from log file(s)
             # Last "batch ordered"
@@ -738,7 +727,7 @@ class NodeStateComparator():
           self._eprint("Return code of {} from command: diff -r {} {}".format(
               result.returncode, s1, s2))
           self._eprint(result.stdout.decode('utf-8'), exit=True)
-
+        
     def ndiff(self, s1, s2):
         logger.debug("Performing node state diff on {} and {}".format(s1, s2))
 
@@ -884,7 +873,7 @@ if __name__ == '__main__':
                    " zip/tar/dir. If you are processing a zip/tar/dir named"
                    " \"Node1.tar.gz\" and the \"Node1\" directory is located in"
                    " sandbox/data, pass \"-d sandbox/data\"")
-    parser.add_argument("-d", "--datadir", nargs='?', const="./", default="./",
+    parser.add_argument("-d", "--datadir", nargs='?', const="./data/", default="./data/",
         help=datadir_help)
 
     skip_file_help=("Skip a file. Use -s or --skip-file for each"
