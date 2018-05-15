@@ -113,6 +113,7 @@ class PluginManager:
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        logger.info("Found notifier plugins: {}".format(plugins))
         self.plugins = []
         i = 0
         for plugin in plugins:
