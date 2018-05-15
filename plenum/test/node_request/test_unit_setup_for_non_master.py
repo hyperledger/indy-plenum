@@ -31,27 +31,6 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = \
             (prepare, node.name)
-    replica._setup_last_ordered_for_non_master(is_catchup=False)
-    assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
-
-
-def test_setup_last_ordered_for_non_master_in_catchup(txnPoolNodeSet,
-                                         sdk_wallet_client):
-    inst_id = 1
-    replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
-    timestamp = time.time()
-    ppSeqNo = 5
-    preprepare, prepare = \
-        _create_prepare_and_preprepare(inst_id,
-                                       replica.viewNo,
-                                       ppSeqNo,
-                                       timestamp,
-                                       sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = \
-        (preprepare, replica.primaryName)
-    for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = \
-            (prepare, node.name)
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
@@ -61,7 +40,7 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet):
     last_ordered_3pc = (5, 12)
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica.last_ordered_3pc = last_ordered_3pc
-    replica._setup_last_ordered_for_non_master(is_catchup=False)
+    replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
 
 
