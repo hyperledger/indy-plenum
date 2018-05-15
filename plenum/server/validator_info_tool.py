@@ -361,7 +361,7 @@ class ValidatorNodeInfoTool:
 
     def _get_node_metrics(self):
         metrics = {}
-        for metrica in self._node.monitor.metrics():
+        for metrica in self._node.monitor.metrics()[1:]:
             metrics[metrica[0]] = self._prepare_for_json(metrica[1])
         metrics.update(
             {
