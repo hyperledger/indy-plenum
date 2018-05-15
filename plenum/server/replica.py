@@ -2199,8 +2199,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Request preprepare
         """
-        recipients = self.node.nodestack.connecteds.pop(self.primaryName) \
-            if recipients is None else recipients
+        if recipients is None:
+            recipients = self.node.nodestack.connecteds.copy()
+            primaryName = self.primaryName[:self.primaryName.rfind(":")]
+            recipients.remove(primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
