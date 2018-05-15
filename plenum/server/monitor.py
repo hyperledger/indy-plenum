@@ -101,9 +101,9 @@ class RequestTimeTracker:
         if over_count > 0:
             for i in range(over_count):
                 messaged = self._messaged_reqs.popleft()
-                logger.info('Consensus for ReqId: {} was not achieved. '
-                            'Message cleared from buffer.'
-                            .format(messaged[0]))
+                logger.debug('Consensus for ReqId: {} was not achieved. '
+                             'Message cleared from buffer.'
+                             .format(messaged[0]))
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
