@@ -129,8 +129,17 @@ we don't place any upper limit on this time.
   [Miguel Castro master thesis](https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/thesis-mcastro.pdf)
   there is section 5.2 on solving problem of eventually delivering all
   messages even if underlying network can randomly drop them. Their proposed
-  solution is to periodically broadcast status messages, so other nodes can
-  learn about missing messages and retransmit them.
+  solution is to periodically broadcast _STATUS-PENDING(i,h,v,l,N,V)_ message,
+  in which _l_ is ppSeqNo of last executed request, _N_ is flag if replica
+  has _NEW-VIEW_ message for view _v_, _V_ is set of flags indicating that
+  replica accepted _VIEW-CHANGE_ message from replica _j_. Upon receiving
+  _STATUS-PENDING_ message which indicates that replica _i_ didn't receive
+  _VIEW-CHANGE_ message from replica _j_:
+  - replica _j_ should resend _VIEW-CHANGE_ to _i_ (if not malicious)
+  - new primary should retransmit _j_'s _VIEW-CHANGE_ to _i_ (if available)
+  - other replicas should resend _VIEW-CHANGE-ACK(i,j)_ to _i_ supporting
+    _VIEW-CHANGE_ from primary (if they already received view-changes and
+    acknoledged them to primary)
 
 - After obtaining (or generating in case of new primary) correct _NEW-VIEW_
   message each replica sets stable checkpoint to _(ck, cd)_ from _X_ and
@@ -256,7 +265,7 @@ from `Viewchanger` point of view, but some of them will need extension if
 someone will need to refactor parts of node/replica into proper implementation
 of `Orderer` and `Checkpointer`.
 
-### Network interface
+### Network
 
 - `send(message)` - send message to network. This could be as simple as adding
   message to some outbox
@@ -273,7 +282,7 @@ of `Orderer` and `Checkpointer`.
   should discarded or just stashed and reexecuted on resume and how interface
   for this should be implemented.
 
-### Executor interface
+### Executor
 
 - `validate(batch)` - rewind (if needed) uncommited state to point where batch
   could be applied, check that batch is valid and apply it. If batch was
@@ -281,7 +290,7 @@ of `Orderer` and `Checkpointer`.
   into several methods (like `is_commited`, `revert`, and so on), but this
   is to be determined during real work on code.
 
-### Orderer interface
+### Orderer
 
 - `view_no()` - return current viewNo
 - `enter_next_view()` - increment current viewNo, discard all previous messages
@@ -295,13 +304,13 @@ Also it's possible that it will be easier to implement `batches()` method
 that return list of batches in any state and then query them for their state
 (pre-prepared, prepared, commited).
 
-### Checkpointer interface
+### Checkpointer
 
 - `checkpoints()` - return list of all available checkpoints
 - `stable_checkpoint()` - return current stable checkpoint
 - `set_stable_checkpoint(h)` - update current stable checkpoint
 
-### Viewchanger interface
+### Viewchanger
 
 - `__init__(network, executor, orderer, checkpointer)` - initialize viewchanger
   explicitly passing all dependencies
@@ -314,7 +323,7 @@ that return list of batches in any state and then query them for their state
   to use some abstract timer which can be subscribed to and set nearest needed
   timeout so it won't call tick unnecessarily. Main reason to inject timestamps
   externally is improved testability.
-- `process_view_change` - process _VIEW-CHANGE_ message
-- `process_view_change_ack` - process _VIEW-CHANGE-ACK_ message
-- `process_new_view` - process _NEW-VIEW_ message
-- `process_view_change_status` - process _VIEW-CHANGE-STATUS_ message
+- `process_view_change()` - process _VIEW-CHANGE_ message
+- `process_view_change_ack()` - process _VIEW-CHANGE-ACK_ message
+- `process_new_view()` - process _NEW-VIEW_ message
+- `process_status_pending()` - process _STATUS-PENDING_ message
