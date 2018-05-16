@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep
@@ -20,10 +22,10 @@ def test_receive_incorrect_catchup_request(looper,
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     leger_id = 1
 
-    def check_msg(msg: CatchupRep, to, message_splitter):
-        assert msg.consProof == []
-        assert msg.ledgerId == leger_id
+    def check_discard(msg, reason, logMethod=logging.error, cliOutput=False):
+        assert reason.find("not able to service since")
+        assert reason.find("ledger size is")
 
-    monkeypatch.setattr(ledger_manager, 'sendTo', check_msg)
+    monkeypatch.setattr(ledger_manager.owner, 'discard', check_discard)
     req = CatchupReq(leger_id, 0, 15, 10)
     ledger_manager.processCatchupReq(req, "frm")
