@@ -11,6 +11,7 @@ whitelist = ['Consensus for ReqId:']
 
 UNORDERED_CHECK_FREQ = 5
 
+
 @pytest.fixture(scope="module")
 def tconf(tconf):
     oldUnorderedCheckFreq = tconf.UnorderedCheckFreq

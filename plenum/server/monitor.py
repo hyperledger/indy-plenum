@@ -1,9 +1,7 @@
 import time
-from collections import deque
 from datetime import datetime
-from operator import itemgetter
 from statistics import mean
-from typing import Dict, Iterable, Optional, Set
+from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
 
@@ -61,10 +59,9 @@ class RequestTimeTracker:
         def is_ordered_by_all(self):
             return all(self.ordered)
 
-    def __init__(self, instance_count, config=None):
+    def __init__(self, instance_count):
         self.instance_count = instance_count
         self._requests = {}
-        self.config = config or getConfig()
 
     def __contains__(self, item):
         return item in self._requests
