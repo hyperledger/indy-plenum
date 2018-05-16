@@ -134,6 +134,7 @@ class Replicas:
             replica.register_ledger(ledger_id)
 
     def register_monitor_handler(self):
+        # attention: handlers will work over unordered request only once
         self._monitor.unordered_requests_handlers.append(
             self.unordered_request_handler_logging)
 

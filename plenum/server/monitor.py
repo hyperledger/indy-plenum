@@ -38,6 +38,10 @@ class RequestTimeTracker:
             self.timestamp = timestamp
             self.ordered = [False] * instance_count
 
+            # True if request was unordered for too long and
+            # was handled by handlers on master replica
+            self.handled = False
+
         def order(self, instId):
             if 0 <= instId < len(self.ordered):
                 self.ordered[instId] = True
@@ -50,13 +54,16 @@ class RequestTimeTracker:
             return self.ordered[0]
 
         @property
+        def is_handled(self):
+            return self.handled
+
+        @property
         def is_ordered_by_all(self):
             return all(self.ordered)
 
     def __init__(self, instance_count, config=None):
         self.instance_count = instance_count
         self._requests = {}
-        self._messaged_reqs = deque()
         self.config = config or getConfig()
 
     def __contains__(self, item):
@@ -74,11 +81,22 @@ class RequestTimeTracker:
             del self._requests[key]
         return tto
 
+    def handle(self, identifier, reqId):
+        self._requests[identifier, reqId].handled = True
+
     def reset(self):
         self._requests.clear()
 
     def unordered(self):
         return ((key, req.timestamp) for key, req in self._requests.items() if not req.is_ordered)
+
+    def handled_unordered(self):
+        return ((key, req.timestamp) for key, req in self._requests.items()
+                if not req.is_ordered and req.is_handled)
+
+    def unhandled_unordered(self):
+        return ((key, req.timestamp) for key, req in self._requests.items()
+                if not req.is_ordered and not req.is_handled)
 
     def add_instance(self):
         self.instance_count += 1
@@ -90,20 +108,6 @@ class RequestTimeTracker:
         for req in reqs_to_del:
             del self._requests[req]
         self.instance_count -= 1
-
-    @property
-    def messaged_reqs(self):
-        return self._messaged_reqs
-
-    def extend_messaged_reqs(self, reqs):
-        self._messaged_reqs.extend(reqs)
-        over_count = len(self.messaged_reqs) - self.config.UnorderedTxnBuffer
-        if over_count > 0:
-            for i in range(over_count):
-                messaged = self._messaged_reqs.popleft()
-                logger.debug('Consensus for ReqId: {} was not achieved. '
-                             'Message cleared from buffer.'
-                             .format(messaged[0]))
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -188,6 +192,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        # attention: handlers will work over unordered request only once
         self.unordered_requests_handlers = []  # type: List[Callable]
 
         # Monitoring suspicious spikes in cluster throughput
@@ -303,14 +308,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         might have been reset due to view change due to which this method
         returns None
         """
-        new_messaged = deque()
-        for messaged in self.requestTracker.messaged_reqs:
-            if messaged not in reqIdrs:
-                new_messaged.append(messaged)
-            else:
-                logger.info('Consensus for ReqId: {} was achieved'
-                            .format(messaged[0]))
-        self.requestTracker._messaged_reqs = new_messaged
         now = time.perf_counter()
         durations = {}
         for identifier, reqId in reqIdrs:
@@ -318,6 +315,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug("Got untracked ordered request with identifier {} and reqId {}".
                              format(identifier, reqId))
                 continue
+            for req, started in self.requestTracker.handled_unordered():
+                if req == (identifier, reqId):
+                    logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
+                                .format(req[1], self.name, instId, now - started))
+                    continue
             duration = self.requestTracker.order(instId, identifier, reqId, now)
             if byMaster:
                 self.masterReqLatencies[(identifier, reqId)] = duration
@@ -363,15 +365,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def check_unordered(self):
         now = time.perf_counter()
-        unordereds = [(req, now - started) for req, started in self.requestTracker.unordered()
-                      if now - started > self.config.UnorderedCheckFreq and
-                      req not in self.requestTracker.messaged_reqs]
-        if len(unordereds) == 0:
+        new_unordereds = [(req, now - started) for req, started in self.requestTracker.unhandled_unordered()
+                          if now - started > self.config.UnorderedCheckFreq]
+        if len(new_unordereds) == 0:
             return
-        self.requestTracker.extend_messaged_reqs([unordered[0] for unordered in unordereds])
         for handler in self.unordered_requests_handlers:
-            handler(unordereds)
-        for unordered in unordereds:
+            handler(new_unordereds)
+        for unordered in new_unordereds:
+            self.requestTracker.handle(*(unordered[0]))
             logger.debug('Following requests were not ordered for more than {} seconds: {}'
                          .format(self.config.UnorderedCheckFreq, unordered[0]))
 
