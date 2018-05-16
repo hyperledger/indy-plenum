@@ -333,6 +333,10 @@ that return list of batches in any state and then query them for their state
 - enable full ordering of batches that were already ordered, make their
   execution on replicas that executed them no-op
 
+  OR
+
+  stop resetting ppSeqNo (and relying on this) in new view
+
 - design executor interface taking into account current codebase so that
   it can be easily implemented
 
