@@ -235,40 +235,67 @@ Required changes in current code behaviour:
   process, it should be ordered as if it is a new request but result in a no-op
 
 Ideally all complex logic should be contained in separate testable classes:
-- Network - interface for sending network messages
-- Executor - interface for requests dynamic validation and execution
-- Orderer - implementation of normal requests ordering
-- Checkpointer - implementation of checkpoints
-- Viewchanger - implementation of view-change, depends on all above interfaces
+- `Network` - interface for sending network messages and subscribing to them
+- `Executor` - interface for requests dynamic validation and execution
+- `Orderer` - implementation of normal requests ordering
+- `Checkpointer` - implementation of checkpoints
+- `Viewchanger` - implementation of view-change, depends on all above interfaces
   
-Good implementation details of Network, Executor, Orderer, and Checkpointer 
-are out of scope of this design. They are here to:
-- provide interface seams to make implementing and testing Viewchanger easier
+Proper implementation details of `Network`, `Executor`, `Orderer`, and
+`Checkpointer` are out of scope of this design. They are here to:
+- provide interface seams to make implementing and testing `Viewchanger` easier
 - provide better separation of state in replica
 - make dependencies clear
 - set basis for future refactorings
 
-However in order to make Viewchanger work in current codebase these 
+However in order to make `Viewchanger` work in current codebase these
 interfaces still need to be implemented. To make changes as noninvasive as
 possible they either should be made part of replica or implemented as thin
-adaptors on top of replica.
+adaptors on top of replica. Interface descriptions here will be complete
+from `Viewchanger` point of view, but some of them will need extension if
+someone will need to refactor parts of node/replica into proper implementation
+of `Orderer` and `Checkpointer`.
 
- 
+### Network interface
+
+- `send(message)` - send message to network. This could be as simple as adding
+  message to some outbox
+- `add_filter(predicate)` - stash or discard all incoming messages based on
+  passed predicate (closure), return unique identifier
+- `remove_filter(id)` - resume processing of all messages that were filtered
+  by previously added predicate. Question is still open whether messages
+  should discarded or just stashed and reexecuted on resume and how interface
+  for this should be implemented.
+
+### Executor
+
+- `validate(batch)` - rewind (if needed) uncommited state to point where batch
+  could be applied, check that batch is valid and apply it. If batch was
+  already commited just accept it as valid. This probably should be split
+  into several methods (like `is_commited`, `revert`, and so on), but this
+  is to be determined during real work on code.
+
+### Orderer
+
+- `view_no()` - return current viewNo
+- `enter_next_view()` - increment current viewNo, discard all previous messages
+- `preprepared()` - return list of pre-prepared batches
+- `prepared()` - return list of prepared batches
+- `preprepare(batch)` - unconditionally put some batch into pre-prepared state
+  producing all neccessary side effects (like sending PREPARE messages from
+  backup replicas)
+
+Also it's possible that it will be easier to implement `batches()` method
+that return list of batches in any state and then query them for their state
+(pre-prepared, prepared, commited).
+
+### Checkpointer
 
 -- draft --
  
 Required read-only external state:
-1) current view
-2) list of pre-prepared requests
-3) list of prepared requests
-4) list of checkpoints + stable checkpoint
-5) ledger to perform request validation
+1) list of checkpoints + stable checkpoint
 
 Required actions to perform on external state:
-1) send messages
-2) enable/disable 3PC processing
-3) update current view
-4) update checkpoints
-5) put request into pre-prepared state with all side effects 
-6) start catchup and wait until it's done
+1) update checkpoints
 
