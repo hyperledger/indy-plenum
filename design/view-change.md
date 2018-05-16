@@ -327,3 +327,20 @@ that return list of batches in any state and then query them for their state
 - `process_view_change_ack()` - process _VIEW-CHANGE-ACK_ message
 - `process_new_view()` - process _NEW-VIEW_ message
 - `process_status_pending()` - process _STATUS-PENDING_ message
+
+## Implementation plan (minimal)
+
+- enable full ordering of batches that were already ordered, make their
+  execution on replicas that executed them no-op
+
+- design executor interface taking into account current codebase so that
+  it can be easily implemented
+
+- implement viewchanger with most basic functionality using TDD, implementing
+  mocks for network, executor, orderer and checkpointer as needed
+
+- implement network, executor, orderer and checkpointer as adaptors for
+  existing codebase
+
+- integrate viewchanger into current codebase, make sure current integration
+  tests pass
