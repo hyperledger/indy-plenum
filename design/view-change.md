@@ -260,6 +260,12 @@ of `Orderer` and `Checkpointer`.
 
 - `send(message)` - send message to network. This could be as simple as adding
   message to some outbox
+- `subscribe([message_id], closure)` - subscribe to network messages, return
+  subscription id. Question is still open whether this should be implemented as
+  a simple callback which is called on every message (forcing each subscriber
+  to implement their own routing logic) or as a different callbacks per each
+  message type.
+- `unsubscribe(id)` - unsubscribe from network messages
 - `add_filter(predicate)` - stash or discard all incoming messages based on
   passed predicate (closure), return unique identifier
 - `remove_filter(id)` - resume processing of all messages that were filtered
@@ -267,7 +273,7 @@ of `Orderer` and `Checkpointer`.
   should discarded or just stashed and reexecuted on resume and how interface
   for this should be implemented.
 
-### Executor
+### Executor interface
 
 - `validate(batch)` - rewind (if needed) uncommited state to point where batch
   could be applied, check that batch is valid and apply it. If batch was
@@ -275,7 +281,7 @@ of `Orderer` and `Checkpointer`.
   into several methods (like `is_commited`, `revert`, and so on), but this
   is to be determined during real work on code.
 
-### Orderer
+### Orderer interface
 
 - `view_no()` - return current viewNo
 - `enter_next_view()` - increment current viewNo, discard all previous messages
@@ -289,7 +295,7 @@ Also it's possible that it will be easier to implement `batches()` method
 that return list of batches in any state and then query them for their state
 (pre-prepared, prepared, commited).
 
-### Checkpointer
+### Checkpointer interface
 
 -- draft --
  
