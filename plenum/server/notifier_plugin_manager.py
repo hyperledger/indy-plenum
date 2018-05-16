@@ -63,9 +63,9 @@ class PluginManager:
         assert 'cnt' in historicalData
 
         assert 'min_cnt' in config
-        assert 'borders_coeff' in config
+        assert 'bounds_coeff' in config
         assert 'min_activity_threshold' in config
-        assert 'use_weighted_borders_coeff' in config
+        assert 'use_weighted_bounds_coeff' in config
         assert 'enabled' in config
 
         if not (enabled and config['enabled']):
@@ -74,8 +74,8 @@ class PluginManager:
 
         min_cnt = config['min_cnt']
         val_thres = config['min_activity_threshold']
-        borders_coeff = config['borders_coeff']
-        use_weighted_borders_coeff = config['use_weighted_borders_coeff']
+        bounds_coeff = config['bounds_coeff']
+        use_weighted_bounds_coeff = config['use_weighted_bounds_coeff']
 
         val = historicalData['value']
         alpha = 2 / (min_cnt + 1)
@@ -83,33 +83,37 @@ class PluginManager:
         historicalData['cnt'] += 1
         cnt = historicalData['cnt']
 
-        if val < val_thres:
-            logger.debug('Current activity {} is below threshold level {}'.format(val, val_thres))
-            return None
-
         if cnt <= min_cnt:
             logger.debug('Not enough data to detect a {} spike'.format(event))
             return None
 
+        if val < val_thres:
+            logger.debug('Current activity {} is below threshold level {}'.format(val, val_thres))
+            return None
+
         log_base = 10
-        if use_weighted_borders_coeff and cnt > log_base:
-            # Weighted coefficient allows to adapt borders in accordance to values,
-            # growing values leads to lower borders.
-            borders_coeff /= math.log(cnt, log_base)
-        if (val / borders_coeff) <= newVal <= (val * borders_coeff):
+        if use_weighted_bounds_coeff and cnt > log_base:
+            # Weighted coefficient allows to adapt bounds in accordance to values,
+            # growing values leads to lower bounds.
+            bounds_coeff /= math.log(cnt, log_base)
+
+        lower_bound = val / bounds_coeff
+        higher_bound = val * bounds_coeff
+        if lower_bound <= newVal <= higher_bound:
             logger.debug(
-                '{}: New value {} is within bounds. Average: {}'.format(
-                    event, newVal, val))
+                '{}: Actual value {} is within bounds [{}, {}]. Expected value: {}'.format(
+                    event, newVal, lower_bound, higher_bound, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
-                  'Usual: {}. New: {}.'\
-            .format(event, nodeName, time.time(), val, newVal)
+                  'Actual: {}. Expected: {}. Bounds: [{}, {}].'\
+            .format(event, nodeName, time.time(), newVal, val, lower_bound, higher_bound)
         logger.debug(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        logger.info("Found notifier plugins: {}".format(plugins))
         self.plugins = []
         i = 0
         for plugin in plugins:
