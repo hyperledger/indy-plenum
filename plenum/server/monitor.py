@@ -146,7 +146,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         # Utility object for tracking requests order start and end
         # TODO: Has very similar cleanup logic to propagator.Requests
-        self.requestTracker = RequestTimeTracker(instances.count, self.config)
+        self.requestTracker = RequestTimeTracker(instances.count)
 
         # Request latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
