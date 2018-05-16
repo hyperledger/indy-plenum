@@ -407,10 +407,6 @@ class LedgerManager(HasActionQueue):
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
-        if end < start:
-            self.discard(req, reason="Invalid range", logMethod=logger.warning)
-            return
-
         ledger_size = ledger.size
 
         if start > ledger_size:
@@ -428,11 +424,16 @@ class LedgerManager(HasActionQueue):
             return
 
         # Adjusting for end greater than ledger size
-        if end > ledger_size:
+        if end > req.catchupTill:
             logger.debug("{} does not have transactions till {} "
                          "so sending only till {}"
-                         .format(self, end, ledger_size))
-            end = ledger_size
+                         .format(self, end, req.catchupTill))
+            end = req.catchupTill
+
+        if end < start:
+            self.discard(req, reason="Invalid range", logMethod=logger.warning)
+            return
+
 
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start + 1, start, end))
