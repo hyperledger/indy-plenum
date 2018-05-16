@@ -31,6 +31,10 @@ class SimpleZStackWithRecorder(SimpleZStack):
             self.recorder.add_outgoing(msg, uid)
         return status, err
 
+    def stop(self):
+        self.recorder.stop()
+        super().stop()
+
     # TODO: Not needed as of now
     # def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
     #     pass

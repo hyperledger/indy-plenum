@@ -1,9 +1,10 @@
 import json
 import os
-from typing import Dict
+import time
+from typing import Dict, Tuple
 
 from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH, \
-    KeyValueStorageType
+    KeyValueStorageType, CLIENT_STACK_SUFFIX
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.recorder.src.combined_recorder import CombinedRecorder
@@ -40,7 +41,22 @@ def to_bytes(v):
         return v.encode()
 
 
-def patch_replaying_node_for_time(replaying_node, node_recorder):
+def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder, Recorder]:
+    node_rec_path = os.path.join(node_data_dir, node_name, 'recorder')
+    client_stack_name = node_name + CLIENT_STACK_SUFFIX
+    client_rec_path = os.path.join(node_data_dir, client_stack_name, 'recorder')
+    # TODO: Change to rocksdb
+    client_rec_kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
+                                                     client_rec_path,
+                                                     client_stack_name)
+    node_rec_kv_store = initKeyValueStorageIntKeys(
+        KeyValueStorageType.Leveldb, node_rec_path, node_name)
+
+    return Recorder(node_rec_kv_store, skip_metadata_write=True), \
+           Recorder(client_rec_kv_store, skip_metadata_write=True)
+
+
+def patch_sent_prepreapres(replaying_node, node_recorder):
     sent_pps = {}
     for k, v in node_recorder.store.iterator(include_value=True):
         parsed = Recorder.get_parsed(v.decode())
@@ -54,17 +70,21 @@ def patch_replaying_node_for_time(replaying_node, node_recorder):
                         if op_name == PREPREPARE and msg[f.INST_ID.nm] == 0:
                             v, p = msg[f.VIEW_NO.nm], msg[f.PP_SEQ_NO.nm]
                             sent_pps[v, p] = [msg[f.PP_TIME.nm],
-                                              [tuple(l) for l in msg[f.REQ_IDR.nm]],
+                                              [tuple(l) for l in
+                                               msg[f.REQ_IDR.nm]],
                                               msg[f.DISCARDED.nm],
                                               ]
                         elif op_name == BATCH:
                             for m in msg['messages']:
                                 try:
                                     m = json.loads(m)
-                                    if m[OP_FIELD_NAME] == PREPREPARE and m[f.INST_ID.nm] == 0:
-                                        v, p = m[f.VIEW_NO.nm], m[f.PP_SEQ_NO.nm]
+                                    if m[OP_FIELD_NAME] == PREPREPARE and m[
+                                        f.INST_ID.nm] == 0:
+                                        v, p = m[f.VIEW_NO.nm], m[
+                                            f.PP_SEQ_NO.nm]
                                         sent_pps[v, p] = [m[f.PP_TIME.nm],
-                                                          [tuple(l) for l in m[f.REQ_IDR.nm]],
+                                                          [tuple(l) for l in
+                                                           m[f.REQ_IDR.nm]],
                                                           m[f.DISCARDED.nm]
                                                           ]
                                 except json.JSONDecodeError:
@@ -74,29 +94,69 @@ def patch_replaying_node_for_time(replaying_node, node_recorder):
                 except json.JSONDecodeError:
                     continue
 
-    with open(os.path.join(node_recorder.store._db_path,
-                           Recorder.RECORDER_METADATA_FILENAME), 'r') as fl:
-        d = fl.read()
-        start_time = json.loads(d)['start_time']
-
-    replaying_node._time_diff = get_utc_epoch() - start_time
     replaying_node.master_replica.sent_pps = sent_pps
 
 
-def replay_patched_node(looper, replaying_node, node_recorder, client_recorder):
-    looper.add(replaying_node)
+def get_combined_recorder(replaying_node, node_recorder, client_recorder):
     kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
                                           replaying_node.dataLocation,
                                           'combined_recorder')
-    cr = CombinedRecorder(kv_store, skip_metadata_write=True)
+    cr = CombinedRecorder(kv_store)
     # Always add node recorder first and then client recorder
     cr.add_recorders(node_recorder, client_recorder)
     cr.combine_recorders()
+    return cr
+
+
+def prepare_node_for_replay_and_replay(looper, replaying_node,
+                                       node_recorder, client_recorder,
+                                       start_times):
+    cr = get_combined_recorder(replaying_node, node_recorder, client_recorder)
+    cr.start_times = start_times
+    patch_replaying_node(replaying_node, node_recorder, start_times)
+    return replay_patched_node(looper, replaying_node, cr)
+
+
+def patch_replaying_node(replaying_node, node_recorder, start_times):
+    patch_sent_prepreapres(replaying_node, node_recorder)
+    patch_replaying_node_for_time(replaying_node, start_times)
+
+
+def patch_replaying_node_for_time(replaying_node, start_times):
+    node_1st_start_time = start_times[0][0]
+    replaying_node._time_diff = get_utc_epoch() - node_1st_start_time
+
+
+def replay_patched_node(looper, replaying_node, cr):
+    node_run_no = 0
+    looper.add(replaying_node)
     cr.start_playing()
+    next_stop_at = time.perf_counter() + \
+                   (cr.start_times[node_run_no][1] - cr.start_times[node_run_no][0])
     while cr.is_playing:
         vals = cr.get_next()
+        if next_stop_at is not None and time.perf_counter() >= next_stop_at:
+            node_run_no += 1
+            if node_run_no < len(cr.start_times):
+                sleep_for = cr.start_times[node_run_no][0] - cr.start_times[node_run_no-1][1]
+                next_stop_at = time.perf_counter() + (
+                        cr.start_times[node_run_no][1] -
+                        cr.start_times[node_run_no][0])
+                replaying_node.stop()
+                looper.removeProdable(replaying_node)
+                replaying_node = replaying_node.__class__(replaying_node.name,
+                                                          config_helper=replaying_node.config_helper,
+                                                          ha=replaying_node.nodestack.ha,
+                                                          cliha=replaying_node.clientstack.ha)
+                patch_replaying_node_for_time(replaying_node, cr.start_times)
+                print('sleeping for {} before starting '.format(sleep_for))
+                time.sleep(sleep_for)
+                looper.add(replaying_node)
+            else:
+                next_stop_at = None
+
         if not vals:
-            looper.runFor(.001)
+            # looper.runFor(.001)
             continue
 
         n_msgs, c_msgs = vals
@@ -104,7 +164,7 @@ def replay_patched_node(looper, replaying_node, node_recorder, client_recorder):
             incomings = Recorder.filter_incoming(n_msgs)
             for inc in incomings:
                 replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
-                                                                  to_bytes(inc[1]))
+                                                          to_bytes(inc[1]))
 
         if c_msgs:
             incomings = Recorder.filter_incoming(c_msgs)
@@ -113,3 +173,5 @@ def replay_patched_node(looper, replaying_node, node_recorder, client_recorder):
                                                             to_bytes(inc[1]))
 
         looper.run(replaying_node.prod())
+
+    return replaying_node

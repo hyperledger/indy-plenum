@@ -108,6 +108,9 @@ class Recorder:
         assert self.is_playing
         # TODO: Get next key
 
+    def stop(self):
+        self.store.close()
+
     @staticmethod
     def get_parsed(msg, only_incoming=None, only_outgoing=None):
         assert not (only_incoming and only_outgoing)
@@ -127,3 +130,35 @@ class Recorder:
     @staticmethod
     def filter_outgoing(msgs):
         return [msg[1:] for msg in msgs if msg[0] == Recorder.OUTGOING_FLAG]
+
+
+def add_start_time(data_directory, tm):
+    if not os.path.isdir(data_directory):
+        os.makedirs(data_directory)
+    file_name = os.path.join(data_directory, 'start_times')
+    if not os.path.isfile(file_name):
+        start_times = []
+    else:
+        with open(file_name, 'r') as f:
+            start_times = json.loads(f.read())
+            if len(start_times[-1]) != 2:
+                raise RuntimeError('Wrongly formatted start_times file')
+    start_times.append([tm, ])
+    with open(file_name, 'w+') as f:
+        f.write(json.dumps(start_times))
+
+
+def add_stop_time(data_directory, tm):
+    if not os.path.isdir(data_directory):
+        os.makedirs(data_directory)
+    file_name = os.path.join(data_directory, 'start_times')
+    if not os.path.isfile(file_name):
+        raise RuntimeError('No file with start time written')
+    else:
+        with open(file_name, 'r') as f:
+            start_times = json.loads(f.read())
+            if len(start_times[-1]) != 1:
+                raise RuntimeError('Wrongly formatted start_times file')
+    start_times[-1].append(tm)
+    with open(file_name, 'w+') as f:
+        f.write(json.dumps(start_times))

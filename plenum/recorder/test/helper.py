@@ -1,19 +1,27 @@
 import importlib
+import json
+import os
 
 from plenum.recorder.src.replayable_node import prepare_directory_for_replay, \
     create_replayable_node_class
 from plenum.recorder.src.replayer import patch_replaying_node_for_time, \
-    replay_patched_node
+    replay_patched_node, get_recorders_from_node_data_dir, \
+    prepare_node_for_replay_and_replay
 from plenum.test.helper import create_new_test_node
 from plenum.test.test_node import TestReplica, TestReplicas
 from stp_core.loop.eventually import eventually
 
 
 def replay_and_compare(looper, node, replaying_node):
-    node_rec = node.nodestack.recorder
-    client_rec = node.clientstack.recorder
-    patch_replaying_node_for_time(replaying_node, node_rec)
-    replay_patched_node(looper, replaying_node, node_rec, client_rec)
+    node_rec, client_rec = get_recorders_from_node_data_dir(
+        os.path.join(node.node_info_dir, 'data'), replaying_node.name)
+
+    start_times_file = os.path.join(node.ledger_dir, 'start_times')
+    with open(start_times_file, 'r') as f:
+        start_times = json.loads(f.read())
+
+    replaying_node = prepare_node_for_replay_and_replay(looper, replaying_node, node_rec,
+                                       client_rec, start_times)
 
     def chk():
         for lid in node.ledger_ids:
@@ -22,7 +30,7 @@ def replay_and_compare(looper, node, replaying_node):
             assert l_r.size == l.size, (l_r.size, l.size)
             assert l_r.root_hash == l.root_hash, (l_r.root_hash, l.root_hash)
 
-    timeout = 5 + (node.domainLedger.size - replaying_node.domainLedger.size)
+    timeout = 10 + (node.domainLedger.size - replaying_node.domainLedger.size)
 
     # TODO: use eventually
     looper.run(eventually(chk, timeout=timeout))
@@ -60,8 +68,7 @@ def create_replayable_node_and_check(looper, all_nodes, node_to_check,
     new_node_name = node_to_check.name
     replaying_node = create_new_test_node(
         replayable_node_class, node_config_helper_class, new_node_name,
-        conf,
-        basedirpath, allPluginsPath)
+        conf, basedirpath, allPluginsPath)
     for n in all_nodes:
         assert replaying_node.domainLedger.size < n.domainLedger.size
     replay_and_compare(looper, node_to_check, replaying_node)

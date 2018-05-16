@@ -22,13 +22,13 @@ def test_replay_recorded_msgs(txnPoolNodesLooper,
     for node in txnPoolNodeSet:
         txnPoolNodesLooper.removeProdable(node)
 
+    for node in txnPoolNodeSet:
+        node.stop()
+
     reload_modules_for_replay(tconf)
 
     replayable_node_class, basedirpath = get_replayable_node_class(
         tmpdir_factory, tdir, testNodeClass)
-
-    for node in txnPoolNodeSet:
-        node.stop()
 
     print('-------------Replaying now---------------------')
 

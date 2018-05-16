@@ -13,6 +13,7 @@ class CombinedRecorder(Recorder):
                  skip_metadata_write=True):
         Recorder.__init__(self, kv_store, skip_metadata_write=skip_metadata_write)
         self.recorders = []
+        self.start_times = []
 
     def add_recorders(self, n_recorder, c_recorder):
         # Only 2 recorders

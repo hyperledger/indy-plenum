@@ -6,6 +6,8 @@ from collections import deque
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
+
+from plenum.recorder.src.recorder import add_start_time, add_stop_time
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
@@ -155,6 +157,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
         self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
         self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
+
+        if self.config.USE_WITH_STACK == 1:
+            add_start_time(self.ledger_dir, self.utc_epoch())
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
@@ -930,6 +935,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Close the UDP socket of the nodestack
         """
         # Log stats should happen before any kind of reset or clearing
+        if self.config.USE_WITH_STACK == 1:
+            add_stop_time(self.ledger_dir, self.utc_epoch())
+
         self.logstats()
 
         self.reset()
