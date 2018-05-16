@@ -69,7 +69,7 @@ we don't place any upper limit on this time.
   which new primary could send to itself) form a view-change certificate, so
   it can be sure that _n-f_ replicas have same _VIEW-CHANGE_ message for
   replica _i_. Each view-change certificate is stored in _S_, and when
-  each new view-change cerficate is added new primary makes an attempt to
+  each new view-change certificate is added new primary makes an attempt to
   construct _NEW-VIEW_ message. Authors of PBFT state that when new primary
   gets _n-f_ view-change certificates from normal replicas it is guaranteed
   that this attempt will succeed.
@@ -120,11 +120,11 @@ we don't place any upper limit on this time.
   If backup finds that received _NEW-VIEW_ message as invalid it immediately
   enters view _v+2_, repeating all previous steps.
 
-  There was a parapgraph in original papers stating that node that sent
+  There was a paragraph in original papers stating that node that sent
   _VIEW-CHANGE_ message could be uncooperative and don't send it to some
   nodes. In that case since primary has a view-change certificate it is
   guaranteed that it is possible to get required _VIEW-CHANGE_ from primary
-  and _f_ matching _VIEW-CHANGE-ACKS_ from non-faulty nodes. Most papers from
+  and _f_ matching _VIEW-CHANGE-ACK_ from non-faulty nodes. Most papers from
   original authors don't describe exact protocol for this case, but in
   [Miguel Castro master thesis](https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/thesis-mcastro.pdf)
   there is section 5.2 on solving problem of eventually delivering all
@@ -133,13 +133,13 @@ we don't place any upper limit on this time.
   in which _l_ is ppSeqNo of last executed request, _N_ is flag if replica
   has _NEW-VIEW_ message for view _v_, _V_ is set of flags indicating that
   replica accepted _VIEW-CHANGE_ message from replica _j_. Upon receiving
-  _STATUS-PENDING_ message which indicates that replica _i_ didn't receive
+  _STATUS-PENDING_ message which indicates that replica _i_ did not receive
   _VIEW-CHANGE_ message from replica _j_:
   - replica _j_ should resend _VIEW-CHANGE_ to _i_ (if not malicious)
   - new primary should retransmit _j_'s _VIEW-CHANGE_ to _i_ (if available)
   - other replicas should resend _VIEW-CHANGE-ACK(i,j)_ to _i_ supporting
     _VIEW-CHANGE_ from primary (if they already received view-changes and
-    acknoledged them to primary)
+    acknowledged them to primary)
 
 - After obtaining (or generating in case of new primary) correct _NEW-VIEW_
   message each replica sets stable checkpoint to _(ck, cd)_ from _X_ and
@@ -279,8 +279,8 @@ of `Orderer` and `Checkpointer`.
   passed predicate (closure), return unique identifier
 - `remove_filter(id)` - resume processing of all messages that were filtered
   by previously added predicate. Question is still open whether messages
-  should discarded or just stashed and reexecuted on resume and how interface
-  for this should be implemented.
+  should be discarded or just stashed and re-executed on resume and how
+  interface for this should be implemented.
 
 ### Executor
 
@@ -297,7 +297,7 @@ of `Orderer` and `Checkpointer`.
 - `preprepared()` - return list of pre-prepared batches
 - `prepared()` - return list of prepared batches
 - `preprepare(batch)` - unconditionally put some batch into pre-prepared state
-  producing all neccessary side effects (like sending PREPARE messages from
+  producing all necessary side effects (like sending PREPARE messages from
   backup replicas)
 
 Also it's possible that it will be easier to implement `batches()` method
