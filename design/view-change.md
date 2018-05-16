@@ -297,11 +297,24 @@ that return list of batches in any state and then query them for their state
 
 ### Checkpointer interface
 
--- draft --
- 
-Required read-only external state:
-1) list of checkpoints + stable checkpoint
+- `checkpoints()` - return list of all available checkpoints
+- `stable_checkpoint()` - return current stable checkpoint
+- `set_stable_checkpoint(h)` - update current stable checkpoint
 
-Required actions to perform on external state:
-1) update checkpoints
+### Viewchanger interface
 
+- `__init__(network, executor, orderer, checkpointer)` - initialize viewchanger
+  explicitly passing all dependencies
+- `start_view_change()` - initiate view change protocol, called by node (or
+  probably monitor) when we need to perform view change
+- `is_view_change_in_progress()` - check if view change is in progress.
+  Probably there also should be callback on view-change start/stop
+- `process_time(timestamp)` - update internal time, possibly performing some
+  actions. Called periodically by node, probably could be improved in future
+  to use some abstract timer which can be subscribed to and set nearest needed
+  timeout so it won't call tick unnecessarily. Main reason to inject timestamps
+  externally is improved testability.
+- `process_view_change` - process _VIEW-CHANGE_ message
+- `process_view_change_ack` - process _VIEW-CHANGE-ACK_ message
+- `process_new_view` - process _NEW-VIEW_ message
+- `process_view_change_status` - process _VIEW-CHANGE-STATUS_ message
