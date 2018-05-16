@@ -132,12 +132,13 @@ def test_state_proof_for_key_prefix_3(state, tmpdir_factory):
         val = rlp_decode(val)
         assert val[0] == v.encode()
 
+    print('all proofs')
     prefix_node = trie._get_last_node_for_prfx(trie.root_node, nib)
     for k, v in key_vals.items():
         val = trie._get(prefix_node, bin_to_nibbles(k.encode())[1:])
         val = rlp_decode(val)
         assert val[0] == v.encode()
-
+        print(trie.produce_spv_proof(k.encode(), trie.root_node))
 
     prefix_prf = trie.produce_spv_proof_for_key_prfx(prefix.encode(), trie.root_node)
     prefix_prf.append(deepcopy(trie.root_node))
@@ -173,7 +174,7 @@ def test_state_proof_for_key_prefix_4(state):
     state.set(b'zyxwvuts', b'1115')
     state.set(b'rqponmlk', b'0989')
     # More than 16
-    keys_suffices = {random.randint(150, 900) for i in range(100)}
+    keys_suffices = {random.randint(150, 900) for _ in range(100)}
     key_vals = {'{}{}'.format(prefix, k): str(random.randint(3000, 5000))
                 for k in keys_suffices}
     for k, v in key_vals.items():
@@ -190,3 +191,7 @@ def test_state_proof_for_key_prefix_4(state):
     prefix_prf = state.generate_state_proof(prefix.encode())
     assert PruningState.verify_state_proof(state.headHash, prefix.encode(),
                                            None, prefix_prf)
+
+    print('all proofs')
+    for k, v in key_vals.items():
+        print(trie.produce_spv_proof(k.encode(), trie.root_node))
