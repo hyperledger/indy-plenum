@@ -69,6 +69,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # Count of instance change rounds
         self.instance_change_rounds = 0
 
+        # Time for view_change_starting
+        self._start_view_change_ts = 0
+
     def __repr__(self):
         return "{}".format(self.name)
 

@@ -538,6 +538,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
+        self.view_changer._start_view_change_ts = self.utc_epoch()
+
         for replica in self.replicas:
             replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
