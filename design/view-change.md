@@ -180,6 +180,28 @@ we don't place any upper limit on this time.
   complex request selection algorithm can be simplified and view change
   algorithm will still work.
 
+- All above is applied to just one instance of PBFT protocol, but RBFT is
+  basically multiple PBFT instances running in parallel, with only master
+  altering state. RBFT states that all instances on given node should start
+  view change simultaneously and each instance should elect new primary
+  independently. Since indy plenum implementation has simple round robin
+  election it should be ok to just run view change on master with each backup
+  just waiting for view change completion on master.
+
+  This should not affect performance measurements (triggering another view
+  change) because, given non-faulty primary on master replica:
+  - it is guaranteed that primary on master replica will be the first to end
+    view change and enter normal ordering state
+  - therefore master instance will be the first one where new PRE-PREPARE
+    messages will be generated
+  - no COMMIT quorum could be gathered by any instance until _n-f_ nodes
+    finish view change
+  - so ordering (and performance measurements) by any instance will start only
+    when _n-f_ nodes finish view change, and master instance will have at least
+    as many pre-prepared requests as any other backup
+  - therefore master instance performance will be not less than any backup
+    instance in the beginning of new view
+
 ## Summary of main deviations from PBFT
 
 1. Indy plenum resets ppSeqNo after each view change. This should either
@@ -199,6 +221,11 @@ we don't place any upper limit on this time.
    authors of PBFT state that allowing to get as many requests into new view
    as possible (even if they were not commited in previous view) improves
    overall performance of system.
+
+4. Indy plenum implements RBFT which basically is multiple PBFT instances,
+   with only one (master) changing state. For simplicity view change protocol
+   can be applied only to master instance, with backups synced to master
+   during view change.
 
 ## Rough roadmap
 
