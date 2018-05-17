@@ -363,7 +363,12 @@ class ValidatorNodeInfoTool:
     def _get_node_metrics(self):
         metrics = {}
         for metrica in self._node.monitor.metrics()[1:]:
-            metrics[metrica[0]] = self._prepare_for_json(metrica[1])
+            if metrica[0] == 'master request latencies':
+                latencies = list(metrica[1].values())
+                metrics['max master request latencies'] = self._prepare_for_json(
+                    max(latencies) if latencies else 0)
+            else:
+                metrics[metrica[0]] = self._prepare_for_json(metrica[1])
         metrics.update(
             {
                 'average-per-second': {
