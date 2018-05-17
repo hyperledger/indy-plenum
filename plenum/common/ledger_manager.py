@@ -409,12 +409,25 @@ class LedgerManager(HasActionQueue):
         ledger = self.getLedgerForMsg(req)
         ledger_size = ledger.size
 
-        if req.catchupTill > ledger_size or \
-                end < start or \
-                end > req.catchupTill:
+        if req.catchupTill > ledger_size:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {} and catchupTill is {}"
-                         .format(self, ledger_size, req.catchupTill),
+                                     "catchupTill = {} greater then "
+                                     "ledger size = {}"
+                         .format(self, req.catchupTill, ledger_size),
+                         logMethod=logger.debug)
+            return
+        if end < start:
+            self.discard(req, reason="{} not able to service since "
+                                     "start = {} greater then "
+                                     "end = {}"
+                         .format(self, start, end),
+                         logMethod=logger.debug)
+            return
+        if end > req.catchupTill:
+            self.discard(req, reason="{} not able to service since "
+                                     "end = {} greater then "
+                                     "catchupTill = {}"
+                         .format(self, end, req.catchupTill),
                          logMethod=logger.debug)
             return
 
