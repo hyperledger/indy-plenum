@@ -27,8 +27,9 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,
-                                         num_reqs=2*sent_batches,
+                                         num_reqs=2 * sent_batches,
                                          num_batches=sent_batches)
+
     # send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
     #                                        2 * sent_batches, sent_batches)
 

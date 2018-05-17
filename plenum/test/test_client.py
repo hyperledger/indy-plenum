@@ -18,7 +18,6 @@ from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import spyable
 from plenum.common.constants import OP_FIELD_NAME
 
-
 logger = getlogger()
 
 client_spyables = [Client.handleOneNodeMsg,
@@ -51,8 +50,8 @@ def genTestClient(nodes=None,
                   nodeReg=None,
                   tmpdir=None,
                   testClientClass=TestClient,
-                  identifier: Identifier=None,
-                  verkey: str=None,
+                  identifier: Identifier = None,
+                  verkey: str = None,
                   bootstrapKeys=True,
                   ha=None,
                   usePoolLedger=False,

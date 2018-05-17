@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import PROPAGATE
+from plenum.test.helper import sdk_json_to_request_object
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay, msg_rep_delay
@@ -13,16 +14,17 @@ howlong = 5
 
 
 @pytest.fixture()
-def setup(nodeSet):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
-    A.nodeIbStasher.delay(msg_rep_delay(10*howlong, [PROPAGATE, ]))
+    A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
 
 
-def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
-    A, B, C, D = nodeSet.nodes.values()  # type: TestNode
+def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet, sent1):
+    A, B, C, D = txnPoolNodeSet  # type: TestNode
+    sent1 = sdk_json_to_request_object(sent1[0][0])
 
     def x():
         # A should have received a request from the client
@@ -41,6 +43,7 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         # A should have total of 4 PROPAGATEs (3 from other nodes and 1 from
         # itself)
         key = sent1.identifier, sent1.reqId
+        assert key in A.requests
         assert len(A.requests[key].propagates) == 4
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1

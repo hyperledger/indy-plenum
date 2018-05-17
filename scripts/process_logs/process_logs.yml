@@ -1,0 +1,293 @@
+
+matchers:
+
+#########################################################################
+# Message matchers
+#########################################################################
+
+  message_event:
+  - message_sending:
+  - message_received:
+
+  message_sending:
+  - message: "sending message"
+
+  message_received:
+  - message: "received node message from"
+
+#########################################################################
+# Network matchers
+#########################################################################
+
+  network_event:
+  - network_ping_pong:
+  - network_connect:
+  - network_disconnect:
+  - network_misc:
+
+  network_ping_pong:
+  - message: " ping "
+  - message: " pong "
+
+  network_connect:
+  - message: now connected to
+
+  network_disconnect:
+  - message: disconnecting remote
+
+  network_misc:
+  - message: connections changed from
+  - message: found disconnected event on monitor
+  - message: is not connected - message will not be sent immediately\.If this problem does not resolve itself - check your firewall settings
+
+#########################################################################
+# View change matchers
+#########################################################################
+
+  view_change_event:
+  - message: "VIEW CHANGE:"
+  - all:
+    - message_event:
+    - any:
+      - message: CURRENT_STATE
+      - message: LEDGER_STATUS
+      - message: CONSISTENCY_PROOF
+      - message: VIEW_CHANGE_DONE
+
+  view_change_start:
+  - message: initiating a view change to
+  - message: starting view change for
+
+  view_change_done:
+  - message: declares view change
+
+#########################################################################
+# Catchup
+#########################################################################
+
+  catchup_event:
+  - message: "CATCH-UP:"
+
+#########################################################################
+# BLS matchers
+#########################################################################
+
+  bls_event:
+  - message: "BLS:"
+
+
+#########################################################################
+# Spam matchers
+#########################################################################
+
+  spam:
+  - func: acquire
+  - message: keys to clean
+  - message: msg validated
+  - message: got ping from
+  - message: "MONITORING:"
+  - message: freed request
+  - message: going to remove
+  - message: sending Commit
+  - message: sending Prepare
+  - message: sending Ordered
+  - message: sending PrePrepare
+  - message: sending Checkpoint
+  - message: popped Interval # batch
+  - message: sending reply for
+  - message: transmitting message
+  - message: You can find logs in
+  - message: created a PRE-PREPARE
+  - message: appending to nodeInbox
+  - message: next check for retries
+  - message: requesting PREPARE for
+  - message: into fewer transmissions
+  - message: processing a batch BATCH
+  - message: requesting PREPREPARE for
+  - message: missing PRE-PREPAREs from
+  - message: Setting handler for SIGINT
+  - message: Setting handler for SIGTERM
+  - message: checking its request amount
+  - message: removing previous checkpoint
+  - message: tracking batch for PREPREPARE
+  - message: cannot process incoming PREPARE
+  - message: have no stashed checkpoints for
+  - message: "Using selector: EpollSelector"
+  - message: Suspicious Spike check is disabled
+  - message: master instance performance degraded
+  - message: saved shared multi signature for root
+  - message: master has higher performance than backups
+  - message: batches before starting catch up for ledger
+  - message: changing status from started to started_hungry
+  - message: process_stashed_out_of_order_commits is already repeating
+  - message: since Primary of master protocol instance degraded the performance
+  - message: and trying to start view change since performance of master instance degraded
+  - message: to its replicas since not finalised
+  all_spam:
+  - spam:
+  - message: " pinged "
+  - message: " ponged "
+  - message: matched remote
+  - message: reverting 3PC key
+  - message: verifying proof for
+  - message: received consistency proof
+  - message: view_changer sending INSTANCE_CHANGE
+  - message: does not send BATCH to Observers since there are no observers added
+
+
+chains:
+
+#########################################################################
+# Spam filters
+#########################################################################
+
+  filter_spam:
+  - match and drop: [spam]
+
+  filter_all_spam:
+  - match and drop: [all_spam]
+
+#########################################################################
+# Message taggers
+#########################################################################
+
+  tag_messages:
+  - tag_message_sending:
+  - tag_message_inbox:
+
+  tag_message_sending:
+  - match: [message_sending]
+  - tag:
+      pattern: sending message (\w+)
+      attributes:
+        message: send
+        message_type: group 1
+
+  tag_message_inbox:
+  - match: [message_inbox]
+  - tag:
+      pattern: appending to nodeInbox (\w+)
+      attributes:
+        message: inbox
+        message_type: group 1
+
+
+#########################################################################
+# To be done filters
+#########################################################################
+
+  filter_ok:
+  - match any and drop:
+    - message_event:
+    - network_event:
+    - catchup_event:
+    - view_change_event:
+    - bls_event:
+    - message: found proof
+    - message: pended request
+    - message: popping stashed
+    - message: reconnecting to
+    - message: processed incoming
+    - message: Sending COMMIT
+    - message: Sending PREPARE
+    - message: received COMMIT
+    - message: received PRE-PREPARE
+    - message: received PREPARE
+    - message: storing 3PC key
+    - message: ordering COMMIT
+    - message: cleaning up till
+    - message: set watermarks as
+    - message: set last ordered as
+    - message: stashing CHECKPOINT
+    - message: stashing PRE-PREPARE
+    - message: comparing its ledger
+    - message: propagating request
+    - message: processing pended msg
+    - message: received requested msg
+    - message: has no quorum for view
+    - message: executing Ordered batch
+    - message: has already ordered msg
+    - message: has already received msg
+    - message: marked stable checkpoint
+    - message: stashing 3 phase message
+    - message: received catchup reply from
+    - message: deciding on the basis of CPs
+    - message: completed catching up ledger
+    - message: ordered batch request, view no
+    - message: adding new checkpoint state for
+    - message: committed batch request, view no
+    - message: processing checkpoint CHECKPOINT
+    - message: since it has been already ordered
+    - message: not forwarding request SafeRequest
+    - message: got one of primary suspicions codes
+    - message: Setting last ordered for non-master as
+    - message: "received client request: SafeRequest"
+    - message: has state\.receivedDigests as dict_keys
+    - message: "received ledger status: LEDGER_STATUS"
+    - message: state root before processing PREPREPARE
+    - message: "received catchup request: CATCHUP_REQ"
+    - message: already requested PROPAGATE recently for
+    - message: "received propagated request: PROPAGATE"
+    - message: cannot return request to node
+    - message: trying to order from out of order commits
+    - message: but has already sent an instance change message
+    - message: choosing to start election on the basis of count
+    - message: Queueing commit due to unavailability of PREPARE
+    - message: not requesting PREPREPARE since already requested
+    - message: not requesting PREPARE since already requested for
+    - message: "received instance change request: INSTANCE_CHANGE"
+    - message: sending message to view changer
+    - message: cannot send COMMIT since has already sent COMMIT for PREPARE
+    - message: not requesting a PRE-PREPARE since already found stashed for
+    - message: Primary selection has been already completed on pool ledger info
+    - message: Queueing pre-prepares due to unavailability of finalised requests
+    - message: had either not requested this msg or already received the msg for
+    - message: cannot send COMMIT since does not have prepare quorum for PREPARE
+    - message: Queueing pre-prepares due to unavailability of previous pre-prepares
+    - message: queueing prepare due to unavailability of PRE-PREPARE. Prepare PREPARE
+    - message: does not start the catchup procedure because it is already in this state
+    - message: cannot send COMMIT since should not participate in consensus for PREPARE
+    - message: not requesting a PRE-PREPARE because does not have sufficient PREPAREs for
+    - message: cannot send PREPARE since should not participate in consensus for PREPREPARE
+    - message: is getting requests but still does not have a primary so the replica will not process the request until a primary is chosen
+  - suspicion_filter:
+  - discard_filter:
+  - slow_filter_ok:
+
+  suspicion_filter:
+  - match: [message: raised suspicion on node]
+  - match any and drop:
+    - message: for PREPARE request already received
+    - message: for Pre-Prepare received from non primary
+    - message: for Pre-Prepare message has incorrect state trie root
+    - message: for PRE-PREPARE being sent twice with the same view no and sequence no
+
+  discard_filter:
+  - match: [message: discarding message]
+  - match any and drop:
+    - message: because cannot serve request
+    - message: discarding message CATCHUP_REQ
+    - message: because Checkpoint already stable
+    - message: but did not find the master to be slow  # received INSTANCE_CHANGE
+    - message: because PREPARE request already received
+    - message: because Pre-Prepare received from non primary
+    - message: because achieved stable checkpoint for 3 phase message
+    - message: because PRE-PREPARE being sent twice with the same view no and sequence no
+
+  slow_filter_ok:
+  - match any and drop:
+    - message: ^Discarding (\d+) txns and root hash
+    - message: processing b'(\S+)' request SafeRequest
+    - message: processing b'(\S+)' request LEDGER_STATUS
+    - message: reverting (\d+) txns and state root from
+    - message: ^Committed (\d+) txns, (\d+) are uncommitted
+    - message: creating batch (\d+) for ledger (\d+) with state root
+    - message: forwarding request \('(\w+)', (\d+)\) to (\d) replicas
+    - message: processed (\d+) COMMITs waiting for PREPARE for view no
+    - message: processed (\d+) PREPAREs waiting for PRE-PREPARE for view no
+    - message: processed (\d+) Ordered batches for instance (\d+) before starting catch up
+    - message: processed (\d+) stashed checkpoints for \((\d+), (\d+)\), 0 of them were stashed again
+    - message: has not prepared \((\d+), (\d+)\), will dequeue the COMMITs later
+    - message: has stashed (\d+) checkpoints with quorum so updating watermarks to
+    - message: has stashed (\d+) checkpoints with quorum so the catchup procedure starts
+    - message: ^It looks like (\w+) does not participate in processing messages because it has (\d+) unordered requests in the last (\d+) minutes

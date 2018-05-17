@@ -2,15 +2,17 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
+from typing import Iterable
 
 import base58
+import dateutil
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -133,6 +135,26 @@ class LimitedLengthStringField(FieldBase):
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
+class DatetimeStringField(FieldBase):
+    _base_types = (str,)
+    _exceptional_values = []
+
+    def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
+        super().__init__(**kwargs)
+        if exceptional_values is not None:
+            self._exceptional_values = exceptional_values
+
+    def _specific_validation(self, val):
+        if len(val) > DATETIME_LIMIT:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, DATETIME_LIMIT)
+        if val not in self._exceptional_values:
+            try:
+                dateutil.parser.parse(val)
+            except Exception:
+                return "datetime {} is not valid".format(val)
+
+
 class FixedLengthField(FieldBase):
     _base_types = (str, )
 
@@ -194,14 +216,28 @@ class ConstantField(FieldBase):
 class IterableField(FieldBase):
     _base_types = (list, tuple)
 
-    def __init__(self, inner_field_type: FieldValidator, **kwargs):
+    def __init__(self, inner_field_type: FieldValidator, min_length=None,
+                 max_length=None, **kwargs):
         assert inner_field_type
         assert isinstance(inner_field_type, FieldValidator)
+        for m in (min_length, max_length):
+            if m is not None:
+                assert isinstance(m, int)
+                assert m > 0
 
         self.inner_field_type = inner_field_type
+        self.min_length = min_length
+        self.max_length = max_length
         super().__init__(**kwargs)
 
     def _specific_validation(self, val):
+        if self.min_length is not None:
+            if len(val) < self.min_length:
+                return 'length should be at least {}'.format(self.min_length)
+        if self.max_length is not None:
+            if len(val) > self.max_length:
+                return 'length should be at most {}'.format(self.max_length)
+
         for v in val:
             check_er = self.inner_field_type.validate(v)
             if check_er:
@@ -306,7 +342,7 @@ class Base58Field(FieldBase):
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet)
+        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
@@ -394,18 +430,39 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
+class FullVerkeyField(FieldBase):
+    _base_types = (str,)
+    _validator = Base58Field(byte_lengths=(32,))
+
+    def _specific_validation(self, val):
+        # full base58
+        return self._validator.validate(val)
+
+
+class AbbreviatedVerkeyField(FieldBase):
+    _base_types = (str,)
+    _validator = Base58Field(byte_lengths=(16,))
+
+    def _specific_validation(self, val):
+        if not val.startswith('~'):
+            return 'should start with a ~'
+        # abbreviated base58
+        return self._validator.validate(val[1:])
+
+
 # TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str,)
-    _b58abbreviated = Base58Field(byte_lengths=(16,))
-    _b58full = Base58Field(byte_lengths=(32,))
+    _b58abbreviated = AbbreviatedVerkeyField()
+    _b58full = FullVerkeyField()
 
     def _specific_validation(self, val):
-        if val.startswith('~'):
-            # abbreviated base58
-            return self._b58abbreviated.validate(val[1:])
-        # full base58
-        return self._b58full.validate(val)
+        err_ab = self._b58abbreviated.validate(val)
+        err_fl = self._b58full.validate(val)
+        if err_ab and err_fl:
+            return 'Neither a full verkey nor an abbreviated one. One of ' \
+                   'these errors should be resolved:\n {}\n{}'.\
+                format(err_ab, err_fl)
 
 
 class HexField(FieldBase):

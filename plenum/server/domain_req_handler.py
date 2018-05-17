@@ -11,18 +11,19 @@ from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
 
 
-class DomainRequestHandler(RequestHandler):
+class DomainRequestHandler(LedgerRequestHandler):
     stateSerializer = domain_state_serializer
     write_types = {NYM, }
 
-    def __init__(self, ledger, state, config, reqProcessors, bls_store):
-        super().__init__(ledger, state)
+    def __init__(self, ledger, state, config, reqProcessors, bls_store, ts_store=None):
+        super().__init__(ledger, state, ts_store=ts_store)
         self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store
@@ -162,7 +163,7 @@ class DomainRequestHandler(RequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def make_proof(self, path):
+    def make_proof(self, path, head_hash=None):
         '''
         Creates a state proof for the given path in state trie.
         Returns None if there is no BLS multi-signature for the given state (it can
@@ -171,10 +172,10 @@ class DomainRequestHandler(RequestHandler):
         :param path: the path generate a state proof for
         :return: a state proof or None
         '''
+        root_hash = head_hash if head_hash else self.state.committedHeadHash
         proof = self.state.generate_state_proof(key=path,
-                                                root=self.state.committedHead,
+                                                root=self.state.get_head_by_hash(root_hash),
                                                 serialize=True)
-        root_hash = self.state.committedHeadHash
         encoded_proof = proof_nodes_serializer.serialize(proof)
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 

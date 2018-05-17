@@ -23,13 +23,13 @@ def testNodeNames(be, do, cli, validNodeNames):
     # Create a node with a name of an already created node
     be(cli)
     do("new node {}".format(lastNodeName), expect=[
-       "Node {} already exists.".format(lastNodeName)])
+        "Node {} already exists.".format(lastNodeName)])
     assert len(cli.nodes) == 4
 
     # Create a node with invalid name
     randName = randomString(10)
     do("new node {}".format(randName), expect=[
-       "Invalid node name '{}'. ".format(randName)])
+        "Invalid node name '{}'. ".format(randName)])
     args = cli.printedTokens[-1]
     token, _ = args['tokens'][0]
     # An error token should be printed
@@ -44,15 +44,15 @@ def testCreateNodeWhenClientExistsWithoutKey(be, do, cli, validNodeNames):
     clientName = "testc1"
     be(cli)
     do("new client {}".format(clientName), expect=[
-       "Active client set to {}".format(clientName)])
+        "Active client set to {}".format(clientName)])
     do("new node {}".format(validNodeNames[0]), expect=[
-       "No key present in wallet"], within=2)
+        "No key present in wallet"], within=2)
 
 
 def testCreateNodeWhenClientExistsWithKey(be, do, cli, validNodeNames):
     clientName = "testc2"
     be(cli)
     do("new client {}".format(clientName), expect=[
-       "Active client set to {}".format(clientName)])
+        "Active client set to {}".format(clientName)])
     do("new key", expect=["Current DID set to "])
     addNodes(be, do, cli, validNodeNames)

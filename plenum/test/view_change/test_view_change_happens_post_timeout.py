@@ -18,8 +18,8 @@ def is_instance_change_sent_for_view_no(node, view_no):
     return node.view_changer.instanceChanges.hasView(view_no)
 
 
-def test_instance_change_happens_post_timeout(tconf, looper, nodeSet, up):
-    non_prim_node = getNonPrimaryReplicas(nodeSet)[0].node
+def test_instance_change_happens_post_timeout(tconf, looper, txnPoolNodeSet):
+    non_prim_node = getNonPrimaryReplicas(txnPoolNodeSet)[0].node
     old_view_no = non_prim_node.viewNo
 
     # first sending on InstanceChange: OK

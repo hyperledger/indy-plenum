@@ -9,13 +9,12 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_random_and_check
 
-
 TestRunningTimeLimitSec = 300
 PerfCheckFreq = 30
 
 logger = getlogger()
 
-whitelist = ['received an incorrect digest']
+whitelist = ['received an incorrect digest', 'Consensus for ReqId:']
 
 
 def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFreqPatched, looper, txnPoolNodeSet,

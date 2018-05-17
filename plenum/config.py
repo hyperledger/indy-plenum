@@ -1,28 +1,12 @@
-
 import os
 import sys
 from collections import OrderedDict
 
 import logging
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
+    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-
-# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-
-nodeReg = OrderedDict([
-    ('Alpha', ('127.0.0.1', 9701)),
-    ('Beta', ('127.0.0.1', 9703)),
-    ('Gamma', ('127.0.0.1', 9705)),
-    ('Delta', ('127.0.0.1', 9707))
-])
-
-cliNodeReg = OrderedDict([
-    ('AlphaC', ('127.0.0.1', 9702)),
-    ('BetaC', ('127.0.0.1', 9704)),
-    ('GammaC', ('127.0.0.1', 9706)),
-    ('DeltaC', ('127.0.0.1', 9708))
-])
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -46,9 +30,12 @@ poolTransactionsFile = pool_transactions_file_base
 domainTransactionsFile = domain_transactions_file_base
 configTransactionsFile = config_transactions_file_base
 
+stateTsStorage = KeyValueStorageType.Rocksdb
+
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 configStateDbName = 'config_state'
+stateTsDbName = "state_ts_db"
 
 stateSignatureDbName = 'state_signature'
 
@@ -59,17 +46,19 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_FILE
+    "type": HS_ROCKSDB
 }
 
 primaryStorage = None
 
-domainStateStorage = KeyValueStorageType.Leveldb
-poolStateStorage = KeyValueStorageType.Leveldb
-configStateStorage = KeyValueStorageType.Leveldb
-reqIdToTxnStorage = KeyValueStorageType.Leveldb
+domainStateStorage = KeyValueStorageType.Rocksdb
+poolStateStorage = KeyValueStorageType.Rocksdb
+configStateStorage = KeyValueStorageType.Rocksdb
+reqIdToTxnStorage = KeyValueStorageType.Rocksdb
 
-stateSignatureStorage = KeyValueStorageType.Leveldb
+stateSignatureStorage = KeyValueStorageType.Rocksdb
+
+transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -83,6 +72,7 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
+UnorderedCheckFreq = 60
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
@@ -97,17 +87,19 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'bounds_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     },
     'nodeRequestSpike': {
-        'coefficient': 3,
-        'minCnt': 100,
+        'bounds_coeff': 10,
+        'min_cnt': 15,
         'freq': 60,
-        'minActivityThreshold': 2,
+        'min_activity_threshold': 10,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
 }
@@ -144,12 +136,10 @@ ConsistencyProofsTimeout = 5
 # Timeout for pool catchuping would be nodeCount * CatchupTransactionsTimeout
 CatchupTransactionsTimeout = 6
 
-
 # Log configuration
-logRotationWhen = 'D'
-logRotationInterval = 1
-logRotationBackupCount = 10
+logRotationBackupCount = 300
 logRotationMaxBytes = 100 * 1024 * 1024
+logRotationCompression = "xz"
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
@@ -171,7 +161,6 @@ EnsureLedgerDurability = False
 
 log_override_tags = dict(cli={}, demo={})
 
-
 # Number of messages zstack accepts at once
 LISTENER_MESSAGE_QUOTA = 100
 REMOTES_MESSAGE_QUOTA = 100
@@ -183,11 +172,9 @@ Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = .001
 
-
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
 ProcessedBatchMapsToKeep = 100
-
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
@@ -196,13 +183,11 @@ MaxStateProofSize = 10
 # State proof timeout
 MaxStateProofTime = 3
 
-
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
 CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3 * CHK_FREQ
-
 
 CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 15
@@ -210,6 +195,7 @@ CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
 VIEW_CHANGE_TIMEOUT = 60  # seconds
+INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
 
@@ -241,6 +227,7 @@ BLS_KEY_LIMIT = 512
 BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
+DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []

@@ -21,24 +21,6 @@ whitelist = ['discarding message', 'found legacy entry',
              'error while verifying message']
 
 
-@pytest.fixture()
-def nodeReg():
-    return {
-        'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
-        'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
-        'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
-        'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
-    }
-
-
-def initLocalKeys(tdir_for_func, tconf_for_func, nodeReg):
-    for nName in nodeReg.keys():
-        sigseed = randomString(32).encode()
-        config_helper = PNodeConfigHelper(nName, tconf_for_func, chroot=tdir_for_func)
-        initNodeKeysForBothStacks(nName, config_helper.keys_dir, sigseed, override=True)
-        logger.debug('Created keys for {}'.format(nName))
-
-
 @pytest.mark.skip(reason='INDY-109. Intermittent failures')
 def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_func,
                                        looper_without_nodeset_for_func,
@@ -85,20 +67,9 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_
 
 
 def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_for_func,
-                                           looper_without_nodeset_for_func,
-                                           nodeReg):
-    looper = looper_without_nodeset_for_func
-    nodes = []
-
-    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
-
-    for name in nodeReg:
-        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
-        node = TestNode(name, nodeReg,
-                        config_helper=config_helper,
-                        config=tconf_for_func,
-                        pluginPaths=allPluginsPath)
-        nodes.append(node)
+                                           looper,
+                                           txnPoolNodeSetNotStarted):
+    nodes = txnPoolNodeSetNotStarted
 
     for node in nodes:
         tellKeysToOthers(node, nodes)
@@ -108,34 +79,25 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_
 
     looper.run(checkNodesConnected(nodes))
     stopNodes(nodes, looper)
+    for node in nodes:
+        looper.removeProdable(node)
 
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
 def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_func,
-                                      looper_without_nodeset_for_func,
-                                      nodeReg):
+                                      looper,
+                                      txnPoolNodeSetNotStarted):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    looper = looper_without_nodeset_for_func
 
-    initLocalKeys(tdir_for_func, tconf_for_func, nodeReg)
+    nodes = txnPoolNodeSetNotStarted
 
-    nodes = []
-
-    names = list(nodeReg.keys())
+    names = list(node.name for node in nodes)
 
     shuffle(names)
     waits = [randint(1, 10) for _ in names]
     rwaits = [randint(1, 10) for _ in names]
-
-    for name in names:
-        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
-        node = TestNode(name, nodeReg,
-                        config_helper=config_helper,
-                        config=tconf_for_func,
-                        pluginPaths=allPluginsPath)
-        nodes.append(node)
 
     for node in nodes:
         tellKeysToOthers(node, nodes)
@@ -162,27 +124,17 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_f
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
     logger.debug("rwaits: {}".format(rwaits))
+    for node in nodes:
+        looper.removeProdable(node)
 
 
 def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
-                       looper_without_nodeset_for_func,
-                       nodeReg):
+                       looper,
+                       txnPoolNodeSetNotStarted):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    looper = looper_without_nodeset_for_func
-    names = ["Alpha", "Beta"]
-    nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
 
-    logger.debug(names)
-    nodes = []
-    for name in names:
-        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
-        node = TestNode(name, nrg,
-                        config_helper=config_helper,
-                        config=tconf_for_func,
-                        pluginPaths=allPluginsPath)
-        nodes.append(node)
+    nodes = txnPoolNodeSetNotStarted[:2]
 
     for node in nodes:
         tellKeysToOthers(node, nodes)
@@ -200,30 +152,18 @@ def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
     B.start(looper.loop)
     looper.run(checkNodesConnected([A, B]))
     stopNodes([A, B], looper)
+    for node in [A, B]:
+        looper.removeProdable(node)
 
 
 def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
-                                looper_without_nodeset_for_func,
-                                nodeReg):
+                                looper,
+                                txnPoolNodeSetNotStarted):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
     """
-
-    looper = looper_without_nodeset_for_func
-    names = ["Alpha", "Beta"]
-    nrg = {n: nodeReg[n] for n in names}
-    initLocalKeys(tdir_for_func, tconf_for_func, nrg)
-    logger.debug(names)
-
-    nodes = []
-    for name in names:
-        config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
-        node = TestNode(name, nrg,
-                        config_helper=config_helper,
-                        config=tconf_for_func,
-                        pluginPaths=allPluginsPath)
-        nodes.append(node)
+    nodes = txnPoolNodeSetNotStarted[:2]
 
     for node in nodes:
         tellKeysToOthers(node, nodes)
@@ -233,13 +173,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
         looper.add(node)
     looper.run(checkNodesConnected(nodes))
 
-    name = "Gamma"
-    initLocalKeys(tdir_for_func, tconf_for_func, {name: nodeReg[name]})
-    config_helper = PNodeConfigHelper(name, tconf_for_func, chroot=tdir_for_func)
-    C = TestNode(name, {**nrg, **{name: nodeReg[name]}},
-                 config_helper=config_helper,
-                 config=tconf_for_func,
-                 pluginPaths=allPluginsPath)
+    C = txnPoolNodeSetNotStarted[2]
     for node in nodes:
         tellKeysToOthers(node, [C, ])
 
@@ -247,6 +181,6 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdir_for_func, tconf_for_func,
     looper.runFor(5)
 
     stopNodes([C, ], looper)
-
-    timeout = waits.expectedPoolInterconnectionTime(len(nodeReg))
     stopNodes([A, B], looper)
+    for node in [A, B, C]:
+        looper.removeProdable(node)

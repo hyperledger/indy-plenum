@@ -3,6 +3,7 @@ from plenum.test.batching_3pc.helper import make_node_syncing, fail_on_execute_b
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.helper import sdk_send_random_requests
 
+
 def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 

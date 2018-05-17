@@ -3,7 +3,8 @@ import base58
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, CLIENT_PORT, NODE_IP
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, \
+    CLIENT_PORT, NODE_IP
 from plenum.common.stack_manager import TxnStackManager
 
 errMsg1 = 'Invalid verkey. Rebuild pool transactions.'
@@ -16,7 +17,7 @@ def invalid_verkey_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     for d in range(3):
         txn = {TXN_TYPE: '0',
-               TARGET_NYM: base58.b58encode(b'whatever'),
+               TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
                IDENTIFIER: "Th7MpTaRZVRYnPiabds81Y",
                DATA: {
                    NAME: str(d),
@@ -34,7 +35,7 @@ def invalid_verkey_tdir(tdir_for_func):
 def invalid_identifier_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     txn = {TXN_TYPE: '0',
-           TARGET_NYM: base58.b58encode(b'whatever'),
+           TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
            IDENTIFIER: "invalid====",
            DATA: {
                NAME: str(2),

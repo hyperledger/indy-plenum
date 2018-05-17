@@ -7,18 +7,18 @@ from tempfile import gettempdir, mkdtemp
 
 import time
 
-
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
+    CURRENT_PROTOCOL_VERSION, NODE, NYM
+from plenum.common.roles import Roles
+from plenum.common.transactions import PlenumTransactions
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
-from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
@@ -26,8 +26,6 @@ from plenum.test.testable import spyable
 from pygments.token import Token
 from functools import partial
 from plenum.test import waits
-from plenum.common import util
-from plenum.common.request import Request
 
 logger = getlogger()
 
@@ -97,7 +95,7 @@ class TestCliCore:
             self.printeds[: (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
                          reversed(self.printedTokens[:(
-                             len(self.printedTokens) - self.lastPrintedTokenIndex)])
+                                 len(self.printedTokens) - self.lastPrintedTokenIndex)])
                          for token in tokens.get('tokens', []) if len(token) > 1]
         pt = ''.join(printedTokens)
         return '\n'.join(printeds + [pt]).strip()
@@ -169,12 +167,12 @@ def waitNodeStarted(cli, nodeName):
         print("checking for {}".format(nodeName))
         print(msgs)
         assert "{} added replica {}:0 to instance 0 (master)" \
-            .format(nodeName, nodeName) in msgs
+                   .format(nodeName, nodeName) in msgs
         assert "{} added replica {}:1 to instance 1 (backup)" \
-            .format(nodeName, nodeName) in msgs
+                   .format(nodeName, nodeName) in msgs
         assert "{}{} listening for other nodes at {}:{}" \
-            .format(CONNECTION_PREFIX, nodeName,
-                    *cli.nodes[nodeName].nodestack.ha) \
+                   .format(CONNECTION_PREFIX, nodeName,
+                           *cli.nodes[nodeName].nodestack.ha) \
                in msgs
 
     startUpTimeout = waits.expectedNodeStartUpTimeout()
@@ -192,7 +190,7 @@ def checkAllNodesUp(cli):
 
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = PRIMARY_SELECTION_PREFIX + \
-        "{nm}:{inst} selected primary {pri}" " for instance {inst} (view 0)"
+               "{nm}:{inst} selected primary {pri}" " for instance {inst} (view 0)"
     assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
@@ -253,63 +251,17 @@ def createClientAndConnect(cli, nodeNames, clientName):
     waitClientConnected(cli, nodeNames, clientName)
 
 
-def checkRequest(cli, operation):
-    cName = "Joe"
-    cli.enterCmd("new client {}".format(cName))
-    # Let client connect to the nodes
-
-    nodeNames = list(cli.nodes.keys())
-    waitClientConnected(cli, nodeNames, cName)
-
-    # Send request to all nodes
-
-    createNewKeyring(cName, cli)
-
-    cli.enterCmd("new key {}".format("testkey1"))
-    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
-
-    cli.enterCmd('client {} send {}'.format(cName, operation))
-    client = cli.clients[cName]
-    wallet = cli.wallets[cName]  # type: Wallet
-    # Ensure client gets back the replies
-    lastReqId = client.reqRepStore.lastReqId
-
-    request = Request(identifier=wallet.defaultId,
-                      reqId=lastReqId,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-
-    waitForSufficientRepliesForRequests(cli.looper, client,
-                                        requests=[request])
-
-    txn, status = client.getReply(wallet.defaultId, lastReqId)
-
-    # Ensure the cli shows appropriate output
-    cli.enterCmd('client {} show {}'.format(cName, lastReqId))
-    printeds = cli.printeds
-    printedReply = printeds[1]
-    printedStatus = printeds[0]
-    # txnTimePattern = "'txnTime', \d+\.*\d*"
-    # txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
-    txnTimePattern = "\'txnTime\': \d+\.*\d*"
-    # DEPR
-    # txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
-    # assert re.search(txnIdPattern, printedReply['msg'])
-    assert re.search(txnTimePattern, printedReply['msg'])
-    assert printedStatus['msg'] == "Status: {}".format(status)
-    return client, wallet
-
-
 def newCLI(looper, basedir, ledger_base_dir,
            cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient,
            config=None,
-           partition: str=None,
+           partition: str = None,
            unique_name=None,
            logFileName=None,
            name=None,
            agentCreator=None,
-           nodes_chroot: str=None):
+           nodes_chroot: str = None):
     if partition:
         recorder = Recorder(partition)
     else:
@@ -348,7 +300,7 @@ def checkCmdValid(cli, cmd):
     assert 'Invalid command' not in cli.lastCmdOutput
 
 
-def newKeyPair(cli: TestCli, alias: str=None):
+def newKeyPair(cli: TestCli, alias: str = None):
     cmd = "new key {}".format(alias) if alias else "new key"
     idrs = set()
     if cli.activeWallet:
@@ -471,7 +423,7 @@ def checkBalance(balance, data):
 
 def waitForReply(cli, nodeCount, replyChecker, customTimeout=None):
     timeout = customTimeout or \
-        waits.expectedTransactionExecutionTime(nodeCount)
+              waits.expectedTransactionExecutionTime(nodeCount)
     cli.looper.run(eventually(checkReply, cli,
                               nodeCount, replyChecker,
                               timeout=timeout))
@@ -500,8 +452,8 @@ def assertCliTokens(matchedVars, tokens):
 
         if expectedValue is not None:
             assert matchedValue is not None, \
-                "Key '{}' not found in machedVars (matchedValue={})".\
-                format(key, matchedValue)
+                "Key '{}' not found in machedVars (matchedValue={})". \
+                    format(key, matchedValue)
 
         expectedValueLen = len(expectedValue) if expectedValue else 0
         matchedValueLen = len(matchedValue) if matchedValue else 0
@@ -509,9 +461,9 @@ def assertCliTokens(matchedVars, tokens):
         assert matchedValue == expectedValue, \
             "Value not matched for key '{}', " \
             "\nexpectedValue (length: {}): {}, " \
-            "\nactualValue (length: {}): {}".\
-            format(key, expectedValueLen, expectedValue,
-                   matchedValueLen, matchedValue)
+            "\nactualValue (length: {}): {}". \
+                format(key, expectedValueLen, expectedValue,
+                       matchedValueLen, matchedValue)
 
 
 def doByCtx(ctx):
@@ -594,12 +546,15 @@ def doByCtx(ctx):
                         raise AttributeError("only str, callable, or "
                                              "collections of str and callable "
                                              "are allowed")
+
             chk(expect)
             chk(not_expect, False)
+
         if within:
             cli.looper.run(eventually(check, timeout=within))
         else:
             check()
+
     return _
 
 
@@ -613,12 +568,11 @@ def checkPermissions(path, mode):
 
 def checkWalletRestored(cli, expectedWalletKeyName,
                         expectedIdentifiers):
-
     cli.lastCmdOutput == "Saved wallet {} restored".format(
         expectedWalletKeyName)
     assert cli._activeWallet.name == expectedWalletKeyName
     assert len(cli._activeWallet.identifiers) == \
-        expectedIdentifiers
+           expectedIdentifiers
 
 
 def getOldIdentifiersForActiveWallet(cli):
@@ -646,7 +600,7 @@ def createAndAssertNewKeyringCreation(do, name, expectedMsgs=None):
 def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-        ['Active wallet set to "{}"'.format(keyringName)]
+                        ['Active wallet set to "{}"'.format(keyringName)]
     do('use wallet {}'.format(name),
        expect=finalExpectedMsgs
        )
@@ -655,7 +609,7 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
 def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-        ['Active wallet "{}" saved'.format(keyringName)]
+                        ['Active wallet "{}" saved'.format(keyringName)]
     do('save wallet'.format(name),
        expect=finalExpectedMsgs
        )
@@ -675,3 +629,56 @@ def restartCliAndAssert(cli, do, expectedRestoredWalletName,
     ], within=5)
     assert cli._activeWallet is not None
     assert len(cli._activeWallet.identifiers) == expectedIdentifiers
+
+
+def _newStewardsAddedByName(cli):
+    cli.enterCmd(
+        "add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role={role}".format(
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name))
+    cli.enterCmd(
+        'add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 '
+        'with data {{"alias": "Ty"}} role={role}'.format(
+            nym=PlenumTransactions.NYM.name,
+            role=Roles.STEWARD.name))
+
+
+def _newStewardsAddedByValue(cli):
+    cli.enterCmd(
+        "add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 role={role}".format(
+            nym=NYM,
+            role=Roles.STEWARD.name))
+    cli.enterCmd(
+        'add genesis transaction {nym} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06421 '
+        'with data {{"alias": "Ty"}} role={role}'.format(
+            nym=NYM, role=Roles.STEWARD.name))
+
+
+def _newNodesAddedByName(cli):
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=PlenumTransactions.NODE.name))
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=PlenumTransactions.NODE.name))
+
+
+def _newNodesAddedByValue(cli):
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=NODE))
+    cli.enterCmd(
+        'add genesis transaction {node} for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06421 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06420 with data '
+        '{{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}}'.format(
+            node=NODE))

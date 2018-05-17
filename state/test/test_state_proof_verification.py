@@ -4,15 +4,19 @@ from state.pruning_state import PruningState
 from state.state import State
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 
 
-@pytest.yield_fixture(params=['memory', 'leveldb'])
+@pytest.yield_fixture(params=['memory', 'leveldb', 'rocksdb'])
 def state(request, tmpdir_factory) -> State:
-    if request.param == 'memory':
-        db = KeyValueStorageInMemory()
     if request.param == 'leveldb':
         db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('').strpath,
                                     'some_db')
+    elif request.param == 'rocksdb':
+        db = KeyValueStorageRocksdb(tmpdir_factory.mktemp('').strpath,
+                                    'some_db')
+    else:
+        db = KeyValueStorageInMemory()
     state = PruningState(db)
     yield state
     state.close()

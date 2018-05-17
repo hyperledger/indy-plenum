@@ -5,10 +5,18 @@ ARG uid=1000
 ARG user=indy
 ARG venv=venv
 
+RUN echo "To invalidate cache"
+
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
-    libindy-crypto=0.2.0 \
-    libindy=1.3.1~403
+    libindy-crypto=0.4.0 \
+    libindy=1.3.1~469 \
+# rocksdb python wrapper
+    libbz2-dev \
+    zlib1g-dev \
+    liblz4-dev \
+    libsnappy-dev \
+    rocksdb=5.8.8
 
 RUN indy_ci_add_user $uid $user $venv
 

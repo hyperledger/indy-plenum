@@ -4,7 +4,6 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.common.util import adict
 from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
@@ -15,14 +14,10 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
 
-whitelist = [Suspicions.PPR_DIGEST_WRONG.reason,
-             'cannot process incoming PRE-PREPARE']
-
-
 @pytest.fixture("module")
-def setup(nodeSet, up):
-    primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \
-        getNonPrimaryReplicas(nodeSet, 0)
+def setup(txnPoolNodeSet):
+    primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
+                                 getNonPrimaryReplicas(txnPoolNodeSet, 0)
 
     # The primary replica would send PRE-PREPARE messages with incorrect digest
     makeNodeFaulty(primaryRep.node, partial(send3PhaseMsgWithIncorrectDigest,

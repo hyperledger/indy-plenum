@@ -46,7 +46,7 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
                                 else self.config.RETRY_TIMEOUT_RESTRICTED)
         missing = self.connectToMissing()
         self.retryDisconnected(exclude=missing)
-        logger.debug("{} next check for retries in {:.2f} seconds"
+        logger.trace("{} next check for retries in {:.2f} seconds"
                      .format(self, self.nextCheck - now))
         return True
 
@@ -71,6 +71,8 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
         exclude = exclude or {}
         for name, remote in self.remotes.items():
             if name in exclude or remote.isConnected:
+                if name in self._retry_connect:
+                    self._retry_connect.pop(name, None)
                 continue
 
             if name not in self._retry_connect:

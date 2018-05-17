@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.test.primary_election.helpers import checkNomination
-from plenum.test.test_node import TestNodeSet, checkPoolReady, \
+from plenum.test.test_node import checkPoolReady, \
     checkProtocolInstanceSetup
 from plenum.test import waits
 
@@ -10,8 +10,8 @@ nodeCount = 4
 
 
 @pytest.fixture()
-def electContFixture(startedNodes: TestNodeSet):
-    A, B, C, D = startedNodes.nodes.values()
+def electContFixture(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     for node in [B, C, D]:
         node.delaySelfNomination(4)
@@ -20,7 +20,7 @@ def electContFixture(startedNodes: TestNodeSet):
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionWithAClearWinner(
-        electContFixture, looper, keySharedNodes):
+        electContFixture, looper, txnPoolNodeSet):
     """
     Primary selection (Sunny Day)
     A, B, C, D, E
@@ -52,23 +52,21 @@ def testPrimaryElectionWithAClearWinner(
     D sees at least two other PRIMARY(A) votes (3 including it's own)
     selects A as primary
     """
-
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
     nodesBCD = [B, C, D]
 
-    checkPoolReady(looper, nodeSet)
+    checkPoolReady(looper, txnPoolNodeSet)
 
     # Checking whether one of the replicas of Node A nominated itself
-    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNomination, A,
                           A.name, retryWait=1, timeout=timeout))
 
-    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     for n in nodesBCD:
         # Checking whether Node B, C and D nominated Node A
         looper.run(eventually(checkNomination, n, A.name,
                               retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
+    checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1)
     assert A.hasPrimary

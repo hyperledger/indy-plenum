@@ -1,28 +1,24 @@
 import pytest
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
-    PREPREPARE, PROPAGATE
+    PREPREPARE, PREPARE, PROPAGATE, COMMIT
 from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     AnyMapField, MessageRep, AnyField, LedgerStatus, ConsistencyProof, \
-    PrePrepare, Propagate
+    PrePrepare, Prepare, Propagate, Commit
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
 
-
 invalid_type_discard_log = "unknown value 'invalid_type'"
 invalid_req_discard_log = "cannot serve request"
 invalid_rep_discard_log = "cannot process requested message response"
 
-
 whitelist = [invalid_type_discard_log, ]
 
-
 patched_schema = (
-    (f.MSG_TYPE.nm, ChooseField(values={'invalid_type', LEDGER_STATUS,
-                                        CONSISTENCY_PROOF, PREPREPARE,
-                                        PROPAGATE})),
+    (f.MSG_TYPE.nm, ChooseField(values={'invalid_type'} |
+                                       MessageReq.allowed_types)),
     (f.PARAMS.nm, AnyMapField())
 )
 
@@ -30,6 +26,7 @@ patched_schema = (
 def patched_MessageReq():
     class PMessageReq(MessageReq):
         schema = patched_schema
+
     return PMessageReq
 
 
@@ -39,6 +36,7 @@ def patched_MessageRep():
             *patched_schema,
             (f.MSG.nm, AnyField())
         )
+
     return PMessageRep
 
 
@@ -55,6 +53,22 @@ pre_prepare_msg = PrePrepare(
     1,
     'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
     '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+)
+
+prepare_msg = Prepare(
+    0,
+    1,
+    3,
+    get_utc_epoch(),
+    'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
+    'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
+    '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+)
+
+commit_msg = Commit(
+    0,
+    1,
+    3,
 )
 
 propagate_msg = Propagate(**{'request': {'identifier': '5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC',
@@ -78,6 +92,14 @@ bad_msgs = [
      pre_prepare_msg),
     (PREPREPARE, {f.INST_ID.nm: -1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 10},
      pre_prepare_msg),
+    (PREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 0, f.SEQ_NO_START.nm: 10},
+     prepare_msg),
+    (PREPARE, {f.INST_ID.nm: -1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 10},
+     prepare_msg),
+    (COMMIT, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 0, f.SEQ_NO_START.nm: 10},
+     commit_msg),
+    (COMMIT, {f.INST_ID.nm: -1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 10},
+     commit_msg),
     (PROPAGATE, {f.IDENTIFIER.nm: 'aa', f.REQ_ID.nm: 'fr'}, propagate_msg),
     (PROPAGATE, {
         f.IDENTIFIER.nm: '4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ'}, propagate_msg),

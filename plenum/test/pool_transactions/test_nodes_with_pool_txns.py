@@ -6,7 +6,6 @@ import pytest
 
 from plenum.common.exceptions import RequestRejectedException, \
     RequestNackedException
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import DATA, TARGET_NYM, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, STEWARD_STRING
@@ -15,6 +14,7 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_get_and_check_replies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_node, \
     sdk_add_2_nodes, sdk_pool_refresh, sdk_add_new_nym, prepare_new_node_data, \
     prepare_node_request, sdk_sign_and_send_prepared_request
@@ -28,7 +28,6 @@ logger = getlogger()
 # Whitelisting "got error while verifying message" since a node while not have
 # initialised a connection for a new node by the time the new node's message
 # reaches it
-
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
@@ -227,7 +226,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                         node_request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'should not contain the following chars' in e._excinfo[1].args[0]
+    assert 'client request invalid' in e._excinfo[1].args[0]
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,

@@ -3,10 +3,6 @@ from functools import partial
 
 from plenum.common.util import check_if_all_equal_in_list
 from stp_core.common.log import getlogger
-from typing import Iterable
-
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
-    CONFIG_LEDGER_ID
 from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
@@ -16,7 +12,6 @@ from plenum.test.test_node import TestNode
 from plenum.test import waits
 import pytest
 
-
 logger = getlogger()
 
 
@@ -25,7 +20,6 @@ logger = getlogger()
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
                              exclude_from_check=None):
-
     def chk_ledger_and_state(first_node, second_node, ledger_id):
         checkLedgerEquality(first_node.getLedger(ledger_id),
                             second_node.getLedger(ledger_id))

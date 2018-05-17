@@ -2,9 +2,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare, Commit
-from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual, sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_eval_timeout, sdk_get_and_check_replies
+from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
@@ -22,7 +20,7 @@ def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
     https://www.pivotaltracker.com/n/projects/1889887/stories/133655009
     """
     pr, replicas = getPrimaryReplica(txnPoolNodeSet, instId=0), \
-        getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
+                   getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
     assert len(replicas) == 6
 
     rep0 = pr
@@ -55,7 +53,7 @@ def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
                 delayedPpSeqNos.add(msg.ppSeqNo)
                 logger.debug('ppSeqNo {} be delayed'.format(msg.ppSeqNo))
         if isinstance(msg, Commit) and msg.instId == 0 and \
-            sender in (n.name for n in (node3, node4, node5)) and \
+                sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:
             return commitDelay
 
@@ -64,7 +62,7 @@ def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
         node.nodeIbStasher.delay(specificCommits)
 
     sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
-                             sdk_wallet_client, requestCount)
+                                        sdk_wallet_client, requestCount)
 
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
 

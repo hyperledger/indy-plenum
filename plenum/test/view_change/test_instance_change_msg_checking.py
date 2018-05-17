@@ -10,9 +10,9 @@ DISCARD_REASON = "validation error \[InstanceChange\]: expected types"
 whitelist = [DISCARD_REASON, ]
 
 
-def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
-    nodeA = nodeSet.Alpha
-    nodeB = nodeSet.Beta
+def testInstanceChangeMsgTypeChecking(txnPoolNodeSet, looper):
+    nodeA = txnPoolNodeSet[0]
+    nodeB = txnPoolNodeSet[1]
 
     ridBeta = nodeA.nodestack.getRemote(nodeB.name).uid
 
@@ -22,7 +22,7 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
 
         goodViewNo = 1
         badViewNo = "BAD"
-        icMsg = nodeSet.Alpha.view_changer._create_instance_change_msg(goodViewNo, 0)
+        icMsg = txnPoolNodeSet[0].view_changer._create_instance_change_msg(goodViewNo, 0)
         icMsg._fields["viewNo"] = badViewNo
         return icMsg
 
