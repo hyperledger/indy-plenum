@@ -9,6 +9,7 @@ import subprocess
 import locale
 import codecs
 from dateutil import parser
+import datetime
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
@@ -392,6 +393,10 @@ class ValidatorNodeInfoTool:
             ic_queue[view_no] = self._prepare_for_json(ics)
         return ic_queue
 
+    def __get_start_vc_ts(self):
+        ts = self._node.view_changer._start_view_change_ts
+        return str(datetime.datetime.utcfromtimestamp(ts))
+
     @property
     @none_on_fail
     def __node_info(self):
@@ -444,6 +449,7 @@ class ValidatorNodeInfoTool:
                         self._node.viewNo),
                     "VC_in_progress": self._prepare_for_json(
                         self._node.view_changer.view_change_in_progress),
+                    "Last_view_change_started_at": self._prepare_for_json(self.__get_start_vc_ts()),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
                     "VCDone_queue": self._prepare_for_json(
