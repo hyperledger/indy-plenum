@@ -63,7 +63,7 @@ def randomString(size: int = 20) -> str:
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
-        # that part of a random may not be truely random, so until
+        # that part of a random may not be truly random, so until
         # we have definite proof going to retain it commented
         # rstr = randombytes(size).hex()
         # return rstr[:size]
@@ -322,7 +322,7 @@ def friendlyToHexStr(f):
 
 
 def rawToFriendly(raw):
-    return base58.b58encode(raw)
+    return base58.b58encode(raw).decode("utf-8")
 
 
 def friendlyToRaw(f):

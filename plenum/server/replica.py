@@ -12,7 +12,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks
+    ReplicaHooks, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -246,7 +246,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, deque]
+        self.requestQueues = {}  # type: Dict[int, OrderedSet]
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -382,6 +382,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     @property
     def utc_epoch(self):
         return self.node.utc_epoch()
+
+    # This is to enable replaying, inst_id, view_no and pp_seq_no are used
+    # while replaying
+    def get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
+        tm = self.utc_epoch
+        if self.last_accepted_pre_prepare_time and \
+                tm < self.last_accepted_pre_prepare_time:
+            tm = self.last_accepted_pre_prepare_time
+        return tm
 
     @staticmethod
     def generateName(nodeName: str, instId: int):
@@ -666,6 +675,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                      len(q) > 0):
                 oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
+                if ppReq is None:
+                    continue
                 self.sendPrePrepare(ppReq)
                 self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
@@ -702,25 +713,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             validReqs.append(req)
 
     def create3PCBatch(self, ledger_id):
-        ppSeqNo = self.lastPrePrepareSeqNo + 1
+        pp_seq_no = self.lastPrePrepareSeqNo + 1
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
-            self, ppSeqNo, ledger_id,
+            self, pp_seq_no, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
-        tm = self.utc_epoch
 
-        validReqs = []
-        inValidReqs = []
-        rejects = []
-        while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
-                and self.requestQueues[ledger_id]:
-            key = self.requestQueues[ledger_id].pop(0)
-            if key in self.requests:
-                fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(
-                    fin_req, tm, validReqs, inValidReqs, rejects)
-            else:
-                self.logger.debug('{} found {} in its request queue but the '
-                                  'corresponding request was removed'.format(self, key))
+        if self.last_accepted_pre_prepare_time is None:
+            last_ordered_ts = self._get_last_timestamp_from_state(ledger_id)
+            if last_ordered_ts:
+                self.last_accepted_pre_prepare_time = last_ordered_ts
+
+        resp = self.consume_req_queue_for_pre_prepare(ledger_id, self.viewNo,
+                                                      pp_seq_no)
+        if not resp:
+            self.logger.trace('{} not creating a Pre-Prepare for view no {} '
+                              'seq no {}'.format(self, self.viewNo, pp_seq_no))
+            return
+
+        validReqs, inValidReqs, rejects, tm = resp
 
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
@@ -729,7 +739,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         params = [
             self.instId,
             self.viewNo,
-            ppSeqNo,
+            pp_seq_no,
             tm,
             [(req.identifier, req.reqId) for req in reqs],
             len(validReqs),
@@ -749,7 +759,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(validReqs), ledger_id))
-        self.lastPrePrepareSeqNo = ppSeqNo
+        self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
             self.outBox.extend(rejects)
@@ -757,6 +767,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 ledger_id, self.stateRootHash(
                     ledger_id, to_str=False))
         return pre_prepare
+
+    def consume_req_queue_for_pre_prepare(self, ledger_id, view_no, pp_seq_no):
+        # DO NOT REMOVE `view_no` argument, used while replay
+        # tm = self.utc_epoch
+        tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo,
+                                               pp_seq_no)
+        validReqs = []
+        inValidReqs = []
+        rejects = []
+        while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
+                and self.requestQueues[ledger_id]:
+            key = self.requestQueues[ledger_id].pop(0)
+            if key in self.requests:
+                fin_req = self.requests[key].finalised
+                self.processReqDuringBatch(
+                    fin_req, tm, validReqs, inValidReqs, rejects)
+            else:
+                self.logger.debug('{} found {} in its request queue but the '
+                                  'corresponding request was removed'.format(self, key))
+
+        return validReqs, inValidReqs, rejects, tm
 
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
@@ -2436,3 +2467,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             removed.insert(0, self.outBox[i])
             del self.outBox[i]
         return removed
+
+    def _get_last_timestamp_from_state(self, ledger_id):
+        if ledger_id == DOMAIN_LEDGER_ID:
+            req_handler = self.node.ledger_to_req_handler.get(ledger_id)
+            if req_handler.ts_store:
+                last_timestamp = req_handler.ts_store.get_last_key()
+                if last_timestamp:
+                    last_timestamp = int(last_timestamp.decode())
+                    self.logger.debug("Last ordered timestamp from store is : {}"
+                                      "".format(last_timestamp))
+                    return last_timestamp
+        return None

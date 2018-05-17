@@ -1,8 +1,8 @@
 import ast
+import os
 import time
 from typing import Callable
 
-from plenum.common.util import lxor
 
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
@@ -15,9 +15,11 @@ except ImportError:
 class Recorder:
     INCOMING_FLAG = 0
     OUTGOING_FLAG = 1
-    TIME_FACTOR = 10000
+    TIME_FACTOR = 100000000
+    RECORDER_METADATA_FILENAME = 'recorder_metadata.json'
 
-    def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys):
+    def __init__(self, kv_store: KeyValueStorageRocksdbIntKeys,
+                 skip_metadata_write=False):
         self.store = kv_store
         self.replay_targets = {}
         self.is_playing = False
@@ -25,17 +27,31 @@ class Recorder:
         self.store_iterator = None
         self.item_for_next_get = None
         self.last_returned_at = None
+        from plenum.common.util import get_utc_epoch
+        if not skip_metadata_write:
+            with open(os.path.join(kv_store._db_path, self.RECORDER_METADATA_FILENAME), 'w') as f:
+                d = {'start_time': get_utc_epoch()}
+                f.write(json.dumps(d))
 
     def get_now_key(self):
         return str(int(time.perf_counter()*self.TIME_FACTOR))
 
     def add_incoming(self, msg, frm):
-        self.store.put(self.get_now_key(),
-                       self.create_db_val_for_incoming(msg, frm))
+        key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm)
+        self.add_to_store(key, val)
 
     def add_outgoing(self, msg, *to):
-        self.store.put(self.get_now_key(),
-                       self.create_db_val_for_outgoing(msg, *to))
+        key, val = self.get_now_key(), self.create_db_val_for_outgoing(msg, *to)
+        self.add_to_store(key, val)
+
+    def add_to_store(self, key, val):
+        try:
+            existing = self.store.get(key)
+            existing = json.loads(existing)
+        except KeyError:
+            existing = []
+
+        self.store.put(key, json.dumps([*existing, val]))
 
     def register_replay_target(self, id, target: Callable):
         assert id not in self.replay_targets
@@ -43,11 +59,11 @@ class Recorder:
 
     @staticmethod
     def create_db_val_for_incoming(msg, frm):
-        return json.dumps([Recorder.INCOMING_FLAG, msg, frm])
+        return [Recorder.INCOMING_FLAG, msg, frm]
 
     @staticmethod
     def create_db_val_for_outgoing(msg, *to):
-        return json.dumps([Recorder.OUTGOING_FLAG, msg, *to])
+        return [Recorder.OUTGOING_FLAG, msg, *to]
 
     def start_playing(self):
         assert not self.is_playing
@@ -92,14 +108,57 @@ class Recorder:
         assert self.is_playing
         # TODO: Get next key
 
+    def stop(self):
+        self.store.close()
+
     @staticmethod
     def get_parsed(msg, only_incoming=None, only_outgoing=None):
         assert not (only_incoming and only_outgoing)
         if isinstance(msg, (bytes, bytearray)):
             msg = msg.decode()
-        msg = ast.literal_eval(msg)
+        msg = json.loads(msg)
         if only_incoming:
-            return msg[1:] if msg[0] == Recorder.INCOMING_FLAG else None
+            return Recorder.filter_incoming(msg)
         if only_outgoing:
-            return msg[1:] if msg[0] == Recorder.OUTGOING_FLAG else None
+            return Recorder.filter_outgoing(msg)
         return msg
+
+    @staticmethod
+    def filter_incoming(msgs):
+        return [msg[1:] for msg in msgs if msg[0] == Recorder.INCOMING_FLAG]
+
+    @staticmethod
+    def filter_outgoing(msgs):
+        return [msg[1:] for msg in msgs if msg[0] == Recorder.OUTGOING_FLAG]
+
+
+def add_start_time(data_directory, tm):
+    if not os.path.isdir(data_directory):
+        os.makedirs(data_directory)
+    file_name = os.path.join(data_directory, 'start_times')
+    if not os.path.isfile(file_name):
+        start_times = []
+    else:
+        with open(file_name, 'r') as f:
+            start_times = json.loads(f.read())
+            if len(start_times[-1]) != 2:
+                raise RuntimeError('Wrongly formatted start_times file')
+    start_times.append([tm, ])
+    with open(file_name, 'w+') as f:
+        f.write(json.dumps(start_times))
+
+
+def add_stop_time(data_directory, tm):
+    if not os.path.isdir(data_directory):
+        os.makedirs(data_directory)
+    file_name = os.path.join(data_directory, 'start_times')
+    if not os.path.isfile(file_name):
+        raise RuntimeError('No file with start time written')
+    else:
+        with open(file_name, 'r') as f:
+            start_times = json.loads(f.read())
+            if len(start_times[-1]) != 1:
+                raise RuntimeError('Wrongly formatted start_times file')
+    start_times[-1].append(tm)
+    with open(file_name, 'w+') as f:
+        f.write(json.dumps(start_times))

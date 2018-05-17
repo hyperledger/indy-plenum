@@ -1,4 +1,6 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
+
+from stp_zmq.remote import Remote
 
 
 class Silencer:
@@ -8,5 +10,8 @@ class Silencer:
         pass
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
+        pass
+
+    def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
         pass
 

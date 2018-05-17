@@ -37,7 +37,7 @@ def testReadWrite(hashStore, nodesLeaves):
     assert onebyone == multiple
 
 
-def testRecoverLedgerFromHashStore(hashStore, tdir):
+def testRecoverLedgerFromHashStore(hashStore, tconf, tdir):
     cleanup(hashStore)
     tree = CompactMerkleTree(hashStore=hashStore)
     ledger = Ledger(tree=tree, dataDir=tdir)

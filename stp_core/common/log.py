@@ -2,8 +2,8 @@ import inspect
 import logging
 import os
 import sys
-from ioflo.base.consoling import getConsole, Console
-from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRotatingFileHandler
+import time
+from stp_core.common.logging.CompressingFileHandler import CompressingFileHandler
 from stp_core.common.util import Singleton
 from stp_core.common.logging.handlers import CliHandler
 from stp_core.common.config.util import getConfig
@@ -64,6 +64,7 @@ class Logger(metaclass=Singleton):
         self._clearAllHandlers()
         self._format = logging.Formatter(fmt=self._config.logFormat,
                                          style=self._config.logFormatStyle)
+        self._format.converter = time.gmtime
 
         if self._config.enableStdOutLogging:
             self.enableStdLogging()
@@ -91,14 +92,9 @@ class Logger(metaclass=Singleton):
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        new = TimeAndSizeRotatingFileHandler(
-            filename,
-            when=self._config.logRotationWhen,
-            interval=self._config.logRotationInterval,
-            backupCount=self._config.logRotationBackupCount,
-            utc=True,
-            maxBytes=self._config.logRotationMaxBytes,
-            compress=self._config.logRotationCompress)
+        new = CompressingFileHandler(filename, maxBytes=self._config.logRotationMaxBytes,
+                                     backupCount=self._config.logRotationBackupCount,
+                                     compression=self._config.logRotationCompression)
         self._setHandler('file', new)
 
     def _setHandler(self, typ: str, new_handler):

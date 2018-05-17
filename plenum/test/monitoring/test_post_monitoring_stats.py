@@ -1,3 +1,4 @@
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from plenum.server.monitor import Monitor
 from plenum.test.helper import sdk_send_random_and_check
@@ -33,6 +34,7 @@ def testPostingThroughput(postingStatsEnabled,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               reqCount)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     for node in txnPoolNodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount

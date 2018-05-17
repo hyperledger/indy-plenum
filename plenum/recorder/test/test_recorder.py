@@ -35,18 +35,18 @@ def test_add_to_recorder(recorder):
         assert int(k.decode()) > int(last_check_time)
 
         if i == 0:
-            assert v.decode() == json.dumps([Recorder.INCOMING_FLAG, msg1, frm1])
+            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg1, frm1]])
 
         if i == 1:
-            assert v.decode() == json.dumps([Recorder.INCOMING_FLAG, msg2, frm2])
+            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg2, frm2]])
             assert int(k) - int(last_check_time) >= 3*Recorder.TIME_FACTOR
 
         if i == 2:
-            assert v.decode() == json.dumps([Recorder.OUTGOING_FLAG, msg3, to1, to11])
+            assert v.decode() == json.dumps([[Recorder.OUTGOING_FLAG, msg3, to1, to11]])
             assert int(k) - int(last_check_time) >= 2.1*Recorder.TIME_FACTOR
 
         if i == 3:
-            assert v.decode() == json.dumps([Recorder.OUTGOING_FLAG, msg4, to2])
+            assert v.decode() == json.dumps([[Recorder.OUTGOING_FLAG, msg4, to2]])
             assert int(k) - int(last_check_time) >= .4*Recorder.TIME_FACTOR
 
         last_check_time = k.decode()
@@ -89,7 +89,7 @@ def test_recorded_parsings(recorder):
 
     for k, v in recorder.store.iterator(include_value=True):
         p = Recorder.get_parsed(v)
-        assert p[1:] in combined
+        assert [i[1:] for i in p] in combined
         p = Recorder.get_parsed(v, only_incoming=True)
         if p:
             assert p in incoming
@@ -117,7 +117,7 @@ def test_recorder_get_next_incoming_only(recorder):
     for k, v in recorder.store.iterator(include_value=True):
         v = Recorder.get_parsed(v)
         keys.append(int(k))
-        recorded_incomings[int(k)] = v[1:]
+        recorded_incomings[int(k)] = v
 
     assert len(recorded_incomings) == incoming_count
     assert sorted(keys) == keys
@@ -129,12 +129,11 @@ def test_recorder_get_next_incoming_only(recorder):
     # print(keys)
     # print(recorded_incomings)
     while recorder.is_playing and (time.perf_counter() < start+max_time_to_run):
-        val = recorder.get_next()
-        if val:
-            _, msg, frm = val
+        vals = recorder.get_next()
+        if vals:
             check = recorded_incomings.popitem(last=False)[1]
             # print(check)
-            assert check == [msg, frm]
+            assert check == vals
             # print(check)
         else:
             time.sleep(0.01)
@@ -174,11 +173,11 @@ def test_recorder_get_next(recorder):
     start = time.perf_counter()
 
     while recorder.is_playing and (time.perf_counter() < start+max_time_to_run):
-        val = recorder.get_next()
-        if val:
-            f, msg, frm = val
-            if f == Recorder.INCOMING_FLAG:
-                assert recorded_incomings.popitem(last=False)[1] == [msg, frm]
+        vals = recorder.get_next()
+        if vals:
+            inc = Recorder.filter_incoming(vals)
+            if inc:
+                assert recorded_incomings.popitem(last=False)[1] == inc
         else:
             time.sleep(0.01)
 

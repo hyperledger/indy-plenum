@@ -2,12 +2,12 @@ from typing import Iterable
 
 import pytest
 
-from plenum.test.node_request.helper import get_node_by_name
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Status
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import addNodeBack, ordinal
+from plenum.test.node_request.helper import get_node_by_name
 from plenum.test.test_node import checkNodesConnected, \
     checkNodeRemotes
 from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
@@ -23,6 +23,17 @@ minimumNodesToBeUp = nodeCount - f
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
     return 200
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
+    old_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
+    tconf.RETRY_TIMEOUT_RESTRICTED = 2
+    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 2
+    yield tconf
+
+    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout_restricted
+    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
 
 
 # noinspection PyIncorrectDocstring
