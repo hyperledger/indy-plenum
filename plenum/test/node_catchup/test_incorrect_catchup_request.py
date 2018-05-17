@@ -20,7 +20,7 @@ def test_receive_incorrect_catchup_request_with_end_greater_catchuptill(looper,
 
     def _check_discard(msg, reason, logMethod=logging.error, cliOutput=False):
         assert reason.find("not able to service since "
-                           "end = {} greater then "
+                           "end = {} greater than "
                            "catchupTill = {}".format(end, catchup_till))
 
     req = CatchupReq(leger_id, 0, end, catchup_till)
@@ -43,7 +43,7 @@ def test_receive_incorrect_catchup_request_with_start_greater_end(looper,
 
     def _check_discard(msg, reason, logMethod=logging.error, cliOutput=False):
         assert reason.find("not able to service since "
-                           "start = {} greater then "
+                           "start = {} greater than "
                            "end = {}"
                            .format(start, end))
 
@@ -69,7 +69,7 @@ def test_receive_incorrect_catchup_request_with_catchuptill_greater_ledger_size(
 
     def _check_discard(msg, reason, logMethod=logging.error, cliOutput=False):
         assert reason.find("not able to service since "
-                           "catchupTill = {} greater then "
+                           "catchupTill = {} greater than "
                            "ledger size = {}"
                            .format(catchup_till, ledger_size))
 
