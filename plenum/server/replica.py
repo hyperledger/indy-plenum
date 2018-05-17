@@ -954,9 +954,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if pp_view_no >= last_pp_view_no and (
                     self.isMaster or self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
-                seq_frm = max(seq_frm, pp_seq_no - CHK_FREQ + 1)
                 seq_to = pp_seq_no - 1
-                if seq_frm <= seq_to:
+                if seq_to >= seq_frm >= pp_seq_no - CHK_FREQ + 1:
                     self.logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "
                         "going to request".format(self, seq_frm, seq_to))
