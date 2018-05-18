@@ -407,32 +407,29 @@ class LedgerManager(HasActionQueue):
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
-        if end < start:
-            self.discard(req, reason="Invalid range", logMethod=logger.warning)
-            return
-
         ledger_size = ledger.size
 
-        if start > ledger_size:
+        if start > end:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {} and start is {}"
-                         .format(self, ledger_size, start),
+                                     "start = {} greater than "
+                                     "end = {}"
+                         .format(self, start, end),
                          logMethod=logger.debug)
             return
-
+        if end > req.catchupTill:
+            self.discard(req, reason="{} not able to service since "
+                                     "end = {} greater than "
+                                     "catchupTill = {}"
+                         .format(self, end, req.catchupTill),
+                         logMethod=logger.debug)
+            return
         if req.catchupTill > ledger_size:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {} and catchupTill is {}"
-                         .format(self, ledger_size, req.catchupTill),
+                                     "catchupTill = {} greater than "
+                                     "ledger size = {}"
+                         .format(self, req.catchupTill, ledger_size),
                          logMethod=logger.debug)
             return
-
-        # Adjusting for end greater than ledger size
-        if end > ledger_size:
-            logger.debug("{} does not have transactions till {} "
-                         "so sending only till {}"
-                         .format(self, end, ledger_size))
-            end = ledger_size
 
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start + 1, start, end))

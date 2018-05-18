@@ -46,19 +46,19 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_LEVELDB
+    "type": HS_ROCKSDB
 }
 
 primaryStorage = None
 
-domainStateStorage = KeyValueStorageType.Leveldb
-poolStateStorage = KeyValueStorageType.Leveldb
-configStateStorage = KeyValueStorageType.Leveldb
-reqIdToTxnStorage = KeyValueStorageType.Leveldb
+domainStateStorage = KeyValueStorageType.Rocksdb
+poolStateStorage = KeyValueStorageType.Rocksdb
+configStateStorage = KeyValueStorageType.Rocksdb
+reqIdToTxnStorage = KeyValueStorageType.Rocksdb
 
-stateSignatureStorage = KeyValueStorageType.Leveldb
+stateSignatureStorage = KeyValueStorageType.Rocksdb
 
-transactionLogDefaultStorage = KeyValueStorageType.Leveldb
+transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
@@ -87,19 +87,19 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': 15,
         'freq': 60,
         'min_activity_threshold': 10,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     },
     'nodeRequestSpike': {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': 15,
         'freq': 60,
         'min_activity_threshold': 10,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
 }
@@ -137,11 +137,9 @@ ConsistencyProofsTimeout = 5
 CatchupTransactionsTimeout = 6
 
 # Log configuration
-logRotationWhen = 'W6'
-logRotationInterval = 1
-logRotationBackupCount = 50
+logRotationBackupCount = 300
 logRotationMaxBytes = 100 * 1024 * 1024
-logRotationCompress = True
+logRotationCompression = "xz"
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
@@ -229,6 +227,7 @@ BLS_KEY_LIMIT = 512
 BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
+DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []

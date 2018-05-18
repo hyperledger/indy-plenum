@@ -14,6 +14,7 @@ from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 from plenum.test import waits
 
 logger = getlogger()
+whitelist = ['Consensus for ReqId:']
 
 nodeCount = 13
 f = 4
@@ -23,6 +24,7 @@ minimumNodesToBeUp = nodeCount - f
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
     return 200
+
 
 @pytest.fixture(scope="module")
 def tconf(tconf):

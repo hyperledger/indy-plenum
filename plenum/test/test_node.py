@@ -141,6 +141,7 @@ class TestNodeCore(StackedTester):
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
+        self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
         return TestReplicas(self, self.monitor, config)
@@ -386,6 +387,12 @@ class TestNode(TestNodeCore, Node):
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
+
+    def schedule_node_status_dump(self):
+        pass
+
+    def dump_additional_info(self):
+        pass
 
 
 elector_spyables = [
