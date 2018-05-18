@@ -549,10 +549,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.viewNo)
             self.logger.debug('{} Setting last ordered for non-master as {}'.format(
                 self, self.last_ordered_3pc))
-            # now after catch up we have in last_ordered_3pc value from
-            # master replica and should change last_ordered_3pc
-            # to lowest_ordered or 0
             if lowest_prepared is not None:
+                # now after catch up we have in last_ordered_3pc[1] value 0
+                # it value should change last_ordered_3pc to lowest_prepared - 1
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
 
