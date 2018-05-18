@@ -166,7 +166,7 @@ def reqToTxn(req, txn_time=None):
             "Expected dict or str as input, but got: {}".format(type(req)))
 
     req_data = deepcopy(req_data)
-    return __do_req_to_txn(req_data=req_data,
+    return do_req_to_txn(req_data=req_data,
                            req_op=req_data[OPERATION],
                            txn_time=txn_time)
 
@@ -174,14 +174,14 @@ def reqToTxn(req, txn_time=None):
 def transform_to_new_format(txn, seq_no):
     t = deepcopy(txn)
     txn_time = t.pop(TXN_TIME, None)
-    txn = __do_req_to_txn(req_data=t,
+    txn = do_req_to_txn(req_data=t,
                           req_op=t,
                           txn_time=txn_time)
     append_txn_metadata(txn, seq_no=seq_no)
     return txn
 
 
-def __do_req_to_txn(req_data, req_op, txn_time=None):
+def do_req_to_txn(req_data, req_op, txn_time=None):
     # 1. init new txn
     result = init_empty_txn(txn_type=req_op.pop(TXN_TYPE, None),
                             protocol_version=req_data.pop(f.PROTOCOL_VERSION.nm, None))
