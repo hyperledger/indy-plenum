@@ -1,3 +1,5 @@
+from collections import deque
+
 import pytest
 import time
 
@@ -14,9 +16,11 @@ logger = getlogger()
 
 
 def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
-                                            sdk_wallet_client):
+                                                         sdk_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.preparesWaitingForPrePrepare.clear()
+    replica.prePreparesPendingPrevPP.clear()
     replica.last_ordered_3pc = (0, 0)
     timestamp = time.time()
     ppSeqNo = 5
@@ -26,19 +30,114 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = \
-        (preprepare, replica.primaryName)
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo]\
+        .append((preprepare, replica.primaryName))
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = \
-            (prepare, node.name)
+        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo]\
+            .append((prepare, node.name))
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
 
-def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet):
+def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
+                                                              sdk_wallet_client):
+    inst_id = 1
+    replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.preparesWaitingForPrePrepare.clear()
+    replica.prePreparesPendingPrevPP.clear()
+    replica.last_ordered_3pc = (0, 0)
+    timestamp = time.time()
+    ppSeqNo = 5
+    preprepare, prepare = \
+        _create_prepare_and_preprepare(inst_id,
+                                       replica.viewNo,
+                                       ppSeqNo,
+                                       timestamp,
+                                       sdk_wallet_client)
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    for node in txnPoolNodeSet:
+        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+            .append((prepare, node.name))
+    replica._setup_last_ordered_for_non_master()
+    assert replica.last_ordered_3pc == (0, 0)
+
+
+def test_setup_last_ordered_for_non_master_without_prepare(txnPoolNodeSet,
+                                                           sdk_wallet_client):
+    inst_id = 1
+    replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.preparesWaitingForPrePrepare.clear()
+    replica.prePreparesPendingPrevPP.clear()
+    replica.last_ordered_3pc = (0, 0)
+    timestamp = time.time()
+    ppSeqNo = 5
+    preprepare, prepare = \
+        _create_prepare_and_preprepare(inst_id,
+                                       replica.viewNo,
+                                       ppSeqNo,
+                                       timestamp,
+                                       sdk_wallet_client)
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+        .append((preprepare, replica.primaryName))
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+        .append((prepare, txnPoolNodeSet[-1].name))
+    replica._setup_last_ordered_for_non_master()
+    assert replica.last_ordered_3pc == (0, 0)
+
+
+def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
+                                                      sdk_wallet_client):
+    inst_id = 0
+    replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.preparesWaitingForPrePrepare.clear()
+    replica.prePreparesPendingPrevPP.clear()
+    replica.last_ordered_3pc = (0, 0)
+    timestamp = time.time()
+    ppSeqNo = 5
+    preprepare, prepare = \
+        _create_prepare_and_preprepare(inst_id,
+                                       replica.viewNo,
+                                       ppSeqNo,
+                                       timestamp,
+                                       sdk_wallet_client)
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+        .append((preprepare, replica.primaryName))
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    for node in txnPoolNodeSet:
+        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+            .append((prepare, node.name))
+    replica._setup_last_ordered_for_non_master()
+    assert replica.last_ordered_3pc == (0, 0)
+
+
+def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
+                                                           sdk_wallet_client):
     inst_id = 1
     last_ordered_3pc = (5, 12)
+    timestamp = time.time()
+    ppSeqNo = 13
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.preparesWaitingForPrePrepare.clear()
+    replica.prePreparesPendingPrevPP.clear()
+    preprepare, prepare = \
+        _create_prepare_and_preprepare(inst_id,
+                                       replica.viewNo,
+                                       ppSeqNo,
+                                       timestamp,
+                                       sdk_wallet_client)
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+        .append((preprepare, replica.primaryName))
+    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    for node in txnPoolNodeSet:
+        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+            .append((prepare, node.name))
+
     replica.last_ordered_3pc = last_ordered_3pc
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
