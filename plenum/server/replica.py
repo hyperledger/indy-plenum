@@ -479,7 +479,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._clear_last_view_message_for_non_master(self.viewNo)
+        self._setup_for_non_master_after_view_change(self.viewNo)
 
     def on_view_change_start(self):
         if self.isMaster:
@@ -555,8 +555,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
 
-    def _clear_last_view_message_for_non_master(self, current_view):
+    def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
+            self.h = 0
             for v in list(self.stashed_out_of_order_commits.keys()):
                 if v < current_view:
                     self.stashed_out_of_order_commits.pop(v)
@@ -2419,15 +2420,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
-        self.last_ordered_3pc = (self.viewNo, 0)
-        self.batches.clear()
-        self.sentPrePrepares.clear()
-        self.prePrepares.clear()
-        self.prepares.clear()
-        self.commits.clear()
-        self.outBox.clear()
-        self.h = 0
-        self.H = sys.maxsize
+        if not self.isPrimary:
+            self.last_ordered_3pc = (self.viewNo, 0)
+            self.batches.clear()
+            self.sentPrePrepares.clear()
+            self.prePrepares.clear()
+            self.prepares.clear()
+            self.commits.clear()
+            self.outBox.clear()
+            self.h = 0
+            self.H = sys.maxsize
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """

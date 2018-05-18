@@ -119,9 +119,9 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
 def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
                                                            sdk_wallet_client):
     inst_id = 1
-    last_ordered_3pc = (5, 12)
+    last_ordered_3pc = (0, 12)
     timestamp = time.time()
-    ppSeqNo = 13
+    ppSeqNo = 16
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica.preparesWaitingForPrePrepare.clear()
     replica.prePreparesPendingPrevPP.clear()
