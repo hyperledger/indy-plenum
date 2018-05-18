@@ -40,18 +40,17 @@ def test_view_change_with_different_prepared_certificate(txnPoolNodeSet, looper,
     tryOrderCount = 0
 
     def start_view_change(commit: Commit):
-        if get_count(replica, replica._request_three_phase_msg) > 1:
-            for node in txnPoolNodeSet:
-                key = (commit.viewNo, commit.ppSeqNo)
-                if node.replicas[0].prePrepares.contains(key) and node.name != fast_node:
-                    node.view_changer.startViewChange(
-                        replica.node.viewNo + 1)
-                    monkeypatch.delattr(node.replicas[0], "doOrder")
+        # if get_count(replica, replica._request_three_phase_msg) > 1:
+        for node in txnPoolNodeSet:
+            key = (commit.viewNo, commit.ppSeqNo)
+            if node.replicas[0].prePrepares.contains(key):
+                node.view_changer.startViewChange(
+                    replica.node.viewNo + 1)
+                monkeypatch.delattr(node.replicas[0], "doOrder")
 
     for node in txnPoolNodeSet:
-        if node.name != fast_node:
-            replica = node.replicas[0]
-            monkeypatch.setattr(replica, 'doOrder', start_view_change)
+        replica = node.replicas[0]
+        monkeypatch.setattr(replica, 'doOrder', start_view_change)
 
     requests = sdk_send_random_requests(looper, sdk_pool_handle,
                                         sdk_wallet_client, 2)
