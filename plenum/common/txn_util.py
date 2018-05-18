@@ -167,16 +167,16 @@ def reqToTxn(req, txn_time=None):
 
     req_data = deepcopy(req_data)
     return do_req_to_txn(req_data=req_data,
-                           req_op=req_data[OPERATION],
-                           txn_time=txn_time)
+                         req_op=req_data[OPERATION],
+                         txn_time=txn_time)
 
 
 def transform_to_new_format(txn, seq_no):
     t = deepcopy(txn)
     txn_time = t.pop(TXN_TIME, None)
     txn = do_req_to_txn(req_data=t,
-                          req_op=t,
-                          txn_time=txn_time)
+                        req_op=t,
+                        txn_time=txn_time)
     append_txn_metadata(txn, seq_no=seq_no)
     return txn
 
