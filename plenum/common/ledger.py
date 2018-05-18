@@ -40,7 +40,7 @@ class Ledger(_Ledger):
     def add(self, txn):
         if get_seq_no(txn) is None:
             self._append_seq_no([txn])
-        merkle_info =  super().add(txn)
+        merkle_info = super().add(txn)
         # seqNo is part of the transaction itself, so no need to duplicate it here
         merkle_info.pop(F.seqNo.name, None)
         return merkle_info

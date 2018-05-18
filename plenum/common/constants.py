@@ -149,6 +149,7 @@ TXN_SIGNATURE_VALUES = "values"
 TXN_SIGNATURE_FROM = "from"
 TXN_SIGNATURE_VALUE = "value"
 
+
 class ClientBootStrategy(IntEnum):
     Simple = 1
     PoolTxn = 2

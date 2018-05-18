@@ -56,8 +56,10 @@ def idr_from_req_data(data):
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
 
+
 # TODO: Support real strategies and Data Class for transactions
 # instead of util functions
+
 
 def get_type(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_TYPE]
@@ -112,12 +114,12 @@ def init_empty_txn(txn_type, protocol_version=None):
         result[TXN_PAYLOAD][TXN_PAYLOAD_PROTOCOL_VERSION] = protocol_version
 
     result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA] = {}
-    #result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
-    #result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
+    # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
+    # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
 
-    #result[TXN_METADATA][TXN_METADATA_SEQ_NO] = None
-    #result[TXN_METADATA][TXN_METADATA_TIME] = None
-    #result[TXN_METADATA][TXN_METADATA_ID] = None
+    # result[TXN_METADATA][TXN_METADATA_SEQ_NO] = None
+    # result[TXN_METADATA][TXN_METADATA_TIME] = None
+    # result[TXN_METADATA][TXN_METADATA_ID] = None
 
     return result
 

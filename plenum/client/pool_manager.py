@@ -1,8 +1,7 @@
 import collections
 import json
 
-from ledger.util import F
-from plenum.common.txn_util import get_payload_data, get_seq_no
+from plenum.common.txn_util import get_payload_data, get_seq_no, get_type
 from stp_core.network.exceptions import RemoteNotFound
 
 from plenum.common.stack_manager import TxnStackManager

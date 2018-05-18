@@ -549,8 +549,8 @@ class Cli:
 
         if matchedVars.get(IDENTIFIER):
             txn = append_payload_metadata(txn,
-                                       frm=getFriendlyIdentifier(
-                                           matchedVars.get(IDENTIFIER)))
+                                          frm=getFriendlyIdentifier(
+                                              matchedVars.get(IDENTIFIER)))
 
         self.genesisTransactions.append(txn)
         self.print('Genesis transaction added')

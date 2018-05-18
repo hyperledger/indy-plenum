@@ -91,7 +91,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         """
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
         return sum(1 for _, txn in self.ledger.getAllTxn() if
-                   (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE)  == STEWARD))
+                   (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE) == STEWARD))
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added

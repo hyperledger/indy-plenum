@@ -2607,7 +2607,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def updateSeqNoMap(self, committedTxns):
         if all([get_req_id(txn) for txn in committedTxns]):
             self.seqNoDB.addBatch((get_from(txn), get_req_id(txn), get_seq_no(txn))
-                                   for txn in committedTxns)
+                                  for txn in committedTxns)
 
     def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
