@@ -31,11 +31,11 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                        timestamp,
                                        sdk_wallet_client)
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo]\
+    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo]\
+        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
@@ -64,8 +64,9 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
     assert replica.last_ordered_3pc == (0, 0)
 
 
-def test_setup_last_ordered_for_non_master_without_prepare(txnPoolNodeSet,
-                                                           sdk_wallet_client):
+def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
+        txnPoolNodeSet,
+        sdk_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica.preparesWaitingForPrePrepare.clear()
