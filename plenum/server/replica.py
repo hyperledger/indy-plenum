@@ -537,8 +537,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _setup_last_ordered_for_non_master(self):
         """
         Since last ordered view_no and pp_seq_no are only communicated for
-        master instance, `last_ordered_3pc` if backup instance and clear
-        last view messages
+        master instance, backup instances use this method for restoring
+        `last_ordered_3pc`
         :return:
         """
         if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
