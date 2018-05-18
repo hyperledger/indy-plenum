@@ -123,6 +123,7 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
     timestamp = time.time()
     ppSeqNo = 16
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
+    replica.last_ordered_3pc = last_ordered_3pc
     replica.preparesWaitingForPrePrepare.clear()
     replica.prePreparesPendingPrevPP.clear()
     preprepare, prepare = \
@@ -139,7 +140,6 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
 
-    replica.last_ordered_3pc = last_ordered_3pc
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
 
