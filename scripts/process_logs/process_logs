@@ -60,6 +60,9 @@ class InputLogCache:
         self.load()
 
     def add_timestamp(self, timestamp):
+        if timestamp is None:
+            return
+
         if self.min_timestamp is None:
             self.min_timestamp = timestamp
             self.max_timestamp = timestamp

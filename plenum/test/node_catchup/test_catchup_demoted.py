@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.util import hexToFriendly
 
 from plenum.common.constants import VALIDATOR
@@ -13,6 +15,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
+@pytest.mark.skip(reason="INDY-1297. Node does not catch up on promotion anymore.")
 def test_catch_up_after_demoted(
         txnPoolNodeSet,
         sdk_node_set_with_node_added_after_some_txns,

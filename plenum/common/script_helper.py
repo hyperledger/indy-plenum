@@ -169,5 +169,5 @@ def printGenTxn(txn, displayTxn):
         print('\n' + txn)
 
 
-def __checkClientConnected(cli, ):
+def _checkClientConnected(cli, ):
     assert cli.hasSufficientConnections

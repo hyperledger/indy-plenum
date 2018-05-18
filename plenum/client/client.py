@@ -133,6 +133,7 @@ class Client(Motor,
             self.ledgerManager.addLedger(
                 POOL_LEDGER_ID,
                 self.ledger,
+                preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
@@ -227,6 +228,9 @@ class Client(Motor,
 
     def __repr__(self):
         return self.name
+
+    def prePoolLedgerCatchup(self, **kwargs):
+        self.mode = Mode.discovering
 
     def postPoolLedgerCaughtUp(self):
         self.mode = Mode.discovered
