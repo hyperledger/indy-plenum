@@ -138,18 +138,20 @@ def replay_patched_node(looper, replaying_node, cr):
         if next_stop_at is not None and time.perf_counter() >= next_stop_at:
             node_run_no += 1
             if node_run_no < len(cr.start_times):
+                # The node stopped here
                 sleep_for = cr.start_times[node_run_no][0] - cr.start_times[node_run_no-1][1]
                 next_stop_at = time.perf_counter() + (
                         cr.start_times[node_run_no][1] -
                         cr.start_times[node_run_no][0])
                 replaying_node.stop()
                 looper.removeProdable(replaying_node)
+                # Create new node since node is destroyed on stop
                 replaying_node = replaying_node.__class__(replaying_node.name,
                                                           config_helper=replaying_node.config_helper,
                                                           ha=replaying_node.nodestack.ha,
                                                           cliha=replaying_node.clientstack.ha)
                 patch_replaying_node_for_time(replaying_node, cr.start_times)
-                print('sleeping for {} before starting '.format(sleep_for))
+                print('sleeping for {} to simulate node stop'.format(sleep_for))
                 time.sleep(sleep_for)
                 looper.add(replaying_node)
             else:
@@ -160,11 +162,20 @@ def replay_patched_node(looper, replaying_node, cr):
             continue
 
         n_msgs, c_msgs = vals
+        disconn_node_names = set()
+
         if n_msgs:
-            incomings = Recorder.filter_incoming(n_msgs)
-            for inc in incomings:
-                replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
-                                                          to_bytes(inc[1]))
+            for inc in n_msgs:
+                if Recorder.is_incoming(inc):
+                    replaying_node.nodestack._verifyAndAppend(to_bytes(inc[1]),
+                                                              to_bytes(inc[2]))
+                if Recorder.is_disconn(inc):
+                    replaying_node.nodestack._connsChanged(set(), inc[1:])
+
+            # incomings = Recorder.filter_incoming(n_msgs)
+            # for inc in incomings:
+            #     replaying_node.nodestack._verifyAndAppend(to_bytes(inc[0]),
+            #                                               to_bytes(inc[1]))
 
         if c_msgs:
             incomings = Recorder.filter_incoming(c_msgs)

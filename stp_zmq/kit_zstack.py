@@ -37,16 +37,11 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
                  config=None,
                  msgRejectHandler=None):
 
-        simple_zstack_class.__init__(self,
-                              stackParams,
-                              msgHandler,
-                              seed=seed,
-                              sighex=sighex,
-                              config=config,
-                              msgRejectHandler=msgRejectHandler)
+        simple_zstack_class.__init__(self, stackParams, msgHandler,
+                                     seed=seed, sighex=sighex, config=config,
+                                     msgRejectHandler=msgRejectHandler)
 
-        KITNetworkInterface.__init__(self,
-                                     registry=registry)
+        KITNetworkInterface.__init__(self, registry=registry)
 
         self._retry_connect = {}
 
