@@ -58,10 +58,10 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
     }
     newVal = 10
     config = {
-        'borders_coeff': 2,
+        'bounds_coeff': 2,
         'min_cnt': 10,
         'min_activity_threshold': 0,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
     assert pluginManagerWithImportedModules \
@@ -69,7 +69,7 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
                                                newVal, config, name, enabled=True) is None
 
 
-def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnBordersCoefficient(
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnboundsCoefficient(
         pluginManagerWithImportedModules):
     topic = randomText(10)
     name = randomText(10)
@@ -79,10 +79,10 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnBordersCoefficient(
     }
     newVal = 15
     config = {
-        'borders_coeff': 2,
+        'bounds_coeff': 2,
         'min_cnt': 10,
         'min_activity_threshold': 0,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
     assert pluginManagerWithImportedModules \
@@ -100,10 +100,10 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
     }
     newVal = 25
     config = {
-        'borders_coeff': 2,
+        'bounds_coeff': 2,
         'min_cnt': 10,
         'min_activity_threshold': 0,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
     sent, found = pluginManagerWithImportedModules \
@@ -119,11 +119,11 @@ def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
     N = 15
     testNode.config.SpikeEventsEnabled = True
     testNode.config.notifierEventTriggeringConfig['nodeRequestSpike'] = {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': N,
         'freq': 60,
         'min_activity_threshold': 0,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
 
@@ -144,11 +144,11 @@ def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
                                           testNode):
     N = 15
     testNode.monitor.notifierEventTriggeringConfig['clusterThroughputSpike'] = {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': N,
         'freq': 60,
         'min_activity_threshold': 0,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True}
 
     # The learning period is necessary
@@ -169,10 +169,10 @@ def test_suspicious_spike_check_disabled_config(pluginManagerWithImportedModules
     name = randomText(10)
     hdata = {'value': 10, 'cnt': 10}
     nval = 25
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 2,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
 
     sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
@@ -191,10 +191,10 @@ def test_suspicious_spike_check_disabled_func(pluginManagerWithImportedModules):
     name = randomText(10)
     hdata = {'value': 10, 'cnt': 10}
     nval = 25
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 2,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
 
     sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
@@ -207,15 +207,15 @@ def test_suspicious_spike_check_disabled_func(pluginManagerWithImportedModules):
                                                                            config, name, enabled=False) is None
 
 
-def test_suspicious_spike_check_weighted_borders(pluginManagerWithImportedModules):
+def test_suspicious_spike_check_weighted_bounds(pluginManagerWithImportedModules):
     topic = randomText(10)
     name = randomText(10)
     hdata = {'value': 100, 'cnt': 100}
     nval = 700
-    config = {'borders_coeff': 10,
+    config = {'bounds_coeff': 10,
               'min_cnt': 10,
               'min_activity_threshold': 10,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
 
     sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
@@ -224,7 +224,7 @@ def test_suspicious_spike_check_weighted_borders(pluginManagerWithImportedModule
 
     hdata['value'] = 100
     hdata['cnt'] = 100
-    config['use_weighted_borders_coeff'] = False
+    config['use_weighted_bounds_coeff'] = False
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
                                                                            config, name, enabled=True) is None
 
@@ -234,10 +234,10 @@ def test_no_message_from_0_to_1(pluginManagerWithImportedModules):
     name = randomText(10)
     hdata = {'value': 0, 'cnt': 10}
     nval = 1
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 0,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
 
     sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
@@ -245,10 +245,10 @@ def test_no_message_from_0_to_1(pluginManagerWithImportedModules):
     assert sent == 3
 
     hdata = {'value': 0, 'cnt': 10}
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 2,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
                                                                            config, name, enabled=True) is None
@@ -259,10 +259,10 @@ def test_no_message_from_1_to_0(pluginManagerWithImportedModules):
     name = randomText(10)
     hdata = {'value': 1, 'cnt': 10}
     nval = 0
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 0,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
 
     sent, _ = pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
@@ -270,10 +270,10 @@ def test_no_message_from_1_to_0(pluginManagerWithImportedModules):
     assert sent == 3
 
     hdata = {'value': 1, 'cnt': 10}
-    config = {'borders_coeff': 2,
+    config = {'bounds_coeff': 2,
               'min_cnt': 10,
               'min_activity_threshold': 2,
-              'use_weighted_borders_coeff': True,
+              'use_weighted_bounds_coeff': True,
               'enabled': True}
     assert pluginManagerWithImportedModules.sendMessageUponSuspiciousSpike(topic, hdata, nval,
                                                                            config, name, enabled=True) is None

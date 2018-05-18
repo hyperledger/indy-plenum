@@ -87,19 +87,19 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': 15,
         'freq': 60,
         'min_activity_threshold': 10,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     },
     'nodeRequestSpike': {
-        'borders_coeff': 10,
+        'bounds_coeff': 10,
         'min_cnt': 15,
         'freq': 60,
         'min_activity_threshold': 10,
-        'use_weighted_borders_coeff': True,
+        'use_weighted_bounds_coeff': True,
         'enabled': True
     }
 }
@@ -227,6 +227,7 @@ BLS_KEY_LIMIT = 512
 BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
+DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []

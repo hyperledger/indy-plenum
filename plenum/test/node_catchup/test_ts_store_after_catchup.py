@@ -1,24 +1,34 @@
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.test_node import checkNodesConnected
+from plenum.test.view_change.helper import start_stopped_node
 
 
 def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                      looper,
                                      sdk_pool_handle,
-                                     sdk_wallet_steward):
+                                     sdk_wallet_steward,
+                                     tconf,
+                                     tdir,
+                                     allPluginsPath
+                                     ):
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     node_to_disconnect = txnPoolNodeSet[-1]
+
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
-                                            node_to_disconnect,
-                                            stopNode=False)
-    looper.runFor(2)
+                                            node_to_disconnect)
+    looper.removeProdable(name=node_to_disconnect.name)
     sdk_replies = sdk_send_random_and_check(looper, txnPoolNodeSet,
                                             sdk_pool_handle, sdk_wallet_steward, 2)
-    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, node_to_disconnect)
+
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
+    txnPoolNodeSet[-1] = node_to_disconnect
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
     req_handler = node_to_disconnect.getDomainReqHandler()
     for reply in sdk_replies:
@@ -30,4 +40,3 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                                          key=key)
         assert req_handler.stateSerializer.deserialize(from_state)['amount'] == \
                reply[1]['result']['amount']
-

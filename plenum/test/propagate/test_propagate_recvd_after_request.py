@@ -43,6 +43,7 @@ def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet, sent1):
         # A should have total of 4 PROPAGATEs (3 from other nodes and 1 from
         # itself)
         key = sent1.identifier, sent1.reqId
+        assert key in A.requests
         assert len(A.requests[key].propagates) == 4
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1

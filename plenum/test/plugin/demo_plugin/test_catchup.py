@@ -51,6 +51,7 @@ def some_demo_txns(looper, sdk_wallet_steward, sdk_pool_handle):
         successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
 
+@pytest.mark.skip(reason="INDY-1297. Node does not catch up on reconnection anymore.")
 def test_disconnected_node_catchup_plugin_ledger_txns(looper,
                                                       txnPoolNodeSet,
                                                       sdk_wallet_client,

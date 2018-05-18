@@ -6,11 +6,21 @@ import pip
 import os
 import base58
 import subprocess
+import locale
+import codecs
 from dateutil import parser
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
+
+
+def decode_err_handler(error):
+    length = error.end - error.start
+    return length * ' ', error.end
+
+
+codecs.register_error('decode_errors', decode_err_handler)
 
 logger = getlogger()
 
@@ -345,15 +355,15 @@ class ValidatorNodeInfoTool:
             stashed_txns["Stashed_checkoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
             if replica.prePreparesPendingPrevPP:
                 stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(
-                    replica.prePreparesPendingPrevPP.itervalues[-1])
+                    [pp for pp in replica.prePreparesPendingPrevPP.itervalues()][-1])
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
 
     def _get_node_metrics(self):
         metrics = {}
-        for metrica in self._node.monitor.metrics():
-            metrics[metrica[0]] = metrica[1]
+        for metrica in self._node.monitor.metrics()[1:]:
+            metrics[metrica[0]] = self._prepare_for_json(metrica[1])
         metrics.update(
             {
                 'average-per-second': {
@@ -490,10 +500,10 @@ class ValidatorNodeInfoTool:
     def _run_external_cmd(self, cmd):
         ret = subprocess.run(cmd,
                              shell=True,
-                             universal_newlines=True,
                              stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
                              timeout=5)
-        return ret.stdout
+        return ret.stdout.decode(locale.getpreferredencoding(), 'decode_errors')
 
     def _get_journalctl_exceptions(self):
         output = self._run_external_cmd("journalctl | sed -n '/Traceback/,/Error/p'")

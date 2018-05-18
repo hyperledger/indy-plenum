@@ -2,15 +2,17 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
+from typing import Iterable
 
 import base58
+import dateutil
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.common.constants import VALID_LEDGER_IDS
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -131,6 +133,26 @@ class LimitedLengthStringField(FieldBase):
         if len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
+
+
+class DatetimeStringField(FieldBase):
+    _base_types = (str,)
+    _exceptional_values = []
+
+    def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
+        super().__init__(**kwargs)
+        if exceptional_values is not None:
+            self._exceptional_values = exceptional_values
+
+    def _specific_validation(self, val):
+        if len(val) > DATETIME_LIMIT:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, DATETIME_LIMIT)
+        if val not in self._exceptional_values:
+            try:
+                dateutil.parser.parse(val)
+            except Exception:
+                return "datetime {} is not valid".format(val)
 
 
 class FixedLengthField(FieldBase):

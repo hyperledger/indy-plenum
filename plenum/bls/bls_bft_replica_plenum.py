@@ -127,13 +127,16 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----GC----
 
-    def gc(self, key_3PC):
-        keys_to_remove = []
-        for key in self._signatures.keys():
-            if compare_3PC_keys(key, key_3PC) >= 0:
-                keys_to_remove.append(key)
-        for key in keys_to_remove:
-            self._signatures.pop(key, None)
+    def gc(self, key_3PC=None):
+        if key_3PC is None:
+            self._signatures.clear()
+        else:
+            keys_to_remove = []
+            for key in self._signatures.keys():
+                if compare_3PC_keys(key, key_3PC) >= 0:
+                    keys_to_remove.append(key)
+            for key in keys_to_remove:
+                self._signatures.pop(key, None)
 
     # ----MULT_SIG----
 
