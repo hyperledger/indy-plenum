@@ -547,11 +547,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # the lowest prepared certificate in this view
             lowest_prepared = self.get_lowest_probable_prepared_certificate_in_view(
                 self.viewNo)
-            self.logger.debug('{} Setting last ordered for non-master as {}'.format(
-                self, self.last_ordered_3pc))
             if lowest_prepared is not None:
                 # now after catch up we have in last_ordered_3pc[1] value 0
                 # it value should change last_ordered_3pc to lowest_prepared - 1
+                self.logger.debug('{} Setting last ordered for non-master as {}'.format(
+                    self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
 
