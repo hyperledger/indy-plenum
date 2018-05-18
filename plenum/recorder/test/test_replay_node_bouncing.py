@@ -68,3 +68,8 @@ def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                                      restarted_alpha, replayable_node_class,
                                      node_config_helper_class, tconf,
                                      basedirpath, allPluginsPath)
+    for node in other_nodes:
+        create_replayable_node_and_check(txnPoolNodesLooper, txnPoolNodeSet,
+                                         node, replayable_node_class,
+                                         node_config_helper_class, tconf,
+                                         basedirpath, allPluginsPath)

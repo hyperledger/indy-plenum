@@ -8,7 +8,7 @@ from plenum.common.util import randomString
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
 
-TOTAL_TXNS = 10
+TOTAL_TXNS = 2
 
 
 @pytest.fixture(scope="module")

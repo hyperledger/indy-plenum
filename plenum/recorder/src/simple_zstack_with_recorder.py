@@ -1,4 +1,5 @@
 import os
+from typing import Set
 
 from stp_core.common.log import getlogger
 
@@ -30,6 +31,13 @@ class SimpleZStackWithRecorder(SimpleZStack):
         if status:
             self.recorder.add_outgoing(msg, uid)
         return status, err
+
+    def _connsChanged(self, ins: Set[str], outs: Set[str]) -> None:
+
+        from plenum.common.stacks import KITZStack
+        if isinstance(self, KITZStack) and outs:
+            self.recorder.add_disconnecteds(*outs)
+        super()._connsChanged(ins, outs)
 
     def stop(self):
         self.recorder.stop()

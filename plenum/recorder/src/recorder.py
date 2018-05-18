@@ -3,8 +3,9 @@ import os
 import time
 from typing import Callable
 
-
+from storage.kv_store_file import KeyValueStorageFile
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+from storage.text_file_store import TextFileStore
 
 try:
     import ujson as json
@@ -15,6 +16,7 @@ except ImportError:
 class Recorder:
     INCOMING_FLAG = 0
     OUTGOING_FLAG = 1
+    DISCONN_FLAG = 2
     TIME_FACTOR = 100000000
     RECORDER_METADATA_FILENAME = 'recorder_metadata.json'
 
@@ -27,11 +29,10 @@ class Recorder:
         self.store_iterator = None
         self.item_for_next_get = None
         self.last_returned_at = None
-        from plenum.common.util import get_utc_epoch
-        if not skip_metadata_write:
-            with open(os.path.join(kv_store._db_path, self.RECORDER_METADATA_FILENAME), 'w') as f:
-                d = {'start_time': get_utc_epoch()}
-                f.write(json.dumps(d))
+        # if not skip_metadata_write:
+        #     self.disconnect_time_store = TextFileStore(kv_store._db_path,
+        #                                                self.RECORDER_METADATA_FILENAME,
+        #                                                storeContentHash=False)
 
     def get_now_key(self):
         return str(int(time.perf_counter()*self.TIME_FACTOR))
@@ -42,6 +43,10 @@ class Recorder:
 
     def add_outgoing(self, msg, *to):
         key, val = self.get_now_key(), self.create_db_val_for_outgoing(msg, *to)
+        self.add_to_store(key, val)
+
+    def add_disconnecteds(self, *names):
+        key, val = self.get_now_key(), self.create_db_val_for_disconnecteds(*names)
         self.add_to_store(key, val)
 
     def add_to_store(self, key, val):
@@ -64,6 +69,10 @@ class Recorder:
     @staticmethod
     def create_db_val_for_outgoing(msg, *to):
         return [Recorder.OUTGOING_FLAG, msg, *to]
+
+    @staticmethod
+    def create_db_val_for_disconnecteds(*nodes):
+        return [Recorder.DISCONN_FLAG, *nodes]
 
     def start_playing(self):
         assert not self.is_playing
@@ -125,11 +134,23 @@ class Recorder:
 
     @staticmethod
     def filter_incoming(msgs):
-        return [msg[1:] for msg in msgs if msg[0] == Recorder.INCOMING_FLAG]
+        return [msg[1:] for msg in msgs if Recorder.is_incoming(msg)]
 
     @staticmethod
     def filter_outgoing(msgs):
-        return [msg[1:] for msg in msgs if msg[0] == Recorder.OUTGOING_FLAG]
+        return [msg[1:] for msg in msgs if Recorder.is_outgoing(msg)]
+
+    @staticmethod
+    def is_incoming(msg):
+        return msg[0] == Recorder.INCOMING_FLAG
+
+    @staticmethod
+    def is_outgoing(msg):
+        return msg[0] == Recorder.OUTGOING_FLAG
+
+    @staticmethod
+    def is_disconn(msg):
+        return msg[0] == Recorder.DISCONN_FLAG
 
 
 def add_start_time(data_directory, tm):
