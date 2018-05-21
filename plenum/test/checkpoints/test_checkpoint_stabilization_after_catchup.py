@@ -23,14 +23,22 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
 
+    master_replica = new_node.replicas._master_replica
+    assert len(master_replica.checkpoints) == 0
+    assert master_replica.h == 2
+    assert master_replica.H == 17
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_client, 1)
+
     for replica in new_node.replicas:
-        assert len(replica.checkpoints) == 0
+        assert len(replica.checkpoints) == 1
 
         assert replica.h == 2
         assert replica.H == 17
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 7)
+                              sdk_pool_handle, sdk_wallet_client, 6)
     stabilization_timeout = \
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
