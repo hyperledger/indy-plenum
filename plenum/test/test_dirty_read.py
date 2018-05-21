@@ -45,6 +45,6 @@ def test_dirty_read(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     request = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
                                                  sdk_pool_handle, req)
     received_replies = sdk_get_and_check_replies(looper, [request])
-    results = [str(get_payload_data(reply[1]['result'])[DATA]) for reply in received_replies]
+    results = [str(get_payload_data(reply[1]['result'][DATA])) for reply in received_replies]
 
     assert len(set(results)) == 1

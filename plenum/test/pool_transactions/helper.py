@@ -333,8 +333,10 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
-    looper.loop.run_until_complete(
-        refresh_pool_ledger(sdk_pool_handle))
+    # FIXME: tmp try
+    pass
+    # looper.loop.run_until_complete(
+    #     refresh_pool_ledger(sdk_pool_handle))
 
 
 def sdk_build_get_txn_request(looper, steward_did, data):

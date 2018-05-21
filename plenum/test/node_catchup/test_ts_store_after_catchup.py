@@ -1,3 +1,4 @@
+from plenum.common.txn_util import get_req_id, get_from, get_txn_time, get_payload_data
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
@@ -32,11 +33,11 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
     req_handler = node_to_disconnect.getDomainReqHandler()
     for reply in sdk_replies:
-        key = req_handler.prepare_buy_key(reply[1]['result']['identifier'],
-                                           reply[1]['result']['reqId'])
-        root_hash = req_handler.ts_store.get_equal_or_prev(reply[1]['result']['txnTime'])
+        key = req_handler.prepare_buy_key(get_from(reply[1]['result']),
+                                           get_req_id(reply[1]['result']))
+        root_hash = req_handler.ts_store.get_equal_or_prev(get_txn_time(reply[1]['result']))
         assert root_hash
         from_state = req_handler.state.get_for_root_hash(root_hash=root_hash,
                                                          key=key)
         assert req_handler.stateSerializer.deserialize(from_state)['amount'] == \
-               reply[1]['result']['amount']
+               get_payload_data(reply[1]['result'])['amount']
