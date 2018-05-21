@@ -74,7 +74,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         # Last successful viewNo.
         # In some cases view_change process can be uncompleted in time.
-        # In that case we want to now, which viewNo was successful (last completed view_change)
+        # In that case we want to know, which viewNo was successful (last completed view_change)
         self.last_completed_view_no = 0
 
     def __repr__(self):
