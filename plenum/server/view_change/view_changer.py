@@ -69,6 +69,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # Count of instance change rounds
         self.instance_change_rounds = 0
 
+        # Force periodic view change if enabled in config
+        force_view_change_freq = node.config.ForceViewChangeFreq
+        if force_view_change_freq > 0:
+            self.startRepeating(self.on_master_degradation, force_view_change_freq)
+
     def __repr__(self):
         return "{}".format(self.name)
 
