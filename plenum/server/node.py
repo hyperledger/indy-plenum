@@ -1821,7 +1821,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             for replica in self.replicas:
-                replica.caught_up_till_3pc(last_caught_up_3PC)
+                if replica.isMaster:
+                    replica.caught_up_till_3pc(last_caught_up_3PC)
+                else:
+                    replica.catchup_clear_for_backup()
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
