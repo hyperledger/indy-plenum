@@ -135,7 +135,7 @@ def pack_nibbles(nibbles):
     :param nibbles: a nibbles sequence. may have a terminator
     """
 
-    if nibbles[-1:] == [NIBBLE_TERMINATOR]:
+    if nibbles[-1] == NIBBLE_TERMINATOR:
         flags = 2
         nibbles = nibbles[:-1]
     else:
@@ -411,15 +411,22 @@ class Trie:
 
         # key value node
         curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        if len(key_prfx) > len(curr_key):
+            full = key_prfx
+            part = curr_key
+        else:
+            full = curr_key
+            part = key_prfx
+
         if node_type == NODE_TYPE_LEAF:
-            if starts_with(curr_key, key_prfx):
+            if starts_with(full, part):
                 return node
             else:
                 return BLANK_NODE
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
-            if starts_with(curr_key, key_prfx):
+            if starts_with(full, part):
                 self._decode_to_node(node[1])
                 return node
             else:
@@ -490,7 +497,7 @@ class Trie:
         new_node_encoded = False
 
         if remain_key == [] == remain_curr_key:
-            # sys.stderr.write('1111\n')
+            # Updating the value of an existing key
             if not is_inner:
                 o = [node[0], value]
                 self._encode_node(o)
@@ -915,11 +922,7 @@ class Trie:
 
     def iter_branch(self):
         for key_str, value in self._iter_branch(self.root_node):
-            if key_str:
-                nibbles = [int(x) for x in key_str.split(b'+')]
-            else:
-                nibbles = []
-            key = nibbles_to_bin(without_terminator(nibbles))
+            key = self.nibble_str_key_to_bin(key_str)
             yield key, value
 
     def _iter_branch(self, node):
@@ -1017,7 +1020,8 @@ class Trie:
     def produce_spv_proof_for_key_prfx(self, key, root=None):
         root = root or self.root_node
         proof.push(RECORDING)
-        self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key)))
+        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key)))
+        list(self._iter_branch(prefix_node))
         o = proof.get_nodelist()
         proof.pop()
         return o
@@ -1069,6 +1073,14 @@ class Trie:
     @staticmethod
     def deserialize_proof(ser_proof):
         return rlp_decode(ser_proof)
+
+    @staticmethod
+    def nibble_str_key_to_bin(key_str):
+        if key_str:
+            nibbles = [int(x) for x in key_str.split(b'+')]
+        else:
+            nibbles = []
+        return nibbles_to_bin(without_terminator(nibbles))
 
 
 if __name__ == "__main__":

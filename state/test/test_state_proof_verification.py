@@ -128,12 +128,14 @@ def test_state_proof_for_key_prefix_3(state, tmpdir_factory):
     for k, v in key_vals.items():
         state.set(k.encode(), v.encode())
         prefix_node = trie._get_last_node_for_prfx(trie.root_node, nib)
+        print('prefix node type ', k, trie._get_node_type(prefix_node))
         val = trie._get(prefix_node, bin_to_nibbles(k.encode())[1:])
         val = rlp_decode(val)
         assert val[0] == v.encode()
 
     print('all proofs')
     prefix_node = trie._get_last_node_for_prfx(trie.root_node, nib)
+    print('prefix node type ', trie._get_node_type(prefix_node))
     for k, v in key_vals.items():
         val = trie._get(prefix_node, bin_to_nibbles(k.encode())[1:])
         val = rlp_decode(val)
@@ -141,6 +143,7 @@ def test_state_proof_for_key_prefix_3(state, tmpdir_factory):
         print(trie.produce_spv_proof(k.encode(), trie.root_node))
 
     prefix_prf = trie.produce_spv_proof_for_key_prfx(prefix.encode(), trie.root_node)
+    print(prefix_prf)
     prefix_prf.append(deepcopy(trie.root_node))
     # _db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('').strpath, 'temp_db')
     _db = KeyValueStorageInMemory()
@@ -161,10 +164,7 @@ def test_state_proof_for_key_prefix_3(state, tmpdir_factory):
 
     new_trie.root_hash = root
     for k, v in key_vals.items():
-        try:
-            _v = new_trie.get(k.encode())
-        except:
-            continue
+        _v = new_trie.get(k.encode())
         assert v.encode() == rlp_decode(_v)[0]
 
 
@@ -181,7 +181,7 @@ def test_state_proof_for_key_prefix_4(state):
         state.set(k.encode(), v.encode())
         nib = bin_to_nibbles(prefix.encode())
         prefix_node = trie._get_last_node_for_prfx(trie.root_node, nib)
-        print(k, trie._get_node_type(prefix_node))
+        print('prefix node type ', k, trie._get_node_type(prefix_node))
         val = trie._get(prefix_node, bin_to_nibbles(k.encode())[1:])
         val = rlp_decode(val)
         assert val[0] == v.encode()
