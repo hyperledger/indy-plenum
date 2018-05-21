@@ -394,7 +394,7 @@ class ValidatorNodeInfoTool:
         return ic_queue
 
     def __get_start_vc_ts(self):
-        ts = self._node.view_changer._start_view_change_ts
+        ts = self._node.view_changer.start_view_change_ts
         return str(datetime.datetime.utcfromtimestamp(ts))
 
     @property
@@ -449,7 +449,10 @@ class ValidatorNodeInfoTool:
                         self._node.viewNo),
                     "VC_in_progress": self._prepare_for_json(
                         self._node.view_changer.view_change_in_progress),
-                    "Last_view_change_started_at": self._prepare_for_json(self.__get_start_vc_ts()),
+                    "Last_view_change_started_at": self._prepare_for_json(
+                        self.__get_start_vc_ts()),
+                    "Last_complete_view_no": self._prepare_for_json(
+                        self._node.view_changer.last_completed_view_no),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
                     "VCDone_queue": self._prepare_for_json(
