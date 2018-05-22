@@ -348,9 +348,12 @@ node_spyables = [Node.handleOneNodeMsg,
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
+    _nodeStackClass = nodeStackClass
+    _clientStackClass = clientStackClass
+
     def __init__(self, *args, **kwargs):
-        self.NodeStackClass = nodeStackClass
-        self.ClientStackClass = clientStackClass
+        self.NodeStackClass = self.__class__._nodeStackClass
+        self.ClientStackClass = self.__class__._clientStackClass
 
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)
@@ -477,8 +480,12 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
+    _replica_class = TestReplica
+
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
+        return self.__class__._replica_class(self._node, instance_id,
+                                                self._config, is_master,
+                                                bls_bft)
 
 
 # TODO: probably delete when remove from node

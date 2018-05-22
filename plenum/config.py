@@ -232,3 +232,5 @@ DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []
+
+USE_WITH_STACK = 1

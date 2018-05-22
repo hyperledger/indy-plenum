@@ -15,6 +15,8 @@ MASTER_REPLICA_INDEX = 0
 
 
 class Replicas:
+    _replica_class = Replica
+
     def __init__(self, node, monitor: Monitor, config=None):
         # passing full node because Replica requires it
         self._node = node
@@ -109,7 +111,7 @@ class Replicas:
         """
         Create a new replica with the specified parameters.
         """
-        return Replica(self._node, instance_id, self._config, is_master, bls_bft)
+        return self._replica_class(self._node, instance_id, self._config, is_master, bls_bft)
 
     def _create_bls_bft_replica(self, is_master):
         bls_factory = create_default_bls_bft_factory(self._node)
