@@ -9,6 +9,7 @@ import subprocess
 import locale
 import codecs
 from dateutil import parser
+import datetime
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
@@ -363,7 +364,12 @@ class ValidatorNodeInfoTool:
     def _get_node_metrics(self):
         metrics = {}
         for metrica in self._node.monitor.metrics()[1:]:
-            metrics[metrica[0]] = self._prepare_for_json(metrica[1])
+            if metrica[0] == 'master request latencies':
+                latencies = list(metrica[1].values())
+                metrics['max master request latencies'] = self._prepare_for_json(
+                    max(latencies) if latencies else 0)
+            else:
+                metrics[metrica[0]] = self._prepare_for_json(metrica[1])
         metrics.update(
             {
                 'average-per-second': {
@@ -386,6 +392,10 @@ class ValidatorNodeInfoTool:
             ics["Message"] = self._prepare_for_json(queue.msg)
             ic_queue[view_no] = self._prepare_for_json(ics)
         return ic_queue
+
+    def __get_start_vc_ts(self):
+        ts = self._node.view_changer.start_view_change_ts
+        return str(datetime.datetime.utcfromtimestamp(ts))
 
     @property
     @none_on_fail
@@ -439,6 +449,10 @@ class ValidatorNodeInfoTool:
                         self._node.viewNo),
                     "VC_in_progress": self._prepare_for_json(
                         self._node.view_changer.view_change_in_progress),
+                    "Last_view_change_started_at": self._prepare_for_json(
+                        self.__get_start_vc_ts()),
+                    "Last_complete_view_no": self._prepare_for_json(
+                        self._node.view_changer.last_completed_view_no),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
                     "VCDone_queue": self._prepare_for_json(

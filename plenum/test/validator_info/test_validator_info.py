@@ -164,6 +164,8 @@ def test_node_info_section(info, node):
     assert 'VCDone_queue'   in info['Node_info']['View_change_status']
     assert 'VC_in_progress' in info['Node_info']['View_change_status']
     assert 'View_No'        in info['Node_info']['View_change_status']
+    assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
+    assert 'Last_view_change_started_at' in info['Node_info']['View_change_status']
     assert "Pool_ledger_size" in info["Node_info"]
     assert "Domain_ledger_size" in info["Node_info"]
     assert "Config_ledger_size" in info["Node_info"]
