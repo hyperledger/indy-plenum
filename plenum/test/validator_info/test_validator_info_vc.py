@@ -29,3 +29,4 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     for node_name in node_names:
         assert latest_info['Node_info']['View_change_status']['VCDone_queue'][node_name][0] == master_node.master_primary_name
         assert latest_info['Node_info']['View_change_status']['VCDone_queue'][node_name][1]
+        assert latest_info['Node_info']['View_change_status']['Last_complete_view_no'] == expected_view_no

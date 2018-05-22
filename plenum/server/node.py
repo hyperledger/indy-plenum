@@ -538,6 +538,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
+        self.view_changer.start_view_change_ts = self.utc_epoch()
+
         for replica in self.replicas:
             replica.on_view_change_start()
         logger.debug("{} resetting monitor stats at view change start".
@@ -577,6 +579,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.master_replica.on_view_change_done()
         if self.view_changer.propagate_primary:  # TODO VCH
             self.master_replica.on_propagate_primary_done()
+        self.view_changer.last_completed_view_no = self.view_changer.view_no
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
