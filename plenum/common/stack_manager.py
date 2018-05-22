@@ -120,7 +120,7 @@ class TxnStackManager(metaclass=ABCMeta):
                 try:
                     # TODO: Need to handle abbreviated verkey
                     key_type = 'verkey'
-                    verkey = cryptonymToHex(txn_data[TARGET_NYM])
+                    verkey = cryptonymToHex(str(txn_data[TARGET_NYM]))
                     key_type = 'identifier'
                     cryptonymToHex(get_from(txn))
                 except ValueError:
