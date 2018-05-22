@@ -4,7 +4,6 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.view_change.conftest import viewNo  # noqa: F811
 
 
 TestRunningTimeLimitSec = 550
@@ -13,7 +12,7 @@ whitelist = ['cannot find remote with name']
 
 
 def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
-                                     some_txns_done, testNodeClass, viewNo,  # noqa: F811
+                                     some_txns_done, testNodeClass, viewNo,  # noqa
                                      sdk_pool_handle, sdk_wallet_client,
                                      node_config_helper_class, tconf, tdir,
                                      allPluginsPath, tmpdir_factory):
