@@ -20,15 +20,17 @@ def replay_and_compare(looper, node, replaying_node):
     with open(start_times_file, 'r') as f:
         start_times = json.loads(f.read())
 
-    replaying_node = prepare_node_for_replay_and_replay(looper, replaying_node, node_rec,
-                                       client_rec, start_times)
+    replaying_node = prepare_node_for_replay_and_replay(looper,
+                                                        replaying_node,
+                                                        node_rec, client_rec,
+                                                        start_times)
 
     def chk():
         for lid in node.ledger_ids:
-            l = node.getLedger(lid)
-            l_r = replaying_node.getLedger(lid)
-            assert l_r.size == l.size, (l_r.size, l.size)
-            assert l_r.root_hash == l.root_hash, (l_r.root_hash, l.root_hash)
+            orig_ledger = node.getLedger(lid)
+            replayed_ledger = replaying_node.getLedger(lid)
+            assert replayed_ledger.size == orig_ledger.size, (replayed_ledger.size, orig_ledger.size)
+            assert replayed_ledger.root_hash == orig_ledger.root_hash, (replayed_ledger.root_hash, orig_ledger.root_hash)
 
     timeout = 10 + (node.domainLedger.size - replaying_node.domainLedger.size)
 

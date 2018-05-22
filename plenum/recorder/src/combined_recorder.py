@@ -21,15 +21,15 @@ class CombinedRecorder(Recorder):
 
     def combine_recorders(self):
         for k, v in self.recorders[0].store.iterator(include_value=True):
-            self.store.put(k, self.n_prefix+v+self.separator)
+            self.store.put(k, self.n_prefix + v + self.separator)
 
         for k, v in self.recorders[1].store.iterator(include_value=True):
             try:
                 existing = self.store.get(k)
             except KeyError:
-                existing = self.n_prefix+self.separator
+                existing = self.n_prefix + self.separator
 
-            self.store.put(k, existing+self.c_prefix + v)
+            self.store.put(k, existing + self.c_prefix + v)
 
     def start_playing(self):
         assert not self.is_playing

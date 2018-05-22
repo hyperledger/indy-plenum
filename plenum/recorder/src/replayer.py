@@ -51,7 +51,7 @@ def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder
         KeyValueStorageType.Leveldb, rec_path, node_name)
 
     return Recorder(node_rec_kv_store, skip_metadata_write=True), \
-           Recorder(client_rec_kv_store, skip_metadata_write=True)
+        Recorder(client_rec_kv_store, skip_metadata_write=True)
 
 
 def patch_sent_prepreapres(replaying_node, node_recorder):
@@ -76,8 +76,7 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
                             for m in msg['messages']:
                                 try:
                                     m = json.loads(m)
-                                    if m[OP_FIELD_NAME] == PREPREPARE and m[
-                                        f.INST_ID.nm] == 0:
+                                    if m[OP_FIELD_NAME] == PREPREPARE and m[f.INST_ID.nm] == 0:
                                         v, p = m[f.VIEW_NO.nm], m[
                                             f.PP_SEQ_NO.nm]
                                         sent_pps[v, p] = [m[f.PP_TIME.nm],
@@ -137,7 +136,7 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
             node_run_no += 1
             if node_run_no < len(cr.start_times):
                 # The node stopped here
-                sleep_for = cr.start_times[node_run_no][0] - cr.start_times[node_run_no-1][1]
+                sleep_for = cr.start_times[node_run_no][0] - cr.start_times[node_run_no - 1][1]
                 replaying_node.stop()
                 looper.removeProdable(replaying_node)
                 # Create new node since node is destroyed on stop

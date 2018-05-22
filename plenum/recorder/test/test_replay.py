@@ -1,7 +1,6 @@
 from plenum.recorder.test.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.recorder.test.test_node_msgs_recording import some_txns_done
 
 
 TestRunningTimeLimitSec = 500

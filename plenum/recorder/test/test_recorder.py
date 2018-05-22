@@ -39,15 +39,15 @@ def test_add_to_recorder(recorder):
 
         if i == 1:
             assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg2, frm2]])
-            assert int(k) - int(last_check_time) >= 3*Recorder.TIME_FACTOR
+            assert int(k) - int(last_check_time) >= 3 * Recorder.TIME_FACTOR
 
         if i == 2:
             assert v.decode() == json.dumps([[Recorder.OUTGOING_FLAG, msg3, to1, to11]])
-            assert int(k) - int(last_check_time) >= 2.1*Recorder.TIME_FACTOR
+            assert int(k) - int(last_check_time) >= 2.1 * Recorder.TIME_FACTOR
 
         if i == 3:
             assert v.decode() == json.dumps([[Recorder.OUTGOING_FLAG, msg4, to2]])
-            assert int(k) - int(last_check_time) >= .4*Recorder.TIME_FACTOR
+            assert int(k) - int(last_check_time) >= .4 * Recorder.TIME_FACTOR
 
         last_check_time = k.decode()
         i += 1
@@ -105,7 +105,7 @@ def test_recorded_parsings(recorder):
 
 def test_recorder_get_next_incoming_only(recorder):
     incoming_count = 100
-    incoming = [(randomString(100), randomString(6)) for i in
+    incoming = [(randomString(100), randomString(6)) for _ in
                 range(incoming_count)]
 
     while incoming:
@@ -126,15 +126,11 @@ def test_recorder_get_next_incoming_only(recorder):
     recorder.start_playing()
     start = time.perf_counter()
 
-    # print(keys)
-    # print(recorded_incomings)
     while recorder.is_playing and (time.perf_counter() < start+max_time_to_run):
         vals = recorder.get_next()
         if vals:
             check = recorded_incomings.popitem(last=False)[1]
-            # print(check)
             assert check == vals
-            # print(check)
         else:
             time.sleep(0.01)
 
@@ -146,8 +142,8 @@ def test_recorder_get_next(recorder):
     incoming_count = 100
     outgoing_count = 50
 
-    incoming = [(randomString(100), randomString(6)) for i in range(incoming_count)]
-    outgoing = [(randomString(100), randomString(6)) for i in range(outgoing_count)]
+    incoming = [(randomString(100), randomString(6)) for _ in range(incoming_count)]
+    outgoing = [(randomString(100), randomString(6)) for _ in range(outgoing_count)]
 
     while incoming or outgoing:
         if random.choice([0, 1]) and outgoing:

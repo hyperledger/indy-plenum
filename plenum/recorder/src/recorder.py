@@ -31,7 +31,7 @@ class Recorder:
         self.last_returned_at = None
 
     def get_now_key(self):
-        return str(int(time.perf_counter()*self.TIME_FACTOR))
+        return str(int(time.perf_counter() * self.TIME_FACTOR))
 
     def add_incoming(self, msg, frm):
         key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm)
@@ -85,13 +85,13 @@ class Recorder:
                 return None
             tm = int(tm)
             # print(1, tm)
-            now = time.perf_counter()*self.TIME_FACTOR
+            now = time.perf_counter() * self.TIME_FACTOR
             if self.last_returned_at is None:
                 # First item, so return immediately
                 self.last_returned_at = (now, tm)
                 return self.get_parsed(val)
             else:
-                if (now-self.last_returned_at[0]) >= (tm-self.last_returned_at[1]):
+                if (now - self.last_returned_at[0]) >= (tm - self.last_returned_at[1]):
                     # Sufficient time has passed
                     self.last_returned_at = (now, tm)
                     return self.get_parsed(val)

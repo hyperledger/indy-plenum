@@ -14,4 +14,3 @@ class Silencer:
 
     def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
         pass
-
