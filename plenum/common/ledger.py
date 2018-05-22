@@ -10,7 +10,6 @@ logger = getlogger()
 
 
 class Ledger(_Ledger):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Merkle tree of containing transactions that have not yet been
@@ -27,7 +26,7 @@ class Ledger(_Ledger):
         # These transactions are not yet committed so they do not go to
         # the ledger
         uncommittedSize = self.size + len(self.uncommittedTxns)
-        txns = self._append_seq_no(txns)
+        txns = self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
@@ -39,14 +38,14 @@ class Ledger(_Ledger):
 
     def add(self, txn):
         if get_seq_no(txn) is None:
-            self._append_seq_no([txn])
+            self._append_seq_no([txn], self.seqNo)
         merkle_info = super().add(txn)
         # seqNo is part of the transaction itself, so no need to duplicate it here
         merkle_info.pop(F.seqNo.name, None)
         return merkle_info
 
-    def _append_seq_no(self, txns):
-        seq_no = self.seqNo
+    def _append_seq_no(self, txns, start_seq_no):
+        seq_no = start_seq_no
         for txn in txns:
             seq_no += 1
             append_txn_metadata(txn, seq_no=seq_no)
@@ -74,12 +73,10 @@ class Ledger(_Ledger):
         # if there are any `uncommittedTxns` since the ledger still has a
         # valid uncommittedTree and a valid root hash which are
         # different from the committed ones
-        return (committedSize + 1, committedSize + count), committedTxns
-
-    def appendCommittedTxns(self, txns: List):
-        # Called while receiving committed txns from other nodes
-        for txn in txns:
-            self.append(txn)
+        if committedTxns:
+            return (committedSize + 1, committedSize + count), committedTxns
+        else:
+            return (committedSize, committedSize), committedTxns
 
     def discardTxns(self, count: int):
         """
@@ -90,6 +87,8 @@ class Ledger(_Ledger):
         """
         # TODO: This can be optimised if multiple discards are combined
         # together since merkle root computation will be done only once.
+        if count == 0:
+            return
         old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:

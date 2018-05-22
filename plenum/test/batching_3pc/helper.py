@@ -57,14 +57,13 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
 
 
 def add_txns_to_ledger_before_order(replica, reqs):
-    added = False
+    replica.added = False
     origMethod = replica.tryOrder
 
     def tryOrderAndAddTxns(self, commit):
-        nonlocal added
         canOrder, _ = self.canOrder(commit)
         node = replica.node
-        if not added and canOrder:
+        if not replica.added and canOrder:
 
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
@@ -80,7 +79,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_manager.catchupCompleted(
                 DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
-            added = True
+            replica.added = True
 
         return origMethod(commit)
 
