@@ -6,10 +6,11 @@ from plenum.common.util import randomString
 from plenum.recorder.src.recorder import Recorder
 from plenum.recorder.test.helper import reload_modules_for_recorder
 from plenum.test.conftest import _tconf
-from plenum.test.helper import sdk_send_random_and_check
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
-
+from plenum.test.pool_transactions.helper import sdk_add_new_nym
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.conftest import *  # noqa
+
 
 # overriddenConfigValues['USE_WITH_STACK'] = 1
 #
@@ -19,14 +20,6 @@ from plenum.test.conftest import *  # noqa
 #     conf = _tconf(general_conf_tdir)
 #     reload_modules_for_recorder(conf)
 #     return conf
-
-
-@pytest.fixture()
-def recorder(tmpdir_factory):
-    storage = KeyValueStorageLeveldbIntKeys(
-        tmpdir_factory.mktemp('').strpath, 'test_db')
-    return Recorder(storage)
-
 
 TOTAL_TXNS = 2
 
@@ -40,3 +33,10 @@ def some_txns_done(txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
     for i in range(math.floor(TOTAL_TXNS/2)):
         sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
+
+
+@pytest.fixture()
+def recorder(tmpdir_factory):
+    storage = KeyValueStorageLeveldbIntKeys(
+        tmpdir_factory.mktemp('').strpath, 'test_db')
+    return Recorder(storage)
