@@ -44,8 +44,9 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
                                         sdk_wallet_client,
                                         number_of_requests)
 
-    expected = [get_req_id(reply[0]["result"]) for reply in replies]
+    expected = [get_req_id(reply["result"]) for _, reply in replies]
     for node in txnPoolNodeSet:
         real_ledger_state = [get_req_id(txn)
-                             for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn() if get_req_id(txn) is not None]
+                             for _, txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn()
+                             if get_req_id(txn) is not None]
         assert expected == real_ledger_state
