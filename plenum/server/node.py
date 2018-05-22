@@ -1818,16 +1818,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
-        if compare_3PC_keys(self.master_last_ordered_3PC,
-                            last_caught_up_3PC) > 0:
-            for replica in self.replicas:
-                if replica.isMaster:
+        for replica in self.replicas:
+            if replica.isMaster:
+                if compare_3PC_keys(self.master_last_ordered_3PC,
+                                    last_caught_up_3PC) > 0:
                     replica.caught_up_till_3pc(last_caught_up_3PC)
-                else:
-                    replica.catchup_clear_for_backup()
-            logger.info('{}{} caught up till {}'
-                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
-                        extra={'cli': True})
+            else:
+                replica.catchup_clear_for_backup()
+        logger.info('{}{} caught up till {}'
+                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
+                    extra={'cli': True})
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
