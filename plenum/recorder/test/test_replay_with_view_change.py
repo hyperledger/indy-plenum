@@ -13,7 +13,7 @@ whitelist = ['cannot find remote with name']
 
 
 def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
-                                     some_txns_done, testNodeClass, viewNo, # noqa
+                                     some_txns_done, testNodeClass, viewNo, # noqa: F811;
                                      sdk_pool_handle, sdk_wallet_client,
                                      node_config_helper_class, tconf, tdir,
                                      allPluginsPath, tmpdir_factory):

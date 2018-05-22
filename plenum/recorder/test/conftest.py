@@ -27,10 +27,10 @@ TOTAL_TXNS = 2
 @pytest.fixture(scope="module")
 def some_txns_done(txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
                    sdk_wallet_steward):
-    for i in range(math.ceil(TOTAL_TXNS/2)):
+    for i in range(math.ceil(TOTAL_TXNS / 2)):
         sdk_add_new_nym(txnPoolNodesLooper, sdk_pool_handle, sdk_wallet_steward,
                         alias='testSteward' + randomString(100))
-    for i in range(math.floor(TOTAL_TXNS/2)):
+    for i in range(math.floor(TOTAL_TXNS / 2)):
         sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 

@@ -7,7 +7,7 @@ from plenum.test.node_catchup.conftest import whitelist, sdk_new_node_caught_up,
 def test_replay_on_new_node(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                             testNodeClass, tmpdir_factory,
                             node_config_helper_class, allPluginsPath,
-                            sdk_new_node_caught_up):    # noqa
+                            sdk_new_node_caught_up):    # noqa: F811;
 
     new_node = sdk_new_node_caught_up
 
