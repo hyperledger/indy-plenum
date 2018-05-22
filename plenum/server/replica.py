@@ -2512,7 +2512,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
             del self.stashedRecvdCheckpoints[self.viewNo]
 
-
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
             req_handler = self.node.ledger_to_req_handler.get(ledger_id)
