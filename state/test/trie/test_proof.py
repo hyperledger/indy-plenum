@@ -207,7 +207,7 @@ def test_proof_specific_root():
         node_trie.update(k.encode(), rlp_encode([v]))
         old_keys.add(k)
         i += 1
-        if i >= size//2:
+        if i >= size // 2:
             break
 
     # Record the root
@@ -303,7 +303,7 @@ def test_proof_prefix_with_other_nodes():
     # Change value of one of any random key
     encoded_new = deepcopy(encoded)
     random_key = next(iter(encoded_new.keys()))
-    encoded_new[random_key] = rlp_encode([rlp_decode(encoded_new[random_key])[0]+b'2212'])
+    encoded_new[random_key] = rlp_encode([rlp_decode(encoded_new[random_key])[0] + b'2212'])
     assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                                   encoded_new, proof_nodes)
 

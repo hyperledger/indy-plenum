@@ -97,7 +97,7 @@ def test_state_proof_for_key_prefix_1(state):
 
 def test_state_proof_for_key_prefix_2(state):
     prefix = 'abcdefgh'
-    state.set((prefix[:4]+'zzzz').encode(), b'1908')
+    state.set((prefix[:4] + 'zzzz').encode(), b'1908')
     add_prefix_nodes_and_verify(state, prefix)
 
 
