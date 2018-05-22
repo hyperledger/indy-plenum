@@ -788,7 +788,7 @@ class Trie:
 
         if is_key_value_type(new_sub_node_type):
             # sys.stderr.write('nsn1\n')
-            # collape subnode to this node, not this node will have same
+            # collapse subnode to this node, not this node will have same
             # terminator with the new sub node, and value does not change
             new_key = curr_key + unpack_to_nibbles(new_sub_node[0])
             o = [pack_nibbles(new_key), new_sub_node[1]]
@@ -912,11 +912,7 @@ class Trie:
         d = self._to_dict(self.root_node)
         res = {}
         for key_str, value in d.items():
-            if key_str:
-                nibbles = [int(x) for x in key_str.split(b'+')]
-            else:
-                nibbles = []
-            key = nibbles_to_bin(without_terminator(nibbles))
+            key = self.nibble_str_key_to_bin(key_str)
             res[key] = value
         return res
 
@@ -1009,23 +1005,6 @@ class Trie:
             return True
         return self.root_hash in self._db
 
-    def produce_spv_proof(self, key, root=None):
-        root = root or self.root_node
-        proof.push(RECORDING)
-        self.get_at(root, key)
-        o = proof.get_nodelist()
-        proof.pop()
-        return o
-
-    def produce_spv_proof_for_key_prfx(self, key, root=None):
-        root = root or self.root_node
-        proof.push(RECORDING)
-        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key)))
-        list(self._iter_branch(prefix_node))
-        o = proof.get_nodelist()
-        proof.pop()
-        return o
-
     def get_at(self, root_node, key):
         """
         Get value of a key when the root node was `root_node`
@@ -1035,10 +1014,35 @@ class Trie:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
+    def produce_spv_proof(self, key, root=None):
+        root = root or self.root_node
+        proof.push(RECORDING)
+        self.get_at(root, key)
+        o = proof.get_nodelist()
+        proof.pop()
+        return o
+
+    def produce_spv_proof_for_key_prfx(self, key_prfx, root=None):
+        root = root or self.root_node
+        proof.push(RECORDING)
+        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)))
+        list(self._iter_branch(prefix_node))
+        o = proof.get_nodelist()
+        proof.pop()
+        return o
+
     def generate_state_proof(self, key, root=None, serialize=False):
         # NOTE: The method `produce_spv_proof` is not deliberately modified
+        return self._generate_state_proof(key, self.produce_spv_proof, root=root, serialize=serialize)
+
+    def generate_state_proof_for_key_prfx(self, key_prfx, root=None, serialize=False):
+        # NOTE: The method `produce_spv_proof` is not deliberately modified
+        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_key_prfx,
+                                          root=root, serialize=serialize)
+
+    def _generate_state_proof(self, path, func, root=None, serialize=False):
         root = root or self.root_node
-        pf = self.produce_spv_proof(key, root)
+        pf = func(path, root)
         pf.append(copy.deepcopy(root))
         return pf if not serialize else self.serialize_proof(pf)
 
@@ -1050,12 +1054,9 @@ class Trie:
         if serialized:
             proof_nodes = Trie.deserialize_proof(proof_nodes)
         proof.push(VERIFYING, proof_nodes)
-        new_trie = Trie(KeyValueStorageInMemory())
 
-        for node in proof_nodes:
-            R = rlp_encode(node)
-            H = sha3(R)
-            new_trie._db.put(H, R)
+        new_trie = Trie.get_new_trie_with_proof_nodes(proof_nodes)
+
         try:
             new_trie.root_hash = root
             v = new_trie.get(key)
@@ -1065,6 +1066,49 @@ class Trie:
             print(e)
             proof.pop()
             return False
+
+    @staticmethod
+    def verify_spv_proof_multi(root, key_values, proof_nodes,
+                               serialized=False):
+        # Takes a list of proof nodes for several key values
+        if serialized:
+            proof_nodes = Trie.deserialize_proof(proof_nodes)
+
+        proof.push(VERIFYING, proof_nodes)
+
+        new_trie = Trie.get_new_trie_with_proof_nodes(proof_nodes)
+
+        try:
+            new_trie.root_hash = root
+        except Exception as e:
+            print(e)
+            proof.pop()
+            return False
+
+        for k, v in key_values.items():
+            try:
+                _v = new_trie.get(k)
+            except Exception as e:
+                print(e)
+                proof.pop()
+                return False
+            if v != _v:
+                proof.pop()
+                return False
+
+        proof.pop()
+        return True
+
+    @staticmethod
+    def get_new_trie_with_proof_nodes(proof_nodes):
+        new_trie = Trie(KeyValueStorageInMemory())
+
+        for node in proof_nodes:
+            R = rlp_encode(node)
+            H = sha3(R)
+            new_trie._db.put(H, R)
+
+        return new_trie
 
     @staticmethod
     def serialize_proof(proof_nodes):

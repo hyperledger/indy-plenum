@@ -12,7 +12,7 @@ from storage.kv_in_memory import KeyValueStorageInMemory
 
 def gen_test_data(num_keys, max_key_size=64, max_val_size=256):
     return {randomString(max_key_size).encode():
-            rlp_encode([randomString(max_val_size)]) for i in range(num_keys)}
+            rlp_encode([randomString(max_val_size)]) for _ in range(num_keys)}
 
 
 def test_verify_proof():
@@ -218,6 +218,7 @@ def test_proof_specific_root():
 
 def test_proof_prefix_only_prefix_nodes():
     node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     prefix = 'abcdefgh'
     keys_suffices = set()
     while len(keys_suffices) != 20:
@@ -228,28 +229,16 @@ def test_proof_prefix_only_prefix_nodes():
     for k, v in key_vals.items():
         node_trie.update(k.encode(), rlp_encode([v]))
 
-    prefix_prf = node_trie.produce_spv_proof_for_key_prfx(prefix.encode(),
-                                                          node_trie.root_node)
-    prefix_prf.append(deepcopy(node_trie.root_node))
-
-    _db = KeyValueStorageInMemory()
-
-    for node in prefix_prf:
-        R = rlp_encode(node)
-        H = sha3(R)
-        _db.put(H, R)
-
-    new_trie = Trie(PersistentDB(_db))
-
-    root = node_trie.root_hash
-    new_trie.root_hash = root
-    for k, v in key_vals.items():
-        _v = new_trie.get(k.encode())
-        assert v.encode() == rlp_decode(_v)[0]
+    proof_nodes = node_trie.generate_state_proof_for_key_prfx(prefix.encode())
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              {k.encode(): rlp_encode([v]) for
+                                               k, v in key_vals.items()},
+                                              proof_nodes)
 
 
 def test_proof_prefix_with_other_nodes():
     node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     prefix = 'abcdefgh'
 
     other_nodes_count = 1000
@@ -274,39 +263,27 @@ def test_proof_prefix_with_other_nodes():
         node_trie.update(randomString(randint(8, 19)).encode(),
                          rlp_encode([randomString(15)]))
 
-    prefix_prf = node_trie.produce_spv_proof_for_key_prfx(prefix.encode(),
-                                                          node_trie.root_node)
-    prefix_prf.append(deepcopy(node_trie.root_node))
-    print(len(prefix_prf), prefix_prf)
+    proof_nodes = node_trie.generate_state_proof_for_key_prfx(prefix.encode())
+    encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items()}
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              encoded, proof_nodes)
 
-    _db = KeyValueStorageInMemory()
-
-    for node in prefix_prf:
-        R = rlp_encode(node)
-        H = sha3(R)
-        _db.put(H, R)
-
-    new_trie = Trie(PersistentDB(_db))
-
-    root = node_trie.root_hash
-    new_trie.root_hash = root
-    for k, v in key_vals.items():
-        _v = new_trie.get(k.encode())
-        assert v.encode() == rlp_decode(_v)[0]
-
-    proofs = {}
-    for k, v in key_vals.items():
-        proofs[k] = node_trie.generate_state_proof(k, root=node_trie.root_node)
-        print(len(proofs[k]))
-
-    print(sum(len(v) for v in proofs.values()), proofs)
+    # Change value of one of any random key
+    encoded_new = deepcopy(encoded)
+    random_key = next(iter(encoded_new.keys()))
+    encoded_new[random_key] = rlp_encode([rlp_decode(encoded_new[random_key])[0]+b'2212'])
+    assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                                  encoded_new, proof_nodes)
 
 
 def test_proof_multiple_prefix_nodes():
     node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     prefix_1 = 'abcdefgh'
-    prefix_2 = 'abcdefxy'
+    prefix_2 = 'abcdefxy'   # Prefix overlaps with previous
     prefix_3 = 'pqrstuvw'
+    prefix_4 = 'mnoptuvw'   # Suffix overlaps
+
+    all_prefixes = (prefix_1, prefix_2, prefix_3, prefix_4)
 
     other_nodes_count = 1000
     prefix_nodes_count = 100
@@ -321,7 +298,7 @@ def test_proof_multiple_prefix_nodes():
         keys_suffices.add(randint(25, 250000))
 
     key_vals = {'{}{}'.format(prefix, k): str(randint(3000, 5000))
-                for prefix in (prefix_1, prefix_2, prefix_3) for k in keys_suffices}
+                for prefix in all_prefixes for k in keys_suffices}
     for k, v in key_vals.items():
         node_trie.update(k.encode(), rlp_encode([v]))
 
@@ -330,32 +307,15 @@ def test_proof_multiple_prefix_nodes():
         node_trie.update(randomString(randint(8, 19)).encode(),
                          rlp_encode([randomString(15)]))
 
-    for prefix in (prefix_1, prefix_2, prefix_3):
-        prefix_prf = node_trie.produce_spv_proof_for_key_prfx(prefix.encode(),
-                                                              node_trie.root_node)
-        prefix_prf.append(deepcopy(node_trie.root_node))
-        print(len(prefix_prf), prefix_prf)
-
-        _db = KeyValueStorageInMemory()
-
-        for node in prefix_prf:
-            R = rlp_encode(node)
-            H = sha3(R)
-            _db.put(H, R)
-
-        new_trie = Trie(PersistentDB(_db))
-
-        root = node_trie.root_hash
-        new_trie.root_hash = root
-        for k, v in key_vals.items():
-            if not k.startswith(prefix):
-                continue
-            _v = new_trie.get(k.encode())
-            assert v.encode() == rlp_decode(_v)[0]
-
-        proofs = {}
-        for k, v in key_vals.items():
-            proofs[k] = node_trie.generate_state_proof(k, root=node_trie.root_node)
-            print(len(proofs[k]))
-
-        print(sum(len(v) for v in proofs.values()), proofs)
+    for prefix in all_prefixes:
+        client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+        proof_nodes = node_trie.generate_state_proof_for_key_prfx(
+            prefix.encode())
+        encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if k.startswith(prefix)}
+        assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                                  encoded, proof_nodes)
+        # Verify keys with a different prefix
+        encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if
+                   not k.startswith(prefix)}
+        assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                                      encoded, proof_nodes)
