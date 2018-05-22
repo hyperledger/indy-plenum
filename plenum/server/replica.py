@@ -2429,7 +2429,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
         self.checkpoints.clear()
-        self._remove_cur_view_stashed_checkpoints(last_caught_up_3PC)
+        self._remove_current_view_stashed_checkpoints(last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
@@ -2442,7 +2442,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.commits.clear()
             self.outBox.clear()
             self.checkpoints.clear()
-            self._remove_cur_view_stashed_checkpoints()
+            self._remove_current_view_stashed_checkpoints()
             self.h = 0
             self.H = sys.maxsize
 
@@ -2493,7 +2493,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             del self.outBox[i]
         return removed
 
-    def _remove_cur_view_stashed_checkpoints(self, last_caught_up_3PC=None):
+    def _remove_current_view_stashed_checkpoints(self,
+                                                 last_caught_up_3PC=None):
         """
         Remove all the stashed received checkpoints related to the current view
         which have an upper bound less than or equal to `last_caught_up_3PC`.
