@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from copy import deepcopy
 from random import random, randint, choice
 
@@ -191,29 +192,60 @@ def test_proof_serialize_deserialize():
                                             prf, serialized=True)
 
 
-@pytest.mark.skip(reason='Need to check if need/possible to build proof for an '
-                         'arbitrary old root')
 def test_proof_specific_root():
     node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
 
-    node_trie.update('k1'.encode(), rlp_encode(['v1']))
-    node_trie.update('k2'.encode(), rlp_encode(['v2']))
-    node_trie.update('x3'.encode(), rlp_encode(['v3']))
+    kvs = OrderedDict({'k1': 'v1', 'k2': 'v2', 'x3': 'v3', 'x4': 'v5',
+                       'x5': 'v7', 'y99': 'v6'})
+    size = len(kvs)
 
+    # Only add some keys
+    old_keys = set()
+    i = 0
+    for k, v in kvs.items():
+        node_trie.update(k.encode(), rlp_encode([v]))
+        old_keys.add(k)
+        i += 1
+        if i >= size//2:
+            break
+
+    # Record the root
     root_hash_0 = node_trie.root_hash
-    root_node_0 = node_trie.root_node
+    root_node_0 = deepcopy(node_trie.root_node)
 
-    node_trie.update('x4'.encode(), rlp_encode(['v5']))
-    node_trie.update('y99'.encode(), rlp_encode(['v6']))
-    node_trie.update('x5'.encode(), rlp_encode(['v7']))
+    # Add remaining keys
+    new_keys = set()
+    i = 0
+    for k, v in reversed(kvs.items()):
+        node_trie.update(k.encode(), rlp_encode([v]))
+        new_keys.add(k)
+        i += 1
+        if i >= size // 2:
+            break
 
-    # root_hash_1 = node_trie.root_hash
-    # root_node_1 = node_trie.root_node
+    # Record new roots
+    root_hash_1 = node_trie.root_hash
+    root_node_1 = deepcopy(node_trie.root_node)
 
-    k, v = 'k1'.encode(), rlp_encode(['v1'])
-    old_root_proof = node_trie.generate_state_proof(k, root=root_node_0)
-    assert client_trie.verify_spv_proof(root_hash_0, k, v, old_root_proof)
+    # Check each root present
+    for k, v in kvs.items():
+        assert node_trie.get(k.encode()) == rlp_encode([v])
+
+    # Old and new roots should be different
+    assert root_hash_0 != root_hash_1
+    assert root_node_0 != root_node_1
+
+    # Generate and verify proof for both old (if key was present) and new roots
+    for k, v in kvs.items():
+        k, v = k.encode(), rlp_encode([v])
+
+        if k in old_keys:
+            old_root_proof = node_trie.generate_state_proof(k, root=root_node_0)
+            assert client_trie.verify_spv_proof(root_hash_0, k, v, old_root_proof)
+
+        new_root_proof = node_trie.generate_state_proof(k, root=root_node_1)
+        assert client_trie.verify_spv_proof(root_hash_1, k, v, new_root_proof)
 
 
 def test_proof_prefix_only_prefix_nodes():
