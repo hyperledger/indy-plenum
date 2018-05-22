@@ -69,6 +69,19 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # Count of instance change rounds
         self.instance_change_rounds = 0
 
+        # Time for view_change_starting
+        self.start_view_change_ts = 0
+
+        # Last successful viewNo.
+        # In some cases view_change process can be uncompleted in time.
+        # In that case we want to know, which viewNo was successful (last completed view_change)
+        self.last_completed_view_no = 0
+
+        # Force periodic view change if enabled in config
+        force_view_change_freq = node.config.ForceViewChangeFreq
+        if force_view_change_freq > 0:
+            self.startRepeating(self.on_master_degradation, force_view_change_freq)
+
     def __repr__(self):
         return "{}".format(self.name)
 
