@@ -46,7 +46,7 @@ if __name__ == "__main__":
     print("You can find logs in {}".format(logFileName))
 
     with Looper(debug=config.LOOPER_DEBUG) as looper:
-        node = Node(selfName, nodeRegistry=None,
+        node = Node(selfName,
                     ha=ha,
                     cliha=cliha,
                     config=config)

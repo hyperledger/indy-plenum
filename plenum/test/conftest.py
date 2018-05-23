@@ -8,7 +8,6 @@ import re
 import warnings
 import json
 from contextlib import ExitStack
-from copy import copy
 from functools import partial
 import time
 from typing import Dict, Any
@@ -34,7 +33,6 @@ from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
 from stp_core.common.logging.handlers import TestingHandler
-from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from _pytest.recwarn import WarningsRecorder
@@ -51,11 +49,11 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances
 from plenum.server.notifier_plugin_manager import PluginManager
-from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
+from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
-    create_new_test_node
+    create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
+    sdk_get_and_check_replies
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -64,7 +62,7 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
-Logger.setLogLevel(logging.NOTSET)
+Logger.setLogLevel(logging.INFO)
 logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
@@ -447,15 +445,6 @@ def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
 
 
 @pytest.fixture(scope="module")
-def steward1(looper, txnPoolNodeSet, stewardAndWallet1):
-    steward, wallet = stewardAndWallet1
-    looper.add(steward)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward,
-                                                  *txnPoolNodeSet)
-    return steward
-
-
-@pytest.fixture(scope="module")
 def client1(looper, clientAndWallet1):
     client = clientAndWallet1[0]
     looper.add(client)
@@ -469,46 +458,26 @@ def wallet1(clientAndWallet1):
 
 
 @pytest.fixture(scope="module")
-def request1(wallet1):
-    op = randomOperation()
-    req = wallet1.signOp(op)
-    return req
+def sent1(looper, sdk_pool_handle,
+          sdk_wallet_client):
+    request_couple_json = sdk_send_random_requests(
+        looper, sdk_pool_handle, sdk_wallet_client, 1)
+    return request_couple_json
 
 
 @pytest.fixture(scope="module")
-def sent1(client1, request1):
-    return client1.submitReqs(request1)[0][0]
-
-
-@pytest.fixture(scope="module")
-def reqAcked1(looper, txnPoolNodeSet, client1, sent1, faultyNodes):
+def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
     numerOfNodes = len(txnPoolNodeSet)
+
+    request = sdk_json_to_request_object(sent1[0][0])
 
     # Wait until request received by all nodes
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
-    coros = [partial(checkLastClientReqForNode, node, sent1)
+    coros = [partial(checkLastClientReqForNode, node, request)
              for node in txnPoolNodeSet]
-    # looper.run(eventuallyAll(*coros,
-    #                          totalTimeout=propTimeout,
-    #                          acceptableFails=faultyNodes))
     chk_all_funcs(looper, coros, acceptable_fails=faultyNodes,
                   timeout=propTimeout)
-
-    # Wait until sufficient number of acks received
-    coros2 = [
-        partial(
-            checkReqAck,
-            client1,
-            node,
-            sent1.identifier,
-            sent1.reqId) for node in txnPoolNodeSet]
-    ackTimeout = waits.expectedReqAckQuorumTime()
-    # looper.run(eventuallyAll(*coros2,
-    #                          totalTimeout=ackTimeout,
-    #                          acceptableFails=faultyNodes))
-    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes,
-                  timeout=ackTimeout)
-    return sent1
+    return request
 
 
 @pytest.fixture(scope="module")
@@ -551,7 +520,7 @@ def preprepared1(looper, txnPoolNodeSet, propagated1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def prepared1(looper, txnPoolNodeSet, client1, preprepared1, faultyNodes):
+def prepared1(looper, txnPoolNodeSet, preprepared1, faultyNodes):
     checkPrepared(looper,
                   txnPoolNodeSet,
                   preprepared1,
@@ -561,7 +530,7 @@ def prepared1(looper, txnPoolNodeSet, client1, preprepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def committed1(looper, txnPoolNodeSet, client1, prepared1, faultyNodes):
+def committed1(looper, txnPoolNodeSet, prepared1, faultyNodes):
     checkCommitted(looper,
                    txnPoolNodeSet,
                    prepared1,
@@ -571,14 +540,17 @@ def committed1(looper, txnPoolNodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, txnPoolNodeSet, client1, committed1, wallet1, faultyNodes):
+def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
+             committed1, faultyNodes, sent1):
     numOfNodes = len(txnPoolNodeSet)
     numOfInstances = getNoInstances(numOfNodes)
     quorum = numOfInstances * (numOfNodes - faultyNodes)
 
+    _, did = sdk_wallet_client
+
     def checkOrderedCount():
         resp = [requestReturnedToNode(node,
-                                      wallet1.defaultId,
+                                      did,
                                       committed1.reqId,
                                       instId)
                 for node in txnPoolNodeSet for instId in range(numOfInstances)]
@@ -589,7 +561,7 @@ def replied1(looper, txnPoolNodeSet, client1, committed1, wallet1, faultyNodes):
                           retryWait=1,
                           timeout=orderingTimeout))
 
-    waitForSufficientRepliesForRequests(looper, client1, requests=[committed1])
+    sdk_get_and_check_replies(looper, sent1)
     return committed1
 
 
@@ -872,6 +844,30 @@ def txnPoolNodeSet(node_config_helper_class,
 
 
 @pytest.fixture(scope="module")
+def txnPoolNodeSetNotStarted(node_config_helper_class,
+                             patchPluginManager,
+                             txnPoolNodesLooper,
+                             tdirWithPoolTxns,
+                             tdirWithDomainTxns,
+                             tdir,
+                             tconf,
+                             poolTxnNodeNames,
+                             allPluginsPath,
+                             tdirWithNodeKeepInited,
+                             testNodeClass,
+                             do_post_node_creation):
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass, node_config_helper_class, nm, tconf, tdir,
+                allPluginsPath))
+            do_post_node_creation(node)
+            nodes.append(node)
+        yield nodes
+
+
+@pytest.fixture(scope="module")
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:
@@ -940,17 +936,28 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(pluginManager, tdir, tconf, node_config_helper_class):
-    name = randomText(20)
-    nodeReg = genNodeReg(names=[name])
-    ha, cliname, cliha = nodeReg[name]
-    config_helper = node_config_helper_class(name, tconf, chroot=tdir)
-    node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
-                    nodeRegistry=copy(nodeReg),
-                    config_helper=config_helper,
-                    config=tconf,
-                    primaryDecider=None, pluginPaths=None, seed=randomSeed())
-    node.start(None)
+def testNode(pluginManager,
+             node_config_helper_class,
+             txnPoolNodesLooper,
+             tdirWithPoolTxns,
+             tdirWithDomainTxns,
+             tdir,
+             tconf,
+             allPluginsPath,
+             tdirWithNodeKeepInited,
+             do_post_node_creation,
+             poolTxnNodeNames):
+    node = None
+    for p in txnPoolNodesLooper.prodables:
+        if 'Alpha' == p.name:
+            node = p
+    if not node:
+        node = create_new_test_node(
+            TestNode, node_config_helper_class, 'Alpha', tconf, tdir,
+            None)
+        do_post_node_creation(node)
+        txnPoolNodesLooper.add(node)
+        txnPoolNodesLooper.run(checkNodesConnected([node]))
     yield node
     node.stop()
 

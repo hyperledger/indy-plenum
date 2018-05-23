@@ -127,6 +127,11 @@ def vcd_delay(delay: float = DEFAULT_DELAY):
     return delayerMsgTuple(delay, ViewChangeDone)
 
 
+def chk_delay(delay: float = DEFAULT_DELAY):
+    # Delayer of CHECKPOINT requests
+    return delayerMsgTuple(delay, Checkpoint)
+
+
 def lsDelay(delay: float = DEFAULT_DELAY):
     # Delayer of LEDGER_STATUSES requests
     return delayerMsgTuple(delay, LedgerStatus)

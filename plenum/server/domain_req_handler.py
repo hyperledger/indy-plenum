@@ -11,18 +11,19 @@ from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
 
 
-class DomainRequestHandler(RequestHandler):
+class DomainRequestHandler(LedgerRequestHandler):
     stateSerializer = domain_state_serializer
     write_types = {NYM, }
 
-    def __init__(self, ledger, state, config, reqProcessors, bls_store):
-        super().__init__(ledger, state)
+    def __init__(self, ledger, state, config, reqProcessors, bls_store, ts_store=None):
+        super().__init__(ledger, state, ts_store=ts_store)
         self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store

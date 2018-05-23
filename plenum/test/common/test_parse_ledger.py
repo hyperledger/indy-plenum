@@ -17,7 +17,7 @@ def invalid_verkey_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     for d in range(3):
         txn = {TXN_TYPE: '0',
-               TARGET_NYM: base58.b58encode(b'whatever'),
+               TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
                IDENTIFIER: "Th7MpTaRZVRYnPiabds81Y",
                DATA: {
                    NAME: str(d),
@@ -35,7 +35,7 @@ def invalid_verkey_tdir(tdir_for_func):
 def invalid_identifier_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     txn = {TXN_TYPE: '0',
-           TARGET_NYM: base58.b58encode(b'whatever'),
+           TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
            IDENTIFIER: "invalid====",
            DATA: {
                NAME: str(2),

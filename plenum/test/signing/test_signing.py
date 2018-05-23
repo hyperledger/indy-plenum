@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.helper import sdk_json_to_request_object
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InsufficientCorrectSignatures
 from stp_core.common.log import getlogger
@@ -38,6 +39,7 @@ def testOneNodeAltersAClientRequest(looper,
                                     setup,
                                     evilAlpha,
                                     sent1):
+    sent1 = sdk_json_to_request_object(sent1[0][0])
     checkPropagated(looper, txnPoolNodeSet, sent1, faultyNodes)
 
     goodNodes = setup.goodNodes

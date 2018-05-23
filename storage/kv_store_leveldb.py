@@ -12,10 +12,11 @@ except ImportError:
 
 
 class KeyValueStorageLeveldb(KeyValueStorage):
-    def __init__(self, db_dir, db_name, open=True):
+    def __init__(self, db_dir, db_name, open=True, read_only=False):
         if 'leveldb' not in globals():
             raise RuntimeError('Leveldb is needed to use this class')
         self._db_path = os.path.join(db_dir, db_name)
+        self._read_only = read_only
         self._db = None
         if open:
             self.open()
@@ -31,6 +32,14 @@ class KeyValueStorageLeveldb(KeyValueStorage):
     def db_path(self) -> str:
         return self._db_path
 
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
+
+    @property
+    def closed(self):
+        return self._db is None
+
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         start = self.to_byte_repr(start) if start is not None else None
         end = self.to_byte_repr(end) if end is not None else None
@@ -38,6 +47,9 @@ class KeyValueStorageLeveldb(KeyValueStorage):
         return self._db.RangeIter(key_from=start, key_to=end, include_value=include_value)
 
     def put(self, key, value):
+        if self._read_only:
+            raise RuntimeError("Not supported operation in read only mode.")
+
         key = self.to_byte_repr(key)
         value = self.to_byte_repr(value)
         self._db.Put(key, value)
@@ -47,6 +59,9 @@ class KeyValueStorageLeveldb(KeyValueStorage):
         return self._db.Get(key)
 
     def remove(self, key):
+        if self._read_only:
+            raise RuntimeError("Not supported operation in read only mode.")
+
         key = self.to_byte_repr(key)
         self._db.Delete(key)
 
@@ -86,7 +101,3 @@ class KeyValueStorageLeveldb(KeyValueStorage):
     def reset(self):
         self.drop()
         self.open()
-
-    @property
-    def closed(self):
-        return self._db is None

@@ -15,6 +15,7 @@ from plenum.test.view_change.helper import start_stopped_node
 TestRunningTimeLimitSec = 400
 
 nodeCount = 5
+whitelist = ['Consensus for ReqId:']
 
 
 def stop_node(node_to_stop, looper, pool_nodes):

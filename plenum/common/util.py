@@ -322,7 +322,7 @@ def friendlyToHexStr(f):
 
 
 def rawToFriendly(raw):
-    return base58.b58encode(raw)
+    return base58.b58encode(raw).decode("utf-8")
 
 
 def friendlyToRaw(f):

@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.constants import THREE_PC_PREFIX
 from plenum.common.messages.fields import RequestIdentifierField
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
-    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare
+    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger
@@ -131,8 +131,8 @@ class PreprepareHandler(BaseHandler):
         return pp
 
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
-        return self.node.replicas[params['inst_id']].getPrePrepare(
-            params['view_no'], params['pp_seq_no'])
+        return self.node.replicas[params['inst_id']].sentPrePrepares.get((
+            params['view_no'], params['pp_seq_no']))
 
     def processor(self, validated_msg: PrePrepare, params: Dict[str, Any], frm: str) -> None:
         inst_id = params['inst_id']
@@ -172,6 +172,39 @@ class PrepareHandler(BaseHandler):
         frm = replica.Replica.generateName(frm, inst_id)
         self.node.replicas[inst_id].process_requested_prepare(validated_msg,
                                                               sender=frm)
+
+
+class CommitHandler(BaseHandler):
+    fields = {
+        'inst_id': f.INST_ID.nm,
+        'view_no': f.VIEW_NO.nm,
+        'pp_seq_no': f.PP_SEQ_NO.nm
+    }
+
+    def validate(self, **kwargs) -> bool:
+        return kwargs['inst_id'] in range(len(self.node.replicas)) and \
+            kwargs['view_no'] == self.node.viewNo and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+            kwargs['pp_seq_no'] > 0
+
+    def create(self, msg: Dict, **kwargs) -> Optional[Commit]:
+        commit = Commit(**msg)
+        if commit.instId != kwargs['inst_id'] or commit.viewNo != kwargs['view_no']:
+            logger.warning(
+                '{}{} found COMMIT {} not satisfying query criteria' .format(
+                    THREE_PC_PREFIX, self, commit))
+            return None
+        return commit
+
+    def requestor(self, params: Dict[str, Any]) -> Commit:
+        return self.node.replicas[params['inst_id']].get_sent_commit(
+            params['view_no'], params['pp_seq_no'])
+
+    def processor(self, validated_msg: Commit, params: Dict[str, Any], frm: str) -> None:
+        inst_id = params['inst_id']
+        frm = replica.Replica.generateName(frm, inst_id)
+        self.node.replicas[inst_id].process_requested_commit(validated_msg,
+                                                             sender=frm)
 
 
 class PropagateHandler(BaseHandler):

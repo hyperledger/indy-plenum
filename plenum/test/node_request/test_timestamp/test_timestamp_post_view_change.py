@@ -34,11 +34,6 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
 
     assert not faulty_node.master_replica.isPrimary
     # faulty_node replies too
-    sdk_send_random_and_check(looper,
-                              txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
-                              count=Max3PCBatchSize * 3)
 
     ledger_sizes = {
         node.name: node.domainLedger.size for node in txnPoolNodeSet}

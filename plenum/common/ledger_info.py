@@ -1,5 +1,3 @@
-from collections import deque
-
 from plenum.common.constants import LedgerState
 from plenum.common.ledger import Ledger
 
@@ -26,10 +24,6 @@ class LedgerInfo:
         self.postCatchupCompleteClbk = postCatchupCompleteClbk
         self.postTxnAddedToLedgerClbk = postTxnAddedToLedgerClbk
         self.verifier = verifier
-
-        # Ledger statuses received while the ledger was not ready to be synced
-        # (`canSync` was set to False)
-        self.stashedLedgerStatuses = deque()
 
         self.set_defaults()
 
@@ -78,6 +72,10 @@ class LedgerInfo:
 
         # Number of transactions caught up
         self.num_txns_caught_up = 0
+
+    def pre_syncing(self):
+        if self.preCatchupStartClbk:
+            self.preCatchupStartClbk()
 
     # noinspection PyAttributeOutsideInit
     def done_syncing(self):
