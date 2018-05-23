@@ -181,6 +181,7 @@ class CoreAuthMixin:
         DomainRequestHandler.query_types
     )
     action_types = ActionReqHandler.operation_types
+    signed_action = ActionReqHandler.signed_action_types
 
     def is_query(self, typ):
         return typ in self.query_types
@@ -191,6 +192,10 @@ class CoreAuthMixin:
     @classmethod
     def is_action(cls, typ):
         return typ in cls.action_types
+
+    @classmethod
+    def is_signed_action(cls, typ):
+        return typ in cls.signed_action
 
     @staticmethod
     def _extract_signature(msg):

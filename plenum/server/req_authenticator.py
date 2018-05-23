@@ -30,7 +30,8 @@ class ReqAuthenticator:
         identifiers = set()
         typ = req_data.get(OPERATION, {}).get(TXN_TYPE)
         for authenticator in self._authenticators:
-            if authenticator.is_query(typ):
+            if authenticator.is_query(typ) or \
+                    not authenticator.is_signed_action(typ):
                 return set()
             if not (authenticator.is_write(typ) or
                     authenticator.is_action(typ)):
