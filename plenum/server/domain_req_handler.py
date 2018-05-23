@@ -4,7 +4,8 @@ from common.serializers.serialization import domain_state_serializer, \
     proof_nodes_serializer, state_roots_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
-    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, STATE_PROOF
+    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
+    STATE_PROOF, ENCODED_VALUE
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
@@ -162,32 +163,47 @@ class DomainRequestHandler(RequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def make_proof(self, path, head_hash=None):
+    def make_proof(self, path, head_hash=None, get_value=False):
         '''
         Creates a state proof for the given path in state trie.
         Returns None if there is no BLS multi-signature for the given state (it can
         be the case for txns added before multi-signature support).
 
         :param path: the path generate a state proof for
+        :param head_hash: the root to create the proof against
+        :param get_value: whether to return the value
         :return: a state proof or None
         '''
         root_hash = head_hash if head_hash else self.state.committedHeadHash
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
         multi_sig = self.bls_store.get(encoded_root_hash)
-        if not multi_sig:
+        if not multi_sig and not get_value:
             return None
+        if not multi_sig and get_value:
+            return self.state.get_for_root_hash(path, root_hash)
 
-        proof = self.state.generate_state_proof(key=path,
-                                                root=self.state.get_head_by_hash(
-                                                    root_hash),
-                                                serialize=True)
+        if get_value:
+            proof, value = self.state.generate_state_proof(key=path,
+                                                           root=self.state.get_head_by_hash(root_hash),
+                                                           serialize=True,
+                                                           get_value=False)
+        else:
+            proof = self.state.generate_state_proof(key=path,
+                                                    root=self.state.get_head_by_hash(root_hash),
+                                                    serialize=True,
+                                                    get_value=False)
         encoded_proof = proof_nodes_serializer.serialize(proof)
-        return {
+        rv = {
             ROOT_HASH: encoded_root_hash,
             MULTI_SIGNATURE: multi_sig.as_dict(),
             PROOF_NODES: encoded_proof
         }
+
+        if get_value:
+            rv[ENCODED_VALUE] = value
+
+        return rv
 
     @staticmethod
     def make_result(request, data, last_seq_no, update_time, proof):
