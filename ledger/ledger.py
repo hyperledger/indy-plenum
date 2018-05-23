@@ -155,14 +155,6 @@ class Ledger(ImmutableStore):
     def append(self, txn):
         return self.add(txn)
 
-    # TODO: add tests for this
-    def get(self, **kwargs):
-        for seqNo, value in self._transactionLog.iterator():
-            data = self.txn_serializer.deserialize(value)
-            # If `kwargs` is a subset of `data`
-            if set(kwargs.values()) == {data.get(k) for k in kwargs.keys()}:
-                return data
-
     def getBySeqNo(self, seqNo):
         key = str(seqNo)
         value = self._transactionLog.get(key)
