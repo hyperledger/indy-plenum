@@ -15,9 +15,7 @@ rlp_decode = decode_optimized
 
 bin_to_nibbles_cache = {}
 
-hti = {}
-for i, c in enumerate('0123456789abcdef'):
-    hti[c] = i
+hti = {c: i for i, c in enumerate('0123456789abcdef')}
 
 
 def bin_to_nibbles(s):
@@ -1125,21 +1123,3 @@ class Trie:
         else:
             nibbles = []
         return nibbles_to_bin(without_terminator(nibbles))
-
-
-if __name__ == "__main__":
-
-    def encode_node(nd):
-        if is_string(nd):
-            return encode_hex(nd)
-        else:
-            return encode_hex(rlp_encode(nd))
-
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == 'insert':
-            t = Trie(KeyValueStorageInMemory(), decode_hex(sys.argv[3]))
-            t.update(sys.argv[4], sys.argv[5])
-            print(encode_node(t.root_hash))
-        elif sys.argv[1] == 'get':
-            t = Trie(KeyValueStorageInMemory(), decode_hex(sys.argv[3]))
-            print(t.get(sys.argv[4]))

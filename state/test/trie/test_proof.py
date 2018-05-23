@@ -1,13 +1,10 @@
 from collections import OrderedDict
 from copy import deepcopy
-from random import random, randint, choice
-
-import pytest
+from random import randint, choice
 
 from plenum.common.util import randomString
 from state.db.persistent_db import PersistentDB
-from state.trie.pruning_trie import Trie, rlp_encode, bin_to_nibbles, rlp_decode
-from state.util.utils import sha3
+from state.trie.pruning_trie import Trie, rlp_encode, rlp_decode
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 

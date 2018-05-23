@@ -8,7 +8,6 @@ def sha3_256(x):
     return _sha3.sha3_256(x).digest()
 
 
-import sys
 import rlp
 from rlp.sedes import big_endian_int, BigEndianInt, Binary
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
@@ -430,9 +429,3 @@ int32 = BigEndianInt(32)
 int256 = BigEndianInt(256)
 hash32 = Binary.fixed_length(32)
 trie_root = Binary.fixed_length(32, allow_empty=True)
-
-
-# def DEBUG(msg, *args, **kwargs):
-#     from ethereum import slogging
-#
-#     slogging.DEBUG(msg, *args, **kwargs)

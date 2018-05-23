@@ -1,13 +1,9 @@
 import random
-from copy import deepcopy
 
 import pytest
 
-from state.db.persistent_db import PersistentDB
 from state.pruning_state import PruningState
 from state.state import State
-from state.trie.pruning_trie import bin_to_nibbles, rlp_decode, Trie, rlp_encode
-from state.util.utils import sha3
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
