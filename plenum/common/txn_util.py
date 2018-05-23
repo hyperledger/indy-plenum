@@ -56,6 +56,7 @@ def idr_from_req_data(data):
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
 
+
 # TODO: remove after old client deprecation or uniforming read and write respnse formats
 def get_reply_itentifier(result):
     if f.IDENTIFIER.nm in result:
