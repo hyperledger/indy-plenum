@@ -1,10 +1,16 @@
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import max_3PC_key
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request, sdk_get_reply, logger
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
+
+# This is needed only with current view change implementation to give enough time
+# to show what is exactly broken
+TestRunningTimeLimitSec = 300
 
 
 @pytest.fixture(scope="module")
@@ -83,6 +89,18 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
 
     # Finish request gracefully
     sdk_get_reply(looper, request)
+
+
+def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
+                                          sdk_pool_handle,
+                                          sdk_wallet_client,
+                                          tconf):
+    # Perform view change with Delta acting as fast node
+    # With current view change implementation its state will become different from other nodes
+    do_view_change_with_pending_request_and_one_fast_node(txnPoolNodeSet[3], txnPoolNodeSet,
+                                                          looper, sdk_pool_handle, sdk_wallet_client)
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
 def test_two_view_changes_with_delayed_commits(txnPoolNodeSet, looper,
