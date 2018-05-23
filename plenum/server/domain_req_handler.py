@@ -8,7 +8,8 @@ from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
+from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, \
+    get_txn_time, get_from, append_txn_metadata
 from plenum.common.types import f
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
@@ -56,8 +57,15 @@ class DomainRequestHandler(LedgerRequestHandler):
 
     def apply(self, req: Request, cons_time: int):
         txn = self._reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
+        ledger_txn = self.transform_txn_for_ledger(txn)
+        (start, end), _ = self.ledger.appendTxns([ledger_txn])
+        if ledger_txn is not txn:
+            if start != None and get_seq_no(txn) == None:
+                # The transform_txn_for_ledger() function may create a copy of initial
+                # transaction. The appendTxns() function appends seqNo to passed txn object,
+                # but seqNo is required to be presented in the txn object for the further processing,
+                # so append seqNo to initial transaction object if the copy was created.
+                append_txn_metadata(txn, seq_no=start)
         self.updateState([txn])
         return start, txn
 
