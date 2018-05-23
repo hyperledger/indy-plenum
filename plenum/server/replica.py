@@ -25,7 +25,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
-    mostCommonElement, SortedDict
+    mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -1705,22 +1705,35 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return True
 
     def __start_catchup_if_needed(self):
-        quorums, max_pp_seq_no = self.stashed_checkpoints_with_quorum()
-        is_stashed_enough = quorums > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
+        stashed_checkpoint_ends = self.stashed_checkpoints_with_quorum()
+        lag_in_checkpoints = len(stashed_checkpoint_ends)
+        if self.checkpoints:
+            (s, e) = firstKey(self.checkpoints)
+            # If the first stored own checkpoint has a not aligned lower bound
+            # (this means that it was started after a catch-up), is complete
+            # and there is a quorumed stashed checkpoint from other replicas
+            # with the same end then don't include this stashed checkpoint
+            # into the lag
+            if s % self.config.CHK_FREQ != 0 \
+                    and self.checkpoints[(s, e)].seqNo == e \
+                    and e in stashed_checkpoint_ends:
+                lag_in_checkpoints -= 1
+        is_stashed_enough = \
+            lag_in_checkpoints > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
         if not is_stashed_enough:
             return
 
         self.logger.info(
-            '{} has stashed {} checkpoints with quorum '
+            '{} has lagged for {} checkpoints '
             'so updating watermarks to {}'.format(
-                self, quorums, max_pp_seq_no))
-        self.h = max_pp_seq_no
+                self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+        self.h = stashed_checkpoint_ends[-1]
 
         if self.isMaster and not self.isPrimary:
             self.logger.info(
-                '{} has stashed {} checkpoints with quorum '
+                '{} has lagged for {} checkpoints '
                 'so the catchup procedure starts'.format(
-                    self, quorums))
+                    self, lag_in_checkpoints))
             self.node.start_catchup()
 
     def addToCheckpoint(self, ppSeqNo, digest):
@@ -1817,15 +1830,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.stashedRecvdCheckpoints.pop(view_no)
 
     def stashed_checkpoints_with_quorum(self):
-        quorums = 0
         end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
         for (_, seq_no_end), senders in self.stashedRecvdCheckpoints.get(
                 self.viewNo, {}).items():
             if quorum.is_reached(len(senders)):
-                quorums += 1
                 end_pp_seq_numbers.append(seq_no_end)
-        return quorums, max(end_pp_seq_numbers) if end_pp_seq_numbers else None
+        return sorted(end_pp_seq_numbers)
 
     def processStashedCheckpoints(self, key):
         self._clear_prev_view_stashed_checkpoints()
@@ -2417,6 +2428,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
+        self.checkpoints.clear()
+        self._remove_current_view_stashed_checkpoints(last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
@@ -2428,6 +2441,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.prepares.clear()
             self.commits.clear()
             self.outBox.clear()
+            self.checkpoints.clear()
+            self._remove_current_view_stashed_checkpoints()
             self.h = 0
             self.H = sys.maxsize
 
@@ -2477,6 +2492,25 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             removed.insert(0, self.outBox[i])
             del self.outBox[i]
         return removed
+
+    def _remove_current_view_stashed_checkpoints(self,
+                                                 last_caught_up_3PC=None):
+        """
+        Remove all the stashed received checkpoints related to the current view
+        which have an upper bound less than or equal to `last_caught_up_3PC`.
+        """
+        if self.viewNo not in self.stashedRecvdCheckpoints:
+            return
+
+        if last_caught_up_3PC is None:
+            del self.stashedRecvdCheckpoints[self.viewNo]
+            return
+
+        for (s, e) in list(self.stashedRecvdCheckpoints[self.viewNo].keys()):
+            if compare_3PC_keys((self.viewNo, e), last_caught_up_3PC) >= 0:
+                del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
+        if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
+            del self.stashedRecvdCheckpoints[self.viewNo]
 
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
