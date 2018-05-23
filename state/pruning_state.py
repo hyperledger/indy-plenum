@@ -67,14 +67,14 @@ class PruningState(State):
             val = self._trie._get(self.committedHead,
                                   bin_to_nibbles(to_string(key)))
         if val:
-            return rlp_decode(val)[0]
+            return self.get_decoded(val)
 
     def get_for_root_hash(self, root_hash, key: bytes) -> Optional[bytes]:
         root = self._hash_to_node(root_hash)
         val = self._trie._get(root,
                               bin_to_nibbles(to_string(key)))
         if val:
-            return rlp_decode(val)[0]
+            return self.get_decoded(val)
 
     def remove(self, key: bytes):
         self._trie.delete(key)
@@ -119,7 +119,7 @@ class PruningState(State):
     @property
     def as_dict(self):
         d = self._trie.to_dict()
-        return {k: rlp_decode(v)[0] for k, v in d.items()}
+        return {k: self.get_decoded(v) for k, v in d.items()}
 
     @property
     def headHash(self):
@@ -142,3 +142,7 @@ class PruningState(State):
         if self._kv:
             self._kv.close()
             self._kv = None
+
+    @staticmethod
+    def get_decoded(encoded):
+        return rlp_decode(encoded)[0]

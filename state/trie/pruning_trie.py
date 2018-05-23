@@ -1050,7 +1050,7 @@ class Trie:
         pf.append(copy.deepcopy(root))
         if serialize:
             if has_val:
-                rv[0] = self.serialize_proof(pf)
+                rv = (self.serialize_proof(pf), rv[1])
             else:
                 rv = self.serialize_proof(pf)
         return rv
