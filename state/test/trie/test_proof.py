@@ -348,3 +348,20 @@ def test_proof_multiple_prefix_nodes():
                    not k.startswith(prefix)}
         assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                                       encoded, proof_nodes)
+
+
+def test_get_proof_and_value():
+    num_keys = 100
+    test_data = gen_test_data(num_keys)
+
+    node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+
+    for k, v in test_data.items():
+        node_trie.update(k, v)
+
+    for k in test_data:
+        proof, v = node_trie.produce_spv_proof(k, get_value=True)
+        proof.append(deepcopy(node_trie.root_node))
+        assert v == test_data[k]
+        assert client_trie.verify_spv_proof(node_trie.root_hash, k, v, proof)

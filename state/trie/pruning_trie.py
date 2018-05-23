@@ -337,7 +337,8 @@ class Trie:
         self.spv_grabbing(o)
         return o
 
-    def _get_node_type(self, node):
+    @staticmethod
+    def _get_node_type(node):
         ''' get node type and content
 
         :param node: node in form of list, or BLANK_NODE
@@ -1012,37 +1013,47 @@ class Trie:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
-    def produce_spv_proof(self, key, root=None):
+    def produce_spv_proof(self, key, root=None, get_value=False):
         root = root or self.root_node
         proof.push(RECORDING)
-        self.get_at(root, key)
+        rv = self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
-        return o
+        return (o, rv) if get_value else o
 
-    def produce_spv_proof_for_key_prfx(self, key_prfx, root=None):
+    def produce_spv_proof_for_key_prfx(self, key_prfx, root=None, get_value=False):
         root = root or self.root_node
         proof.push(RECORDING)
         prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)))
-        list(self._iter_branch(prefix_node))
+        rv = list(self._iter_branch(prefix_node))
         o = proof.get_nodelist()
         proof.pop()
-        return o
+        return (o, rv) if get_value else o
 
-    def generate_state_proof(self, key, root=None, serialize=False):
+    def generate_state_proof(self, key, root=None, serialize=False, get_value=False):
         # NOTE: The method `produce_spv_proof` is not deliberately modified
-        return self._generate_state_proof(key, self.produce_spv_proof, root=root, serialize=serialize)
+        return self._generate_state_proof(key, self.produce_spv_proof,
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
 
-    def generate_state_proof_for_key_prfx(self, key_prfx, root=None, serialize=False):
-        # NOTE: The method `produce_spv_proof` is not deliberately modified
+    def generate_state_proof_for_key_prfx(self, key_prfx, root=None,
+                                          serialize=False, get_value=False):
         return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_key_prfx,
-                                          root=root, serialize=serialize)
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
 
-    def _generate_state_proof(self, path, func, root=None, serialize=False):
+    def _generate_state_proof(self, path, func, root=None, serialize=False, **kwargs):
         root = root or self.root_node
-        pf = func(path, root)
+        rv = func(path, root, **kwargs)
+        has_val = isinstance(rv, tuple) and len(rv) == 2
+        pf = rv[0] if has_val else rv
         pf.append(copy.deepcopy(root))
-        return pf if not serialize else self.serialize_proof(pf)
+        if serialize:
+            if has_val:
+                rv[0] = self.serialize_proof(pf)
+            else:
+                rv = self.serialize_proof(pf)
+        return rv
 
     @staticmethod
     def verify_spv_proof(root, key, value, proof_nodes, serialized=False):
