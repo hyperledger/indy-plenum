@@ -17,4 +17,3 @@ class ActionReqHandler(RequestHandler):
 
     def apply(self, req: Request, cons_time: int):
         pass
-
