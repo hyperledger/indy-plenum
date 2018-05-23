@@ -1,5 +1,5 @@
 from crypto.bls.bls_key_register import BlsKeyRegister
-from plenum.common.constants import BLS_KEY, NODE, ALIAS
+from plenum.common.constants import BLS_KEY, NODE, ALIAS, DATA
 from plenum.common.tools import lazy_field
 from plenum.common.txn_util import get_payload_data, get_type
 
@@ -27,7 +27,7 @@ class BlsKeyRegisterPoolLedger(BlsKeyRegister):
         keys = {}
         for _, txn in self._ledger.getAllTxn():
             if get_type(txn) == NODE:
-                data = get_payload_data(txn)
+                data = get_payload_data(txn)[DATA]
                 alias = data[ALIAS]
                 blskey = data.get(BLS_KEY)
                 keys[alias] = blskey
