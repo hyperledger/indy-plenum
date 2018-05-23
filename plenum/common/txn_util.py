@@ -56,6 +56,42 @@ def idr_from_req_data(data):
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
 
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_itentifier(result):
+    if f.IDENTIFIER.nm in result:
+        return result[f.IDENTIFIER.nm]
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
+            TXN_PAYLOAD_METADATA_FROM in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
+        return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM]
+    else:
+        return Request.gen_idr_from_sigs(result.get(f.SIGS.nm, {}))
+
+
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_reqId(result):
+    if f.REQ_ID.nm in result:
+        return result[f.REQ_ID.nm]
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
+            TXN_PAYLOAD_METADATA_REQ_ID in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
+        return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID]
+    assert False
+
+
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_txntype(result):
+    if TXN_TYPE in result:
+        return result[TXN_TYPE]
+    elif TXN_PAYLOAD in result and TXN_TYPE in result[TXN_PAYLOAD]:
+        return result[TXN_PAYLOAD][TXN_TYPE]
+
+
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_nym(result):
+    if TARGET_NYM in result:
+        return result[TARGET_NYM]
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_DATA in result[TXN_PAYLOAD] and\
+            TARGET_NYM in result[TXN_PAYLOAD][TXN_PAYLOAD_DATA]:
+        return result[TXN_PAYLOAD][TXN_PAYLOAD_DATA][TARGET_NYM]
 
 # TODO: Support real strategies and Data Class for transactions
 # instead of util functions
