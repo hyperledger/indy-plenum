@@ -2086,9 +2086,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_action(self, txn_type) -> bool:
         return txn_type in self.actionReqHandler.operation_types
 
-    def is_unsigned_action(self, txn_type) -> bool:
-        return txn_type in self.actionReqHandler.unsigned_action
-
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
         handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
