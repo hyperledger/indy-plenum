@@ -173,9 +173,9 @@ def invalid_values(valid_value):
         valid_value[:-2],
         valid_value[:-5],
         valid_value + '0',
-        valid_value + base58.b58encode(b'0'),
-        valid_value + base58.b58encode(b'somefake'),
-        base58.b58encode(b'somefakevaluesomefakevalue')
+        valid_value + base58.b58encode(b'0').decode("utf-8"),
+        valid_value + base58.b58encode(b'somefake').decode("utf-8"),
+        base58.b58encode(b'somefakevaluesomefakevalue').decode("utf-8")
     ]
 
 
@@ -185,16 +185,16 @@ def invalid_short_values(valid_value):
         valid_value[:2],
         valid_value[:5],
         '',
-        base58.b58encode(b'1' * 10),
-        base58.b58encode(b'1' * 2)
+        base58.b58encode(b'1' * 10).decode("utf-8"),
+        base58.b58encode(b'1' * 2).decode("utf-8")
     ]
 
 
 def invalid_long_values():
     return [
-        base58.b58encode(b'1' * 500),
-        base58.b58encode(b'1' * 1000),
-        base58.b58encode(b'1' * 10000)
+        base58.b58encode(b'1' * 500).decode("utf-8"),
+        base58.b58encode(b'1' * 1000).decode("utf-8"),
+        base58.b58encode(b'1' * 10000).decode("utf-8")
     ]
 
 

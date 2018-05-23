@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, re, gzip, yaml
+import os, sys, re, gzip, lzma, yaml
 from typing import Iterable
 from collections import namedtuple
 from datetime import datetime, timedelta
@@ -49,6 +49,64 @@ def parse_format_string(src):
 
 
 ###########################################################################################
+# Cache
+###########################################################################################
+
+class InputLogCache:
+    def __init__(self, filename):
+        self.filename = filename
+        self.min_timestamp = None
+        self.max_timestamp = None
+        self.load()
+
+    def add_timestamp(self, timestamp):
+        if timestamp is None:
+            return
+
+        if self.min_timestamp is None:
+            self.min_timestamp = timestamp
+            self.max_timestamp = timestamp
+
+        self.min_timestamp = min(self.min_timestamp, timestamp)
+        self.max_timestamp = max(self.max_timestamp, timestamp)
+
+    def match_timestamps(self, rule):
+        min_timestamp = rule.get("min_timestamp", None)
+        if min_timestamp is not None and self.max_timestamp is not None:
+            if min_timestamp > self.max_timestamp:
+                return False
+
+        max_timestamp = rule.get("max_timestamp", None)
+        if max_timestamp is not None and self.min_timestamp is not None:
+            if max_timestamp < self.min_timestamp:
+                return False
+
+        return True
+
+    def load(self):
+        if not os.path.exists(self.cache_filename()):
+            return
+        with open(self.cache_filename(), 'rt') as f:
+            data = yaml.load(f.read())
+            self.min_timestamp = data.get("min_timestamp", None)
+            self.max_timestamp = data.get("max_timestamp", None)
+            if self.min_timestamp is None and self.max_timestamp is not None:
+                self.min_timestamp = self.max_timestamp
+            if self.max_timestamp is None and self.min_timestamp is not None:
+                self.max_timestamp = self.min_timestamp
+
+    def save(self):
+        os.makedirs(".log_cache", exist_ok=True)
+        with open(self.cache_filename(), 'wt') as f:
+            print("min_timestamp: {}".format(self.min_timestamp), file=f)
+            print("max_timestamp: {}".format(self.max_timestamp), file=f)
+
+    def cache_filename(self):
+        id = self.filename.replace(".", "_dot_").replace("/", "_slash_")
+        return ".log_cache/{}".format(id)
+
+
+###########################################################################################
 # Input log info
 ###########################################################################################
 
@@ -59,13 +117,13 @@ def _parse_input_log_names(filenames, rule):
     matcher = re.compile(rule["pattern"])
     for name in filenames:
         m = matcher.search(name)
-        if m:
-            yield InputLogInfo(name, node=m.group(rule["node_group"]), rule=rule)
+        if not m: continue
+        yield InputLogInfo(name, node=m.group(rule["node_group"]), rule=rule)
 
 
 def _input_logs_from_rule(rule):
-    path = rule["path"]
-    if rule["recursive"]:
+    path = rule.get("path", "/(Node\d+).log")
+    if rule.get("recursive", True):
         for root, _, files in os.walk(path):
             yield from _parse_input_log_names((os.path.join(root, name) for name in files), rule)
     else:
@@ -153,13 +211,18 @@ def _parse_messages(f, node):
             yield LogMessage(body, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
 
 
-def messages_in_log(log):
+def messages_in_log(log: InputLogInfo):
     print("Processing {}...".format(log.filename))
-    open_fn = open
+
     if log.filename.endswith(".gz"):
         open_fn = gzip.open
+    elif log.filename.endswith(".xz"):
+        open_fn = lzma.open
+    else:
+        open_fn = open
+
     with open_fn(log.filename, "rt") as f:
-        if log.rule["only_timestamped"]:
+        if log.rule.get("only_timestamped", True):
             for message in _parse_messages(f, log.node):
                 if message.timestamp is not None:
                     yield message
@@ -184,8 +247,8 @@ def messages_in_log(log):
             else:
                 stashed_messages.append(message)
 
-        if len(stashed_messages) > 0:
-            print("WARNING: none of lines in {} were timestamped!".format(log.filename))
+    if len(stashed_messages) > 0:
+        print("WARNING: none of lines in {} were timestamped!".format(log.filename))
 
 
 ###########################################################################################
@@ -722,14 +785,16 @@ class NodeRequestData:
                                       "'viewNo': (\d+)")
         self._prepare = MessageParser("PREPARE",
                                       "PREPARE\s?\((\d+), (\d+)\)")
+        self._commit = MessageParser("COMMIT",
+                                     "COMMIT\s?\((\d+), (\d+)\)")
         self._propagate_req = MessageParser("propagating request",
                                             "propagating request \('(\w+)', (\d+)\) from client")
         self._forward_req = MessageParser("forwarding request",
                                           "forwarding request \('(\w+)', (\d+)\) to")
         self._ordered = MessageParser("ordered batch request",
-                                      "ordered batch request, view no (\d+), ppSeqNo (\d+), ledger (\d+), "\
-                                      "state root \w+, txn root \w+, "\
-                                      "requests ordered (\[(?:\('\w+', \d+\)(?:, )?)*\]), "\
+                                      "ordered batch request, view no (\d+), ppSeqNo (\d+), ledger (\d+), " \
+                                      "state root \w+, txn root \w+, " \
+                                      "requests ordered (\[(?:\('\w+', \d+\)(?:, )?)*\]), " \
                                       "discarded (\[(?:\('\w+', \d+\)(?:, )?)*\])")
 
     def process_message(self, message):
@@ -774,6 +839,7 @@ class NodeRequestData:
         self._extract_ppSeqNo(message, attrs)
         self._extract_viewNo(message, attrs)
         self._process_prepare(message, attrs)
+        self._process_commit(message, attrs)
         self._process_propagate_req(message, attrs)
         self._process_forward_req(message, attrs)
         self._process_ordered(message, attrs)
@@ -816,6 +882,12 @@ class NodeRequestData:
 
     def _process_prepare(self, message, attrs):
         m = self._prepare.parse(message)
+        if m is not None:
+            attrs.add('viewNo', m[0])
+            attrs.add('ppSeqNo', m[1])
+
+    def _process_commit(self, message, attrs):
+        m = self._commit.parse(message)
         if m is not None:
             attrs.add('viewNo', m[0])
             attrs.add('ppSeqNo', m[1])
@@ -936,10 +1008,28 @@ class OutputData:
 # Main
 ###########################################################################################
 
-def process_log(log):
+def process_log(log: InputLogInfo):
     output_data = OutputData(global_config.get("outputs", {}))
-    for message in messages_in_log(log):
-        global_chain_set.process("main", message, output_data)
+
+    cache = InputLogCache(log.filename)
+    if not cache.match_timestamps(log.rule):
+        return output_data
+
+    min_timestamp = log.rule.get("min_timestamp", None)
+    max_timestamp = log.rule.get("max_timestamp", None)
+
+    try:
+        for message in messages_in_log(log):
+            cache.add_timestamp(message.timestamp)
+            if min_timestamp is not None and message.timestamp < min_timestamp:
+                continue
+            if max_timestamp is not None and message.timestamp > max_timestamp:
+                continue
+            global_chain_set.process("main", message, output_data)
+    except EOFError as e:
+        print("{}: {}".format(log.filename, e))
+
+    cache.save()
     return output_data
 
 

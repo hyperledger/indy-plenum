@@ -50,7 +50,6 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
                        [lagging_node])
 
     # send more requests that will be queued for the lagged node
-    # sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 3)
     reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client, 5)
     l = looper.run(eventually(chk_fut_view, old_view_no + 1, False,
