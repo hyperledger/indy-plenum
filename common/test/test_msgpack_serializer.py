@@ -87,23 +87,23 @@ def test_serialize_complex_dict():
                 'id': 2,
                 'name': 'Dave'
             }]})
-    check({'3': ['a', 'b', 'c'],
-           '4': [
-               {
-                   '22': 'aa',
-                   '11': 'bb'
-               },
-               {
-                   '222': 'aaa',
-                   '111': 'bbb'
-               }
-           ],
-           '2': 'a',
-           '1': {
-               'b': 'a',
-               'a': 'b'
-           }
-           })
+    check(
+        {'3': ['a', 'b', 'c'],
+         '4': [
+             {
+                 '22': 'aa',
+                 '11': 'bb'
+             },
+             {
+                 '222': 'aaa',
+                 '111': 'bbb'
+             }],
+         '2': 'a',
+         '1': {
+             'b': 'a',
+             'a': 'b'}
+         }
+    )
 
 
 def test_sorted():
@@ -116,13 +116,11 @@ def test_sorted():
                  {
                      '222': 'aaa',
                      '111': 'bbb'
-                 }
-             ],
+                 }],
              '2': 'a',
              '1': {
                  'b': 'a',
-                 'a': 'b'
-             }
+                 'a': 'b'}
              }
     expected = OrderedDict([
         ('1', OrderedDict([
