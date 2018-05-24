@@ -964,7 +964,7 @@ def testNode(pluginManager,
 
 @pytest.fixture()
 def set_info_log_level(request):
-    Logger.setLogLevel(logging.INFO)
+    Logger.setLogLevel(logging.NOTSET)
 
     def reset():
         Logger.setLogLevel(logging.NOTSET)
