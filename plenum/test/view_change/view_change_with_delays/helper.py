@@ -1,7 +1,8 @@
-from plenum.common.util import max_3PC_key, getNoInstances
+from plenum.common.util import max_3PC_key, getNoInstances, getMaxFailures
 from plenum.test import waits
 from plenum.test.delayers import vcd_delay, icDelay, cDelay
-from plenum.test.helper import sdk_send_random_request, sdk_get_reply
+from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
+    sdk_check_reply
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
@@ -25,7 +26,9 @@ def last_prepared_certificate(nodes):
 
 def check_last_prepared_certificate(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on N-f nodes
-    assert sum(1 for n in nodes if n.master_replica.last_prepared_certificate_in_view() == num) >= 3
+    n = len(nodes)
+    f = getMaxFailures(n)
+    assert sum(1 for n in nodes if n.master_replica.last_prepared_certificate_in_view() == num) >= n - f
 
 
 def check_view_change_done(nodes, view_no):
@@ -35,18 +38,22 @@ def check_view_change_done(nodes, view_no):
         assert n.master_replica.last_prepared_before_view_change is None
 
 
-def do_view_change_with_commits_after_view_change_on_one_node(slow_node, nodes, looper,
-                                                              sdk_pool_handle, sdk_wallet_client):
+def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
+                                          sdk_pool_handle, sdk_wallet_client):
+    slow_stasher = slow_node.nodeIbStasher
+
     fast_nodes = [n for n in nodes if n != slow_node]
+
+    stashers = [n.nodeIbStasher for n in nodes]
 
     # Get last prepared certificate in pool
     lpc = last_prepared_certificate(nodes)
     # Get pool current view no
     view_no = lpc[0]
 
-    with delay_rules(slow_node, vcd_delay()):
-        with delay_rules(slow_node, icDelay()):
-            with delay_rules(nodes, cDelay()):
+    with delay_rules(slow_stasher, vcd_delay()):
+        with delay_rules(slow_stasher, icDelay()):
+            with delay_rules(stashers, cDelay()):
                 # Send request
                 request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
@@ -57,16 +64,16 @@ def do_view_change_with_commits_after_view_change_on_one_node(slow_node, nodes, 
                 for n in nodes:
                     n.view_changer.on_master_degradation()
 
-                # Wait until view change is completed on fast nodes
+                # Wait until view change is completed on all nodes except slow one
                 looper.run(eventually(check_view_change_done, fast_nodes, view_no + 1, timeout=60))
 
-            # Now all the nodes receive commits
+            # Now all the nodes receive Commits
             looper.runFor(waits.expectedOrderingTime(getNoInstances(len(nodes))))
 
-        # Now slow node receives
-        looper.runFor(waits.expectedPoolConsistencyProof(len(nodes)) +
-                      waits.expectedPoolCatchupTime(len(nodes)) +
-                      waits.expectedPoolElectionTimeout(len(nodes)))
+        # Now slow node receives InstanceChanges
+        looper.runFor(waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
 
-    # Finish request gracefully
-    sdk_get_reply(looper, request)
+    # Now slow node receives ViewChangeDones
+    # Check the reply to the request
+    reply = sdk_get_reply(looper, request)
+    sdk_check_reply(reply)
