@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import cDelay, pDelay
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request, sdk_get_reply, logger
+from plenum.test.helper import sdk_send_random_request, sdk_get_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -16,11 +16,14 @@ def tconf(tconf):
     """
     old_unsafe = tconf.unsafe
     old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
+    old_viewchange_timeout = tconf.VIEW_CHANGE_TIMEOUT
     tconf.unsafe.add("disable_view_change")
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
+    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 150
+    tconf.VIEW_CHANGE_TIMEOUT = 300
     yield tconf
     tconf.unsafe = old_unsafe
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
+    tconf.VIEW_CHANGE_TIMEOUT = old_viewchange_timeout
 
 
 def check_last_prepared_certificate(nodes, num):
@@ -81,7 +84,7 @@ def test_view_change_with_one_slow_node(txnPoolNodeSet, looper, sdk_pool_handle,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
-@pytest.mark.skip(reason="INDY-1303, also it can hurt jenkins!")
+@pytest.mark.skip(reason="INDY-1303, case 1, also it can hurt jenkins!")
 def test_view_change_with_unaligned_prepare_certificates_on_half_nodes(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """
