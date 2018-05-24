@@ -1,7 +1,7 @@
 from base58 import b58encode
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.common.types import f
-from plenum.common.constants import ROOT_HASH, ENCODED_VALUE
+from plenum.common.constants import ROOT_HASH, VALUE
 
 
 def test_make_proof(looper, sdk_wallet_steward, sdk_pool_handle, txnPoolNodeSet):
@@ -18,15 +18,14 @@ def test_make_proof(looper, sdk_wallet_steward, sdk_pool_handle, txnPoolNodeSet)
     # Check that if parameter "head_hash" is None, then we make proof for commitedHeadHash (by default)
     data = req_handler.make_proof(path1)
     assert b58encode(head2).decode() == data[ROOT_HASH]
-    assert ENCODED_VALUE not in data
+    assert VALUE not in data
 
     # Check that if parameter "head_hash" is not None, then we make proof for given headHash
     data = req_handler.make_proof(path1, head_hash=head1)
     assert b58encode(head1).decode() == data[ROOT_HASH]
-    assert ENCODED_VALUE not in data
+    assert VALUE not in data
 
     # Get value with proof
     data = req_handler.make_proof(path1, get_value=True)
     assert b58encode(head2).decode() == data[ROOT_HASH]
-    v = data[ENCODED_VALUE]
-    assert req_handler.state.get_decoded(v) == req_handler.state.get(path1)
+    assert data[VALUE] == req_handler.state.get(path1)

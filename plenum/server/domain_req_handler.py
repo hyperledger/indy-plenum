@@ -5,7 +5,7 @@ from common.serializers.serialization import domain_state_serializer, \
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
     VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
-    STATE_PROOF, ENCODED_VALUE
+    STATE_PROOF, VALUE
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
@@ -189,6 +189,7 @@ class DomainRequestHandler(LedgerRequestHandler):
                                                            root=self.state.get_head_by_hash(root_hash),
                                                            serialize=True,
                                                            get_value=True)
+            value = self.state.get_decoded(value) if value else value
         else:
             proof = self.state.generate_state_proof(key=path,
                                                     root=self.state.get_head_by_hash(root_hash),
@@ -202,7 +203,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         }
 
         if get_value:
-            rv[ENCODED_VALUE] = value
+            rv[VALUE] = value
 
         return rv
 
