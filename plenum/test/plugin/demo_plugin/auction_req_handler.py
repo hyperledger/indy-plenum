@@ -64,11 +64,7 @@ class AuctionReqHandler(LedgerRequestHandler):
         if operation.get(TXN_TYPE) == PLACE_BID:
             self.auctions[data['id']][req.identifier] = data[AMOUNT]
 
-        txn = reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
-        self.updateState([txn])
-        return start, txn
+        return super().apply(req, cons_time)
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:

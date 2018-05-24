@@ -45,10 +45,7 @@ class PoolRequestHandler(LedgerRequestHandler):
     def apply(self, req: Request, cons_time: int):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
-            txn = reqToTxn(req, cons_time)
-            (start, end), _ = self.ledger.appendTxns([txn])
-            self.updateState([txn])
-            return start, txn
+            return super().apply(req, cons_time)
         else:
             logger.debug(
                 'Cannot apply request of type {} to state'.format(typ))

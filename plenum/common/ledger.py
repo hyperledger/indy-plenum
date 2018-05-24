@@ -22,11 +22,14 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
+    def append_txns_metadata(self, txns: List):
+        self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
+
     def appendTxns(self, txns: List):
         # These transactions are not yet committed so they do not go to
         # the ledger
+        assert all([get_seq_no(txn) is not None for txn in txns])
         uncommittedSize = self.size + len(self.uncommittedTxns)
-        txns = self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash

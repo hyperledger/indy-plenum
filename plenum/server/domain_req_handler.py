@@ -54,13 +54,6 @@ class DomainRequestHandler(LedgerRequestHandler):
             txn.update(res)
         return txn
 
-    def apply(self, req: Request, cons_time: int):
-        txn = self._reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
-        self.updateState([txn])
-        return start, txn
-
     @staticmethod
     def transform_txn_for_ledger(txn):
         """
