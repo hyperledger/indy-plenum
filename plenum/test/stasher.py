@@ -132,17 +132,17 @@ class Stasher:
 
 
 @contextmanager
-def delay_rules(stasher, *delayers):
+def delay_rules(node, *delayers):
     """
     Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
 
-    :param stasher: Instance of Stasher or iterable over instances of stasher
+    :param nodes: Instance of Node or iterable over instances of Node
     :param delayers: Delay rule functions to be added to stashers
     """
     try:
-        stashers = [s for s in stasher]
+        stashers = [n.nodeIbStasher for n in node]
     except TypeError:
-        stashers = [stasher]
+        stashers = [node.nodeIbStasher]
 
     for s in stashers:
         if not isinstance(s, Stasher):

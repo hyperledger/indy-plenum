@@ -59,10 +59,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
     With current implementation of view change this will result in corrupted state of fast node
     """
 
-    fast_stasher = fast_node.nodeIbStasher
-
     slow_nodes = [n for n in nodes if n != fast_node]
-    slow_stashers = [n.nodeIbStasher for n in slow_nodes]
 
     # Get last prepared certificate in pool
     lpc = last_prepared_certificate(nodes)
@@ -70,8 +67,8 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
     view_no = lpc[0]
 
     # Delay all COMMITs
-    with delay_rules(slow_stashers, cDelay()):
-        with delay_rules(fast_stasher, cDelay()):
+    with delay_rules(slow_nodes, cDelay()):
+        with delay_rules(fast_node, cDelay()):
             # Send request
             request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
