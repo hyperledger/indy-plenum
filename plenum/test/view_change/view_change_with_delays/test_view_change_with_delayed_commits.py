@@ -1,9 +1,8 @@
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import max_3PC_key
 from plenum.test.delayers import cDelay
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request, sdk_get_reply, logger
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request, sdk_get_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -91,6 +90,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
     sdk_get_reply(looper, request)
 
 
+@pytest.mark.skip(reason="INDY-1303, case 2 (simplified)")
 def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
                                           sdk_pool_handle,
                                           sdk_wallet_client,
@@ -103,6 +103,7 @@ def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
+@pytest.mark.skip(reason="INDY-1303, case 2")
 def test_two_view_changes_with_delayed_commits(txnPoolNodeSet, looper,
                                                sdk_pool_handle,
                                                sdk_wallet_client,
