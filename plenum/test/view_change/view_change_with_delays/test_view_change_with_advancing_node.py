@@ -39,7 +39,7 @@ def test_delay_commits(txnPoolNodeSet, looper,
     nodes_stashers = [n.nodeIbStasher for n in txnPoolNodeSet
                       if n != txnPoolNodeSet[-1]]
     for _ in range(2):
-        delay_commits_for_all_except_one_node(txnPoolNodeSet,
+        do_view_change_with_delayed_commits_on_all_but_one(txnPoolNodeSet,
                                               nodes_stashers,
                                               txnPoolNodeSet[-1],
                                               looper,
@@ -47,7 +47,7 @@ def test_delay_commits(txnPoolNodeSet, looper,
                                               sdk_wallet_client)
 
 
-def delay_commits_for_all_except_one_node(nodes, nodes_without_one_stashers,
+def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_stashers,
                                           except_node,
                                           looper,
                                           sdk_pool_handle,
