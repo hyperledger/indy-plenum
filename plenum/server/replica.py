@@ -1785,7 +1785,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for k in previousCheckpoints:
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self.gc((self.viewNo, seqNo))
+        self._remove_current_view_stashed_checkpoints(seqNo)
+        self._gc((self.viewNo, seqNo))
         self.logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
@@ -1867,18 +1868,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return total_processed
 
-    def gc(self, till3PCKey=None):
-        self.logger.debug("{} cleaning up ".format(self) +
-                          ("till {}".format(till3PCKey) if till3PCKey else "all"))
+    def _gc(self, till3PCKey):
+        self.logger.debug("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
         for key3PC, pp in self.sentPrePrepares.items():
-            if till3PCKey is None or compare_3PC_keys(till3PCKey, key3PC) <= 0:
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
         for key3PC, pp in self.prePrepares.items():
-            if till3PCKey is None or compare_3PC_keys(till3PCKey, key3PC) <= 0:
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
@@ -1914,8 +1914,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.gc(till3PCKey)
 
     def _gc_before_new_view(self):
-        # Trigger GC for old view.
-        # Clear any checkpoints and stashed pre-prepares.
+        # Trigger GC for all batches of old view
+        # Clear any checkpoints, since they are valid only in a view
+        self._gc(self.last_ordered_3pc)
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
         self._clear_prev_view_pre_prepares()
@@ -2429,7 +2430,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
         self.checkpoints.clear()
-        self._remove_current_view_stashed_checkpoints(last_caught_up_3PC)
+        if last_caught_up_3PC[0] == self.viewNo:
+            self._remove_current_view_stashed_checkpoints(last_caught_up_3PC[1])
         self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
@@ -2493,21 +2495,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             del self.outBox[i]
         return removed
 
-    def _remove_current_view_stashed_checkpoints(self,
-                                                 last_caught_up_3PC=None):
+    def _remove_current_view_stashed_checkpoints(self, till_pp_seq_no=None):
         """
-        Remove all the stashed received checkpoints related to the current view
-        which have an upper bound less than or equal to `last_caught_up_3PC`.
+        Remove all the stashed received checkpoints for the current view up to
+        till_pp_seq_no.
         """
         if self.viewNo not in self.stashedRecvdCheckpoints:
             return
 
-        if last_caught_up_3PC is None:
+        if till_pp_seq_no is None:
             del self.stashedRecvdCheckpoints[self.viewNo]
             return
 
         for (s, e) in list(self.stashedRecvdCheckpoints[self.viewNo].keys()):
-            if compare_3PC_keys((self.viewNo, e), last_caught_up_3PC) >= 0:
+            if e <= till_pp_seq_no:
                 del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
         if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
             del self.stashedRecvdCheckpoints[self.viewNo]

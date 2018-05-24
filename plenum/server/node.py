@@ -1921,8 +1921,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
-        for replica in self.replicas:
-            replica.gc()
         self.mode = Mode.synced
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way

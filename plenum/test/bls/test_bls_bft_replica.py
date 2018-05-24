@@ -560,7 +560,7 @@ def test_commits_gc(bls_bft_replicas):
         assert key3 in bls_bft._signatures
 
     for bls_bft in bls_bft_replicas:
-        bls_bft.gc((0, 1))
+        bls_bft._gc((0, 1))
 
     for bls_bft in bls_bft_replicas:
         assert len(bls_bft._signatures) == 1
