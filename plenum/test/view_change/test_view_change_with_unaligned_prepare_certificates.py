@@ -81,7 +81,7 @@ def test_view_change_with_one_slow_node(txnPoolNodeSet, looper, sdk_pool_handle,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
-@pytest.skip
+@pytest.mark.skip(reason="INDY-1303, also it can hurt jenkins!")
 def test_view_change_with_unaligned_prepare_certificates_on_half_nodes(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """

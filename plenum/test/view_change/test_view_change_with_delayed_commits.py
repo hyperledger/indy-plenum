@@ -91,6 +91,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
     sdk_get_reply(looper, request)
 
 
+@pytest.mark.skip(reason="INDY-1303")
 def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
                                           sdk_pool_handle,
                                           sdk_wallet_client,
@@ -103,6 +104,7 @@ def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
+@pytest.mark.skip(reason="INDY-1303")
 def test_two_view_changes_with_delayed_commits(txnPoolNodeSet, looper,
                                                sdk_pool_handle,
                                                sdk_wallet_client,
