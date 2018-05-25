@@ -2,7 +2,7 @@ import json
 
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn, get_type, get_payload_data
+from plenum.common.txn_util import get_type, get_payload_data
 from plenum.common.types import f
 from plenum.server.config_req_handler import ConfigReqHandler
 

@@ -184,7 +184,7 @@ def append_txn_metadata(txn, seq_no=None, txn_time=None, txn_id=None):
     return txn
 
 
-def reqToTxn(req, txn_time=None):
+def reqToTxn(req):
     """
     Transform a client request such that it can be stored in the ledger.
     Also this is what will be returned to the client in the reply
@@ -204,31 +204,24 @@ def reqToTxn(req, txn_time=None):
 
     req_data = deepcopy(req_data)
     return do_req_to_txn(req_data=req_data,
-                         req_op=req_data[OPERATION],
-                         txn_time=txn_time)
+                         req_op=req_data[OPERATION])
 
 
 def transform_to_new_format(txn, seq_no):
     t = deepcopy(txn)
     txn_time = t.pop(TXN_TIME, None)
     txn = do_req_to_txn(req_data=t,
-                        req_op=t,
-                        txn_time=txn_time)
-    append_txn_metadata(txn, seq_no=seq_no)
+                        req_op=t)
+    append_txn_metadata(txn, seq_no=seq_no, txn_time=txn_time)
     return txn
 
 
-def do_req_to_txn(req_data, req_op, txn_time=None):
+def do_req_to_txn(req_data, req_op):
     # 1. init new txn
     result = init_empty_txn(txn_type=req_op.pop(TXN_TYPE, None),
                             protocol_version=req_data.pop(f.PROTOCOL_VERSION.nm, None))
 
-    # 2. Fill txn metadata (txnTime)
-    # more metadata will be added by the Ledger
-    if txn_time:
-        append_txn_metadata(result, txn_time=txn_time)
-
-    # 3. Fill Signature
+    # 2. Fill Signature
     if (f.SIG.nm in req_data) or (f.SIGS.nm in req_data):
         result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25515
         signatures = {req_data.get(f.IDENTIFIER.nm, None): req_data.get(f.SIG.nm, None)} \
@@ -244,13 +237,13 @@ def do_req_to_txn(req_data, req_op, txn_time=None):
         req_data.pop(f.SIG.nm, None)
         req_data.pop(f.SIGS.nm, None)
 
-    # 4. Fill Payload metadata
+    # 3. Fill Payload metadata
 
     append_payload_metadata(result,
                             frm=req_data.pop(f.IDENTIFIER.nm, None),
                             req_id=req_data.pop(f.REQ_ID.nm, None))
 
-    # 5. Fill Payload data
+    # 4. Fill Payload data
     set_payload_data(result, req_op)
 
     return result

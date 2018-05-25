@@ -2,10 +2,8 @@ from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.server.ledger_req_handler import LedgerRequestHandler
-from plenum.server.req_handler import RequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
     AUCTION_START, GET_BAL, AMOUNT
 

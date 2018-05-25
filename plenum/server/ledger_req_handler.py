@@ -35,13 +35,13 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         Updates current state with a number of committed or
         not committed transactions
         """
-    def _reqToTxn(self, req: Request, cons_time):
-        return reqToTxn(req, cons_time)
+    def _reqToTxn(self, req: Request):
+        return reqToTxn(req)
 
     def apply(self, req: Request, cons_time: int):
-        txn = self._reqToTxn(req, cons_time)
+        txn = self._reqToTxn(req)
 
-        self.ledger.append_txns_metadata([txn])
+        self.ledger.append_txns_metadata([txn], cons_time)
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
         self.updateState([txn])

@@ -6,7 +6,7 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_from
+from plenum.common.txn_util import get_payload_data, get_from
 from plenum.common.types import f
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler

@@ -47,8 +47,8 @@ class DomainRequestHandler(LedgerRequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request, cons_time):
-        txn = reqToTxn(req, cons_time)
+    def _reqToTxn(self, req: Request):
+        txn = reqToTxn(req)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)

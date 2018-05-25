@@ -22,7 +22,12 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
-    def append_txns_metadata(self, txns: List):
+    def append_txns_metadata(self, txns: List, txn_time=None):
+        if txn_time is not None:
+            # All transactions have the same time since all these
+            # transactions belong to the same 3PC batch
+            for txn in txns:
+                append_txn_metadata(txn, txn_time=txn_time)
         self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
 
     def appendTxns(self, txns: List):

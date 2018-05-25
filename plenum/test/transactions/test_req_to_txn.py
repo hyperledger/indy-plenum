@@ -72,7 +72,8 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
 def test_req_to_txn(req_and_expected):
     req, new_expected = req_and_expected
-    new = SortedDict(reqToTxn(req, 1513945121))
+    txn = append_txn_metadata(reqToTxn(req), txn_time=1513945121)
+    new = SortedDict(txn)
     assert new == new_expected
 
 
@@ -80,7 +81,7 @@ def test_req_to_txn_with_seq_no(req_and_expected):
     req, new_expected = req_and_expected
     new = SortedDict(
         append_txn_metadata(
-            reqToTxn(req, 1513945121),
+            reqToTxn(req),
             seq_no=143,
             txn_time=2613945121)
     )
