@@ -173,16 +173,17 @@ class DomainRequestHandler(LedgerRequestHandler):
         :return: a state proof or None
         '''
         root_hash = head_hash if head_hash else self.state.committedHeadHash
-        proof = self.state.generate_state_proof(key=path,
-                                                root=self.state.get_head_by_hash(root_hash),
-                                                serialize=True)
-        encoded_proof = proof_nodes_serializer.serialize(proof)
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
         multi_sig = self.bls_store.get(encoded_root_hash)
         if not multi_sig:
             return None
 
+        proof = self.state.generate_state_proof(key=path,
+                                                root=self.state.get_head_by_hash(
+                                                    root_hash),
+                                                serialize=True)
+        encoded_proof = proof_nodes_serializer.serialize(proof)
         return {
             ROOT_HASH: encoded_root_hash,
             MULTI_SIGNATURE: multi_sig.as_dict(),
