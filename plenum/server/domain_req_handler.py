@@ -187,9 +187,9 @@ class DomainRequestHandler(LedgerRequestHandler):
             else:
                 try:
                     proof, value = self.state.generate_state_proof(key=path,
-                                                               root=self.state.get_head_by_hash(root_hash),
-                                                               serialize=True,
-                                                               get_value=True)
+                                                                   root=self.state.get_head_by_hash(root_hash),
+                                                                   serialize=True,
+                                                                   get_value=True)
                     value = self.state.get_decoded(value) if value else value
                     encoded_proof = proof_nodes_serializer.serialize(proof)
                     proof = {
