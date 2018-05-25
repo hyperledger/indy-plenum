@@ -53,7 +53,7 @@ def test_watermarks_restored_after_stable(
     assert non_broken_replica.h == 10
     assert non_broken_replica.H == 30
 
-    # 4. Repair broken replica amd make sure that it p[articipates in consensus
+    # 4. Repair broken replica amd make sure that it participates in consensus
     # (after watermarks were corrected).
     repair_broken_replica(broken_replica)
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,

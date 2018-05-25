@@ -537,8 +537,9 @@ class ValidatorNodeInfoTool:
             path_to_upgrade_log = os.path.join(os.path.join(self._node.ledger_dir,
                                                             self._node.config.upgradeLogFile))
             if os.path.exists(path_to_upgrade_log):
-                output = self._run_external_cmd(path_to_upgrade_log)
-        return output.split(os.linesep)
+                with open(path_to_upgrade_log, 'r') as upgrade_log:
+                    output = upgrade_log.readlines()
+        return output
 
     def _get_last_n_from_pool_ledger(self):
         i = 0
