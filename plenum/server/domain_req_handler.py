@@ -164,12 +164,10 @@ class DomainRequestHandler(LedgerRequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def make_proof(self, path, head_hash=None, get_value=False):
+    def get_value_from_state(self, path, head_hash=None, with_proof=False):
         '''
-        Creates a state proof for the given path in state trie.
-        Returns None if there is no BLS multi-signature for the given state (it can
-        be the case for txns added before multi-signature support).
-
+        Get a value (and proof optionally)for the given path in state trie.
+        Does not return the proof is there is no aggregate signature for it.
         :param path: the path generate a state proof for
         :param head_hash: the root to create the proof against
         :param get_value: whether to return the value
@@ -178,34 +176,32 @@ class DomainRequestHandler(LedgerRequestHandler):
         root_hash = head_hash if head_hash else self.state.committedHeadHash
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
-        multi_sig = self.bls_store.get(encoded_root_hash)
-        if not multi_sig and not get_value:
-            return None
-        if not multi_sig and get_value:
-            return self.state.get_for_root_hash(path, root_hash)
-
-        if get_value:
-            proof, value = self.state.generate_state_proof(key=path,
-                                                           root=self.state.get_head_by_hash(root_hash),
-                                                           serialize=True,
-                                                           get_value=True)
-            value = self.state.get_decoded(value) if value else value
+        if with_proof:
+            multi_sig = self.bls_store.get(encoded_root_hash)
+            if not multi_sig:
+                # Just return the value and not proof
+                try:
+                    return self.state.get_for_root_hash(path, root_hash), None
+                except KeyError:
+                    return None, None
+            else:
+                try:
+                    proof, value = self.state.generate_state_proof(key=path,
+                                                               root=self.state.get_head_by_hash(root_hash),
+                                                               serialize=True,
+                                                               get_value=True)
+                    value = self.state.get_decoded(value) if value else value
+                    encoded_proof = proof_nodes_serializer.serialize(proof)
+                    proof = {
+                        ROOT_HASH: encoded_root_hash,
+                        MULTI_SIGNATURE: multi_sig.as_dict(),
+                        PROOF_NODES: encoded_proof
+                    }
+                    return value, proof
+                except KeyError:
+                    return None, None
         else:
-            proof = self.state.generate_state_proof(key=path,
-                                                    root=self.state.get_head_by_hash(root_hash),
-                                                    serialize=True,
-                                                    get_value=False)
-        encoded_proof = proof_nodes_serializer.serialize(proof)
-        rv = {
-            ROOT_HASH: encoded_root_hash,
-            MULTI_SIGNATURE: multi_sig.as_dict(),
-            PROOF_NODES: encoded_proof
-        }
-
-        if get_value:
-            rv[VALUE] = value
-
-        return rv
+            return self.state.get_for_root_hash(root_hash, path), None
 
     @staticmethod
     def make_result(request, data, last_seq_no, update_time, proof):
