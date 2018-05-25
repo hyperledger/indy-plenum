@@ -1,6 +1,6 @@
 from plenum.common.util import max_3PC_key, getNoInstances, getMaxFailures
 from plenum.test import waits
-from plenum.test.delayers import vcd_delay, icDelay, cDelay
+from plenum.test.delayers import vcd_delay, icDelay, cDelay, pDelay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
     sdk_check_reply
 from plenum.test.stasher import delay_rules
@@ -77,6 +77,40 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
         # Now commits are processed on fast node
         # Wait until view change is complete
         looper.run(eventually(check_view_change_done, nodes, view_no + 1, timeout=60))
+
+    # Finish request gracefully
+    sdk_get_reply(looper, request)
+
+
+def do_view_change_with_unaligned_prepare_certificates(
+        slow_nodes, nodes, looper, sdk_pool_handle, sdk_wallet_client):
+    """
+    Perform view change with some nodes reaching lower last prepared certificate than others.
+    With current implementation of view change this can result with view change taking a lot of time.
+    """
+    fast_nodes = [n for n in nodes if n not in slow_nodes]
+
+    all_stashers = [n.nodeIbStasher for n in nodes]
+    slow_stashers = [n.nodeIbStasher for n in slow_nodes]
+
+    # Delay some PREPAREs and all COMMITs
+    with delay_rules(slow_stashers, pDelay()):
+        with delay_rules(all_stashers, cDelay()):
+            # Send request
+            request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+
+            # Wait until this request is prepared on fast nodes
+            looper.run(eventually(check_last_prepared_certificate, fast_nodes, (0, 1)))
+            # Make sure its not prepared on slow nodes
+            looper.run(eventually(check_last_prepared_certificate, slow_nodes, None))
+
+            # Trigger view change
+            for n in nodes:
+                n.view_changer.on_master_degradation()
+
+        # Now commits are processed
+        # Wait until view change is complete
+        looper.run(eventually(check_view_change_done, nodes, 1, timeout=60))
 
     # Finish request gracefully
     sdk_get_reply(looper, request)
