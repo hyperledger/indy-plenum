@@ -4,6 +4,8 @@ from plenum.test.delayers import cDelay, pDelay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
+from plenum.test.view_change.view_change_with_delays.helper import check_last_prepared_certificate, \
+    check_view_change_done
 from stp_core.loop.eventually import eventually
 
 
@@ -24,18 +26,6 @@ def tconf(tconf):
     tconf.unsafe = old_unsafe
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_viewchange_timeout
-
-
-def check_last_prepared_certificate(nodes, num):
-    for n in nodes:
-        assert n.master_replica.last_prepared_certificate_in_view() == num
-
-
-def check_view_change_done(nodes, view_no):
-    # Check that view change is done and view_no is not less than target
-    for n in nodes:
-        assert n.master_replica.viewNo >= view_no
-        assert n.master_replica.last_prepared_before_view_change is None
 
 
 def do_view_change_with_unaligned_prepare_certificates(

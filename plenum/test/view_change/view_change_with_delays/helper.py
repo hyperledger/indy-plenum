@@ -24,11 +24,17 @@ def last_prepared_certificate(nodes):
     return max_3PC_key(patched_last_prepared_certificate(n) for n in nodes)
 
 
-def check_last_prepared_certificate(nodes, num):
+def check_last_prepared_certificate_on_quorum(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on N-f nodes
     n = len(nodes)
     f = getMaxFailures(n)
     assert sum(1 for n in nodes if n.master_replica.last_prepared_certificate_in_view() == num) >= n - f
+
+
+def check_last_prepared_certificate(nodes, num):
+    # Check that last_prepared_certificate reaches some 3PC key on all nodes
+    for n in nodes:
+        assert n.master_replica.last_prepared_certificate_in_view() == num
 
 
 def check_view_change_done(nodes, view_no):
@@ -36,6 +42,44 @@ def check_view_change_done(nodes, view_no):
     for n in nodes:
         assert n.master_replica.viewNo >= view_no
         assert n.master_replica.last_prepared_before_view_change is None
+
+
+def do_view_change_with_pending_request_and_one_fast_node(fast_node,
+                                                          nodes, looper, sdk_pool_handle, sdk_wallet_client):
+    """
+    Perform view change while processing request, with one node receiving commits much sooner than others.
+    With current implementation of view change this will result in corrupted state of fast node
+    """
+
+    fast_stasher = fast_node.nodeIbStasher
+
+    slow_nodes = [n for n in nodes if n != fast_node]
+    slow_stashers = [n.nodeIbStasher for n in slow_nodes]
+
+    # Get last prepared certificate in pool
+    lpc = last_prepared_certificate(nodes)
+    # Get pool current view no
+    view_no = lpc[0]
+
+    # Delay all COMMITs
+    with delay_rules(slow_stashers, cDelay()):
+        with delay_rules(fast_stasher, cDelay()):
+            # Send request
+            request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+
+            # Wait until this request is prepared on N-f nodes
+            looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
+
+            # Trigger view change
+            for n in nodes:
+                n.view_changer.on_master_degradation()
+
+        # Now commits are processed on fast node
+        # Wait until view change is complete
+        looper.run(eventually(check_view_change_done, nodes, view_no + 1, timeout=60))
+
+    # Finish request gracefully
+    sdk_get_reply(looper, request)
 
 
 def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
@@ -58,7 +102,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                 request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
                 # Wait until this request is prepared on N-f nodes
-                looper.run(eventually(check_last_prepared_certificate, nodes, (lpc[0], lpc[1] + 1)))
+                looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
 
                 # Trigger view change
                 for n in nodes:

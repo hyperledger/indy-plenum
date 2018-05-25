@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.view_change_with_delays.helper import do_view_change_with_pending_request_and_one_fast_node
 
@@ -19,14 +20,21 @@ def tconf(tconf):
     tconf.unsafe = old_unsafe
 
 
-@pytest.mark.skip(reason="INDY-1303, case 2 (simplified)")
-def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
-                                          sdk_pool_handle,
-                                          sdk_wallet_client,
-                                          tconf):
+@pytest.mark.skip(reason="INDY-1303, case 2")
+def test_two_view_changes_with_delayed_commits(txnPoolNodeSet, looper,
+                                               sdk_pool_handle,
+                                               sdk_wallet_client,
+                                               tconf):
     # Perform view change with Delta acting as fast node
     # With current view change implementation its state will become different from other nodes
     do_view_change_with_pending_request_and_one_fast_node(txnPoolNodeSet[3], txnPoolNodeSet,
                                                           looper, sdk_pool_handle, sdk_wallet_client)
 
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    # Perform view change with Alpha acting as fast node
+    # With current view change implementation its state will become different from other nodes,
+    # resulting in pool losing consensus and failing to finish view change at all
+    do_view_change_with_pending_request_and_one_fast_node(txnPoolNodeSet[0], txnPoolNodeSet,
+                                                          looper, sdk_pool_handle, sdk_wallet_client)
+
+    # Check that pool can write transactions
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
