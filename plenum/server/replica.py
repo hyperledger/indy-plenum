@@ -2494,6 +2494,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         if till_3pc_key is None:
             self.stashedRecvdCheckpoints.clear()
+            self.logger.debug('{} removing all stashed checkpoints'.format(self))
             return
 
         for view_no in list(self.stashedRecvdCheckpoints.keys()):
