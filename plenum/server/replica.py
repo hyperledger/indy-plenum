@@ -2509,7 +2509,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 for (s, e) in list(self.stashedRecvdCheckpoints[view_no].keys()):
                     if e <= till_3pc_key[1]:
                         self.logger.debug(
-                            '{} removing stashed checkpoint: '
+                            '{} removing stashed checkpoints: '
                             'viewNo={}, seqNoStart={}, seqNoEnd={}'
                             .format(self, view_no, s, e))
                         del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
