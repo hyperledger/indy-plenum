@@ -15,9 +15,7 @@ rlp_decode = decode_optimized
 
 bin_to_nibbles_cache = {}
 
-hti = {}
-for i, c in enumerate('0123456789abcdef'):
-    hti[c] = i
+hti = {c: i for i, c in enumerate('0123456789abcdef')}
 
 
 def bin_to_nibbles(s):
@@ -135,7 +133,7 @@ def pack_nibbles(nibbles):
     :param nibbles: a nibbles sequence. may have a terminator
     """
 
-    if nibbles[-1:] == [NIBBLE_TERMINATOR]:
+    if nibbles[-1] == NIBBLE_TERMINATOR:
         flags = 2
         nibbles = nibbles[:-1]
     else:
@@ -339,7 +337,8 @@ class Trie:
         self.spv_grabbing(o)
         return o
 
-    def _get_node_type(self, node):
+    @staticmethod
+    def _get_node_type(node):
         ''' get node type and content
 
         :param node: node in form of list, or BLANK_NODE
@@ -386,6 +385,50 @@ class Trie:
             if starts_with(key, curr_key):
                 sub_node = self._decode_to_node(node[1])
                 return self._get(sub_node, key[len(curr_key):])
+            else:
+                return BLANK_NODE
+
+    def _get_last_node_for_prfx(self, node, key_prfx):
+        """ get value inside a node
+
+        :param node: node in form of list, or BLANK_NODE
+        :param key: nibble list without terminator
+        :return:
+            BLANK_NODE if does not exist, otherwise value or hash
+        """
+        node_type = self._get_node_type(node)
+
+        if node_type == NODE_TYPE_BLANK:
+            return BLANK_NODE
+
+        if node_type == NODE_TYPE_BRANCH:
+            # already reach the expected node
+            if not key_prfx:
+                return node[-1]
+            sub_node = self._decode_to_node(node[key_prfx[0]])
+            return self._get_last_node_for_prfx(sub_node, key_prfx[1:])
+
+        # key value node
+        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+
+        if node_type == NODE_TYPE_LEAF:
+            # Return this node only if the complete prefix is part of the current key
+            if starts_with(curr_key, key_prfx):
+                return node
+            else:
+                return BLANK_NODE
+
+        if node_type == NODE_TYPE_EXTENSION:
+            # traverse child nodes
+            if len(key_prfx) > len(curr_key):
+                full = key_prfx
+                part = curr_key
+            else:
+                full = curr_key
+                part = key_prfx
+            if starts_with(full, part):
+                self._decode_to_node(node[1])
+                return node
             else:
                 return BLANK_NODE
 
@@ -454,7 +497,7 @@ class Trie:
         new_node_encoded = False
 
         if remain_key == [] == remain_curr_key:
-            # sys.stderr.write('1111\n')
+            # Updating the value of an existing key
             if not is_inner:
                 o = [node[0], value]
                 self._encode_node(o)
@@ -745,7 +788,7 @@ class Trie:
 
         if is_key_value_type(new_sub_node_type):
             # sys.stderr.write('nsn1\n')
-            # collape subnode to this node, not this node will have same
+            # collapse subnode to this node, not this node will have same
             # terminator with the new sub node, and value does not change
             new_key = curr_key + unpack_to_nibbles(new_sub_node[0])
             o = [pack_nibbles(new_key), new_sub_node[1]]
@@ -869,21 +912,13 @@ class Trie:
         d = self._to_dict(self.root_node)
         res = {}
         for key_str, value in d.items():
-            if key_str:
-                nibbles = [int(x) for x in key_str.split(b'+')]
-            else:
-                nibbles = []
-            key = nibbles_to_bin(without_terminator(nibbles))
+            key = self.nibble_str_key_to_bin(key_str)
             res[key] = value
         return res
 
     def iter_branch(self):
         for key_str, value in self._iter_branch(self.root_node):
-            if key_str:
-                nibbles = [int(x) for x in key_str.split(b'+')]
-            else:
-                nibbles = []
-            key = nibbles_to_bin(without_terminator(nibbles))
+            key = self.nibble_str_key_to_bin(key_str)
             yield key, value
 
     def _iter_branch(self, node):
@@ -970,14 +1005,6 @@ class Trie:
             return True
         return self.root_hash in self._db
 
-    def produce_spv_proof(self, key, root=None):
-        root = root or self.root_node
-        proof.push(RECORDING)
-        self.get_at(root, key)
-        o = proof.get_nodelist()
-        proof.pop()
-        return o
-
     def get_at(self, root_node, key):
         """
         Get value of a key when the root node was `root_node`
@@ -987,12 +1014,48 @@ class Trie:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
-    def generate_state_proof(self, key, root=None, serialize=False):
-        # NOTE: The method `produce_spv_proof` is not deliberately modified
+    def produce_spv_proof(self, key, root=None, get_value=False):
         root = root or self.root_node
-        pf = self.produce_spv_proof(key, root)
+        proof.push(RECORDING)
+        rv = self.get_at(root, key)
+        o = proof.get_nodelist()
+        proof.pop()
+        return (o, rv) if get_value else o
+
+    def produce_spv_proof_for_key_prfx(self, key_prfx, root=None, get_value=False):
+        # Return a proof for keys in the trie with the given prefix.
+        root = root or self.root_node
+        proof.push(RECORDING)
+        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)))
+        rv = list(self._iter_branch(prefix_node))
+        o = proof.get_nodelist()
+        proof.pop()
+        return (o, rv) if get_value else o
+
+    def generate_state_proof(self, key, root=None, serialize=False, get_value=False):
+        # NOTE: The method `produce_spv_proof` is not deliberately modified
+        return self._generate_state_proof(key, self.produce_spv_proof,
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
+
+    def generate_state_proof_for_key_prfx(self, key_prfx, root=None,
+                                          serialize=False, get_value=False):
+        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_nodes_with_key_prfx,
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
+
+    def _generate_state_proof(self, path, func, root=None, serialize=False, **kwargs):
+        root = root or self.root_node
+        rv = func(path, root, **kwargs)
+        has_val = isinstance(rv, tuple) and len(rv) == 2
+        pf = rv[0] if has_val else rv
         pf.append(copy.deepcopy(root))
-        return pf if not serialize else self.serialize_proof(pf)
+        if serialize:
+            if has_val:
+                rv = (self.serialize_proof(pf), rv[1])
+            else:
+                rv = self.serialize_proof(pf)
+        return rv
 
     @staticmethod
     def verify_spv_proof(root, key, value, proof_nodes, serialized=False):
@@ -1002,12 +1065,9 @@ class Trie:
         if serialized:
             proof_nodes = Trie.deserialize_proof(proof_nodes)
         proof.push(VERIFYING, proof_nodes)
-        new_trie = Trie(KeyValueStorageInMemory())
 
-        for node in proof_nodes:
-            R = rlp_encode(node)
-            H = sha3(R)
-            new_trie._db.put(H, R)
+        new_trie = Trie.get_new_trie_with_proof_nodes(proof_nodes)
+
         try:
             new_trie.root_hash = root
             v = new_trie.get(key)
@@ -1019,6 +1079,49 @@ class Trie:
             return False
 
     @staticmethod
+    def verify_spv_proof_multi(root, key_values, proof_nodes,
+                               serialized=False):
+        # Takes a list of proof nodes for several key values
+        if serialized:
+            proof_nodes = Trie.deserialize_proof(proof_nodes)
+
+        proof.push(VERIFYING, proof_nodes)
+
+        new_trie = Trie.get_new_trie_with_proof_nodes(proof_nodes)
+
+        try:
+            new_trie.root_hash = root
+        except Exception as e:
+            print(e)
+            proof.pop()
+            return False
+
+        for k, v in key_values.items():
+            try:
+                _v = new_trie.get(k)
+            except Exception as e:
+                print(e)
+                proof.pop()
+                return False
+            if v != _v:
+                proof.pop()
+                return False
+
+        proof.pop()
+        return True
+
+    @staticmethod
+    def get_new_trie_with_proof_nodes(proof_nodes):
+        new_trie = Trie(KeyValueStorageInMemory())
+
+        for node in proof_nodes:
+            R = rlp_encode(node)
+            H = sha3(R)
+            new_trie._db.put(H, R)
+
+        return new_trie
+
+    @staticmethod
     def serialize_proof(proof_nodes):
         return rlp_encode(proof_nodes)
 
@@ -1026,20 +1129,10 @@ class Trie:
     def deserialize_proof(ser_proof):
         return rlp_decode(ser_proof)
 
-
-if __name__ == "__main__":
-
-    def encode_node(nd):
-        if is_string(nd):
-            return encode_hex(nd)
+    @staticmethod
+    def nibble_str_key_to_bin(key_str):
+        if key_str:
+            nibbles = [int(x) for x in key_str.split(b'+')]
         else:
-            return encode_hex(rlp_encode(nd))
-
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == 'insert':
-            t = Trie(KeyValueStorageInMemory(), decode_hex(sys.argv[3]))
-            t.update(sys.argv[4], sys.argv[5])
-            print(encode_node(t.root_hash))
-        elif sys.argv[1] == 'get':
-            t = Trie(KeyValueStorageInMemory(), decode_hex(sys.argv[3]))
-            print(t.get(sys.argv[4]))
+            nibbles = []
+        return nibbles_to_bin(without_terminator(nibbles))

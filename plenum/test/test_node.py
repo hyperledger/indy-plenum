@@ -3,10 +3,9 @@ import time
 import types
 from collections import OrderedDict
 from contextlib import ExitStack
-from copy import copy
 from functools import partial
-from itertools import combinations, permutations
-from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
+from itertools import combinations
+from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
@@ -26,7 +25,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, NYM, STATE_PROOF
+    DOMAIN_LEDGER_ID, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -41,10 +40,9 @@ from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
     getAllMsgReceivedForNode, getAllArgs
 from plenum.test.stasher import Stasher
-from plenum.test.test_client import TestClient
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
-    checkRemoteExists, RemoteState, checkState
+from plenum.test.test_stack import StackedTester, getTestableStack, \
+    RemoteState, checkState
 from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
@@ -143,6 +141,7 @@ class TestNodeCore(StackedTester):
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
+        self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
         return TestReplicas(self, self.monitor, config)
@@ -283,7 +282,8 @@ class TestNodeCore(StackedTester):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
-                                        self.bls_bft.bls_store)
+                                        self.bls_bft.bls_store,
+                                        self.getStateTsDbStorage())
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
@@ -383,10 +383,16 @@ class TestNode(TestNodeCore, Node):
         for txn in committedTxns:
             if txn[TXN_TYPE] == "buy":
                 key, value = req_handler.prepare_buy_for_state(txn)
-                proof = req_handler.make_proof(key)
+                _, proof = req_handler.get_value_from_state(key, with_proof=True)
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
+
+    def schedule_node_status_dump(self):
+        pass
+
+    def dump_additional_info(self):
+        pass
 
 
 elector_spyables = [
@@ -447,8 +453,13 @@ replica_spyables = [
     replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
-    replica.Replica.process_requested_pre_prepare,
+    replica.Replica._request_pre_prepare,
     replica.Replica._request_pre_prepare_for_prepare,
+    replica.Replica._request_prepare,
+    replica.Replica._request_commit,
+    replica.Replica.process_requested_pre_prepare,
+    replica.Replica.process_requested_prepare,
+    replica.Replica.process_requested_commit,
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
@@ -470,6 +481,7 @@ class TestReplicas(Replicas):
         return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
 
 
+# TODO: probably delete when remove from node
 class TestNodeSet(ExitStack):
 
     def __init__(self,
@@ -529,7 +541,6 @@ class TestNodeSet(ExitStack):
                           ha=ha,
                           cliname=cliname,
                           cliha=cliha,
-                          nodeRegistry=copy(self.nodeReg),
                           config_helper=config_helper,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,

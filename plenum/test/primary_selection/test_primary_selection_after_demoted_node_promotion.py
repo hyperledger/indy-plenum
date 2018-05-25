@@ -1,5 +1,6 @@
 import pytest
 from plenum.common.util import hexToFriendly
+from plenum.test.test_node import ensureElectionsDone
 
 from stp_core.common.log import getlogger
 
@@ -26,6 +27,7 @@ def check_all_nodes_the_same_pool_list(nodes):
         assert sorted(node.nodeReg.keys()) == _allNodeNames
 
 
+@pytest.mark.skip("Too many sdk_pool_refresh")
 def test_primary_selection_after_demoted_node_promotion(
         looper, txnPoolNodeSet, sdk_node_theta_added,
         sdk_pool_handle,
@@ -82,6 +84,7 @@ def test_primary_selection_after_demoted_node_promotion(
                                             stopped_node, stopNode=True)
     looper.removeProdable(stopped_node)
     remainingNodes = list(set(txnPoolNodeSet) - {stopped_node})
+    ensureElectionsDone(looper, remainingNodes)
     # ensure pool is working properly
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)

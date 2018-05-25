@@ -11,15 +11,14 @@ logger = getlogger()
 @pytest.fixture(scope="module", autouse=True)
 def tconf(tconf):
     old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.VIEW_CHANGE_TIMEOUT = 5
+    tconf.VIEW_CHANGE_TIMEOUT = 10
     yield tconf
     tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
 
 
 def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
         looper, txnPoolNodeSet, tdir, tconf,
-        allPluginsPath, steward1, stewardWallet,
-        client_tdir):
+        allPluginsPath, sdk_pool_handle, sdk_wallet_steward):
     """
     Test steps:
     1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
@@ -42,15 +41,17 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     # 3. make sure no InstanceChange sent by the new node
     assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
 
+    logger.info("Start added node {}".format(new_node))
+
     # 4. add the node to the pool (send NODE txn) and make sure that the node is ready now.
     add_started_node(looper,
                      new_node,
                      node_ha,
                      client_ha,
                      txnPoolNodeSet,
-                     client_tdir,
-                     steward1, stewardWallet,
-                     sigseed, bls_key)
+                     sdk_pool_handle,
+                     sdk_wallet_steward,
+                     bls_key)
 
     # 5. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
     looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)

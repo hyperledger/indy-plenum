@@ -45,6 +45,7 @@ class f:  # provides a namespace for reusable field constants
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
     REASON = Field('reason', Any)
+    IS_SUCCESS = Field('isSuccess', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
     REQ_IDR = Field("reqIdr", List[Tuple[str, int]])

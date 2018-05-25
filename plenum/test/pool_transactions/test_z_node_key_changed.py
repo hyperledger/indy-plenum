@@ -34,7 +34,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     looper.removeProdable(name=new_node.name)
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     sigseed = randomString(32).encode()
-    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
+    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw).decode("utf-8")
     sdk_change_node_keys(looper, new_node, new_steward_wallet, sdk_pool_handle, verkey)
 
     config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
@@ -69,7 +69,7 @@ def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
     looper.removeProdable(name=new_node.name)
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
     sigseed = randomString(32).encode()
-    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
+    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw).decode("utf-8")
 
     def initRemoteKeysMock(name, *args, **kwargs):
         if name in [node.name for node in txnPoolNodeSet]:
