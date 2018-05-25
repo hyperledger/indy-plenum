@@ -10,9 +10,9 @@ def test_get_prefix_nodes():
     trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     prefix = 'abcd'
     prefix_nibbles = bin_to_nibbles(to_string(prefix))
-    key1 = prefix+'1'
-    key2 = prefix+'2'
-    key3 = prefix+'3'
+    key1 = prefix + '1'
+    key2 = prefix + '2'
+    key3 = prefix + '3'
     trie.update(key1.encode(), rlp_encode(['v1']))
     last_node = trie._get_last_node_for_prfx(trie.root_node, prefix_nibbles)
     # The last node should be a leaf since only 1 key
@@ -20,7 +20,7 @@ def test_get_prefix_nodes():
 
     # The queried key is larger than prefix, results in blank node
     last_node_ = trie._get_last_node_for_prfx(trie.root_node,
-                                              bin_to_nibbles(to_string(prefix+'5')))
+                                              bin_to_nibbles(to_string(prefix + '5')))
     assert last_node_ == BLANK_NODE
 
     trie.update(key2.encode(), rlp_encode(['v2']))
