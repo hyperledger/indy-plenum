@@ -47,19 +47,12 @@ class DomainRequestHandler(LedgerRequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request, cons_time):
-        txn = reqToTxn(req, cons_time)
+    def _reqToTxn(self, req: Request):
+        txn = reqToTxn(req)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
         return txn
-
-    def apply(self, req: Request, cons_time: int):
-        txn = self._reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
-        self.updateState([txn])
-        return start, txn
 
     @staticmethod
     def transform_txn_for_ledger(txn):

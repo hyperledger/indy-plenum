@@ -90,7 +90,8 @@ if __name__ == "__main__":
             with open(path_to_save, 'w') as outpath:
                 for i in range(args.count):
                     req = sdk_signed_random_requests(looper, (sdk_wallet, DID), 1)[0]
-                    txn = reqToTxn(req, int(time.time()))
+                    txn = reqToTxn(req)
+                    append_txn_metadata(txn, txn_time=int(time.time()))
                     outpath.write(json.dumps(txn))
                     outpath.write(os.linesep)
             looper.stopall()

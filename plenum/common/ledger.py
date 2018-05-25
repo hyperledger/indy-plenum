@@ -22,11 +22,19 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
+    def append_txns_metadata(self, txns: List, txn_time=None):
+        if txn_time is not None:
+            # All transactions have the same time since all these
+            # transactions belong to the same 3PC batch
+            for txn in txns:
+                append_txn_metadata(txn, txn_time=txn_time)
+        self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
+
     def appendTxns(self, txns: List):
         # These transactions are not yet committed so they do not go to
         # the ledger
+        assert all([get_seq_no(txn) is not None for txn in txns])
         uncommittedSize = self.size + len(self.uncommittedTxns)
-        txns = self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
