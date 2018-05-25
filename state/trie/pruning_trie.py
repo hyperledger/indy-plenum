@@ -409,21 +409,22 @@ class Trie:
 
         # key value node
         curr_key = without_terminator(unpack_to_nibbles(node[0]))
-        if len(key_prfx) > len(curr_key):
-            full = key_prfx
-            part = curr_key
-        else:
-            full = curr_key
-            part = key_prfx
 
         if node_type == NODE_TYPE_LEAF:
-            if starts_with(full, part):
+            # Return this node only if the complete prefix is part of the current key
+            if starts_with(curr_key, key_prfx):
                 return node
             else:
                 return BLANK_NODE
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
+            if len(key_prfx) > len(curr_key):
+                full = key_prfx
+                part = curr_key
+            else:
+                full = curr_key
+                part = key_prfx
             if starts_with(full, part):
                 self._decode_to_node(node[1])
                 return node
@@ -1020,7 +1021,8 @@ class Trie:
         proof.pop()
         return o
 
-    def produce_spv_proof_for_key_prfx(self, key_prfx, root=None):
+    def produce_spv_proof_for_nodes_with_key_prfx(self, key_prfx, root=None):
+        # Return a proof for keys in the trie with the given prefix.
         root = root or self.root_node
         proof.push(RECORDING)
         prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)))
@@ -1035,7 +1037,7 @@ class Trie:
 
     def generate_state_proof_for_key_prfx(self, key_prfx, root=None, serialize=False):
         # NOTE: The method `produce_spv_proof` is not deliberately modified
-        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_key_prfx,
+        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_nodes_with_key_prfx,
                                           root=root, serialize=serialize)
 
     def _generate_state_proof(self, path, func, root=None, serialize=False):
