@@ -70,19 +70,19 @@ class HasPoolManager(TxnStackManager):
             nodeName = txn_data[DATA][ALIAS]
             nodeNym = txn_data[TARGET_NYM]
 
-            def _update(txn):
+            def _update(txn_data):
                 if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}.\
                         intersection(set(txn_data[DATA].keys())):
                     self.stackHaChanged(txn_data, remoteName, self)
                 if VERKEY in txn_data:
                     self.stackKeysChanged(txn_data, remoteName, self)
                 if SERVICES in txn_data[DATA]:
-                    self.nodeServicesChanged(txn)
+                    self.nodeServicesChanged(txn_data)
                     self.setPoolParams()
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
-                _update(txn)
+                _update(txn_data)
             else:
                 seqNos, info = self.getNodeInfoFromLedger(nodeNym)
                 if len(seqNos) == 1:
@@ -93,14 +93,13 @@ class HasPoolManager(TxnStackManager):
                 else:
                     self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                    _update(txn)
+                    _update(txn_data)
         else:
             logger.error("{} received unknown txn type {} in txn {}"
                          .format(self.name, typ, txn))
             return
 
-    def nodeServicesChanged(self, txn):
-        txn_data = get_payload_data(txn)
+    def nodeServicesChanged(self, txn_data):
         nodeNym = txn_data[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
