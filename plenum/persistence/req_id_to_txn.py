@@ -22,7 +22,7 @@ class ReqIdrToTxn:
                                                                  seq_no))
                                         for digest, ledge_id, seq_no in batch])
 
-    def get(self, digest) -> Optional[(int, int)]:  # leger_id : int?
+    def get(self, digest):
         """
         Return leger_id, seq_no of transaction that was a result
         of last request with this digest

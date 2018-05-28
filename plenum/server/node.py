@@ -50,7 +50,7 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data, txnToReq
+from plenum.common.txn_util import idr_from_req_data, txnToReq, reqToTxn
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1800,7 +1800,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
                 rh.ts_store.set(txn[TXN_TIME],
                                 state.headHash)
-        self.updateSeqNoMap([txn])
+        self.updateSeqNoMap([txn], ledger_id)
         self._clear_req_key_for_txn(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
@@ -2607,19 +2607,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              last_txn_seq_no)
         self._observable.append_input(batch_committed_msg, self.name)
 
-    def updateSeqNoMap(self, committedTxns, requests):
-        reqs = []
+    def updateSeqNoMap(self, committedTxns,
+                       ledger_id,
+                       requests: List[Request] = None):
+        req_map = []
         for txn in committedTxns:
-            reqs.append(txnToReq(txn))
-        if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
-            self.seqNoDB.addBatch((idr_from_req_data(txn), txn[f.REQ_ID.nm],
-                                   req[F.seqNo.name]) for req in reqs)
+            if requests is None:
+                req_map.append((txnToReq(txn), txn))
+            else:
+                for req in requests:
+                    if reqToTxn(req) in txn:
+                        req_map.append((req, txn))
 
-    def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
+        if all([req.reqId for req, txn in req_map]):
+            self.seqNoDB.addBatch((req.digest,
+                                   ledger_id, txn[F.seqNo.name])
+                                  for req, txn in req_map)
+
+    def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
+        reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
-        self.updateSeqNoMap(committedTxns, reqs)
+        self.updateSeqNoMap(committedTxns, ledger_id, reqs)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
                           pp_time=ppTime)
@@ -2632,7 +2642,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
         return self.commitAndSendReplies(
-            self.get_req_handler(ledger_id), pp_time, reqs, state_root,
+            ledger_id, pp_time, reqs, state_root,
             txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
@@ -2939,8 +2949,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seq_no = seq_no if seq_no else \
-            self.seqNoDB.get(request.digest)
+        if seq_no is None:
+            ledger_id, seq_no = self.seqNoDB.get(request.digest)
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:
