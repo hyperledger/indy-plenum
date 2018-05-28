@@ -744,10 +744,10 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
                                                                 )) from ex
 
 
-def checkIfSameReplicaIPrimary(looper: Looper,
-                               replicas: Sequence[TestReplica] = None,
-                               retryWait: float = 1,
-                               timeout: float = 20):
+def checkIfSameReplicaIsPrimary(looper: Looper,
+                                replicas: Sequence[TestReplica] = None,
+                                retryWait: float = 1,
+                                timeout: float = 20):
     # One and only one primary should be found and every replica should agree
     # on same primary
 
@@ -802,10 +802,10 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
-        checkIfSameReplicaIPrimary(looper=looper,
-                                   replicas=replicas,
-                                   retryWait=retryWait,
-                                   timeout=newTimeout)
+        checkIfSameReplicaIsPrimary(looper=looper,
+                                    replicas=replicas,
+                                    retryWait=retryWait,
+                                    timeout=newTimeout)
 
 
 def checkEveryNodeHasAtMostOnePrimary(looper: Looper,

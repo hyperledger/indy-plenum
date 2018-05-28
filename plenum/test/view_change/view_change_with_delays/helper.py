@@ -1,10 +1,14 @@
+from typing import Iterable
+
 from plenum.common.util import max_3PC_key, getNoInstances, getMaxFailures
+from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.delayers import vcd_delay, icDelay, cDelay, pDelay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
-    sdk_check_reply
+    waitForViewChange
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 
 
 def last_prepared_certificate(nodes):
@@ -42,6 +46,23 @@ def check_view_change_done(nodes, view_no):
     for n in nodes:
         assert n.master_replica.viewNo >= view_no
         assert n.master_replica.last_prepared_before_view_change is None
+
+
+def wait_for_elections_done_for_master(looper: Looper,
+                                       nodes: Iterable[Node],
+                                       timeout: float,
+                                       retry_wait: float=1.0):
+    """
+    Wait for primary elections to be completed on master replicas
+    of given nodes.
+    """
+    def verify_each_master_replica_knows_its_primary():
+        for node in nodes:
+            assert node.master_replica.hasPrimary
+
+    looper.run(eventually(verify_each_master_replica_knows_its_primary,
+                          timeout=timeout,
+                          retryWait=retry_wait))
 
 
 def do_view_change_with_pending_request_and_one_fast_node(fast_node,
@@ -143,15 +164,84 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                     n.view_changer.on_master_degradation()
 
                 # Wait until view change is completed on all nodes except slow one
-                looper.run(eventually(check_view_change_done, fast_nodes, view_no + 1, timeout=60))
+                waitForViewChange(looper,
+                                  fast_nodes,
+                                  expectedViewNo=view_no + 1,
+                                  customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
+                wait_for_elections_done_for_master(looper,
+                                                   fast_nodes,
+                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
             # Now all the nodes receive Commits
+            # The slow node will accept Commits and order the 3PC-batch in the old view
             looper.runFor(waits.expectedOrderingTime(getNoInstances(len(nodes))))
 
         # Now slow node receives InstanceChanges
-        looper.runFor(waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
+        waitForViewChange(looper,
+                          [slow_node],
+                          expectedViewNo=view_no + 1,
+                          customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
 
     # Now slow node receives ViewChangeDones
-    # Check the reply to the request
-    reply = sdk_get_reply(looper, request)
-    sdk_check_reply(reply)
+    wait_for_elections_done_for_master(looper,
+                                       [slow_node],
+                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+
+    # Finish request gracefully
+    sdk_get_reply(looper, request)
+
+
+def do_view_change_with_propagate_primary_on_one_delayed_node(
+        slow_node, nodes, looper, sdk_pool_handle, sdk_wallet_client):
+
+    slow_stasher = slow_node.nodeIbStasher
+
+    fast_nodes = [n for n in nodes if n != slow_node]
+
+    stashers = [n.nodeIbStasher for n in nodes]
+
+    # Get last prepared certificate in pool
+    lpc = last_prepared_certificate(nodes)
+    # Get pool current view no
+    view_no = lpc[0]
+
+    with delay_rules(slow_stasher, icDelay()):
+        with delay_rules(slow_stasher, vcd_delay()):
+            with delay_rules(stashers, cDelay()):
+                # Send request
+                request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+
+                # Wait until this request is prepared on N-f nodes
+                looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
+
+                # Trigger view change
+                for n in nodes:
+                    n.view_changer.on_master_degradation()
+
+                # Wait until view change is completed on all nodes except slow one
+                waitForViewChange(looper,
+                                  fast_nodes,
+                                  expectedViewNo=view_no + 1,
+                                  customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
+                wait_for_elections_done_for_master(looper,
+                                                   fast_nodes,
+                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+
+            # Now all the nodes receive Commits
+            # The slow node will accept Commits and order the 3PC-batch in the old view
+            looper.runFor(waits.expectedOrderingTime(getNoInstances(len(nodes))))
+
+        # Now slow node receives ViewChangeDones
+        waitForViewChange(looper,
+                          [slow_node],
+                          expectedViewNo=view_no + 1,
+                          customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
+        wait_for_elections_done_for_master(looper,
+                                           [slow_node],
+                                           timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+
+    # Now slow node receives InstanceChanges but discards them because already
+    # started propagate primary to the same view.
+
+    # Finish request gracefully
+    sdk_get_reply(looper, request)
