@@ -113,7 +113,7 @@ class HasPoolManager(TxnStackManager):
         else:
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
-                self.updateNodeTxns(nodeInfo, txn)
+                self.updateNodeTxns(nodeInfo, txn_data)
                 self.connectNewRemote(nodeInfo, remoteName, self)
 
             if VALIDATOR in oldServices.difference(newServices):
