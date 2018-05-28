@@ -258,10 +258,16 @@ def test_proof_prefix_only_prefix_nodes():
     for k, v in key_vals.items():
         node_trie.update(k.encode(), rlp_encode([v]))
 
-    proof_nodes, val = node_trie.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
+    proof_nodes, val = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=True)
     encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items()}
     # Check returned values match the actual values
     assert encoded == val
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              encoded, proof_nodes)
+    # Check without value
+    proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=False)
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                               encoded, proof_nodes)
 
@@ -297,6 +303,11 @@ def test_proof_prefix_with_other_nodes():
     encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items()}
     # Check returned values match the actual values
     assert encoded == val
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              encoded, proof_nodes)
+    # Check without value
+    proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=False)
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                               encoded, proof_nodes)
 
@@ -348,6 +359,12 @@ def test_proof_multiple_prefix_nodes():
         assert encoded == val
         assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                                   encoded, proof_nodes)
+        # Check without value
+        proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+            prefix.encode(), get_value=False)
+        assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                                  encoded, proof_nodes)
+
         # Verify keys with a different prefix
         encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if
                    not k.startswith(prefix)}

@@ -104,7 +104,6 @@ STATE_PROOF = 'state_proof'
 ROOT_HASH = "root_hash"
 MULTI_SIGNATURE = "multi_signature"
 PROOF_NODES = "proof_nodes"
-VALUE = 'value'
 
 MULTI_SIGNATURE_SIGNATURE = 'signature'
 MULTI_SIGNATURE_PARTICIPANTS = 'participants'

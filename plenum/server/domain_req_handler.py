@@ -5,7 +5,7 @@ from common.serializers.serialization import domain_state_serializer, \
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
     VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
-    STATE_PROOF, VALUE
+    STATE_PROOF
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
@@ -13,7 +13,6 @@ from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.ledger_req_handler import LedgerRequestHandler
-from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
