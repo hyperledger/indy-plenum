@@ -344,12 +344,12 @@ class ZStack(NetworkInterface):
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
         logger.debug(
-            '{} will bind its listener at {}'.format(self, self.ha[1]))
+            '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_length(self.listener, self.config)
         self.listener.bind(
-            '{protocol}://*:{port}'.format(
-                port=self.ha[1], protocol=ZMQ_NETWORK_PROTOCOL)
+            '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
+                                              protocol=ZMQ_NETWORK_PROTOCOL)
         )
 
     def close(self):
