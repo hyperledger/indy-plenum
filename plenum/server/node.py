@@ -2067,12 +2067,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         # If the node is not already processing the request
-        if not self.isProcessingReq(*request.key):
-            self.startedProcessingReq(*request.key, frm)
+        if not self.isProcessingReq(request.digest):
+            self.startedProcessingReq(request.digest, frm)
         # If not already got the propagate request(PROPAGATE) for the
         # corresponding client request(REQUEST)
         self.recordAndPropagate(request, frm)
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
 
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
@@ -2089,15 +2089,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         try:
             handler.doStaticValidation(request)
-            self.send_ack_to_client(request.key, frm)
+            self.send_ack_to_client((request.identifier, request.reqId), frm)
         except Exception as ex:
-            self.send_nack_to_client(request.key, str(ex), frm)
+            self.send_nack_to_client((request.identifier, request.reqId),
+                                     str(ex), frm)
         result = handler.get_query_response(request)
         self.transmitToClient(Reply(result), frm)
 
     def process_action(self, request, frm):
         # Process an execute action request
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
         try:
             self.actionReqHandler.validate(request)
             result = self.actionReqHandler.apply(request)
@@ -2126,40 +2127,40 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if not self.isProcessingReq(*request.key):
+        if not self.isProcessingReq(request.digest):
             if self.seqNoDB.get(request.identifier, request.reqId) is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
                 return
 
-            self.startedProcessingReq(*request.key, clientName)
+            self.startedProcessingReq(request.digest, clientName)
 
         else:
             if clientName is not None and \
-                    not self.is_sender_known_for_req(*request.key):
+                    not self.is_sender_known_for_req(request.digest):
                 # Since some propagates might not include the client name
-                self.set_sender_for_req(*request.key, clientName)
+                self.set_sender_for_req(request.digest, clientName)
 
         self.requests.add_propagate(request, frm)
 
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
-    def startedProcessingReq(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+    def startedProcessingReq(self, digest, frm):
+        self.requestSender[digest] = frm
 
-    def isProcessingReq(self, identifier, reqId) -> bool:
-        return (identifier, reqId) in self.requestSender
+    def isProcessingReq(self, digest) -> bool:
+        return digest in self.requestSender
 
-    def doneProcessingReq(self, identifier, reqId):
-        self.requestSender.pop((identifier, reqId))
+    def doneProcessingReq(self, digest):
+        self.requestSender.pop(digest)
 
-    def is_sender_known_for_req(self, identifier, reqId):
-        return self.requestSender.get((identifier, reqId)) is not None
+    def is_sender_known_for_req(self, digest):
+        return self.requestSender.get(digest) is not None
 
-    def set_sender_for_req(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+    def set_sender_for_req(self, digest, frm):
+        self.requestSender[digest] = frm
 
     def send_ack_to_client(self, req_key, to_client):
         self.transmitToClient(RequestAck(*req_key), to_client)
@@ -2173,12 +2174,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
         if ledger_id not in self.ledger_to_req_handler:
-            self.send_nack_to_client(request.key,
+            self.send_nack_to_client((request.identifier, request.reqId),
                                      'Invalid ledger id {}'.format(ledger_id),
                                      frm)
             return
         seq_no = request.operation.get(DATA)
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
         ledger = self.getLedger(ledger_id)
         try:
             txn = self.getReplyFromLedger(ledger=ledger,

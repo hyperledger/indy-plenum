@@ -1089,7 +1089,7 @@ class Cli:
                 request, errs = client.submitReqs(req)
                 if request:
                     rqst = request[0]
-                    self.requests[rqst.key] = rqst
+                    self.requests[rqst.digest] = rqst
                     self.print("Request sent, request id: {}".format(
                         req.reqId), Token.BoldBlue)
                 else:
