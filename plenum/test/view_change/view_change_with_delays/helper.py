@@ -7,7 +7,8 @@ from plenum.test.delayers import vcd_delay, icDelay, cDelay, pDelay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
     waitForViewChange
 from plenum.test.stasher import delay_rules
-from stp_core.loop.eventually import eventually
+from plenum.test.test_node import getRequiredInstances
+from stp_core.loop.eventually import eventually, eventuallyAll
 from stp_core.loop.looper import Looper
 
 
@@ -48,21 +49,28 @@ def check_view_change_done(nodes, view_no):
         assert n.master_replica.last_prepared_before_view_change is None
 
 
-def wait_for_elections_done_for_master(looper: Looper,
-                                       nodes: Iterable[Node],
-                                       timeout: float,
-                                       retry_wait: float=1.0):
+def wait_for_elections_done_on_given_nodes(looper: Looper,
+                                           nodes: Iterable[Node],
+                                           num_of_instances: int,
+                                           timeout: float,
+                                           retry_wait: float=1.0):
     """
-    Wait for primary elections to be completed on master replicas
-    of given nodes.
+    Wait for primary elections to be completed on all the replicas
+    of the given nodes.
     """
-    def verify_each_master_replica_knows_its_primary():
+    def check_num_of_replicas():
         for node in nodes:
-            assert node.master_replica.hasPrimary
+            assert len(node.replicas) == num_of_instances
 
-    looper.run(eventually(verify_each_master_replica_knows_its_primary,
-                          timeout=timeout,
-                          retryWait=retry_wait))
+    def verify_each_replica_knows_its_primary():
+        for node in nodes:
+            for replica in node.replicas:
+                assert replica.hasPrimary
+
+    looper.run(eventuallyAll(check_num_of_replicas,
+                             verify_each_replica_knows_its_primary,
+                             totalTimeout=timeout,
+                             retryWait=retry_wait))
 
 
 def do_view_change_with_pending_request_and_one_fast_node(fast_node,
@@ -168,9 +176,10 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                                   fast_nodes,
                                   expectedViewNo=view_no + 1,
                                   customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-                wait_for_elections_done_for_master(looper,
-                                                   fast_nodes,
-                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+                wait_for_elections_done_on_given_nodes(looper,
+                                                       fast_nodes,
+                                                       getRequiredInstances(len(nodes)),
+                                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
             # Now all the nodes receive Commits
             # The slow node will accept Commits and order the 3PC-batch in the old view
@@ -183,9 +192,10 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                           customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
 
     # Now slow node receives ViewChangeDones
-    wait_for_elections_done_for_master(looper,
-                                       [slow_node],
-                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+    wait_for_elections_done_on_given_nodes(looper,
+                                           [slow_node],
+                                           getRequiredInstances(len(nodes)),
+                                           timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
     # Finish request gracefully
     sdk_get_reply(looper, request)
@@ -223,9 +233,10 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
                                   fast_nodes,
                                   expectedViewNo=view_no + 1,
                                   customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-                wait_for_elections_done_for_master(looper,
-                                                   fast_nodes,
-                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+                wait_for_elections_done_on_given_nodes(looper,
+                                                       fast_nodes,
+                                                       getRequiredInstances(len(nodes)),
+                                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
             # Now all the nodes receive Commits
             # The slow node will accept Commits and order the 3PC-batch in the old view
@@ -236,9 +247,10 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
                           [slow_node],
                           expectedViewNo=view_no + 1,
                           customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-        wait_for_elections_done_for_master(looper,
-                                           [slow_node],
-                                           timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+        wait_for_elections_done_on_given_nodes(looper,
+                                               [slow_node],
+                                               getRequiredInstances(len(nodes)),
+                                               timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
     # Now slow node receives InstanceChanges but discards them because already
     # started propagate primary to the same view.
