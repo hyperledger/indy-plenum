@@ -73,9 +73,9 @@ class HasPoolManager(TxnStackManager):
             def _update(txn):
                 if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}.\
                         intersection(set(txn_data[DATA].keys())):
-                    self.stackHaChanged(txn, remoteName, self)
+                    self.stackHaChanged(txn_data, remoteName, self)
                 if VERKEY in txn_data:
-                    self.stackKeysChanged(txn, remoteName, self)
+                    self.stackKeysChanged(txn_data, remoteName, self)
                 if SERVICES in txn_data[DATA]:
                     self.nodeServicesChanged(txn)
                     self.setPoolParams()
