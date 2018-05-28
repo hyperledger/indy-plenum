@@ -100,21 +100,27 @@ class PruningState(State):
     def generate_state_proof(self, key: bytes, root=None, serialize=False, get_value=False):
         return self._trie.generate_state_proof(key, root, serialize, get_value=get_value)
 
-    def generate_state_proof_for_key_prfx(self, key_prfx, root=None,
-                                          serialize=False, get_value=False):
-        return self._trie.generate_state_proof_for_key_prfx(key_prfx, root,
-                                                            serialize, get_value=get_value)
+    def generate_state_proof_for_keys_with_prefix(self, key_prfx, root=None,
+                                                  serialize=False, get_value=False):
+        return self._trie.generate_state_proof_for_keys_with_prefix(key_prfx, root,
+                                                                    serialize, get_value=get_value)
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):
-        encoded_value = rlp_encode([value]) if value is not None else b''
-        return Trie.verify_spv_proof(root, key, encoded_value,
+        encoded_key, encoded_value = PruningState.encode_kv_for_verification(key, value)
+        return Trie.verify_spv_proof(root, encoded_key, encoded_value,
                                      proof_nodes, serialized)
 
     @staticmethod
     def verify_state_proof_multi(root, key_values, proof_nodes, serialized=False):
-        encoded_key_values = {k: rlp_encode([v]) if v is not None else b'' for k, v in key_values.items()}
+        encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_values.items())
         return Trie.verify_spv_proof_multi(root, encoded_key_values, proof_nodes, serialized)
+
+    @staticmethod
+    def encode_kv_for_verification(key, value):
+        encoded_key = key.encode() if isinstance(key, str) else key
+        encoded_value = rlp_encode([value]) if value is not None else b''
+        return encoded_key, encoded_value
 
     @property
     def as_dict(self):

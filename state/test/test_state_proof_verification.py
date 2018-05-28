@@ -4,6 +4,7 @@ import pytest
 
 from state.pruning_state import PruningState
 from state.state import State
+from state.trie.pruning_trie import rlp_encode
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
@@ -75,7 +76,9 @@ def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None):
     for k, v in key_vals.items():
         state.set(k, v)
 
-    prefix_prf = state.generate_state_proof_for_key_prfx(prefix.encode())
+    prefix_prf, val = state.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
+    encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_vals.items())
+    assert val == encoded_key_values if len(val) == len(encoded_key_values) else val.items() >= encoded_key_values.items()
     assert PruningState.verify_state_proof_multi(state.headHash, key_vals,
                                                  prefix_prf)
 
