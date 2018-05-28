@@ -168,7 +168,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             ha = nodeReg[name]
 
         nstack = dict(name=name,
-                      ha=HA('0.0.0.0', ha[1]),
+                      ha=HA(*ha),
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value)
 
@@ -176,7 +176,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if not cliha:
             cliha = cliNodeReg[cliname]
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
-                      ha=HA('0.0.0.0', cliha[1]),
+                      ha=HA(*cliha),
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value)
 
