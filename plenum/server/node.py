@@ -2607,29 +2607,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              last_txn_seq_no)
         self._observable.append_input(batch_committed_msg, self.name)
 
-    def updateSeqNoMap(self, committedTxns,
-                       ledger_id,
-                       requests: List[Request] = None):
-        req_map = []
-        for txn in committedTxns:
-            if requests is None:
-                req_map.append((txnToReq(txn), txn))
-            else:
-                for req in requests:
-                    if reqToTxn(req) in txn:
-                        req_map.append((req, txn))
-
-        if all([req.reqId for req, txn in req_map]):
-            self.seqNoDB.addBatch((req.digest,
-                                   ledger_id, txn[F.seqNo.name])
-                                  for req, txn in req_map)
+    def updateSeqNoMap(self, committedTxns, ledger_id):
+        if all([txn.get(f.REQ_ID.nm, None) for txn in committedTxns]):
+            self.seqNoDB.addBatch((txn[f.REQ_ID.nm], ledger_id,
+                                   txn[F.seqNo.name]) for txn in committedTxns)
 
     def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
-        self.updateSeqNoMap(committedTxns, ledger_id, reqs)
+        self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
                           pp_time=ppTime)

@@ -33,7 +33,7 @@ class ReqIdrToTxn:
             val = self._keyValueStorage.get(digest)
             return self._parse_value(val)
         except (KeyError, ValueError):
-            return None
+            return None, None
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
