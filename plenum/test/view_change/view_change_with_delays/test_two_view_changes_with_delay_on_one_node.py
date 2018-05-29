@@ -20,7 +20,8 @@ def tconf(tconf):
     tconf.unsafe = old_unsafe
 
 
-@pytest.mark.skip(reason='INDY-1303. Case 4: the pool loses consensus')
+@pytest.mark.skip(reason='INDY-1303. Case 4: the second view change '
+                         'is not completed')
 def test_two_view_changes_with_delay_on_one_node(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """

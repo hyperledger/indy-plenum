@@ -1,10 +1,10 @@
-import pytest
 import base58
+import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER, NODE_PORT, \
-    CLIENT_PORT, NODE_IP
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR, IDENTIFIER
+from plenum.common.member.steward import Steward
 from plenum.common.stack_manager import TxnStackManager
 
 errMsg1 = 'Invalid verkey. Rebuild pool transactions.'
@@ -16,17 +16,13 @@ whitelist = ['substring not found', errMsg1, errMsg2]
 def invalid_verkey_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
     for d in range(3):
-        txn = {TXN_TYPE: '0',
-               TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
-               IDENTIFIER: "Th7MpTaRZVRYnPiabds81Y",
-               DATA: {
-                   NAME: str(d),
-                   ALIAS: 'test' + str(d),
-                   SERVICES: [VALIDATOR],
-               }
-               }
-        if d == 1:
-            txn[TARGET_NYM] = "invalid===="
+        txn = Steward.node_txn(steward_nym="Th7MpTaRZVRYnPiabds81Y",
+                               node_name='test' + str(d),
+                               nym=base58.b58encode(b'whatever') if d != 1 else "invalid====",
+                               ip='127.0.0.1',
+                               node_port=8080,
+                               client_port=8081,
+                               client_ip='127.0.0.1')
         ledger.add(txn)
     ledger.stop()
 
@@ -34,15 +30,13 @@ def invalid_verkey_tdir(tdir_for_func):
 @pytest.fixture(scope="function")
 def invalid_identifier_tdir(tdir_for_func):
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir_for_func)
-    txn = {TXN_TYPE: '0',
-           TARGET_NYM: base58.b58encode(b'whatever').decode("utf-8"),
-           IDENTIFIER: "invalid====",
-           DATA: {
-               NAME: str(2),
-               ALIAS: 'test' + str(2),
-               SERVICES: [VALIDATOR],
-           }
-           }
+    txn = Steward.node_txn(nym=base58.b58encode(b'whatever').decode("utf-8"),
+                           steward_nym="invalid====",
+                           node_name='test' + str(2),
+                           ip='127.0.0.1',
+                           node_port=8080,
+                           client_port=8081,
+                           client_ip='127.0.0.1')
     ledger.add(txn)
     ledger.stop()
 

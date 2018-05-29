@@ -36,6 +36,8 @@ from plenum.common.stack_manager import TxnStackManager
 from plenum.common.tools import lazy_field
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+
+from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata
 from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
@@ -536,16 +538,19 @@ class Cli:
     def _addOldGenesisCommand(self, matchedVars):
         destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
         typ = self._getType(matchedVars)
-        txn = {
-            TXN_TYPE: typ,
+        txn = init_empty_txn(typ)
+
+        txn_data = {
             TARGET_NYM: destId,
         }
-        if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = getFriendlyIdentifier(
-                matchedVars.get(IDENTIFIER))
-
         if matchedVars.get(DATA):
-            txn[DATA] = json.loads(matchedVars.get(DATA))
+            txn_data[DATA] = json.loads(matchedVars.get(DATA))
+        txn = set_payload_data(txn, txn_data)
+
+        if matchedVars.get(IDENTIFIER):
+            txn = append_payload_metadata(txn,
+                                          frm=getFriendlyIdentifier(
+                                              matchedVars.get(IDENTIFIER)))
 
         self.genesisTransactions.append(txn)
         self.print('Genesis transaction added')

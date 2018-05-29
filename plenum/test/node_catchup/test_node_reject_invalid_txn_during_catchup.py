@@ -1,6 +1,7 @@
 import pytest
 import types
 
+from plenum.common.txn_util import get_type, set_type
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -8,7 +9,7 @@ from plenum.common.ledger import Ledger
 from plenum.test.conftest import getValueFromModule
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
 from stp_core.common.log import getlogger
-from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep
 from plenum.common.types import f
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -105,8 +106,8 @@ def _sendIncorrectTxns(self, req, frm):
         txns = {}
         for seqNo, txn in ledger.getAllTxn(start, end):
             # Since the type of random request is `buy`
-            if txn.get(TXN_TYPE) == "buy":
-                txn[TXN_TYPE] = "randombuy"
+            if get_type(txn) == "buy":
+                set_type(txn, "randombuy")
             txns[seqNo] = txn
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, ledger.size)]

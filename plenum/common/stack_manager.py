@@ -4,6 +4,7 @@ from collections import OrderedDict
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.tools import lazy_field
+from plenum.common.txn_util import get_payload_data, get_type, get_from
 from storage.helper import initHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
@@ -11,7 +12,7 @@ from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
+    CLIENT_PORT, NODE_PORT, VERKEY, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
 
@@ -101,14 +102,15 @@ class TxnStackManager(metaclass=ABCMeta):
         helper function for parseLedgerForHaAndKeys
         """
         for _, txn in ledger.getAllTxn(to=ledger_size):
-            if txn[TXN_TYPE] == NODE:
-                nodeName = txn[DATA][ALIAS]
+            if get_type(txn) == NODE:
+                txn_data = get_payload_data(txn)
+                nodeName = txn_data[DATA][ALIAS]
                 clientStackName = nodeName + CLIENT_STACK_SUFFIX
-                nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                    if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
+                nHa = (txn_data[DATA][NODE_IP], txn_data[DATA][NODE_PORT]) \
+                    if (NODE_IP in txn_data[DATA] and NODE_PORT in txn_data[DATA]) \
                     else None
-                cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                    if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
+                cHa = (txn_data[DATA][CLIENT_IP], txn_data[DATA][CLIENT_PORT]) \
+                    if (CLIENT_IP in txn_data[DATA] and CLIENT_PORT in txn_data[DATA]) \
                     else None
                 if nHa:
                     nodeReg[nodeName] = HA(*nHa)
@@ -118,9 +120,9 @@ class TxnStackManager(metaclass=ABCMeta):
                 try:
                     # TODO: Need to handle abbreviated verkey
                     key_type = 'verkey'
-                    verkey = cryptonymToHex(txn[TARGET_NYM])
+                    verkey = cryptonymToHex(str(txn_data[TARGET_NYM]))
                     key_type = 'identifier'
-                    cryptonymToHex(txn[IDENTIFIER])
+                    cryptonymToHex(get_from(txn))
                 except ValueError:
                     logger.exception(
                         'Invalid {}. Rebuild pool transactions.'.format(key_type))
@@ -128,20 +130,20 @@ class TxnStackManager(metaclass=ABCMeta):
 
                 nodeKeys[nodeName] = verkey
 
-                services = txn[DATA].get(SERVICES)
+                services = txn_data[DATA].get(SERVICES)
                 if isinstance(services, list):
                     if VALIDATOR in services:
                         activeValidators.add(nodeName)
                     else:
                         activeValidators.discard(nodeName)
 
-    def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
+    def connectNewRemote(self, txn_data, remoteName, nodeOrClientObj,
                          addRemote=True):
         # TODO: Need to handle abbreviated verkey
-        verkey = cryptonymToHex(txn[TARGET_NYM])
+        verkey = cryptonymToHex(txn_data[TARGET_NYM])
 
-        nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-        cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+        nodeHa = (txn_data[DATA][NODE_IP], txn_data[DATA][NODE_PORT])
+        cliHa = (txn_data[DATA][CLIENT_IP], txn_data[DATA][CLIENT_PORT])
 
         if addRemote:
             try:
@@ -167,18 +169,18 @@ class TxnStackManager(metaclass=ABCMeta):
                                                                    cliHa))
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
-    def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
+    def stackHaChanged(self, txn_data, remoteName, nodeOrClientObj):
         nodeHa = None
         cliHa = None
         if self.isNode:
             node_ha_changed = False
             (ip, port) = nodeOrClientObj.nodeReg[remoteName]
-            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
-                ip = txn[DATA][NODE_IP]
+            if NODE_IP in txn_data[DATA] and ip != txn_data[DATA][NODE_IP]:
+                ip = txn_data[DATA][NODE_IP]
                 node_ha_changed = True
 
-            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
-                port = txn[DATA][NODE_PORT]
+            if NODE_PORT in txn_data[DATA] and port != txn_data[DATA][NODE_PORT]:
+                port = txn_data[DATA][NODE_PORT]
                 node_ha_changed = True
 
             if node_ha_changed:
@@ -189,12 +191,12 @@ class TxnStackManager(metaclass=ABCMeta):
             if self.isNode \
             else nodeOrClientObj.nodeReg[remoteName]
 
-        if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
-            ip = txn[DATA][CLIENT_IP]
+        if CLIENT_IP in txn_data[DATA] and ip != txn_data[DATA][CLIENT_IP]:
+            ip = txn_data[DATA][CLIENT_IP]
             cli_ha_changed = True
 
-        if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
-            port = txn[DATA][CLIENT_PORT]
+        if CLIENT_PORT in txn_data[DATA] and port != txn_data[DATA][CLIENT_PORT]:
+            port = txn_data[DATA][CLIENT_PORT]
             cli_ha_changed = True
 
         if cli_ha_changed:
@@ -215,7 +217,7 @@ class TxnStackManager(metaclass=ABCMeta):
 
         return rid
 
-    def stackKeysChanged(self, txn, remoteName, nodeOrClientObj):
+    def stackKeysChanged(self, txn_data, remoteName, nodeOrClientObj):
         logger.debug("{} clearing remote role data in keep of {}".
                      format(nodeOrClientObj.nodestack.name, remoteName))
         logger.debug(
@@ -223,11 +225,11 @@ class TxnStackManager(metaclass=ABCMeta):
         # Removing remote so that the nodestack will attempt to connect
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
-        if txn[VERKEY][0] == '~':  # abbreviated
+        if txn_data[VERKEY][0] == '~':  # abbreviated
             verkey = cryptonymToHex(
-                txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
+                txn_data[TARGET_NYM]) + cryptonymToHex(txn_data[VERKEY][1:])
         else:
-            verkey = cryptonymToHex(txn[VERKEY])
+            verkey = cryptonymToHex(txn_data[VERKEY])
 
         # Override any keys found
         initRemoteKeys(self.name, remoteName, self.keys_dir, verkey, override=True)
@@ -276,15 +278,15 @@ class TxnStackManager(metaclass=ABCMeta):
         # Since PoolLedger is going to be small so using
         # `getAllTxn` is fine
         for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE and \
-                    txn[TARGET_NYM] == nym:
+            if get_type(txn) == NODE and \
+                    get_payload_data(txn)[TARGET_NYM] == nym:
                 return True
         return False
 
     # TODO: Consider removing `nodeIds` and using `node_ids_in_order`
     @property
     def nodeIds(self) -> set:
-        return {txn[TARGET_NYM] for _, txn in self.ledger.getAllTxn()}
+        return {get_payload_data(txn)[TARGET_NYM] for _, txn in self.ledger.getAllTxn()}
 
     def getNodeInfoFromLedger(self, nym, excludeLast=True):
         # Returns the info of the node from the ledger with transaction
@@ -294,23 +296,25 @@ class TxnStackManager(metaclass=ABCMeta):
         txns = []
         nodeTxnSeqNos = []
         for seqNo, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE and txn[TARGET_NYM] == nym:
+            txn_data = get_payload_data(txn)
+            if get_type(txn) == NODE and txn_data[TARGET_NYM] == nym:
                 txns.append(txn)
                 nodeTxnSeqNos.append(seqNo)
         info = {}
         if len(txns) > 1 and excludeLast:
             txns = txns[:-1]
         for txn in txns:
-            self.updateNodeTxns(info, txn)
+            self.updateNodeTxns(info, get_payload_data(txn))
         return nodeTxnSeqNos, info
 
     def getNodesServices(self):
         # Returns services for each node
         srvs = dict()
         for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE and \
-                    txn.get(DATA, {}).get(SERVICES) is not None:
-                srvs.update({txn[TARGET_NYM]: txn[DATA][SERVICES]})
+            txn_data = get_payload_data(txn)
+            if get_type(txn) == NODE and \
+                    txn_data.get(DATA, {}).get(SERVICES) is not None:
+                srvs.update({txn_data[TARGET_NYM]: txn_data[DATA][SERVICES]})
         return srvs
 
     @staticmethod
