@@ -132,7 +132,7 @@ class Request:
         return hash(self.serialized())
 
 
-class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
+class ReqKey(NamedTuple(REQKEY, [f.DIGEST])):
     pass
 
 
