@@ -40,7 +40,7 @@ class ReqIdrToTxn:
         return int(parse_data[0]), int(parse_data[1])
 
     def _get_value(self, ledge_id, seq_no):
-        return ledge_id + self.delimiter + seq_no
+        return str(ledge_id) + self.delimiter + str(seq_no)
 
     @property
     def size(self):
