@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from common.serializers.msgpack_serializer import MsgPackSerializer
 
 serializer = MsgPackSerializer()
@@ -85,3 +87,48 @@ def test_serialize_complex_dict():
                 'id': 2,
                 'name': 'Dave'
             }]})
+    check(
+        {'3': ['a', 'b', 'c'],
+         '4': [
+             {
+                 '22': 'aa',
+                 '11': 'bb'
+             },
+             {
+                 '222': 'aaa',
+                 '111': 'bbb'
+             }],
+         '2': 'a',
+         '1': {
+             'b': 'a',
+             'a': 'b'}
+         }
+    )
+
+
+def test_sorted():
+    value = {'3': ['a', 'b', 'c'],
+             '4': [
+                 {
+                     '22': 'aa',
+                     '11': 'bb'
+                 },
+                 {
+                     '222': 'aaa',
+                     '111': 'bbb'
+                 }],
+             '2': 'a',
+             '1': {
+                 'b': 'a',
+                 'a': 'b'}
+             }
+    expected = OrderedDict([
+        ('1', OrderedDict([
+            ('a', 'b'), ('b', 'a')])),
+        ('2', 'a'),
+        ('3', ['a', 'b', 'c']),
+        ('4', [OrderedDict([('11', 'bb'), ('22', 'aa')]),
+               OrderedDict([('111', 'bbb'), ('222', 'aaa')])])
+    ])
+    sorted_input = serializer._sort_dict(value)
+    assert expected == sorted_input

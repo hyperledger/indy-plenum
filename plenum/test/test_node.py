@@ -10,6 +10,7 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
 
 from crypto.bls.bls_bft import BlsBft
 from plenum.common.stacks import nodeStackClass, clientStackClass
+from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
 from stp_core.crypto.util import randomSeed
@@ -66,9 +67,9 @@ class TestDomainRequestHandler(DomainRequestHandler):
     @staticmethod
     def prepare_buy_for_state(txn):
         from common.serializers.serialization import domain_state_serializer
-        identifier = txn.get(f.IDENTIFIER.nm)
-        req_id = txn.get(f.REQ_ID.nm)
-        value = domain_state_serializer.serialize({"amount": txn['amount']})
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
         key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
         return key, value
 
@@ -77,7 +78,7 @@ class TestDomainRequestHandler(DomainRequestHandler):
         return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = txn.get(TXN_TYPE)
+        typ = get_type(txn)
         if typ == 'buy':
             key, value = self.prepare_buy_for_state(txn)
             self.state.set(key, value)
@@ -381,7 +382,7 @@ class TestNode(TestNodeCore, Node):
         committedTxns = list(committedTxns)
         req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
         for txn in committedTxns:
-            if txn[TXN_TYPE] == "buy":
+            if get_type(txn) == "buy":
                 key, value = req_handler.prepare_buy_for_state(txn)
                 _, proof = req_handler.get_value_from_state(key, with_proof=True)
                 if proof:
@@ -744,10 +745,10 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
                                                                 )) from ex
 
 
-def checkIfSameReplicaIPrimary(looper: Looper,
-                               replicas: Sequence[TestReplica] = None,
-                               retryWait: float = 1,
-                               timeout: float = 20):
+def checkIfSameReplicaIsPrimary(looper: Looper,
+                                replicas: Sequence[TestReplica] = None,
+                                retryWait: float = 1,
+                                timeout: float = 20):
     # One and only one primary should be found and every replica should agree
     # on same primary
 
@@ -802,10 +803,10 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
-        checkIfSameReplicaIPrimary(looper=looper,
-                                   replicas=replicas,
-                                   retryWait=retryWait,
-                                   timeout=newTimeout)
+        checkIfSameReplicaIsPrimary(looper=looper,
+                                    replicas=replicas,
+                                    retryWait=retryWait,
+                                    timeout=newTimeout)
 
 
 def checkEveryNodeHasAtMostOnePrimary(looper: Looper,

@@ -1,19 +1,11 @@
 import os
 
 from jsonpickle import json
-from plenum.client.client import Client
-from plenum.client.wallet import Wallet
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
+
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.roles import Roles
-from plenum.common.signer_did import DidSigner
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.transactions import PlenumTransactions
-from plenum.test import waits
 from storage.text_file_store import TextFileStore
-from stp_core.loop.eventually import eventually
-from stp_core.network.port_dispenser import genHa
-from stp_core.types import HA
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
@@ -124,7 +116,7 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     clientAddr = vclientip + ":" + vclientport
 
     return 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
-        '"verkey": ' + verkey + \
+                                                                                                            '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
            clientAddr + '"},' \
                         '"by": "' + stewardkey + '"}'
@@ -156,7 +148,7 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 def getAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction {nym} with data {"'.format(nym=PlenumTransactions.NYM.name) \
            + name + '": {"verkey": "' + verkey + \
-        '"} role={role}'.format(role=Roles.STEWARD.name)
+           '"} role={role}'.format(role=Roles.STEWARD.name)
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
@@ -177,53 +169,5 @@ def printGenTxn(txn, displayTxn):
         print('\n' + txn)
 
 
-def submitNodeIpChange(client, stewardWallet, name: str, nym: str,
-                       nodeStackHa: HA, clientStackHa: HA):
-    (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-    txn = {
-        TXN_TYPE: NODE,
-        TARGET_NYM: nym,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: int(nodePort),
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: int(clientPort),
-            ALIAS: name,
-            SERVICES: [VALIDATOR],
-        }
-    }
-    signedOp = stewardWallet.signOp(txn, stewardWallet.defaultId)
-    req, _ = client.submitReqs(signedOp)
-    return req[0]
-
-
 def _checkClientConnected(cli, ):
     assert cli.hasSufficientConnections
-
-
-def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
-             stewardName, stewardsSeed, newClientHA=None, basedir=None):
-    if not newClientHA:
-        newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
-
-    assert basedir is not None
-
-    # prepare steward wallet
-    stewardSigner = DidSigner(seed=stewardsSeed)
-    stewardWallet = Wallet(stewardName)
-    stewardWallet.addIdentifier(signer=stewardSigner)
-
-    # prepare client to submit change ha request
-    _, randomClientPort = genHa()
-    client = Client(stewardName, ha=('0.0.0.0', randomClientPort), config=config, basedirpath=basedir)
-    looper.add(client)
-    timeout = waits.expectedClientToPoolConnectionTimeout(4)
-    looper.run(eventually(_checkClientConnected, client,
-                          retryWait=1, timeout=timeout))
-
-    nodeVerKey = SimpleSigner(seed=nodeSeed).verkey
-
-    # send request
-    req = submitNodeIpChange(client, stewardWallet, nodeName, nodeVerKey,
-                             newNodeHA, newClientHA)
-    return client, req

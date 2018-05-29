@@ -127,6 +127,28 @@ GET_TXN = PlenumTransactions.GET_TXN.value
 
 POOL_TXN_TYPES = {NODE, }
 
+# TXN
+# TODO: manye of these constants will be replaced
+# by constants from Request after Request refactoring
+TXN_PAYLOAD = "txn"
+TXN_PAYLOAD_TYPE = "type"
+TXN_PAYLOAD_PROTOCOL_VERSION = "protocolVersion"
+TXN_PAYLOAD_DATA = "data"
+TXN_PAYLOAD_METADATA = "metadata"
+TXN_PAYLOAD_METADATA_FROM = "from"
+TXN_PAYLOAD_METADATA_REQ_ID = "reqId"
+TXN_METADATA = "txnMetadata"
+TXN_METADATA_TIME = "txnTime"
+TXN_METADATA_ID = "txnId"
+TXN_METADATA_SEQ_NO = "seqNo"
+TXN_SIGNATURE = "reqSignature"
+TXN_VERSION = "ver"
+TXN_SIGNATURE_TYPE = "type"
+ED25515 = "ED25519"
+TXN_SIGNATURE_VALUES = "values"
+TXN_SIGNATURE_FROM = "from"
+TXN_SIGNATURE_VALUE = "value"
+
 
 class ClientBootStrategy(IntEnum):
     Simple = 1
