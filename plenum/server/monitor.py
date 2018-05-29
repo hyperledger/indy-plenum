@@ -66,20 +66,19 @@ class RequestTimeTracker:
     def __contains__(self, item):
         return item in self._requests
 
-    def start(self, identifier, reqId, timestamp):
-        self._requests[identifier, reqId] = RequestTimeTracker.Request(timestamp, self.instance_count)
+    def start(self, digest, timestamp):
+        self._requests[digest] = RequestTimeTracker.Request(timestamp, self.instance_count)
 
-    def order(self, instId, identifier, reqId, timestamp):
-        key = (identifier, reqId)
-        req = self._requests[key]
+    def order(self, instId, digest, timestamp):
+        req = self._requests[digest]
         tto = timestamp - req.timestamp
         req.order(instId)
         if req.is_ordered_by_all:
-            del self._requests[key]
+            del self._requests[digest]
         return tto
 
-    def handle(self, identifier, reqId):
-        self._requests[identifier, reqId].handled = True
+    def handle(self, digest):
+        self._requests[digest].handled = True
 
     def reset(self):
         self._requests.clear()
@@ -354,11 +353,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         return durations
 
-    def requestUnOrdered(self, identifier: str, reqId: int):
+    def requestUnOrdered(self, digest: str):
         """
         Record the time at which request ordering started.
         """
-        self.requestTracker.start(identifier, reqId, time.perf_counter())
+        self.requestTracker.start(digest, time.perf_counter())
 
     def check_unordered(self):
         now = time.perf_counter()
@@ -369,7 +368,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         for handler in self.unordered_requests_handlers:
             handler(new_unordereds)
         for unordered in new_unordereds:
-            self.requestTracker.handle(*(unordered[0]))
+            self.requestTracker.handle(unordered[0])
             logger.debug('Following requests were not ordered for more than {} seconds: {}'
                          .format(self.config.UnorderedCheckFreq, unordered[0]))
 

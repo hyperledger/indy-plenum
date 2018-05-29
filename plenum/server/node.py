@@ -2555,7 +2555,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [(req.identifier, req.reqId) for req in reqs]
+                    txn_root, [req.digest for req in reqs]
                 )
             )
             raise

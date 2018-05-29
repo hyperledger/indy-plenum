@@ -245,7 +245,7 @@ class Propagator:
         logger.debug('{} forwarding request {} to {} replicas'
                      .format(self, key, num_replicas))
         self.replicas.pass_message(ReqKey(*key))
-        self.monitor.requestUnOrdered(*key)
+        self.monitor.requestUnOrdered(request.digest)
         self.requests.mark_as_forwarded(request, num_replicas)
 
     # noinspection PyUnresolvedReferences

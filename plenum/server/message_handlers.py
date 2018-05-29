@@ -229,7 +229,7 @@ class PropagateHandler(BaseHandler):
         return ppg
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
-        req_key = (params['identifier'], params['req_id'])
+        req_key = (params['digest'])
         if req_key in self.node.requests and self.node.requests[req_key].finalised:
             sender_client = self.node.requestSender.get(req_key)
             req = self.node.requests[req_key].finalised

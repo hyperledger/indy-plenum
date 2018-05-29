@@ -325,11 +325,10 @@ def addNodeBack(node_set,
     return restartedNode
 
 
-def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
-    key = identifier, reqId
-    assert key in node.requests
+def checkPropagateReqCountOfNode(node: TestNode, digest: str):
+    assert digest in node.requests
     assert node.quorums.propagate.is_reached(
-        len(node.requests[key].propagates))
+        len(node.requests[digest].propagates))
 
 
 def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
