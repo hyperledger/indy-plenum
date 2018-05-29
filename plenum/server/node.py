@@ -2067,8 +2067,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         # If the node is not already processing the request
-        if not self.isProcessingReq(request.digest):
-            self.startedProcessingReq(request.digest, frm)
+        if not self.isProcessingReq(request.key):
+            self.startedProcessingReq(request.key, frm)
         # If not already got the propagate request(PROPAGATE) for the
         # corresponding client request(REQUEST)
         self.recordAndPropagate(request, frm)
@@ -2127,8 +2127,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if not self.isProcessingReq(request.digest):
-            if self.seqNoDB.get(request.identifier, request.reqId) is not None:
+        if not self.isProcessingReq(request.key):
+            if self.seqNoDB.get(request.key) is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
@@ -2147,20 +2147,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
-    def startedProcessingReq(self, digest, frm):
-        self.requestSender[digest] = frm
+    def startedProcessingReq(self, key, frm):
+        self.requestSender[key] = frm
 
-    def isProcessingReq(self, digest) -> bool:
-        return digest in self.requestSender
+    def isProcessingReq(self, key) -> bool:
+        return key in self.requestSender
 
-    def doneProcessingReq(self, digest):
-        self.requestSender.pop(digest)
+    def doneProcessingReq(self, key):
+        self.requestSender.pop(key)
 
-    def is_sender_known_for_req(self, digest):
-        return self.requestSender.get(digest) is not None
+    def is_sender_known_for_req(self, key):
+        return self.requestSender.get(key) is not None
 
-    def set_sender_for_req(self, digest, frm):
-        self.requestSender[digest] = frm
+    def set_sender_for_req(self, key, frm):
+        self.requestSender[key] = frm
 
     def send_ack_to_client(self, req_key, to_client):
         self.transmitToClient(RequestAck(*req_key), to_client)
@@ -2222,6 +2222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, ordered.instId))
             self.monitor.requestOrdered(ordered.reqIdr,
                                         ordered.instId,
+                                        self.requests,
                                         byMaster=False)
             return False
 
@@ -2254,6 +2255,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.monitor.requestOrdered(ordered.reqIdr,
                                     ordered.instId,
+                                    self.requests,
                                     byMaster=True)
 
         return True
@@ -2684,10 +2686,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: Send txn and state proof to the client
             txn[TXN_TIME] = ppTime
             self.sendReplyToClient(Reply(txn),
-                                   (idr_from_req_data(txn), txn[f.REQ_ID.nm]))
+                                   get_digest(txn))
 
     def sendReplyToClient(self, reply, reqKey):
-        if self.isProcessingReq(*reqKey):
+        if self.isProcessingReq(reqKey):
             sender = self.requestSender[reqKey]
             if sender:
                 logger.trace(
@@ -2697,7 +2699,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 logger.info('{} not sending reply for {}, since do not '
                             'know client'.format(self, reqKey))
-            self.doneProcessingReq(*reqKey)
+            self.doneProcessingReq(reqKey)
 
     def addNewRole(self, txn):
         """
