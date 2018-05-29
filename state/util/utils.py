@@ -1,11 +1,15 @@
 import os
 import string
 
-import sha3 as _sha3
-
-
-def sha3_256(x):
-    return _sha3.sha3_256(x).digest()
+# Python 3.6 introduces support for sha3_256 encryption through its own hashlib library. 3.6 also breaks
+# the sha3 external dependency, so use hashlib for Python 3.6 and up.
+try:
+     # For python 3.6+
+     from hashlib import sha3_256              # sha3_256 requires bytes
+except ImportError:
+     # For python 3.5
+     import sha3
+     sha3_256 = lambda x: sha3.sha3_256(x.decode())   # _sha3.sha3_256 requires a string
 
 
 import rlp
