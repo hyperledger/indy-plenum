@@ -50,8 +50,9 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, get_seq_no, get_type, get_payload_data, \
-    get_txn_time
+from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, \
+    get_seq_no, get_type, get_payload_data, \
+    get_txn_time, get_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -2610,7 +2611,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
-            self.seqNoDB.addBatch((get_req_id(txn), ledger_id, get_seq_no(txn))
+            self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
                                   for txn in committedTxns)
 
     def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
