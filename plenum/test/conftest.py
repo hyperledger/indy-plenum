@@ -18,6 +18,8 @@ from indy.did import create_and_store_my_did
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.member.member import Member
+from plenum.common.member.steward import Steward
 from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
@@ -42,10 +44,10 @@ from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import BlowUp
 from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
-from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, TARGET_NYM, VALIDATOR, SERVICES, NODE_IP, BLS_KEY, VERKEY, TRUSTEE
-from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.constants import DATA, NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
+    STEWARD, VALIDATOR, BLS_KEY, TRUSTEE
+from plenum.common.txn_util import getTxnOrderedFields, get_payload_data, get_type
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances
 from plenum.server.notifier_plugin_manager import PluginManager
@@ -71,8 +73,9 @@ GENERAL_CONFIG_DIR = 'etc/indy'
 def get_data_for_role(pool_txn_data, role):
     name_and_seeds = []
     for txn in pool_txn_data['txns']:
-        if txn.get(ROLE) == role:
-            name = txn[ALIAS]
+        txn_data = get_payload_data(txn)
+        if txn_data.get(ROLE) == role:
+            name = txn_data[ALIAS]
             name_and_seeds.append((name, pool_txn_data['seeds'][name]))
     return name_and_seeds
 
@@ -613,31 +616,28 @@ def poolTxnData(request):
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
         s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
 
-        data['txns'].append({
-            TXN_TYPE: NYM,
-            ROLE: STEWARD,
-            ALIAS: steward_name,
-            TARGET_NYM: s_idr.identifier,
-            VERKEY: s_idr.verkey,
-        })
-        node_txn = {
-            TXN_TYPE: NODE,
-            f.IDENTIFIER.nm: s_idr.identifier,
-            TARGET_NYM: n_idr,
-            DATA: {
-                ALIAS: node_name,
-                SERVICES: [VALIDATOR],
-                NODE_IP: '127.0.0.1',
-                NODE_PORT: genHa()[1],
-                CLIENT_IP: '127.0.0.1',
-                CLIENT_PORT: genHa()[1],
-            }
-        }
+        data['txns'].append(
+                Member.nym_txn(nym=s_idr.identifier,
+                               verkey=s_idr.verkey,
+                               role=STEWARD,
+                               name=steward_name,
+                               seq_no=i)
+        )
+
+        node_txn = Steward.node_txn(steward_nym=s_idr.identifier,
+                                    node_name=node_name,
+                                    nym=n_idr,
+                                    ip='127.0.0.1',
+                                    node_port=genHa()[1],
+                                    client_port=genHa()[1],
+                                    client_ip='127.0.0.1',
+                                    services=[VALIDATOR],
+                                    seq_no=i)
 
         if i <= nodes_with_bls:
             _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
-            node_txn[DATA][BLS_KEY] = bls_key
+            get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
             data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)
@@ -648,13 +648,12 @@ def poolTxnData(request):
         data['seeds'][trustee_name] = trustee_name + '0' * (
                 32 - len(trustee_name))
         t_sgnr = DidSigner(seed=data['seeds'][trustee_name].encode())
-        data['txns'].append({
-            TXN_TYPE: NYM,
-            ROLE: TRUSTEE,
-            ALIAS: trustee_name,
-            TARGET_NYM: t_sgnr.identifier,
-            VERKEY: t_sgnr.verkey
-        })
+        data['txns'].append(
+            Member.nym_txn(nym=t_sgnr.identifier,
+                           verkey=t_sgnr.verkey,
+                           role=TRUSTEE,
+                           name=trustee_name)
+        )
 
     more_data_seeds = \
         {
@@ -666,8 +665,12 @@ def poolTxnData(request):
     more_data_users = []
     for more_name, more_seed in more_data_seeds.items():
         signer = DidSigner(seed=more_seed.encode())
-        more_data_users.append({TXN_TYPE: NYM, ALIAS: more_name, TARGET_NYM: signer.identifier, VERKEY: signer.verkey,
-                                f.IDENTIFIER.nm: "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC"})
+        more_data_users.append(
+            Member.nym_txn(nym=signer.identifier,
+                           verkey=signer.verkey,
+                           name=more_name,
+                           creator="5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC")
+        )
 
     data['txns'].extend(more_data_users)
     data['seeds'].update(more_data_seeds)
@@ -684,7 +687,7 @@ def tdirWithPoolTxns(config_helper_class, poolTxnData, tdir, tconf):
     ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, tconf.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
-        if item.get(TXN_TYPE) == NODE:
+        if get_type(item) == NODE:
             ledger.add(item)
     ledger.stop()
     return config_helper.genesis_dir
@@ -704,7 +707,7 @@ def tdirWithClientPoolTxns(poolTxnData, client_ledger_dir):
     ledger = create_genesis_txn_init_ledger(client_ledger_dir, plenum_config.poolTransactionsFile)
 
     for item in poolTxnData["txns"]:
-        if item.get(TXN_TYPE) == NODE:
+        if get_type(item) == NODE:
             ledger.add(item)
     ledger.stop()
     return client_ledger_dir
@@ -721,7 +724,7 @@ def tdirWithDomainTxns(config_helper_class, poolTxnData, tdir, tconf, domainTxnO
     ledger = create_genesis_txn_init_ledger(config_helper.genesis_dir, tconf.domainTransactionsFile)
 
     for item in poolTxnData["txns"]:
-        if item.get(TXN_TYPE) == NYM:
+        if get_type(item) == NYM:
             ledger.add(item)
     ledger.stop()
     return config_helper.genesis_dir
@@ -871,8 +874,8 @@ def txnPoolNodeSetNotStarted(node_config_helper_class,
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            data = txn[DATA]
+        if get_type(txn) == NODE:
+            data = get_payload_data(txn)[DATA]
             cliNodeReg[data[ALIAS] +
                        CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP], data[CLIENT_PORT])
     return cliNodeReg

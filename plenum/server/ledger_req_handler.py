@@ -5,10 +5,10 @@ import base58
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 from storage.state_ts_store import StateTsDbStorage
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
 
 from state.state import State
 
@@ -35,6 +35,17 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         Updates current state with a number of committed or
         not committed transactions
         """
+    def _reqToTxn(self, req: Request):
+        return reqToTxn(req)
+
+    def apply(self, req: Request, cons_time: int):
+        txn = self._reqToTxn(req)
+
+        self.ledger.append_txns_metadata([txn], cons_time)
+        (start, end), _ = self.ledger.appendTxns(
+            [self.transform_txn_for_ledger(txn)])
+        self.updateState([txn])
+        return start, txn
 
     def commit(self, txnCount, stateRoot, txnRoot, ppTime) -> List:
         """
@@ -55,7 +66,7 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         self.state.commit(rootHash=stateRoot)
         if self.ts_store:
             self.ts_store.set(ppTime, stateRoot)
-        return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
+        return committedTxns
 
     def onBatchCreated(self, state_root):
         pass

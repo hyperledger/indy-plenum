@@ -2,13 +2,14 @@ from copy import copy
 from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
+from ledger.util import F
+from plenum.common.txn_util import append_txn_metadata, get_seq_no
 from stp_core.common.log import getlogger
 
 logger = getlogger()
 
 
 class Ledger(_Ledger):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Merkle tree of containing transactions that have not yet been
@@ -21,9 +22,18 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
+    def append_txns_metadata(self, txns: List, txn_time=None):
+        if txn_time is not None:
+            # All transactions have the same time since all these
+            # transactions belong to the same 3PC batch
+            for txn in txns:
+                append_txn_metadata(txn, txn_time=txn_time)
+        self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
+
     def appendTxns(self, txns: List):
         # These transactions are not yet committed so they do not go to
         # the ledger
+        assert all([get_seq_no(txn) is not None for txn in txns])
         uncommittedSize = self.size + len(self.uncommittedTxns)
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
@@ -33,6 +43,21 @@ class Ledger(_Ledger):
             return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
         else:
             return (uncommittedSize, uncommittedSize), txns
+
+    def add(self, txn):
+        if get_seq_no(txn) is None:
+            self._append_seq_no([txn], self.seqNo)
+        merkle_info = super().add(txn)
+        # seqNo is part of the transaction itself, so no need to duplicate it here
+        merkle_info.pop(F.seqNo.name, None)
+        return merkle_info
+
+    def _append_seq_no(self, txns, start_seq_no):
+        seq_no = start_seq_no
+        for txn in txns:
+            seq_no += 1
+            append_txn_metadata(txn, seq_no=seq_no)
+        return txns
 
     def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """
@@ -56,12 +81,10 @@ class Ledger(_Ledger):
         # if there are any `uncommittedTxns` since the ledger still has a
         # valid uncommittedTree and a valid root hash which are
         # different from the committed ones
-        return (committedSize + 1, committedSize + count), committedTxns
-
-    def appendCommittedTxns(self, txns: List):
-        # Called while receiving committed txns from other nodes
-        for txn in txns:
-            self.append(txn)
+        if committedTxns:
+            return (committedSize + 1, committedSize + count), committedTxns
+        else:
+            return (committedSize, committedSize), committedTxns
 
     def discardTxns(self, count: int):
         """
@@ -72,6 +95,8 @@ class Ledger(_Ledger):
         """
         # TODO: This can be optimised if multiple discards are combined
         # together since merkle root computation will be done only once.
+        if count == 0:
+            return
         old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
