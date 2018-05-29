@@ -14,6 +14,3 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def validate(self, req: Request):
         pass
-
-    def apply(self, req: Request, cons_time: int):
-        pass

@@ -8,6 +8,7 @@ import time
 from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
     CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
+from plenum.common.txn_util import get_type
 from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool

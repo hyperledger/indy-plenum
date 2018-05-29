@@ -24,7 +24,11 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     # Epsilon got these transactions via catch-up.
 
     master_replica = new_node.replicas._master_replica
+
     assert len(master_replica.checkpoints) == 0
+
+    assert len(master_replica.stashedRecvdCheckpoints) == 0
+
     assert master_replica.h == 2
     assert master_replica.H == 17
 
@@ -33,6 +37,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
 
     for replica in new_node.replicas:
         assert len(replica.checkpoints) == 1
+
+        assert len(replica.stashedRecvdCheckpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17
@@ -57,6 +63,12 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.checkpoints[6, 10].digest is None
         assert replica.checkpoints[6, 10].isStable is False
 
+        assert len(replica.stashedRecvdCheckpoints) == 1
+        assert 0 in replica.stashedRecvdCheckpoints
+        assert len(replica.stashedRecvdCheckpoints[0]) == 1
+        assert (1, 5) in replica.stashedRecvdCheckpoints[0]
+        assert len(replica.stashedRecvdCheckpoints[0][(1, 5)]) == 4
+
         assert replica.h == 2
         assert replica.H == 17
 
@@ -72,6 +84,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.checkpoints[6, 10].seqNo == 10
         assert replica.checkpoints[6, 10].digest is not None
         assert replica.checkpoints[6, 10].isStable is True
+
+        assert len(replica.stashedRecvdCheckpoints) == 0
 
         assert replica.h == 10
         assert replica.H == 25

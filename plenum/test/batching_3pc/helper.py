@@ -3,7 +3,7 @@ from binascii import hexlify
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.startable import Mode
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.util import check_if_all_equal_in_list
 
@@ -57,14 +57,13 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
 
 
 def add_txns_to_ledger_before_order(replica, reqs):
-    added = False
+    replica.added = False
     origMethod = replica.tryOrder
 
     def tryOrderAndAddTxns(self, commit):
-        nonlocal added
         canOrder, _ = self.canOrder(commit)
         node = replica.node
-        if not added and canOrder:
+        if not replica.added and canOrder:
 
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
@@ -74,12 +73,13 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             for req in reqs:
+                txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
                 ledger_manager._add_txn(
-                    ledger_id, ledger, ledgerInfo, reqToTxn(req, pp.ppTime))
+                    ledger_id, ledger, ledgerInfo, txn)
             ledger_manager.catchupCompleted(
                 DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
-            added = True
+            replica.added = True
 
         return origMethod(commit)
 
