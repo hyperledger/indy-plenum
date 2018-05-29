@@ -8,8 +8,6 @@ def sha3_256(x):
     return _sha3.sha3_256(x).digest()
 
 
-# from bitcoin import privtopub
-import sys
 import rlp
 from rlp.sedes import big_endian_int, BigEndianInt, Binary
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
@@ -29,50 +27,38 @@ TT256 = 2 ** 256
 TT256M1 = 2 ** 256 - 1
 TT255 = 2 ** 255
 
-if sys.version_info.major == 2:
-    def is_numeric(x): return isinstance(x, (int, long))
 
-    def is_string(x): return isinstance(x, (str, unicode))
+def is_numeric(x): return isinstance(x, int)
 
-    def to_string(value):
-        return str(value)
 
-    def int_to_bytes(value):
-        if isinstance(value, str):
-            return value
-        return int_to_big_endian(value)
+def is_string(x): return isinstance(x, bytes)
 
-    def to_string_for_regexp(value):
-        return str(value)
-    unicode = unicode
 
-    def bytearray_to_bytestr(value):
-        return bytes(''.join(chr(c) for c in value))
+def to_string(value):
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return bytes(value, 'utf-8')
+    if isinstance(value, int):
+        return bytes(str(value), 'utf-8')
 
-else:
-    def is_numeric(x): return isinstance(x, int)
 
-    def is_string(x): return isinstance(x, bytes)
+def int_to_bytes(value):
+    if isinstance(value, bytes):
+        return value
+    return int_to_big_endian(value)
 
-    def to_string(value):
-        if isinstance(value, bytes):
-            return value
-        if isinstance(value, str):
-            return bytes(value, 'utf-8')
-        if isinstance(value, int):
-            return bytes(str(value), 'utf-8')
 
-    def int_to_bytes(value):
-        if isinstance(value, bytes):
-            return value
-        return int_to_big_endian(value)
+def to_string_for_regexp(value):
+    return str(to_string(value), 'utf-8')
 
-    def to_string_for_regexp(value):
-        return str(to_string(value), 'utf-8')
-    unicode = str
 
-    def bytearray_to_bytestr(value):
-        return bytes(value)
+unicode = str
+
+
+def bytearray_to_bytestr(value):
+    return bytes(value)
+
 
 isnumeric = is_numeric
 
@@ -82,14 +68,6 @@ def removeLockFiles(dbPath):
         lockFilePath = os.path.join(dbPath, 'LOCK')
         if os.path.isfile(lockFilePath):
             os.remove(lockFilePath)
-
-
-def mk_contract_address(sender, nonce):
-    return sha3(rlp.encode([normalize_address(sender), nonce]))[12:]
-
-
-def mk_metropolis_contract_address(sender, initcode):
-    return sha3(normalize_address(sender) + initcode)[12:]
 
 
 def safe_ord(value):
@@ -151,60 +129,11 @@ def int_to_32bytearray(i):
     return o
 
 
-sha3_count = [0]
-
-
 def sha3(seed):
-    sha3_count[0] += 1
     return sha3_256(to_string(seed))
 
+
 # assert encode_hex(sha3(b'')) == b'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
-
-
-# def privtoaddr(x, extended=False):
-#     if len(x) > 32:
-#         x = decode_hex(x)
-#     o = sha3(privtopub(x)[1:])[12:]
-#     return add_checksum(o) if extended else o
-
-
-def add_checksum(x):
-    if len(x) in (40, 48):
-        x = decode_hex(x)
-    if len(x) == 24:
-        return x
-    return x + sha3(x)[:4]
-
-
-def add_cool_checksum(addr):
-    addr = normalize_address(addr)
-    addr_hex = encode_hex(addr)
-
-    o = ''
-    h = encode_hex(sha3(addr_hex))
-    if not isinstance(addr_hex, str):
-        # py3 bytes sequence
-        addr_hex = list(chr(c) for c in addr_hex)
-        h = list(chr(c) for c in h)
-
-    for i, c in enumerate(addr_hex):
-        if c in '0123456789':
-            o += c
-        else:
-            o += c.lower() if h[i] in '01234567' else c.upper()
-    return '0x' + o
-
-
-def check_and_strip_checksum(x):
-    if len(x) in (40, 48):
-        x = decode_hex(x)
-    assert len(x) == 24 and sha3(x[:20])[:4] == x[-4:]
-    return x[:20]
-
-
-def check_and_strip_cool_checksum(addr):
-    assert add_cool_checksum(addr.lower()) == addr
-    return normalize_address(addr)
 
 
 def normalize_address(x, allow_blank=False):
@@ -494,42 +423,9 @@ def dump_state(trie):
     return res
 
 
-class Denoms():
-
-    def __init__(self):
-        self.wei = 1
-        self.babbage = 10 ** 3
-        self.lovelace = 10 ** 6
-        self.shannon = 10 ** 9
-        self.szabo = 10 ** 12
-        self.finney = 10 ** 15
-        self.ether = 10 ** 18
-        self.turing = 2 ** 256
-
-
-denoms = Denoms()
-
-
 address = Binary.fixed_length(20, allow_empty=True)
 int20 = BigEndianInt(20)
 int32 = BigEndianInt(32)
 int256 = BigEndianInt(256)
 hash32 = Binary.fixed_length(32)
 trie_root = Binary.fixed_length(32, allow_empty=True)
-
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[91m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
-# def DEBUG(msg, *args, **kwargs):
-#     from ethereum import slogging
-#
-#     slogging.DEBUG(msg, *args, **kwargs)

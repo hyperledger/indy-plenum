@@ -3,6 +3,8 @@ import os
 
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.request import Request
+from plenum.common.txn_util import get_type, reqToTxn
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
@@ -233,7 +235,25 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
                                        saved_multi_sigs_count)
 
 
-def validate_proof(result):
+def validate_proof_for_read(result, req):
+    """
+    Validates state proof
+    """
+    state_root_hash = result[STATE_PROOF]['root_hash']
+    state_root_hash = state_roots_serializer.deserialize(state_root_hash)
+    proof_nodes = result[STATE_PROOF]['proof_nodes']
+    if isinstance(proof_nodes, str):
+        proof_nodes = proof_nodes.encode()
+    proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
+    key, value = prepare_for_state_read(req)
+    valid = PruningState.verify_state_proof(state_root_hash,
+                                            key,
+                                            value,
+                                            proof_nodes,
+                                            serialized=True)
+    return valid
+
+def validate_proof_for_write(result):
     """
     Validates state proof
     """
@@ -253,9 +273,17 @@ def validate_proof(result):
 
 
 def prepare_for_state(result):
-    if result[TXN_TYPE] == "buy":
+    if get_type(result) == "buy":
         from plenum.test.test_node import TestDomainRequestHandler
         key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+        return key, value
+
+
+def prepare_for_state_read(req: Request):
+    if req.txn_type == "buy":
+        from plenum.test.test_node import TestDomainRequestHandler
+        txn = reqToTxn(req)
+        key, value = TestDomainRequestHandler.prepare_buy_for_state(txn)
         return key, value
 
 

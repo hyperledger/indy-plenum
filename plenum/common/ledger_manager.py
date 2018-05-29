@@ -9,7 +9,6 @@ from typing import Any, List, Dict, Tuple
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.util import F
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME
@@ -17,8 +16,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
-from plenum.common.txn_util import reqToTxn
-from plenum.common.util import compare_3PC_keys, SortedDict, mostCommonElement, min_3PC_key
+from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -407,32 +405,29 @@ class LedgerManager(HasActionQueue):
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
-        if end < start:
-            self.discard(req, reason="Invalid range", logMethod=logger.warning)
-            return
-
         ledger_size = ledger.size
 
-        if start > ledger_size:
+        if start > end:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {} and start is {}"
-                         .format(self, ledger_size, start),
+                                     "start = {} greater than "
+                                     "end = {}"
+                         .format(self, start, end),
                          logMethod=logger.debug)
             return
-
+        if end > req.catchupTill:
+            self.discard(req, reason="{} not able to service since "
+                                     "end = {} greater than "
+                                     "catchupTill = {}"
+                         .format(self, end, req.catchupTill),
+                         logMethod=logger.debug)
+            return
         if req.catchupTill > ledger_size:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {} and catchupTill is {}"
-                         .format(self, ledger_size, req.catchupTill),
+                                     "catchupTill = {} greater than "
+                                     "ledger size = {}"
+                         .format(self, req.catchupTill, ledger_size),
                          logMethod=logger.debug)
             return
-
-        # Adjusting for end greater than ledger size
-        if end > ledger_size:
-            logger.debug("{} does not have transactions till {} "
-                         "so sending only till {}"
-                         .format(self, end, ledger_size))
-            end = ledger_size
 
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start + 1, start, end))
@@ -530,7 +525,7 @@ class LedgerManager(HasActionQueue):
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
                         self._add_txn(ledgerId, ledger,
-                                      ledgerInfo, reqToTxn(txn))
+                                      ledgerInfo, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerId, ledger,
@@ -550,8 +545,7 @@ class LedgerManager(HasActionQueue):
         return numProcessed
 
     def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
-        merkleInfo = ledger.add(self._transform(txn))
-        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
+        ledger.add(self._transform(txn))
         ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
@@ -564,7 +558,6 @@ class LedgerManager(HasActionQueue):
     def _transform(self, txn):
         # Certain transactions might need to be
         # transformed to certain format before applying to the ledger
-        txn = reqToTxn(txn)
         z = txn if not self.ownedByNode else \
             self.owner.transform_txn_for_ledger(txn)
         return z

@@ -8,6 +8,7 @@ import time
 from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
     CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
+from plenum.common.txn_util import get_type
 from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
@@ -164,6 +165,8 @@ def test_node_info_section(info, node):
     assert 'VCDone_queue'   in info['Node_info']['View_change_status']
     assert 'VC_in_progress' in info['Node_info']['View_change_status']
     assert 'View_No'        in info['Node_info']['View_change_status']
+    assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
+    assert 'Last_view_change_started_at' in info['Node_info']['View_change_status']
     assert "Pool_ledger_size" in info["Node_info"]
     assert "Domain_ledger_size" in info["Node_info"]
     assert "Config_ledger_size" in info["Node_info"]

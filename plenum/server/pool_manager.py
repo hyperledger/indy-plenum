@@ -6,14 +6,13 @@ from collections import OrderedDict
 from typing import Optional
 
 from copy import deepcopy
-from typing import Dict, Tuple, List
+from typing import List
 
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
-from plenum.common.exceptions import UnsupportedOperation
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.types import NodeDetail
+from plenum.common.txn_util import get_type, get_payload_data
 from storage.helper import initKeyValueStorage
 from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
@@ -168,7 +167,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             ha = nodeReg[name]
 
         nstack = dict(name=name,
-                      ha=HA('0.0.0.0', ha[1]),
+                      ha=HA(*ha),
                       main=True,
                       auth_mode=AuthMode.RESTRICTED.value)
 
@@ -176,7 +175,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if not cliha:
             cliha = cliNodeReg[cliname]
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
-                      ha=HA('0.0.0.0', cliha[1]),
+                      ha=HA(*cliha),
                       main=True,
                       auth_mode=AuthMode.ALLOW_ANY.value)
 
@@ -206,62 +205,68 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return committedTxns
 
     def onPoolMembershipChange(self, txn):
-        if txn[TXN_TYPE] == NODE and DATA in txn:
-            nodeName = txn[DATA][ALIAS]
-            nodeNym = txn[TARGET_NYM]
+        if get_type(txn) != NODE:
+            return
 
-            self._set_node_order(nodeNym, nodeName)
+        txn_data = get_payload_data(txn)
+        if DATA not in txn_data:
+            return
 
-            def _updateNode(txn):
-                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
-                        intersection(set(txn[DATA].keys())):
-                    self.nodeHaChanged(txn)
-                if VERKEY in txn:
-                    self.nodeKeysChanged(txn)
-                if SERVICES in txn[DATA]:
-                    self.nodeServicesChanged(txn)
-                if BLS_KEY in txn[DATA]:
-                    self.node_blskey_changed(txn)
+        nodeName = txn_data[DATA][ALIAS]
+        nodeNym = txn_data[TARGET_NYM]
 
-            if nodeName in self.nodeReg:
-                # The node was already part of the pool so update
-                _updateNode(txn)
+        self._set_node_order(nodeNym, nodeName)
+
+        def _updateNode(txn_data):
+            if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
+                    intersection(set(txn_data[DATA].keys())):
+                self.nodeHaChanged(txn_data)
+            if VERKEY in txn_data:
+                self.nodeKeysChanged(txn_data)
+            if SERVICES in txn_data[DATA]:
+                self.nodeServicesChanged(txn_data)
+            if BLS_KEY in txn_data[DATA]:
+                self.node_blskey_changed(txn_data)
+
+        if nodeName in self.nodeReg:
+            # The node was already part of the pool so update
+            _updateNode(txn_data)
+        else:
+            seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+            if len(seqNos) == 1:
+                # Since only one transaction has been made, this is a new
+                # node transaction
+                if VALIDATOR in txn_data[DATA].get(SERVICES, []):
+                    self.addNewNodeAndConnect(txn_data)
             else:
-                seqNos, info = self.getNodeInfoFromLedger(nodeNym)
-                if len(seqNos) == 1:
-                    # Since only one transaction has been made, this is a new
-                    # node transaction
-                    if VALIDATOR in txn[DATA].get(SERVICES, []):
-                        self.addNewNodeAndConnect(txn)
-                else:
-                    self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
-                                                     info[DATA][NODE_PORT])
-                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
-                        info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                    _updateNode(txn)
+                self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
+                                                 info[DATA][NODE_PORT])
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
+                    info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
+                _updateNode(txn_data)
 
-            self.node.sendPoolInfoToClients(txn)
+        self.node.sendPoolInfoToClients(txn)
 
-    def addNewNodeAndConnect(self, txn):
-        nodeName = txn[DATA][ALIAS]
+    def addNewNodeAndConnect(self, txn_data):
+        nodeName = txn_data[DATA][ALIAS]
         if nodeName == self.name:
             logger.debug("{} adding itself to node registry".
                          format(self.name))
-            self.node.nodeReg[nodeName] = HA(txn[DATA][NODE_IP],
-                                             txn[DATA][NODE_PORT])
+            self.node.nodeReg[nodeName] = HA(txn_data[DATA][NODE_IP],
+                                             txn_data[DATA][NODE_PORT])
             self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = \
-                HA(txn[DATA][CLIENT_IP],
-                   txn[DATA][CLIENT_PORT])
+                HA(txn_data[DATA][CLIENT_IP],
+                   txn_data[DATA][CLIENT_PORT])
         else:
-            self.connectNewRemote(txn, nodeName, self.node, nodeName != self.name)
-        self.node.nodeJoined(txn)
+            self.connectNewRemote(txn_data, nodeName, self.node, nodeName != self.name)
+        self.node.nodeJoined(txn_data)
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
             self.node.view_changer.on_primary_about_to_be_disconnected()
 
-    def nodeHaChanged(self, txn):
-        nodeNym = txn[TARGET_NYM]
+    def nodeHaChanged(self, txn_data):
+        nodeNym = txn_data[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
@@ -269,12 +274,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             # Update itself in node registry if needed
             ha_changed = False
             (ip, port) = self.node.nodeReg[nodeName]
-            if NODE_IP in txn[DATA] and ip != txn[DATA][NODE_IP]:
-                ip = txn[DATA][NODE_IP]
+            if NODE_IP in txn_data[DATA] and ip != txn_data[DATA][NODE_IP]:
+                ip = txn_data[DATA][NODE_IP]
                 ha_changed = True
 
-            if NODE_PORT in txn[DATA] and port != txn[DATA][NODE_PORT]:
-                port = txn[DATA][NODE_PORT]
+            if NODE_PORT in txn_data[DATA] and port != txn_data[DATA][NODE_PORT]:
+                port = txn_data[DATA][NODE_PORT]
                 ha_changed = True
 
             if ha_changed:
@@ -282,12 +287,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
             ha_changed = False
             (ip, port) = self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-            if CLIENT_IP in txn[DATA] and ip != txn[DATA][CLIENT_IP]:
-                ip = txn[DATA][CLIENT_IP]
+            if CLIENT_IP in txn_data[DATA] and ip != txn_data[DATA][CLIENT_IP]:
+                ip = txn_data[DATA][CLIENT_IP]
                 ha_changed = True
 
-            if CLIENT_PORT in txn[DATA] and port != txn[DATA][CLIENT_PORT]:
-                port = txn[DATA][CLIENT_PORT]
+            if CLIENT_PORT in txn_data[DATA] and port != txn_data[DATA][CLIENT_PORT]:
+                port = txn_data[DATA][CLIENT_PORT]
                 ha_changed = True
 
             if ha_changed:
@@ -296,18 +301,18 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.node.nodestack.onHostAddressChanged()
             self.node.clientstack.onHostAddressChanged()
         else:
-            rid = self.stackHaChanged(txn, nodeName, self.node)
+            rid = self.stackHaChanged(txn_data, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
         self.node_about_to_be_disconnected(nodeName)
 
-    def nodeKeysChanged(self, txn):
+    def nodeKeysChanged(self, txn_data):
         # TODO: if the node whose keys are being changed is primary for any
         # protocol instance, then we should trigger an election for that
         # protocol instance. For doing that, for every replica of that
         # protocol instance, `_primaryName` as None, and then the node should
         # call its `decidePrimaries`.
-        nodeNym = txn[TARGET_NYM]
+        nodeNym = txn_data[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         # TODO: Check if new keys are same as old keys and only update if
         # new keys are different.
@@ -317,17 +322,17 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                          format(self.name))
             return
         else:
-            rid = self.stackKeysChanged(txn, nodeName, self.node)
+            rid = self.stackKeysChanged(txn_data, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
         self.node_about_to_be_disconnected(nodeName)
 
-    def nodeServicesChanged(self, txn):
-        nodeNym = txn[TARGET_NYM]
+    def nodeServicesChanged(self, txn_data):
+        nodeNym = txn_data[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         nodeName = nodeInfo[DATA][ALIAS]
         oldServices = set(nodeInfo[DATA].get(SERVICES, []))
-        newServices = set(txn[DATA].get(SERVICES, []))
+        newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug("Node {} not changing {} since it is same as existing"
                          .format(nodeNym, SERVICES))
@@ -336,9 +341,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if self.name != nodeName:
                 if VALIDATOR in newServices.difference(oldServices):
                     # If validator service is enabled
-                    self.updateNodeTxns(nodeInfo, txn)
+                    self.updateNodeTxns(nodeInfo, txn_data)
                     self.connectNewRemote(nodeInfo, nodeName, self.node)
-                    self.node.nodeJoined(txn)
+                    self.node.nodeJoined(txn_data)
 
                 if VALIDATOR in oldServices.difference(newServices):
                     # If validator service is disabled
@@ -353,15 +358,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                         logger.debug('{} did not find remote {} to remove'.
                                      format(self, nodeName))
 
-                    self.node.nodeLeft(txn)
+                    self.node.nodeLeft(txn_data)
                     self.node_about_to_be_disconnected(nodeName)
 
-    def node_blskey_changed(self, txn):
+    def node_blskey_changed(self, txn_data):
         # if BLS key changes for my Node, then re-init BLS crypto signer with new keys
-        node_nym = txn[TARGET_NYM]
+        node_nym = txn_data[TARGET_NYM]
         node_name = self.getNodeName(node_nym)
         if node_name == self.name:
-            bls_key = txn[DATA][BLS_KEY]
+            bls_key = txn_data[DATA][BLS_KEY]
             self.node.update_bls_key(bls_key)
 
     def getNodeName(self, nym):
@@ -400,15 +405,17 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def id(self):
         if not self._id:
             for _, txn in self.ledger.getAllTxn():
-                if self.name == txn[DATA][ALIAS]:
-                    self._id = txn[TARGET_NYM]
+                txn_data = get_payload_data(txn)
+                if self.name == txn_data[DATA][ALIAS]:
+                    self._id = txn_data[TARGET_NYM]
         return self._id
 
     def _load_nodes_order_from_ledger(self):
         self._ordered_node_ids = OrderedDict()
         for _, txn in self.ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE:
-                self._set_node_order(txn[TARGET_NYM], txn[DATA][ALIAS])
+            if get_type(txn) == NODE:
+                txn_data = get_payload_data(txn)
+                self._set_node_order(txn_data[TARGET_NYM], txn_data[DATA][ALIAS])
 
     def _set_node_order(self, nodeNym, nodeName):
         curName = self._ordered_node_ids.get(nodeNym)

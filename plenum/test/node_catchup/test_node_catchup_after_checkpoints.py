@@ -5,6 +5,7 @@ import pytest
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.server.replica import Replica
 
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
@@ -30,13 +31,13 @@ def test_node_catchup_after_checkpoints(
         sdk_wallet_client,
         broken_node_and_others):
     """
-    For some reason a node misses 3pc messages but eventually the node stashes
-    some amount checkpoints and decides to catchup.
+    A node misses 3pc messages and checkpoints during some period but later it
+    stashes some amount of checkpoints and decides to catchup.
     """
     max_batch_size = chkFreqPatched.Max3PCBatchSize
     broken_node, other_nodes = broken_node_and_others
 
-    logger.info("Step 1: The node misses quite a lot requests")
+    logger.info("Step 1: The node misses quite a lot of requests")
 
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
@@ -56,7 +57,8 @@ def test_node_catchup_after_checkpoints(
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           2 * reqs_for_checkpoint - max_batch_size)
+                                           (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
+                                           reqs_for_checkpoint - max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
     # Note that the repaired node might not fill the gap of missed 3PC-messages

@@ -3,6 +3,7 @@ from functools import partial
 
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.stacks import nodeStackClass
+from plenum.common.txn_util import get_type
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA, Identifier
@@ -40,7 +41,7 @@ class TestClient(Client, StackedTester):
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
     def prepare_for_state(self, result):
-        if result[TXN_TYPE] == "buy":
+        if get_type(result) == "buy":
             from plenum.test.test_node import TestDomainRequestHandler
             key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
             return key, value
