@@ -5,11 +5,13 @@ from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN
     MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import SafeRequest
+from plenum.common.txn_util import get_type, get_from, get_req_id, get_seq_no, get_txn_time
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import validate_proof, validate_multi_signature
+from plenum.test.bls.helper import validate_multi_signature, validate_proof_for_write, validate_proof_for_read
 from plenum.test.helper import wait_for_requests_ordered, \
-    randomOperation, sdk_send_random_requests, sdk_json_couples_to_request_list, sdk_send_random_and_check
+    randomOperation, sdk_send_random_requests, sdk_json_couples_to_request_list, sdk_send_random_and_check, \
+    sdk_json_to_request_object
 
 nodeCount = 4
 nodes_wth_bls = 4
@@ -36,7 +38,7 @@ def check_result(txnPoolNodeSet, req, should_have_proof):
 
         if should_have_proof:
             assert result[STATE_PROOF] == proof
-            assert validate_proof(result)
+            assert validate_proof_for_read(result, req)
         else:
             assert STATE_PROOF not in result
 
@@ -82,11 +84,9 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 
 def test_make_result_bls_enabled(looper, txnPoolNodeSet,
                                  sdk_pool_handle, sdk_wallet_client):
-    reqs = sdk_json_couples_to_request_list(
-        sdk_send_random_requests(
-            looper, sdk_pool_handle, sdk_wallet_client, 1))
-    wait_for_requests_ordered(looper, txnPoolNodeSet, reqs)
-    req = reqs[0]
+    req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
+    req = sdk_json_to_request_object(req_dict)
+    wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
 
     assert req.protocolVersion
     assert req.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
@@ -121,8 +121,8 @@ def test_make_result_no_protocol_version_in_request_by_default(looper,
     check_result(txnPoolNodeSet, request, False)
 
 
-def test_proof_in_reply(looper, txnPoolNodeSet,
-                        sdk_pool_handle, sdk_wallet_client):
+def test_proof_in_write_reply(looper, txnPoolNodeSet,
+                              sdk_pool_handle, sdk_wallet_client):
     resp = sdk_send_random_and_check(looper, txnPoolNodeSet,
                                      sdk_pool_handle, sdk_wallet_client, 1)
 
@@ -130,11 +130,11 @@ def test_proof_in_reply(looper, txnPoolNodeSet,
     result = resp[0][1]['result']
 
     assert result
-    assert result[TXN_TYPE] == "buy"
-    assert result[f.IDENTIFIER.nm] == req[f.IDENTIFIER.nm]
-    assert result[f.REQ_ID.nm] == req[f.REQ_ID.nm]
-    assert result[f.SEQ_NO.nm]
-    assert result[TXN_TIME]
+    assert get_type(result) == "buy"
+    assert get_from(result) == req[f.IDENTIFIER.nm]
+    assert get_req_id(result) == req[f.REQ_ID.nm]
+    assert get_seq_no(result)
+    assert get_txn_time(result)
     assert STATE_PROOF in result
 
     state_proof = result[STATE_PROOF]
@@ -155,16 +155,15 @@ def test_proof_in_reply(looper, txnPoolNodeSet,
     assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
 
     assert validate_multi_signature(state_proof, txnPoolNodeSet)
-    assert validate_proof(result)
+    assert validate_proof_for_write(result)
 
 
 def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
                                         sdk_pool_handle, sdk_wallet_client):
-    reqs = sdk_json_couples_to_request_list(
-        sdk_send_random_requests(
-            looper, sdk_pool_handle, sdk_wallet_client, 1))
-    wait_for_requests_ordered(looper, txnPoolNodeSet, reqs)
-    req = reqs[0]
+    req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
+    req = sdk_json_to_request_object(req_dict)
+    wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
+
     req_handler = txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
     key = req_handler.prepare_buy_key(req.identifier, req.reqId)
 

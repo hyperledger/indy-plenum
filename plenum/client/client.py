@@ -5,7 +5,6 @@ and receives result of the request execution from nodes.
 """
 
 import copy
-import json
 import os
 import random
 import time
@@ -41,7 +40,7 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
     MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
-from plenum.common.txn_util import idr_from_req_data
+from plenum.common.txn_util import get_reply_itentifier, get_reply_reqId
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
@@ -371,7 +370,7 @@ class Client(Motor,
                 self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
-                digest = msg[f.RESULT.nm][f.DIGEST.nm]
+                digest = get_digest(result)
                 numReplies = self.reqRepStore.addReply(digest,
                                                        frm,
                                                        result)
@@ -453,7 +452,7 @@ class Client(Motor,
         """
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and
-                msg[f.RESULT.nm][f.DIGEST.nm] == key}
+                get_reply_digest(msg[f.RESULT.nm]) == key}
 
     def hasConsensus(self, key: str) -> Optional[Reply]:
         """
@@ -699,8 +698,7 @@ class Client(Motor,
 
     def _got_expected(self, msg, sender):
 
-        def drop(req, register):
-            key = req.get(f.DIGEST.nm)
+        def drop(key, register):
             if key in register:
                 received = register[key][0]
                 if sender in received:
@@ -709,13 +707,13 @@ class Client(Motor,
                     register.pop(key)
 
         if msg[OP_FIELD_NAME] == REQACK:
-            drop(msg, self.expectingAcksFor)
+            drop(get_reply_digest(msg), self.expectingAcksFor)
         elif msg[OP_FIELD_NAME] == REPLY:
-            drop(msg[f.RESULT.nm], self.expectingAcksFor)
-            drop(msg[f.RESULT.nm], self.expectingRepliesFor)
+            drop(get_reply_digest(msg[f.RESULT.nm]), self.expectingAcksFor)
+            drop(get_reply_digest(msg[f.RESULT.nm]), self.expectingRepliesFor)
         elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
-            drop(msg, self.expectingAcksFor)
-            drop(msg, self.expectingRepliesFor)
+            drop(get_reply_digest(msg), self.expectingAcksFor)
+            drop(get_reply_digest(msg), self.expectingRepliesFor)
         else:
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 

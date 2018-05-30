@@ -1,7 +1,8 @@
 import base58
 import pytest
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
-from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA
+from plenum.common.constants import NODE, BLS_KEY, DATA
+from plenum.common.txn_util import get_type, get_payload_data
 from plenum.common.util import randomString
 from plenum.test.bls.helper import sdk_change_bls_key
 
@@ -17,7 +18,7 @@ def node(txnPoolNodeSet):
 def pool_node_txns(poolTxnData):
     node_txns = []
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NODE:
+        if get_type(txn) == NODE:
             node_txns.append(txn)
     return node_txns
 
@@ -38,7 +39,7 @@ def test_get_key_for_current_root(bls_key_register_ledger, txnPoolNodeSet, pool_
         bls_key = bls_key_register_ledger.get_key_by_name(
             txnPoolNodeSet[i].name)
         assert bls_key
-        assert bls_key == pool_node_txns[i][DATA][BLS_KEY]
+        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNodeSet, pool_node_txns):
@@ -46,7 +47,7 @@ def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNod
         bls_key = bls_key_register_ledger.get_key_by_name(txnPoolNodeSet[i].name,
                                                           bls_key_register_ledger.get_pool_root_hash_committed())
         assert bls_key
-        assert bls_key == pool_node_txns[i][DATA][BLS_KEY]
+        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
@@ -56,7 +57,7 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            looper,
                                            sdk_wallet_steward,
                                            sdk_pool_handle):
-    old_bls_key = pool_node_txns[0][DATA][BLS_KEY]
+    old_bls_key = get_payload_data(pool_node_txns[0])[DATA][BLS_KEY]
     new_bls_key = base58.b58encode(randomString(128).encode()).decode("utf-8")
     old_pool_root_hash = node.poolManager.state.committedHeadHash
 
