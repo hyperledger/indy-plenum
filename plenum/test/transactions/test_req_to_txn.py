@@ -23,25 +23,29 @@ def req_and_expected(request, looper, sdk_wallet_client):
         #     req.pop('signature')
         if request.param == 'no_protocol_vers':
             req.pop('protocolVersion')
+        digest = req.get("digest")
+        sign = req.get("signature")
     else:
         req = Request(operation=op, reqId=1513945121191691,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd")
-        req.signature = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+        sign = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+        req.signature = sign
         req.add_signature("6ouriXMZkLeHsuXrN1X1fd",
-                          "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM")
+                          sign)
         if request.param == 'sig_only':
             req.signatures = None
         if request.param == 'sigs_only':
             req.signature = None
         if request.param == 'no_protocol_vers':
             req.protocolVersion = None
+        digest = req.digest
 
     new_expected = SortedDict({
         "reqSignature": {
             "type": "ED25519",
             "values": [{
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
-                "value": "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+                "value": sign
             }]
         },
         "txn": {
@@ -52,6 +56,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
                 "reqId": 1513945121191691,
+                "digest": digest,
             },
 
             "protocolVersion": CURRENT_PROTOCOL_VERSION,
@@ -74,6 +79,8 @@ def test_req_to_txn(req_and_expected):
     req, new_expected = req_and_expected
     txn = append_txn_metadata(reqToTxn(req), txn_time=1513945121)
     new = SortedDict(txn)
+    print(new)
+    print(new_expected)
     assert new == new_expected
 
 
