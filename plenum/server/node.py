@@ -2131,7 +2131,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         clientName = msg.senderClient
 
         if not self.isProcessingReq(*request.key):
-            if self.seqNoDB.get(request.digest) is not None:
+            ledger_id, seq_no = self.seqNoDB.get(request.digest)
+            if seq_no is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))

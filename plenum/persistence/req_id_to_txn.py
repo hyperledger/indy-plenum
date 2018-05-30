@@ -15,7 +15,7 @@ class ReqIdrToTxn:
         self._keyValueStorage = keyValueStorage
 
     def add(self, digest, ledge_id, seq_no):
-        self._keyValueStorage.put(digest, ledge_id + self.delimiter + seq_no)
+        self._keyValueStorage.put(digest, self._get_value(ledge_id, seq_no))
 
     def addBatch(self, batch):
         self._keyValueStorage.setBatch([(digest, self._get_value(ledge_id,
