@@ -20,9 +20,9 @@ def set_keepalive(socket: Socket, config):
     socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, config.KEEPALIVE_CNT)
 
 
-def set_zmq_internal_queue_length(socket: Socket, config):
+def set_zmq_internal_queue_size(socket: Socket, queue_size: int):
     # set both ZMQ_RCVHWM and ZMQ_SNDHWM
-    socket.set_hwm(config.ZMQ_INTERNAL_QUEUE_SIZE)
+    socket.set_hwm(queue_size)
 
 
 class Remote:
@@ -76,7 +76,7 @@ class Remote:
         sock.curve_serverkey = self.publicKey
         sock.identity = localPubKey
         set_keepalive(sock, self.config)
-        set_zmq_internal_queue_length(sock, self.config)
+        set_zmq_internal_queue_size(sock, self.config.ZMQ_NODE_QUEUE_SIZE)
         addr = '{protocol}://{}:{}'.format(*self.ha, protocol=ZMQ_NETWORK_PROTOCOL)
         sock.connect(addr)
         self.socket = sock
