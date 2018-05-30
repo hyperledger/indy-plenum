@@ -299,7 +299,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       requests: Dict[Request], byMaster: bool = False) -> Dict:
+                       requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
         might have been reset due to view change due to which this method

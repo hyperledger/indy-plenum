@@ -2,7 +2,6 @@ from typing import Dict, Any, Optional
 from abc import ABCMeta, abstractmethod
 
 from plenum.common.constants import THREE_PC_PREFIX
-from plenum.common.messages.fields import RequestIdentifierField
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.types import f
