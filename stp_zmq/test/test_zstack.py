@@ -291,3 +291,18 @@ def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
 
     assert betaHandlers[0] is False
     assert betaHandlers[1] is True
+
+
+def test_queue_size_limit_set(tdir, tconf):
+    stack = ZStack("Alpha", ha=genHa(), basedirpath=tdir, msgHandler=None,
+                   restricted=False, seed=randomSeed(), config=tconf)
+    stack.start()
+    assert stack.listener.get_hwm() == 0
+    stack.stop()
+
+    queue_size = 100
+    stack = ZStack("Alpha", ha=genHa(), basedirpath=tdir, msgHandler=None,
+                   restricted=False, seed=randomSeed(), config=tconf, queue_size=queue_size)
+    stack.start()
+    assert stack.listener.get_hwm() == queue_size
+    stack.stop()

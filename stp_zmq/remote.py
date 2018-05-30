@@ -20,13 +20,13 @@ def set_keepalive(socket: Socket, config):
     socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, config.KEEPALIVE_CNT)
 
 
-def set_zmq_internal_queue_length(socket: Socket, config):
+def set_zmq_internal_queue_size(socket: Socket, queue_size: int):
     # set both ZMQ_RCVHWM and ZMQ_SNDHWM
-    socket.set_hwm(config.ZMQ_INTERNAL_QUEUE_SIZE)
+    socket.set_hwm(queue_size)
 
 
 class Remote:
-    def __init__(self, name, ha, verKey, publicKey, config=None):
+    def __init__(self, name, ha, verKey, publicKey, queue_size=0, config=None):
         # TODO, remove *args, **kwargs after removing test
 
         # Every remote has a unique name per stack, the name can be the
@@ -37,6 +37,7 @@ class Remote:
         self.publicKey = publicKey
         # self.verKey is the verification key of the other end of the remote
         self.verKey = verKey
+        self.queue_size = queue_size
         self.socket = None
         # TODO: A stack should have a monitor and it should identify remote
         # by endpoint
@@ -76,7 +77,7 @@ class Remote:
         sock.curve_serverkey = self.publicKey
         sock.identity = localPubKey
         set_keepalive(sock, self.config)
-        set_zmq_internal_queue_length(sock, self.config)
+        set_zmq_internal_queue_size(sock, self.queue_size)
         addr = '{protocol}://{}:{}'.format(*self.ha, protocol=ZMQ_NETWORK_PROTOCOL)
         sock.connect(addr)
         self.socket = sock
