@@ -31,13 +31,13 @@ class ReqIdrToTxn:
         """
         try:
             val = self._keyValueStorage.get(digest)
-            return self._parse_value(val)
+            return self._parse_value(val.decode())
         except (KeyError, ValueError):
             return None, None
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
-        return int(parse_data[0]), int(parse_data[1])
+        return str(parse_data[0]), str(parse_data[1])
 
     def _get_value(self, ledge_id, seq_no):
         return str(ledge_id) + self.delimiter + str(seq_no)
