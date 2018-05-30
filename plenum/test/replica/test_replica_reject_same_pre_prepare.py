@@ -87,7 +87,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     primaryRepl.node.stop()
     looper.removeProdable(primaryRepl.node)
 
-    reqIdr = [(request2.identifier, request2.reqId)]
+    reqIdr = [request2.digest]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         view_no,

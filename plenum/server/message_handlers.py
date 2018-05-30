@@ -210,17 +210,18 @@ class CommitHandler(BaseHandler):
 class PropagateHandler(BaseHandler):
     fields = {
         'identifier': f.IDENTIFIER.nm,
-        'req_id': f.REQ_ID.nm
+        'req_id': f.REQ_ID.nm,
+        'digest': f.DIGEST.nm
     }
 
     def validate(self, **kwargs) -> bool:
-        return not (RequestIdentifierField().validate((kwargs['identifier'],
-                    kwargs['req_id'])))
+        return kwargs['digest'] is not None
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
         if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+                ppg.request[f.REQ_ID.nm] != kwargs['req_id'] or \
+                ppg.request[f.DIGEST.nm] != kwargs['digest']:
             logger.debug(
                 '{} found PROPAGATE {} not '
                 'satisfying query criteria'.format(
