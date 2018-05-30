@@ -138,6 +138,7 @@ def get_txn_time(txn):
 def get_txn_id(txn):
     return txn[TXN_METADATA].get(TXN_METADATA_ID, None)
 
+
 def get_protocol_version(txn):
     return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_PROTOCOL_VERSION, None)
 
