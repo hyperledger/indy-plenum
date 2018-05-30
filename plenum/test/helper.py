@@ -331,32 +331,31 @@ def checkPropagateReqCountOfNode(node: TestNode, digest: str):
         len(node.requests[digest].propagates))
 
 
-def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def requestReturnedToNode(node: TestNode, key: str,
                           instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [
         (p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
-    expected = (instId, identifier, reqId)
+    expected = (instId, key)
     return expected in recvdOrderedReqs
 
 
-def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, key: str,
                                instId: int):
-    assert requestReturnedToNode(node, identifier, reqId, instId)
+    assert requestReturnedToNode(node, key, instId)
 
 
-def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestNotReturnedToNode(node: TestNode, key: str,
                                   instId: int):
-    assert not requestReturnedToNode(node, identifier, reqId, instId)
+    assert not requestReturnedToNode(node, key, instId)
 
 
 def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
     instances = range(getNoInstances(len(txnPoolNodeSet)))
     for node, inst_id in itertools.product(txnPoolNodeSet, instances):
         checkRequestNotReturnedToNode(node,
-                                      request.identifier,
-                                      request.reqId,
+                                      request.key,
                                       inst_id)
 
 
@@ -375,14 +374,14 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
+def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
-    assert [(identifier, reqId)] in args
-    idx = args.index([(identifier, reqId)])
+    assert [key] in args
+    idx = args.index([key])
     assert rv[idx]
 
 

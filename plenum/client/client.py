@@ -373,22 +373,23 @@ class Client(Motor,
                 result = msg[f.RESULT.nm]
                 identifier = idr_from_req_data(msg[f.RESULT.nm])
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+                digest = msg[f.RESULT.nm][f.DIGEST.nm]
                 numReplies = self.reqRepStore.addReply(identifier,
                                                        reqId,
                                                        frm,
                                                        result)
 
                 self._got_expected(msg, frm)
-                self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
+                self.postReplyRecvd(digest, frm, result, numReplies)
 
-    def postReplyRecvd(self, identifier, reqId, frm, result, numReplies):
-        if not self.txnLog.hasTxn(identifier, reqId):
-            reply, _ = self.getReply(identifier, reqId)
+    def postReplyRecvd(self, key, frm, result, numReplies):
+        if not self.txnLog.hasTxn(key):
+            reply, _ = self.getReply(key)
             if reply:
-                self.txnLog.append(identifier, reqId, reply)
+                self.txnLog.append(key, reply)
                 for name in self._observers:
                     try:
-                        self._observers[name](name, reqId, frm, result,
+                        self._observers[name](name, key, frm, result,
                                               numReplies)
                     except Exception as ex:
                         # TODO: All errors should not be shown on CLI, or maybe we
@@ -400,13 +401,12 @@ class Client(Motor,
                         logger.debug("Observer threw an exception", exc_info=ex)
                 return reply
             # Reply is not verified
-            key = (identifier, reqId)
             if key not in self.expectingRepliesFor and numReplies == 1:
                 # only one node was asked, but its reply cannot be confirmed,
                 # so ask other nodes
                 recipients = self._connected_node_names.difference({frm})
                 self.resendRequests({
-                    (identifier, reqId): recipients
+                    key: recipients
                 }, force_expect=True)
 
     def _statusChanged(self, old, new):
@@ -426,7 +426,7 @@ class Client(Motor,
                 self.hashStore.close()
         self.txnLog.close()
 
-    def getReply(self, identifier: str, reqId: int) -> Optional:
+    def getReply(self, key: str) -> Optional:
         """
         Accepts reply message from node if the reply is matching
 
@@ -438,14 +438,14 @@ class Client(Motor,
         (reply, CONFIRMED) f+1 reached
         """
         try:
-            cons = self.hasConsensus(identifier, reqId)
+            cons = self.hasConsensus(key)
         except KeyError:
             return None, "NOT_FOUND"
         if cons:
             return cons, "CONFIRMED"
         return None, "UNCONFIRMED"
 
-    def getRepliesFromAllNodes(self, identifier: str, reqId: int):
+    def getRepliesFromAllNodes(self, key: str):
         """
         Accepts a request ID and return a list of results from all the nodes
         for that request
@@ -456,32 +456,29 @@ class Client(Motor,
         """
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and
-                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId and
-                idr_from_req_data(msg[f.RESULT.nm]) == identifier}
+                msg[f.RESULT.nm][f.DIGEST.nm] == key}
 
-    def hasConsensus(self, identifier: str, reqId: int) -> Optional[Reply]:
+    def hasConsensus(self, key: str) -> Optional[Reply]:
         """
         Accepts a request ID and returns reply for it if quorum achieved or
         there is a state proof for it.
 
-        :param identifier: identifier of the entity making the request
-        :param reqId: Request ID
+        :param key: digest of request
         """
-        full_req_id = '({}:{})'.format(identifier, reqId)
-        replies = self.getRepliesFromAllNodes(identifier, reqId)
+        replies = self.getRepliesFromAllNodes(key)
         if not replies:
-            raise KeyError(full_req_id)
-        proved_reply = self.take_one_proved(replies, full_req_id)
+            raise KeyError(key)
+        proved_reply = self.take_one_proved(replies, key)
         if proved_reply:
-            logger.debug("Found proved reply for {}".format(full_req_id))
+            logger.debug("Found proved reply for {}".format(key))
             return proved_reply
-        quorumed_reply = self.take_one_quorumed(replies, full_req_id)
+        quorumed_reply = self.take_one_quorumed(replies, key)
         if quorumed_reply:
             logger.debug("Reply quorum for {} achieved"
-                         .format(full_req_id))
+                         .format(key))
             return quorumed_reply
 
-    def take_one_quorumed(self, replies, full_req_id):
+    def take_one_quorumed(self, replies, key):
         """
         Checks whether there is sufficint number of equal replies from
         different nodes. It uses following logic:
@@ -512,14 +509,14 @@ class Client(Motor,
             return first
         logger.debug("Received a different result from "
                      "at least one node for {}"
-                     .format(full_req_id))
+                     .format(key))
 
         result, freq = mostCommonElement(results)
         if not self.quorums.reply.is_reached(freq):
             return None
         return result
 
-    def take_one_proved(self, replies, full_req_id):
+    def take_one_proved(self, replies, key):
         """
         Returns one reply with valid state proof
         """
@@ -528,18 +525,18 @@ class Client(Motor,
             if STATE_PROOF not in result or result[STATE_PROOF] is None:
                 logger.debug("There is no state proof in "
                              "reply for {} from {}"
-                             .format(full_req_id, sender))
+                             .format(key, sender))
                 continue
             if not self.validate_multi_signature(result[STATE_PROOF]):
                 logger.debug("{} got reply for {} with bad "
                              "multi signature from {}"
-                             .format(self.name, full_req_id, sender))
+                             .format(self.name, key, sender))
                 # TODO: do something with this node
                 continue
             if not self.validate_proof(result):
                 logger.debug("{} got reply for {} with invalid "
                              "state proof from {}"
-                             .format(self.name, full_req_id, sender))
+                             .format(self.name, key, sender))
                 # TODO: do something with this node
                 continue
             return result
@@ -596,14 +593,14 @@ class Client(Motor,
         # this should be overridden
         pass
 
-    def showReplyDetails(self, identifier: str, reqId: int):
+    def showReplyDetails(self, key: str):
         """
         Accepts a request ID and prints the reply details
 
         :param identifier: Client's identifier
         :param reqId: Request ID
         """
-        replies = self.getRepliesFromAllNodes(identifier, reqId)
+        replies = self.getRepliesFromAllNodes(key)
         replyInfo = "Node {} replied with result {}"
         if replies:
             for frm, reply in replies.items():
@@ -706,7 +703,7 @@ class Client(Motor,
     def _got_expected(self, msg, sender):
 
         def drop(req, register):
-            key = (req.get(f.IDENTIFIER.nm), req.get(f.REQ_ID.nm))
+            key = req.get(f.DIGEST.nm)
             if key in register:
                 received = register[key][0]
                 if sender in received:
