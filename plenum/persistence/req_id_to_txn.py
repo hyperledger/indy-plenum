@@ -15,11 +15,11 @@ class ReqIdrToTxn:
         self._keyValueStorage = keyValueStorage
 
     def add(self, digest, ledge_id, seq_no):
-        self._keyValueStorage.put(digest, self._get_value(ledge_id, seq_no))
+        self._keyValueStorage.put(digest, self._create_value(ledge_id, seq_no))
 
     def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(digest, self._get_value(ledge_id,
-                                                                 seq_no))
+        self._keyValueStorage.setBatch([(digest, self._create_value(ledge_id,
+                                                                    seq_no))
                                         for digest, ledge_id, seq_no in batch])
 
     def get(self, digest):
@@ -39,7 +39,7 @@ class ReqIdrToTxn:
         parse_data = val.split(self.delimiter)
         return str(parse_data[0]), str(parse_data[1])
 
-    def _get_value(self, ledge_id, seq_no):
+    def _create_value(self, ledge_id, seq_no):
         return str(ledge_id) + self.delimiter + str(seq_no)
 
     @property
