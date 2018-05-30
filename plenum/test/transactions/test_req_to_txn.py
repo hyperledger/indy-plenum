@@ -55,8 +55,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
-                "reqId": 1513945121191691,
-                "digest": digest,
+                "reqId": 1513945121191691
             },
 
             "protocolVersion": CURRENT_PROTOCOL_VERSION,
@@ -71,6 +70,8 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
     if request.param == 'no_protocol_vers':
         new_expected["txn"].pop("protocolVersion", None)
+    if digest is not None:
+        new_expected["txn"]["metadata"]["digest"] = digest
 
     return req, new_expected
 
@@ -79,8 +80,6 @@ def test_req_to_txn(req_and_expected):
     req, new_expected = req_and_expected
     txn = append_txn_metadata(reqToTxn(req), txn_time=1513945121)
     new = SortedDict(txn)
-    print(new)
-    print(new_expected)
     assert new == new_expected
 
 
