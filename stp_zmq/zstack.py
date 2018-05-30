@@ -620,7 +620,7 @@ class ZStack(NetworkInterface):
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
-        remote = Remote(name, ha, remoteVerkey, remotePublicKey)
+        remote = Remote(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
