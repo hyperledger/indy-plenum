@@ -66,7 +66,7 @@ class Request:
 
     @property
     def key(self):
-        return self.identifier, self.reqId
+        return self.digest
 
     def getDigest(self):
         return sha256(serialize_msg_for_signing(self.signingState())).hexdigest()

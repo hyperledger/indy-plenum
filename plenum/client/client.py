@@ -371,11 +371,8 @@ class Client(Motor,
                 self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
-                identifier = idr_from_req_data(msg[f.RESULT.nm])
-                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
                 digest = msg[f.RESULT.nm][f.DIGEST.nm]
-                numReplies = self.reqRepStore.addReply(identifier,
-                                                       reqId,
+                numReplies = self.reqRepStore.addReply(digest,
                                                        frm,
                                                        result)
 
