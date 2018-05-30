@@ -212,6 +212,7 @@ def reqToTxn(req):
         req_data = json.loads(req)
     elif isinstance(req, Request):
         req_data = req.as_dict
+        req_data[f.DIGEST.nm] = req.digest
     else:
         raise TypeError(
             "Expected dict or str as input, but got: {}".format(type(req)))
