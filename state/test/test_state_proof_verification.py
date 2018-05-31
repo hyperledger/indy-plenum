@@ -4,7 +4,6 @@ import pytest
 
 from state.pruning_state import PruningState
 from state.state import State
-from state.trie.pruning_trie import rlp_encode
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
@@ -69,7 +68,7 @@ def test_state_proof_for_missing_data(state):
     assert PruningState.verify_state_proof(state.headHash, b'k1', None, p1)
 
 
-def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None):
+def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes=False):
     keys_suffices = keys_suffices if keys_suffices else [1, 4, 10, 11, 24, 99, 100]
     key_vals = {'{}{}'.format(prefix, k).encode():
                 str(random.randint(3000, 5000)).encode() for k in keys_suffices}
@@ -78,7 +77,11 @@ def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None):
 
     prefix_prf, val = state.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
     encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_vals.items())
-    assert val == encoded_key_values if len(val) == len(encoded_key_values) else val.items() >= encoded_key_values.items()
+    if extra_nodes:
+        assert val.items() >= encoded_key_values.items()
+    else:
+        assert val == encoded_key_values
+
     assert PruningState.verify_state_proof_multi(state.headHash, key_vals,
                                                  prefix_prf)
 
@@ -91,7 +94,7 @@ def test_state_proof_for_key_prefix(state):
 def test_state_proof_for_key_prefix_1(state):
     prefix = 'abcdefgh'
     state.set(prefix.encode(), b'2122')
-    add_prefix_nodes_and_verify(state, prefix)
+    add_prefix_nodes_and_verify(state, prefix, extra_nodes=True)
 
 
 def test_state_proof_for_key_prefix_2(state):
