@@ -168,32 +168,32 @@ class DomainRequestHandler(LedgerRequestHandler):
         root_hash = head_hash if head_hash else self.state.committedHeadHash
         encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
-        if with_proof:
-            multi_sig = self.bls_store.get(encoded_root_hash)
-            if not multi_sig:
-                # Just return the value and not proof
-                try:
-                    return self.state.get_for_root_hash(path, root_hash), None
-                except KeyError:
-                    return None, None
-            else:
-                try:
-                    proof, value = self.state.generate_state_proof(key=path,
-                                                                   root=self.state.get_head_by_hash(root_hash),
-                                                                   serialize=True,
-                                                                   get_value=True)
-                    value = self.state.get_decoded(value) if value else value
-                    encoded_proof = proof_nodes_serializer.serialize(proof)
-                    proof = {
-                        ROOT_HASH: encoded_root_hash,
-                        MULTI_SIGNATURE: multi_sig.as_dict(),
-                        PROOF_NODES: encoded_proof
-                    }
-                    return value, proof
-                except KeyError:
-                    return None, None
-        else:
+        if not with_proof:
             return self.state.get_for_root_hash(root_hash, path), None
+
+        multi_sig = self.bls_store.get(encoded_root_hash)
+        if not multi_sig:
+            # Just return the value and not proof
+            try:
+                return self.state.get_for_root_hash(path, root_hash), None
+            except KeyError:
+                return None, None
+        else:
+            try:
+                proof, value = self.state.generate_state_proof(key=path,
+                                                               root=self.state.get_head_by_hash(root_hash),
+                                                               serialize=True,
+                                                               get_value=True)
+                value = self.state.get_decoded(value) if value else value
+                encoded_proof = proof_nodes_serializer.serialize(proof)
+                proof = {
+                    ROOT_HASH: encoded_root_hash,
+                    MULTI_SIGNATURE: multi_sig.as_dict(),
+                    PROOF_NODES: encoded_proof
+                }
+                return value, proof
+            except KeyError:
+                return None, None
 
     @staticmethod
     def make_result(request, data, last_seq_no, update_time, proof):

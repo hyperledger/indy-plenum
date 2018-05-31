@@ -425,7 +425,7 @@ class Trie:
         if node_type == NODE_TYPE_LEAF:
             # Return this node only if the complete prefix is part of the current key
             if starts_with(curr_key, key_prfx):
-                seen_prfx.extend(key_prfx)
+                # Do not update `seen_prefix` as node has the prefix
                 return node
             else:
                 return BLANK_NODE
@@ -441,7 +441,7 @@ class Trie:
                     return BLANK_NODE
             else:
                 if starts_with(curr_key, key_prfx):
-                    seen_prfx.extend(curr_key)
+                    # Do not update `seen_prefix` as node has the prefix
                     return node
                 else:
                     return BLANK_NODE
@@ -1042,19 +1042,18 @@ class Trie:
         root = root or self.root_node
         proof.push(RECORDING)
         seen_prfx = []
-        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)), seen_prfx=seen_prfx)
+        prefix_node = self._get_last_node_for_prfx(root,
+                                                   bin_to_nibbles(to_string(key_prfx)),
+                                                   seen_prfx=seen_prfx)
         # The next line traverses the prefix node and the children of the
         # prefix node. Needed for generating the proof and the values
         rv = self._to_dict(prefix_node)
         # If values are needed then convert the keys appropriately
         if get_value:
-            # Adjust seen prefix to remove the nibbles present in the prefix node
-            nibbs = unpack_to_nibbles(prefix_node[0])
-            prfx_to_add = seen_prfx[:-len(nibbs)]
             new_rv = {}
             for k, v in rv.items():
-                # Add the prefix to each key
-                k_ = prfx_to_add + [int(x) for x in k.split(b'+')]
+                # Add the seen prefix to each key
+                k_ = seen_prfx + [int(x) for x in k.split(b'+')]
                 new_rv[nibbles_to_bin(without_terminator_and_flags(k_))] = v
             rv = new_rv
         o = proof.get_nodelist()

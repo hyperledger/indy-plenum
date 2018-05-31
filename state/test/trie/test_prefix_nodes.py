@@ -1,7 +1,7 @@
 from state.db.persistent_db import PersistentDB
 from state.trie.pruning_trie import Trie, rlp_encode, bin_to_nibbles, \
     NODE_TYPE_LEAF, NODE_TYPE_EXTENSION, unpack_to_nibbles, \
-    without_terminator, BLANK_NODE
+    without_terminator, BLANK_NODE, NODE_TYPE_BRANCH
 from state.util.utils import to_string
 from storage.kv_in_memory import KeyValueStorageInMemory
 
@@ -20,7 +20,7 @@ def test_get_prefix_nodes():
     # The last node should be a leaf since only 1 key
     assert trie._get_node_type(last_node) == NODE_TYPE_LEAF
     # Seen prefix matches the prefix exactly
-    assert seen_prefix == prefix_nibbles
+    assert seen_prefix == []
 
     # The queried key is larger than prefix, results in blank node
     last_node_ = trie._get_last_node_for_prfx(trie.root_node,
@@ -33,14 +33,14 @@ def test_get_prefix_nodes():
                                              seen_prfx=seen_prefix)
     # The last node should be an extension since more than 1 key
     assert trie._get_node_type(last_node) == NODE_TYPE_EXTENSION
-    assert seen_prefix == unpack_to_nibbles(last_node[0])
+    assert seen_prefix == []
 
     seen_prefix = []
     trie.update(key3.encode(), rlp_encode(['v3']))
     last_node = trie._get_last_node_for_prfx(trie.root_node, prefix_nibbles,
                                              seen_prfx=seen_prefix)
     assert trie._get_node_type(last_node) == NODE_TYPE_EXTENSION
-    assert seen_prefix == unpack_to_nibbles(last_node[0])
+    assert seen_prefix == []
 
     last_node_key = without_terminator(unpack_to_nibbles(last_node[0]))
     # Key for the fetched prefix nodes (ignore last nibble) is same as prefix nibbles
