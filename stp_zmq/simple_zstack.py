@@ -25,6 +25,7 @@ class SimpleZStack(ZStack):
         name = stackParams['name']
         ha = stackParams['ha']
         basedirpath = stackParams['basedirpath']
+        queue_size = stackParams['queue_size'] if 'queue_size' in stackParams else 0
 
         auto = stackParams.pop('auth_mode', None)
         restricted = auto != AuthMode.ALLOW_ANY.value
@@ -36,4 +37,5 @@ class SimpleZStack(ZStack):
                          seed=seed,
                          onlyListener=onlyListener,
                          config=config,
-                         msgRejectHandler=msgRejectHandler)
+                         msgRejectHandler=msgRejectHandler,
+                         queue_size=queue_size)
