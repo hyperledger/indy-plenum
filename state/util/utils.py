@@ -5,11 +5,10 @@ import string
 # the sha3 external dependency, so use hashlib for Python 3.6 and up.
 try:
      # For python 3.6+
-     from hashlib import sha3_256              # sha3_256 requires bytes
+     from hashlib import sha3_256  # sha3_256 requires bytes
 except ImportError:
      # For python 3.5
      import sha3
-     sha3_256 = lambda x: sha3.sha3_256(x.decode())   # _sha3.sha3_256 requires a string
 
 
 import rlp
@@ -134,7 +133,10 @@ def int_to_32bytearray(i):
 
 
 def sha3(seed):
-    return sha3_256(to_string(seed))
+    try:
+        return sha3_256(to_string(seed))
+    except:
+        return sha3.sha3_256(to_string(seed)).digest()
 
 
 # assert encode_hex(sha3(b'')) == b'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
