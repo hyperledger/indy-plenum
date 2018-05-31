@@ -3,6 +3,7 @@ import pytest
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.types import OPERATION, f
 from plenum.common.util import SortedDict
 from plenum.test.helper import sdk_sign_request_from_dict
 
@@ -23,7 +24,14 @@ def req_and_expected(request, looper, sdk_wallet_client):
         #     req.pop('signature')
         if request.param == 'no_protocol_vers':
             req.pop('protocolVersion')
-        digest = req.get("digest")
+        digest = Request(
+            req.get(f.IDENTIFIER.nm, None),
+            req.get(f.REQ_ID.nm, None),
+            req.get(OPERATION, None),
+            req.get(f.SIG.nm, None),
+            req.get(f.SIGS.nm, None),
+            req.get(f.PROTOCOL_VERSION.nm, None)
+        ).digest
         sign = req.get("signature")
     else:
         req = Request(operation=op, reqId=1513945121191691,
