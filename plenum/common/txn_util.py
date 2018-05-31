@@ -205,12 +205,18 @@ def reqToTxn(req):
     :param req:
     :return:
     """
-
+    if isinstance(req, str):
+        req = json.loads(req)
     if isinstance(req, dict):
-        req_data = req
-    elif isinstance(req, str):
-        req_data = json.loads(req)
-    elif isinstance(req, Request):
+        req = Request(
+            req.get(f.IDENTIFIER.nm, None),
+            req.get(f.REQ_ID.nm, None),
+            req.get(OPERATION, None),
+            req.get(f.SIG.nm, None),
+            req.get(f.SIGS.nm, None),
+            req.get(f.PROTOCOL_VERSION.nm, None)
+        )
+    if isinstance(req, Request):
         req_data = req.as_dict
         req_data[f.DIGEST.nm] = req.digest
     else:
