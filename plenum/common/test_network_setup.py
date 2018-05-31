@@ -44,10 +44,12 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
-    def writeNodeParamsFile(filePath, name, nPort, cPort):
+    def writeNodeParamsFile(filePath, name, nIp, nPort, cIp, cPort):
         contents = [
             'NODE_NAME={}'.format(name),
+            'NODE_IP={}'.format(nIp),
             'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_IP={}'.format(cIp),
             'NODE_CLIENT_PORT={}'.format(cPort),
             'CLIENT_CONNECTIONS_LIMIT={}'.format(CLIENT_CONNECTIONS_LIMIT)
         ]
@@ -112,7 +114,9 @@ class TestNetworkSetup:
                 if nd.ip != '127.0.0.1':
                     paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
-                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
+                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name,
+                                                         nd.ip, nd.port,
+                                                         nd.ip, nd.client_port)
 
                 print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
