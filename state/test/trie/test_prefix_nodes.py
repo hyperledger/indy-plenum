@@ -58,7 +58,7 @@ def test_get_prefix_nodes():
     key5 = prefix + extended_prefix + '96'
     trie.update(key5.encode(), rlp_encode(['v12']))
     seen_prefix = []
-    new_prefix_nibbs = bin_to_nibbles(prefix + '1')
+    new_prefix_nibbs = bin_to_nibbles(prefix + extended_prefix)
     last_node = trie._get_last_node_for_prfx(trie.root_node, new_prefix_nibbs,
                                              seen_prfx=seen_prefix)
 
@@ -67,7 +67,7 @@ def test_get_prefix_nodes():
     assert seen_prefix == bin_to_nibbles(prefix + '1')
 
     # traverse to the next node
-    unseen = seen_prefix[len(prefix_nibbles):]
+    unseen = seen_prefix[len(new_prefix_nibbs):]
     next_node = trie._decode_to_node(last_node[unseen[0]])
     # The 8th index should lead to a node with key '5', key ended in '85'
     assert next_node[8][0] == b'5'
