@@ -8,8 +8,11 @@ try:
      from hashlib import sha3_256  # sha3_256 requires bytes
 except ImportError:
      # For python 3.5
-     import sha3
+    import sha3 as _sha3 # renamed to _sha3 to avoid a naming conflict
 
+    # should be equivalent to hashlib.sha3_256(x)
+    def sha3_256(x):
+        return _sha3.sha3_256(x).digest()
 
 import rlp
 from rlp.sedes import big_endian_int, BigEndianInt, Binary
@@ -133,10 +136,7 @@ def int_to_32bytearray(i):
 
 
 def sha3(seed):
-    try:
-        return sha3_256(to_string(seed))
-    except:
-        return sha3.sha3_256(to_string(seed)).digest()
+    return sha3_256(to_string(seed))
 
 
 # assert encode_hex(sha3(b'')) == b'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
