@@ -364,7 +364,7 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
-    assert [(req.identifier, req.reqId)] in \
+    assert [req.digest, ] in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
 

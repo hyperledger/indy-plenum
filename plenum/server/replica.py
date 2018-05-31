@@ -739,7 +739,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.viewNo,
             ppSeqNo,
             tm,
-            [(req.identifier, req.reqId) for req in reqs],
+            [req.digest for req in reqs],
             len(validReqs),
             digest,
             ledger_id,
