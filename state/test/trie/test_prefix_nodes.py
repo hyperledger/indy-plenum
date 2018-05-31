@@ -58,13 +58,13 @@ def test_get_prefix_nodes():
     key5 = prefix + extended_prefix + '96'
     trie.update(key5.encode(), rlp_encode(['v12']))
     seen_prefix = []
-    new_prefix_nibbs = bin_to_nibbles(prefix+'1')
+    new_prefix_nibbs = bin_to_nibbles(prefix + '1')
     last_node = trie._get_last_node_for_prfx(trie.root_node, new_prefix_nibbs,
                                              seen_prfx=seen_prefix)
 
     assert trie._get_node_type(last_node) == NODE_TYPE_BRANCH
     assert new_prefix_nibbs == seen_prefix
-    assert seen_prefix == bin_to_nibbles(prefix+'1')
+    assert seen_prefix == bin_to_nibbles(prefix + '1')
 
     # traverse to the next node
     unseen = seen_prefix[len(prefix_nibbles):]
