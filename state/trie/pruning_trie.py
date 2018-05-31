@@ -414,7 +414,7 @@ class Trie:
         if node_type == NODE_TYPE_BRANCH:
             # already reach the expected node
             if not key_prfx:
-                return node[-1]
+                return node
             sub_node = self._decode_to_node(node[key_prfx[0]])
             seen_prfx.append(key_prfx[0])
             return self._get_last_node_for_prfx(sub_node, key_prfx[1:], seen_prfx)
@@ -436,7 +436,9 @@ class Trie:
                 if starts_with(key_prfx, curr_key):
                     sub_node = self._decode_to_node(node[1])
                     seen_prfx.extend(curr_key)
-                    return self._get_last_node_for_prfx(sub_node, key_prfx[len(curr_key):], seen_prfx)
+                    return self._get_last_node_for_prfx(sub_node,
+                                                        key_prfx[len(curr_key):],
+                                                        seen_prfx)
                 else:
                     return BLANK_NODE
             else:
