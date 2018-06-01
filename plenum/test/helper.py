@@ -339,7 +339,7 @@ def requestReturnedToNode(node: TestNode, key: str,
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [
-        (p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
+        (p['ordered'].instId, p['ordered'].reqIdr[0]) for p in params]
     expected = (instId, key)
     return expected in recvdOrderedReqs
 
