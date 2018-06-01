@@ -230,7 +230,7 @@ class PropagateHandler(BaseHandler):
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
         req_key = params[f.DIGEST.nm]
-        sender_key = (params[f.IDENTIFIER.nm],  params[f.REQ_ID.nm])
+        sender_key = (params[f.IDENTIFIER.nm], params[f.REQ_ID.nm])
         if req_key in self.node.requests and self.node.requests[req_key].finalised:
             sender_client = self.node.requestSender.get(sender_key)
             req = self.node.requests[req_key].finalised
