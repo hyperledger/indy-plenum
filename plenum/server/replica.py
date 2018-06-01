@@ -722,8 +722,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
-            if key in self.requests:
-                fin_req = self.requests[key].finalised
+            if key.digest in self.requests:
+                fin_req = self.requests[key.digest].finalised
                 self.processReqDuringBatch(
                     fin_req, tm, validReqs, inValidReqs, rejects)
             else:
@@ -905,7 +905,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
-        req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
+        req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
         def report_suspicious(reason):

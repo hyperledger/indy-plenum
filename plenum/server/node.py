@@ -1355,7 +1355,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # TODO: What the case when reqKey will be not in requestSender dict
                 if reqKey in self.requestSender:
                     self.transmitToClient(reject, self.requestSender[reqKey])
-                    self.doneProcessingReq(*reqKey)
+                    self.doneProcessingReq(reqKey)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -2071,8 +2071,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         # If the node is not already processing the request
-        if not self.isProcessingReq(request.key):
-            self.startedProcessingReq(request.key, frm)
+        if not self.isProcessingReq((request.identifier, request.reqId)):
+            self.startedProcessingReq((request.identifier, request.reqId), frm)
         # If not already got the propagate request(PROPAGATE) for the
         # corresponding client request(REQUEST)
         self.recordAndPropagate(request, frm)
@@ -2131,7 +2131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if not self.isProcessingReq(request.key):
+        if not self.isProcessingReq((request.identifier, request.reqId)):
             ledger_id, seq_no = self.seqNoDB.get(request.key)
             if seq_no is not None:
                 logger.debug("{} ignoring propagated request {} "
@@ -2139,13 +2139,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              .format(self.name, msg))
                 return
 
-            self.startedProcessingReq(request.key, clientName)
+            self.startedProcessingReq((request.identifier, request.reqId), clientName)
 
         else:
             if clientName is not None and \
-                    not self.is_sender_known_for_req(request.digest):
+                    not self.is_sender_known_for_req((request.identifier,
+                                                      request.reqId)):
                 # Since some propagates might not include the client name
-                self.set_sender_for_req(request.digest, clientName)
+                self.set_sender_for_req((request.identifier, request.reqId),
+                                        clientName)
 
         self.requests.add_propagate(request, frm)
 
@@ -2690,7 +2692,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
             self.sendReplyToClient(Reply(txn),
-                                   get_digest(txn))
+                                   (get_from(txn), get_req_id(txn)))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(reqKey):
