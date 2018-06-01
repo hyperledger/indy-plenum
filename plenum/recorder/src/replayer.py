@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from typing import Dict, Tuple
+from typing import Tuple
 
 from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH, \
     KeyValueStorageType, CLIENT_STACK_SUFFIX
@@ -10,31 +10,7 @@ from plenum.common.util import get_utc_epoch
 from plenum.recorder.src.combined_recorder import CombinedRecorder
 from plenum.recorder.src.recorder import Recorder
 from storage.helper import initKeyValueStorageIntKeys
-from stp_core.loop.looper import Prodable
 
-
-# class Replayer(Prodable):
-#     # Each node has multiple recorders, one for each `NetworkInterface`.
-#     # The Replayer plays each recorder on the node.
-#     def __init__(self):
-#         # id -> Recorder
-#         self.recorders = {} # type: Dict[int, Recorder]
-#         # Recorder id -> last played event time
-#         self.last_replayed = {}
-#
-#     def add_recorder(self, recorder: Recorder):
-#         self.recorders[id(recorder)] = recorder
-#
-#     async def prod(self, limit: int=None):
-#         # Check if any recorder's event needs to be played
-#         c = 0
-#         for recorder in self.recorders.values():
-#             if recorder.is_playing:
-#                 val = recorder.get_next(Recorder.INCOMING_FLAG)
-#                 if val:
-#                     msg, frm = val
-#                     c += 1
-#         return c
 
 def to_bytes(v):
     if not isinstance(v, bytes):
@@ -56,42 +32,47 @@ def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder
 
 def patch_sent_prepreapres(replaying_node, node_recorder):
     sent_pps = {}
+
+    def add_preprepare(msg):
+        inst_id, v, p = msg[f.INST_ID.nm], msg[f.VIEW_NO.nm], msg[
+            f.PP_SEQ_NO.nm]
+        if inst_id not in sent_pps:
+            sent_pps[inst_id] = {}
+        sent_pps[v, p] = [msg[f.PP_TIME.nm],
+                                   [tuple(l) for l in
+                                    msg[f.REQ_IDR.nm]],
+                                   msg[f.DISCARDED.nm],
+                                   ]
+
     for k, v in node_recorder.store.iterator(include_value=True):
         parsed = Recorder.get_parsed(v.decode())
         outgoings = Recorder.filter_outgoing(parsed)
-        if outgoings:
-            for out in outgoings:
-                try:
-                    msg = json.loads(out[0])
-                    if isinstance(msg, dict) and OP_FIELD_NAME in msg:
-                        op_name = msg[OP_FIELD_NAME]
-                        if op_name == PREPREPARE and msg[f.INST_ID.nm] == 0:
-                            v, p = msg[f.VIEW_NO.nm], msg[f.PP_SEQ_NO.nm]
-                            sent_pps[v, p] = [msg[f.PP_TIME.nm],
-                                              [tuple(l) for l in
-                                               msg[f.REQ_IDR.nm]],
-                                              msg[f.DISCARDED.nm],
-                                              ]
-                        elif op_name == BATCH:
-                            for m in msg['messages']:
-                                try:
-                                    m = json.loads(m)
-                                    if m[OP_FIELD_NAME] == PREPREPARE and m[f.INST_ID.nm] == 0:
-                                        v, p = m[f.VIEW_NO.nm], m[
-                                            f.PP_SEQ_NO.nm]
-                                        sent_pps[v, p] = [m[f.PP_TIME.nm],
-                                                          [tuple(l) for l in
-                                                           m[f.REQ_IDR.nm]],
-                                                          m[f.DISCARDED.nm]
-                                                          ]
-                                except json.JSONDecodeError:
-                                    continue
-                        else:
-                            continue
-                except json.JSONDecodeError:
-                    continue
+        if not outgoings:
+            continue
+        for out in outgoings:
+            try:
+                msg = json.loads(out[0])
+                if isinstance(msg, dict) and OP_FIELD_NAME in msg:
+                    op_name = msg[OP_FIELD_NAME]
+                    if op_name == PREPREPARE:
+                        add_preprepare(msg)
+                    elif op_name == BATCH:
+                        for m in msg['messages']:
+                            try:
+                                m = json.loads(m)
+                                if m[OP_FIELD_NAME] == PREPREPARE:
+                                    add_preprepare(m)
+                            except json.JSONDecodeError:
+                                continue
+                    else:
+                        continue
+            except json.JSONDecodeError:
+                continue
 
-    replaying_node.master_replica.sent_pps = sent_pps
+    for r in replaying_node.replicas:
+        r.sent_pps = sent_pps.pop(r.instId, {})
+
+    replaying_node.sent_pps = sent_pps
 
 
 def get_combined_recorder(replaying_node, node_recorder, client_recorder):
@@ -155,23 +136,23 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
                 next_stop_at = None
 
         if not vals:
-            # looper.runFor(.001)
             continue
 
         n_msgs, c_msgs = vals
         if n_msgs:
             for inc in n_msgs:
                 if Recorder.is_incoming(inc):
-                    replaying_node.nodestack._verifyAndAppend(to_bytes(inc[1]),
-                                                              to_bytes(inc[2]))
+                    msg, frm = to_bytes(inc[1]), to_bytes(inc[2])
+                    replaying_node.nodestack._verifyAndAppend(msg, frm)
                 if Recorder.is_disconn(inc):
-                    replaying_node.nodestack._connsChanged(set(), inc[1:])
+                    disconnecteds = inc[1:]
+                    replaying_node.nodestack._connsChanged(set(), disconnecteds)
 
         if c_msgs:
             incomings = Recorder.filter_incoming(c_msgs)
             for inc in incomings:
-                replaying_node.clientstack._verifyAndAppend(to_bytes(inc[0]),
-                                                            to_bytes(inc[1]))
+                msg, frm = to_bytes(inc[1]), to_bytes(inc[2])
+                replaying_node.clientstack._verifyAndAppend(msg, frm)
 
         looper.run(replaying_node.prod())
 

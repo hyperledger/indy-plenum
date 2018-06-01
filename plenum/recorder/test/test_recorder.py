@@ -30,6 +30,9 @@ def test_add_to_recorder(recorder):
     recorder.add_outgoing(msg3, to1, to11)
     time.sleep(.4)
     recorder.add_outgoing(msg4, to2)
+    time.sleep(.5)
+    recorder.add_disconnecteds('a', 'b', 'c')
+
     i = 0
     for k, v in recorder.store.iterator(include_value=True):
         assert int(k.decode()) > int(last_check_time)
@@ -49,8 +52,32 @@ def test_add_to_recorder(recorder):
             assert v.decode() == json.dumps([[Recorder.OUTGOING_FLAG, msg4, to2]])
             assert int(k) - int(last_check_time) >= .4 * Recorder.TIME_FACTOR
 
+        if i == 4:
+            assert v.decode() == json.dumps([[Recorder.DISCONN_FLAG, 'a', 'b', 'c']])
+            assert int(k) - int(last_check_time) >= .5 * Recorder.TIME_FACTOR
+
         last_check_time = k.decode()
         i += 1
+
+
+def test_get_list_from_recorder(recorder):
+    msg1, frm1 = 'm1', 'f1'
+    msg2, frm2 = 'm2', 'f2'
+    msg3, to1, to11 = 'm3', 't1', 't11'
+    # Decrease resolution
+    recorder.TIME_FACTOR = 10
+    time.sleep(1)
+    recorder.add_outgoing(msg3, to1, to11)
+    recorder.add_incoming(msg1, frm1)
+    recorder.add_incoming(msg2, frm2)
+    recorder.add_disconnecteds('a', 'b', 'c')
+    for k, v in recorder.store.iterator(include_value=True):
+        assert v.decode() == json.dumps([
+            [Recorder.OUTGOING_FLAG, 'm3', 't1', 't11'],
+            [Recorder.INCOMING_FLAG, 'm1', 'f1'],
+            [Recorder.INCOMING_FLAG, 'm2', 'f2'],
+            [Recorder.DISCONN_FLAG, 'a', 'b', 'c']
+            ])
 
 
 def test_register_play_targets(recorder):

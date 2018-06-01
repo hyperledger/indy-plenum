@@ -4,6 +4,7 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.view_change.conftest import viewNo  # noqa
 
 
 TestRunningTimeLimitSec = 550

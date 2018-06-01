@@ -30,6 +30,9 @@ def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                               sdk_wallet_client, 10)
     ensure_all_nodes_have_same_data(txnPoolNodesLooper, other_nodes)
 
+    for node in other_nodes:
+        assert alpha.name not in node.nodestack.connecteds
+
     nodeHa, nodeCHa = HA(*alpha.nodestack.ha), HA(*alpha.clientstack.ha)
     config_helper = PNodeConfigHelper(alpha.name, tconf, chroot=tdir)
 
