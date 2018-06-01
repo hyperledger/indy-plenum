@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import copy
-import sys
 
 import rlp
-from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
+from rlp.utils import encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
 from state.util.fast_rlp import encode_optimized, decode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
@@ -199,6 +198,10 @@ def is_key_value_type(node_type):
                          NODE_TYPE_EXTENSION]
 
 
+def key_nibbles_from_key_value_node(node):
+    return without_terminator(unpack_to_nibbles(node[0]))
+
+
 BLANK_NODE = b''
 BLANK_ROOT = sha3rlp(BLANK_NODE)
 DEATH_ROW_OFFSET = 2**62
@@ -323,7 +326,7 @@ class Trie:
         elif is_key_value_type(node_type):
             node_type = self._get_node_type(node)
             if node_type == NODE_TYPE_EXTENSION:
-                self._delete_child_storage(self._decode_to_node(node[1]))
+                self._delete_child_storage(self._get_inner_node_from_extension(node))
 
     def _encode_node(self, node, is_root=False):
         if node == BLANK_NODE:
@@ -345,6 +348,9 @@ class Trie:
         o = rlp.decode(self._db.get(encoded))
         self.spv_grabbing(o)
         return o
+
+    def _get_inner_node_from_extension(self, node):
+        return self._decode_to_node(node[1])
 
     @staticmethod
     def _get_node_type(node):
@@ -385,14 +391,14 @@ class Trie:
             return self._get(sub_node, key[1:])
 
         # key value node
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
         if node_type == NODE_TYPE_LEAF:
             return node[1] if key == curr_key else BLANK_NODE
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
             if starts_with(key, curr_key):
-                sub_node = self._decode_to_node(node[1])
+                sub_node = self._get_inner_node_from_extension(node)
                 return self._get(sub_node, key[len(curr_key):])
             else:
                 return BLANK_NODE
@@ -420,7 +426,7 @@ class Trie:
             return self._get_last_node_for_prfx(sub_node, key_prfx[1:], seen_prfx)
 
         # key value node
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
 
         if node_type == NODE_TYPE_LEAF:
             # Return this node only if the complete prefix is part of the current key
@@ -434,7 +440,7 @@ class Trie:
             # traverse child nodes
             if len(key_prfx) > len(curr_key):
                 if starts_with(key_prfx, curr_key):
-                    sub_node = self._decode_to_node(node[1])
+                    sub_node = self._get_inner_node_from_extension(node)
                     seen_prfx.extend(curr_key)
                     return self._get_last_node_for_prfx(sub_node,
                                                         key_prfx[len(curr_key):],
@@ -495,7 +501,7 @@ class Trie:
 
     def _update_kv_node(self, node, key, value):
         node_type = self._get_node_type(node)
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
         is_inner = node_type == NODE_TYPE_EXTENSION
         # sys.stderr.write('ukv %r %r\n' % (key, value))
 
@@ -588,13 +594,13 @@ class Trie:
                 if o:
                     return [i] + o
             return None
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
+
         if node_type == NODE_TYPE_LEAF:
             return curr_key
 
         if node_type == NODE_TYPE_EXTENSION:
-            curr_key = without_terminator(unpack_to_nibbles(node[0]))
-            sub_node = self._decode_to_node(node[1])
+            sub_node = self._get_inner_node_from_extension(node)
             return self._getany(sub_node, path=path + curr_key)
 
     def _iter(self, node, key, reverse=False, path=[]):
@@ -622,7 +628,7 @@ class Trie:
                 return [16]
             return None
 
-        descend_key = without_terminator(unpack_to_nibbles(node[0]))
+        descend_key = key_nibbles_from_key_value_node(node)
         if node_type == NODE_TYPE_LEAF:
             if reverse:
                 return descend_key if descend_key < key else None
@@ -631,7 +637,7 @@ class Trie:
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
-            sub_node = self._decode_to_node(node[1])
+            sub_node = self._get_inner_node_from_extension(node)
             sub_key = key[len(descend_key):]
             if starts_with(key, descend_key):
                 o = self._iter(sub_node, sub_key, reverse, path + descend_key)
@@ -771,7 +777,7 @@ class Trie:
         # sys.stderr.write('dkv\n')
         node_type = self._get_node_type(node)
         assert is_key_value_type(node_type)
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
 
         if not starts_with(key, curr_key):
             # key not found
@@ -787,7 +793,7 @@ class Trie:
 
         # for inner key value type
         new_sub_node = self._delete_and_delete_storage(
-            self._decode_to_node(node[1]), key[len(curr_key):])
+            self._get_inner_node_from_extension(node), key[len(curr_key):])
         # sys.stderr.write('nsn: %r %r\n' % (node, new_sub_node))
 
         # if self._encode_node(new_sub_node) == node[1]:
@@ -871,7 +877,7 @@ class Trie:
         if is_key_value_type(node_type):
             value_is_node = node_type == NODE_TYPE_EXTENSION
             if value_is_node:
-                return self._get_size(self._decode_to_node(node[1]))
+                return self._get_size(self._get_inner_node_from_extension(node))
             else:
                 return 1
         elif node_type == NODE_TYPE_BRANCH:
@@ -896,10 +902,10 @@ class Trie:
         node_type = self._get_node_type(node)
 
         if is_key_value_type(node_type):
-            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            nibbles = key_nibbles_from_key_value_node(node)
             key = b'+'.join([to_string(x) for x in nibbles])
             if node_type == NODE_TYPE_EXTENSION:
-                sub_dict = self._to_dict(self._decode_to_node(node[1]))
+                sub_dict = self._to_dict(self._get_inner_node_from_extension(node))
             else:
                 sub_dict = {to_string(NIBBLE_TERMINATOR): node[1]}
 
@@ -951,10 +957,10 @@ class Trie:
         node_type = self._get_node_type(node)
 
         if is_key_value_type(node_type):
-            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            nibbles = key_nibbles_from_key_value_node(node)
             key = b'+'.join([to_string(x) for x in nibbles])
             if node_type == NODE_TYPE_EXTENSION:
-                sub_tree = self._iter_branch(self._decode_to_node(node[1]))
+                sub_tree = self._iter_branch(self._get_inner_node_from_extension(node))
             else:
                 sub_tree = [(to_string(NIBBLE_TERMINATOR), node[1])]
 

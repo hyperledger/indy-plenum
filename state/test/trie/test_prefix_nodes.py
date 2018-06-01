@@ -67,12 +67,20 @@ def test_get_prefix_nodes():
     assert seen_prefix == bin_to_nibbles(prefix + '1')
 
     # traverse to the next node
-    unseen = seen_prefix[len(new_prefix_nibbs):]
-    next_node = trie._decode_to_node(last_node[unseen[0]])
-    # The 8th index should lead to a node with key '5', key ended in '85'
-    assert next_node[8][0] == b'5'
-    # The 9th index should lead to a node with key '6', key ended in '96'
-    assert next_node[9][0] == b'6'
+    remaining_key4_nibbs = bin_to_nibbles(key4)[len(seen_prefix):]
+    remaining_key5_nibbs = bin_to_nibbles(key5)[len(seen_prefix):]
+    next_nibble = remaining_key4_nibbs[0] if remaining_key4_nibbs[0] > remaining_key5_nibbs[0] else remaining_key5_nibbs[0]
+    next_node = trie._decode_to_node(last_node[next_nibble])
+
+    assert trie._get_node_type(next_node) == NODE_TYPE_BRANCH
+
+    # The 8th index should lead to a node with key '5', key4 ended in '85'
+    assert trie._get_node_type(next_node[8]) == NODE_TYPE_LEAF
+    assert without_terminator(unpack_to_nibbles(next_node[8][0])) == bin_to_nibbles('5')
+
+    # The 9th index should lead to a node with key '6', key5 ended in '96'
+    assert trie._get_node_type(next_node[9]) == NODE_TYPE_LEAF
+    assert without_terminator(unpack_to_nibbles(next_node[9][0])) == bin_to_nibbles('6')
 
     prefix_1 = prefix + 'efgh'
     prefix_1_nibbles = bin_to_nibbles(prefix_1)
