@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import NYM, NODE
 from plenum.common.txn_util import get_type, set_type, get_payload_data, get_from, get_req_id, get_seq_no, get_txn_id, \
-    get_txn_time
+    get_txn_time, get_version
 from plenum.common.util import SortedDict
 
 
@@ -99,3 +99,7 @@ def test_get_txn_id(txn):
 def test_get_txn_id_none(txn):
     txn["txnMetadata"].pop("txnId", None)
     assert get_txn_id(txn) is None
+
+
+def test_get_txn_version(txn):
+    assert get_version(txn) == "1"
