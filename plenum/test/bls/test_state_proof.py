@@ -21,7 +21,7 @@ def check_result(txnPoolNodeSet, req, should_have_proof):
     for node in txnPoolNodeSet:
         req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
         key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        proof = req_handler.make_proof(key)
+        _, proof = req_handler.get_value_from_state(key, with_proof=True)
 
         txn_time = get_utc_epoch()
         result = req_handler.make_result(req,
@@ -54,7 +54,7 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
         key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        proof = req_handler.make_proof(key)
+        _, proof = req_handler.get_value_from_state(key, with_proof=True)
         assert proof
         assert ROOT_HASH in proof
         assert MULTI_SIGNATURE in proof

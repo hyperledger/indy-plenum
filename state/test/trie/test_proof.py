@@ -258,11 +258,18 @@ def test_proof_prefix_only_prefix_nodes():
     for k, v in key_vals.items():
         node_trie.update(k.encode(), rlp_encode([v]))
 
-    proof_nodes = node_trie.generate_state_proof_for_key_prfx(prefix.encode())
+    proof_nodes, val = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=True)
+    encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items()}
+    # Check returned values match the actual values
+    assert encoded == val
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                              {k.encode(): rlp_encode([v]) for
-                                               k, v in key_vals.items()},
-                                              proof_nodes)
+                                              encoded, proof_nodes)
+    # Check without value
+    proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=False)
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              encoded, proof_nodes)
 
 
 def test_proof_prefix_with_other_nodes():
@@ -292,8 +299,15 @@ def test_proof_prefix_with_other_nodes():
         node_trie.update(randomString(randint(8, 19)).encode(),
                          rlp_encode([randomString(15)]))
 
-    proof_nodes = node_trie.generate_state_proof_for_key_prfx(prefix.encode())
+    proof_nodes, val = node_trie.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
     encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items()}
+    # Check returned values match the actual values
+    assert encoded == val
+    assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                              encoded, proof_nodes)
+    # Check without value
+    proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+        prefix.encode(), get_value=False)
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                               encoded, proof_nodes)
 
@@ -338,13 +352,39 @@ def test_proof_multiple_prefix_nodes():
 
     for prefix in all_prefixes:
         client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
-        proof_nodes = node_trie.generate_state_proof_for_key_prfx(
-            prefix.encode())
+        proof_nodes, val = node_trie.generate_state_proof_for_keys_with_prefix(
+            prefix.encode(), get_value=True)
         encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if k.startswith(prefix)}
+        # Check returned values match the actual values
+        assert encoded == val
         assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                                   encoded, proof_nodes)
+        # Check without value
+        proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
+            prefix.encode(), get_value=False)
+        assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
+                                                  encoded, proof_nodes)
+
         # Verify keys with a different prefix
         encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if
                    not k.startswith(prefix)}
         assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
                                                       encoded, proof_nodes)
+
+
+def test_get_proof_and_value():
+    # Non prefix nodes
+    num_keys = 100
+    test_data = gen_test_data(num_keys)
+
+    node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    client_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+
+    for k, v in test_data.items():
+        node_trie.update(k, v)
+
+    for k in test_data:
+        proof, v = node_trie.produce_spv_proof(k, get_value=True)
+        proof.append(deepcopy(node_trie.root_node))
+        assert v == test_data[k]
+        assert client_trie.verify_spv_proof(node_trie.root_hash, k, v, proof)

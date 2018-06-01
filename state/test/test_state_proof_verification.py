@@ -68,14 +68,20 @@ def test_state_proof_for_missing_data(state):
     assert PruningState.verify_state_proof(state.headHash, b'k1', None, p1)
 
 
-def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None):
+def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes=False):
     keys_suffices = keys_suffices if keys_suffices else [1, 4, 10, 11, 24, 99, 100]
     key_vals = {'{}{}'.format(prefix, k).encode():
                 str(random.randint(3000, 5000)).encode() for k in keys_suffices}
     for k, v in key_vals.items():
         state.set(k, v)
 
-    prefix_prf = state.generate_state_proof_for_key_prfx(prefix.encode())
+    prefix_prf, val = state.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
+    encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_vals.items())
+    if extra_nodes:
+        assert val.items() >= encoded_key_values.items()
+    else:
+        assert val == encoded_key_values
+
     assert PruningState.verify_state_proof_multi(state.headHash, key_vals,
                                                  prefix_prf)
 
@@ -88,7 +94,7 @@ def test_state_proof_for_key_prefix(state):
 def test_state_proof_for_key_prefix_1(state):
     prefix = 'abcdefgh'
     state.set(prefix.encode(), b'2122')
-    add_prefix_nodes_and_verify(state, prefix)
+    add_prefix_nodes_and_verify(state, prefix, extra_nodes=True)
 
 
 def test_state_proof_for_key_prefix_2(state):

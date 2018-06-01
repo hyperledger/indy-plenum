@@ -384,7 +384,7 @@ class TestNode(TestNodeCore, Node):
         for txn in committedTxns:
             if get_type(txn) == "buy":
                 key, value = req_handler.prepare_buy_for_state(txn)
-                proof = req_handler.make_proof(key)
+                _, proof = req_handler.get_value_from_state(key, with_proof=True)
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
