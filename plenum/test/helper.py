@@ -55,8 +55,9 @@ def ordinal(n):
 
 def check_sufficient_replies_received(client: Client,
                                       identifier,
-                                      request_id):
-    reply, _ = client.getReply(identifier, request_id)
+                                      request_id,
+                                      req_key):
+    reply, _ = client.getReply(req_key)
     full_request_id = "({}:{})".format(identifier, request_id)
     if reply is not None:
         logger.debug("got confirmed reply for {}: {}"
@@ -107,7 +108,8 @@ def waitForSufficientRepliesForRequests(looper,
     coros = [partial(check_sufficient_replies_received,
                      client,
                      request.identifier,
-                     request.reqId)
+                     request.reqId,
+                     request.key)
              for request in requests]
     chk_all_funcs(looper, coros,
                   retry_wait=1,

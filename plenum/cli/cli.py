@@ -1113,11 +1113,10 @@ class Cli:
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, DID, reqId):
-        reqId = int(reqId)
+    def getReply(self, clientName, key):
         client = self.clients.get(clientName, None)
-        if client and (DID, reqId) in self.requests:
-            reply, status = client.getReply(DID, reqId)
+        if client and key in self.requests:
+            reply, status = client.getReply(key)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -1253,8 +1252,8 @@ class Cli:
                 self.sendMsg(client_name, actualMsgRepr)
                 return True
             elif client_action == 'show':
-                req_id = matchedVars.get('req_id')
-                self.getReply(client_name, self.activeWallet.defaultId, req_id)
+                key = matchedVars.get('digest')
+                self.getReply(client_name, key)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):
