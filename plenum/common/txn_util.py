@@ -130,6 +130,8 @@ def get_txn_time(txn):
 def get_txn_id(txn):
     return txn[TXN_METADATA].get(TXN_METADATA_ID, None)
 
+def get_version(txn):
+    return txn[TXN_VERSION]
 
 def is_forced(txn):
     force = get_payload_data(txn).get(FORCE, None)
