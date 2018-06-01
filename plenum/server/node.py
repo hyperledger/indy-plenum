@@ -2581,7 +2581,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "ledger {}, state root {}, txn root {}, requests: {}".
             format(self, view_no, pp_seq_no, ledger_id, state_root,
                    txn_root,
-                   [(req.identifier, req.reqId) for req in reqs])
+                   [req.digest for req in reqs])
         )
 
         for txn in committedTxns:

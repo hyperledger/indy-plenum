@@ -4,6 +4,8 @@ import json
 import pytest
 
 from plenum.common.exceptions import RequestRejectedException
+from plenum.common.request import Request
+from plenum.common.types import f, OPERATION
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 
@@ -39,10 +41,15 @@ def testLoggingTxnStateForValidRequest(
                                      sdk_wallet_client, 1)
     req, _ = reqs[0]
 
-    reqId = str(req['reqId'])
-    assert any(reqId in record.getMessage() for record in logsPropagate)
-    assert any(reqId in record.getMessage() for record in logsOrdered)
-    assert any(reqId in record.getMessage() for record in logsCommited)
+    key = Request(identifier=req[f.IDENTIFIER.nm],
+                  reqId=req[f.REQ_ID.nm],
+                  operation=req[OPERATION],
+                  protocolVersion=req[f.PROTOCOL_VERSION.nm],
+                  signature=req[f.SIG.nm],
+                  ).digest
+    assert any(key in record.getMessage() for record in logsPropagate)
+    assert any(key in record.getMessage() for record in logsOrdered)
+    assert any(key in record.getMessage() for record in logsCommited)
 
 
 def testLoggingTxnStateForInvalidRequest(
