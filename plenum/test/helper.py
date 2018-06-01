@@ -25,6 +25,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQN
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
+from plenum.common.txn_util import get_req_id, get_from
 from plenum.common.types import f
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
@@ -709,13 +710,13 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
 def check_request_ordered(node, request: Request):
     # it's ok to iterate through all txns since this is a test
     for seq_no, txn in node.domainLedger.getAllTxn():
-        if f.REQ_ID.nm not in txn:
+        if get_req_id(txn) is None:
             continue
-        if f.IDENTIFIER.nm not in txn:
+        if get_from(txn) is None:
             continue
-        if txn[f.REQ_ID.nm] != request.reqId:
+        if get_req_id(txn) != request.reqId:
             continue
-        if txn[f.IDENTIFIER.nm] != request.identifier:
+        if get_from(txn) != request.identifier:
             continue
         return True
     raise ValueError('{} request not ordered by node {}'.format(request, node.name))
@@ -940,9 +941,10 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     return sdk_replies
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
     wallet_h, did = sdk_wallet
-    request = Request(operation=op, reqId=random.randint(10, 100000),
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))

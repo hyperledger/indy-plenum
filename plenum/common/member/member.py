@@ -1,23 +1,32 @@
-
-from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, TXN_ID, ROLE, VERKEY
-from plenum.common.types import f
+from plenum.common.constants import NYM, TARGET_NYM, ROLE, VERKEY, ALIAS
+from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata, append_txn_metadata
 
 
 class Member:
     """
     Base class for different network member contexts.
     """
+
     @staticmethod
-    def nym_txn(nym, name, verkey=None, role=None, creator=None):
-        txn = {
-            TXN_TYPE: NYM,
+    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None, seq_no=None):
+        txn = init_empty_txn(NYM)
+
+        txn_data = {
             TARGET_NYM: nym,
-            # TXN_ID: sha256(name.encode()).hexdigest()
         }
         if verkey is not None:
-            txn[VERKEY] = verkey
-        if creator is not None:
-            txn[f.IDENTIFIER.nm] = creator
+            txn_data[VERKEY] = verkey
         if role is not None:
-            txn[ROLE] = role
+            txn_data[ROLE] = role
+        if name is not None:
+            txn_data[ALIAS] = name
+        set_payload_data(txn, txn_data)
+
+        txn = append_payload_metadata(txn,
+                                      frm=creator)
+        if txn_id:
+            txn = append_txn_metadata(txn, txn_id=txn_id)
+        if seq_no:
+            txn = append_txn_metadata(txn, seq_no=seq_no)
+
         return txn

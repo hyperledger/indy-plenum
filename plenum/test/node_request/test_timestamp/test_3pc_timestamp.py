@@ -6,6 +6,7 @@ from plenum.test.node_request.test_timestamp.helper import \
     get_timestamp_suspicion_count, make_clock_faulty
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.common.txn_util import get_txn_time
 
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -41,8 +42,8 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
                 for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID]:
                     three_pc_key = iv.data
                     for seq_no in range(iv.begin, iv.end):
-                        assert node.domainLedger.getBySeqNo(
-                            seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
+                        assert get_txn_time(node.domainLedger.getBySeqNo(seq_no))\
+                               == pp_coll[three_pc_key].ppTime
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,

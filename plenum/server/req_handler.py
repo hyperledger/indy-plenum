@@ -5,7 +5,6 @@ import base58
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.persistence.util import txnsWithSeqNo
 from stp_core.common.log import getlogger
 
 from state.state import State

@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import copy
-import sys
 
 import rlp
-from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
+from rlp.utils import encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
 from state.util.fast_rlp import encode_optimized, decode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
@@ -127,6 +126,15 @@ def adapt_terminator(nibbles, has_terminator):
         return without_terminator(nibbles)
 
 
+def without_terminator_and_flags(nibbles):
+    nibbles = nibbles[:]
+    if nibbles and nibbles[-1] == NIBBLE_TERMINATOR:
+        del nibbles[-1]
+    if len(nibbles) % 2:
+        del nibbles[0]
+    return nibbles
+
+
 def pack_nibbles(nibbles):
     """pack nibbles to binary
 
@@ -188,6 +196,10 @@ def starts_with(full, part):
 def is_key_value_type(node_type):
     return node_type in [NODE_TYPE_LEAF,
                          NODE_TYPE_EXTENSION]
+
+
+def key_nibbles_from_key_value_node(node):
+    return without_terminator(unpack_to_nibbles(node[0]))
 
 
 BLANK_NODE = b''
@@ -314,7 +326,7 @@ class Trie:
         elif is_key_value_type(node_type):
             node_type = self._get_node_type(node)
             if node_type == NODE_TYPE_EXTENSION:
-                self._delete_child_storage(self._decode_to_node(node[1]))
+                self._delete_child_storage(self._get_inner_node_from_extension(node))
 
     def _encode_node(self, node, is_root=False):
         if node == BLANK_NODE:
@@ -337,7 +349,11 @@ class Trie:
         self.spv_grabbing(o)
         return o
 
-    def _get_node_type(self, node):
+    def _get_inner_node_from_extension(self, node):
+        return self._decode_to_node(node[1])
+
+    @staticmethod
+    def _get_node_type(node):
         ''' get node type and content
 
         :param node: node in form of list, or BLANK_NODE
@@ -375,23 +391,24 @@ class Trie:
             return self._get(sub_node, key[1:])
 
         # key value node
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
         if node_type == NODE_TYPE_LEAF:
             return node[1] if key == curr_key else BLANK_NODE
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
             if starts_with(key, curr_key):
-                sub_node = self._decode_to_node(node[1])
+                sub_node = self._get_inner_node_from_extension(node)
                 return self._get(sub_node, key[len(curr_key):])
             else:
                 return BLANK_NODE
 
-    def _get_last_node_for_prfx(self, node, key_prfx):
-        """ get value inside a node
+    def _get_last_node_for_prfx(self, node, key_prfx, seen_prfx):
+        """ get last node for the given prefix, also update `seen_prfx` to track the path already traversed
 
         :param node: node in form of list, or BLANK_NODE
-        :param key: nibble list without terminator
+        :param key_prfx: prefix to look for
+        :param seen_prfx: prefix already seen, updates with each call
         :return:
             BLANK_NODE if does not exist, otherwise value or hash
         """
@@ -403,16 +420,18 @@ class Trie:
         if node_type == NODE_TYPE_BRANCH:
             # already reach the expected node
             if not key_prfx:
-                return node[-1]
+                return node
             sub_node = self._decode_to_node(node[key_prfx[0]])
-            return self._get_last_node_for_prfx(sub_node, key_prfx[1:])
+            seen_prfx.append(key_prfx[0])
+            return self._get_last_node_for_prfx(sub_node, key_prfx[1:], seen_prfx)
 
         # key value node
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
 
         if node_type == NODE_TYPE_LEAF:
             # Return this node only if the complete prefix is part of the current key
             if starts_with(curr_key, key_prfx):
+                # Do not update `seen_prefix` as node has the prefix
                 return node
             else:
                 return BLANK_NODE
@@ -420,16 +439,20 @@ class Trie:
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
             if len(key_prfx) > len(curr_key):
-                full = key_prfx
-                part = curr_key
+                if starts_with(key_prfx, curr_key):
+                    sub_node = self._get_inner_node_from_extension(node)
+                    seen_prfx.extend(curr_key)
+                    return self._get_last_node_for_prfx(sub_node,
+                                                        key_prfx[len(curr_key):],
+                                                        seen_prfx)
+                else:
+                    return BLANK_NODE
             else:
-                full = curr_key
-                part = key_prfx
-            if starts_with(full, part):
-                self._decode_to_node(node[1])
-                return node
-            else:
-                return BLANK_NODE
+                if starts_with(curr_key, key_prfx):
+                    # Do not update `seen_prefix` as node has the prefix
+                    return node
+                else:
+                    return BLANK_NODE
 
     def _update(self, node, key, value):
         # sys.stderr.write('u\n')
@@ -478,7 +501,7 @@ class Trie:
 
     def _update_kv_node(self, node, key, value):
         node_type = self._get_node_type(node)
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
         is_inner = node_type == NODE_TYPE_EXTENSION
         # sys.stderr.write('ukv %r %r\n' % (key, value))
 
@@ -571,13 +594,13 @@ class Trie:
                 if o:
                     return [i] + o
             return None
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
+
         if node_type == NODE_TYPE_LEAF:
             return curr_key
 
         if node_type == NODE_TYPE_EXTENSION:
-            curr_key = without_terminator(unpack_to_nibbles(node[0]))
-            sub_node = self._decode_to_node(node[1])
+            sub_node = self._get_inner_node_from_extension(node)
             return self._getany(sub_node, path=path + curr_key)
 
     def _iter(self, node, key, reverse=False, path=[]):
@@ -605,7 +628,7 @@ class Trie:
                 return [16]
             return None
 
-        descend_key = without_terminator(unpack_to_nibbles(node[0]))
+        descend_key = key_nibbles_from_key_value_node(node)
         if node_type == NODE_TYPE_LEAF:
             if reverse:
                 return descend_key if descend_key < key else None
@@ -614,7 +637,7 @@ class Trie:
 
         if node_type == NODE_TYPE_EXTENSION:
             # traverse child nodes
-            sub_node = self._decode_to_node(node[1])
+            sub_node = self._get_inner_node_from_extension(node)
             sub_key = key[len(descend_key):]
             if starts_with(key, descend_key):
                 o = self._iter(sub_node, sub_key, reverse, path + descend_key)
@@ -754,7 +777,7 @@ class Trie:
         # sys.stderr.write('dkv\n')
         node_type = self._get_node_type(node)
         assert is_key_value_type(node_type)
-        curr_key = without_terminator(unpack_to_nibbles(node[0]))
+        curr_key = key_nibbles_from_key_value_node(node)
 
         if not starts_with(key, curr_key):
             # key not found
@@ -770,7 +793,7 @@ class Trie:
 
         # for inner key value type
         new_sub_node = self._delete_and_delete_storage(
-            self._decode_to_node(node[1]), key[len(curr_key):])
+            self._get_inner_node_from_extension(node), key[len(curr_key):])
         # sys.stderr.write('nsn: %r %r\n' % (node, new_sub_node))
 
         # if self._encode_node(new_sub_node) == node[1]:
@@ -854,7 +877,7 @@ class Trie:
         if is_key_value_type(node_type):
             value_is_node = node_type == NODE_TYPE_EXTENSION
             if value_is_node:
-                return self._get_size(self._decode_to_node(node[1]))
+                return self._get_size(self._get_inner_node_from_extension(node))
             else:
                 return 1
         elif node_type == NODE_TYPE_BRANCH:
@@ -879,10 +902,10 @@ class Trie:
         node_type = self._get_node_type(node)
 
         if is_key_value_type(node_type):
-            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            nibbles = key_nibbles_from_key_value_node(node)
             key = b'+'.join([to_string(x) for x in nibbles])
             if node_type == NODE_TYPE_EXTENSION:
-                sub_dict = self._to_dict(self._decode_to_node(node[1]))
+                sub_dict = self._to_dict(self._get_inner_node_from_extension(node))
             else:
                 sub_dict = {to_string(NIBBLE_TERMINATOR): node[1]}
 
@@ -907,17 +930,18 @@ class Trie:
                 res[to_string(NIBBLE_TERMINATOR)] = node[-1]
             return res
 
-    def to_dict(self):
-        d = self._to_dict(self.root_node)
+    def to_dict(self, node=None):
+        node = node or self.root_node
+        d = self._to_dict(node)
         res = {}
         for key_str, value in d.items():
-            key = self.nibble_str_key_to_bin(key_str)
+            key = self.nibble_key_str_to_bin(key_str)
             res[key] = value
         return res
 
     def iter_branch(self):
         for key_str, value in self._iter_branch(self.root_node):
-            key = self.nibble_str_key_to_bin(key_str)
+            key = self.nibble_key_str_to_bin(key_str)
             yield key, value
 
     def _iter_branch(self, node):
@@ -933,10 +957,10 @@ class Trie:
         node_type = self._get_node_type(node)
 
         if is_key_value_type(node_type):
-            nibbles = without_terminator(unpack_to_nibbles(node[0]))
+            nibbles = key_nibbles_from_key_value_node(node)
             key = b'+'.join([to_string(x) for x in nibbles])
             if node_type == NODE_TYPE_EXTENSION:
-                sub_tree = self._iter_branch(self._decode_to_node(node[1]))
+                sub_tree = self._iter_branch(self._get_inner_node_from_extension(node))
             else:
                 sub_tree = [(to_string(NIBBLE_TERMINATOR), node[1])]
 
@@ -1013,38 +1037,61 @@ class Trie:
         """
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
-    def produce_spv_proof(self, key, root=None):
+    def produce_spv_proof(self, key, root=None, get_value=False):
         root = root or self.root_node
         proof.push(RECORDING)
-        self.get_at(root, key)
+        rv = self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
-        return o
+        return (o, rv) if get_value else o
 
-    def produce_spv_proof_for_nodes_with_key_prfx(self, key_prfx, root=None):
+    def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False):
         # Return a proof for keys in the trie with the given prefix.
         root = root or self.root_node
         proof.push(RECORDING)
-        prefix_node = self._get_last_node_for_prfx(root, bin_to_nibbles(to_string(key_prfx)))
-        list(self._iter_branch(prefix_node))
+        seen_prfx = []
+        prefix_node = self._get_last_node_for_prfx(root,
+                                                   bin_to_nibbles(to_string(key_prfx)),
+                                                   seen_prfx=seen_prfx)
+        # The next line traverses the prefix node and the children of the
+        # prefix node. Needed for generating the proof and the values
+        rv = self._to_dict(prefix_node)
+        # If values are needed then convert the keys appropriately
+        if get_value:
+            new_rv = {}
+            for k, v in rv.items():
+                # Add the seen prefix to each key
+                k_ = seen_prfx + [int(x) for x in k.split(b'+')]
+                new_rv[nibbles_to_bin(without_terminator_and_flags(k_))] = v
+            rv = new_rv
         o = proof.get_nodelist()
         proof.pop()
-        return o
+        return (o, rv) if get_value else o
 
-    def generate_state_proof(self, key, root=None, serialize=False):
+    def generate_state_proof(self, key, root=None, serialize=False, get_value=False):
         # NOTE: The method `produce_spv_proof` is not deliberately modified
-        return self._generate_state_proof(key, self.produce_spv_proof, root=root, serialize=serialize)
+        return self._generate_state_proof(key, self.produce_spv_proof,
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
 
-    def generate_state_proof_for_key_prfx(self, key_prfx, root=None, serialize=False):
-        # NOTE: The method `produce_spv_proof` is not deliberately modified
-        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_nodes_with_key_prfx,
-                                          root=root, serialize=serialize)
+    def generate_state_proof_for_keys_with_prefix(self, key_prfx, root=None,
+                                                  serialize=False, get_value=False):
+        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_keys_with_prefix,
+                                          root=root, serialize=serialize,
+                                          get_value=get_value)
 
-    def _generate_state_proof(self, path, func, root=None, serialize=False):
+    def _generate_state_proof(self, path, func, root=None, serialize=False, **kwargs):
         root = root or self.root_node
-        pf = func(path, root)
+        rv = func(path, root, **kwargs)
+        has_val = isinstance(rv, tuple) and len(rv) == 2
+        pf = rv[0] if has_val else rv
         pf.append(copy.deepcopy(root))
-        return pf if not serialize else self.serialize_proof(pf)
+        if serialize:
+            if has_val:
+                rv = (self.serialize_proof(pf), rv[1])
+            else:
+                rv = self.serialize_proof(pf)
+        return rv
 
     @staticmethod
     def verify_spv_proof(root, key, value, proof_nodes, serialized=False):
@@ -1119,9 +1166,9 @@ class Trie:
         return rlp_decode(ser_proof)
 
     @staticmethod
-    def nibble_str_key_to_bin(key_str):
+    def nibble_key_str_to_bin(key_str):
         if key_str:
             nibbles = [int(x) for x in key_str.split(b'+')]
         else:
             nibbles = []
-        return nibbles_to_bin(without_terminator(nibbles))
+        return nibbles_to_bin(without_terminator_and_flags(nibbles))
