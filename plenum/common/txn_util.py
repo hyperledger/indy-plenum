@@ -7,7 +7,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25515, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    TXN_METADATA_ID, TXN_VERSION, CURRENT_PROTOCOL_VERSION
+    TXN_METADATA_ID, TXN_VERSION
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -94,6 +94,7 @@ def get_reply_nym(result):
             TARGET_NYM in result[TXN_PAYLOAD][TXN_PAYLOAD_DATA]:
         return result[TXN_PAYLOAD][TXN_PAYLOAD_DATA][TARGET_NYM]
 
+
 # TODO: Support real strategies and Data Class for transactions
 # instead of util functions
 
@@ -130,8 +131,10 @@ def get_txn_time(txn):
 def get_txn_id(txn):
     return txn[TXN_METADATA].get(TXN_METADATA_ID, None)
 
+
 def get_version(txn):
     return txn[TXN_VERSION]
+
 
 def is_forced(txn):
     force = get_payload_data(txn).get(FORCE, None)
