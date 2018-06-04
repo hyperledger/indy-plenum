@@ -30,8 +30,8 @@ def checkPropagated(looper, txnPoolNodeSet, request, faultyNodes=0):
         actualMsgs = len([x for x in
                           list
                           if x['msg'].request[f.REQ_ID.nm] == request.reqId and
-                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier])
-                       #   x['msg'].request[OPERATION] == request.operation])
+                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier and
+                          x['msg'].request[OPERATION] == request.operation])
 
         numOfMsgsWithZFN = nodesSize - 1
         numOfMsgsWithFaults = faultyNodes + 1
