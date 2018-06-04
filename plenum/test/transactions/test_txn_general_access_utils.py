@@ -26,6 +26,7 @@ def txn():
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
                 "reqId": 1513945121191691,
+                "digest":  "d0b78a4216cb2407934cafc87be06a1baffc809ded7558c9c08da227a4e92507",
             },
 
             "protocolVersion": "2",

@@ -206,12 +206,12 @@ def reqToTxn(req):
         req = json.loads(req)
     if isinstance(req, dict):
         req = Request(
-            req.get(f.IDENTIFIER.nm, None),
-            req.get(f.REQ_ID.nm, None),
-            req.get(OPERATION, None),
-            req.get(f.SIG.nm, None),
-            req.get(f.SIGS.nm, None),
-            req.get(f.PROTOCOL_VERSION.nm, None)
+            identifier=req.get(f.IDENTIFIER.nm, None),
+            reqId=req.get(f.REQ_ID.nm, None),
+            operation=req.get(OPERATION, None),
+            signature=req.get(f.SIG.nm, None),
+            signatures=req.get(f.SIGS.nm, None),
+            protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
         )
     if isinstance(req, Request):
         req_data = req.as_dict
