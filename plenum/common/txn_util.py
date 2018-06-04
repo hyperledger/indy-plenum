@@ -140,10 +140,6 @@ def get_version(txn):
     return txn[TXN_VERSION]
 
 
-def get_protocol_version(txn):
-    return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_PROTOCOL_VERSION, None)
-
-
 def is_forced(txn):
     force = get_payload_data(txn).get(FORCE, None)
     if force is None:
