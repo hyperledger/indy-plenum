@@ -26,11 +26,12 @@ def checkPropagated(looper, txnPoolNodeSet, request, faultyNodes=0):
         2. no of propagate received by node must be greater than
          or equal to f + 1
         """
+        list = getAllArgs(node, Node.processPropagate)
         actualMsgs = len([x for x in
-                          getAllArgs(node, Node.processPropagate)
+                          list
                           if x['msg'].request[f.REQ_ID.nm] == request.reqId and
-                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier and
-                          x['msg'].request[OPERATION] == request.operation])
+                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier])
+                       #   x['msg'].request[OPERATION] == request.operation])
 
         numOfMsgsWithZFN = nodesSize - 1
         numOfMsgsWithFaults = faultyNodes + 1
