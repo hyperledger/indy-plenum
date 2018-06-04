@@ -9,9 +9,9 @@ class ReqIdrToTxn:
     Stores a map from client identifier, request id tuple to transaction
     sequence number
     """
+    delimiter = "~"
 
     def __init__(self, keyValueStorage: KeyValueStorage):
-        self.delimiter = "~"
         self._keyValueStorage = keyValueStorage
 
     def add(self, digest, ledge_id, seq_no):
@@ -37,10 +37,10 @@ class ReqIdrToTxn:
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
-        return str(parse_data[0]), str(parse_data[1])
+        return str(parse_data[0]), int(parse_data[1])
 
-    def _create_value(self, ledge_id, seq_no):
-        return str(ledge_id) + self.delimiter + str(seq_no)
+    def _create_value(self, ledger_id, seq_no):
+        return str(ledger_id) + self.delimiter + str(seq_no)
 
     @property
     def size(self):

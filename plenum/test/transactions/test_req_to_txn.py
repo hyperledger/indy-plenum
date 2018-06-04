@@ -32,7 +32,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
             req.get(f.SIGS.nm, None),
             req.get(f.PROTOCOL_VERSION.nm, None)
         ).digest
-        sign = req.get("signature")
+        sign = req.get(f.SIG.nm)
     else:
         req = Request(operation=op, reqId=1513945121191691,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd")
