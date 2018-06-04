@@ -16,7 +16,7 @@ def test_make_proof_bls_disabled(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
         key = req_handler.prepare_buy_key(req['identifier'], req['reqId'])
-        proof = req_handler.make_proof(key)
+        _, proof = req_handler.get_value_from_state(key, with_proof=True)
         assert not proof
 
 
@@ -28,7 +28,7 @@ def test_make_result_bls_disabled(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
         key = req_handler.prepare_buy_key(req['identifier'], req['reqId'])
-        proof = req_handler.make_proof(key)
+        _, proof = req_handler.get_value_from_state(key, with_proof=True)
         result = req_handler.make_result(sdk_json_to_request_object(req),
                                          {TXN_TYPE: "buy"},
                                          2,

@@ -53,10 +53,13 @@ BIG_NUM_OF_MSGS = 100000
 @pytest.fixture()
 def tconf():
     tmp = getConfig()
-    old_num = tmp.ZMQ_INTERNAL_QUEUE_SIZE
-    tmp.ZMQ_INTERNAL_QUEUE_SIZE = BIG_NUM_OF_MSGS
+    old_node_num = tmp.ZMQ_NODE_QUEUE_SIZE
+    old_client_num = tmp.ZMQ_CLIENT_QUEUE_SIZE
+    tmp.ZMQ_NODE_QUEUE_SIZE = BIG_NUM_OF_MSGS
+    tmp.ZMQ_CLIENT_QUEUE_SIZE = BIG_NUM_OF_MSGS
     yield tmp
-    tmp.ZMQ_INTERNAL_QUEUE_SIZE = old_num
+    tmp.ZMQ_NODE_QUEUE_SIZE = old_node_num
+    tmp.ZMQ_CLIENT_QUEUE_SIZE = old_client_num
 
 
 @pytest.fixture(scope="module")

@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.view_change_with_delays.helper import \
-    do_view_change_with_delay_on_one_node
+    do_view_change_with_propagate_primary_on_one_delayed_node
 
 # This is needed only with current view change implementation to give enough time
 # to show what is exactly broken
@@ -20,17 +20,17 @@ def tconf(tconf):
     tconf.unsafe = old_unsafe
 
 
-@pytest.mark.skip(reason='INDY-1303. Case 4 (simplified): the slow node gets '
+@pytest.mark.skip(reason='INDY-1303. Case 5 (simplified): the slow node gets '
                          'a different merkle tree root hash')
-def test_view_change_with_delay_on_one_node(
+def test_view_change_with_propagate_primary_on_one_delayed_node(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """
-    Perform view change on one slow node later than on the other nodes so that
-    delayed Commits are processed by the slow node in the old view and by the
-    other nodes in the new view. After that verify that all the nodes have the
-    same ledgers and state.
+    Perform view change on all the nodes except for one slow node and then
+    propagate primary on it so that delayed Commits are processed by the slow
+    node in the old view and by the other nodes in the new view. After that
+    verify that all the nodes have the same ledgers and state.
     """
-    do_view_change_with_delay_on_one_node(txnPoolNodeSet[-1], txnPoolNodeSet, looper,
-                                          sdk_pool_handle, sdk_wallet_client)
+    do_view_change_with_propagate_primary_on_one_delayed_node(
+        txnPoolNodeSet[-1], txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

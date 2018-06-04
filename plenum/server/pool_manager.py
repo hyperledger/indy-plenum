@@ -169,7 +169,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA(*ha),
                       main=True,
-                      auth_mode=AuthMode.RESTRICTED.value)
+                      auth_mode=AuthMode.RESTRICTED.value,
+                      queue_size=self.config.ZMQ_NODE_QUEUE_SIZE)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
         if not cliha:
@@ -177,7 +178,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA(*cliha),
                       main=True,
-                      auth_mode=AuthMode.ALLOW_ANY.value)
+                      auth_mode=AuthMode.ALLOW_ANY.value,
+                      queue_size=self.config.ZMQ_CLIENT_QUEUE_SIZE)
 
         if keys_dir:
             nstack['basedirpath'] = keys_dir
