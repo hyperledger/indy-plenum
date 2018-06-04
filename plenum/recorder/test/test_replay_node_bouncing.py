@@ -11,6 +11,9 @@ from stp_core.types import HA
 whitelist = ['cannot find remote with name']
 
 
+TestRunningTimeLimitSec = 150
+
+
 def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                              testNodeClass, tmpdir_factory,
                              node_config_helper_class, allPluginsPath,

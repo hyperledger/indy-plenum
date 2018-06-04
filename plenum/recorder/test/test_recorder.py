@@ -65,7 +65,7 @@ def test_get_list_from_recorder(recorder):
     msg2, frm2 = 'm2', 'f2'
     msg3, to1, to11 = 'm3', 't1', 't11'
     # Decrease resolution
-    recorder.TIME_FACTOR = 10
+    recorder.TIME_FACTOR = 1
     time.sleep(1)
     recorder.add_outgoing(msg3, to1, to11)
     recorder.add_incoming(msg1, frm1)

@@ -21,7 +21,7 @@ def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder
     rec_path = os.path.join(node_data_dir, node_name, 'recorder')
     # TODO: Change to rocksdb
     client_stack_name = node_name + CLIENT_STACK_SUFFIX
-    client_rec_kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
+    client_rec_kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Rocksdb,
                                                      rec_path, client_stack_name)
     node_rec_kv_store = initKeyValueStorageIntKeys(
         KeyValueStorageType.Leveldb, rec_path, node_name)
@@ -38,7 +38,7 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
             f.PP_SEQ_NO.nm]
         if inst_id not in sent_pps:
             sent_pps[inst_id] = {}
-        sent_pps[v, p] = [msg[f.PP_TIME.nm],
+        sent_pps[inst_id][v, p] = [msg[f.PP_TIME.nm],
                                    [tuple(l) for l in
                                     msg[f.REQ_IDR.nm]],
                                    msg[f.DISCARDED.nm],
@@ -151,7 +151,7 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
         if c_msgs:
             incomings = Recorder.filter_incoming(c_msgs)
             for inc in incomings:
-                msg, frm = to_bytes(inc[1]), to_bytes(inc[2])
+                msg, frm = to_bytes(inc[0]), to_bytes(inc[1])
                 replaying_node.clientstack._verifyAndAppend(msg, frm)
 
         looper.run(replaying_node.prod())

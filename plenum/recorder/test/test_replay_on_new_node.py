@@ -4,6 +4,9 @@ from plenum.test.node_catchup.conftest import whitelist, sdk_new_node_caught_up,
     sdk_node_set_with_node_added_after_some_txns, sdk_node_created_after_some_txns   # noqa
 
 
+TestRunningTimeLimitSec = 200
+
+
 def test_replay_on_new_node(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                             testNodeClass, tmpdir_factory,
                             node_config_helper_class, allPluginsPath,

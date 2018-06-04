@@ -4,8 +4,7 @@ import os
 
 from plenum.recorder.src.replayable_node import prepare_directory_for_replay, \
     create_replayable_node_class
-from plenum.recorder.src.replayer import patch_replaying_node_for_time, \
-    replay_patched_node, get_recorders_from_node_data_dir, \
+from plenum.recorder.src.replayer import get_recorders_from_node_data_dir, \
     prepare_node_for_replay_and_replay
 from plenum.test.helper import create_new_test_node
 from plenum.test.test_node import TestReplica, TestReplicas
