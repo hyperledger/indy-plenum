@@ -60,7 +60,7 @@ def run_node():
             # allow time for the request to be executed
             looper.runFor(3)
 
-            reply, status = client.getReply(request.reqId)
+            reply, status = client.getReply(request.key)
             print('')
             print('Reply: {}\n'.format(reply))
             print('Status: {}\n'.format(status))

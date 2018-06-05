@@ -289,7 +289,7 @@ def read_txn_and_get_latest_info(txnPoolNodesLooper,
         txnPoolNodesLooper.run(
             eventually(check_sufficient_replies_received,
                        client, req.identifier, req.reqId,
-                       retryWait=1, timeout=timeout))
+                       req.key, retryWait=1, timeout=timeout))
         return node._info_tool.info
 
     return read_wrapped

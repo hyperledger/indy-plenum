@@ -2,7 +2,6 @@ from typing import Dict, Any, Optional
 from abc import ABCMeta, abstractmethod
 
 from plenum.common.constants import THREE_PC_PREFIX
-from plenum.common.messages.fields import RequestIdentifierField
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.types import f
@@ -210,17 +209,18 @@ class CommitHandler(BaseHandler):
 class PropagateHandler(BaseHandler):
     fields = {
         'identifier': f.IDENTIFIER.nm,
-        'req_id': f.REQ_ID.nm
+        'req_id': f.REQ_ID.nm,
+        'digest': f.DIGEST.nm
     }
 
     def validate(self, **kwargs) -> bool:
-        return not (RequestIdentifierField().validate((kwargs['identifier'],
-                    kwargs['req_id'])))
+        return kwargs['digest'] is not None
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
         if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                ppg.request[f.REQ_ID.nm] != kwargs['req_id']:
+                ppg.request[f.REQ_ID.nm] != kwargs['req_id'] or \
+                ppg.request[f.DIGEST.nm] != kwargs['digest']:
             logger.debug(
                 '{} found PROPAGATE {} not '
                 'satisfying query criteria'.format(
@@ -229,9 +229,10 @@ class PropagateHandler(BaseHandler):
         return ppg
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
-        req_key = (params['identifier'], params['req_id'])
+        req_key = params[f.DIGEST.nm]
+        sender_key = (params[f.IDENTIFIER.nm], params[f.REQ_ID.nm])
         if req_key in self.node.requests and self.node.requests[req_key].finalised:
-            sender_client = self.node.requestSender.get(req_key)
+            sender_client = self.node.requestSender.get(sender_key)
             req = self.node.requests[req_key].finalised
             return self.node.createPropagate(req, sender_client)
         return None

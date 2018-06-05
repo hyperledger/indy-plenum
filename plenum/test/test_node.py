@@ -9,10 +9,12 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
+from plenum.common.request import Request
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.propagator import Requests
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -633,11 +635,11 @@ class TestMonitor(Monitor):
         self.masterReqLatenciesTest = {}
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False):
-        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+                       requests: Dict, byMaster: bool = False):
+        durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
-            for (identifier, reqId), duration in durations.items():
-                self.masterReqLatenciesTest[identifier, reqId] = duration
+            for key, duration in durations.items():
+                self.masterReqLatenciesTest[key] = duration
 
     def reset(self):
         super().reset()

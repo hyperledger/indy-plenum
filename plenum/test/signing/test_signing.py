@@ -55,7 +55,7 @@ def testOneNodeAltersAClientRequest(looper,
             assert reason == InsufficientCorrectSignatures.reason.format(0, 1)
 
             # ensure Alpha's propagates were ignored by the other nodes
-            key = sent1.identifier, sent1.reqId
+            key = sent1.digest
             props = node.requests[key].propagates
             assert 'Alpha' not in props
             for good in goodNodes:
