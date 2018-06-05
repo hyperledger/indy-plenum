@@ -4,9 +4,8 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
 
 from stp_core.validators.message_length_validator import MessageLenValidator
 
@@ -40,8 +39,6 @@ def tconf(request, tconf):
     request.addfinalizer(reset)
     return tconf
 
-CHK_FREQ = 5
-LOG_SIZE = 3 * CHK_FREQ
 
 def test_large_catchup(tdir, tconf,
                        looper,
@@ -49,9 +46,7 @@ def test_large_catchup(tdir, tconf,
                        txnPoolNodeSet,
                        sdk_pool_handle,
                        sdk_wallet_client,
-                       allPluginsPath,
-                       chkFreqPatched,
-                       reqs_for_checkpoint):
+                       allPluginsPath):
     """
     Checks that node can catchup large ledgers
     """
@@ -73,8 +68,8 @@ def test_large_catchup(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 50)
+    sdk_send_random_requests(looper, sdk_pool_handle,
+                             sdk_wallet_client, 100)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Make message size limit smaller to ensure that catchup response is
