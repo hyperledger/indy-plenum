@@ -1,4 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.txn_util import get_txn_time
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -37,8 +38,8 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet[:-1])
     ts_from_state = node_to_disconnect.master_replica._get_last_timestamp_from_state(DOMAIN_LEDGER_ID)
-    assert ts_from_state == reply['result']['txnTime']
-    assert ts_from_state != reply_before['result']['txnTime']
+    assert ts_from_state == get_txn_time(reply['result'])
+    assert ts_from_state != get_txn_time(reply_before['result'])
 
 
 def test_choose_ts_from_state(looper,
@@ -61,4 +62,4 @@ def test_choose_ts_from_state(looper,
                                       sdk_pool_handle,
                                       sdk_wallet_steward,
                                       1)[0][1]
-    assert abs(excpected_ts - int(reply['result']['txnTime'])) < 3
+    assert abs(excpected_ts - int(get_txn_time(reply['result']))) < 3

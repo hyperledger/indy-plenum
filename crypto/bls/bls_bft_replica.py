@@ -122,11 +122,10 @@ class BlsBftReplica(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def gc(self, key_3PC=None):
+    def gc(self, key_3PC):
         """
         Do some cleaning if needed
 
         :param key_3PC: 3PC-key till which cleaning must be done
-                        (all is cleaned if not provided)
         """
         pass

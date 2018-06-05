@@ -29,7 +29,7 @@ from stp_core.common.log import getlogger
 from stp_core.network.network_interface import NetworkInterface
 from stp_zmq.util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations, createCertsFromKeys
-from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_length
+from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_size
 from plenum.common.exceptions import InvalidMessageExceedingSizeException
 from stp_core.validators.message_length_validator import MessageLenValidator
 
@@ -57,12 +57,13 @@ class ZStack(NetworkInterface):
     _RemoteClass = Remote
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None, msgRejectHandler=None):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
         self.seed = seed
+        self.queue_size = queue_size
         self.config = config or getConfig()
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
@@ -139,7 +140,6 @@ class ZStack(NetworkInterface):
             self.remotes.pop(name)
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
-            # logger.trace('{} removing remote {} with key {}'.format(self, name, pkey))
         else:
             logger.debug('No remote named {} present')
 
@@ -347,12 +347,12 @@ class ZStack(NetworkInterface):
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
         logger.debug(
-            '{} will bind its listener at {}'.format(self, self.ha[1]))
+            '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
-        set_zmq_internal_queue_length(self.listener, self.config)
+        set_zmq_internal_queue_size(self.listener, self.queue_size)
         self.listener.bind(
-            '{protocol}://*:{port}'.format(
-                port=self.ha[1], protocol=ZMQ_NETWORK_PROTOCOL)
+            '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
+                                              protocol=ZMQ_NETWORK_PROTOCOL)
         )
 
     def close(self):
@@ -624,8 +624,7 @@ class ZStack(NetworkInterface):
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
-        # logger.trace('{} adding remote {} with key {}'.format(self, name, remotePublicKey))
-        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey)
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote

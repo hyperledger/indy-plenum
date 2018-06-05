@@ -17,13 +17,13 @@ config = getConfig()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        raise Exception("Provide name and 2 port numbers for running the node "
-              "and client stacks")
+    if len(sys.argv) < 6:
+        raise Exception("Provide name and two pairs of IP/port for running the node "
+                        "and client stacks in form 'node_name node_ip node_port client_ip client_port'")
 
     selfName = sys.argv[1]
-    ha = HA("0.0.0.0", int(sys.argv[2]))
-    cliha = HA("0.0.0.0", int(sys.argv[3]))
+    ha = HA(sys.argv[2], int(sys.argv[3]))
+    cliha = HA(sys.argv[4], int(sys.argv[5]))
 
     config_helper = NodeConfigHelper(selfName, config)
 

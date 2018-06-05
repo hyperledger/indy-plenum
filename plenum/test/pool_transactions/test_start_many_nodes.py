@@ -1,7 +1,8 @@
 # Start with 8 nodes
+from plenum.common.txn_util import get_type, get_payload_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import NYM, ROLE, STEWARD
-from plenum.common.constants import TXN_TYPE
 from plenum.test.helper import assertEquality
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
@@ -15,6 +16,6 @@ def test_genesis_nodes(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         assertEquality(node.poolLedger.size, nodeCount)
         stw_count = sum(1 for _, txn in node.domainLedger.getAllTxn() if
-                        (txn[TXN_TYPE] == NYM) and (txn.get(ROLE) == STEWARD))
+                        (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE) == STEWARD))
         assertEquality(stw_count, nodeCount)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

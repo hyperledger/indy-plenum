@@ -1,3 +1,4 @@
+from plenum.common.txn_util import get_seq_no, get_payload_data
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_get_and_check_replies
 from plenum.common.constants import DATA
@@ -37,12 +38,13 @@ def test_dirty_read(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
                                                  sdk_pool_handle,
                                                  sdk_wallet_client,
                                                  1)
-    seq_no = received_replies[0][1]["result"]["seqNo"]
+    result = received_replies[0][1]["result"]
+    seq_no = get_seq_no(result)
     _, did = sdk_wallet_client
     req = sdk_build_get_txn_request(looper, did, seq_no)
     request = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
                                                  sdk_pool_handle, req)
     received_replies = sdk_get_and_check_replies(looper, [request])
-    results = [str(reply[1]['result'][DATA]) for reply in received_replies]
+    results = [str(get_payload_data(reply['result'][DATA])) for _, reply in received_replies]
 
     assert len(set(results)) == 1
