@@ -34,7 +34,7 @@ def test_all_replicas_hold_request_keys(
                     assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == count
                     for i in range(count):
                         k = r.requestQueues[DOMAIN_LEDGER_ID][i]
-                        assert r.requests[k.digest].finalised
+                        assert r.requests[k].finalised
                 elif r.isPrimary is True:
                     assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == 0
 

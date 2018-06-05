@@ -722,8 +722,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
-            if key.digest in self.requests:
-                fin_req = self.requests[key.digest].finalised
+            if key in self.requests:
+                fin_req = self.requests[key].finalised
                 self.processReqDuringBatch(
                     fin_req, tm, validReqs, inValidReqs, rejects)
             else:
@@ -773,7 +773,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def readyFor3PC(self, key: ReqKey):
         fin_req = self.requests[key.digest].finalised
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
-        queue.add(key)
+        queue.add(key.digest)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
             self.logger.warning('{} is getting requests but still does not have '
                                 'a primary so the replica will not process the request '
