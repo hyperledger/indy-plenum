@@ -20,7 +20,8 @@ def old_and_expected(request):
         "signature": "3SyRto3MGcBy1o4UmHoDezy1TJiNHDdU9o7TjHtYcSqgtpWzejMoHDrz3dpT93Xe8QXMF2tJVCQTtGmebmS2DkLS",
         "signatures": {"L5AD5g65TDQr1PPHHRoiGf":
                            "3SyRto3MGcBy1o4UmHoDezy1TJiNHDdU9o7TjHtYcSqgtpWzejMoHDrz3dpT93Xe8QXMF2tJVCQTtGmebmS2DkLS"},
-        "txnTime": 1513945121
+        "txnTime": 1513945121,
+        "txnId": "fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62"
     }
     new_expected = SortedDict({
         "reqSignature": {
@@ -48,6 +49,7 @@ def old_and_expected(request):
         "txnMetadata": {
             "txnTime": 1513945121,
             "seqNo": 143,
+            "txnId": "fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62",
         },
         "ver": "1"
     })
