@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.common.constants import NYM, NODE
-from plenum.common.txn_util import get_type, set_type, get_payload_data, get_from, get_req_id, get_seq_no, get_txn_id, \
-    get_txn_time, get_version
+from plenum.common.txn_util import get_type, set_type, get_payload_data, \
+    get_from, get_req_id, get_seq_no, get_txn_id, \
+    get_txn_time, get_version, get_digest
 from plenum.common.util import SortedDict
 
 
@@ -25,6 +26,7 @@ def txn():
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
                 "reqId": 1513945121191691,
+                "digest":  "d0b78a4216cb2407934cafc87be06a1baffc809ded7558c9c08da227a4e92507",
             },
 
             "protocolVersion": "2",
@@ -103,3 +105,7 @@ def test_get_txn_id_none(txn):
 
 def test_get_txn_version(txn):
     assert get_version(txn) == "1"
+
+
+def test_get_digest(txn):
+    assert get_digest(txn) == "d0b78a4216cb2407934cafc87be06a1baffc809ded7558c9c08da227a4e92507"

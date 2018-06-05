@@ -50,8 +50,9 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, get_seq_no, get_type, get_payload_data, \
-    get_txn_time
+from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, \
+    get_seq_no, get_type, get_payload_data, \
+    get_txn_time, get_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1801,7 +1802,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
                 rh.ts_store.set(get_txn_time(txn),
                                 state.headHash)
-        self.updateSeqNoMap([txn])
+        self.updateSeqNoMap([txn], ledger_id)
         self._clear_req_key_for_txn(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
@@ -2130,7 +2131,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         clientName = msg.senderClient
 
         if not self.isProcessingReq(*request.key):
-            if self.seqNoDB.get(request.identifier, request.reqId) is not None:
+            ledger_id, seq_no = self.seqNoDB.get(request.digest)
+            if seq_no is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
@@ -2608,16 +2610,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              last_txn_seq_no)
         self._observable.append_input(batch_committed_msg, self.name)
 
-    def updateSeqNoMap(self, committedTxns):
+    def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
-            self.seqNoDB.addBatch((get_from(txn), get_req_id(txn), get_seq_no(txn))
+            self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
                                   for txn in committedTxns)
 
-    def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
+    def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
+        reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
-        self.updateSeqNoMap(committedTxns)
+        self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
                           pp_time=ppTime)
@@ -2630,7 +2633,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
         return self.commitAndSendReplies(
-            self.get_req_handler(ledger_id), pp_time, reqs, state_root,
+            ledger_id, pp_time, reqs, state_root,
             txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
@@ -2935,8 +2938,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seq_no = seq_no if seq_no else \
-            self.seqNoDB.get(request.identifier, request.reqId)
+        if seq_no is None:
+            ledger_id, seq_no = self.seqNoDB.get(request.digest)
         if seq_no:
             txn = ledger.getBySeqNo(int(seq_no))
             if txn:

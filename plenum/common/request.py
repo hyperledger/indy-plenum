@@ -43,7 +43,7 @@ class Request:
     def as_dict(self):
         rv = {
             f.REQ_ID.nm: self.reqId,
-            OPERATION: self.operation,
+            OPERATION: self.operation
         }
         if self._identifier is not None:
             rv[f.IDENTIFIER.nm] = self._identifier
