@@ -129,8 +129,8 @@ class TestNetworkSetup:
                     paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
                     TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name,
-                                                         nd.ip, nd.port,
-                                                         nd.ip, nd.client_port)
+                                                         "0.0.0.0", nd.port,
+                                                         "0.0.0.0", nd.client_port)
 
                 print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
