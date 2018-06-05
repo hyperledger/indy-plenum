@@ -1806,11 +1806,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._clear_req_key_for_txn(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
-        frm = get_from(txn)
-        req_id = get_req_id(txn)
-        if (frm is not None) and (req_id is not None):
-            self.master_replica.discard_req_key(
-                ledger_id, (frm, req_id))
+        req_key = get_digest(txn)
+        if req_key is not None:
+            self.master_replica.discard_req_key(ledger_id, req_key)
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
