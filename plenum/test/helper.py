@@ -26,7 +26,7 @@ from plenum.common.exceptions import RequestNackedException, RequestRejectedExce
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
 from plenum.common.txn_util import get_req_id, get_from
-from plenum.common.types import f
+from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
@@ -676,6 +676,16 @@ def send_commit(view_no, pp_seq_no, nodes):
         pp_seq_no)
     primary_node = getPrimaryReplica(nodes).node
     sendMessageToAll(nodes, primary_node, commit)
+
+
+def get_key_from_req(req: dict):
+    return Request(identifier=req[f.IDENTIFIER.nm],
+                   reqId=req[f.REQ_ID.nm],
+                   operation=req[OPERATION],
+                   protocolVersion=req[f.PROTOCOL_VERSION.nm],
+                   signature=req[f.SIG.nm]
+                   if req.__contains__(f.SIG.nm) else None,
+                   ).key
 
 
 def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,

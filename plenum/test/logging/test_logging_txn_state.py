@@ -14,7 +14,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 from plenum.test.pool_transactions.helper import prepare_nym_request, \
     sdk_sign_and_send_prepared_request
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
+from plenum.test.helper import sdk_send_random_and_check, \
+    sdk_get_and_check_replies, get_key_from_req
 
 ERORR_MSG = "something went wrong"
 
@@ -151,13 +152,3 @@ def testLoggingTxnStateWhenCommitFails(
     assert any(digest in record.getMessage() for record in logsOrdered)
     assert any(digest in record.getMessage() for record in logsCommitFail)
     assert any(ERORR_MSG in record.getMessage() for record in logsCommitFail)
-
-
-def get_key_from_req(req: dict):
-    return Request(identifier=req[f.IDENTIFIER.nm],
-                   reqId=req[f.REQ_ID.nm],
-                   operation=req[OPERATION],
-                   protocolVersion=req[f.PROTOCOL_VERSION.nm],
-                   signature=req[f.SIG.nm]
-                   if req.__contains__(f.SIG.nm) else None,
-                   ).key
