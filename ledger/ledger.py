@@ -2,6 +2,7 @@ import logging
 import time
 
 import base58
+from common.exceptions import PlenumValueError
 from common.serializers.mapping_serializer import MappingSerializer
 from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
@@ -194,7 +195,8 @@ class Ledger(ImmutableStore):
 
     def merkleInfo(self, seqNo):
         seqNo = int(seqNo)
-        assert seqNo > 0
+        if seqNo <= 0:
+            raise PlenumValueError('seqNo', seqNo, '> 0')
         rootHash = self.tree.merkle_tree_hash(0, seqNo)
         auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
         return {
