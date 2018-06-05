@@ -67,14 +67,14 @@ class PruningState(State):
             val = self._trie._get(self.committedHead,
                                   bin_to_nibbles(to_string(key)))
         if val:
-            return rlp_decode(val)[0]
+            return self.get_decoded(val)
 
     def get_for_root_hash(self, root_hash, key: bytes) -> Optional[bytes]:
         root = self._hash_to_node(root_hash)
         val = self._trie._get(root,
                               bin_to_nibbles(to_string(key)))
         if val:
-            return rlp_decode(val)[0]
+            return self.get_decoded(val)
 
     def remove(self, key: bytes):
         self._trie.delete(key)
@@ -97,29 +97,35 @@ class PruningState(State):
         self._trie.replace_root_hash(self._trie.root_node, head)
 
     # Proofs are always generated over committed state
-    def generate_state_proof(self, key: bytes, root=None, serialize=False):
-        return self._trie.generate_state_proof(key, root, serialize)
+    def generate_state_proof(self, key: bytes, root=None, serialize=False, get_value=False):
+        return self._trie.generate_state_proof(key, root, serialize, get_value=get_value)
 
-    def generate_state_proof_for_key_prfx(self, key_prfx, root=None,
-                                          serialize=False):
-        return self._trie.generate_state_proof_for_key_prfx(key_prfx, root,
-                                                            serialize)
+    def generate_state_proof_for_keys_with_prefix(self, key_prfx, root=None,
+                                                  serialize=False, get_value=False):
+        return self._trie.generate_state_proof_for_keys_with_prefix(key_prfx, root,
+                                                                    serialize, get_value=get_value)
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):
-        encoded_value = rlp_encode([value]) if value is not None else b''
-        return Trie.verify_spv_proof(root, key, encoded_value,
+        encoded_key, encoded_value = PruningState.encode_kv_for_verification(key, value)
+        return Trie.verify_spv_proof(root, encoded_key, encoded_value,
                                      proof_nodes, serialized)
 
     @staticmethod
     def verify_state_proof_multi(root, key_values, proof_nodes, serialized=False):
-        encoded_key_values = {k: rlp_encode([v]) if v is not None else b'' for k, v in key_values.items()}
+        encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_values.items())
         return Trie.verify_spv_proof_multi(root, encoded_key_values, proof_nodes, serialized)
+
+    @staticmethod
+    def encode_kv_for_verification(key, value):
+        encoded_key = key.encode() if isinstance(key, str) else key
+        encoded_value = rlp_encode([value]) if value is not None else b''
+        return encoded_key, encoded_value
 
     @property
     def as_dict(self):
         d = self._trie.to_dict()
-        return {k: rlp_decode(v)[0] for k, v in d.items()}
+        return {k: self.get_decoded(v) for k, v in d.items()}
 
     @property
     def headHash(self):
@@ -142,3 +148,7 @@ class PruningState(State):
         if self._kv:
             self._kv.close()
             self._kv = None
+
+    @staticmethod
+    def get_decoded(encoded):
+        return rlp_decode(encoded)[0]
