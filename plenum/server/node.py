@@ -6,16 +6,24 @@ from collections import deque
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
-from plenum.server.ledger_req_handler import LedgerRequestHandler
-from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
+
+from crypto.bls.bls_key_manager import LoadBLSKeyError
+from state.pruning_state import PruningState
+from state.state import State
+from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
+from storage.state_ts_store import StateTsDbStorage
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.network.exceptions import RemoteNotFound
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.types import HA
+from stp_zmq.zstack import ZStack
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.hash_store import HashStore
 from ledger.util import F
-from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
-from plenum.client.wallet import Wallet
+
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
@@ -57,8 +65,16 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
+from plenum.common.config_helper import PNodeConfigHelper
+
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage
+from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+
+from plenum.client.wallet import Wallet
+
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
@@ -86,18 +102,6 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.common.config_helper import PNodeConfigHelper
-from state.pruning_state import PruningState
-from state.state import State
-from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
-from storage.state_ts_store import StateTsDbStorage
-from stp_core.common.log import getlogger
-from stp_core.crypto.signer import Signer
-from stp_core.network.exceptions import RemoteNotFound
-from stp_core.network.network_interface import NetworkInterface
-from stp_core.types import HA
-from stp_zmq.zstack import ZStack
-
 from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
