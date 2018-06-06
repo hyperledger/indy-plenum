@@ -2109,9 +2109,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             result = self.actionReqHandler.apply(request)
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
-            self.transmitToClient((request.key, Request(request.identifier,
+            self.transmitToClient(Reject(request.identifier,
                                                         request.reqId,
-                                                        str(ex))), frm)
+                                                        str(ex)), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
