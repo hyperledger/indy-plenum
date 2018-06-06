@@ -71,7 +71,6 @@ def test_large_catchup(tdir, tconf,
     # Send more requests to active nodes
     reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client, 100)
-    waitNodeDataEquality(looper, *rest_nodes)
 
     # Make message size limit smaller to ensure that catchup response is
     # larger exceeds the limit
@@ -84,7 +83,7 @@ def test_large_catchup(tdir, tconf,
     lagging_node = testNodeClass(lagging_node.name,
                                  config_helper=config_helper,
                                  config=tconf, pluginPaths=allPluginsPath)
-    sdk_get_and_check_replies(looper, reqs)
     looper.add(lagging_node)
+    sdk_get_and_check_replies(looper, reqs)
     txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)
