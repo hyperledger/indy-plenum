@@ -713,7 +713,7 @@ class Client(Motor,
                     register.pop(key)
 
         if msg[OP_FIELD_NAME] == REQACK:
-            drop(get_reply_identifier(msg), get_reply_reqId(msg), 
+            drop(get_reply_identifier(msg), get_reply_reqId(msg),
                  self.expectingAcksFor)
         elif msg[OP_FIELD_NAME] == REPLY:
             drop(get_reply_identifier(msg[f.RESULT.nm]),
