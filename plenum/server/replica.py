@@ -8,10 +8,10 @@ import math
 
 import sys
 
-import plenum.server.node
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
+
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
@@ -33,6 +33,8 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger, ReplicaFilter
+
+import plenum.server.node
 
 LOG_TAGS = {
     'PREPREPARE': {"tags": ["node-preprepare"]},
