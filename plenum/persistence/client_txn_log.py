@@ -29,12 +29,14 @@ class ClientTxnLog(HasFileStorage):
         fields = getTxnOrderedFields()
         return updateFieldsWithSeqNo(fields)
 
-    def append(self, key: str, txn):
+    def append(self, identifier: str, reqId, txn):
+        key = '{}{}'.format(identifier, reqId)
         self.transactionLog.put(
             key=key, value=self.serializer.serialize(
                 txn, fields=self.txnFieldOrdering, toBytes=False))
 
-    def hasTxn(self, key) -> bool:
+    def hasTxn(self, identifier, reqId) -> bool:
+        key = '{}{}'.format(identifier, reqId)
         return key in self.transactionLog
 
     def reset(self):

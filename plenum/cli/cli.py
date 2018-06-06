@@ -538,19 +538,16 @@ class Cli:
     def _addOldGenesisCommand(self, matchedVars):
         destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
         typ = self._getType(matchedVars)
-        txn = init_empty_txn(typ)
-
-        txn_data = {
+        txn = {
+            TXN_TYPE: typ,
             TARGET_NYM: destId,
         }
-        if matchedVars.get(DATA):
-            txn_data[DATA] = json.loads(matchedVars.get(DATA))
-        txn = set_payload_data(txn, txn_data)
-
         if matchedVars.get(IDENTIFIER):
-            txn = append_payload_metadata(txn,
-                                          frm=getFriendlyIdentifier(
-                                              matchedVars.get(IDENTIFIER)))
+            txn[IDENTIFIER] = getFriendlyIdentifier(
+                matchedVars.get(IDENTIFIER))
+
+        if matchedVars.get(DATA):
+            txn[DATA] = json.loads(matchedVars.get(DATA))
 
         self.genesisTransactions.append(txn)
         self.print('Genesis transaction added')
@@ -1094,7 +1091,7 @@ class Cli:
                 request, errs = client.submitReqs(req)
                 if request:
                     rqst = request[0]
-                    self.requests[rqst.key] = rqst
+                    self.requests[rqst.digest] = rqst
                     self.print("Request sent, request id: {}".format(
                         req.reqId), Token.BoldBlue)
                 else:
@@ -1113,10 +1110,11 @@ class Cli:
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, key):
+    def getReply(self, clientName, DID, reqId):
+        reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        if client and key in self.requests:
-            reply, status = client.getReply(key)
+        if client and (DID, reqId) in self.requests:
+            reply, status = client.getReply(DID, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -1252,8 +1250,8 @@ class Cli:
                 self.sendMsg(client_name, actualMsgRepr)
                 return True
             elif client_action == 'show':
-                key = matchedVars.get('digest')
-                self.getReply(client_name, key)
+                req_id = matchedVars.get('req_id')
+                self.getReply(client_name, self.activeWallet.defaultId, req_id)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):

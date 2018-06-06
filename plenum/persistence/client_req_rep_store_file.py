@@ -32,24 +32,34 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return max(map(int, reqIds)) if reqIds else 0
 
     @staticmethod
+    def create_key(idr, req_id):
+        return "{},{}".format(idr, req_id)
+
+    @staticmethod
     def items_from_key(key):
         return key.split(',')
 
     def addRequest(self, req: Request):
-        key = req.digest
+        idr = req.identifier
+        reqId = req.reqId
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.Request,
                                            self.delimiter,
                                            self.serializeReq(req)))
 
     def addAck(self, msg: Any, sender: str):
-        key = msg[f.DIGEST.nm]
+        idr = msg[f.IDENTIFIER.nm]
+        reqId = msg[f.REQ_ID.nm]
+        key = self.create_key(idr, reqId)
         self.reqStore.appendToValue(key, "{}{}{}".
                                     format(self.linePrefixes.REQACK,
                                            self.delimiter, sender))
 
     def addNack(self, msg: Any, sender: str):
-        key = msg[f.DIGEST.nm]
+        idr = msg[f.IDENTIFIER.nm]
+        reqId = msg[f.REQ_ID.nm]
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REQNACK,
@@ -57,46 +67,50 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
                                            self.delimiter, reason))
 
     def addReject(self, msg: Any, sender: str):
-        key = msg[f.DIGEST.nm]
+        idr = msg[f.IDENTIFIER.nm]
+        reqId = msg[f.REQ_ID.nm]
+        key = self.create_key(idr, reqId)
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REJECT,
                                            self.delimiter, sender,
                                            self.delimiter, reason))
 
-    def addReply(self, key: str, sender: str,
+    def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> int:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
+        key = self.create_key(identifier, reqId)
         self.reqStore.appendToValue(key,
                                     "{}{}{}{}{}".
                                     format(self.linePrefixes.REPLY,
                                            self.delimiter, sender,
                                            self.delimiter, serializedReply))
-        return len(self._getSerializedReplies(key))
+        return len(self._getSerializedReplies(identifier, reqId))
 
-    def hasRequest(self, key: str) -> bool:
+    def hasRequest(self, identifier: str, reqId: int) -> bool:
+        key = self.create_key(identifier, reqId)
         return self.reqStore.exists(key)
 
-    def getRequest(self, key: str) -> Request:
+    def getRequest(self, identifier: str, reqId: int) -> Request:
         for r in self._getLinesWithPrefix(
-                key, "{}{}".format(
-                    self.linePrefixes.Request, self.delimiter)):
+            identifier, reqId, "{}{}". format(
+                self.linePrefixes.Request, self.delimiter)):
             return self.deserializeReq(r[2:])
 
-    def getReplies(self, key: str):
-        replies = self._getSerializedReplies(key)
+    def getReplies(self, identifier: str, reqId: int):
+        replies = self._getSerializedReplies(identifier, reqId)
         for sender, reply in replies.items():
             replies[sender] = self.txnSerializer.deserialize(reply)
         return replies
 
-    def getAcks(self, key: str) -> List[str]:
-        ackLines = self._getLinesWithPrefix(key, "{}{}".
+    def getAcks(self, identifier: str, reqId: int) -> List[str]:
+        ackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
                                             format(self.linePrefixes.REQACK,
                                                    self.delimiter))
         return [line[2:] for line in ackLines]
 
-    def getNacks(self, key: str) -> dict:
-        nackLines = self._getLinesWithPrefix(key, "{}{}".
+    def getNacks(self, identifier: str, reqId: int) -> dict:
+        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
                                              format(self.linePrefixes.REQNACK,
                                                     self.delimiter))
         result = {}
@@ -105,9 +119,9 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
             result[sender] = reason
         return result
 
-    def getRejects(self, key: str) -> dict:
+    def getRejects(self, identifier: str, reqId: int) -> dict:
         nackLines = self._getLinesWithPrefix(
-            key, "{}{}".format(
+            identifier, reqId, "{}{}". format(
                 self.linePrefixes.REJECT, self.delimiter))
         result = {}
         for line in nackLines:
@@ -127,15 +141,16 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return Request.fromState(
             self.txnSerializer.deserialize(serReq))
 
-    def _getLinesWithPrefix(self, key: str,
+    def _getLinesWithPrefix(self, identifier: str, reqId: int,
                             prefix: str) -> List[str]:
+        key = self.create_key(identifier, reqId)
         data = self.reqStore.get(key)
         return [line for line in data.splitlines()
                 if line.startswith(prefix)] if data else []
 
-    def _getSerializedReplies(self, key: str) -> \
+    def _getSerializedReplies(self, identifier: str, reqId: int) -> \
             Dict[str, str]:
-        replyLines = self._getLinesWithPrefix(key, "{}{}".
+        replyLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
                                               format(self.linePrefixes.REPLY,
                                                      self.delimiter))
         result = {}
