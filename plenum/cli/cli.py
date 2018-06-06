@@ -538,16 +538,19 @@ class Cli:
     def _addOldGenesisCommand(self, matchedVars):
         destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
         typ = self._getType(matchedVars)
-        txn = {
-            TXN_TYPE: typ,
+        txn = init_empty_txn(typ)
+
+        txn_data = {
             TARGET_NYM: destId,
         }
-        if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = getFriendlyIdentifier(
-                matchedVars.get(IDENTIFIER))
-
         if matchedVars.get(DATA):
-            txn[DATA] = json.loads(matchedVars.get(DATA))
+            txn_data[DATA] = json.loads(matchedVars.get(DATA))
+        txn = set_payload_data(txn, txn_data)
+
+        if matchedVars.get(IDENTIFIER):
+            txn = append_payload_metadata(txn,
+                                          frm=getFriendlyIdentifier(
+                                              matchedVars.get(IDENTIFIER)))
 
         self.genesisTransactions.append(txn)
         self.print('Genesis transaction added')
@@ -1091,7 +1094,7 @@ class Cli:
                 request, errs = client.submitReqs(req)
                 if request:
                     rqst = request[0]
-                    self.requests[rqst.digest] = rqst
+                    self.requests[rqst.key] = rqst
                     self.print("Request sent, request id: {}".format(
                         req.reqId), Token.BoldBlue)
                 else:
