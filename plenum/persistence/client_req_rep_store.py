@@ -32,39 +32,39 @@ class ClientReqRepStore:
         pass
 
     @abstractmethod
-    def addReply(self, key: str, sender: str,
+    def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> Sequence[str]:
         pass
 
     @abstractmethod
-    def hasRequest(self, key: str) -> bool:
+    def hasRequest(self, identifier: str, reqId: int) -> bool:
         pass
 
     @abstractmethod
-    def getRequest(self, key: str) -> Request:
+    def getRequest(self, identifier: str, reqId: int) -> Request:
         pass
 
     @abstractmethod
-    def getReplies(self, key: str):
+    def getReplies(self, identifier: str, reqId: int):
         pass
 
     @abstractmethod
-    def getAcks(self, key: str) -> dict:
+    def getAcks(self, identifier: str, reqId: int) -> dict:
         pass
 
     @abstractmethod
-    def getNacks(self, key: str) -> dict:
+    def getNacks(self, identifier: str, reqId: int) -> dict:
         pass
 
     @abstractmethod
-    def getRejects(self, key: str) -> dict:
+    def getRejects(self, identifier: str, reqId: int) -> dict:
         pass
 
-    def getAllReplies(self, key: str):
-        replies = self.getReplies(key)
-        errors = self.getNacks(key)
+    def getAllReplies(self, identifier: str, reqId: int):
+        replies = self.getReplies(identifier, reqId)
+        errors = self.getNacks(identifier, reqId)
         if not errors:
-            errors = {**errors, **self.getRejects(key)}
+            errors = {**errors, **self.getRejects(identifier, reqId)}
         return replies, errors
 
     @property
