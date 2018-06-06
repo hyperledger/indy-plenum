@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.constants import THREE_PC_PREFIX
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
+from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger
@@ -208,8 +209,6 @@ class CommitHandler(BaseHandler):
 
 class PropagateHandler(BaseHandler):
     fields = {
-        'identifier': f.IDENTIFIER.nm,
-        'req_id': f.REQ_ID.nm,
         'digest': f.DIGEST.nm
     }
 
@@ -218,9 +217,8 @@ class PropagateHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
-        if ppg.request[f.IDENTIFIER.nm] != kwargs['identifier'] or \
-                ppg.request[f.REQ_ID.nm] != kwargs['req_id'] or \
-                ppg.request[f.DIGEST.nm] != kwargs['digest']:
+        request = Request(**ppg.request)
+        if request.digest != kwargs[f.DIGEST.nm]:
             logger.debug(
                 '{} found PROPAGATE {} not '
                 'satisfying query criteria'.format(
