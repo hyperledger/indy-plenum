@@ -324,7 +324,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             else:
                 self.latenciesByBackupsInLast.setdefault(instId, []).append((now, duration))
 
-            if requests.__contains__(key):
+            if key in requests:
                 identifier = requests[key].request.identifier
                 if identifier not in self.clientAvgReqLatencies[instId]:
                     self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
