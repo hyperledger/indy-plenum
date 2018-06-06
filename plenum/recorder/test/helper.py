@@ -2,6 +2,11 @@ import importlib
 import json
 import os
 
+from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+
+from plenum.recorder.src.recorder import Recorder
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+
 from plenum.recorder.src.replayable_node import prepare_directory_for_replay, \
     create_replayable_node_class
 from plenum.recorder.src.replayer import get_recorders_from_node_data_dir, \
@@ -84,3 +89,9 @@ def create_replayable_node_and_check(looper, all_nodes, node_to_check,
     for n in all_nodes:
         assert replaying_node.domainLedger.size < n.domainLedger.size
     replay_and_compare(looper, node_to_check, replaying_node)
+
+
+def create_recorder_for_test(tmpdir_factory, name):
+    storage = KeyValueStorageLeveldbIntKeys(
+        tmpdir_factory.mktemp('').strpath, name)
+    return Recorder(storage)

@@ -39,7 +39,7 @@ class CombinedRecorder(Recorder):
 
     @staticmethod
     def get_parsed(msg, only_incoming=None, only_outgoing=None):
-        # Temporary
+        # To conform to the Recorder interface
         assert only_incoming is None
         assert only_outgoing is None
 

@@ -1,11 +1,9 @@
 import math
 
-from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+from plenum.recorder.test.helper import create_recorder_for_test
 
 from plenum.test.conftest import *  # noqa
 from plenum.common.util import randomString
-from plenum.recorder.src.recorder import Recorder
-from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -36,6 +34,4 @@ def some_txns_done(txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
 
 @pytest.fixture()
 def recorder(tmpdir_factory):
-    storage = KeyValueStorageRocksdbIntKeys(
-        tmpdir_factory.mktemp('').strpath, 'test_db')
-    return Recorder(storage)
+    return create_recorder_for_test(tmpdir_factory, 'test_db')
