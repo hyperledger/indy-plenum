@@ -697,7 +697,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             self.logger.warning('{} encountered exception {} while processing {}, '
                                 'will reject'.format(self, ex, req))
-            rejects.append(Reject(req.identifier, req.reqId, ex))
+            rejects.append((req.key, Request(req.identifier, req.reqId, ex)))
             inValidReqs.append(req)
         else:
             validReqs.append(req)
