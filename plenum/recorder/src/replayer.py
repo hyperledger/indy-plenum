@@ -19,12 +19,11 @@ def to_bytes(v):
 
 def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder, Recorder]:
     rec_path = os.path.join(node_data_dir, node_name, 'recorder')
-    # TODO: Change to rocksdb
     client_stack_name = node_name + CLIENT_STACK_SUFFIX
     client_rec_kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Rocksdb,
                                                      rec_path, client_stack_name)
     node_rec_kv_store = initKeyValueStorageIntKeys(
-        KeyValueStorageType.Leveldb, rec_path, node_name)
+        KeyValueStorageType.Rocksdb, rec_path, node_name)
 
     return Recorder(node_rec_kv_store, skip_metadata_write=True), \
         Recorder(client_rec_kv_store, skip_metadata_write=True)
@@ -76,7 +75,7 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
 
 
 def get_combined_recorder(replaying_node, node_recorder, client_recorder):
-    kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
+    kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Rocksdb,
                                           replaying_node.dataLocation,
                                           'combined_recorder')
     cr = CombinedRecorder(kv_store)

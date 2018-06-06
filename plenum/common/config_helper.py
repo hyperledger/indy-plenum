@@ -11,11 +11,7 @@ class PConfigHelper:
         self.chroot = chroot
 
     def chroot_if_needed(self, path):
-        result = path
-        if self.chroot is not None and self.chroot != "/":
-            _path = path[1:] if path.startswith("/") else path
-            result = os.path.join(self.chroot, _path)
-        return result
+        return self._chroot_if_needed(path, self.chroot)
 
     @property
     def log_dir(self):
@@ -37,6 +33,14 @@ class PConfigHelper:
     def node_info_dir(self):
         return self.chroot_if_needed(self.config.NODE_INFO_DIR)
 
+    @staticmethod
+    def _chroot_if_needed(path, chroot):
+        result = path
+        if chroot is not None and chroot != "/":
+            _path = path[1:] if path.startswith("/") else path
+            result = os.path.join(chroot, _path)
+        return result
+
 
 class PNodeConfigHelper(PConfigHelper):
 
@@ -49,3 +53,4 @@ class PNodeConfigHelper(PConfigHelper):
     def ledger_dir(self):
         return self.chroot_if_needed(os.path.join(self.config.LEDGER_DIR,
                                                   self.name))
+

@@ -1,3 +1,5 @@
+from plenum.common.config_util import getConfigOnce
+
 from plenum.recorder.test.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.helper import sdk_send_random_and_check
@@ -31,10 +33,12 @@ def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         txnPoolNodesLooper.removeProdable(node)
 
+    config = getConfigOnce()
+
     reload_modules_for_replay(tconf)
 
     replayable_node_class, basedirpath = get_replayable_node_class(
-        tmpdir_factory, tdir, testNodeClass)
+        tmpdir_factory, tdir, testNodeClass, config)
 
     for node in txnPoolNodeSet:
         node.stop()

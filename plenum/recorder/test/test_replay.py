@@ -1,3 +1,4 @@
+from plenum.common.config_util import getConfigOnce
 from plenum.recorder.test.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -24,10 +25,12 @@ def test_replay_recorded_msgs(txnPoolNodesLooper,
     for node in txnPoolNodeSet:
         node.stop()
 
+    config = getConfigOnce()
+
     reload_modules_for_replay(tconf)
 
     replayable_node_class, basedirpath = get_replayable_node_class(
-        tmpdir_factory, tdir, testNodeClass)
+        tmpdir_factory, tdir, testNodeClass, config)
 
     print('-------------Replaying now---------------------')
 

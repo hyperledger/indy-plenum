@@ -2,6 +2,8 @@ import os
 import shutil
 from typing import Dict, List
 
+from plenum.common.config_helper import PConfigHelper
+
 import plenum
 from plenum.common.request import ReqKey
 from plenum.common.util import get_utc_epoch
@@ -88,18 +90,22 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
     return ReplayableNode
 
 
-def prepare_directory_for_replay(node_basedirpath, replay_dir):
-    src_etc_dir = os.path.join(node_basedirpath, 'etc')
-    src_var_dir = os.path.join(node_basedirpath, 'var', 'lib', 'indy')
-    trg_etc_dir = os.path.join(replay_dir, 'etc')
-    trg_var_dir = os.path.join(replay_dir, 'var', 'lib', 'indy')
+def prepare_directory_for_replay(node_basedirpath, replay_dir, config):
+    src_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR, node_basedirpath)
+    src_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR, node_basedirpath)
+    trg_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR, replay_dir)
+    trg_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR, replay_dir)
+
     os.makedirs(trg_var_dir, exist_ok=True)
     shutil.copytree(src_etc_dir, trg_etc_dir)
     for file in os.listdir(src_var_dir):
         if file.endswith('.json') or file.endswith('_genesis'):
             shutil.copy(os.path.join(src_var_dir, file), trg_var_dir)
 
-    shutil.copytree(os.path.join(src_var_dir, 'keys'),
-                    os.path.join(trg_var_dir, 'keys'))
-    shutil.copytree(os.path.join(src_var_dir, 'plugins'),
-                    os.path.join(trg_var_dir, 'plugins'))
+    shutil.copytree(PConfigHelper._chroot_if_needed(config.KEYS_DIR, node_basedirpath),
+                    PConfigHelper._chroot_if_needed(config.KEYS_DIR,
+                                                    replay_dir))
+    shutil.copytree(
+        PConfigHelper._chroot_if_needed(config.PLUGINS_DIR, node_basedirpath),
+        PConfigHelper._chroot_if_needed(config.PLUGINS_DIR,
+                                        replay_dir))

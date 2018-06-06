@@ -1,10 +1,11 @@
 import os
 from typing import Set
 
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
+
 from stp_core.common.log import getlogger
 
 from plenum.recorder.src.recorder import Recorder
-from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 from stp_zmq.simple_zstack import SimpleZStack
 
 logger = getlogger()
@@ -21,7 +22,7 @@ class SimpleZStackWithRecorder(SimpleZStack):
         else:
             db_path = os.path.join(parent_dir, 'data', name[:-1], 'recorder')
         os.makedirs(db_path, exist_ok=True)
-        db = KeyValueStorageLeveldbIntKeys(db_path, name)
+        db = KeyValueStorageRocksdbIntKeys(db_path, name)
         self.recorder = Recorder(db)
         super().__init__(*args, **kwargs)
 

@@ -5,7 +5,6 @@ import os
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 
 from plenum.recorder.src.recorder import Recorder
-from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 from plenum.recorder.src.replayable_node import prepare_directory_for_replay, \
     create_replayable_node_class
@@ -65,10 +64,10 @@ def _reload_modules():
     importlib.reload(plenum.test.test_node)
 
 
-def get_replayable_node_class(tmpdir_factory, tdir, node_class):
+def get_replayable_node_class(tmpdir_factory, tdir, node_class, config):
     basedirpath = tmpdir_factory.mktemp('').strpath
 
-    prepare_directory_for_replay(tdir, basedirpath)
+    prepare_directory_for_replay(tdir, basedirpath, config)
 
     replayable_node_class = create_replayable_node_class(TestReplica,
                                                          TestReplicas,

@@ -1,5 +1,7 @@
 import time
 
+from plenum.common.config_util import getConfigOnce
+
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.recorder.test.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
@@ -62,10 +64,12 @@ def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
         node.stop()
         txnPoolNodesLooper.removeProdable(node)
 
+    config = getConfigOnce()
+
     reload_modules_for_replay(tconf)
 
     replayable_node_class, basedirpath = get_replayable_node_class(
-        tmpdir_factory, tdir, testNodeClass)
+        tmpdir_factory, tdir, testNodeClass, config)
 
     print('-------------Replaying now---------------------')
 
