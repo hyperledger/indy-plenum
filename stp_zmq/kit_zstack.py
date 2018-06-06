@@ -17,9 +17,9 @@ logger = getlogger()
 # conf_ = getConfigOnce()
 conf_ = get_global_config_else_read_config()
 
-if conf_.USE_WITH_STACK == 1:
+if conf_.STACK_COMPANION == 1:
     simple_zstack_class = SimpleZStackWithRecorder
-elif conf_.USE_WITH_STACK == 2:
+elif conf_.STACK_COMPANION == 2:
     simple_zstack_class = SimpleZStackWithSilencer
 else:
     simple_zstack_class = SimpleZStack

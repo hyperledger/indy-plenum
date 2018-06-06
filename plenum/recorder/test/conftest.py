@@ -9,7 +9,7 @@ from plenum.test.helper import sdk_send_random_and_check
 
 
 
-# overriddenConfigValues['USE_WITH_STACK'] = 1
+# overriddenConfigValues['STACK_COMPANION'] = 1
 #
 #
 # @pytest.fixture(scope="module")

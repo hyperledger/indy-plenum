@@ -42,12 +42,12 @@ def replay_and_compare(looper, node, replaying_node):
 
 
 def reload_modules_for_replay(conf):
-    conf.USE_WITH_STACK = 2
+    conf.STACK_COMPANION = 2
     _reload_modules()
 
 
 def reload_modules_for_recorder(conf):
-    conf.USE_WITH_STACK = 1
+    conf.STACK_COMPANION = 1
     _reload_modules()
     import plenum.test.conftest
     importlib.reload(plenum.test.conftest)

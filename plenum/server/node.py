@@ -159,7 +159,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
         self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
 
-        if self.config.USE_WITH_STACK == 1:
+        if self.config.STACK_COMPANION == 1:
             add_start_time(self.ledger_dir, self.utc_epoch())
 
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
@@ -949,7 +949,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Close the UDP socket of the nodestack
         """
         # Log stats should happen before any kind of reset or clearing
-        if self.config.USE_WITH_STACK == 1:
+        if self.config.STACK_COMPANION == 1:
             add_stop_time(self.ledger_dir, self.utc_epoch())
 
         self.logstats()

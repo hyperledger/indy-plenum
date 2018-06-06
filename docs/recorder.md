@@ -15,8 +15,11 @@ before the replay starts so that during the replay the node sends the same PRE-P
 -   Also the node calls simulates disconnections from other nodes at the appropriate time.
 -   During the replay the node sends no outgoing messages neither does it have the recorder attached.
 -   The replay is supposed to be run as a standalone node, most probably in an IDE so it can be debugged.
--   The record and and replay functionality is controlled through the config flag `USE_WITH_STACK`.
+-   The record and and replay functionality is controlled through the config flag `STACK_COMPANION`.
     It has 3 possible values
     -   0 for normal operation
     -   1 for recorder
     -   2 during replay
+-   The node is run with the `STACK_COMPANION` set to 1 and the `recorder` directory is created under `data/<node name>`. 
+    This directory is either copied or a script in indy-node is used to copy the directories.
+    The directories are given to the developer who uses a script in indy-node to replay.  
