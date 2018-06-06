@@ -4,7 +4,8 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, \
+    sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from stp_core.validators.message_length_validator import MessageLenValidator
@@ -68,8 +69,8 @@ def test_large_catchup(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_requests(looper, sdk_pool_handle,
-                             sdk_wallet_client, 100)
+    reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                    sdk_wallet_client, 100)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Make message size limit smaller to ensure that catchup response is
@@ -83,6 +84,7 @@ def test_large_catchup(tdir, tconf,
     lagging_node = testNodeClass(lagging_node.name,
                                  config_helper=config_helper,
                                  config=tconf, pluginPaths=allPluginsPath)
+    sdk_get_and_check_replies(looper, reqs)
     looper.add(lagging_node)
     txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)
