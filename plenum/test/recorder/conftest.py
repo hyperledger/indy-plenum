@@ -1,12 +1,12 @@
 import math
 
-from plenum.recorder.test.helper import create_recorder_for_test
+import pytest
 
-from plenum.test.conftest import *  # noqa
+
 from plenum.common.util import randomString
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
 from plenum.test.helper import sdk_send_random_and_check
-
+from plenum.test.recorder.helper import create_recorder_for_test
 
 
 # overriddenConfigValues['STACK_COMPANION'] = 1

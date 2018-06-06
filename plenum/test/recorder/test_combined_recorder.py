@@ -6,7 +6,7 @@ from plenum.recorder.src.recorder import Recorder
 
 from storage.helper import initKeyValueStorageIntKeys
 
-from plenum.recorder.test.helper import create_recorder_for_test
+from plenum.test.recorder.helper import create_recorder_for_test
 
 
 def test_combined_recorder(tmpdir_factory):

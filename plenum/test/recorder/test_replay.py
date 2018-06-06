@@ -1,5 +1,5 @@
 from plenum.common.config_util import getConfigOnce
-from plenum.recorder.test.helper import reload_modules_for_replay, \
+from plenum.test.recorder.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
