@@ -1,6 +1,6 @@
 import time
 
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.recorder import Recorder
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 

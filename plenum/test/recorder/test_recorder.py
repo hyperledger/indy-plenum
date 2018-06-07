@@ -11,7 +11,7 @@ except ImportError:
 
 import pytest
 
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.recorder import Recorder
 
 TestRunningTimeLimitSec = 350
 

@@ -1,8 +1,8 @@
 import time
 
 from plenum.common.constants import KeyValueStorageType
-from plenum.recorder.src.combined_recorder import CombinedRecorder
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.combined_recorder import CombinedRecorder
+from plenum.recorder.recorder import Recorder
 
 from storage.helper import initKeyValueStorageIntKeys
 

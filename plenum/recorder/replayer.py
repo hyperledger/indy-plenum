@@ -7,8 +7,8 @@ from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH, \
     KeyValueStorageType, CLIENT_STACK_SUFFIX
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
-from plenum.recorder.src.combined_recorder import CombinedRecorder
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.combined_recorder import CombinedRecorder
+from plenum.recorder.recorder import Recorder
 from storage.helper import initKeyValueStorageIntKeys
 
 

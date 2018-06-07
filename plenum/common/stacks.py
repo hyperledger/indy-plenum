@@ -1,13 +1,11 @@
 from typing import Callable, Any, List, Dict
 
 from plenum.common.batched import Batched, logger
-from plenum.common.config_util import getConfig, getConfigOnce, \
+from plenum.common.config_util import getConfig, \
     get_global_config_else_read_config
 from plenum.common.message_processor import MessageProcessor
-from plenum.recorder.src.simple_zstack_with_recorder import \
-    SimpleZStackWithRecorder
-from plenum.recorder.src.simple_zstack_with_silencer import \
-    SimpleZStackWithSilencer
+from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
+from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.types import HA
 from stp_zmq.kit_zstack import KITZStack

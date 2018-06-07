@@ -1,14 +1,15 @@
 import importlib
 import json
 import os
+import sys
 
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.recorder import Recorder
 
-from plenum.recorder.src.replayable_node import prepare_directory_for_replay, \
+from plenum.recorder.replayable_node import prepare_directory_for_replay, \
     create_replayable_node_class
-from plenum.recorder.src.replayer import get_recorders_from_node_data_dir, \
+from plenum.recorder.replayer import get_recorders_from_node_data_dir, \
     prepare_node_for_replay_and_replay
 from plenum.test.helper import create_new_test_node
 from plenum.test.test_node import TestReplica, TestReplicas
@@ -54,14 +55,24 @@ def reload_modules_for_recorder(conf):
 
 
 def _reload_modules():
+    import stp_zmq.zstack
     import stp_zmq.kit_zstack
-    importlib.reload(stp_zmq.kit_zstack)
     import plenum.common.stacks
-    importlib.reload(plenum.common.stacks)
     import plenum.server.node
-    importlib.reload(plenum.server.node)
     import plenum.test.test_node
-    importlib.reload(plenum.test.test_node)
+    _reload_module(stp_zmq.kit_zstack)
+    _reload_module(plenum.common.stacks)
+    _reload_module(plenum.server.node)
+    _reload_module(plenum.test.test_node)
+
+
+def _reload_module(module):
+    # importlib.reload(module)
+    if module.__name__ in sys.modules:
+        del sys.modules[module.__name__]
+        r = importlib.import_module(module.__name__)
+        # module.__dict__.clear()
+        # module.__dict__.update(r.__dict__)
 
 
 def get_replayable_node_class(tmpdir_factory, tdir, node_class, config):

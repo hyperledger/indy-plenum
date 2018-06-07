@@ -1,6 +1,6 @@
 from typing import Tuple, Optional, Union
 
-from plenum.recorder.src.silencer import Silencer
+from plenum.recorder.silencer import Silencer
 from stp_zmq.remote import Remote
 from stp_zmq.simple_zstack import SimpleZStack
 

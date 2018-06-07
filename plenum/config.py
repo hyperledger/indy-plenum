@@ -236,4 +236,4 @@ ENABLED_PLUGINS = []
 # 0 for normal operation
 # 1 for recorder
 # 2 during replay
-STACK_COMPANION = 1
+STACK_COMPANION = 0

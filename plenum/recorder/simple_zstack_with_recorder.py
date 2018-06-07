@@ -5,7 +5,7 @@ from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 
 from stp_core.common.log import getlogger
 
-from plenum.recorder.src.recorder import Recorder
+from plenum.recorder.recorder import Recorder
 from stp_zmq.simple_zstack import SimpleZStack
 
 logger = getlogger()

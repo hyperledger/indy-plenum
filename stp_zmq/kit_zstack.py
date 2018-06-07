@@ -1,9 +1,6 @@
-from plenum import getConfigOnce
 from plenum.common.config_util import get_global_config_else_read_config
-from plenum.recorder.src.simple_zstack_with_recorder import \
-    SimpleZStackWithRecorder
-from plenum.recorder.src.simple_zstack_with_silencer import \
-    SimpleZStackWithSilencer
+from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
+from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
@@ -14,7 +11,6 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-# conf_ = getConfigOnce()
 conf_ = get_global_config_else_read_config()
 
 if conf_.STACK_COMPANION == 1:
