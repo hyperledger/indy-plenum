@@ -137,7 +137,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             initKeyValueStorage(
                 self.config.poolStateStorage,
                 self.node.dataLocation,
-                self.config.poolStateDbName)
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def initPoolState(self):

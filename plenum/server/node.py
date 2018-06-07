@@ -463,7 +463,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.configStateStorage,
                 self.dataLocation,
-                self.config.configStateDbName)
+                self.config.configStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def initConfigState(self):
@@ -612,7 +613,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.name,
                 initKeyValueStorageIntKeys(self.config.stateTsStorage,
                                            self.dataLocation,
-                                           self.config.stateTsDbName)
+                                           self.config.stateTsDbName,
+                                           db_config=self.config.db_state_ts_db_config)
             )
         return self.stateTsDbStorage
 
@@ -621,7 +623,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.reqIdToTxnStorage,
                 self.dataLocation,
-                self.config.seqNoDbName)
+                self.config.seqNoDbName,
+                db_config=self.config.db_seq_no_db_config)
         )
 
     # noinspection PyAttributeOutsideInit
@@ -807,7 +810,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.domainStateStorage,
                 self.dataLocation,
-                self.config.domainStateDbName)
+                self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def _create_bls_bft(self):
