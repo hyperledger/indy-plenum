@@ -43,9 +43,9 @@ Relevant code:
 
 
 #### 3. Seq No database
-Each client request is uniquely identified by a 2-tuple `identifier` and `reqId`. When this request is ordered (consensus successfully completes), 
-it is stored in the ledger and assigned a sequence number. This database stores the mapping `(identifier, reqId) -> seq_no` in a key value store.  
-One use case is that the client can ask any node to give it the transaction corresponding to a request key `identifier` and `reqId`, the node will 
+Each client request is uniquely identified by a `digest`. When this request is ordered (consensus successfully completes),
+it is stored in the ledger and assigned a sequence number. This database stores the mapping `digest -> leger_id<delimiter>seq_no` in a key value store.
+One use case is that the client can ask any node to give it the transaction corresponding to a request key `digest`, the node will
 then use this database to get the sequence number and then use the sequence number of get the transaction from the ledger. 
 This database is currently maintained only for domain ledger.
  

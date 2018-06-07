@@ -102,19 +102,19 @@ class TestNetworkSetup:
 
         # 1. INIT DOMAIN LEDGER GENESIS FILE
         seq_no = 1
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE,
+        trustee_txn = Member.nym_txn(trustee_def.nym, verkey=trustee_def.verkey, role=TRUSTEE,
                                      seq_no=seq_no)
         seq_no += 1
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym,
+            nym_txn = Member.nym_txn(sd.nym, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym,
                                      seq_no=seq_no)
             seq_no += 1
             domainLedger.add(nym_txn)
 
         for cd in client_defs:
-            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym,
+            txn = Member.nym_txn(cd.nym, verkey=cd.verkey, creator=trustee_def.nym,
                                  seq_no=seq_no)
             seq_no += 1
             domainLedger.add(txn)
@@ -131,8 +131,8 @@ class TestNetworkSetup:
                     paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
                     TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name,
-                                                         nd.ip, nd.port,
-                                                         nd.ip, nd.client_port)
+                                                         "0.0.0.0", nd.port,
+                                                         "0.0.0.0", nd.client_port)
 
                 print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))

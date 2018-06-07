@@ -1,4 +1,4 @@
-from hashlib import sha256
+import string
 from typing import Optional
 
 from storage.kv_store import KeyValueStorage
@@ -9,32 +9,38 @@ class ReqIdrToTxn:
     Stores a map from client identifier, request id tuple to transaction
     sequence number
     """
+    delimiter = "~"
 
     def __init__(self, keyValueStorage: KeyValueStorage):
         self._keyValueStorage = keyValueStorage
 
-    @staticmethod
-    def getKey(identifier, reqId):
-        h = sha256()
-        h.update(identifier.encode())
-        h.update(str(reqId).encode())
-        return h.digest()
-
-    def add(self, identifier, reqId, seqNo):
-        key = self.getKey(identifier, reqId)
-        self._keyValueStorage.put(key, str(seqNo))
+    def add(self, digest, ledge_id, seq_no):
+        self._keyValueStorage.put(digest, self._create_value(ledge_id, seq_no))
 
     def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(
-            seqNo)) for identifier, reqId, seqNo in batch])
+        self._keyValueStorage.setBatch([(digest, self._create_value(ledge_id,
+                                                                    seq_no))
+                                        for digest, ledge_id, seq_no in batch])
 
-    def get(self, identifier, reqId) -> Optional[int]:
-        key = self.getKey(identifier, reqId)
+    def get(self, digest):
+        """
+        Return leger_id, seq_no of transaction that was a result
+        of last request with this digest
+        :param digest: digest of request
+        :return: leger_id, seq_no
+        """
         try:
-            val = self._keyValueStorage.get(key)
-            return int(val)
+            val = self._keyValueStorage.get(digest)
+            return self._parse_value(val.decode())
         except (KeyError, ValueError):
-            return None
+            return None, None
+
+    def _parse_value(self, val: string):
+        parse_data = val.split(self.delimiter)
+        return str(parse_data[0]), int(parse_data[1])
+
+    def _create_value(self, ledger_id, seq_no):
+        return str(ledger_id) + self.delimiter + str(seq_no)
 
     @property
     def size(self):
