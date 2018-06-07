@@ -45,10 +45,11 @@ class Recorder:
     def add_to_store(self, key, val):
         try:
             existing = self.store.get(key)
+            if isinstance(existing, (bytes, bytearray)):
+                existing = existing.decode()
             existing = json.loads(existing)
         except KeyError:
             existing = []
-
         self.store.put(key, json.dumps([*existing, val]))
 
     def register_replay_target(self, id, target: Callable):

@@ -349,12 +349,11 @@ node_spyables = [Node.handleOneNodeMsg,
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
-    _nodeStackClass = nodeStackClass
-    _clientStackClass = clientStackClass
 
     def __init__(self, *args, **kwargs):
-        self.NodeStackClass = self.__class__._nodeStackClass
-        self.ClientStackClass = self.__class__._clientStackClass
+        from plenum.common.stacks import nodeStackClass, clientStackClass
+        self.NodeStackClass = nodeStackClass
+        self.ClientStackClass = clientStackClass
 
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)

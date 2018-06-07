@@ -70,9 +70,7 @@ def _reload_module(module):
     # importlib.reload(module)
     if module.__name__ in sys.modules:
         del sys.modules[module.__name__]
-        r = importlib.import_module(module.__name__)
-        # module.__dict__.clear()
-        # module.__dict__.update(r.__dict__)
+        importlib.import_module(module.__name__)
 
 
 def get_replayable_node_class(tmpdir_factory, tdir, node_class, config):

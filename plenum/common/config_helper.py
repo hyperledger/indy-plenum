@@ -53,4 +53,3 @@ class PNodeConfigHelper(PConfigHelper):
     def ledger_dir(self):
         return self.chroot_if_needed(os.path.join(self.config.LEDGER_DIR,
                                                   self.name))
-

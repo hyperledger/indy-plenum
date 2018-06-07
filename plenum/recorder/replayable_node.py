@@ -4,14 +4,10 @@ from typing import Dict, List
 
 from plenum.common.config_helper import PConfigHelper
 
-import plenum
-from plenum.common.request import ReqKey
 from plenum.common.util import get_utc_epoch
 
 
 def create_replayable_node_class(replica_class, replicas_class, node_class):
-    node_class._nodeStackClass = plenum.common.stacks.nodeStackClass
-    node_class._clientStackClass = plenum.common.stacks.clientStackClass
 
     class _TestReplica(replica_class):
         def __init__(self, *args, **kwargs):
