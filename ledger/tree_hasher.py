@@ -38,9 +38,6 @@ class TreeHasher(object):
             and hashes are that of the full (i.e. size 2^k) subtrees that form
             the entire tree, sorted in descending order of size.
         """
-        root_hash = None
-        hashes = ()
-
         if l_idx < 0 or r_idx < l_idx or r_idx > len(leaves):
             raise IndexError("{},{} not a valid range over [0,{}]".format(
                 l_idx, r_idx, len(leaves)))

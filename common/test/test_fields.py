@@ -20,9 +20,11 @@ def testInvalidName():
     with pytest.raises(PlenumTypeError):
         Field(1111, str, str)
 
+
 def testEmptyName():
     with pytest.raises(ValueError):
         Field("", str, str)
+
 
 def testNoEncoder():
     with pytest.raises(PlenumTypeError):

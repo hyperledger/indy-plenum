@@ -1073,7 +1073,9 @@ class Cli:
     @staticmethod
     def bootstrapKey(wallet, node, DID=None):
         DID = DID or wallet.defaultId
-        assert DID, "Client has no DID"
+        # TODO unit test
+        if DID is None:
+            raise ValueError("Either wallet.defaultId or DID should be defined")
         node.clientAuthNr.addIdr(DID, wallet.getVerkey(DID))
 
     def clientExists(self, clientName):

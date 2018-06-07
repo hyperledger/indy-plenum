@@ -8,6 +8,7 @@ from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 from intervaltree import IntervalTree
 
+from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from state.pruning_state import PruningState
 from state.state import State
@@ -577,7 +578,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         # TODO VCH update method description
 
-        assert self.replicas.all_instances_have_primary
+        if not self.replicas.all_instances_have_primary:
+            raise LogicError(
+                "{} Not all replicas have primaries: {}"
+                .format(self, self.replicas.primaries)
+            )
 
         self._cancel(self._check_view_change_completed)
 
@@ -852,7 +857,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     def ledger_id_for_request(self, request: Request):
-        assert request.operation[TXN_TYPE] is not None
+        if request.operation.get(TXN_TYPE) is None:
+            raise ValueError(
+                "{} TXN_TYPE is not defined for request {}"
+                .format(self, request)
+            )
+
         typ = request.operation[TXN_TYPE]
         return self.txn_type_to_ledger_id[typ]
 
@@ -1404,7 +1414,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Whether this node has primary of any protocol instance
         """
         # TODO: remove this property?
-        return self.replicas.some_replica_has_primary
+        return self.replicas.some_replica_is_primary
 
     @property
     def has_master_primary(self) -> bool:
@@ -2441,8 +2451,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
                 primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
-            else:
+                # TODO add more tests or refactor
+                # to return name and rank at once and remove assert
                 assert primary_rank is not None
+            else:
                 new_primary_name, new_primary_instance_name =\
                     self.elector.next_primary_replica_name_for_backup(
                         instance_id, primary_rank, primaries, nodeReg=nodeReg)
@@ -2534,7 +2546,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if s:
                 # There should not be more than one interval for any seq no in
                 # the tree
-                assert len(s) == 1
+                assert len(s) == 1  # TODO add test for that and remove assert
                 return s.pop().data
         return None
 

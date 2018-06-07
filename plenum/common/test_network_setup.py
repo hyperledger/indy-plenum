@@ -5,6 +5,8 @@ from collections import namedtuple
 import fileinput
 import shutil
 
+from common.exceptions import PlenumValueError
+
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 
 from stp_core.crypto.nacl_wrappers import Signer
@@ -213,10 +215,17 @@ class TestNetworkSetup:
         args = parser.parse_args()
 
         if isinstance(args.nodeNum, int):
-            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less or equal to nodeCount"
+            if not (1 <= args.nodeNum <= args.nodes):
+                raise PlenumValueError(
+                    'args.nodeNum', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
         elif isinstance(args.nodeNum, list):
-            bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
-            assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
+            if any([True for x in args.nodeNum if not (1 <= x <= args.nodes)]):
+                raise PlenumValueError(
+                    'some items in nodeNum list', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
 
         node_num = [args.nodeNum, None] if args.nodeNum else [None]
 

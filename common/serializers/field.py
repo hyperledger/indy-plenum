@@ -1,4 +1,5 @@
-from common.exceptions import PlenumTypeError
+from common.exceptions import PlenumTypeError, PlenumValueError
+
 
 class Field:
 
@@ -7,7 +8,7 @@ class Field:
         if not isinstance(name, str):
             raise PlenumTypeError('name', name, str)
         if not name:
-            raise ValueError("'name' should be a non-empty string")
+            raise PlenumValueError('name', name, 'a non-empty string')
         if not callable(encoder):
             raise PlenumTypeError('encoder', encoder, 'callable')
         if not callable(decoder):

@@ -96,7 +96,7 @@ class TreeHasherTest(unittest.TestCase):
 
     def test_hash_full_tree(self):
         hasher = ledger.tree_hasher.TreeHasher()
-        #self.assertEqual(hasher.hash_full_tree([]), hasher.hash_empty())
+        # self.assertEqual(hasher.hash_full_tree([]), hasher.hash_empty())
         leaves = [c.encode() for c in "abcde"]
         a, b, c, d, e = [hasher.hash_leaf(c) for c in leaves]
         h = hasher.hash_children

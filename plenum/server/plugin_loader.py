@@ -7,10 +7,10 @@ from os import listdir
 from os.path import isfile, join
 from typing import Any, Set, Dict
 
+from stp_core.common.log import getlogger
+
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
-
-from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -54,7 +54,8 @@ class PluginLoader:
     """
 
     def __init__(self, path):
-        assert path, "path is required"
+        if not path:
+            raise ValueError("path is required")
         self.path = path
         self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
                             PLUGIN_TYPE_STATS_CONSUMER]

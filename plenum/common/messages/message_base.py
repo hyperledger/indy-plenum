@@ -73,17 +73,20 @@ class MessageBase(Mapping, MessageValidator):
     typename = None
 
     def __init__(self, *args, **kwargs):
-        assert not (args and kwargs), \
-            '*args, **kwargs cannot be used together'
+        if args and kwargs:
+            raise ValueError("*args, **kwargs cannot be used together")
 
         if kwargs:
             # op field is not required since there is self.typename
             kwargs.pop(OP_FIELD_NAME, None)
 
         argsLen = len(args or kwargs)
-        assert argsLen <= len(self.schema), \
-            "number of parameters should be less than or equal to " \
-            "the number of fields in schema, but it was {}".format(argsLen)
+        if argsLen > len(self.schema):
+            raise ValueError(
+                "number of parameters {} should be less than or equal to "
+                "the number of fields in schema {}"
+                .format(argsLen, len(self.schema))
+            )
 
         super().__init__()
         input_as_dict = kwargs if kwargs else self._join_with_schema(args)
