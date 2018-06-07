@@ -30,8 +30,8 @@ class ReqState:
 
     def req_with_acceptable_quorum(self, quorum: Quorum):
         digests = defaultdict(set)
-        # this is workaround because we are getting a propagate from somebody with
-        # non-str (byte) name
+        # this is workaround because we are getting a propagate from
+        # somebody with non-str (byte) name
         for sender, req in filter(lambda x: isinstance(
                 x[0], str), self.propagates.items()):
             digests[req.digest].add(sender)
@@ -221,7 +221,7 @@ class Propagator:
         if self.requests.forwarded(request):
             return 'already forwarded'
 
-        # If not enough Propogates, don't bother comparing
+        # If not enough Propagates, don't bother comparing
         if not self.quorums.propagate.is_reached(self.requests.votes(request)):
             return 'not finalised'
 
