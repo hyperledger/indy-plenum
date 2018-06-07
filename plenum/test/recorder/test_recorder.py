@@ -98,9 +98,9 @@ def test_register_play_targets(recorder):
 
 
 def test_recorded_parsings(recorder):
-    incoming = [[randomString(100), randomString(6)] for i in
+    incoming = [[randomString(10), randomString(6)] for i in
                 range(3)]
-    outgoing = [[randomString(100), randomString(6)] for i in
+    outgoing = [[randomString(10), randomString(6)] for i in
                 range(5)]
     for m, f in incoming:
         recorder.add_incoming(m, f)
@@ -114,17 +114,24 @@ def test_recorded_parsings(recorder):
 
     combined = incoming + outgoing
 
+    def sublist(lst1, lst2):
+        ls1 = [element for element in lst1 if element in lst2]
+        ls2 = [element for element in lst2 if element in lst1]
+        return ls1 == ls2
+
     for k, v in recorder.store.iterator(include_value=True):
         p = Recorder.get_parsed(v)
-        assert [i[1:] for i in p] in combined
+        assert sublist([i[1:] for i in p] , combined)
         p = Recorder.get_parsed(v, only_incoming=True)
         if p:
-            assert p in incoming
-            incoming.remove(p)
+            assert sublist(p, incoming)
+            for i in p:
+                incoming.remove(i)
         p = Recorder.get_parsed(v, only_outgoing=True)
         if p:
-            assert p in outgoing
-            outgoing.remove(p)
+            assert sublist(p, outgoing)
+            for i in p:
+                outgoing.remove(i)
 
     assert not incoming
     assert not outgoing

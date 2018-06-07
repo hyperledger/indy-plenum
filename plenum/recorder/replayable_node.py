@@ -87,10 +87,14 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
 
 
 def prepare_directory_for_replay(node_basedirpath, replay_dir, config):
-    src_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR, node_basedirpath)
-    src_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR, node_basedirpath)
-    trg_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR, replay_dir)
-    trg_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR, replay_dir)
+    src_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR,
+                                                  node_basedirpath)
+    src_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR,
+                                                  node_basedirpath)
+    trg_etc_dir = PConfigHelper._chroot_if_needed(config.GENERAL_CONFIG_DIR,
+                                                  replay_dir)
+    trg_var_dir = PConfigHelper._chroot_if_needed(config.GENESIS_DIR,
+                                                  replay_dir)
 
     os.makedirs(trg_var_dir, exist_ok=True)
     shutil.copytree(src_etc_dir, trg_etc_dir)
@@ -98,7 +102,8 @@ def prepare_directory_for_replay(node_basedirpath, replay_dir, config):
         if file.endswith('.json') or file.endswith('_genesis'):
             shutil.copy(os.path.join(src_var_dir, file), trg_var_dir)
 
-    shutil.copytree(PConfigHelper._chroot_if_needed(config.KEYS_DIR, node_basedirpath),
+    shutil.copytree(PConfigHelper._chroot_if_needed(config.KEYS_DIR,
+                                                    node_basedirpath),
                     PConfigHelper._chroot_if_needed(config.KEYS_DIR,
                                                     replay_dir))
     shutil.copytree(
