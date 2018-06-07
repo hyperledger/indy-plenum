@@ -1,12 +1,15 @@
 import pytest
+import sys
 
+from plenum.test.delayers import ppDelay, ppgDelay
 from plenum.test.helper import sdk_json_to_request_object
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InsufficientCorrectSignatures
 from stp_core.common.log import getlogger
 from stp_core.common.util import adict
 from plenum.test import waits
-from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
+from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty, \
+    delaysPrePrepareProcessing
 from plenum.test.node_request.node_request_helper import checkPropagated
 from plenum.test.test_node import TestNode
 
@@ -17,12 +20,10 @@ whitelist = ['doing nothing for now',
 
 @pytest.fixture(scope="module")
 def setup(txnPoolNodeSet):
+    alpha = txnPoolNodeSet[0]
+    alpha.nodeIbStasher.delay(ppgDelay(sys.maxsize))
     pool_without_alpha = list(txnPoolNodeSet)
-    pool_without_alpha.remove(txnPoolNodeSet[0])
-    # delay incoming client messages for good nodes by 250 milliseconds
-    # this gives Alpha a chance to send a propagate message
-    for n in pool_without_alpha:  # type: TestNode
-        n.clientIbStasher.delay(lambda _: 1)
+    pool_without_alpha.remove(alpha)
     return adict(goodNodes=pool_without_alpha)
 
 
@@ -60,6 +61,8 @@ def testOneNodeAltersAClientRequest(looper,
             assert 'Alpha' not in props
             for good in goodNodes:
                 assert good.name in props
+
+
 
     timeout = waits.expectedClientRequestPropagationTime(len(txnPoolNodeSet))
     looper.run(eventually(check, retryWait=1, timeout=timeout))
