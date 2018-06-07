@@ -57,3 +57,6 @@ def test_request_with_invalid_version(looper,
     with pytest.raises(RequestNackedException)as e:
         sdk_get_and_check_replies(looper, reqs)
     assert 'Unknown protocol version value -1' in e._excinfo[1].args[0]
+#
+# def test_ledger_status_with_protocol_version():
+#
