@@ -1346,16 +1346,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
-            elif isinstance(message, Reject):
-                reqKey = (message.identifier, message.reqId)
-                reject = Reject(
-                    *reqKey,
+            elif isinstance(message, tuple) and isinstance(message[1], Reject):
+                digest, reject = message
+                result_reject = Reject(
+                    reject.identifier,
+                    reject.reqId,
                     self.reasonForClientFromException(
-                        message.reason))
+                        reject.reason))
                 # TODO: What the case when reqKey will be not in requestSender dict
-                if reqKey in self.requestSender:
-                    self.transmitToClient(reject, self.requestSender[reqKey])
-                    self.doneProcessingReq(*reqKey)
+                if digest in self.requestSender:
+                    self.transmitToClient(result_reject, self.requestSender[digest])
+                    self.doneProcessingReq(digest)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1752,6 +1753,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
 
+    # TODO: change sending format from Reject to (digest, Reject)
+    # if you will use this method
     def _reject_msg(self, msg, frm, reason):
         reqKey = (msg.identifier, msg.reqId)
         reject = Reject(*reqKey,
@@ -1806,11 +1809,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._clear_req_key_for_txn(ledger_id, txn)
 
     def _clear_req_key_for_txn(self, ledger_id, txn):
-        frm = get_from(txn)
-        req_id = get_req_id(txn)
-        if (frm is not None) and (req_id is not None):
-            self.master_replica.discard_req_key(
-                ledger_id, (frm, req_id))
+        req_key = get_digest(txn)
+        if req_key is not None:
+            self.master_replica.discard_req_key(ledger_id, req_key)
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
@@ -2071,12 +2072,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         # If the node is not already processing the request
-        if not self.isProcessingReq(*request.key):
-            self.startedProcessingReq(*request.key, frm)
+        if not self.isProcessingReq(request.key):
+            self.startedProcessingReq(request.key, frm)
         # If not already got the propagate request(PROPAGATE) for the
         # corresponding client request(REQUEST)
         self.recordAndPropagate(request, frm)
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
 
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
@@ -2093,22 +2094,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         try:
             handler.doStaticValidation(request)
-            self.send_ack_to_client(request.key, frm)
+            self.send_ack_to_client((request.identifier, request.reqId), frm)
         except Exception as ex:
-            self.send_nack_to_client(request.key, str(ex), frm)
+            self.send_nack_to_client((request.identifier, request.reqId),
+                                     str(ex), frm)
         result = handler.get_query_response(request)
         self.transmitToClient(Reply(result), frm)
 
     def process_action(self, request, frm):
         # Process an execute action request
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
         try:
             self.actionReqHandler.validate(request)
             result = self.actionReqHandler.apply(request)
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
-                                         request.reqId, str(ex)), frm)
+                                         request.reqId,
+                                         str(ex)), frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
@@ -2130,41 +2133,42 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if not self.isProcessingReq(*request.key):
-            ledger_id, seq_no = self.seqNoDB.get(request.digest)
+        if not self.isProcessingReq(request.key):
+            ledger_id, seq_no = self.seqNoDB.get(request.key)
             if seq_no is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
                 return
 
-            self.startedProcessingReq(*request.key, clientName)
+            self.startedProcessingReq(request.key, clientName)
 
         else:
             if clientName is not None and \
-                    not self.is_sender_known_for_req(*request.key):
+                    not self.is_sender_known_for_req(request.key):
                 # Since some propagates might not include the client name
-                self.set_sender_for_req(*request.key, clientName)
+                self.set_sender_for_req(request.key,
+                                        clientName)
 
         self.requests.add_propagate(request, frm)
 
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
-    def startedProcessingReq(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+    def startedProcessingReq(self, key, frm):
+        self.requestSender[key] = frm
 
-    def isProcessingReq(self, identifier, reqId) -> bool:
-        return (identifier, reqId) in self.requestSender
+    def isProcessingReq(self, key) -> bool:
+        return key in self.requestSender
 
-    def doneProcessingReq(self, identifier, reqId):
-        self.requestSender.pop((identifier, reqId))
+    def doneProcessingReq(self, key):
+        self.requestSender.pop(key)
 
-    def is_sender_known_for_req(self, identifier, reqId):
-        return self.requestSender.get((identifier, reqId)) is not None
+    def is_sender_known_for_req(self, key):
+        return self.requestSender.get(key) is not None
 
-    def set_sender_for_req(self, identifier, reqId, frm):
-        self.requestSender[identifier, reqId] = frm
+    def set_sender_for_req(self, key, frm):
+        self.requestSender[key] = frm
 
     def send_ack_to_client(self, req_key, to_client):
         self.transmitToClient(RequestAck(*req_key), to_client)
@@ -2178,12 +2182,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
         if ledger_id not in self.ledger_to_req_handler:
-            self.send_nack_to_client(request.key,
+            self.send_nack_to_client((request.identifier, request.reqId),
                                      'Invalid ledger id {}'.format(ledger_id),
                                      frm)
             return
         seq_no = request.operation.get(DATA)
-        self.send_ack_to_client(request.key, frm)
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
         ledger = self.getLedger(ledger_id)
         try:
             txn = self.getReplyFromLedger(ledger=ledger,
@@ -2226,6 +2230,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, ordered.instId))
             self.monitor.requestOrdered(ordered.reqIdr,
                                         ordered.instId,
+                                        self.requests,
                                         byMaster=False)
             return False
 
@@ -2258,6 +2263,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.monitor.requestOrdered(ordered.reqIdr,
                                     ordered.instId,
+                                    self.requests,
                                     byMaster=True)
 
         return True
@@ -2559,7 +2565,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [(req.identifier, req.reqId) for req in reqs]
+                    txn_root, [req.digest for req in reqs]
                 )
             )
             raise
@@ -2576,7 +2582,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "ledger {}, state root {}, txn root {}, requests: {}".
             format(self, view_no, pp_seq_no, ledger_id, state_root,
                    txn_root,
-                   [(req.identifier, req.reqId) for req in reqs])
+                   [req.digest for req in reqs])
         )
 
         for txn in committedTxns:
@@ -2687,20 +2693,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
             self.sendReplyToClient(Reply(txn),
-                                   (get_from(txn), get_req_id(txn)))
+                                   get_digest(txn))
 
     def sendReplyToClient(self, reply, reqKey):
-        if self.isProcessingReq(*reqKey):
+        if self.isProcessingReq(reqKey):
             sender = self.requestSender[reqKey]
             if sender:
                 logger.trace(
                     '{} sending reply for {} to client'.format(
                         self, reqKey))
-                self.transmitToClient(reply, self.requestSender[reqKey])
+                self.transmitToClient(reply, sender)
             else:
                 logger.info('{} not sending reply for {}, since do not '
                             'know client'.format(self, reqKey))
-            self.doneProcessingReq(*reqKey)
+            self.doneProcessingReq(reqKey)
 
     def addNewRole(self, txn):
         """

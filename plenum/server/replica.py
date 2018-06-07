@@ -697,7 +697,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             self.logger.warning('{} encountered exception {} while processing {}, '
                                 'will reject'.format(self, ex, req))
-            rejects.append(Reject(req.identifier, req.reqId, ex))
+            rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
             inValidReqs.append(req)
         else:
             validReqs.append(req)
@@ -739,7 +739,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.viewNo,
             ppSeqNo,
             tm,
-            [(req.identifier, req.reqId) for req in reqs],
+            [req.digest for req in reqs],
             len(validReqs),
             digest,
             ledger_id,
@@ -771,9 +771,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, key: ReqKey):
-        fin_req = self.requests[key].finalised
+        fin_req = self.requests[key.digest].finalised
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
-        queue.add(key)
+        queue.add(key.digest)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
             self.logger.warning('{} is getting requests but still does not have '
                                 'a primary so the replica will not process the request '
@@ -905,7 +905,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
-        req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
+        req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
         def report_suspicious(reason):

@@ -58,7 +58,23 @@ def idr_from_req_data(data):
 
 
 # TODO: remove after old client deprecation or uniforming read and write respnse formats
-def get_reply_itentifier(result):
+def get_reply_digest(result):
+    if f.DIGEST.nm in result:
+        return result[f.DIGEST.nm]
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
+            TXN_PAYLOAD_METADATA_DIGEST in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
+        return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST]
+    else:
+        return Request(
+            identifier=result.get(f.IDENTIFIER.nm, None),
+            reqId=result.get(f.REQ_ID.nm, None),
+            operation=result.get(OPERATION, None),
+            protocolVersion=result.get(f.PROTOCOL_VERSION.nm, None)
+        ).digest
+
+
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_identifier(result):
     if f.IDENTIFIER.nm in result:
         return result[f.IDENTIFIER.nm]
     elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \

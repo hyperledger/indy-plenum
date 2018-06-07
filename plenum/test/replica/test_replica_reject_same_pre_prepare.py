@@ -48,8 +48,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     for npr in nonPrimaryReplicas:
         looper.run(eventually(checkPrepareReqSent,
                               npr,
-                              request1.identifier,
-                              request1.reqId,
+                              request1.key,
                               primaryRepl.viewNo,
                               retryWait=1))
     prePrepareReq = primaryRepl.sentPrePrepares[primaryRepl.viewNo,
@@ -87,7 +86,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     primaryRepl.node.stop()
     looper.removeProdable(primaryRepl.node)
 
-    reqIdr = [(request2.identifier, request2.reqId)]
+    reqIdr = [request2.digest]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         view_no,
@@ -120,8 +119,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  request2.identifier,
-                                  request2.reqId,
+                                  request2.key,
                                   view_no,
                                   retryWait=1,
                                   timeout=timeout))
