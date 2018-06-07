@@ -25,7 +25,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, TXN_TIME, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -657,7 +657,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            ledger_size)
         v, p = three_pc_key if three_pc_key else (None, None)
-        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash)
+        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash, CURRENT_PROTOCOL_VERSION)
 
     @property
     def poolLedgerStatus(self):
@@ -1648,6 +1648,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
+        self.specific_invalid_client_msg_handling(ex, wrappedMsg)
+
+    def specific_invalid_client_msg_handling(self, ex, wrappedMsg):
+        op = wrappedMsg[0].op
+        if (op == LEDGER_STATUS):
+            self.invalid_client_ledger_status_handling(ex, wrappedMsg)
+
+    def invalid_client_ledger_status_handling(self, ex, wrappedMsg):
+        msg, frm = wrappedMsg
+        logger.debug("{} received bad LEDGER_STATUS message from client {}. "
+                     "Reason: {}. "
+                     .format(self, frm, ex.reason))
+        ls = LedgerStatus(msg.get(f.LEDGER_ID.nm),
+                          msg.get(f.TXN_SEQ_NO.nm),
+                          msg.get(f.VIEW_NO.nm),
+                          msg.get(f.PP_SEQ_NO),
+                          msg.get(f.MERKLE_ROOT),
+                          msg.get(f.PROTOCOL_VERSION.nm))
+        self.transmitToClient(ls, frm)
+        return
 
     def validateClientMsg(self, wrappedMsg):
         """

@@ -8,7 +8,7 @@ import base58
 import dateutil
 
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
@@ -670,7 +670,8 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
             return 'Unknown protocol version value {}'.format(val)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version ({})' \
+                .format(val, CURRENT_PROTOCOL_VERSION)
