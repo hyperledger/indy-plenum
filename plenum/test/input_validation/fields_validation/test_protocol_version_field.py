@@ -11,7 +11,7 @@ def test_valid():
 
 
 def test_invalid():
-    assert validator.validate(2)
+    assert validator.validate(3)
     assert validator.validate("1")
     assert validator.validate("")
     assert validator.validate(0)
