@@ -688,8 +688,8 @@ class Client(Motor,
                         nodes: Optional[Set[str]] = None):
         nodes = nodes if nodes else self._connected_node_names
         now = time.perf_counter()
-        self.expectingAcksFor[request.key] = (nodes, now, 0)
-        self.expectingRepliesFor[request.key] = (copy.copy(nodes), now, 0)
+        self.expectingAcksFor[(request.identifier, request.reqId)] = (nodes, now, 0)
+        self.expectingRepliesFor[(request.identifier, request.reqId)] = (copy.copy(nodes), now, 0)
         self.startRepeating(self._retry_for_expected,
                             self.config.CLIENT_REQACK_TIMEOUT)
 
