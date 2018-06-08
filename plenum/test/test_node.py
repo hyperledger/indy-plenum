@@ -9,10 +9,12 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
+from plenum.common.request import Request
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.propagator import Requests
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -349,7 +351,9 @@ node_spyables = [Node.handleOneNodeMsg,
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
+
     def __init__(self, *args, **kwargs):
+        from plenum.common.stacks import nodeStackClass, clientStackClass
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
 
@@ -478,8 +482,12 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
+    _replica_class = TestReplica
+
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
+        return self.__class__._replica_class(self._node, instance_id,
+                                                self._config, is_master,
+                                                bls_bft)
 
 
 # TODO: probably delete when remove from node
@@ -633,11 +641,11 @@ class TestMonitor(Monitor):
         self.masterReqLatenciesTest = {}
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False):
-        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+                       requests: Dict, byMaster: bool = False):
+        durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
-            for (identifier, reqId), duration in durations.items():
-                self.masterReqLatenciesTest[identifier, reqId] = duration
+            for key, duration in durations.items():
+                self.masterReqLatenciesTest[key] = duration
 
     def reset(self):
         super().reset()

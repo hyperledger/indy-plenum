@@ -40,7 +40,7 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
     MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
-from plenum.common.txn_util import get_reply_itentifier, get_reply_reqId
+from plenum.common.txn_util import get_reply_identifier, get_reply_reqId
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, rawToFriendly, mostCommonElement
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
@@ -370,7 +370,7 @@ class Client(Motor,
                 self._got_expected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
-                identifier = get_reply_itentifier(result)
+                identifier = get_reply_identifier(result)
                 reqId = get_reply_reqId(result)
                 numReplies = self.reqRepStore.addReply(identifier,
                                                        reqId,
@@ -455,7 +455,7 @@ class Client(Motor,
         """
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and get_reply_reqId(msg[f.RESULT.nm]) == reqId and
-                get_reply_itentifier(msg[f.RESULT.nm]) == identifier}
+                get_reply_identifier(msg[f.RESULT.nm]) == identifier}
 
     def hasConsensus(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
@@ -713,13 +713,18 @@ class Client(Motor,
                     register.pop(key)
 
         if msg[OP_FIELD_NAME] == REQACK:
-            drop(get_reply_itentifier(msg), get_reply_reqId(msg), self.expectingAcksFor)
+            drop(get_reply_identifier(msg), get_reply_reqId(msg),
+                 self.expectingAcksFor)
         elif msg[OP_FIELD_NAME] == REPLY:
-            drop(get_reply_itentifier(msg[f.RESULT.nm]), get_reply_reqId(msg[f.RESULT.nm]), self.expectingAcksFor)
-            drop(get_reply_itentifier(msg[f.RESULT.nm]), get_reply_reqId(msg[f.RESULT.nm]), self.expectingRepliesFor)
+            drop(get_reply_identifier(msg[f.RESULT.nm]),
+                 get_reply_reqId(msg[f.RESULT.nm]), self.expectingAcksFor)
+            drop(get_reply_identifier(msg[f.RESULT.nm]),
+                 get_reply_reqId(msg[f.RESULT.nm]), self.expectingRepliesFor)
         elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
-            drop(get_reply_itentifier(msg), get_reply_reqId(msg), self.expectingAcksFor)
-            drop(get_reply_itentifier(msg), get_reply_reqId(msg), self.expectingRepliesFor)
+            drop(get_reply_identifier(msg), get_reply_reqId(msg),
+                 self.expectingAcksFor)
+            drop(get_reply_identifier(msg), get_reply_reqId(msg),
+                 self.expectingRepliesFor)
         else:
             raise RuntimeError("{} cannot retry {}".format(self, msg))
 

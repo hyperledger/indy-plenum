@@ -217,6 +217,7 @@ def getValueFromModule(request, name: str, default: Any = None):
 basePath = os.path.dirname(os.path.abspath(__file__))
 testPluginBaseDirPath = os.path.join(basePath, "plugin")
 
+
 overriddenConfigValues = {
     "DefaultPluginPath": {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
@@ -555,8 +556,7 @@ def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
 
     def checkOrderedCount():
         resp = [requestReturnedToNode(node,
-                                      did,
-                                      committed1.reqId,
+                                      committed1.digest,
                                       instId)
                 for node in txnPoolNodeSet for instId in range(numOfInstances)]
         assert resp.count(True) >= quorum

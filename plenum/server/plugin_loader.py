@@ -31,9 +31,9 @@ class PluginLoader:
     will look for any classes declared in these modules that have a class
     attribute named 'pluginType', and then it checks to see that the
     'pluginType' attribute is equal to any of the valid types. Right now there
-    three types of plugins: 'VERIFICATION', 'PROCESSING' and STATS_CONSUMER. Then, it instantiates an object of
-    that class type, without any constructor arguments. This is the plugin
-    instance.
+    three types of plugins: 'VERIFICATION', 'PROCESSING' and STATS_CONSUMER.
+    Then,it instantiates an object of that class type, without any constructor
+    arguments. This is the plugin instance.
 
     When an opVerificationPluginPath keyword argument is provided in the Node
     constructor, the Node will create a PluginLoader with that path and look
