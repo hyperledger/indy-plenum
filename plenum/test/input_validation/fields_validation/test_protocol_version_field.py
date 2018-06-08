@@ -6,7 +6,9 @@ validator = ProtocolVersionField()
 
 def test_valid():
     assert not validator.validate(1)
+    assert not validator.validate(2)
     assert not validator.validate(PlenumProtocolVersion.STATE_PROOF_SUPPORT.value)
+    assert not validator.validate(PlenumProtocolVersion.TXN_FORMAT_1_0_SUPPORT.value)
     assert not validator.validate(None)  # version can be None (for backward compatibility)
 
 
