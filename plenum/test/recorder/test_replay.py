@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.config_util import getConfigOnce
 from plenum.test.recorder.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
@@ -9,6 +11,7 @@ TestRunningTimeLimitSec = 500
 whitelist = ['cannot find remote with name']
 
 
+@pytest.mark.skip
 def test_replay_recorded_msgs(txnPoolNodesLooper,
                               txnPoolNodeSet, some_txns_done, testNodeClass,
                               node_config_helper_class, tconf, tdir,
