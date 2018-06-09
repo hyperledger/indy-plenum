@@ -1,7 +1,9 @@
 import json
 
 from indy.did import create_and_store_my_did
-from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
+from indy.ledger import build_node_request, build_nym_request, \
+    build_get_txn_request, build_pool_restart_request, \
+    build_get_validator_info_request
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
@@ -16,7 +18,8 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings
+    sdk_get_and_check_replies, sdk_sign_request_strings, sdk_get_replies, \
+    sdk_check_reply
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
@@ -206,6 +209,47 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     return wh, new_did
 
 
+def sdk_send_restart(looper, trusty_wallet, sdk_pool_handle,
+                     action=None, datetime=None, seed=None):
+    # filling restart request and getting trusty did
+    seed = seed or randomString(32)
+    restart_request, did = looper.loop.run_until_complete(
+        prepare_restart_request(trusty_wallet, seed, action, datetime))
+
+    # sending request using 'sdk_' functions
+    request_couple = sdk_sign_and_send_prepared_request(looper, trusty_wallet,
+                                                        sdk_pool_handle,
+                                                        restart_request)
+    # waiting for replies
+    return sdk_get_and_check_multiply_replies(looper, request_couple)
+
+
+def sdk_get_validator_info(looper, steward_wallet, sdk_pool_handle, seed=None):
+    # filling validator_info request and getting steward did
+    seed = seed or randomString(32)
+    validator_info_request, did = looper.loop.run_until_complete(
+        prepare_validator_info_request(steward_wallet, seed))
+
+    # sending request using 'sdk_' functions
+    request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet,
+                                                        sdk_pool_handle,
+                                                        validator_info_request)
+    # waiting for replies
+    return sdk_get_and_check_multiply_replies(looper, request_couple)
+
+
+def sdk_get_and_check_multiply_replies(looper, request_couple):
+    rets = []
+    for req_res in sdk_get_replies(looper, [request_couple, ]):
+        req, responses = req_res
+        if "op" in responses:
+            sdk_check_reply((req, responses))
+        else:
+            for node_resp in responses.values():
+                sdk_check_reply((req, json.loads(node_resp)))
+        rets.append(req_res)
+    return rets[0]
+
 def sdk_add_new_node(looper,
                      sdk_pool_handle,
                      steward_wallet_handle,
@@ -261,6 +305,25 @@ async def prepare_nym_request(wallet, named_seed, alias,
     nym_request = await build_nym_request(submitter_did, named_did, named_verkey,
                                           alias, role)
     return nym_request, named_did
+
+
+async def prepare_restart_request(wallet, named_seed, action="start",
+                                  restart_time="0"):
+    wh, submitter_did = wallet
+    (named_did, named_verkey) = \
+        await create_and_store_my_did(wh, json.dumps({'seed': named_seed}))
+    restart_request = await build_pool_restart_request(submitter_did,
+                                                       action,
+                                                       restart_time)
+    return restart_request, named_did
+
+
+async def prepare_validator_info_request(wallet, named_seed):
+    wh, submitter_did = wallet
+    (named_did, named_verkey) = \
+        await create_and_store_my_did(wh, json.dumps({'seed': named_seed}))
+    restart_request = await build_get_validator_info_request(submitter_did)
+    return restart_request, named_did
 
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
