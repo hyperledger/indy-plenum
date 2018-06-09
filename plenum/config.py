@@ -97,6 +97,10 @@ rocksdb_state_signature_config = rocksdb_default_config.copy()
 rocksdb_state_ts_db_config = rocksdb_default_config.copy()
 # Change state_ts_db config here if you fully understand what's going on
 
+# FIXME: much more clear solution is to check which key-value storage type is
+# used for each storage and set corresponding config, but for now only RocksDB
+# tuning is supported (now other storage implementations ignore this parameter)
+# so here we set RocksDB configs unconditionally for simplicity.
 db_merkle_leaves_config = rocksdb_merkle_leaves_config
 db_merkle_nodes_config = rocksdb_merkle_nodes_config
 db_state_config = rocksdb_state_config
