@@ -63,7 +63,7 @@ transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
 rocksdb_default_config = {
     'max_open_files': None,
     'max_log_file_size': None,
-    'keep_log_file_num': None,
+    'keep_log_file_num': 5,
     # Compaction related options
     'target_file_size_base': None,
     # Memtable related options
@@ -72,7 +72,8 @@ rocksdb_default_config = {
     'block_cache_size': None,
     'block_cache_compressed_size': None,
     'no_block_cache': None,
-    'block_size': None
+    'block_size': None,
+    'db_log_dir': None
 }
 
 rocksdb_merkle_leaves_config = rocksdb_default_config.copy()
@@ -96,22 +97,13 @@ rocksdb_state_signature_config = rocksdb_default_config.copy()
 rocksdb_state_ts_db_config = rocksdb_default_config.copy()
 # Change state_ts_db config here if you fully understand what's going on
 
-# EXAMPLE: set these config parameters if you want to use tuned RocksDB storage
-# db_merkle_leaves_config = rocksdb_merkle_leaves_config
-# db_merkle_nodes_config = rocksdb_merkle_nodes_config
-# db_state_config = rocksdb_state_config
-# db_transactions_config = rocksdb_transactions_config
-# db_seq_no_db_config = rocksdb_seq_no_db_config
-# db_state_signature_config = rocksdb_state_signature_config
-# db_state_ts_db_config = rocksdb_state_ts_db_config
-
-db_merkle_leaves_config = None
-db_merkle_nodes_config = None
-db_state_config = None
-db_transactions_config = None
-db_seq_no_db_config = None
-db_state_signature_config = None
-db_state_ts_db_config = None
+db_merkle_leaves_config = rocksdb_merkle_leaves_config
+db_merkle_nodes_config = rocksdb_merkle_nodes_config
+db_state_config = rocksdb_state_config
+db_transactions_config = rocksdb_transactions_config
+db_seq_no_db_config = rocksdb_seq_no_db_config
+db_state_signature_config = rocksdb_state_signature_config
+db_state_ts_db_config = rocksdb_state_ts_db_config
 
 
 DefaultPluginPath = {

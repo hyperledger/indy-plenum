@@ -35,6 +35,8 @@ class KeyValueStorageRocksdb(KeyValueStorage):
             opts.max_log_file_size = _db_config['max_log_file_size']
         if _db_config['keep_log_file_num'] is not None:
             opts.keep_log_file_num = _db_config['keep_log_file_num']
+        if _db_config['db_log_dir'] is not None:
+            opts.db_log_dir = _db_config['db_log_dir']
 
         # Compaction related options
         if _db_config['target_file_size_base'] is not None:
