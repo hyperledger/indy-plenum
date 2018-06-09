@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 from plenum.common.config_util import getConfigOnce
 
 from plenum.common.config_helper import PNodeConfigHelper
@@ -16,6 +18,7 @@ whitelist = ['cannot find remote with name']
 TestRunningTimeLimitSec = 150
 
 
+@pytest.mark.skip
 def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                              testNodeClass, tmpdir_factory,
                              node_config_helper_class, allPluginsPath,
