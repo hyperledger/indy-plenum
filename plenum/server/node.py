@@ -1648,26 +1648,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
-        self.specific_invalid_client_msg_handling(ex, wrappedMsg)
+        self._specific_invalid_client_msg_handling(ex, wrappedMsg)
 
-    def specific_invalid_client_msg_handling(self, ex, wrappedMsg):
-        op = wrappedMsg[0].op
+    def _specific_invalid_client_msg_handling(self, ex, wrappedMsg):
+        op = wrappedMsg[0].get('op')
         if (op == LEDGER_STATUS):
-            self.invalid_client_ledger_status_handling(ex, wrappedMsg)
+            self._invalid_client_ledger_status_handling(ex, wrappedMsg)
 
-    def invalid_client_ledger_status_handling(self, ex, wrappedMsg):
+    def _invalid_client_ledger_status_handling(self, ex, wrappedMsg):
+        # This specific validation handles incorrect client LEDGER_STATUS message
         msg, frm = wrappedMsg
         logger.debug("{} received bad LEDGER_STATUS message from client {}. "
                      "Reason: {}. "
-                     .format(self, frm, ex.reason))
-        ls = LedgerStatus(msg.get(f.LEDGER_ID.nm),
-                          msg.get(f.TXN_SEQ_NO.nm),
-                          msg.get(f.VIEW_NO.nm),
-                          msg.get(f.PP_SEQ_NO),
-                          msg.get(f.MERKLE_ROOT),
-                          msg.get(f.PROTOCOL_VERSION.nm))
-        self.transmitToClient(ls, frm)
-        return
+                     .format(self, frm, ex.args[0]))
+        # Since client can't yet handle denial of LEDGER_STATUS,
+        # node send his LEDGER_STATUS back
+        self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
+                                          msg.get(f.TXN_SEQ_NO.nm),
+                                          msg.get(f.VIEW_NO.nm),
+                                          msg.get(f.PP_SEQ_NO.nm),
+                                          msg.get(f.MERKLE_ROOT.nm),
+                                          CURRENT_PROTOCOL_VERSION,
+                                          frm)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1980,6 +1982,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
+
+    def send_ledger_status_to_client(self, lid, txn_s_n, v, p, merkle, protocol, client):
+        ls = LedgerStatus(lid, txn_s_n, v, p, merkle, protocol)
+        self.transmitToClient(ls, client)
 
     def doStaticValidation(self, request: Request):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation

@@ -271,7 +271,18 @@ class LedgerManager(HasActionQueue):
                                  "ledger status {} from client {}"
                                  .format(self, status, frm))
                     return
-
+                try:
+                    getattr(status, f.PROTOCOL_VERSION.nm)
+                except KeyError:
+                    self.owner.send_ledger_status_to_client(
+                        getattr(status, f.LEDGER_ID.nm),
+                        getattr(status, f.TXN_SEQ_NO.nm),
+                        getattr(status, f.VIEW_NO.nm),
+                        getattr(status, f.PP_SEQ_NO.nm),
+                        getattr(status, f.MERKLE_ROOT.nm),
+                        CURRENT_PROTOCOL_VERSION,
+                        frm)
+                    return
                 # If our node is not ahead the client which has sent
                 # the ledger status then reply to it that its ledger is OK
                 if not self.isLedgerNew(ledgerStatus):

@@ -240,7 +240,7 @@ class LedgerStatus(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
-        (f.PROTOCOL_VERSION.nm, ProtocolVersionField())
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True))
     )
 
 

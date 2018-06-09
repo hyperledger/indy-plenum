@@ -27,22 +27,6 @@ def test_request_none_protocol_version(looper, txnPoolNodeSet,
                          'missed fields - protocolVersion')
 
 
-def test_request_with_correct_version(looper,
-                                      txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client,
-                                      request_num):
-    _, did = sdk_wallet_client
-    reqs_obj = sdk_random_request_objects(request_num, identifier=did,
-                                          protocol_version=CURRENT_PROTOCOL_VERSION)
-    for req_obj in reqs_obj:
-        assert req_obj.protocolVersion == CURRENT_PROTOCOL_VERSION
-
-    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
-    sdk_get_and_check_replies(looper, reqs)
-
-
 def test_request_with_wrong_version(looper,
                                     txnPoolNodeSet,
                                     sdk_pool_handle,
@@ -76,3 +60,17 @@ def test_request_with_invalid_version(looper,
     sdk_get_bad_response(looper, reqs, RequestNackedException, 'Unknown protocol version value')
 
 
+def test_request_with_correct_version(looper,
+                                      txnPoolNodeSet,
+                                      sdk_pool_handle,
+                                      sdk_wallet_client,
+                                      request_num):
+    _, did = sdk_wallet_client
+    reqs_obj = sdk_random_request_objects(request_num, identifier=did,
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
+    for req_obj in reqs_obj:
+        assert req_obj.protocolVersion == CURRENT_PROTOCOL_VERSION
+
+    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    sdk_get_and_check_replies(looper, reqs)
