@@ -296,3 +296,9 @@ class CommonSdkIOException(Exception):
 
 class PoolLedgerTimeoutException(Exception):
     pass
+
+
+class MissingProtocolVersionError(TypeError):
+    def __init__(self, message):
+        super().__init__(
+            message + 'Please update libindy or indy-node to the latest stable version.')

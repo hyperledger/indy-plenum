@@ -2,7 +2,10 @@ from collections import OrderedDict
 from operator import itemgetter
 from typing import Mapping
 
+from plenum.common.types import f
+
 from plenum.common.constants import OP_FIELD_NAME
+from plenum.common.exceptions import MissingProtocolVersionError
 from plenum.common.messages.fields import FieldValidator
 
 
@@ -47,9 +50,13 @@ class MessageValidator(FieldValidator):
                         .format(self.__error_msg_prefix, type(dct)))
 
     def _raise_missed_fields(self, *fields):
-        raise TypeError("{} missed fields - {}"
-                        .format(self.__error_msg_prefix,
-                                ', '.join(map(str, fields))))
+        msg = "{} missed fields - {}. " \
+            .format(self.__error_msg_prefix,
+                    ', '.join(map(str, fields)))
+        if (any(field == f.PROTOCOL_VERSION.nm for field in map(str, fields))):
+            raise MissingProtocolVersionError(msg)
+        else:
+            raise TypeError(msg)
 
     def _raise_unknown_fields(self, field, value):
         raise TypeError("{} unknown field - "

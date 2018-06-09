@@ -1641,7 +1641,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Request):
             msg = msg.as_dict
         identifier = idr_from_req_data(msg)
-        reqId = msg.get(f.REQ_ID.nm)
+        # we send reqId == 1 when we need to reply on invalid LEDGER_STATUS
+        reqId = msg.get(f.REQ_ID.nm) or 1
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
