@@ -1,6 +1,6 @@
 import pytest
-from plenum.common.messages.fields import RequestIdentifierField
 
+from plenum.common.messages.fields import RequestIdentifierField
 from plenum.test.input_validation.constants import \
     TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG
 
