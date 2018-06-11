@@ -38,7 +38,7 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
         if inst_id not in sent_pps:
             sent_pps[inst_id] = {}
         sent_pps[inst_id][v, p] = [msg[f.PP_TIME.nm],
-                                   [tuple(l) for l in
+                                   [l for l in
                                     msg[f.REQ_IDR.nm]],
                                    msg[f.DISCARDED.nm],
                                    ]
