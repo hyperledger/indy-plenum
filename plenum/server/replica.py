@@ -772,7 +772,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def consume_req_queue_for_pre_prepare(self, ledger_id, view_no, pp_seq_no):
         # DO NOT REMOVE `view_no` argument, used while replay
         # tm = self.utc_epoch
-        tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo,
+        tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
                                                pp_seq_no)
         validReqs = []
         inValidReqs = []
