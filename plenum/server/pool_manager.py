@@ -196,7 +196,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param reqs: request
         """
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
-        self.node.updateSeqNoMap(committedTxns)
+        self.node.updateSeqNoMap(committedTxns, POOL_LEDGER_ID)
         for txn in committedTxns:
             t = deepcopy(txn)
             # Since the committed transactions contain merkle info,

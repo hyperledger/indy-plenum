@@ -104,3 +104,8 @@ def getConfig(general_config_dir: str = None):
 
 def getConfigOnce(general_config_dir: str = None):
     return _getConfig(general_config_dir)
+
+
+def get_global_config_else_read_config(general_config_dir: str = None):
+    global CONFIG
+    return getConfigOnce(general_config_dir) if not CONFIG else CONFIG

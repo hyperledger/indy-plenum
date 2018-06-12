@@ -1,5 +1,6 @@
 import math
 
+from plenum.server.replica import TPCStat
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -27,14 +28,13 @@ def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFr
     requests will complete
     """
     tconf = perf_chk_patched
-    delay = 5
+    delay = 2
     instId = 0
     reqs_to_send = 2 * reqs_for_logsize + 1
     logger.debug('Will send {} requests'.format(reqs_to_send))
 
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
-    from plenum.server.replica import TPCStat
     orderedCount = pr.stats.get(TPCStat.OrderSent)
 
     for r in npr:

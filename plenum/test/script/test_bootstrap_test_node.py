@@ -108,7 +108,7 @@ def test_domain_genesis_txns(bootstrap, domain_genesis_file):
             assert get_version(txn) == "1"
             assert get_payload_data(txn)[VERKEY]
             assert get_payload_data(txn)[TARGET_NYM]
-            assert get_payload_data(txn)[ALIAS]
+            assert ALIAS not in get_payload_data(txn)
 
             # expect Trustees, then Stewards, then Clients
             if 0 <= i < TRUSTEE_COUNT:
