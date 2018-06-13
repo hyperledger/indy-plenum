@@ -1,3 +1,4 @@
+from storage.helper import integer_comparator
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 
 try:
@@ -8,9 +9,7 @@ except ImportError:
 
 class IntegerComparator(rocksdb.IComparator):
     def compare(self, a, b):
-        a = int(a)
-        b = int(b)
-        return a - b
+        return integer_comparator(a, b)
 
     def name(self):
         return b'IntegerComparator'
