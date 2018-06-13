@@ -1,8 +1,18 @@
+import pytest
 import base58
 
-from plenum.common.signer_did import DidSigner
+from plenum.common.signer_did import DidIdentity, DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import friendlyToRaw
+
+
+def test_DidIdentity_init_fails():
+    verkey='123'
+    rawVerkey='456'
+    with pytest.raises(ValueError) as excinfo:
+        DidIdentity(None, verkey, rawVerkey)
+    assert ("Both verkey {} and rawVerkey {} can't be specified"
+            .format(verkey, rawVerkey)) == str(excinfo.value)
 
 
 def test_signer_compatable():

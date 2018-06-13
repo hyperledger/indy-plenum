@@ -3,6 +3,7 @@ import copy
 import base58
 import pytest
 
+from common.exceptions import ValueUndefinedError
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_store import BlsStore
 from plenum.common.util import get_utc_epoch
@@ -37,6 +38,11 @@ def bls_store(tdir_for_func):
 
 def test_create_store(bls_store):
     pass
+
+
+def test_put_undefined_sig_to_store(bls_store):
+    with pytest.raises(ValueUndefinedError):
+        bls_store.put(None)
 
 
 def test_put_to_store(bls_store, fake_multi_sig):
