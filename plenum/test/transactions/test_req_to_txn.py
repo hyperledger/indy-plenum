@@ -3,6 +3,7 @@ import pytest
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.types import OPERATION, f
 from plenum.common.util import SortedDict
 from plenum.test.helper import sdk_sign_request_from_dict
 
@@ -23,25 +24,36 @@ def req_and_expected(request, looper, sdk_wallet_client):
         #     req.pop('signature')
         if request.param == 'no_protocol_vers':
             req.pop('protocolVersion')
+        digest = Request(
+            req.get(f.IDENTIFIER.nm, None),
+            req.get(f.REQ_ID.nm, None),
+            req.get(OPERATION, None),
+            req.get(f.SIG.nm, None),
+            req.get(f.SIGS.nm, None),
+            req.get(f.PROTOCOL_VERSION.nm, None)
+        ).digest
+        sign = req.get(f.SIG.nm)
     else:
         req = Request(operation=op, reqId=1513945121191691,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd")
-        req.signature = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+        sign = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+        req.signature = sign
         req.add_signature("6ouriXMZkLeHsuXrN1X1fd",
-                          "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM")
+                          sign)
         if request.param == 'sig_only':
             req.signatures = None
         if request.param == 'sigs_only':
             req.signature = None
         if request.param == 'no_protocol_vers':
             req.protocolVersion = None
+        digest = req.digest
 
     new_expected = SortedDict({
         "reqSignature": {
             "type": "ED25519",
             "values": [{
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
-                "value": "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
+                "value": sign
             }]
         },
         "txn": {
@@ -51,7 +63,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
-                "reqId": 1513945121191691,
+                "reqId": 1513945121191691
             },
 
             "protocolVersion": CURRENT_PROTOCOL_VERSION,
@@ -66,6 +78,8 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
     if request.param == 'no_protocol_vers':
         new_expected["txn"].pop("protocolVersion", None)
+    if digest is not None:
+        new_expected["txn"]["metadata"]["digest"] = digest
 
     return req, new_expected
 

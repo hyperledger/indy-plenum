@@ -60,7 +60,9 @@ def test_set_payload_metadata():
 def test_append_payload_metadata():
     txn = init_empty_txn(txn_type=NODE, protocol_version="3")
     set_payload_data(txn, {"somekey": "somevalue"})
-    append_payload_metadata(txn, frm="DID1", req_id=12345)
+    append_payload_metadata(txn, frm="DID1",
+                            req_id=12345,
+                            digest="random req digest")
     expected = SortedDict({
         "reqSignature": {},
         "txn": {
@@ -68,6 +70,7 @@ def test_append_payload_metadata():
             "metadata": {
                 "from": "DID1",
                 "reqId": 12345,
+                "digest": "random req digest"
             },
             "protocolVersion": "3",
             "type": NODE,

@@ -176,7 +176,7 @@ with SafeTemporaryDirectory() as tmpdir:
         """
         Let's get the reply.
         """
-        reply, status = client.getReply(request.reqId)
+        reply, status = client.getReply(request.key)
 
         """
         Check the reply and see if consensus has been reached.
@@ -216,7 +216,7 @@ with SafeTemporaryDirectory() as tmpdir:
         """
         Observe that consensus is still reached with one node replying with a different response.
         """
-        reply, consensusReached = client.getReply(request2.reqId)
+        reply, consensusReached = client.getReply(request2.key)
         print("Reply for the request: {}\n".format(reply))
         print("Consensus Reached?: {}\n".format(consensusReached))
 

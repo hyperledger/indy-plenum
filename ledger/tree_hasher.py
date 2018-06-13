@@ -1,7 +1,5 @@
 import hashlib
 
-from ledger.util import count_bits_set
-
 
 class TreeHasher(object):
     """Merkle hasher with domain separation for leaves and nodes."""
@@ -40,11 +38,12 @@ class TreeHasher(object):
             and hashes are that of the full (i.e. size 2^k) subtrees that form
             the entire tree, sorted in descending order of size.
         """
-        width = r_idx - l_idx
-        if width < 0 or l_idx < 0 or r_idx > len(leaves):
-            raise IndexError("%s,%s not a valid range over [0,%s]" % (
+        if l_idx < 0 or r_idx < l_idx or r_idx > len(leaves):
+            raise IndexError("{},{} not a valid range over [0,{}]".format(
                 l_idx, r_idx, len(leaves)))
-        elif width == 0:
+
+        width = r_idx - l_idx
+        if width == 0:
             return self.hash_empty(), ()
         elif width == 1:
             leaf_hash = self.hash_leaf(leaves[l_idx])
@@ -62,17 +61,13 @@ class TreeHasher(object):
             return (root_hash, (root_hash,) if split_width * 2 == width else
                     l_hashes + r_hashes)
 
-    def hash_full_tree(self, leaves):
-        """Hash a set of leaves representing a valid full tree."""
-        root_hash, hashes = self._hash_full(leaves, 0, len(leaves))
-        assert len(hashes) == count_bits_set(len(leaves))
-        assert (self._hash_fold(hashes) == root_hash if hashes else
-                root_hash == self.hash_empty())
-        return root_hash
-
     def _hash_fold(self, hashes):
         rev_hashes = iter(hashes[::-1])
         accum = next(rev_hashes)
         for cur in rev_hashes:
             accum = self.hash_children(cur, accum)
         return accum
+
+    def hash_full_tree(self, leaves):
+        """Hash a set of leaves representing a valid full tree."""
+        return self._hash_full(leaves, 0, len(leaves))[0]

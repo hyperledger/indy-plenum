@@ -30,8 +30,8 @@ class ReqState:
 
     def req_with_acceptable_quorum(self, quorum: Quorum):
         digests = defaultdict(set)
-        # this is workaround because we are getting a propagate from somebody with
-        # non-str (byte) name
+        # this is workaround because we are getting a propagate from
+        # somebody with non-str (byte) name
         for sender, req in filter(lambda x: isinstance(
                 x[0], str), self.propagates.items()):
             digests[req.digest].add(sender)
@@ -98,7 +98,7 @@ class Requests(OrderedDict):
         Get the number of propagates for a given reqId and identifier.
         """
         try:
-            votes = len(self[(req.identifier, req.reqId)].propagates)
+            votes = len(self[req.key].propagates)
         except KeyError:
             votes = 0
         return votes
@@ -146,10 +146,10 @@ class Requests(OrderedDict):
         """
         return req.key in self and sender in self[req.key].propagates
 
-    def is_finalised(self, reqKey: Tuple[str, int]) -> bool:
+    def is_finalised(self, reqKey: str) -> bool:
         return reqKey in self and self[reqKey].finalised
 
-    def digest(self, reqKey: Tuple) -> str:
+    def digest(self, reqKey: str) -> str:
         if reqKey in self and self[reqKey].finalised:
             return self[reqKey].finalised.digest
 
@@ -175,7 +175,7 @@ class Propagator:
             propagate = self.createPropagate(request, clientName)
             logger.info(
                 "{} propagating request {} from client {}".
-                format(self, (request.identifier, request.reqId), clientName),
+                format(self, request.key, clientName),
                 extra={"cli": True, "tags": ["node-propagate"]}
             )
             self.send(propagate)
@@ -221,7 +221,7 @@ class Propagator:
         if self.requests.forwarded(request):
             return 'already forwarded'
 
-        # If not enough Propogates, don't bother comparing
+        # If not enough Propagates, don't bother comparing
         if not self.quorums.propagate.is_reached(self.requests.votes(request)):
             return 'not finalised'
 
@@ -244,8 +244,8 @@ class Propagator:
         num_replicas = self.replicas.num_replicas
         logger.debug('{} forwarding request {} to {} replicas'
                      .format(self, key, num_replicas))
-        self.replicas.pass_message(ReqKey(*key))
-        self.monitor.requestUnOrdered(*key)
+        self.replicas.pass_message(ReqKey(key))
+        self.monitor.requestUnOrdered(key)
         self.requests.mark_as_forwarded(request, num_replicas)
 
     # noinspection PyUnresolvedReferences
@@ -285,15 +285,14 @@ class Propagator:
         :return:
         """
         i = 0
-        for (idr, req_id) in req_keys:
-            if (idr, req_id) not in self.requested_propagates_for:
-                self.request_msg(PROPAGATE, {f.IDENTIFIER.nm: idr,
-                                             f.REQ_ID.nm: req_id})
-                self._add_to_recently_requested((idr, req_id))
+        for digest in req_keys:
+            if digest not in self.requested_propagates_for:
+                self.request_msg(PROPAGATE, {f.DIGEST.nm: digest})
+                self._add_to_recently_requested(digest)
                 i += 1
             else:
                 logger.debug('{} already requested PROPAGATE recently for {}'.
-                             format(self, (idr, req_id)))
+                             format(self, digest))
         return i
 
     def _add_to_recently_requested(self, key):

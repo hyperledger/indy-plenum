@@ -7,7 +7,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25515, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    TXN_METADATA_ID, TXN_VERSION
+    TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -58,7 +58,23 @@ def idr_from_req_data(data):
 
 
 # TODO: remove after old client deprecation or uniforming read and write respnse formats
-def get_reply_itentifier(result):
+def get_reply_digest(result):
+    if f.DIGEST.nm in result:
+        return result[f.DIGEST.nm]
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
+            TXN_PAYLOAD_METADATA_DIGEST in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
+        return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST]
+    else:
+        return Request(
+            identifier=result.get(f.IDENTIFIER.nm, None),
+            reqId=result.get(f.REQ_ID.nm, None),
+            operation=result.get(OPERATION, None),
+            protocolVersion=result.get(f.PROTOCOL_VERSION.nm, None)
+        ).digest
+
+
+# TODO: remove after old client deprecation or uniforming read and write respnse formats
+def get_reply_identifier(result):
     if f.IDENTIFIER.nm in result:
         return result[f.IDENTIFIER.nm]
     elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
@@ -120,6 +136,10 @@ def get_req_id(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_REQ_ID, None)
 
 
+def get_digest(txn):
+    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_DIGEST, None)
+
+
 def get_seq_no(txn):
     return txn[TXN_METADATA].get(TXN_METADATA_SEQ_NO, None)
 
@@ -134,6 +154,10 @@ def get_txn_id(txn):
 
 def get_version(txn):
     return txn[TXN_VERSION]
+
+
+def get_protocol_version(txn):
+    return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_PROTOCOL_VERSION, None)
 
 
 def is_forced(txn):
@@ -171,11 +195,13 @@ def set_payload_data(txn, data):
     return txn
 
 
-def append_payload_metadata(txn, frm=None, req_id=None):
+def append_payload_metadata(txn, frm=None, req_id=None, digest=None):
     if frm is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = frm
     if req_id is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = req_id
+    if digest is not None:
+        txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST] = digest
     return txn
 
 
@@ -196,13 +222,20 @@ def reqToTxn(req):
     :param req:
     :return:
     """
-
+    if isinstance(req, str):
+        req = json.loads(req)
     if isinstance(req, dict):
-        req_data = req
-    elif isinstance(req, str):
-        req_data = json.loads(req)
-    elif isinstance(req, Request):
+        req = Request(
+            identifier=req.get(f.IDENTIFIER.nm, None),
+            reqId=req.get(f.REQ_ID.nm, None),
+            operation=req.get(OPERATION, None),
+            signature=req.get(f.SIG.nm, None),
+            signatures=req.get(f.SIGS.nm, None),
+            protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
+        )
+    if isinstance(req, Request):
         req_data = req.as_dict
+        req_data[f.DIGEST.nm] = req.digest
     else:
         raise TypeError(
             "Expected dict or str as input, but got: {}".format(type(req)))
@@ -215,9 +248,13 @@ def reqToTxn(req):
 def transform_to_new_format(txn, seq_no):
     t = deepcopy(txn)
     txn_time = t.pop(TXN_TIME, None)
+    txn_id = t.pop(TXN_ID, None)
     txn = do_req_to_txn(req_data=t,
                         req_op=t)
-    append_txn_metadata(txn, seq_no=seq_no, txn_time=txn_time)
+    append_txn_metadata(txn,
+                        seq_no=seq_no,
+                        txn_time=txn_time,
+                        txn_id=txn_id)
     return txn
 
 
@@ -246,7 +283,8 @@ def do_req_to_txn(req_data, req_op):
 
     append_payload_metadata(result,
                             frm=req_data.pop(f.IDENTIFIER.nm, None),
-                            req_id=req_data.pop(f.REQ_ID.nm, None))
+                            req_id=req_data.pop(f.REQ_ID.nm, None),
+                            digest=req_data.pop(f.DIGEST.nm, None))
 
     # 4. Fill Payload data
     set_payload_data(result, req_op)

@@ -37,7 +37,8 @@ logger = getlogger()
 
 
 # TODO: Use Async io
-# TODO: There a number of methods related to keys management, they can be moved to some class like KeysManager
+# TODO: There a number of methods related to keys management,
+# they can be moved to some class like KeysManager
 class ZStack(NetworkInterface):
     # Assuming only one listener per stack for now.
 
@@ -53,6 +54,8 @@ class ZStack(NetworkInterface):
 
     # TODO: This is not implemented, implement this
     messageTimeout = 3
+
+    _RemoteClass = Remote
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0):
@@ -532,9 +535,11 @@ class ZStack(NetworkInterface):
         for num_processed in range(limit):
             if len(self.rxMsgs) == 0:
                 return num_processed
+
             msg, ident = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
+
             if self.handlePingPong(msg, frm, ident):
                 continue
             try:
@@ -620,7 +625,7 @@ class ZStack(NetworkInterface):
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
-        remote = Remote(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote

@@ -3,6 +3,7 @@ from collections import OrderedDict
 import base58
 import pytest
 
+from common.exceptions import PlenumTypeError
 from common.serializers.serialization import multi_signature_value_serializer
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.util import get_utc_epoch
@@ -73,7 +74,7 @@ def test_valid_value(multi_sig_value):
 
 
 def test_invalid_value_ledger_id():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignatureValue(ledger_id=None,
                             state_root_hash=state_root_hash,
                             pool_state_root_hash=pool_state_root_hash,
@@ -82,7 +83,7 @@ def test_invalid_value_ledger_id():
 
 
 def test_invalid_value_state_root_hash():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignatureValue(ledger_id=ledger_id,
                             state_root_hash=None,
                             pool_state_root_hash=pool_state_root_hash,
@@ -91,7 +92,7 @@ def test_invalid_value_state_root_hash():
 
 
 def test_invalid_value_pool_state_root_hash():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignatureValue(ledger_id=ledger_id,
                             state_root_hash=state_root_hash,
                             pool_state_root_hash=None,
@@ -100,7 +101,7 @@ def test_invalid_value_pool_state_root_hash():
 
 
 def test_invalid_value_txn_root_hash():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignatureValue(ledger_id=ledger_id,
                             state_root_hash=state_root_hash,
                             pool_state_root_hash=pool_state_root_hash,
@@ -109,7 +110,7 @@ def test_invalid_value_txn_root_hash():
 
 
 def test_invalid_value_timestamp():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignatureValue(ledger_id=ledger_id,
                             state_root_hash=state_root_hash,
                             pool_state_root_hash=pool_state_root_hash,
@@ -152,19 +153,19 @@ def test_valid_multi_sig(multi_sig):
 
 
 def test_invalid_participants():
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         MultiSignature(signature=signature, participants=[], value=multi_sig_value)
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignature(signature=signature, participants=None, value=multi_sig_value)
 
 
 def test_invalid_signature():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignature(signature=None, participants=participants, value=multi_sig_value)
 
 
 def test_invalid_value():
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         MultiSignature(signature=signature, participants=participants, value=None)
 
 
