@@ -3,11 +3,13 @@ from typing import List
 
 import base58
 
+from common.exceptions import PlenumValueError
+from stp_core.common.log import getlogger
+from storage.state_ts_store import StateTsDbStorage
+
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.server.req_handler import RequestHandler
-from stp_core.common.log import getlogger
-from storage.state_ts_store import StateTsDbStorage
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 
 from state.state import State
@@ -60,9 +62,17 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         (seqNoStart, seqNoEnd), committedTxns = \
             self.ledger.commitTxns(txnCount)
         stateRoot = base58.b58decode(stateRoot.encode())
-        # Probably the following assertion fail should trigger catchup
-        assert self.ledger.root_hash == txnRoot, '{} {}'.format(
-            self.ledger.root_hash, txnRoot)
+
+        # TODO test for that
+        if self.ledger.root_hash != txnRoot:
+            # Probably the following fail should trigger catchup
+            # TODO add repr / str for Ledger class and dump it here as well
+            raise PlenumValueError(
+                'txnRoot', txnRoot,
+                ("equal to current ledger root hash {}"
+                 .format(self.ledger.root_hash))
+            )
+
         self.state.commit(rootHash=stateRoot)
         if self.ts_store:
             self.ts_store.set(ppTime, stateRoot)

@@ -1,8 +1,9 @@
 import storage.helper
 
+from common.exceptions import PlenumValueError
 from ledger.hash_stores.hash_store import HashStore
-from plenum.common.constants import KeyValueStorageType, HS_LEVELDB, HS_ROCKSDB
 from stp_core.common.log import getlogger
+from plenum.common.constants import KeyValueStorageType, HS_LEVELDB, HS_ROCKSDB
 
 logger = getlogger()
 
@@ -10,7 +11,10 @@ logger = getlogger()
 class DbHashStore(HashStore):
     def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB, read_only=False):
         self.dataDir = dataDir
-        assert db_type == HS_ROCKSDB or db_type == HS_LEVELDB
+        if db_type not in (HS_ROCKSDB, HS_LEVELDB):
+            raise PlenumValueError(
+                'db_type', db_type, "one of {}".format((HS_ROCKSDB, HS_LEVELDB))
+            )
         self.db_type = KeyValueStorageType.Leveldb if db_type == HS_LEVELDB \
             else KeyValueStorageType.Rocksdb
         self.nodesDb = None

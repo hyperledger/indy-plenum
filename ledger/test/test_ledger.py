@@ -4,6 +4,7 @@ from binascii import hexlify
 from collections import OrderedDict
 
 import pytest
+from common.exceptions import PlenumValueError
 from common.serializers.compact_serializer import CompactSerializer
 from common.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -61,6 +62,12 @@ def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     ledger.add(txn2)
     assert ledger.size == 2 + offset
     assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
+
+
+def test_merkle_info_raises_error_for_invalid_seqNo(ledger):
+    for seqNo in (-1, 0):
+        with pytest.raises(PlenumValueError):
+            ledger.merkleInfo(seqNo)
 
 
 def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
