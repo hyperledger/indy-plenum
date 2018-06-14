@@ -15,7 +15,6 @@ TestRunningTimeLimitSec = 550
 whitelist = ['cannot find remote with name']
 
 
-@pytest.mark.skip('Temporary')
 def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
                                      some_txns_done, testNodeClass, viewNo,  # noqa
                                      sdk_pool_handle, sdk_wallet_client,
@@ -34,6 +33,7 @@ def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
 
     for node in txnPoolNodeSet:
         txnPoolNodesLooper.removeProdable(node)
+        node.stop()
 
     config = getConfigOnce()
 
@@ -41,9 +41,6 @@ def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
 
     replayable_node_class, basedirpath = get_replayable_node_class(
         tmpdir_factory, tdir, testNodeClass, config)
-
-    for node in txnPoolNodeSet:
-        node.stop()
 
     print('-------------Replaying now---------------------')
 

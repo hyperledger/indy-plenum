@@ -17,8 +17,6 @@ def test_replay_on_new_node(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
 
     for node in txnPoolNodeSet:
         txnPoolNodesLooper.removeProdable(node)
-
-    for node in txnPoolNodeSet:
         node.stop()
 
     config = getConfigOnce()
