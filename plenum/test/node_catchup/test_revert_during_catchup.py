@@ -13,7 +13,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-Max3PCBatchSize = 2
+Max3PCBatchSize = 1
 TestRunningTimeLimitSec = 125
 
 # Do not remove the next imports
