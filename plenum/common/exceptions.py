@@ -1,5 +1,7 @@
 from re import compile
 
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+
 from plenum.server.suspicion_codes import Suspicion
 
 
@@ -301,4 +303,6 @@ class PoolLedgerTimeoutException(Exception):
 class MissingProtocolVersionError(TypeError):
     def __init__(self, message):
         super().__init__(
-            message + 'Please update libindy or indy-node to the latest stable version.')
+            message + 'Make sure that the latest LibIndy is '
+                      'used and `indy_set_protocol_version({})` is called.'
+            .format(CURRENT_PROTOCOL_VERSION))

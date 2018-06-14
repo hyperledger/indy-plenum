@@ -671,11 +671,12 @@ class ProtocolVersionField(FieldBase):
 
     def _specific_validation(self, val):
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value ({}). ' \
-                   'Please update libindy or indy-node ' \
-                   'to the latest stable version.'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `indy_set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
         if val != CURRENT_PROTOCOL_VERSION:
-            return 'Message version ({}) differs from current protocol version ({}). ' \
-                   'Please update libindy or indy-node ' \
-                   'to the latest stable version.' \
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `indy_set_protocol_version({})` is called' \
                 .format(val, CURRENT_PROTOCOL_VERSION)
