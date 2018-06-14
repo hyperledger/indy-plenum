@@ -37,15 +37,15 @@ def test_client_send_incorrect_ledger_status(looper, txnPoolNodeSet):
     discards = spy.getAll(Node.discard)
     flag = False
     for discrad in discards:
-        if discrad[3]['msg'][0] == msg:
+        if discrad.params['msg'][0] == msg:
             flag = True
-            assert 'missed fields - protocolVersion. ' + error_msg in discrad[3]['reason']
+            assert 'missed fields - protocolVersion. ' + error_msg in discrad.params['reason']
     assert flag
 
     # node sent LEDGER_STATUS back to this client
     sends = spy.getAll(Node.transmitToClient)
     assert len([send for send in sends if
-                send[3]['remoteName'] == sender and isinstance(send[3]['msg'], LedgerStatus)]) == 1
+                send.params['remoteName'] == sender and isinstance(send.params['msg'], LedgerStatus)]) == 1
 
 
 def test_client_send_correct_ledger_status(looper, sdk_pool_handle, sdk_wallet_client, txnPoolNodeSet):
@@ -57,7 +57,7 @@ def test_client_send_correct_ledger_status(looper, sdk_pool_handle, sdk_wallet_c
     spy = txnPoolNodeSet[0].spylog
     sends = spy.getAll(Node.transmitToClient)
     assert len([send for send in sends if
-                send[3]['remoteName'] != 'client_1' and isinstance(send[3]['msg'], LedgerStatus)]) == 1
+                send.params['remoteName'] != 'client_1' and isinstance(send.params['msg'], LedgerStatus)]) == 1
 
 
 def test_request_none_protocol_version(looper, txnPoolNodeSet,
