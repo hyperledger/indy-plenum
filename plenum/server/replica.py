@@ -1877,25 +1877,31 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} have no stashed checkpoints for {}")
             return 0
 
-        stashed = self.stashedRecvdCheckpoints[self.viewNo][key]
+        senders = list(self.stashedRecvdCheckpoints[self.viewNo][key].keys())
         total_processed = 0
-        senders_of_completed_checkpoints = []
+        consumed = 0
 
-        for sender, checkpoint in stashed.items():
-            if self.processCheckpoint(checkpoint, sender):
-                senders_of_completed_checkpoints.append(sender)
-            total_processed += 1
+        for sender in senders:
+            if self.viewNo in self.stashedRecvdCheckpoints \
+                    and key in self.stashedRecvdCheckpoints[self.viewNo] \
+                    and sender in self.stashedRecvdCheckpoints[self.viewNo][key]:
+                if self.processCheckpoint(
+                        self.stashedRecvdCheckpoints[self.viewNo][key].pop(sender),
+                        sender):
+                    consumed += 1
+                total_processed += 1
 
-        for sender in senders_of_completed_checkpoints:
-            # unstash checkpoint
-            del stashed[sender]
-        if len(stashed) == 0:
+        if self.viewNo in self.stashedRecvdCheckpoints \
+                and key in self.stashedRecvdCheckpoints[self.viewNo] \
+                and len(self.stashedRecvdCheckpoints[self.viewNo][key]) == 0:
             del self.stashedRecvdCheckpoints[self.viewNo][key]
+            if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
+                del self.stashedRecvdCheckpoints[self.viewNo]
 
-        restashed_num = total_processed - len(senders_of_completed_checkpoints)
+        restashed = total_processed - consumed
         self.logger.debug('{} processed {} stashed checkpoints for {}, '
                           '{} of them were stashed again'.format(
-                              self, total_processed, key, restashed_num))
+                              self, total_processed, key, restashed))
 
         return total_processed
 
