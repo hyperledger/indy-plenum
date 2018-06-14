@@ -50,7 +50,7 @@ def test_client_send_incorrect_ledger_status(looper, txnPoolNodeSet):
 
 def test_client_send_correct_ledger_status(looper, sdk_pool_handle, sdk_wallet_client, txnPoolNodeSet):
     # Client send LEDGER_STATUS with protocoloVersion field.
-    # Node send REQNACK and client's LEDGER_STATUS back
+    # Node send her LEDGER_STATUS back
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
     # node sent LEDGER_STATUS
