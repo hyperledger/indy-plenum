@@ -13,18 +13,74 @@ except ImportError:
 
 
 class KeyValueStorageRocksdb(KeyValueStorage):
-    def __init__(self, db_dir, db_name, open=True, read_only=False):
+    def __init__(self, db_dir, db_name, open=True, read_only=False, db_config=None):
         if 'rocksdb' not in globals():
             raise RuntimeError('Rocksdb is needed to use this class')
         self._db_path = os.path.join(db_dir, db_name)
         self._read_only = read_only
         self._db = None
+        self._db_config = db_config
         if open:
             self.open()
 
-    def open(self):
+    def __apply_db_config_opts(self, opts):
+        if self._db_config is None:
+            return
+
+        _db_config = self._db_config
+
+        if _db_config['max_open_files'] is not None:
+            opts.max_open_files = _db_config['max_open_files']
+        if _db_config['max_log_file_size'] is not None:
+            opts.max_log_file_size = _db_config['max_log_file_size']
+        if _db_config['keep_log_file_num'] is not None:
+            opts.keep_log_file_num = _db_config['keep_log_file_num']
+        if _db_config['db_log_dir'] is not None:
+            opts.db_log_dir = _db_config['db_log_dir']
+
+        # Compaction related options
+        if _db_config['target_file_size_base'] is not None:
+            opts.target_file_size_base = _db_config['target_file_size_base']
+
+        # Memtable related options
+        if _db_config['write_buffer_size'] is not None:
+            opts.write_buffer_size = _db_config['write_buffer_size']
+        if _db_config['max_write_buffer_number'] is not None:
+            opts.max_write_buffer_number = _db_config['max_write_buffer_number']
+
+        if _db_config['block_size'] is not None \
+                or _db_config['block_cache_size'] is not None \
+                or _db_config['block_cache_compressed_size'] is not None \
+                or _db_config['no_block_cache'] is not None:
+
+            block_size = _db_config['block_size']
+            block_cache_size = _db_config['block_cache_size']
+            block_cache_compressed_size = _db_config['block_cache_compressed_size']
+            no_block_cache = _db_config['no_block_cache']
+
+            block_cache = None
+            block_cache_compressed = None
+
+            if block_cache_size is not None:
+                block_cache = rocksdb.LRUCache(block_cache_size)
+            if block_cache_compressed_size is not None:
+                block_cache_compressed = rocksdb.LRUCache(block_cache_compressed_size)
+            opts.table_factory = rocksdb.BlockBasedTableFactory(
+                block_size=block_size,
+                block_cache=block_cache,
+                block_cache_compressed=block_cache_compressed,
+                no_block_cache=no_block_cache
+            )
+
+    def _get_db_opts(self):
         opts = rocksdb.Options()
+        if self._db_config is not None:
+            self.__apply_db_config_opts(opts)
         opts.create_if_missing = True
+        return opts
+
+    def open(self):
+        opts = self._get_db_opts()
         self._db = rocksdb.DB(self._db_path, opts, read_only=self._read_only)
 
     def __repr__(self):

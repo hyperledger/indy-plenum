@@ -16,13 +16,12 @@ class IntegerComparator(rocksdb.IComparator):
 
 
 class KeyValueStorageRocksdbIntKeys(KeyValueStorageRocksdb):
-    def __init__(self, db_dir, db_name, open=True, read_only=False):
-        super().__init__(db_dir, db_name, open, read_only)
+    def __init__(self, db_dir, db_name, open=True, read_only=False, db_config=None):
+        super().__init__(db_dir, db_name, open, read_only, db_config)
         self._read_only = read_only
 
     def open(self):
-        opts = rocksdb.Options()
-        opts.create_if_missing = True
+        opts = self._get_db_opts()
         opts.comparator = IntegerComparator()
         self._db = rocksdb.DB(self._db_path, opts, read_only=self._read_only)
 

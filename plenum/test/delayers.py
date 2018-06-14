@@ -127,9 +127,9 @@ def vcd_delay(delay: float = DEFAULT_DELAY):
     return delayerMsgTuple(delay, ViewChangeDone)
 
 
-def chk_delay(delay: float = DEFAULT_DELAY):
+def chk_delay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of CHECKPOINT requests
-    return delayerMsgTuple(delay, Checkpoint)
+    return delayerMsgTuple(delay, Checkpoint, instFilter=instId, senderFilter=sender_filter)
 
 
 def lsDelay(delay: float = DEFAULT_DELAY):
