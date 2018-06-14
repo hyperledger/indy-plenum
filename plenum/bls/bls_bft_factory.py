@@ -16,7 +16,8 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
     def create_bls_store(self):
         return BlsStore(key_value_type=self._node.config.stateSignatureStorage,
                         data_location=self._node.dataLocation,
-                        key_value_storage_name=self._node.config.stateSignatureDbName)
+                        key_value_storage_name=self._node.config.stateSignatureDbName,
+                        db_config=self._node.config.db_state_signature_config)
 
     def create_bls_key_register(self) -> BlsKeyRegister:
         return BlsKeyRegisterPoolManager(self._node.poolManager)
