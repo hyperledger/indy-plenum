@@ -7,16 +7,24 @@ from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
-from plenum.recorder.recorder import add_start_time, add_stop_time
-from plenum.server.ledger_req_handler import LedgerRequestHandler
-from crypto.bls.bls_key_manager import LoadBLSKeyError
 from intervaltree import IntervalTree
+
+from common.exceptions import LogicError
+from crypto.bls.bls_key_manager import LoadBLSKeyError
+from state.pruning_state import PruningState
+from state.state import State
+from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
+from storage.state_ts_store import StateTsDbStorage
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.network.exceptions import RemoteNotFound
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.types import HA
+from stp_zmq.zstack import ZStack
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.hash_store import HashStore
-from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
-from plenum.client.wallet import Wallet
+
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
@@ -59,8 +67,17 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
+from plenum.common.config_helper import PNodeConfigHelper
+
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage
+from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.recorder.recorder import add_start_time, add_stop_time
+
+from plenum.client.wallet import Wallet
+
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
@@ -88,18 +105,6 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.common.config_helper import PNodeConfigHelper
-from state.pruning_state import PruningState
-from state.state import State
-from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
-from storage.state_ts_store import StateTsDbStorage
-from stp_core.common.log import getlogger
-from stp_core.crypto.signer import Signer
-from stp_core.network.exceptions import RemoteNotFound
-from stp_core.network.network_interface import NetworkInterface
-from stp_core.types import HA
-from stp_zmq.zstack import ZStack
-
 from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
@@ -467,7 +472,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.configStateStorage,
                 self.dataLocation,
-                self.config.configStateDbName)
+                self.config.configStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def initConfigState(self):
@@ -578,7 +584,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         # TODO VCH update method description
 
-        assert self.replicas.all_instances_have_primary
+        if not self.replicas.all_instances_have_primary:
+            raise LogicError(
+                "{} Not all replicas have primaries: {}"
+                .format(self, self.replicas.primaries)
+            )
 
         self._cancel(self._check_view_change_completed)
 
@@ -616,7 +626,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.name,
                 initKeyValueStorageIntKeys(self.config.stateTsStorage,
                                            self.dataLocation,
-                                           self.config.stateTsDbName)
+                                           self.config.stateTsDbName,
+                                           db_config=self.config.db_state_ts_db_config)
             )
         return self.stateTsDbStorage
 
@@ -625,7 +636,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.reqIdToTxnStorage,
                 self.dataLocation,
-                self.config.seqNoDbName)
+                self.config.seqNoDbName,
+                db_config=self.config.db_seq_no_db_config)
         )
 
     # noinspection PyAttributeOutsideInit
@@ -811,7 +823,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             initKeyValueStorage(
                 self.config.domainStateStorage,
                 self.dataLocation,
-                self.config.domainStateDbName)
+                self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def _create_bls_bft(self):
@@ -853,7 +866,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     def ledger_id_for_request(self, request: Request):
-        assert request.operation[TXN_TYPE] is not None
+        if request.operation.get(TXN_TYPE) is None:
+            raise ValueError(
+                "{} TXN_TYPE is not defined for request {}"
+                .format(self, request)
+            )
+
         typ = request.operation[TXN_TYPE]
         return self.txn_type_to_ledger_id[typ]
 
@@ -1409,7 +1427,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Whether this node has primary of any protocol instance
         """
         # TODO: remove this property?
-        return self.replicas.some_replica_has_primary
+        return self.replicas.some_replica_is_primary
 
     @property
     def has_master_primary(self) -> bool:
@@ -2452,8 +2470,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
                 primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
-            else:
+                # TODO add more tests or refactor
+                # to return name and rank at once and remove assert
                 assert primary_rank is not None
+            else:
                 new_primary_name, new_primary_instance_name =\
                     self.elector.next_primary_replica_name_for_backup(
                         instance_id, primary_rank, primaries, nodeReg=nodeReg)
@@ -2545,7 +2565,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if s:
                 # There should not be more than one interval for any seq no in
                 # the tree
-                assert len(s) == 1
+                assert len(s) == 1  # TODO add test for that and remove assert
                 return s.pop().data
         return None
 

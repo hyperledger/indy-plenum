@@ -1,18 +1,24 @@
 import storage.helper
 
+from common.exceptions import PlenumValueError
 from ledger.hash_stores.hash_store import HashStore
-from plenum.common.constants import KeyValueStorageType, HS_LEVELDB, HS_ROCKSDB
+from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
+from plenum.common.constants import KeyValueStorageType, HS_LEVELDB, HS_ROCKSDB
 
 logger = getlogger()
 
 
 class DbHashStore(HashStore):
-    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB, read_only=False):
+    def __init__(self, dataDir, fileNamePrefix="", db_type=HS_LEVELDB, read_only=False, config=None):
         self.dataDir = dataDir
-        assert db_type == HS_ROCKSDB or db_type == HS_LEVELDB
+        if db_type not in (HS_ROCKSDB, HS_LEVELDB):
+            raise PlenumValueError(
+                'db_type', db_type, "one of {}".format((HS_ROCKSDB, HS_LEVELDB))
+            )
         self.db_type = KeyValueStorageType.Leveldb if db_type == HS_LEVELDB \
             else KeyValueStorageType.Rocksdb
+        self.config = config or getConfig()
         self.nodesDb = None
         self.leavesDb = None
         self._leafCount = 0
@@ -87,9 +93,11 @@ class DbHashStore(HashStore):
 
     def open(self):
         self.nodesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.nodes_db_name, read_only=self._read_only)
+            self.db_type, self.dataDir, self.nodes_db_name,
+            read_only=self._read_only, db_config=self.config.db_merkle_nodes_config)
         self.leavesDb = storage.helper.initKeyValueStorage(
-            self.db_type, self.dataDir, self.leaves_db_name, read_only=self._read_only)
+            self.db_type, self.dataDir, self.leaves_db_name,
+            read_only=self._read_only, db_config=self.config.db_merkle_leaves_config)
         self._leafCount = self.leavesDb.size
 
     def close(self):

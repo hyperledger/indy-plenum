@@ -20,6 +20,14 @@ def cleanup(hs):
     hs.leafCount = 0
 
 
+def testInvalidDBType(tmpdir_factory):
+    HS_WRONGDB = 'somedb'
+    assert HS_WRONGDB not in (HS_LEVELDB, HS_ROCKSDB)
+    with pytest.raises(ValueError) as excinfo:
+        DbHashStore('', db_type=HS_WRONGDB)
+    assert "one of {}".format((HS_ROCKSDB, HS_LEVELDB)) in str(excinfo.value)
+
+
 def testIndexFrom1(hashStore):
     with pytest.raises(IndexError):
         hashStore.readLeaf(0)

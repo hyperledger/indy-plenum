@@ -1,6 +1,7 @@
 from copy import copy
 from typing import List, Tuple
 
+from common.exceptions import PlenumValueError
 from ledger.ledger import Ledger as _Ledger
 from ledger.util import F
 from plenum.common.txn_util import append_txn_metadata, get_seq_no
@@ -33,7 +34,14 @@ class Ledger(_Ledger):
     def appendTxns(self, txns: List):
         # These transactions are not yet committed so they do not go to
         # the ledger
-        assert all([get_seq_no(txn) is not None for txn in txns])
+        _no_seq_no_txns = [txn for txn in txns if get_seq_no(txn) is None]
+        if _no_seq_no_txns:
+            raise PlenumValueError(
+                'txns', txns,
+                ("all txns should have defined seq_no, undefined in {}"
+                 .format(_no_seq_no_txns))
+            )
+
         uncommittedSize = self.size + len(self.uncommittedTxns)
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)

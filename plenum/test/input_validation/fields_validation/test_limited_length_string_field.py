@@ -1,10 +1,14 @@
 import pytest
+
+from common.exceptions import PlenumValueError
 from plenum.common.messages.fields import LimitedLengthStringField
 
 
 def test_incorrect_max_length():
-    with pytest.raises(Exception):
+    with pytest.raises(PlenumValueError):
         LimitedLengthStringField(max_length=0)
+    with pytest.raises(PlenumValueError):
+        LimitedLengthStringField(max_length=-1)
 
 
 def test_empty_string():

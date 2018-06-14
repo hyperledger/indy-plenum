@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Dict
 
+from common.exceptions import ValueUndefinedError
 from base58 import b58decode, b58encode
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.exceptions import InvalidKey
@@ -31,7 +32,8 @@ class DidVerifier(Verifier):
             if len(rawIdr) == 32 and not verkey:  # assume cryptonym
                 verkey = identifier
 
-            assert verkey, 'verkey must be provided'
+            if not verkey:
+                raise ValueError("'verkey' should be a non-empty string")
             if verkey[0] == '~':  # abbreviated
                 verkey = b58encode(b58decode(identifier) +
                                    b58decode(verkey[1:])).decode("utf-8")

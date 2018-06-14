@@ -8,19 +8,21 @@ from typing import Optional
 from copy import deepcopy
 from typing import List
 
-from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
-from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn_util import get_type, get_payload_data
+from common.exceptions import LogicError
 from storage.helper import initKeyValueStorage
-from plenum.persistence.util import pop_merkle_info
-from plenum.server.pool_req_handler import PoolRequestHandler
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
+
+from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
+    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
+from plenum.common.stack_manager import TxnStackManager
+from plenum.common.txn_util import get_type, get_payload_data
+from plenum.persistence.util import pop_merkle_info
+from plenum.server.pool_req_handler import PoolRequestHandler
 
 logger = getlogger()
 
@@ -137,7 +139,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             initKeyValueStorage(
                 self.config.poolStateStorage,
                 self.node.dataLocation,
-                self.config.poolStateDbName)
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
         )
 
     def initPoolState(self):
@@ -430,7 +433,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             msg = ("{} is trying to order already ordered node {} ({}) "
                    "with other alias {}".format(self.name, curName, nodeNym, nodeName))
             logger.warning(msg)
-            assert False, msg
+            raise LogicError(msg)
 
     def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
         if nodeReg is None:

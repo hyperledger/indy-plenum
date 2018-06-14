@@ -47,6 +47,8 @@ class PrimarySelector(PrimaryDecider):
         rank = self._get_master_primary_id(self.viewNo, len(nodeReg))
         name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
 
+        # TODO add more tests or refactor
+        # to return name and rank at once and remove assert
         assert name, "{} failed to get next primary node name for master instance".format(self)
         logger.trace("{} selected {} as next primary node for master instance, "
                      "viewNo {} with rank {}, nodeReg {}".format(

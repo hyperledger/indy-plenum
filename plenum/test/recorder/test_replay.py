@@ -11,6 +11,7 @@ TestRunningTimeLimitSec = 500
 whitelist = ['cannot find remote with name']
 
 
+@pytest.mark.skip
 def test_replay_recorded_msgs(txnPoolNodesLooper,
                               txnPoolNodeSet, some_txns_done, testNodeClass,
                               node_config_helper_class, tconf, tdir,
