@@ -711,6 +711,10 @@ class RequestData:
 
     @property
     def time_to_order(self):
+        if not self.is_received:
+            return None
+        if not self.is_ordered:
+            return None
         return self.ordered - self.received
 
     def merge(self, other):
@@ -881,7 +885,7 @@ class AllRequestData:
     def __init__(self, config):
         self.report_stats = config.get("report_stats", 0)
         self.report_lags = config.get("report_lags", 0)
-        self.plot_graphs = config.get("plot_graphs", 0)
+        self.filename = config.get("filename", None)
         self.nodes = {}
 
     def process_message(self, message):
@@ -902,28 +906,22 @@ class AllRequestData:
         for name, node in sorted(self.nodes.items()):
             node.dump(name, self.report_lags)
 
-        if not self.plot_graphs:
+        if self.filename is None:
             return
 
-        # fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
-        # if len(self.nodes) == 1:
-        #     axs = [axs]
-        # fig.suptitle("Time to order")
-        # fig.subplots_adjust(hspace=0)
-        # names, nodes = zip(*sorted(self.nodes.items()))
-        #
-        # for name, node, ax in zip(names, nodes, axs):
-        #     ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
-        #     ax.tick_params(axis='y', which='both', labelleft='off')
-        #
-        #     events = [(req.received, req.time_to_order.total_seconds())
-        #               for req in node.requests.values() if req.is_received and req.is_ordered]
-        #     if not events:
-        #         continue
-        #
-        #     dates, values = zip(*sorted(events))
-        #     ax.plot_date(dates, values, marker='.')
-        #     fig.autofmt_xdate()
+        with open(self.filename, 'wt') as f:
+            f.write(",".join(
+                "{}_{}".format(node, value) for node in sorted(self.nodes.keys()) for value in ["recv", "tto"]))
+            f.write("\n")
+
+            requests = set()
+            for node in self.nodes.values():
+                requests.update(set(id for id, req in node.requests.items() if req.is_ordered))
+
+            for id in requests:
+                reqs = [node.requests.get(id, RequestData(id)) for _, node in sorted(self.nodes.items())]
+                f.write(",".join("{},{}".format(req.received, req.time_to_order) for req in reqs))
+                f.write("\n")
 
     def _node(self, node):
         try:
