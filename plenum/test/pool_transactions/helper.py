@@ -2,7 +2,7 @@ import json
 
 from indy.did import create_and_store_my_did
 from indy.ledger import build_node_request, build_nym_request, \
-    build_get_txn_request \
+    build_get_txn_request
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
