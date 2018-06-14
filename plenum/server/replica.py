@@ -1877,11 +1877,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} have no stashed checkpoints for {}")
             return 0
 
+        # Get a snapshot of all the senders of stashed checkpoints for `key`
         senders = list(self.stashedRecvdCheckpoints[self.viewNo][key].keys())
         total_processed = 0
         consumed = 0
 
         for sender in senders:
+            # Check if the checkpoint from `sender` is still in
+            # `stashedRecvdCheckpoints` because it might be removed from there
+            # in case own checkpoint was stabilized when we were processing
+            # stashed checkpoints from previous senders in this loop
             if self.viewNo in self.stashedRecvdCheckpoints \
                     and key in self.stashedRecvdCheckpoints[self.viewNo] \
                     and sender in self.stashedRecvdCheckpoints[self.viewNo][key]:
@@ -1889,8 +1894,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                         self.stashedRecvdCheckpoints[self.viewNo][key].pop(sender),
                         sender):
                     consumed += 1
+                # Note that if `processCheckpoint` returned False then the
+                # checkpoint from `sender` was re-stashed back to
+                # `stashedRecvdCheckpoints`
                 total_processed += 1
 
+        # If we have consumed stashed checkpoints for `key` from all the
+        # senders then remove entries which have become empty
         if self.viewNo in self.stashedRecvdCheckpoints \
                 and key in self.stashedRecvdCheckpoints[self.viewNo] \
                 and len(self.stashedRecvdCheckpoints[self.viewNo][key]) == 0:
