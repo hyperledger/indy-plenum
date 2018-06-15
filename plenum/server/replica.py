@@ -8,10 +8,11 @@ import math
 
 import sys
 
-import plenum.server.node
+from common.exceptions import LogicError, PlenumValueError
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
+
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
@@ -33,6 +34,8 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger, ReplicaFilter
+
+import plenum.server.node
 
 LOG_TAGS = {
     'PREPREPARE': {"tags": ["node-preprepare"]},
@@ -504,11 +507,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = (self.viewNo, 0)
 
     def on_view_change_done(self):
-        assert self.isMaster
+        if not self.isMaster:
+            raise LogicError("{} is not a master".format(self))
         self.last_prepared_before_view_change = None
 
     def on_propagate_primary_done(self):
-        assert self.isMaster
+        if not self.isMaster:
+            raise LogicError("{} is not a master".format(self))
         # if this is a Primary that is re-connected (that is view change is not actually changed,
         # we just propagate it, then make sure that we don;t break the sequence
         # of ppSeqNo
@@ -1142,8 +1147,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if last_pp_view_no > view_no:
             return False
         if last_pp_view_no < view_no:
-            # TODO: assert??
-            assert view_no == self.viewNo
+            # TODO: strange assumption here ???
+            if view_no != self.viewNo:
+                raise LogicError(
+                    "{} 'view_no' {} is not equal to current view_no {}"
+                    .format(self, view_no, self.viewNo)
+                )
             last_pp_seq_no = 0
         if pp_seq_no - last_pp_seq_no > 1:
             return False
@@ -1627,7 +1636,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def last_prepared_certificate_in_view(self) -> Optional[Tuple[int, int]]:
         # Pick the latest sent COMMIT in the view.
         # TODO: Consider stashed messages too?
-        assert self.isMaster
+        if not self.isMaster:
+            raise LogicError("{} is not a master".format(self))
         return max_3PC_key(self.commits.keys()) if self.commits else None
 
     def has_prepared(self, key):
@@ -1641,8 +1651,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
-        # TODO seems not enough for production where optimization happens
-        assert pp
+        if pp is None:
+            raise ValueError(
+                "{} no PrePrepare with a 'key' {} found"
+                .format(self, key)
+            )
+
         self.addToOrdered(*key)
         ordered = Ordered(self.instId,
                           pp.viewNo,
@@ -1863,25 +1877,41 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} have no stashed checkpoints for {}")
             return 0
 
-        stashed = self.stashedRecvdCheckpoints[self.viewNo][key]
+        # Get a snapshot of all the senders of stashed checkpoints for `key`
+        senders = list(self.stashedRecvdCheckpoints[self.viewNo][key].keys())
         total_processed = 0
-        senders_of_completed_checkpoints = []
+        consumed = 0
 
-        for sender, checkpoint in stashed.items():
-            if self.processCheckpoint(checkpoint, sender):
-                senders_of_completed_checkpoints.append(sender)
-            total_processed += 1
+        for sender in senders:
+            # Check if the checkpoint from `sender` is still in
+            # `stashedRecvdCheckpoints` because it might be removed from there
+            # in case own checkpoint was stabilized when we were processing
+            # stashed checkpoints from previous senders in this loop
+            if self.viewNo in self.stashedRecvdCheckpoints \
+                    and key in self.stashedRecvdCheckpoints[self.viewNo] \
+                    and sender in self.stashedRecvdCheckpoints[self.viewNo][key]:
+                if self.processCheckpoint(
+                        self.stashedRecvdCheckpoints[self.viewNo][key].pop(sender),
+                        sender):
+                    consumed += 1
+                # Note that if `processCheckpoint` returned False then the
+                # checkpoint from `sender` was re-stashed back to
+                # `stashedRecvdCheckpoints`
+                total_processed += 1
 
-        for sender in senders_of_completed_checkpoints:
-            # unstash checkpoint
-            del stashed[sender]
-        if len(stashed) == 0:
+        # If we have consumed stashed checkpoints for `key` from all the
+        # senders then remove entries which have become empty
+        if self.viewNo in self.stashedRecvdCheckpoints \
+                and key in self.stashedRecvdCheckpoints[self.viewNo] \
+                and len(self.stashedRecvdCheckpoints[self.viewNo][key]) == 0:
             del self.stashedRecvdCheckpoints[self.viewNo][key]
+            if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
+                del self.stashedRecvdCheckpoints[self.viewNo]
 
-        restashed_num = total_processed - len(senders_of_completed_checkpoints)
+        restashed = total_processed - consumed
         self.logger.debug('{} processed {} stashed checkpoints for {}, '
                           '{} of them were stashed again'.format(
-                              self, total_processed, key, restashed_num))
+                              self, total_processed, key, restashed))
 
         return total_processed
 
@@ -2169,7 +2199,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `view_no` else will return True
         :return:
         """
-        assert view_no <= self.viewNo
+        if view_no > self.viewNo:
+            raise PlenumValueError(
+                'view_no', view_no,
+                "<= current view_no {}".format(self.viewNo),
+                prefix=self
+            )
+
         return view_no == self.viewNo or (
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)

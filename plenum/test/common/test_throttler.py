@@ -1,7 +1,19 @@
+import pytest
 import time
 
-from plenum.common.throttler import Throttler
+from common.exceptions import PlenumTypeError, PlenumValueError
 from stp_core.ratchet import Ratchet
+from plenum.common.throttler import Throttler
+
+
+def test_throttler_init_invalid_args():
+    for windowSize in (None, '5', [4]):
+        with pytest.raises(PlenumTypeError):
+            Throttler(windowSize)
+
+    for windowSize in (-1, 0):
+        with pytest.raises(PlenumValueError):
+            Throttler(windowSize)
 
 
 def test_throttler_case1():

@@ -1,3 +1,4 @@
+from storage.helper import integer_comparator
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 try:
@@ -10,15 +11,9 @@ class KeyValueStorageLeveldbIntKeys(KeyValueStorageLeveldb):
     def __init__(self, db_dir, db_name, open=True, read_only=False):
         super().__init__(db_dir, db_name, open, read_only)
 
-    @staticmethod
-    def compare(a, b):
-        a = int(a)
-        b = int(b)
-        return a - b
-
     def open(self):
         self._db = leveldb.LevelDB(self.db_path, comparator=(
-            'IntegerComparator', self.compare))
+            'IntegerComparator', integer_comparator))
 
     def get_equal_or_prev(self, key):
         # return value can be:

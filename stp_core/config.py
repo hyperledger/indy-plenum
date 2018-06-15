@@ -7,7 +7,7 @@ import logging
 baseDir = os.getcwd()
 
 # Log configuration
-logRotationBackupCount = 300
+logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
@@ -18,7 +18,7 @@ enableStdOutLogging = True
 
 RETRY_TIMEOUT_NOT_RESTRICTED = 6
 RETRY_TIMEOUT_RESTRICTED = 15
-MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 5
+MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 1
 
 # Enables/disables debug mode for Looper class
 LOOPER_DEBUG = False

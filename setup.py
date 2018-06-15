@@ -73,5 +73,7 @@ setup(
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
-             'scripts/init_bls_keys']
+             'scripts/init_bls_keys',
+             'scripts/process_logs/process_logs',
+             'scripts/process_logs/process_logs.yml']
 )

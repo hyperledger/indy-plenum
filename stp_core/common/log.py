@@ -38,10 +38,9 @@ class Logger(metaclass=Singleton):
     def __init__(self, config=None):
 
         # TODO: This should take directory
-        self._config = config or getConfig()
+        self.apply_config(config or getConfig())
         self._addTraceToLogging()
         self._addDisplayToLogging()
-        self.apply_config(self._config)
 
     @staticmethod
     def getlogger(name=None):
@@ -57,7 +56,8 @@ class Logger(metaclass=Singleton):
         logging.root.setLevel(log_level)
 
     def apply_config(self, config):
-        assert config
+        if not config:
+            raise ValueError("config should be specified")
 
         self._config = config
         self._handlers = {}

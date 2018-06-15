@@ -1,12 +1,15 @@
 import os
 
+from common.exceptions import PlenumValueError, ValueUndefinedError
+
 
 class PConfigHelper:
 
     def __init__(self, config, *, chroot=None):
-        assert config is not None
-        if chroot is not None:
-            assert chroot.startswith("/")
+        if config is None:
+            raise ValueUndefinedError('config')
+        if chroot is not None and not chroot.startswith("/"):
+            raise PlenumValueError('chroot', chroot, "starts with '/'")
         self.config = config
         self.chroot = chroot
 
@@ -45,7 +48,8 @@ class PConfigHelper:
 class PNodeConfigHelper(PConfigHelper):
 
     def __init__(self, name: str, config, *, chroot=None):
-        assert name is not None
+        if name is None:
+            raise ValueUndefinedError('name')
         super().__init__(config, chroot=chroot)
         self.name = name
 
