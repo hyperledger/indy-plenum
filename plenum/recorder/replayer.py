@@ -85,9 +85,9 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
     replaying_node.sent_pps = sent_pps
     replaying_node.replay_msg_count = msg_count
 
-    run_time = max_msg_time-min_msg_time
-    run_time = int(run_time/Recorder.TIME_FACTOR)
-    print ("Aprox run time: {}".format(str(datetime.timedelta(seconds=run_time))))
+    run_time = max_msg_time - min_msg_time
+    run_time = int(run_time / Recorder.TIME_FACTOR)
+    print("Aprox run time: {}".format(str(datetime.timedelta(seconds=run_time))))
 
 
 def get_combined_recorder(replaying_node, node_recorder, client_recorder):
