@@ -10,6 +10,7 @@ import json
 from contextlib import ExitStack
 from functools import partial
 import time
+from threading import Thread
 from typing import Dict, Any
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
@@ -862,6 +863,38 @@ def txnPoolNodeSet(node_config_helper_class,
             do_post_node_creation(node)
             txnPoolNodesLooper.add(node)
             nodes.append(node)
+        txnPoolNodesLooper.run(checkNodesConnected(nodes))
+        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
+        yield nodes
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSetThreaded(node_config_helper_class,
+                           patchPluginManager,
+                           txnPoolNodesLooper,
+                           tdirWithPoolTxns,
+                           tdirWithDomainTxns,
+                           tdir,
+                           tconf,
+                           poolTxnNodeNames,
+                           allPluginsPath,
+                           tdirWithNodeKeepInited,
+                           testNodeClass,
+                           do_post_node_creation):
+    def add_node():
+        l = Looper()
+        node = exitStack.enter_context(create_new_test_node(
+            testNodeClass, node_config_helper_class, nm, tconf, tdir,
+            allPluginsPath))
+        do_post_node_creation(node)
+        l.add(node)
+        nodes.append(node)
+
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            thread = Thread(target=add_node)
+            thread.run()
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
         ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
         yield nodes
