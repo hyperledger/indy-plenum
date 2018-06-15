@@ -38,18 +38,6 @@ def tconf(tconf):
     tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
-    old_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
-    tconf.RETRY_TIMEOUT_RESTRICTED = 2
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 2
-    yield tconf
-
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout_restricted
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
-
-
 # noinspection PyIncorrectDocstring
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         txnPoolNodeSet, looper, tconf, tdir):
