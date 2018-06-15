@@ -51,8 +51,8 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
                            key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
 
     for req in reqs:
-        chk(req.key, fast_nodes, False)
-        chk(req.key, [slow_node], True)
+        chk(req.digest, fast_nodes, False)
+        chk(req.digest, [slow_node], True)
 
     # Reset catchup reply delay so that  catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CatchupRep.typename)
@@ -62,7 +62,7 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     for req in reqs:
-        chk(req.key, txnPoolNodeSet, False)
+        chk(req.digest, txnPoolNodeSet, False)
 
     # Needed for the next run due to the parametrised fixture
     slow_node.reset_delays_and_process_delayeds()

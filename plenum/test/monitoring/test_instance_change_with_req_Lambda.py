@@ -1,11 +1,11 @@
 import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
-from stp_core.common.util import adict
-from plenum.test.helper import waitForViewChange
-from plenum.test.test_node import getPrimaryReplica
-from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import waitForViewChange
+from plenum.test.spy_helpers import getAllReturnVals
+from plenum.test.test_node import getPrimaryReplica
+from stp_core.common.util import adict
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -30,8 +30,12 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     P = getPrimaryReplica(txnPoolNodeSet)
 
     # set LAMBDA smaller than the production config to make the test faster
-    testLambda = 30
-    delay_by = testLambda + 5
+    testLambda = 10
+    delay_by = 2 * testLambda
+
+    old_view_nos = set([n.viewNo for n in txnPoolNodeSet])
+    assert len(old_view_nos) == 1
+    old_view_no = old_view_nos.pop()
 
     for node in txnPoolNodeSet:
         # Make `Delta` small enough so throughput check passes.
@@ -40,14 +44,10 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
         for r in node.replicas:
             r.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS += delay_by
 
-    slowed_request = False
-
     # make P (primary replica on master) faulty, i.e., slow to send
-    # PRE-PREPARE for a specific client request only
+    # PRE-PREPARE the next
     def specificPrePrepare(msg):
-        nonlocal slowed_request
-        if isinstance(msg, PrePrepare) and slowed_request is False:
-            slowed_request = True
+        if isinstance(msg, PrePrepare):
             return delay_by  # just more that LAMBDA
 
     P.outBoxTestStasher.delay(specificPrePrepare)
@@ -56,14 +56,15 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
                               sdk_pool_handle, sdk_wallet_client, 5,
                               customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
-    return adict(nodes=txnPoolNodeSet)
+    return adict(nodes=txnPoolNodeSet, old_view_no=old_view_no)
 
 
 def testInstChangeWithMoreReqLat(looper, setup):
     nodes = setup.nodes
+    old_view_no = setup.old_view_no
     for node in nodes:
         node.checkPerformance()
         assert any(getAllReturnVals(node.monitor,
                                     node.monitor.isMasterReqLatencyTooHigh))
 
-    waitForViewChange(looper, nodes)
+    waitForViewChange(looper, nodes, expectedViewNo=old_view_no + 1)

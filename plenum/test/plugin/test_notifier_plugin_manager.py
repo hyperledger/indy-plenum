@@ -48,6 +48,32 @@ def testPluginManagerSendsMessage(pluginManagerWithImportedModules):
     assert sent == 3
 
 
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnArgs(pluginManager):
+
+    historicalData_ok = {k: None for k in ('value', 'cnt')}
+
+    config_ok = {
+        k: None for k in (
+            'min_cnt',
+            'bounds_coeff',
+            'min_activity_threshold',
+            'use_weighted_bounds_coeff',
+            'enabled'
+        )
+    }
+
+    with pytest.raises(KeyError) as excinfo:
+        pluginManager.sendMessageUponSuspiciousSpike(
+                'event', {}, 1.2, config_ok, 'nodeName', False)
+    assert "keys are not found in 'historicalData'" in str(excinfo.value)
+
+    with pytest.raises(KeyError) as excinfo:
+        pluginManager.sendMessageUponSuspiciousSpike(
+                'event', historicalData_ok, 1.2, {}, 'nodeName', False)
+    assert "keys are not found in 'config'" in str(excinfo.value)
+
+
+
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
         pluginManagerWithImportedModules):
     topic = randomText(10)

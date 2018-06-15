@@ -1,5 +1,23 @@
+import pytest
+
+from common.exceptions import PlenumValueError
 from plenum.common.txn_util import get_seq_no
-from plenum.test.ledger.conftest import NUM_BATCHES, TXNS_IN_BATCH
+from plenum.common.constants import TXN_METADATA, TXN_METADATA_SEQ_NO
+from plenum.test.ledger.conftest import NUM_BATCHES, TXNS_IN_BATCH, create_txns
+
+
+def test_ledger_appendTxns_args(ledger, looper, sdk_wallet_client):
+    txns = create_txns(looper, sdk_wallet_client)
+
+    # None seq_no
+    txns[0][TXN_METADATA][TXN_METADATA_SEQ_NO] = None
+    with pytest.raises(PlenumValueError):
+        ledger.appendTxns(txns)
+
+    # missed seq_no
+    del txns[0][TXN_METADATA][TXN_METADATA_SEQ_NO]
+    with pytest.raises(PlenumValueError):
+        ledger.appendTxns(txns)
 
 
 def test_append_txns_does_not_changed_committed(ledger_with_batches_appended):

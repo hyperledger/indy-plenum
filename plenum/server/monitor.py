@@ -66,11 +66,10 @@ class RequestTimeTracker:
     def __contains__(self, item):
         return item in self._requests
 
-    def start(self, identifier, reqId, timestamp):
-        self._requests[identifier, reqId] = RequestTimeTracker.Request(timestamp, self.instance_count)
+    def start(self, key, timestamp):
+        self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
 
-    def order(self, instId, identifier, reqId, timestamp):
-        key = (identifier, reqId)
+    def order(self, instId, key, timestamp):
         req = self._requests[key]
         tto = timestamp - req.timestamp
         req.order(instId)
@@ -78,8 +77,8 @@ class RequestTimeTracker:
             del self._requests[key]
         return tto
 
-    def handle(self, identifier, reqId):
-        self._requests[identifier, reqId].handled = True
+    def handle(self, key):
+        self._requests[key].handled = True
 
     def reset(self):
         self._requests.clear()
@@ -299,7 +298,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False) -> Dict:
+                       requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
         might have been reset due to view change due to which this method
@@ -307,34 +306,36 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         now = time.perf_counter()
         durations = {}
-        for identifier, reqId in reqIdrs:
-            if (identifier, reqId) not in self.requestTracker:
-                logger.debug("Got untracked ordered request with identifier {} and reqId {}".
-                             format(identifier, reqId))
+        for key in reqIdrs:
+            if key not in self.requestTracker:
+                logger.debug("Got untracked ordered request with digest {}".
+                             format(key))
                 continue
             for req, started in self.requestTracker.handled_unordered():
-                if req == (identifier, reqId):
+                if req == key:
                     logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
                                 .format(req[1], self.name, instId, now - started))
                     continue
-            duration = self.requestTracker.order(instId, identifier, reqId, now)
+            duration = self.requestTracker.order(instId, key, now)
             if byMaster:
-                self.masterReqLatencies[(identifier, reqId)] = duration
+                self.masterReqLatencies[key] = duration
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
                 self.latenciesByBackupsInLast.setdefault(instId, []).append((now, duration))
 
-            if identifier not in self.clientAvgReqLatencies[instId]:
-                self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
-            totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
-            # If avg of `n` items is `a`, thus sum of `n` items is `x` where
-            # `x=n*a` then avg of `n+1` items where `y` is the new item is
-            # `((n*a)+y)/n+1`
-            self.clientAvgReqLatencies[instId][identifier] = (
-                totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            if key in requests:
+                identifier = requests[key].request.identifier
+                if identifier not in self.clientAvgReqLatencies[instId]:
+                    self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
+                totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
+                # If avg of `n` items is `a`, thus sum of `n` items is `x` where
+                # `x=n*a` then avg of `n+1` items where `y` is the new item is
+                # `((n*a)+y)/n+1`
+                self.clientAvgReqLatencies[instId][identifier] = (
+                    totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-            durations[identifier, reqId] = duration
+            durations[key] = duration
 
         reqs, tm = self.numOrderedRequests[instId]
         orderedNow = len(durations)
@@ -354,11 +355,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         return durations
 
-    def requestUnOrdered(self, identifier: str, reqId: int):
+    def requestUnOrdered(self, key: str):
         """
         Record the time at which request ordering started.
         """
-        self.requestTracker.start(identifier, reqId, time.perf_counter())
+        self.requestTracker.start(key, time.perf_counter())
 
     def check_unordered(self):
         now = time.perf_counter()
@@ -369,7 +370,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         for handler in self.unordered_requests_handlers:
             handler(new_unordereds)
         for unordered in new_unordereds:
-            self.requestTracker.handle(*(unordered[0]))
+            self.requestTracker.handle(unordered[0])
             logger.debug('Following requests were not ordered for more than {} seconds: {}'
                          .format(self.config.UnorderedCheckFreq, unordered[0]))
 

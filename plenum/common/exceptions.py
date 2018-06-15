@@ -1,5 +1,8 @@
 from re import compile
 
+# TODO refactor hierarchy of exceptions taking into account
+# ones from common/exceptions.py
+
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
 from plenum.server.suspicion_codes import Suspicion
