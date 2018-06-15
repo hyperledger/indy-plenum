@@ -200,14 +200,17 @@ class Looper:
 
     async def runOnceNicely(self):
         """
-        Execute `runOnce` with a small tolerance of 0.01 seconds so that the Prodables
-        can complete their other asynchronous tasks not running on the event-loop.
+        Execute `prodAllOnce` with a subsequent call of `asyncio.sleep` so that
+        the Prodables can complete their other asynchronous tasks not running
+        on the event loop.
         """
         start = time.perf_counter()
         msgsProcessed = await self.prodAllOnce()
+        delay = 0
         if msgsProcessed == 0:
-            # if no let other stuff run
-            await asyncio.sleep(0.01, loop=self.loop)
+            delay = 0.01
+        # let other stuff run
+        await asyncio.sleep(delay, loop=self.loop)
         dur = time.perf_counter() - start
         if dur >= 0.5:
             logger.debug("it took {:.3f} seconds to run once nicely".
