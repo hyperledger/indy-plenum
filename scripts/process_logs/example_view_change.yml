@@ -39,7 +39,8 @@ outputs:
 
   timelogs:                                       # List of timelog
     view_change:                                  # View changes timelog
+      filename: view_change.csv                   # CSV filename
       interval: 1                                 # Sampling interval in seconds
       graphs:                                     # Graph list
-      - start: blue                               # Graph for view change start events, in blue color
-      - done: green                               # Graph for view change done events, in green color
+      - start                                     # Graph for view change start events
+      - done                                      # Graph for view change done events
