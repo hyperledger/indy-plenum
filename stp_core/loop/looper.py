@@ -189,8 +189,11 @@ class Looper:
             logger.error("Provide a prodable object or a prodable name")
 
     def hasProdable(self, prodable: Prodable=None, name: str=None) -> bool:
-        assert lxor(prodable, name), \
-            "One and only one of prodable or name must be provided"
+        if not lxor(prodable, name):
+            raise ValueError(
+                "One and only one of prodable or name must be provided, "
+                "passed {} and {}".format(prodable, name)
+            )
 
         for p in self.prodables:
             if (prodable and p == prodable) or (name and name == p.name):

@@ -29,6 +29,8 @@ class Remote:
     def __init__(self, name, ha, verKey, publicKey, queue_size=0, config=None):
         # TODO, remove *args, **kwargs after removing test
 
+        assert name
+
         # Every remote has a unique name per stack, the name can be the
         # public key of the other end
         self.name = name

@@ -50,7 +50,12 @@ class RefcountDB(BaseDB):
         if self.logging:
             sys.stderr.write('decreasing %s to: %d\n' % (
                 utils.encode_hex(k), refcount - 1))
-        assert refcount > 0
+        if not refcount > 0:
+            raise ValueError(
+                "node object for key {} has {} number "
+                "of references, expected > 0"
+                .format(k, refcount)
+            )
         self.journal.append([node_object[0], k])
         new_refcount = utils.encode_int(refcount - 1)
         self._keyValueStorage.put(
