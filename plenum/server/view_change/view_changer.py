@@ -305,12 +305,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         view_no = future_vcd_msg.vcd_msg.viewNo
         if not ((view_no > self.view_no) or
                 (self.view_no == 0 and from_current_state)):
-            raise PlenumValueError(
-                'view_no', view_no,
-                ("= 0 or > {}" if from_current_state
-                 else "> {}").format(self.view_no),
-                prefix=self
-            )
+            # it means we already processed this future View Change Done
+            return
+
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = set()
         self._next_view_indications[view_no].add(frm)
