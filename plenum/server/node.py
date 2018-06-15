@@ -105,7 +105,7 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.server.view_change.view_changer import ViewChanger
+from plenum.server.view_change.view_changer import ViewChanger, FutureViewChangeDone
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -1499,8 +1499,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                # TODO this is put of the msgs queue scope
-                self.view_changer.on_future_view_vchd_msg(view_no, frm, from_current_state=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
+                self.msgsToViewChanger.append((future_vcd_msg, frm))
+                # self.view_changer.process_future_view_vchd_msg(future_vcd_msg, frm)
         else:
             return True
         return False

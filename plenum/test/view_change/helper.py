@@ -89,6 +89,23 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     """
     old_view_no = checkViewNoForNodes(nodes)
 
+    old_meths = do_view_change(nodes)
+
+    perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
+    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
+        len(nodes)) + perf_check_freq
+    nodes_to_check = nodes if exclude_from_check is None else [
+        n for n in nodes if n not in exclude_from_check]
+    logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
+    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
+                          retryWait=1, timeout=timeout))
+
+    revert_do_view_change(nodes, old_meths)
+
+    return old_view_no + 1
+
+
+def do_view_change(nodes):
     old_meths = {node.name: {} for node in nodes}
     view_changes = {}
     for node in nodes:
@@ -107,21 +124,14 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
             slow_master, node.monitor)
         node._update_new_ordered_reqs_count = types.MethodType(
             lambda self: True, node)
+    return old_meths
 
-    perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
-    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
-        len(nodes)) + perf_check_freq
-    nodes_to_check = nodes if exclude_from_check is None else [
-        n for n in nodes if n not in exclude_from_check]
-    logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
-    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
-                          retryWait=1, timeout=timeout))
 
+def revert_do_view_change(nodes, old_meths):
     logger.debug('Patching back perf check for all nodes')
     for node in nodes:
         node.monitor.isMasterDegraded = old_meths[node.name]['isMasterDegraded']
         node._update_new_ordered_reqs_count = old_meths[node.name]['_update_new_ordered_reqs_count']
-    return old_view_no + 1
 
 
 def ensure_several_view_change(looper, nodes, vc_count=1,

@@ -2,6 +2,7 @@ from collections import deque
 from typing import List, Optional, Tuple
 from functools import partial
 
+from plenum.common.startable import Mode
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -23,6 +24,12 @@ logger = getlogger()
 # TODO docs and types
 # TODO logging
 
+class FutureViewChangeDone:
+
+    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+        self.vcd_msg = vcd_msg
+        self.from_current_state = from_current_state
+
 
 class ViewChanger(HasActionQueue, MessageProcessor):
 
@@ -37,7 +44,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.outBox = deque()
         self.inBoxRouter = Router(
             (InstanceChange, self.process_instance_change_msg),
-            (ViewChangeDone, self.process_vchd_msg)
+            (ViewChangeDone, self.process_vchd_msg),
+            (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
         self.instanceChanges = InstanceChanges()
@@ -292,7 +300,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self._start_selection()
 
-    def on_future_view_vchd_msg(self, view_no, frm, from_current_state: bool = False):
+    def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
+        from_current_state = future_vcd_msg.from_current_state
+        view_no = future_vcd_msg.vcd_msg.viewNo
         if not ((view_no > self.view_no) or
                 (self.view_no == 0 and from_current_state)):
             raise PlenumValueError(
@@ -413,7 +423,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param limit: the maximum number of messages to service
         :return: the number of messages successfully processed
         """
-
+        if self.node.mode == Mode.syncing:
+            return 0
         return await self.inBoxRouter.handleAll(self.inBox, limit)
 
     def sendInstanceChange(self, view_no: int,
