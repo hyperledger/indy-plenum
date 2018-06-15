@@ -231,4 +231,4 @@ VERSION_FIELD_LIMIT = 128
 DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
-ENABLED_PLUGINS = ['token', 'fees']
+ENABLED_PLUGINS = []
