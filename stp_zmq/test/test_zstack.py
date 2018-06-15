@@ -17,8 +17,8 @@ def dummyZStack(tdir, tconf):
     name = 'Alpha'
     alphaP = Printer(name)
     return ZStack(name, ha=genHa(), basedirpath=tdir,
-                   msgHandler=alphaP.print, seed=randomSeed(),
-                   config=tconf)
+                  msgHandler=alphaP.print, seed=randomSeed(),
+                  config=tconf)
 
 
 def testReconnectRemoteApi(dummyZStack):
@@ -36,11 +36,11 @@ def testDisconnectByName(dummyZStack):
         dummyZStack.disconnectByName('')
 
 
-def testDisconnectByName(dummyZStack):
-    with pytest.raises(PlenumValueError) as excinfo:
+def testAddRemote(dummyZStack):
+    with pytest.raises(PlenumValueError):
         dummyZStack.addRemote(None, genHa(), 'verkey', 'pubkey')
 
-    with pytest.raises(PlenumValueError) as excinfo:
+    with pytest.raises(PlenumValueError):
         dummyZStack.addRemote('', genHa(), 'verkey', 'pubkey')
 
 

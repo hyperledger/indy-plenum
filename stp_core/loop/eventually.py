@@ -134,8 +134,8 @@ async def eventually(coroFunc: FlexFunc,
     if not override_timeout_limit:
         if timeout > 240:
             raise PlenumValueError(
-                    'timeout', timeout,
-                    "< 240 or override_timeout_limit=True"
+                'timeout', timeout,
+                "< 240 or override_timeout_limit=True"
             )
     else:
         logger.debug('Overriding timeout limit to {} for evaluating {}'

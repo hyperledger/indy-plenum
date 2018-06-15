@@ -4,6 +4,7 @@ import asyncio
 from common.exceptions import PlenumValueError
 from stp_core.loop.eventually import eventually
 
+
 def test_api():
     loop = asyncio.get_event_loop()
     with pytest.raises(PlenumValueError):
