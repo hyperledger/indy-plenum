@@ -69,6 +69,8 @@ logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
 
+DEV_NULL_PATH = '/dev/null'
+ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
 
 def get_data_for_role(pool_txn_data, role):
     name_and_seeds = []
@@ -382,6 +384,23 @@ def _tconf(general_config):
     config = getConfig(general_config)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
+
+    # Reduce memory amplification during running tests in case of RocksDB used
+    config.rocksdb_default_config['write_buffer_size'] = ROCKSDB_WRITE_BUFFER_SIZE
+    config.rocksdb_default_config['db_log_dir'] = DEV_NULL_PATH
+
+    # FIXME: much more clear solution is to check which key-value storage type is
+    # used for each storage and set corresponding config, but for now only RocksDB
+    # tuning is supported (now other storage implementations ignore this parameter)
+    # so here we set RocksDB configs unconditionally for simplicity.
+    config.db_merkle_leaves_config = config.rocksdb_default_config.copy()
+    config.db_merkle_nodes_config = config.rocksdb_default_config.copy()
+    config.db_state_config = config.rocksdb_default_config.copy()
+    config.db_transactions_config = config.rocksdb_default_config.copy()
+    config.db_seq_no_db_config = config.rocksdb_default_config.copy()
+    config.db_state_signature_config = config.rocksdb_default_config.copy()
+    config.db_state_ts_db_config = config.rocksdb_default_config.copy()
+
     return config
 
 

@@ -1,3 +1,4 @@
+from common.exceptions import ValueUndefinedError
 from common.serializers.serialization import multi_sig_store_serializer
 from storage.helper import initKeyValueStorage
 from crypto.bls.bls_multi_signature import MultiSignature
@@ -10,14 +11,17 @@ class BlsStore:
                  key_value_type,
                  data_location,
                  key_value_storage_name,
-                 serializer=None):
+                 serializer=None,
+                 db_config=None):
         self._kvs = initKeyValueStorage(key_value_type,
                                         data_location,
-                                        key_value_storage_name)
+                                        key_value_storage_name,
+                                        db_config=db_config)
         self._serializer = serializer or multi_sig_store_serializer
 
     def put(self, multi_sig: MultiSignature):
-        assert multi_sig is not None
+        if multi_sig is None:
+            raise ValueUndefinedError('multi_sig')
         state_root_hash = multi_sig.value.state_root_hash
         serialized_multi_sign = self._serializer.serialize(multi_sig.as_dict())
         self._kvs.put(state_root_hash, serialized_multi_sign)

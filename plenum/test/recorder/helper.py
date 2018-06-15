@@ -93,7 +93,8 @@ def create_replayable_node_and_check(looper, all_nodes, node_to_check,
     new_node_name = node_to_check.name
     replaying_node = create_new_test_node(
         replayable_node_class, node_config_helper_class, new_node_name,
-        conf, basedirpath, allPluginsPath)
+        conf, basedirpath, allPluginsPath, node_ha=node_to_check.nodestack.ha,
+        client_ha=node_to_check.clientstack.ha)
     for n in all_nodes:
         assert replaying_node.domainLedger.size < n.domainLedger.size
     replay_and_compare(looper, node_to_check, replaying_node)

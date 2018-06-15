@@ -1,6 +1,7 @@
 from collections import deque
 from typing import Generator
 
+from common.exceptions import PlenumTypeError
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
@@ -54,11 +55,10 @@ class Replicas:
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
+    # TODO unit test
     @property
-    def some_replica_has_primary(self) -> bool:
-        for replica in self._replicas:
-            if replica.isPrimary:
-                return replica.instId
+    def some_replica_is_primary(self) -> bool:
+        return any([r.isPrimary for r in self._replicas])
 
     @property
     def master_replica_is_primary(self):
@@ -131,6 +131,11 @@ class Replicas:
         return all(replica.primaryName is not None
                    for replica in self._replicas)
 
+    # TODO unit test
+    @property
+    def primaries(self) -> list:
+        return [r.primaryName for r in self._replicas]
+
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas:
             replica.register_ledger(ledger_id)
@@ -197,7 +202,8 @@ class Replicas:
                                  ))
 
     def __getitem__(self, item):
-        assert isinstance(item, int)
+        if not isinstance(item, int):
+            raise PlenumTypeError('item', item, int)
         return self._replicas[item]
 
     def __len__(self):
