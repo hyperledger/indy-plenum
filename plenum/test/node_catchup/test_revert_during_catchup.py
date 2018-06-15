@@ -46,17 +46,16 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
-
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 6 * Max3PCBatchSize)
-    ensure_all_nodes_have_same_data(looper, other_nodes)
-    waitNodeDataInequality(looper, slow_node, *other_nodes)
-
     # Make the slow node receive txns for a smaller ledger so it still finds
     # the need to catchup
     delay_batches = 2
     make_a_node_catchup_twice(slow_node, other_nodes, DOMAIN_LEDGER_ID,
                               delay_batches * Max3PCBatchSize)
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 6 * Max3PCBatchSize)
+    ensure_all_nodes_have_same_data(looper, other_nodes)
+    waitNodeDataInequality(looper, slow_node, *other_nodes)
 
     def is_catchup_needed_count():
         return len(getAllReturnVals(slow_node, slow_node.is_catchup_needed,
