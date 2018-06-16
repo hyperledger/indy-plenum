@@ -21,6 +21,9 @@ from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 
 
+limitTestRunningTime = 150
+
+
 class NewTestNode(TestNode):
     def getConfigReqHandler(self):
         return TestConfigReqHandler(self.configLedger,
@@ -142,7 +145,6 @@ def test_restarted_node_catches_up_config_ledger_txns(looper,
     new_node = sdk_new_node_caught_up
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=True)
-    looper.removeProdable(new_node)
 
     # Do some config txns; using a fixture as a method, passing some arguments
     # as None as they only make sense for the fixture (pre-requisites)

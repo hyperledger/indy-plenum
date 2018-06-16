@@ -6,6 +6,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.view_change.helper import start_stopped_node
 
 from stp_core.validators.message_length_validator import MessageLenValidator
 
@@ -65,7 +66,6 @@ def test_large_catchup(tdir, tconf,
                                             all_nodes,
                                             lagging_node,
                                             stopNode=True)
-    looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -79,10 +79,10 @@ def test_large_catchup(tdir, tconf,
 
     # Restart stopped node and wait for successful catch up
     # Not calling start since it does not start states
-    config_helper = PNodeConfigHelper(lagging_node.name, tconf, chroot=tdir)
-    lagging_node = testNodeClass(lagging_node.name,
-                                 config_helper=config_helper,
-                                 config=tconf, pluginPaths=allPluginsPath)
-    looper.add(lagging_node)
+    start_stopped_node(lagging_node,
+                       looper,
+                       tconf,
+                       tdir,
+                       allPluginsPath=allPluginsPath)
     txnPoolNodeSet[-1] = lagging_node
     waitNodeDataEquality(looper, *all_nodes)

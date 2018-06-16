@@ -4,6 +4,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.test.delayers import cr_delay
+from plenum.test.view_change.helper import start_stopped_node
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
@@ -47,7 +48,6 @@ def test_node_catchup_after_restart_with_txns(
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(new_node, new_node.poolManager.txnSeqNo))
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, new_node)
-    looper.removeProdable(new_node)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -60,34 +60,29 @@ def test_node_catchup_after_restart_with_txns(
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, more_requests)
     logger.debug("Starting the stopped node, {}".format(new_node))
-    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
-    config_helper = PNodeConfigHelper(new_node.name, tconf, chroot=tdir)
-    newNode = TestNode(
-        new_node.name,
-        config_helper=config_helper,
-        config=tconf,
-        ha=nodeHa,
-        cliha=nodeCHa,
-        pluginPaths=allPluginsPath)
-    looper.add(newNode)
-    txnPoolNodeSet[-1] = newNode
+    start_stopped_node(new_node,
+                       looper,
+                       tconf,
+                       tdir,
+                       allPluginsPath=allPluginsPath)
+    txnPoolNodeSet[-1] = new_node
 
     # Make sure ledger is not synced initially
-    check_ledger_state(newNode, DOMAIN_LEDGER_ID, LedgerState.not_synced)
+    check_ledger_state(new_node, DOMAIN_LEDGER_ID, LedgerState.not_synced)
 
     # Delay catchup reply processing so LedgerState does not change
     # TODO fix delay, sometimes it's not enough and lower 'check_ledger_state'
     # fails because newNode's domain ledger state is 'synced'
     delay_catchup_reply = 10
-    newNode.nodeIbStasher.delay(cr_delay(delay_catchup_reply))
+    new_node.nodeIbStasher.delay(cr_delay(delay_catchup_reply))
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Make sure ledger starts syncing (sufficient consistency proofs received)
-    looper.run(eventually(check_ledger_state, newNode, DOMAIN_LEDGER_ID,
+    looper.run(eventually(check_ledger_state, new_node, DOMAIN_LEDGER_ID,
                           LedgerState.syncing, retryWait=.5, timeout=5))
 
     confused_node = txnPoolNodeSet[0]
-    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
+    new_node_ledger = new_node.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
     cp = new_node_ledger.catchUpTill
     start, end = cp.seqNoStart, cp.seqNoEnd
     cons_proof = confused_node.ledgerManager._buildConsistencyProof(
@@ -97,8 +92,8 @@ def test_node_catchup_after_restart_with_txns(
 
     def chk():
         nonlocal bad_send_time
-        entries = newNode.ledgerManager.spylog.getAll(
-            newNode.ledgerManager.canProcessConsistencyProof.__name__)
+        entries = new_node.ledgerManager.spylog.getAll(
+            new_node.ledgerManager.canProcessConsistencyProof.__name__)
         for entry in entries:
             # `canProcessConsistencyProof` should return False after `syncing_time`
             if entry.result == False and entry.starttime > bad_send_time:
@@ -108,17 +103,17 @@ def test_node_catchup_after_restart_with_txns(
     def send_and_chk(ledger_state):
         nonlocal bad_send_time, cons_proof
         bad_send_time = perf_counter()
-        confused_node.ledgerManager.sendTo(cons_proof, newNode.name)
+        confused_node.ledgerManager.sendTo(cons_proof, new_node.name)
         # Check that the ConsistencyProof messages rejected
         looper.run(eventually(chk, retryWait=.5, timeout=5))
-        check_ledger_state(newNode, DOMAIN_LEDGER_ID, ledger_state)
+        check_ledger_state(new_node, DOMAIN_LEDGER_ID, ledger_state)
 
     send_and_chk(LedgerState.syncing)
 
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
               2 * delay_catchup_reply
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
     assert new_node_ledger.num_txns_caught_up == more_requests
     send_and_chk(LedgerState.synced)
