@@ -16,7 +16,7 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings
+    sdk_get_and_check_replies, sdk_sign_request_strings, ThreadWithReturn, create_node_inside_thread
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
@@ -142,12 +142,14 @@ def new_node(
         plugin_path,
         nodeClass,
         configClass=PNodeConfigHelper):
-    config_helper = configClass(node_name, tconf, chroot=tdir)
-    node = nodeClass(node_name,
-                     config_helper=config_helper,
-                     config=tconf,
-                     ha=node_ha, cliha=client_ha,
-                     pluginPaths=plugin_path)
+    node = create_node_inside_thread(nodeClass,
+                                     configClass,
+                                     node_name,
+                                     tconf,
+                                     tdir,
+                                     allPluginsPath=plugin_path,
+                                     node_ha=node_ha,
+                                     client_ha=client_ha)
     return node
 
 
@@ -359,16 +361,19 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                          new_client_ip, new_client_port)
     # restart the Node with new HA
     node.stop()
-    looper.removeProdable(name=node.name)
-    config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
-    restartedNode = TestNode(node.name,
-                             config_helper=config_helper,
-                             config=tconf,
-                             ha=HA(new_node_ip or node_ha.host,
-                                   new_node_port or node_ha.port),
-                             cliha=HA(new_client_ip or cli_ha.host,
-                                      new_client_port or cli_ha.port))
-    looper.add(restartedNode)
+    thread = ThreadWithReturn(target=create_node_inside_thread,
+                              args=(TestNode,
+                                    PNodeConfigHelper,
+                                    node.name,
+                                    tconf,
+                                    tdir),
+                              kwargs=dict(
+                                  allPluginsPath=None,
+                                  node_ha=HA(new_node_ip or node_ha.host,
+                                             new_node_port or node_ha.port),
+                                  client_ha=HA(new_client_ip or cli_ha.host,
+                                             new_client_port or cli_ha.port)))
+    restartedNode = thread.run()
 
     # replace node in txnPoolNodeSet
     try:

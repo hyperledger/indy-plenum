@@ -10,7 +10,7 @@ from plenum.test.greek import genNodeNames
 from plenum.test.helper import assertLength, addNodeBack, \
     getPendingRequestsForReplica, sdk_send_random_and_check
 from plenum.test.test_node import TestNode, TestNodeSet, \
-    checkPoolReady, genNodeReg, prepareNodeSet
+    checkPoolReady, genNodeReg
 
 whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()

@@ -16,6 +16,7 @@ from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
     TestConfigReqHandler, WRITE_CONF, READ_CONF, read_conf_op
 from plenum.test.test_node import TestNode, checkNodesConnected
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 
@@ -113,22 +114,6 @@ def keys():
 def some_config_txns_done(looper, setup, txnPoolNodeSet, keys,
                           sdk_wallet_client, sdk_pool_handle):
     return send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys)
-
-
-def start_stopped_node(stopped_node, looper, tconf,
-                       tdir, allPluginsPath,
-                       delay_instance_change_msgs=True):
-    nodeHa, nodeCHa = HA(*
-                         stopped_node.nodestack.ha), HA(*
-                                                        stopped_node.clientstack.ha)
-    config_helper = PNodeConfigHelper(stopped_node.name, tconf, chroot=tdir)
-    restarted_node = NewTestNode(stopped_node.name,
-                                 config_helper=config_helper,
-                                 config=tconf,
-                                 ha=nodeHa, cliha=nodeCHa,
-                                 pluginPaths=allPluginsPath)
-    looper.add(restarted_node)
-    return restarted_node
 
 
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,

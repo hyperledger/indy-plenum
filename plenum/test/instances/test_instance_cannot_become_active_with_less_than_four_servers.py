@@ -2,6 +2,7 @@ from typing import Iterable
 
 import pytest
 
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Status
@@ -96,8 +97,11 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     logger.debug("Remove all the nodes")
     for n in nodeNames:
         node_n = get_node_by_name(current_node_set, n)
-        looper.removeProdable(node_n)
-        node_n.stop()
+        disconnect_node_and_ensure_disconnected(looper,
+                                                current_node_set,
+                                                n,
+                                                timeout=nodeCount,
+                                                stopNode=True)
         current_node_set.remove(node_n)
 
     looper.runFor(10)

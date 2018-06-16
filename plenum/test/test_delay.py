@@ -9,7 +9,7 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.helper import sendMessageAndCheckDelivery, addNodeBack, assertExp
 from plenum.test.msgs import TestMsg
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
-    ensureElectionsDone, prepareNodeSet
+    ensureElectionsDone
 
 logger = getlogger()
 

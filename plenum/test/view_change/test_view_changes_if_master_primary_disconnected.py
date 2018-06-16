@@ -24,7 +24,6 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
     # Stop primary
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet,
                                             old_pr_node, stopNode=True)
-    looper.removeProdable(old_pr_node)
 
     remaining_nodes = list(set(nodes) - {old_pr_node})
     # Sometimes it takes time for nodes to detect disconnection

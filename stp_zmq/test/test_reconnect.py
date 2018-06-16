@@ -91,6 +91,7 @@ def test_reconnect_short(looper, connected_stacks, connection_timeout,
                            disconnect_first_stack)
 
 
+@pytest.mark.skip("Realy need more than 5 minutes????")
 def test_reconnect_long(looper, connected_stacks, connection_timeout,
                         disconnect_first_stack):
     """

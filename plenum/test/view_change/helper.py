@@ -1,11 +1,12 @@
 import types
+from contextlib import ExitStack
 
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
     reset_delays_and_process_delayeds
 from plenum.test.helper import checkViewNoForNodes, \
-    sdk_send_random_requests, sdk_send_random_and_check
+    sdk_send_random_requests, sdk_send_random_and_check, create_node_inside_thread, ThreadWithReturn
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -20,18 +21,20 @@ logger = getlogger()
 
 
 def start_stopped_node(stopped_node, looper, tconf,
-                       tdir, allPluginsPath,
+                       tdir, allPluginsPath=None,
                        delay_instance_change_msgs=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
-    config_helper = PNodeConfigHelper(stopped_node.name, tconf, chroot=tdir)
-    restarted_node = TestNode(stopped_node.name,
-                              config_helper=config_helper,
-                              config=tconf,
-                              ha=nodeHa, cliha=nodeCHa,
-                              pluginPaths=allPluginsPath)
-    looper.add(restarted_node)
+
+    restarted_node = create_node_inside_thread(TestNode,
+                                               PNodeConfigHelper,
+                                               stopped_node.name,
+                                               tconf,
+                                               tdir,
+                                               allPluginsPath,
+                                               node_ha=nodeHa,
+                                               client_ha=nodeCHa)
     return restarted_node
 
 
@@ -183,7 +186,6 @@ def ensure_view_change_by_primary_restart(
 
     disconnect_node_and_ensure_disconnected(looper, nodes,
                                             primaryNode, stopNode=True)
-    looper.removeProdable(primaryNode)
     remainingNodes = list(set(nodes) - {primaryNode})
 
     logger.debug("Waiting for viewNo {} for nodes {}"

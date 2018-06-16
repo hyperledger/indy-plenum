@@ -1,3 +1,4 @@
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.common.log import getlogger
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.helper import sdk_send_random_and_check
@@ -33,7 +34,6 @@ def testNodeCatchupFPlusOne(looper,
                  format(node0.poolManager.txnSeqNo))
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, node0, stopNode=True)
-    looper.removeProdable(node0)
 
     logger.debug("Sending requests")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -43,7 +43,6 @@ def testNodeCatchupFPlusOne(looper,
                  format(node1.poolManager.txnSeqNo))
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, node1, stopNode=True)
-    looper.removeProdable(node1)
 
     # Make sure new node got out of sync
     # Excluding state check since the node is stopped hence the state db is closed
@@ -53,13 +52,11 @@ def testNodeCatchupFPlusOne(looper,
     # TODO: Check if the node has really stopped processing requests?
 
     logger.debug("Starting the stopped node0")
-    nodeHa, nodeCHa = HA(*node0.nodestack.ha), HA(*node0.clientstack.ha)
-    config_helper = PNodeConfigHelper(node0.name, tconf, chroot=tdir)
-    node0 = testNodeClass(node0.name,
-                          config_helper=config_helper,
-                          ha=nodeHa, cliha=nodeCHa,
-                          config=tconf, pluginPaths=allPluginsPath)
-    looper.add(node0)
+    node0 = start_stopped_node(node0,
+                               looper,
+                               tconf,
+                               tdir,
+                               allPluginsPath=allPluginsPath)
 
     logger.debug("Waiting for the node0 to catch up")
     waitNodeDataEquality(looper, node0, *txnPoolNodeSet[:-2])

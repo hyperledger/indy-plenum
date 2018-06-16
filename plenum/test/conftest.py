@@ -55,7 +55,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, create_node_inside_thread, ThreadWithReturn
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -840,27 +840,57 @@ def do_post_node_creation():
     return _post_node_creation
 
 
+# @pytest.fixture(scope="module")
+# def txnPoolNodeSet(node_config_helper_class,
+#                    patchPluginManager,
+#                    txnPoolNodesLooper,
+#                    tdirWithPoolTxns,
+#                    tdirWithDomainTxns,
+#                    tdir,
+#                    tconf,
+#                    poolTxnNodeNames,
+#                    allPluginsPath,
+#                    tdirWithNodeKeepInited,
+#                    testNodeClass,
+#                    do_post_node_creation):
+#     with ExitStack() as exitStack:
+#         nodes = []
+#         for nm in poolTxnNodeNames:
+#             node = exitStack.enter_context(create_new_test_node(
+#                 testNodeClass, node_config_helper_class, nm, tconf, tdir,
+#                 allPluginsPath))
+#             do_post_node_creation(node)
+#             txnPoolNodesLooper.add(node)
+#             nodes.append(node)
+#         txnPoolNodesLooper.run(checkNodesConnected(nodes))
+#         ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
+#         yield nodes
+
+
 @pytest.fixture(scope="module")
 def txnPoolNodeSet(node_config_helper_class,
-                   patchPluginManager,
-                   txnPoolNodesLooper,
-                   tdirWithPoolTxns,
-                   tdirWithDomainTxns,
-                   tdir,
-                   tconf,
-                   poolTxnNodeNames,
-                   allPluginsPath,
-                   tdirWithNodeKeepInited,
-                   testNodeClass,
-                   do_post_node_creation):
+                           patchPluginManager,
+                           txnPoolNodesLooper,
+                           tdirWithPoolTxns,
+                           tdirWithDomainTxns,
+                           tdir,
+                           tconf,
+                           poolTxnNodeNames,
+                           allPluginsPath,
+                           tdirWithNodeKeepInited,
+                           testNodeClass,
+                           do_post_node_creation):
     with ExitStack() as exitStack:
         nodes = []
-        for nm in poolTxnNodeNames:
-            node = exitStack.enter_context(create_new_test_node(
-                testNodeClass, node_config_helper_class, nm, tconf, tdir,
-                allPluginsPath))
-            do_post_node_creation(node)
-            txnPoolNodesLooper.add(node)
+        for node_name in poolTxnNodeNames:
+            node = create_node_inside_thread(testNodeClass,
+                                             node_config_helper_class,
+                                             node_name,
+                                             tconf,
+                                             tdir,
+                                             allPluginsPath,
+                                             do_post_node_creation=do_post_node_creation,
+                                             exitStack=exitStack)
             nodes.append(node)
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
         ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)

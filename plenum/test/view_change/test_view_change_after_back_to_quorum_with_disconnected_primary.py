@@ -36,7 +36,6 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     non_primary_to_stop = [n for n in nodes if n.name == "Delta"][0]
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, non_primary_to_stop)
-    looper.removeProdable(non_primary_to_stop)
 
     remaining_nodes = list(set(nodes) - {non_primary_to_stop})
     # Primary is going to be stopped, remember instance change messages count
@@ -49,7 +48,6 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     # 3. Disconnect primary
     disconnect_node_and_ensure_disconnected(
         looper, remaining_nodes, pr_node)
-    looper.removeProdable(pr_node)
 
     # Wait for more than ToleratePrimaryDisconnection timeout and check that no IC messages presented.
     looper.runFor(tconf.ToleratePrimaryDisconnection + 5)

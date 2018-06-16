@@ -51,7 +51,6 @@ def test_node_catchup_when_3_not_primary_node_restarted(
                                                 pool_of_nodes,
                                                 node_to_restart,
                                                 stopNode=True)
-        looper.removeProdable(node_to_restart)
         ensure_all_nodes_have_same_data(looper,
                                         remaining_nodes,
                                         custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)

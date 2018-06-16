@@ -1,5 +1,7 @@
 import pytest
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.view_change.helper import start_stopped_node
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -40,22 +42,19 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet,
     checkFlakyConnected(True)
     nodeToCrash.stop()
     logger.debug('Stopped node {}'.format(nodeToCrash))
-    looper.removeProdable(nodeToCrash)
     looper.runFor(1)
-    stopNodes([nodeToCrash], looper)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            nodeToCrash,
+                                            stopNode=True)
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=60))
 
     looper.runFor(1)
-    config_helper = PNodeConfigHelper(nodeToCrash.name, tconf, chroot=tdir)
-    node = TestNode(
-        nodeToCrash.name,
-        config_helper=config_helper,
-        config=tconf,
-        ha=nodeToCrash.nodestack.ha,
-        cliha=nodeToCrash.clientstack.ha)
-    looper.add(node)
-    txnPoolNodeSet[idxToCrash] = node
+    txnPoolNodeSet[idxToCrash] = start_stopped_node(nodeToCrash,
+                                                    looper,
+                                                    tconf,
+                                                    tdir)
 
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, True, retryWait=2, timeout=50))

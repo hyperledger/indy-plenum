@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import stopNodes
@@ -15,10 +16,12 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
 
     # Quorum for view change is expected to be n - f
     # So, switching one node off
-    stopped = [txnPoolNodeSet[-1]]
+    stopped = txnPoolNodeSet[-1]
     active = list(txnPoolNodeSet)[:-1]
-    stopNodes(stopped, looper)
-    looper.removeProdable(*stopped)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            stopped,
+                                            stopNode=True)
 
     # Check that view changes
     ensure_view_change(looper, active)
@@ -28,10 +31,12 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
 
     # Switching another node off to make sure that this time the quorum is not
     # reaches.
-    stopped = [active[-1]]
+    stopped = active[-1]
     active = list(active)[:-1]
-    stopNodes(stopped, looper)
-    looper.removeProdable(*stopped)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            active + [stopped],
+                                            stopped,
+                                            stopNode=True)
 
     # Check that view does not changes
     current_view_no = active[0].viewNo

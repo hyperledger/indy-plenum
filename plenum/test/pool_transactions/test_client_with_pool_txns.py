@@ -1,4 +1,5 @@
-from plenum.test.pool_transactions.helper import sdk_pool_refresh
+from plenum.test.pool_transactions.helper import sdk_pool_refresh, disconnect_node_and_ensure_disconnected
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test import waits
@@ -18,26 +19,28 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet,
                                       sdk_pool_handle):
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_new_client, 1)
     for node in txnPoolNodeSet:
-        node.stop()
-        looper.removeProdable(node)
+        disconnect_node_and_ensure_disconnected(looper,
+                                                txnPoolNodeSet,
+                                                node,
+                                                stopNode=True)
 
-    txnPoolNodeSet = []
-    for nm in poolTxnNodeNames:
-        config_helper = PNodeConfigHelper(nm, tconf, chroot=tdir)
-        node = TestNode(nm,
-                        config_helper=config_helper,
-                        config=tconf, pluginPaths=allPluginsPath)
-        looper.add(node)
-        txnPoolNodeSet.append(node)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    txnPoolNodeSetNew = []
+    for node in txnPoolNodeSet:
+        new_node = start_stopped_node(node,
+                                      looper,
+                                      tconf,
+                                      tdir,
+                                      allPluginsPath=allPluginsPath)
+        txnPoolNodeSetNew.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSetNew))
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSetNew)
 
     def chk():
-        for node in txnPoolNodeSet:
+        for node in txnPoolNodeSetNew:
             assert node.isParticipating
 
-    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSetNew))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_new_client, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSetNew, sdk_wallet_new_client, sdk_pool_handle)

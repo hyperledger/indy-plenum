@@ -20,7 +20,6 @@ whitelist = ['Consensus for ReqId:']
 
 def stop_node(node_to_stop, looper, pool_nodes):
     disconnect_node_and_ensure_disconnected(looper, pool_nodes, node_to_stop)
-    looper.removeProdable(node_to_stop)
 
 
 def test_quorum_after_f_plus_2_nodes_but_not_primary_turned_off_and_later_on(

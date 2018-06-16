@@ -3,10 +3,12 @@ import os
 import random
 import string
 from _signal import SIGINT
+from contextlib import ExitStack
 from functools import partial
 from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
+from threading import Thread
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
@@ -312,17 +314,16 @@ def addNodeBack(node_set,
                 node: Node,
                 tconf,
                 tdir) -> TestNode:
-    config_helper = PNodeConfigHelper(node.name, tconf, chroot=tdir)
-    restartedNode = TestNode(node.name,
-                             config_helper=config_helper,
-                             config=tconf,
-                             ha=node.nodestack.ha,
-                             cliha=node.clientstack.ha)
+    restartedNode = create_node_inside_thread(TestNode,
+                                              PNodeConfigHelper,
+                                              node.name,
+                                              tconf,
+                                              tdir,
+                                              allPluginsPath=None)
     for node in node_set:
         if node.name != restartedNode.name:
             node.nodestack.reconnectRemoteWithName(restartedNode.name)
     node_set.append(restartedNode)
-    looper.add(restartedNode)
     return restartedNode
 
 
@@ -994,3 +995,56 @@ def sdk_get_bad_response(looper, reqs, exception, message):
     with pytest.raises(exception) as e:
         sdk_get_and_check_replies(looper, reqs)
     assert message in e._excinfo[1].args[0]
+
+
+def create_node_inside_thread(testNodeClass,
+                              node_config_helper_class,
+                              node_name,
+                              tconf,
+                              tdir,
+                              allPluginsPath,
+                              node_ha=None,
+                              client_ha=None,
+                              do_post_node_creation=None,
+                              exitStack=None):
+    def create_node():
+        l = Looper()
+        if exitStack:
+            node = exitStack.enter_context(create_new_test_node(
+                testNodeClass,
+                node_config_helper_class,
+                node_name,
+                tconf,
+                tdir,
+                allPluginsPath,
+                node_ha=node_ha,
+                client_ha=client_ha))
+        else:
+            node = create_new_test_node(
+                testNodeClass,
+                node_config_helper_class,
+                node_name,
+                tconf,
+                tdir,
+                allPluginsPath,
+                node_ha=node_ha,
+                client_ha=client_ha)
+        if do_post_node_creation:
+            do_post_node_creation(node)
+        l.add(node)
+        return node
+
+    thread = ThreadWithReturn(target=create_node)
+    return thread.run()
+
+
+class ThreadWithReturn(Thread):
+
+    def run(self):
+        try:
+            if self._target:
+                return self._target(*self._args, **self._kwargs)
+        finally:
+            # Avoid a refcycle if the thread is running a function with
+            # an argument that has a member that points to the thread.
+            del self._target, self._args, self._kwargs

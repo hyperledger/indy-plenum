@@ -1,12 +1,13 @@
 import pytest
 from plenum.common.constants import VALIDATOR
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
+from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh, \
+    disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import hexToFriendly
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, create_node_inside_thread
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
@@ -50,16 +51,20 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
                          services=[VALIDATOR])
 
     # stop node for which HA will be changed
-    subjectedNode.stop()
-    looper.removeProdable(subjectedNode)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            subjectedNode,
+                                            stopNode=True)
 
     # start node with new HA
-    config_helper = PNodeConfigHelper(subjectedNode.name, tconf, chroot=tdir)
-    restartedNode = TestNode(subjectedNode.name,
-                             config_helper=config_helper,
-                             config=tconf, ha=nodeStackNewHA,
-                             cliha=clientStackNewHA)
-    looper.add(restartedNode)
+    restartedNode = create_node_inside_thread(TestNode,
+                                              PNodeConfigHelper,
+                                              subjectedNode.name,
+                                              tconf,
+                                              tdir,
+                                              node_ha=nodeStackNewHA,
+                                              client_ha=clientStackNewHA,
+                                              allPluginsPath=None)
     txnPoolNodeSet[nodeIndex] = restartedNode
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
 
