@@ -128,8 +128,6 @@ def create_and_start_new_node(
                     configClass=configClass)
     if do_post_node_creation:
         do_post_node_creation(node)
-    if auto_start:
-        looper.add(node)
     return node
 
 
@@ -360,20 +358,20 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                          new_node_ip, new_node_port,
                          new_client_ip, new_client_port)
     # restart the Node with new HA
-    node.stop()
-    thread = ThreadWithReturn(target=create_node_inside_thread,
-                              args=(TestNode,
-                                    PNodeConfigHelper,
-                                    node.name,
-                                    tconf,
-                                    tdir),
-                              kwargs=dict(
-                                  allPluginsPath=None,
-                                  node_ha=HA(new_node_ip or node_ha.host,
-                                             new_node_port or node_ha.port),
-                                  client_ha=HA(new_client_ip or cli_ha.host,
-                                             new_client_port or cli_ha.port)))
-    restartedNode = thread.run()
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            node,
+                                            stopNode=True)
+    restartedNode = create_node_inside_thread(TestNode,
+                                              PNodeConfigHelper,
+                                              node.name,
+                                              tconf,
+                                              tdir,
+                                              allPluginsPath=None,
+                                              node_ha=HA(new_node_ip or node_ha.host,
+                                                             new_node_port or node_ha.port),
+                                              client_ha=HA(new_client_ip or cli_ha.host,
+                                                         new_client_port or cli_ha.port))
 
     # replace node in txnPoolNodeSet
     try:
