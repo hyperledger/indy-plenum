@@ -16,6 +16,8 @@ from binascii import hexlify, unhexlify
 from collections import deque
 from typing import Mapping, Tuple, Any, Union, Optional
 
+from common.exceptions import PlenumTypeError, PlenumValueError
+
 # import stp_zmq.asyncio
 import zmq.auth
 from stp_core.crypto.nacl_wrappers import Signer, Verifier
@@ -601,7 +603,8 @@ class ZStack(NetworkInterface):
         :param remoteName: name of remote
         :return:
         """
-        assert remote
+        if not isinstance(remote, Remote):
+            raise PlenumTypeError('remote', remote, Remote)
         logger.debug('{} reconnecting to {}'.format(self, remote))
         public, secret = self.selfEncKeys
         remote.disconnect()
@@ -609,22 +612,31 @@ class ZStack(NetworkInterface):
         self.sendPingPong(remote, is_ping=True)
 
     def reconnectRemoteWithName(self, remoteName):
-        assert remoteName
-        assert remoteName in self.remotes
+        if remoteName not in self.remotes:
+            raise PlenumValueError(
+                'remoteName', remoteName,
+                "one of {}".format(self.remotes)
+            )
         self.reconnectRemote(self.remotes[remoteName])
 
-    def disconnectByName(self, name: str):
-        assert name
-        remote = self.remotes.get(name)
+    def disconnectByName(self, remoteName: str):
+        if not remoteName:
+            raise PlenumValueError(
+                'remoteName', remoteName,
+                "non-empty string"
+            )
+        remote = self.remotes.get(remoteName)
         if not remote:
             logger.debug('{} did not find any remote '
                          'by name {} to disconnect'
-                         .format(self, name))
+                         .format(self, remoteName))
             return None
         remote.disconnect()
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
+        if not name:
+            raise PlenumValueError('name', name, 'non-empty')
         remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
