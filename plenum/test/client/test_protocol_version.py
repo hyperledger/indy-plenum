@@ -12,7 +12,7 @@ from plenum.test.helper import sdk_send_signed_requests, \
     sdk_sign_request_objects, sdk_get_bad_response, sdk_send_random_and_check
 
 error_msg = 'Make sure that the latest LibIndy is used ' \
-            'and `indy_set_protocol_version({})` is called'\
+            'and `set_protocol_version({})` is called'\
     .format(CURRENT_PROTOCOL_VERSION)
 
 

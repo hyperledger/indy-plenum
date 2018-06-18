@@ -307,5 +307,5 @@ class MissingProtocolVersionError(TypeError):
     def __init__(self, message):
         super().__init__(
             message + 'Make sure that the latest LibIndy is '
-                      'used and `indy_set_protocol_version({})` is called.'
+                      'used and `set_protocol_version({})` is called.'
             .format(CURRENT_PROTOCOL_VERSION))
