@@ -1,7 +1,8 @@
 import json
 
 from indy.did import create_and_store_my_did
-from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
+from indy.ledger import build_node_request, build_nym_request, \
+    build_get_txn_request
 from indy.pool import refresh_pool_ledger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
@@ -16,7 +17,8 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings
+    sdk_get_and_check_replies, sdk_sign_request_strings \
+
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \

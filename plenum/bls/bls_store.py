@@ -11,10 +11,12 @@ class BlsStore:
                  key_value_type,
                  data_location,
                  key_value_storage_name,
-                 serializer=None):
+                 serializer=None,
+                 db_config=None):
         self._kvs = initKeyValueStorage(key_value_type,
                                         data_location,
-                                        key_value_storage_name)
+                                        key_value_storage_name,
+                                        db_config=db_config)
         self._serializer = serializer or multi_sig_store_serializer
 
     def put(self, multi_sig: MultiSignature):

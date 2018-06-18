@@ -2,6 +2,7 @@ from typing import Iterable
 
 import pytest
 
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Status
@@ -24,18 +25,6 @@ minimumNodesToBeUp = nodeCount - f
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
     return 200
-
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
-    old_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
-    tconf.RETRY_TIMEOUT_RESTRICTED = 2
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 2
-    yield tconf
-
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout_restricted
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
-
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
@@ -96,11 +85,15 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     logger.debug("Remove all the nodes")
     for n in nodeNames:
         node_n = get_node_by_name(current_node_set, n)
+        disconnect_node_and_ensure_disconnected(looper,
+                                                current_node_set,
+                                                node_n,
+                                                timeout=nodeCount,
+                                                stopNode=True)
         looper.removeProdable(node_n)
-        node_n.stop()
         current_node_set.remove(node_n)
 
-    looper.runFor(10)
+    # looper.runFor(10)
 
     logger.debug("Add nodes back one at a time")
     for i in range(nodeCount):
