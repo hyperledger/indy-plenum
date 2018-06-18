@@ -30,9 +30,11 @@ def setup(request, txnPoolNodeSet):
 def tconf(tconf):
     old_max3PC = tconf.Max3PCBatchSize
     old_wait = tconf.Max3PCBatchWait
-    yield tconf
     tconf.Max3PCBatchSize = 1
     tconf.Max3PCBatchWait = 100
+    yield tconf
+    tconf.Max3PCBatchSize = old_max3PC
+    tconf.Max3PCBatchWait = old_wait
 
 
 
