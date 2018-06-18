@@ -2,6 +2,8 @@ import json
 import os
 
 import pytest
+
+from common.exceptions import PlenumTypeError
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 from stp_zmq.test.helper import get_file_permission_mask
 
@@ -32,7 +34,7 @@ def test_save_keys(bls_key_manager_file):
 def test_save_keys_not_str(bls_key_manager_file):
     sk = {'aaa': 'bbb', 'ccc': 'ddd'}
     pk = {'333': '222', '111': '000'}
-    with pytest.raises(AssertionError):
+    with pytest.raises(PlenumTypeError):
         bls_key_manager_file.save_keys(sk, pk)
 
 

@@ -38,13 +38,15 @@ outputs:
 
   timelogs:                                       # List of timelog
     general:                                      # General timelog
+      filename: general.csv                       # CSV filename
       interval: 10                                # Sampling interval in seconds
       graphs:                                     # Graph list
-      - total: blue                               # Graph for total events, in blue color
-      - ping_pong: green                          # Graph for ping pongs, in green color
-      - disconnect: red                           # Graph for disconnect events, in red color
+      - total                                     # Graph for total events, in blue color
+      - ping_pong                                 # Graph for ping pongs, in green color
+      - disconnect                                # Graph for disconnect events, in red color
 
     alarms:                                       # Dedicated alarms timelog
+      filename: alarms.csv                        # CSV filename
       interval: 10                                # Sampling interval in seconds
-      graphs:                                     # Graph list with colors
-      - disconnect: red                           # Graph for disconnect events, in red color
+      graphs:                                     # Graph list
+      - disconnect                                # Graph for disconnect events, in red color

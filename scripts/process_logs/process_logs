@@ -8,8 +8,6 @@ from string import Formatter
 from ast import literal_eval
 from multiprocessing import Pool
 
-import matplotlib.pyplot as plt
-
 ###########################################################################################
 # Configuration
 ###########################################################################################
@@ -563,106 +561,70 @@ class OutputLog:
 # Timelog
 ###########################################################################################
 
-class TimeLogGraph:
-    def __init__(self, color):
-        self.color = color
-        self.events = {}
-
-    def add_event(self, timestamp, increment=1):
-        try:
-            self.events[timestamp] += increment
-        except KeyError:
-            self.events[timestamp] = increment
-
-    def merge(self, other):
-        for timestamp, counter in other.events.items():
-            self.add_event(timestamp, counter)
-
-    def fill_gaps(self, interval):
-        if not self.events:
-            return
-        timestamp = min(self.events.keys())
-        max_timestamp = max(self.events.keys())
-        delta = timedelta(seconds=interval)
-        while timestamp < max_timestamp:
-            self.events.setdefault(timestamp, 0)
-            timestamp += delta
-
-
-class NodeTimeLog:
+class TimeLogEvent:
     def __init__(self, config):
-        self.graphs = {}
-        for graph in config:
-            name, color = kv_from_item(graph)
-            self.graphs[name] = TimeLogGraph(color)
+        self.graphs = {graph: {} for graph in config}
 
-    def add_event(self, timestamp, graph):
-        self.graphs[graph].add_event(timestamp)
+    def increment(self, graph, node, value=1):
+        try:
+            self.graphs[graph][node] += value
+        except KeyError:
+            self.graphs[graph][node] = value
+
+    def value(self, graph, node):
+        return self.graphs[graph].get(node, 0)
 
     def merge(self, other):
-        for name in set(self.graphs) & set(other.graphs):
-            self.graphs[name].merge(other.graphs[name])
-
-    def fill_gaps(self, interval):
-        for graph in self.graphs.values():
-            graph.fill_gaps(interval)
+        for graph_name, graph in other.graphs.items():
+            for node_name, value in graph.items():
+                self.increment(graph_name, node_name, value)
 
 
 class TimeLog:
     def __init__(self, config):
         self.interval = config.get("interval", 10)
+        self.filename = config.get("filename", "output.csv")
         self.graphs = config["graphs"]
-        self.nodes = {}
+        self.events = {}
+        self.nodes = set()
 
     def add_event(self, message, graph):
         timestamp = self._round_timestamp(message.timestamp)
-        self._node(message.node).add_event(timestamp, graph)
+        self._event(timestamp).increment(graph, message.node)
+        self.nodes.add(message.node)
 
     def merge(self, other):
-        for name, node in other.nodes.items():
-            self._node(name).merge(node)
+        self.nodes.update(other.nodes)
+        for timestamp, event in other.events.items():
+            self._event(timestamp).merge(event)
 
-    def dump(self, title):
+    def dump(self):
         if not self.nodes:
             return
 
-        for node in self.nodes.values():
-            node.fill_gaps(self.interval)
+        with open(self.filename, "wt") as f:
+            columns = ",".join(
+                "{}_{}".format(node, graph) for node in sorted(self.nodes) for graph in sorted(self.graphs))
+            columns = "timestamp,{}\n".format(columns)
+            f.write(columns)
 
-        fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
-        if len(self.nodes) == 1:
-            axs = [axs]
-        fig.suptitle(title)
-        fig.subplots_adjust(hspace=0)
-        names, nodes = zip(*sorted(self.nodes.items()))
-
-        for name, node, ax in zip(names, nodes, axs):
-            ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
-            ax.tick_params(axis='y', which='both', labelleft='off')
-
-            for graph in node.graphs.values():
-                if len(graph.events) == 0:
-                    continue
-
-                dates, values = zip(*sorted(graph.events.items()))
-                ax.plot_date(dates, values,
-                             marker=None,
-                             linestyle='solid',
-                             c=graph.color)
-
-        fig.autofmt_xdate()
+            for timestamp, event in sorted(self.events.items()):
+                data = [event.value(graph, node) for node in sorted(self.nodes) for graph in sorted(self.graphs)]
+                data.insert(0, timestamp)
+                f.write(",".join(str(item) for item in data))
+                f.write("\n")
 
     def _round_timestamp(self, timestamp):
         return datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day,
                         hour=timestamp.hour, minute=timestamp.minute,
                         second=timestamp.second // self.interval * self.interval)
 
-    def _node(self, node):
+    def _event(self, timestamp):
         try:
-            return self.nodes[node]
+            return self.events[timestamp]
         except KeyError:
-            result = NodeTimeLog(self.graphs)
-            self.nodes[node] = result
+            result = TimeLogEvent(self.graphs)
+            self.events[timestamp] = result
             return result
 
 
@@ -749,6 +711,10 @@ class RequestData:
 
     @property
     def time_to_order(self):
+        if not self.is_received:
+            return None
+        if not self.is_ordered:
+            return None
         return self.ordered - self.received
 
     def merge(self, other):
@@ -919,7 +885,7 @@ class AllRequestData:
     def __init__(self, config):
         self.report_stats = config.get("report_stats", 0)
         self.report_lags = config.get("report_lags", 0)
-        self.plot_graphs = config.get("plot_graphs", 0)
+        self.filename = config.get("filename", None)
         self.nodes = {}
 
     def process_message(self, message):
@@ -940,28 +906,22 @@ class AllRequestData:
         for name, node in sorted(self.nodes.items()):
             node.dump(name, self.report_lags)
 
-        if not self.plot_graphs:
+        if self.filename is None:
             return
 
-        fig, axs = plt.subplots(len(self.nodes), 1, sharex=True, sharey=True)
-        if len(self.nodes) == 1:
-            axs = [axs]
-        fig.suptitle("Time to order")
-        fig.subplots_adjust(hspace=0)
-        names, nodes = zip(*sorted(self.nodes.items()))
+        with open(self.filename, 'wt') as f:
+            f.write(",".join(
+                "{}_{}".format(node, value) for node in sorted(self.nodes.keys()) for value in ["recv", "tto"]))
+            f.write("\n")
 
-        for name, node, ax in zip(names, nodes, axs):
-            ax.set_ylabel(name, rotation=0, verticalalignment='center', horizontalalignment='right')
-            ax.tick_params(axis='y', which='both', labelleft='off')
+            requests = set()
+            for node in self.nodes.values():
+                requests.update(set(id for id, req in node.requests.items() if req.is_ordered))
 
-            events = [(req.received, req.time_to_order.total_seconds())
-                      for req in node.requests.values() if req.is_received and req.is_ordered]
-            if not events:
-                continue
-
-            dates, values = zip(*sorted(events))
-            ax.plot_date(dates, values, marker='.')
-            fig.autofmt_xdate()
+            for id in requests:
+                reqs = [node.requests.get(id, RequestData(id)) for _, node in sorted(self.nodes.items())]
+                f.write(",".join("{},{}".format(req.received, req.time_to_order) for req in reqs))
+                f.write("\n")
 
     def _node(self, node):
         try:
@@ -997,11 +957,10 @@ class OutputData:
         self.requests.dump()
         for log in self.logs.values():
             log.dump()
-        for name, timelog in self.timelogs.items():
-            timelog.dump(name)
+        for timelog in self.timelogs.values():
+            timelog.dump()
         for name, counter in self.counters.items():
             counter.dump(name)
-        plt.show()
 
 
 ###########################################################################################

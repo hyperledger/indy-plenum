@@ -33,11 +33,12 @@ outputs:
 
   timelogs:
     stats:
+      filename: stats.csv
       graphs:
-        received: blue
-        ordered: green
+      - received
+      - ordered
 
   requests:
     report_stats: yes
     report_lags: yes
-    plot_graphs: yes
+    filename: requests.csv

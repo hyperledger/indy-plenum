@@ -2,6 +2,10 @@ import os
 from collections import namedtuple
 from typing import Any, List, Dict
 
+from common.exceptions import ValueUndefinedError
+
+from storage.directory_store import DirectoryStore
+
 from plenum.common.constants import REQACK, REQNACK, REPLY, REJECT
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.request import Request
@@ -9,7 +13,6 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
 from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
-from storage.directory_store import DirectoryStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
@@ -17,7 +20,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         'LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
     def __init__(self, dataLocation):
-        assert dataLocation is not None
+        if dataLocation is None:
+            raise ValueUndefinedError('dataLocation')
         HasFileStorage.__init__(self, dataLocation)
         if not os.path.exists(self.dataLocation):
             os.makedirs(self.dataLocation)

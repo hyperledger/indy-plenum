@@ -6,6 +6,7 @@ from typing import Callable, TypeVar, Optional, Iterable
 
 import psutil
 
+from common.exceptions import PlenumValueError
 from stp_core.common.log import getlogger
 from stp_core.common.util import get_func_name, get_func_args
 from stp_core.loop.exceptions import EventuallyTimeoutException
@@ -128,11 +129,14 @@ async def eventually(coroFunc: FlexFunc,
                      acceptableExceptions=None,
                      verbose=True,
                      override_timeout_limit=False) -> T:
-    assert timeout > 0, 'Need a timeout value of greater than 0 but got {} instead'.format(
-        timeout)
+    if not timeout > 0:
+        raise PlenumValueError('timeout', timeout, '> 0')
     if not override_timeout_limit:
-        assert timeout < 240, '`eventually` timeout ({:.2f} sec) is huge. ' \
-            'Is it expected?'.format(timeout)
+        if timeout > 240:
+            raise PlenumValueError(
+                'timeout', timeout,
+                "< 240 or override_timeout_limit=True"
+            )
     else:
         logger.debug('Overriding timeout limit to {} for evaluating {}'
                      .format(timeout, coroFunc))

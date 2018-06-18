@@ -69,6 +69,8 @@ logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
 
+DEV_NULL_PATH = '/dev/null'
+ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
 
 def get_data_for_role(pool_txn_data, role):
     name_and_seeds = []
@@ -382,6 +384,23 @@ def _tconf(general_config):
     config = getConfig(general_config)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
+
+    # Reduce memory amplification during running tests in case of RocksDB used
+    config.rocksdb_default_config['write_buffer_size'] = ROCKSDB_WRITE_BUFFER_SIZE
+    config.rocksdb_default_config['db_log_dir'] = DEV_NULL_PATH
+
+    # FIXME: much more clear solution is to check which key-value storage type is
+    # used for each storage and set corresponding config, but for now only RocksDB
+    # tuning is supported (now other storage implementations ignore this parameter)
+    # so here we set RocksDB configs unconditionally for simplicity.
+    config.db_merkle_leaves_config = config.rocksdb_default_config.copy()
+    config.db_merkle_nodes_config = config.rocksdb_default_config.copy()
+    config.db_state_config = config.rocksdb_default_config.copy()
+    config.db_transactions_config = config.rocksdb_default_config.copy()
+    config.db_seq_no_db_config = config.rocksdb_default_config.copy()
+    config.db_state_signature_config = config.rocksdb_default_config.copy()
+    config.db_state_ts_db_config = config.rocksdb_default_config.copy()
+
     return config
 
 
@@ -990,9 +1009,10 @@ def sdk_pool_name():
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_name():
+def sdk_wallet_data():
     w_name = "wallet_name_" + randomText(13)
-    yield w_name
+    sdk_wallet_credentials = '{"key": "key"}'
+    yield w_name, sdk_wallet_credentials
     w_dir = os.path.join(os.path.expanduser("~/.indy_client/wallet"), w_name)
     if os.path.isdir(w_dir):
         shutil.rmtree(w_dir, ignore_errors=True)
@@ -1017,16 +1037,17 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
         logger.debug("Unhandled exception: {}".format(e))
 
 
-async def _gen_wallet_handler(pool_name, wallet_name):
-    await create_wallet(pool_name, wallet_name, None, None, None)
-    wallet_handle = await open_wallet(wallet_name, None, None)
+async def _gen_wallet_handler(pool_name, wallet_data):
+    wallet_name, wallet_credentials = wallet_data
+    await create_wallet(pool_name, wallet_name, None, None, wallet_credentials)
+    wallet_handle = await open_wallet(wallet_name, None, wallet_credentials)
     return wallet_handle
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
+def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_data):
     wallet_handle = looper.loop.run_until_complete(
-        _gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+        _gen_wallet_handler(sdk_pool_name, sdk_wallet_data))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 

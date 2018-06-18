@@ -35,9 +35,10 @@ outputs:
 
   timelogs:
     monitoring:
-      interval: 5           # Interval in seconds
-      graphs:               # Graph list with colors
-      - total: blue
+      filename: monitoring.csv # CSV filename
+      interval: 5              # Interval in seconds
+      graphs:                  # Graph list
+      - total
 
   counters:
     monitoring:

@@ -17,6 +17,14 @@ def test_message_factory_module_is_not_found_fails():
         MessageFactory('foo.bar')
 
 
+def test_message_factory_classes_not_found_fails():
+    with pytest.raises(ValueError) as excinfo:
+        # TODO assumes that __init__ won't import any
+        # MessageBase child classes
+        MessageFactory('plenum.test.input_validation.__init__')
+    assert "no messages classes found" in str(excinfo.value)
+
+
 def test_message_factory_missed_op_fails(factory):
     msg = {'a': 0, 'b': 'bar'}
     with pytest.raises(MissingNodeOp):
@@ -38,7 +46,7 @@ def test_message_factory_set_non_message_class_fails(factory):
     class NonMessageClass:
         pass
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         factory.set_message_class(NonMessageClass)
 
 

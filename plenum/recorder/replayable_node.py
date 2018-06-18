@@ -51,7 +51,7 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
             # operation, it is functionally correct.
             # Can be fixed by capturing the exact order
             for req_id in req_ids:
-                key = tuple(req_id)
+                key = req_id
                 fin_req = fin_reqs[key]
                 self.processReqDuringBatch(
                     fin_req, tm, valid_reqs, invalid_reqs, rejects)

@@ -30,7 +30,7 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-tests_require = ['pytest==3.4.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-511']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-560']
 
 setup(
     name='indy-plenum-dev',
@@ -73,5 +73,7 @@ setup(
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
-             'scripts/init_bls_keys']
+             'scripts/init_bls_keys',
+             'scripts/process_logs/process_logs',
+             'scripts/process_logs/process_logs.yml']
 )

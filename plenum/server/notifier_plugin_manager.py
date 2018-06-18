@@ -59,14 +59,19 @@ class PluginManager:
             config: Dict,
             nodeName: str,
             enabled: bool):
-        assert 'value' in historicalData
-        assert 'cnt' in historicalData
 
-        assert 'min_cnt' in config
-        assert 'bounds_coeff' in config
-        assert 'min_activity_threshold' in config
-        assert 'use_weighted_bounds_coeff' in config
-        assert 'enabled' in config
+        _d = set(('value', 'cnt')) - set(historicalData.keys())
+        if _d:
+            raise KeyError(
+                "{} keys are not found in 'historicalData'".format(_d)
+            )
+
+        _d = set(('min_cnt', 'bounds_coeff', 'min_activity_threshold',
+                  'use_weighted_bounds_coeff', 'enabled')) - set(config.keys())
+        if _d:
+            raise KeyError(
+                "{} keys are not found in 'config'".format(_d)
+            )
 
         if not (enabled and config['enabled']):
             logger.trace('Suspicious Spike check is disabled')
