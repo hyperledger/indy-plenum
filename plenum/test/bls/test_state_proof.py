@@ -93,32 +93,33 @@ def test_make_result_bls_enabled(looper, txnPoolNodeSet,
     check_result(txnPoolNodeSet, req, True)
 
 
-def test_make_result_no_protocol_version(looper, txnPoolNodeSet):
-    request = SafeRequest(identifier="1" * 16,
-                          reqId=1,
-                          operation=randomOperation(),
-                          signature="signature")
-    request.protocolVersion = False
-    check_result(txnPoolNodeSet, request, False)
-
-
-def test_make_result_protocol_version_less_than_state_proof(looper,
-                                                            txnPoolNodeSet):
-    request = SafeRequest(identifier="1" * 16,
-                          reqId=1,
-                          operation=randomOperation(),
-                          signature="signature")
-    request.protocolVersion = 0
-    check_result(txnPoolNodeSet, request, False)
-
-
-def test_make_result_no_protocol_version_in_request_by_default(looper,
-                                                               txnPoolNodeSet):
-    request = SafeRequest(identifier="1" * 16,
-                          reqId=1,
-                          operation=randomOperation(),
-                          signature="signature")
-    check_result(txnPoolNodeSet, request, False)
+# TODO: delete?
+# def test_make_result_no_protocol_version(looper, txnPoolNodeSet):
+#     request = SafeRequest(identifier="1" * 16,
+#                           reqId=1,
+#                           operation=randomOperation(),
+#                           signature="signature")
+#     request.protocolVersion = False
+#     check_result(txnPoolNodeSet, request, False)
+#
+#
+# def test_make_result_protocol_version_less_than_state_proof(looper,
+#                                                             txnPoolNodeSet):
+#     request = SafeRequest(identifier="1" * 16,
+#                           reqId=1,
+#                           operation=randomOperation(),
+#                           signature="signature")
+#     request.protocolVersion = 0
+#     check_result(txnPoolNodeSet, request, False)
+#
+#
+# def test_make_result_no_protocol_version_in_request_by_default(looper,
+#                                                                txnPoolNodeSet):
+#     request = SafeRequest(identifier="1" * 16,
+#                           reqId=1,
+#                           operation=randomOperation(),
+#                           signature="signature")
+#     check_result(txnPoolNodeSet, request, False)
 
 
 def test_proof_in_write_reply(looper, txnPoolNodeSet,

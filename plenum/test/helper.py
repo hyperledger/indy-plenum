@@ -11,6 +11,7 @@ from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
+from indy.pool import set_protocol_version
 from psutil import Popen
 import json
 import asyncio
@@ -994,3 +995,7 @@ def sdk_get_bad_response(looper, reqs, exception, message):
     with pytest.raises(exception) as e:
         sdk_get_and_check_replies(looper, reqs)
     assert message in e._excinfo[1].args[0]
+
+
+def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
+    looper.loop.run_until_complete(set_protocol_version(version))
