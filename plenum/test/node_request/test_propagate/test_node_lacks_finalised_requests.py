@@ -26,6 +26,16 @@ def setup(request, txnPoolNodeSet):
         return faulty_node, False
 
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_max3PC = tconf.Max3PCBatchSize
+    old_wait = tconf.Max3PCBatchWait
+    yield tconf
+    tconf.Max3PCBatchSize = 1
+    tconf.Max3PCBatchWait = 100
+
+
+
 def test_node_request_propagates(looper, setup, txnPoolNodeSet,
                                  sdk_wallet_client, sdk_pool_handle):
     """
