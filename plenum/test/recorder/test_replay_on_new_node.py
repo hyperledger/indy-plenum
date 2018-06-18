@@ -1,3 +1,4 @@
+import pytest
 from plenum.common.config_util import getConfigOnce
 
 from plenum.test.recorder.helper import create_replayable_node_and_check, \
@@ -8,6 +9,7 @@ from plenum.test.node_catchup.conftest import sdk_node_created_after_some_txns, 
 TestRunningTimeLimitSec = 200
 
 
+@pytest.mark.skip("Temporary")
 def test_replay_on_new_node(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
                             testNodeClass, tmpdir_factory,
                             node_config_helper_class, allPluginsPath,
