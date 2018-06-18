@@ -24,10 +24,11 @@ def demote_primary_node(looper,
 def test_restart_primaries_then_demote(
         looper, txnPoolNodeSet,
         tconf, tdir, allPluginsPath,
-        sdk_pool_handle, sdk_wallet_steward,
+        sdk_pool_handle,
         sdk_wallet_stewards):
     """
     """
+    sdk_wallet_steward = sdk_wallet_stewards[0]
     logger.info("1. Restart Node1")
     pool_of_nodes = ensure_view_change_by_primary_restart(looper,
                                                           txnPoolNodeSet,
