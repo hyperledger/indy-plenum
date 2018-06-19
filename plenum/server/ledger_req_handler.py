@@ -37,11 +37,17 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         Updates current state with a number of committed or
         not committed transactions
         """
+
+    def gen_txn_path(self, txn):
+        return None
+
     def _reqToTxn(self, req: Request):
         return reqToTxn(req)
 
     def apply(self, req: Request, cons_time: int):
         txn = self._reqToTxn(req)
+
+        txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
 
         self.ledger.append_txns_metadata([txn], cons_time)
         (start, end), _ = self.ledger.appendTxns(
