@@ -1,5 +1,7 @@
 from itertools import combinations
 
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID, COMMIT
 from plenum.test import waits
 from plenum.test.delayers import cDelay, cr_delay
@@ -13,11 +15,21 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-Max3PCBatchSize = 1
+Max3PCBatchSize = 3
+
 TestRunningTimeLimitSec = 125
 
-# Do not remove the next imports
-from plenum.test.batching_3pc.conftest import tconf  # noqa
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = Max3PCBatchSize
+    tconf.Max3PCBatchWait = 1000
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
