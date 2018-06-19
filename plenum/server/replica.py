@@ -756,7 +756,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         ]
 
         # BLS multi-sig:
-        params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
+        if self.isMaster:
+            params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
         if self.isMaster:
@@ -1096,8 +1097,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.stateRootHash,
                   pp.txnRootHash]
 
-        # BLS multi-sig:
-        params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
+        if self.isMaster:
+            # BLS multi-sig:
+            params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
         if self.isMaster:
