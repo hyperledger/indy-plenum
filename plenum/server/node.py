@@ -105,7 +105,7 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.server.view_change.view_changer import ViewChanger
+from plenum.server.view_change.view_changer import ViewChanger, FutureViewChangeDone
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -404,6 +404,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
+
+        self._first_catchup = True
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
@@ -1503,8 +1505,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                # TODO this is put of the msgs queue scope
-                self.view_changer.on_future_view_vchd_msg(view_no, frm, from_current_state=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
+                self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
@@ -1873,8 +1875,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
             self.no_more_catchups_needed()
             # select primaries after pool ledger caughtup
-            if not self.view_change_in_progress:
-                self.select_primaries()
+            # do not do it for the first catch-up (when node joins the pool)
+            # since primary selection will be done later during processing of CURRENT_STATE
+            # and primary propagation
+            if not self.view_change_in_progress and not self._first_catchup:
+               self.select_primaries()
+        self._first_catchup = False
 
     def is_catchup_needed(self) -> bool:
         """
@@ -2413,12 +2419,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # disconnected for long enough
         self._cancel(self.propose_view_change)
         if not self.lost_primary_at:
-            logger.trace('{} The primary is already connected '
-                         'so view change will not be proposed'.format(self))
-            return
-
-        if not self.isReady():
-            logger.trace('{} The node is not ready yet '
+            logger.info('{} The primary is already connected '
                          'so view change will not be proposed'.format(self))
             return
 
@@ -2426,6 +2427,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if disconnected_time >= self.config.ToleratePrimaryDisconnection:
             logger.info("{} primary has been disconnected for too long"
                         "".format(self))
+
+            if not self.isReady():
+                logger.info('{} The node is not ready yet '
+                            'so view change will not be proposed now, but re-scheduled.'.format(self))
+                self._schedule_view_change()
+                return
+
             self.view_changer.on_primary_loss()
 
     def _schedule_view_change(self):
