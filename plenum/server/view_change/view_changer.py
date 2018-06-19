@@ -24,8 +24,8 @@ logger = getlogger()
 # TODO docs and types
 # TODO logging
 
-class FutureViewChangeDone:
 
+class FutureViewChangeDone:
     def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
         self.vcd_msg = vcd_msg
         self.from_current_state = from_current_state

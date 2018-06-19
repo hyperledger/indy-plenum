@@ -1879,7 +1879,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # since primary selection will be done later during processing of CURRENT_STATE
             # and primary propagation
             if not self.view_change_in_progress and not self._first_catchup:
-               self.select_primaries()
+                self.select_primaries()
         self._first_catchup = False
 
     def is_catchup_needed(self) -> bool:
@@ -2420,7 +2420,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self.propose_view_change)
         if not self.lost_primary_at:
             logger.info('{} The primary is already connected '
-                         'so view change will not be proposed'.format(self))
+                        'so view change will not be proposed'.format(self))
             return
 
         disconnected_time = time.perf_counter() - self.lost_primary_at
