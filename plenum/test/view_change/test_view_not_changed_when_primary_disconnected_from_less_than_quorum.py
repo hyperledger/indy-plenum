@@ -34,7 +34,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         pass
 
     # simulating a partition here
-    # Disconnect a node from only the primary of the master and dont retry to
+    # Disconnect a node from only the primary of the master and don't retry to
     # connect to it
     partitioned_node.nodestack.retryDisconnected = types.MethodType(
         wont_retry, partitioned_node.nodestack)

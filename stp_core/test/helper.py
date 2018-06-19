@@ -106,7 +106,7 @@ def checkStackConnected(stack, stacks):
         assert stack.isConnectedTo(other.name)
 
 
-def checkStackDisonnected(stack, stacks):
+def checkStackDisconnected(stack, stacks):
     for other in stacks:
         assert not stack.isConnectedTo(other.name)
 

@@ -906,7 +906,7 @@ class LedgerManager(HasActionQueue):
         # so many consistency proofs and for the node serving catchup reqs. But
         # if the node sent only 2 catchup requests the network traffic greatly
         # reduces and 25 txns can be read of a single chunk probably
-        # (if txns dont span across multiple chunks). A practical value of this
+        # (if txns don't span across multiple chunks). A practical value of this
         # "minimum size" is some multiple of chunk size of the ledger
         node_count = len(self.nodes_to_request_txns_from)
         if node_count == 0:

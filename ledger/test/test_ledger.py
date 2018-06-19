@@ -264,7 +264,7 @@ def test_recover_merkle_tree_from_txn_log_if_hash_store_lags_behind(create_ledge
     restartedLedger = create_ledger_callable(txn_serializer,
                                              hash_serializer, tempdir, genesis_txn_file)
 
-    # root hashes will be not the same as before (since we recoverd based on txn log)
+    # root hashes will be not the same as before (since we recovered based on txn log)
     # the new size is 1 greater than before since we recovered from txn log which contained one more txn
     assert size_before + 1 == restartedLedger.size
     assert tree_size_before + 1 == restartedLedger.tree.tree_size

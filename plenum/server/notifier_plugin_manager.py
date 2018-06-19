@@ -36,7 +36,7 @@ class PluginManager:
         self.importPlugins()
 
     def sendMessageUponNodeUpgradeScheduled(
-            self, message='Node uprgade has been scheduled'):
+            self, message='Node upgrade has been scheduled'):
         return self._sendMessage(self.topics['nodeUpgradeScheduled'], message)
 
     def sendMessageUponNodeUpgradeComplete(

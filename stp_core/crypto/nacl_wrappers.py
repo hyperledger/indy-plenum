@@ -90,9 +90,9 @@ class VerifyKey(encoding.Encodable):
         :class:`~ValueError`.
 
         :param smessage: [:class:`bytes`] Either the original messaged or a
-            signature and message concated together.
+            signature and message concatenated together.
         :param signature: [:class:`bytes`] If an unsigned message is given for
-            smessage then the detached signature must be provded.
+            smessage then the detached signature must be provided.
         :param encoder: A class that is able to decode the secret message and
             signature.
         :rtype: :class:`bytes`

@@ -950,7 +950,7 @@ class DummyKeep:
     def auto(self, mode):
         logger.debug('{} proxy method used on {}'.
                      format(inspect.stack()[0][3], self))
-        # AutoMode.once whose value is 1 is not used os dont care
+        # AutoMode.once whose value is 1 is not used os don't care
         if mode != self._auto:
             if mode == 2:
                 self.stack.setRestricted(False)

@@ -96,7 +96,7 @@ class Client(Motor,
 
         self.stackName = verkey
         # TODO: Have a way for a client to have a user friendly name. Does it
-        # matter now, it used to matter in some CLI exampples in the past.
+        # matter now, it used to matter in some CLI examples in the past.
         # self.name = name
         self.name = self.stackName or 'Client~' + str(id(self))
 
@@ -481,7 +481,7 @@ class Client(Motor,
 
     def take_one_quorumed(self, replies, full_req_id):
         """
-        Checks whether there is sufficint number of equal replies from
+        Checks whether there is sufficient number of equal replies from
         different nodes. It uses following logic:
 
         1. Check that there are sufficient replies received at all.

@@ -10,7 +10,7 @@ nodeCount = 7
 # noinspection PyIncorrectDocstring
 def test_view_change_on_empty_ledger(txnPoolNodeSet, looper):
     """
-    Check that view change is done when no txns in the ldegr
+    Check that view change is done when no txns in the ledger
     """
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)

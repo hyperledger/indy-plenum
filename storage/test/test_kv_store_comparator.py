@@ -80,7 +80,7 @@ def test_get_keys_from_a_given_key(db_with_int_comparator):
     # Needed for test below
     all_keys = sorted(all_keys)
     for _ in range(100):
-        # For a random key, check that keys retrived from db are in sorted order
+        # For a random key, check that keys retrieved from db are in sorted order
         random_key = random.choice(all_keys)
         random_key_index = all_keys.index(random_key)
         i = 0

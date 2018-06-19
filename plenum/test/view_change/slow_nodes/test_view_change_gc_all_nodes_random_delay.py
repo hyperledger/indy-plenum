@@ -37,7 +37,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     # 1 send two messages one by one separately to make
     #  node pool working with two batches
     #    -> last_ordered_3pc = (+0, 2) [+0 means from the initial state]
-    #       (last_ordered_3pc here and futher is tracked
+    #       (last_ordered_3pc here and further is tracked
     #       for master instances only cause non-master ones have
     #       specific logic of its management which we don't care in
     #       the test, see Replica::_setup_for_non_master)
@@ -63,7 +63,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #   randomly and send one more message
     #    -> not ordered (last_ordered_3pc still equal (+0, 2)) but primaries
     #       should at least send PRE-PREPAREs
-    # TODO could it be not enough for wainting that at least primary
+    # TODO could it be not enough for waiting that at least primary
     # has sent PRE-PREPARE
     propagationTimeout = waits.expectedClientRequestPropagationTime(numNodes)
     delay_3pc_messages(txnPoolNodeSet,

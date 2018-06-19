@@ -450,7 +450,7 @@ class PrimaryElector(PrimaryDecider):
                     # There was a tie among this and some other node(s), so do a
                     # random wait
                     if replica.name in [_[0] for _ in tieAmong]:
-                        # Try to nominate self after a random delay but dont block
+                        # Try to nominate self after a random delay but don't block
                         # until that delay and because a nominate from another
                         # node might be sent
                         self._schedule(partial(self.nominateReplica, instId),

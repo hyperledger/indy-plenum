@@ -20,7 +20,7 @@ def testBoxing():
     alice = SecretKey()
 
     """
-    Alice: aA (a is alices private key, A is Alice's public key)
+    Alice: aA (a is Alice's private key, A is Alice's public key)
     A = G*a
     Bob: bB
     B = G*b

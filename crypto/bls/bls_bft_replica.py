@@ -84,7 +84,7 @@ class BlsBftReplica(metaclass=ABCMeta):
         '''
         Performs BLS-related logic when Ordering (for example, calculate a temporarily multi-sig by a current Node
           which will be replaced by Primary's multi-sig in  process_prepare).
-        :param key: 3PC-key re;ated to the Ordered message
+        :param key: 3PC-key related to the Ordered message
         :param quorums: quorums
         :param pre_prepare: PrePrepare associated with the ordered messages
         :return:

@@ -7,7 +7,7 @@ from plenum.test.helper import sdk_send_random_requests
 def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 
-    # Put non-primary Node to syncing state once first Prepare is recieved
+    # Put non-primary Node to syncing state once first Prepare is received
     make_node_syncing(non_primary_replica, Prepare)
 
     # Patch non-primary Node to fail if Order is executed

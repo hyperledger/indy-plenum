@@ -29,7 +29,7 @@ def get_recorders_from_node_data_dir(node_data_dir, node_name) -> Tuple[Recorder
         Recorder(client_rec_kv_store, skip_metadata_write=True)
 
 
-def patch_sent_prepreapres(replaying_node, node_recorder):
+def patch_sent_preprepares(replaying_node, node_recorder):
     sent_pps = {}
 
     def add_preprepare(msg):
@@ -95,7 +95,7 @@ def prepare_node_for_replay_and_replay(looper, replaying_node,
 
 
 def patch_replaying_node(replaying_node, node_recorder, start_times):
-    patch_sent_prepreapres(replaying_node, node_recorder)
+    patch_sent_preprepares(replaying_node, node_recorder)
     patch_replaying_node_for_time(replaying_node, start_times)
 
 

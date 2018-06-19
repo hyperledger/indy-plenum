@@ -14,18 +14,18 @@ state Active {
     LedgerStatusServantActive_LS --> LedgerStatusServantActive : [newer] / send CheckIfLedgerLagged(ledgerId)
     --
 
-    [*] --> ConsistenyProofServantActive
+    [*] --> ConsistencyProofServantActive
 
-    state ConsistenyProofServantActive_ReqForCP <<choice>>
-    ConsistenyProofServantActive --> ConsistenyProofServantActive_ReqForCP : Request for ConsistencyProof(..., end)
-    state ConsistenyProofServantActive_CP <<choice>>
-    ConsistenyProofServantActive --> ConsistenyProofServantActive_CP : ConsistencyProof
+    state ConsistencyProofServantActive_ReqForCP <<choice>>
+    ConsistencyProofServantActive --> ConsistencyProofServantActive_ReqForCP : Request for ConsistencyProof(..., end)
+    state ConsistencyProofServantActive_CP <<choice>>
+    ConsistencyProofServantActive --> ConsistencyProofServantActive_CP : ConsistencyProof
 
-    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end <= ledger.size] / send ConsistencyProof(..., end)
-    ConsistenyProofServantActive_ReqForCP --> ConsistenyProofServantActive : [end > ledger.size]
+    ConsistencyProofServantActive_ReqForCP --> ConsistencyProofServantActive : [end <= ledger.size] / send ConsistencyProof(..., end)
+    ConsistencyProofServantActive_ReqForCP --> ConsistencyProofServantActive : [end > ledger.size]
 
-    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end <= ledger.size]
-    ConsistenyProofServantActive_CP --> ConsistenyProofServantActive : [end > ledger.size] / send CheckIfLedgerLagged(ledgerId)
+    ConsistencyProofServantActive_CP --> ConsistencyProofServantActive : [end <= ledger.size]
+    ConsistencyProofServantActive_CP --> ConsistencyProofServantActive : [end > ledger.size] / send CheckIfLedgerLagged(ledgerId)
     --
 
     [*] --> CatchupReqServantActive

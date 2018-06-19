@@ -6,7 +6,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.network.auth_mode import AuthMode
 from stp_core.test.helper import Printer, prepStacks, \
-    checkStacksConnected, checkStackDisonnected
+    checkStacksConnected, checkStackDisconnected
 from stp_zmq.test.helper import genKeys, add_counters_to_ping_pong
 from stp_zmq.kit_zstack import KITZStack
 
@@ -55,7 +55,7 @@ def disconnect_first_stack(looper, connected_stacks, connection_timeout):
 def disconnect(looper, disconnected_stack, connection_timeout):
     disconnected_motor, other_stacks = disconnected_stack
     looper.run(eventually(
-        checkStackDisonnected, disconnected_motor.stack, other_stacks,
+        checkStackDisconnected, disconnected_motor.stack, other_stacks,
         retryWait=1, timeout=connection_timeout))
     looper.run(eventually(
         checkStacksConnected, other_stacks, retryWait=1, timeout=connection_timeout))

@@ -11,7 +11,7 @@ def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
     Scenario -> PRE-PREPARE not received by the replica, Request not received
     for ordering by the replica, but received enough commits to start ordering.
     It queues up the request so when a PRE-PREPARE is received or request is
-    receievd for ordering, an order can be triggered
+    received for ordering, an order can be triggered
     https://www.pivotaltracker.com/story/show/125239401
 
     Reproducing by - Pick a node with no primary replica, replica ignores

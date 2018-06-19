@@ -5,7 +5,7 @@ from plenum.test.view_change.helper import ensure_view_change
 
 def test_set_last_completed_view_no_after_vc_complete(txnPoolNodeSet, looper):
     """
-    Check that view change is done when no txns in the ldegr
+    Check that view change is done when no txns in the ledger
     """
     old_views = set(n.viewNo for n in txnPoolNodeSet)
     assert len(old_views) == 1

@@ -629,7 +629,7 @@ else:
 
             Unlike ``popitem``, the sorted dictionary is not modified. Index
             defaults to -1, the last/greatest key in the dictionary. Specify
-            ``index=0`` to lookup the first/least key in the dictiony.
+            ``index=0`` to lookup the first/least key in the dictionary.
 
             If index is out of range, raise IndexError.
 

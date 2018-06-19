@@ -14,7 +14,7 @@ CHK_FREQ = 5
                 params=['greater_than_checkpoint', 'lesser_than_checkpoint', 'equal_to_checkpoint'])
 def sent_batches(request, chkFreqPatched):
     # Test with number of sent batches greater than checkpoint,
-    # lesser than checkpoint and equal to checkpont.
+    # lesser than checkpoint and equal to checkpoint.
     if request.param == 'greater_than_checkpoint':
         return CHK_FREQ + 2
     if request.param == 'lesser_than_checkpoint':

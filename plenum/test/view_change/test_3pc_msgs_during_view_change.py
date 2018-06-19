@@ -53,7 +53,7 @@ def test_old_view_requests_processed_during_view_change(looper, txnPoolNodeSet,
                                                         sdk_wallet_client):
     """
     Make sure that requests sent before view change started are processed and replies are returned:
-     - delay Propogates (to make sure that requests are not ordered before view change is started)
+     - delay Propagates (to make sure that requests are not ordered before view change is started)
      - send requests
      - check that requests are ordered despite of view change being in progress
     """

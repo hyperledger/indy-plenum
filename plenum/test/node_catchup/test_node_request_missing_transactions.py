@@ -44,7 +44,7 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     old_size_others = txnPoolNodeSet[0].ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID].ledger.size
 
     # So nodes wont tell the clients about the newly joined node so they
-    # dont send any request to the newly joined node
+    # don't send any request to the newly joined node
     for node in txnPoolNodeSet:
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 

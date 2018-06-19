@@ -4,8 +4,8 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import sdk_send_random_and_check
 
 
-# make sure that we send each reqeust individually to count pp_seq_no
-# determenistically
+# make sure that we send each request individually to count pp_seq_no
+# deterministically
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
     oldSize = tconf.Max3PCBatchSize

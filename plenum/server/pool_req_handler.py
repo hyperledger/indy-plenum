@@ -174,7 +174,7 @@ class PoolRequestHandler(LedgerRequestHandler):
             otherNodeData.pop(f.IDENTIFIER.nm, None)
             otherNodeData.pop(SERVICES, None)
             if not updatingNym or otherNode != updatingNym:
-                # The node's ip, port and alias shuuld be unique
+                # The node's ip, port and alias should be unique
                 bag = set()
                 for d in (nodeData, otherNodeData):
                     bag.add(d.get(ALIAS))

@@ -540,7 +540,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendLatencies()
         self.sendKnownNodesInfo()
         self.sendNodeInfo()
-        self.sendSystemPerfomanceInfo()
+        self.sendSystemPerformanceInfo()
         self.sendTotalRequests()
 
     def checkPerformance(self):
@@ -641,7 +641,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             EVENT_PERIODIC_STATS_NODES, remotesInfo(
                 self.nodestack, self.blacklister))
 
-    def sendSystemPerfomanceInfo(self):
+    def sendSystemPerformanceInfo(self):
         logger.debug("{} sending system performance".format(self))
         self._sendStatsDataIfRequired(
             EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO,

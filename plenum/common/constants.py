@@ -128,7 +128,7 @@ GET_TXN = PlenumTransactions.GET_TXN.value
 POOL_TXN_TYPES = {NODE, }
 
 # TXN
-# TODO: manye of these constants will be replaced
+# TODO: many of these constants will be replaced
 # by constants from Request after Request refactoring
 TXN_PAYLOAD = "txn"
 TXN_PAYLOAD_TYPE = "type"

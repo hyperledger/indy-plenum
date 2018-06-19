@@ -585,7 +585,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.view_change_in_progress = False
             self.node.on_view_change_complete()
             # when we had INSTANCE_CHANGE message, they added into instanceChanges
-            # by msg.view_no. When view change was occured and view_no is changed,
+            # by msg.view_no. When view change was occurred and view_no is changed,
             # then we should delete all INSTANCE_CHANGE messages with current (already changed)
             # view_no (which used in corresponded INSTANCE_CHANGE messages)
             # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number

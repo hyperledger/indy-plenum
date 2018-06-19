@@ -22,7 +22,7 @@ these techniques.
 
 ## Basic principles
 
-Log processor consists of `process_log` command line utility and comon
+Log processor consists of `process_log` command line utility and common
 config file `process_log.yml` placed next to it. Basic workflow consists 
 of writing some custom config, calling `process_log custom_config.yml`,
 looking at output, adding more rules to custom config as needed and

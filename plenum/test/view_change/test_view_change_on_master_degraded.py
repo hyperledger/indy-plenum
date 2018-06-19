@@ -52,7 +52,7 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
     delayNonPrimaries(txnPoolNodeSet, 0, 10)
 
     pr = getPrimaryReplica(txnPoolNodeSet, 0)
-    relucatantNode = pr.node
+    reluctantNode = pr.node
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
@@ -61,8 +61,8 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
         sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
 
     # Node reluctant to change view, never says master is degraded
-    relucatantNode.monitor.isMasterDegraded = types.MethodType(
-        lambda x: False, relucatantNode.monitor)
+    reluctantNode.monitor.isMasterDegraded = types.MethodType(
+        lambda x: False, reluctantNode.monitor)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 4)
@@ -73,7 +73,7 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
     # All nodes except the reluctant node should have sent a view change and
     # thus must have called `sendInstanceChange`
     for n in txnPoolNodeSet:
-        if n.name != relucatantNode.name:
+        if n.name != reluctantNode.name:
             assert n.view_changer.spylog.count(instChngMethodName) > \
                    sentInstChanges.get(n.name, 0)
         else:

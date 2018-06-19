@@ -26,7 +26,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     Pool should select new primary and have viewNo=0 after restart.
     """
 
-    logger.info("1. turn off the node which has primary replica for master instanse")
+    logger.info("1. turn off the node which has primary replica for master instance")
     master_node = txnPoolMasterNodes[0]
     node_dest = hexToFriendly(master_node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,

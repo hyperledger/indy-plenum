@@ -81,7 +81,7 @@ class KITNetworkInterface:
         - Set f to max number of failures this system can handle.
         - Set status to one of started, started_hungry or starting depending on
             the number of protocol instances.
-        - Check protocol instances. See `checkProtocolInstaces()`
+        - Check protocol instances. See `checkProtocolInstances()`
 
         :param ins: new nodes connected
         :param outs: nodes no longer connected

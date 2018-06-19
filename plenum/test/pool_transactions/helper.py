@@ -80,7 +80,7 @@ def add_started_node(looper,
     '''
     Adds already created node to the pool,
     that is sends NODE txn.
-    Makes sure that node is actually added and connected to all otehr nodes.
+    Makes sure that node is actually added and connected to all other nodes.
     '''
     new_steward_wallet_handle = sdk_add_new_nym(looper, sdk_pool_handle,
                                                 sdk_wallet_steward,
@@ -201,7 +201,7 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
                                                         sdk_pool_handle, nym_request)
 
-    # waitng for replies
+    # waiting for replies
     sdk_get_and_check_replies(looper, [request_couple])
     return wh, new_did
 
@@ -326,7 +326,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
                                                         sdk_pool_handle, node_request)
 
-    # waitng for replies
+    # waiting for replies
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
     sdk_pool_refresh(looper, sdk_pool_handle)
     return reply

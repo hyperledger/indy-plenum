@@ -218,26 +218,26 @@ async def msgAll(nodes):
 
 
 def sendMessage(sender: Node,
-                reciever: Node,
+                receiver: Node,
                 msg: Optional[Tuple] = None):
     """
     Sends message from one node to another
 
     :param nodes:
     :param sender: sender
-    :param reciever: recepient
+    :param receiver: recipient
     :param msg: optional message - by default random one generated
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
+    logger.debug("Sending msg from {} to {}".format(sender.name, receiver.name))
     msg = msg if msg else randomMsg()
-    rid = sender.nodestack.getRemote(reciever.name).uid
+    rid = sender.nodestack.getRemote(receiver.name).uid
     sender.nodestack.send(msg, rid)
 
 
 async def sendMessageAndCheckDelivery(sender: Node,
-                                      reciever: Node,
+                                      receiver: Node,
                                       msg: Optional[Tuple] = None,
                                       method=None,
                                       customTimeout=None):
@@ -245,20 +245,20 @@ async def sendMessageAndCheckDelivery(sender: Node,
     Sends message from one node to another and checks that it was delivered
 
     :param sender: sender
-    :param reciever: recepient
+    :param receiver: recipient
     :param msg: optional message - by default random one generated
     :param customTimeout:
     :return:
     """
 
-    logger.debug("Sending msg from {} to {}".format(sender.name, reciever.name))
+    logger.debug("Sending msg from {} to {}".format(sender.name, receiver.name))
     msg = msg if msg else randomMsg()
-    rid = sender.nodestack.getRemote(reciever.name).uid
+    rid = sender.nodestack.getRemote(receiver.name).uid
     sender.nodestack.send(msg, rid)
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMessageReceived, msg, reciever, method,
+    await eventually(checkMessageReceived, msg, receiver, method,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)

@@ -22,7 +22,7 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
 
     viewNo0 = checkViewNoForNodes(txnPoolNodeSet)
 
-    logger.info("1. turn off the node which has primary replica for master instanse, "
+    logger.info("1. turn off the node which has primary replica for master instance, "
                 " this should trigger view change")
     master_node = txnPoolMasterNodes[0]
     node_dest = hexToFriendly(master_node.nodestack.verhex)

@@ -8,7 +8,7 @@ recently, if a node finds out that is missed some txns, it will perform catchup.
 
 The catchup is managed by a object called `LedgerManager`. The `LedgerManager` maintains a `LedgerInfo` object for each ledger and references each ledger by its unique id called `ledger_id`.
 When a `ledger` is initialised, `addLedger` method of `LedgerManager` is called; this method registers the ledger with the `LedgerManager`. 
-`addLedger` also accepts callbacks which are called on occurence of different events, like before/after starting catchup for a ledger, 
+`addLedger` also accepts callbacks which are called on occurrence of different events, like before/after starting catchup for a ledger, 
 before/after marking catchup complete for a ledger, after adding any transaction that was received in catchup to the ledger.
 The `LedgerManager` performs catchup of each ledger sequentially, which means unless catchup for one ledger is complete, catchup for other will not start. 
 This is mostly done for simplicity and can be optimised but the pool ledger needs to be caught up first as the pool ledger knows how many nodes are there 

@@ -57,7 +57,7 @@ class TestHelpers(TestCase):
 
         self.checkOneInit(z, {'s': 'x', 'p': 'y'})
 
-        with self.subTest("ensure entries accummulate properly"):
+        with self.subTest("ensure entries accumulate properly"):
             z.eatCorn('canned')
             z.eatCorn('whirled')
             self.assertEqual(len(z.spylog), 7,

@@ -165,7 +165,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # corresponding request finalised. Happens when replica has not been
         # forwarded the request by the node but is getting 3 phase messages.
         # The value is a list since a malicious entry might send PRE-PREPARE
-        # with a different digest and since we dont have the request finalised
+        # with a different digest and since we don't have the request finalised
         # yet, we store all PRE-PPREPAREs
         # type: List[Tuple[PrePrepare, str, Set[Tuple[str, int]]]]
         self.prePreparesPendingFinReqs = []
@@ -527,7 +527,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         Return lowest pp_seq_no of the view for which can be prepared but
         choose from unprocessed PRE-PREPAREs and PREPAREs.
         """
-        # TODO: Naive implementation, dont need to iterate over the complete
+        # TODO: Naive implementation, don't need to iterate over the complete
         # data structures, fix this later
         seq_no_pp = SortedList()  # pp_seq_no of PRE-PREPAREs
         # pp_seq_no of PREPAREs with count of PREPAREs for each

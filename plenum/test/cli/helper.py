@@ -452,7 +452,7 @@ def assertCliTokens(matchedVars, tokens):
 
         if expectedValue is not None:
             assert matchedValue is not None, \
-                "Key '{}' not found in machedVars (matchedValue={})". \
+                "Key '{}' not found in matchedVars (matchedValue={})". \
                     format(key, matchedValue)
 
         expectedValueLen = len(expectedValue) if expectedValue else 0

@@ -15,7 +15,7 @@ def test_DidIdentity_init_fails():
             .format(verkey, rawVerkey)) == str(excinfo.value)
 
 
-def test_signer_compatable():
+def test_signer_compatible():
     seed = b'Falcon00000000000000000000000000'
     s_signer = SimpleSigner(seed=seed)
     did_signer = DidSigner(seed=seed)

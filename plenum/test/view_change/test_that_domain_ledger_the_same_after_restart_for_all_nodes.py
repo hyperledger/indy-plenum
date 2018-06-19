@@ -12,7 +12,7 @@ logger = getlogger()
 def limitTestRunningTime():
     """
     We do 4 view change. Timeout for one view change usually 60 sec.
-    Test running time will excpect as 4 * 60 = 240.
+    Test running time will expect as 4 * 60 = 240.
     """
     return 300
 

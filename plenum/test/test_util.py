@@ -91,7 +91,7 @@ def test_list_item_equality():
     assert not check_if_all_equal_in_list(l1 + [{'c', 'a', 'b', 11}])
 
 
-def test_3PC_key_comaparison():
+def test_3PC_key_comparison():
     assert compare_3PC_keys((1, 2), (1, 2)) == 0
     assert compare_3PC_keys((1, 3), (1, 2)) < 0
     assert compare_3PC_keys((1, 2), (1, 3)) > 0

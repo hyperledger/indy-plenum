@@ -22,7 +22,7 @@ TestRunningTimeLimitSec = 200
 def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
                               sdk_wallet_client, sdk_pool_handle):
     """
-    All nodes have bad clocks but they eventaully get repaired, an example of
+    All nodes have bad clocks but they eventually get repaired, an example of
     nodes being cut off from NTP server for some time or NTP sync disabled
     then without node restart NTP sync enabled
     """

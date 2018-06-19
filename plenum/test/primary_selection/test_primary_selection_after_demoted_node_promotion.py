@@ -42,7 +42,7 @@ def test_primary_selection_after_demoted_node_promotion(
         - restarted one - loaded node registry and pool parameters from
           the pool ledger at startup
     Do several view changes and check that all nodes will choose previously
-        demoted / promoted node as a primary for some instanse
+        demoted / promoted node as a primary for some instance
     """
 
     new_steward_wallet, new_node = sdk_node_theta_added

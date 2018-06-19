@@ -725,7 +725,7 @@ class Trie:
         sub_node_type = self._get_node_type(sub_node)
 
         if is_key_value_type(sub_node_type):
-            # collape subnode to this node, not this node will have same
+            # collapse subnode to this node, not this node will have same
             # terminator with the new sub node, and value does not change
             self._delete_node_storage(sub_node)
             new_key = [not_blank_index] + \

@@ -42,7 +42,7 @@ A node on receiving a client request in  `validateClientMsg`:
 #### Signature verification
 Each node has a `ReqAuthenticator` object which allows to register `ClientAuthNr` objects using `register_authenticator` method. During signature verification, 
 a node runs each registered authenticator over the request and if any authenticator results in an exception then signature verification is considered failed.
-A node has atleast 1 authenticator called `CoreAuthNr` whose `authenticate` method is called over the serialised request data to verify signature.
+A node has at least 1 authenticator called `CoreAuthNr` whose `authenticate` method is called over the serialised request data to verify signature.
 
 
 Relevant code:

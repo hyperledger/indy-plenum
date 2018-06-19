@@ -28,7 +28,7 @@ def isMinimalConfiguration():
     return memAvailableGb <= 1.5  # and cpuCount == 1
 
 
-# increase this number to allow eventually to change timeouts proportionatly
+# increase this number to allow eventually to change timeouts proportionately
 def getSlowFactor():
     if isMinimalConfiguration():
         return 1.5

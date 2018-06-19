@@ -33,7 +33,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_created_after_some_txns_not_started
 
     # So nodes wont tell the clients about the newly joined node so they
-    # dont send any request to the newly joined node
+    # don't send any request to the newly joined node
     for node in txnPoolNodeSet:
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
@@ -73,7 +73,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here
     # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
-    # 60 sec, hence large timeout. Dont reduce it.
+    # 60 sec, hence large timeout. Don't reduce it.
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          customTimeout=75)
     # Other nodes should have received a request for `CONSISTENCY_PROOF` and

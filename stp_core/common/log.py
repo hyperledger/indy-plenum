@@ -101,7 +101,7 @@ class Logger(metaclass=Singleton):
         if new_handler.formatter is None:
             new_handler.setFormatter(self._format)
 
-        # assuming indempotence and removing old one first
+        # assuming idempotence and removing old one first
         self._clearHandler(typ)
 
         self._handlers[typ] = new_handler

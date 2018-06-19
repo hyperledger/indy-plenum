@@ -666,7 +666,7 @@ class Cli:
 
     def cmdHandlerToCmdMappings(self):
         # The 'key' of 'mappings' dictionary is action handler function name
-        # without leading underscore sign. Each such funcation name should be
+        # without leading underscore sign. Each such function name should be
         # mapped here, its other thing that if you don't want to display it
         # in help, map it to None, but mapping should be present, that way it
         # will force developer to either write help message for those cli
@@ -1855,14 +1855,14 @@ class Cli:
         else:
             return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
-    def getActiveWalletPersitentFileName(self):
+    def getActiveWalletPersistentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
         return normalizedWalletFileName(fileName)
 
     @property
     def walletFileName(self):
-        return self.getActiveWalletPersitentFileName()
+        return self.getActiveWalletPersistentFileName()
 
     def getNoEnvWalletsBaseDir(self):
         return os.path.expanduser(

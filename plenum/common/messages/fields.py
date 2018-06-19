@@ -361,7 +361,7 @@ class Base58Field(FieldBase):
             return 'should not contain the following chars {}{}'.format(
                 to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check
+            # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \

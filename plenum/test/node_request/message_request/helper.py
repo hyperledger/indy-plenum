@@ -29,7 +29,7 @@ def check_pp_out_of_sync(alive_nodes, disconnected_nodes):
     for node in alive_nodes[1:]:
         assert get_last_pp(node) == last_3pc_key_alive
 
-    last_3pc_key_diconnected = get_last_pp(disconnected_nodes[0])
-    assert last_3pc_key_diconnected != last_3pc_key_alive
+    last_3pc_key_disconnected = get_last_pp(disconnected_nodes[0])
+    assert last_3pc_key_disconnected != last_3pc_key_alive
     for node in disconnected_nodes[1:]:
-        assert get_last_pp(node) == last_3pc_key_diconnected
+        assert get_last_pp(node) == last_3pc_key_disconnected

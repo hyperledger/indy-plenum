@@ -16,7 +16,7 @@ def test_get_state_value_and_proof(looper, sdk_wallet_steward,
     head2 = req_handler.state.headHash
     # Build path to first request
     path1 = req_handler.prepare_buy_key(req1[f.IDENTIFIER.nm], req1[f.REQ_ID.nm])
-    # Check that if parameter "head_hash" is None, then we make proof for commitedHeadHash (by default)
+    # Check that if parameter "head_hash" is None, then we make proof for committedHeadHash (by default)
     val, proof = req_handler.get_value_from_state(path1, with_proof=True)
     assert b58encode(head2).decode() == proof[ROOT_HASH]
     assert val == req_handler.state.get(path1)

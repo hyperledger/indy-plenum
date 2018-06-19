@@ -57,7 +57,7 @@ def idr_from_req_data(data):
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
 
 
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
+# TODO: remove after old client deprecation or uniforming read and write response formats
 def get_reply_digest(result):
     if f.DIGEST.nm in result:
         return result[f.DIGEST.nm]
@@ -73,7 +73,7 @@ def get_reply_digest(result):
         ).digest
 
 
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
+# TODO: remove after old client deprecation or uniforming read and write response formats
 def get_reply_identifier(result):
     if f.IDENTIFIER.nm in result:
         return result[f.IDENTIFIER.nm]
@@ -84,7 +84,7 @@ def get_reply_identifier(result):
         return Request.gen_idr_from_sigs(result.get(f.SIGS.nm, {}))
 
 
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
+# TODO: remove after old client deprecation or uniforming read and write response formats
 def get_reply_reqId(result):
     if f.REQ_ID.nm in result:
         return result[f.REQ_ID.nm]
@@ -94,7 +94,7 @@ def get_reply_reqId(result):
     assert False
 
 
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
+# TODO: remove after old client deprecation or uniforming read and write response formats
 def get_reply_txntype(result):
     if TXN_TYPE in result:
         return result[TXN_TYPE]
@@ -102,7 +102,7 @@ def get_reply_txntype(result):
         return result[TXN_PAYLOAD][TXN_TYPE]
 
 
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
+# TODO: remove after old client deprecation or uniforming read and write response formats
 def get_reply_nym(result):
     if TARGET_NYM in result:
         return result[TARGET_NYM]
