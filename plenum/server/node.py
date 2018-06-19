@@ -1507,7 +1507,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if isinstance(msg, ViewChangeDone):
                 future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
-                # self.view_changer.process_future_view_vchd_msg(future_vcd_msg, frm)
         else:
             return True
         return False

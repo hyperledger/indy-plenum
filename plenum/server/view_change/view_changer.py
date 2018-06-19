@@ -420,6 +420,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param limit: the maximum number of messages to service
         :return: the number of messages successfully processed
         """
+        # do not start any view changes until catch-up is finished!
         if self.node.mode == Mode.syncing:
             return 0
         return await self.inBoxRouter.handleAll(self.inBox, limit)

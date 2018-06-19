@@ -877,8 +877,6 @@ class LedgerManager(HasActionQueue):
                          .format(self, ledger_id))
 
     def catchup_ledger(self, ledger_id, request_ledger_statuses=True):
-        # if self.owner.name == 'Theta':
-        #     print("BBBB")
         try:
             ledger_info = self.getLedgerInfoByType(ledger_id)
             ledger_info.set_defaults()
