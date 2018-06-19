@@ -1675,16 +1675,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
-        self._specific_invalid_client_msg_handling(ex, wrappedMsg)
+        self._specific_invalid_client_msg_handling(ex, msg, frm)
 
-    def _specific_invalid_client_msg_handling(self, ex, wrappedMsg):
-        op = wrappedMsg[0].get('op')
+    def _specific_invalid_client_msg_handling(self, ex, msg, frm):
+        op = msg.get('op')
         if (op == LEDGER_STATUS):
-            self._invalid_client_ledger_status_handling(ex, wrappedMsg)
+            self._invalid_client_ledger_status_handling(ex, msg, frm)
 
-    def _invalid_client_ledger_status_handling(self, ex, wrappedMsg):
+    def _invalid_client_ledger_status_handling(self, ex, msg, frm):
         # This specific validation handles incorrect client LEDGER_STATUS message
-        msg, frm = wrappedMsg
         logger.debug("{} received bad LEDGER_STATUS message from client {}. "
                      "Reason: {}. "
                      .format(self, frm, ex.args[0]))
