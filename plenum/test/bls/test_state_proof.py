@@ -2,7 +2,7 @@ from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN
     MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, \
     MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
-    MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID
+    MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import SafeRequest
 from plenum.common.txn_util import get_type, get_from, get_req_id, get_seq_no, get_txn_time
@@ -93,33 +93,25 @@ def test_make_result_bls_enabled(looper, txnPoolNodeSet,
     check_result(txnPoolNodeSet, req, True)
 
 
-# TODO: delete?
-# def test_make_result_no_protocol_version(looper, txnPoolNodeSet):
-#     request = SafeRequest(identifier="1" * 16,
-#                           reqId=1,
-#                           operation=randomOperation(),
-#                           signature="signature")
-#     request.protocolVersion = False
-#     check_result(txnPoolNodeSet, request, False)
-#
-#
-# def test_make_result_protocol_version_less_than_state_proof(looper,
-#                                                             txnPoolNodeSet):
-#     request = SafeRequest(identifier="1" * 16,
-#                           reqId=1,
-#                           operation=randomOperation(),
-#                           signature="signature")
-#     request.protocolVersion = 0
-#     check_result(txnPoolNodeSet, request, False)
-#
-#
-# def test_make_result_no_protocol_version_in_request_by_default(looper,
-#                                                                txnPoolNodeSet):
-#     request = SafeRequest(identifier="1" * 16,
-#                           reqId=1,
-#                           operation=randomOperation(),
-#                           signature="signature")
-#     check_result(txnPoolNodeSet, request, False)
+def test_make_result_no_protocol_version(looper, txnPoolNodeSet):
+    request = SafeRequest(identifier="1" * 16,
+                          reqId=1,
+                          operation=randomOperation(),
+                          signature="signature",
+                          protocolVersion=CURRENT_PROTOCOL_VERSION)
+    request.protocolVersion = None
+    check_result(txnPoolNodeSet, request, False)
+
+
+def test_make_result_protocol_version_less_than_state_proof(looper,
+                                                            txnPoolNodeSet):
+    request = SafeRequest(identifier="1" * 16,
+                          reqId=1,
+                          operation=randomOperation(),
+                          signature="signature",
+                          protocolVersion=CURRENT_PROTOCOL_VERSION)
+    request.protocolVersion = 0
+    check_result(txnPoolNodeSet, request, False)
 
 
 def test_proof_in_write_reply(looper, txnPoolNodeSet,
