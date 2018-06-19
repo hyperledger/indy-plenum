@@ -76,7 +76,7 @@ from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
-from plenum.__metadata__ import __version__
+from __metadata__ import __version__
 from plenum.cli.command_history import CliFileHistory
 
 if is_windows():

@@ -1,6 +1,6 @@
 import os
 import sys
-import plenum.__metadata__ as md
+import __metadata__ as md
 
 from setuptools import setup, find_packages
 
