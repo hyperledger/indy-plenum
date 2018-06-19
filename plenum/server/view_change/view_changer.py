@@ -62,7 +62,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: Consider if sufficient ViewChangeDone for 2 different (and
         # higher views) are received, should one view change be interrupted in
         # between.
-        self._next_view_indications = SortedDict()
+        self._next_view_indications = {}
 
         self._view_change_in_progress = False
 
@@ -309,8 +309,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             return
 
         if view_no not in self._next_view_indications:
-            self._next_view_indications[view_no] = set()
-        self._next_view_indications[view_no].add(frm)
+            self._next_view_indications[view_no] = {}
+        self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
         self._start_view_change_if_possible(view_no)
 
     # __ EXTERNAL EVENTS __
@@ -525,19 +525,30 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
 
-        for view_no in tuple(self._next_view_indications.keys()):
-            if view_no > proposed_view_no:
-                break
-            self._next_view_indications.pop(view_no)
-
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
         self.previous_master_primary = self.node.master_primary_name
         self.set_defaults()
+        self._process_vcd_for_future_view()
+
         self.initInsChngThrottling()
 
         self.node.on_view_change_start()
         self.node.start_catchup()
+
+    def _process_vcd_for_future_view(self):
+        # make sure that all received VCD messages for future view
+        # (including the current view) are stored, as they will be needed for a quorum
+        # to finish the View Change and start selection.
+        # This is especially critical for Propagate Primary mode (on receiving CURRENT_STATE by a new node).
+        if self.view_no in self._next_view_indications:
+            for frm, vcd in self._next_view_indications[self.view_no].items():
+                self._on_verified_view_change_done_msg(vcd, frm)
+
+        # remove all for previous views
+        for view_no in tuple(self._next_view_indications.keys()):
+            if view_no <= self.view_no:
+                self._next_view_indications.pop(view_no)
 
     def _on_verified_view_change_done_msg(self, msg, frm):
         new_primary_name = msg.name
