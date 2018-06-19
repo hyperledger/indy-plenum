@@ -5,15 +5,13 @@ from common.serializers.serialization import domain_state_serializer, \
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
     VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
-    STATE_PROOF, VALUE
+    STATE_PROOF
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
 from plenum.common.types import f
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.ledger_req_handler import LedgerRequestHandler
-from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -49,19 +47,12 @@ class DomainRequestHandler(LedgerRequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request, cons_time: int):
-        txn = reqToTxn(req, cons_time)
+    def _reqToTxn(self, req: Request):
+        txn = reqToTxn(req)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
         return txn
-
-    def apply(self, req: Request, cons_time: int):
-        txn = self._reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
-        self.updateState(txnsWithSeqNo(start, end, [txn]))
-        return start, txn
 
     @staticmethod
     def transform_txn_for_ledger(txn):
@@ -77,9 +68,9 @@ class DomainRequestHandler(LedgerRequestHandler):
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = txn.get(TXN_TYPE)
+        typ = get_type(txn)
         if typ == NYM:
-            nym = txn.get(TARGET_NYM)
+            nym = get_payload_data(txn).get(TARGET_NYM)
             self.updateNym(nym, txn, isCommitted=isCommitted)
         else:
             logger.debug(
@@ -93,7 +84,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         """
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
         return sum(1 for _, txn in self.ledger.getAllTxn() if
-                   (txn[TXN_TYPE] == NYM) and (txn.get(ROLE) == STEWARD))
+                   (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE) == STEWARD))
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
@@ -103,10 +94,11 @@ class DomainRequestHandler(LedgerRequestHandler):
     def updateNym(self, nym, txn, isCommitted=True):
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
+        txn_data = get_payload_data(txn)
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm)
+            newData[f.IDENTIFIER.nm] = get_from(txn)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a
@@ -114,12 +106,12 @@ class DomainRequestHandler(LedgerRequestHandler):
             newData[ROLE] = None
             newData[VERKEY] = None
 
-        if ROLE in txn:
-            newData[ROLE] = txn[ROLE]
-        if VERKEY in txn:
-            newData[VERKEY] = txn[VERKEY]
-        newData[F.seqNo.name] = txn.get(F.seqNo.name)
-        newData[TXN_TIME] = txn.get(TXN_TIME)
+        if ROLE in txn_data:
+            newData[ROLE] = txn_data[ROLE]
+        if VERKEY in txn_data:
+            newData[VERKEY] = txn_data[VERKEY]
+        newData[F.seqNo.name] = get_seq_no(txn)
+        newData[TXN_TIME] = get_txn_time(txn)
         existingData.update(newData)
         val = self.stateSerializer.serialize(existingData)
         key = self.nym_to_state_key(nym)

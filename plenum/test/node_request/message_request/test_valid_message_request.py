@@ -47,7 +47,7 @@ pre_prepare_msg = PrePrepare(
     1,
     3,
     get_utc_epoch(),
-    [['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ', 1499707723017300]],
+    ['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ',],
     1,
     'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
     1,

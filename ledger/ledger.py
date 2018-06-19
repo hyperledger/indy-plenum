@@ -2,6 +2,7 @@ import logging
 import time
 
 import base58
+from common.exceptions import PlenumValueError
 from common.serializers.mapping_serializer import MappingSerializer
 from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
@@ -24,7 +25,8 @@ class Ledger(ImmutableStore):
                       read_only=False) -> KeyValueStorage:
         config = config or getConfig()
         return initKeyValueStorageIntKeys(config.transactionLogDefaultStorage,
-                                          dataDir, logName, open, read_only=read_only)
+                                          dataDir, logName, open, read_only=read_only,
+                                          db_config=config.db_transactions_config)
 
     def __init__(self,
                  tree: MerkleTree,
@@ -161,7 +163,6 @@ class Ledger(ImmutableStore):
             data = self.txn_serializer.deserialize(value)
             # If `kwargs` is a subset of `data`
             if set(kwargs.values()) == {data.get(k) for k in kwargs.keys()}:
-                data[F.seqNo.name] = int(seqNo)
                 return data
 
     def getBySeqNo(self, seqNo):
@@ -169,7 +170,6 @@ class Ledger(ImmutableStore):
         value = self._transactionLog.get(key)
         if value:
             data = self.txn_serializer.deserialize(value)
-            data[F.seqNo.name] = int(seqNo)
             return data
         else:
             return value
@@ -196,7 +196,8 @@ class Ledger(ImmutableStore):
 
     def merkleInfo(self, seqNo):
         seqNo = int(seqNo)
-        assert seqNo > 0
+        if seqNo <= 0:
+            raise PlenumValueError('seqNo', seqNo, '> 0')
         rootHash = self.tree.merkle_tree_hash(0, seqNo)
         auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
         return {

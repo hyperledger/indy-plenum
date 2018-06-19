@@ -1,4 +1,3 @@
-import pytest
 from plenum.test.helper import sdk_send_random_request, \
     sdk_send_random_requests, sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import sdk_pool_refresh

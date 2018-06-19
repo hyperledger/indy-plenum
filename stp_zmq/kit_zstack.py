@@ -1,3 +1,6 @@
+from plenum.common.config_util import get_global_config_else_read_config
+from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
+from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
@@ -8,7 +11,17 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-class KITZStack(SimpleZStack, KITNetworkInterface):
+conf_ = get_global_config_else_read_config()
+
+if conf_.STACK_COMPANION == 1:
+    simple_zstack_class = SimpleZStackWithRecorder
+elif conf_.STACK_COMPANION == 2:
+    simple_zstack_class = SimpleZStackWithSilencer
+else:
+    simple_zstack_class = SimpleZStack
+
+
+class KITZStack(simple_zstack_class, KITNetworkInterface):
     # ZStack which maintains connections mentioned in its registry
 
     def __init__(self,
@@ -20,16 +33,11 @@ class KITZStack(SimpleZStack, KITNetworkInterface):
                  config=None,
                  msgRejectHandler=None):
 
-        SimpleZStack.__init__(self,
-                              stackParams,
-                              msgHandler,
-                              seed=seed,
-                              sighex=sighex,
-                              config=config,
-                              msgRejectHandler=msgRejectHandler)
+        KITNetworkInterface.__init__(self, registry=registry)
 
-        KITNetworkInterface.__init__(self,
-                                     registry=registry)
+        simple_zstack_class.__init__(self, stackParams, msgHandler,
+                                     seed=seed, sighex=sighex, config=config,
+                                     msgRejectHandler=msgRejectHandler)
 
         self._retry_connect = {}
 

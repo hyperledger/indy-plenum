@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from common.exceptions import PlenumTypeError
 from common.serializers.serialization import multi_signature_value_serializer
 
 
@@ -13,7 +14,7 @@ class MultiSignatureValue:
     # It needs to be included into PRE-PREPARE
     def __init__(self,
                  ledger_id: int,
-                 state_root_hash: list,
+                 state_root_hash: str,
                  pool_state_root_hash: str,
                  txn_root_hash: str,
                  timestamp: int):
@@ -27,11 +28,17 @@ class MultiSignatureValue:
         with ledger_id and multisig is created over
         :param timestamp: timestamp of the state the multisig is created over
         '''
-        assert ledger_id is not None
-        assert state_root_hash is not None
-        assert pool_state_root_hash is not None
-        assert txn_root_hash is not None
-        assert timestamp is not None
+        if not isinstance(ledger_id, int):
+            raise PlenumTypeError('ledger_id', ledger_id, int)
+        if not isinstance(state_root_hash, str):
+            raise PlenumTypeError('state_root_hash', state_root_hash, str)
+        if not isinstance(pool_state_root_hash, str):
+            raise PlenumTypeError('pool_state_root_hash', pool_state_root_hash, str)
+        if not isinstance(txn_root_hash, str):
+            raise PlenumTypeError('txn_root_hash', txn_root_hash, str)
+        if not isinstance(timestamp, int):
+            raise PlenumTypeError('timestamp', timestamp, int)
+
         self.ledger_id = ledger_id
         self.state_root_hash = state_root_hash
         self.pool_state_root_hash = pool_state_root_hash
@@ -75,9 +82,15 @@ class MultiSignature:
         :param participants: List of signers
         :param value: the value multi-signature was created over
         """
-        assert signature is not None
-        assert participants
-        assert value is not None
+        if not isinstance(signature, str):
+            raise PlenumTypeError('signature', signature, str)
+        if not isinstance(participants, list):
+            raise PlenumTypeError('participants', participants, list)
+        if not participants:
+            raise ValueError("'participants' list shouldn't be empty")
+        if not isinstance(value, MultiSignatureValue):
+            raise PlenumTypeError('value', value, MultiSignatureValue)
+
         self.signature = signature
         self.participants = participants
         self.value = value

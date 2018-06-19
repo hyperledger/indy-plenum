@@ -8,6 +8,7 @@ from collections import namedtuple
 
 import ledger.merkle_verifier
 import ledger.tree_hasher
+from ledger.util import count_bits_set
 from ledger import compact_merkle_tree
 from ledger import error
 
@@ -76,13 +77,26 @@ class TreeHasherTest(unittest.TestCase):
 
     def test_hash_full_empty(self):
         hasher = ledger.tree_hasher.TreeHasher()
-        for i in range(0, 5):
-            self.assertEqual(hexlify(hasher._hash_full("abcd", i, i)[0]),
+        leaves = [c.encode() for c in "abcd"]
+        for i in range(0, len(leaves) + 1):
+            root_hash, hashes = hasher._hash_full(leaves, i, i)
+            self.assertEqual(hexlify(root_hash),
                              TreeHasherTest.sha256_empty_hash)
+            self.assertEqual(len(hashes), 0)
+
+    def test_hash_full_non_empty(self):
+        hasher = ledger.tree_hasher.TreeHasher()
+        leaves = [c.encode() for c in "abcde"]
+        for i in range(1, len(leaves) + 1):
+            root_hash, hashes = hasher._hash_full(leaves, 0, i)
+            self.assertEqual(hasher._hash_fold(hashes), root_hash)
+            self.assertEqual(len(hashes), count_bits_set(i))
+            if count_bits_set(i) == 1:  # 2^k
+                self.assertEqual(hashes, (root_hash,))
 
     def test_hash_full_tree(self):
         hasher = ledger.tree_hasher.TreeHasher()
-        self.assertEqual(hasher.hash_full_tree([]), hasher.hash_empty())
+        # self.assertEqual(hasher.hash_full_tree([]), hasher.hash_empty())
         leaves = [c.encode() for c in "abcde"]
         a, b, c, d, e = [hasher.hash_leaf(c) for c in leaves]
         h = hasher.hash_children

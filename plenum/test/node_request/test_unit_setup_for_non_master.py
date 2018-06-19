@@ -147,7 +147,7 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
 def _create_prepare_and_preprepare(inst_id, pp_sq_no, view_no, timestamp,
                                    sdk_wallet_client):
     time = int(timestamp)
-    req_idr = [[sdk_wallet_client[1], 1234]]
+    req_idr = ["random request digest"]
     preprepare = PrePrepare(inst_id,
                             pp_sq_no,
                             view_no,

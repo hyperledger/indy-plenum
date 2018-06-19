@@ -25,7 +25,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQN
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
-from plenum.common.types import f
+from plenum.common.txn_util import get_req_id, get_from
+from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
@@ -325,39 +326,37 @@ def addNodeBack(node_set,
     return restartedNode
 
 
-def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
-    key = identifier, reqId
-    assert key in node.requests
+def checkPropagateReqCountOfNode(node: TestNode, digest: str):
+    assert digest in node.requests
     assert node.quorums.propagate.is_reached(
-        len(node.requests[key].propagates))
+        len(node.requests[digest].propagates))
 
 
-def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def requestReturnedToNode(node: TestNode, key: str,
                           instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [
-        (p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
-    expected = (instId, identifier, reqId)
+        (p['ordered'].instId, p['ordered'].reqIdr[0]) for p in params]
+    expected = (instId, key)
     return expected in recvdOrderedReqs
 
 
-def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, key: str,
                                instId: int):
-    assert requestReturnedToNode(node, identifier, reqId, instId)
+    assert requestReturnedToNode(node, key, instId)
 
 
-def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestNotReturnedToNode(node: TestNode, key: str,
                                   instId: int):
-    assert not requestReturnedToNode(node, identifier, reqId, instId)
+    assert not requestReturnedToNode(node, key, instId)
 
 
 def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
     instances = range(getNoInstances(len(txnPoolNodeSet)))
     for node, inst_id in itertools.product(txnPoolNodeSet, instances):
         checkRequestNotReturnedToNode(node,
-                                      request.identifier,
-                                      request.reqId,
+                                      request.key,
                                       inst_id)
 
 
@@ -365,7 +364,7 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
-    assert [(req.identifier, req.reqId)] in \
+    assert [req.digest, ] in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
@@ -376,14 +375,14 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
+def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
-    assert [(identifier, reqId)] in args
-    idx = args.index([(identifier, reqId)])
+    assert [key] in args
+    idx = args.index([key])
     assert rv[idx]
 
 
@@ -634,13 +633,12 @@ def nodeByName(nodes, name):
 
 def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
                      state_root=None, txn_root=None):
-    last_req_id = wallet._getIdData().lastReqId or 0
     pre_prepare = PrePrepare(
         0,
         view_no,
         pp_seq_no,
         get_utc_epoch(),
-        [(wallet.defaultId, last_req_id + 1)],
+        ["requests digest"],
         0,
         "random digest",
         DOMAIN_LEDGER_ID,
@@ -678,6 +676,16 @@ def send_commit(view_no, pp_seq_no, nodes):
     sendMessageToAll(nodes, primary_node, commit)
 
 
+def get_key_from_req(req: dict):
+    return Request(identifier=req[f.IDENTIFIER.nm],
+                   reqId=req[f.REQ_ID.nm],
+                   operation=req[OPERATION],
+                   protocolVersion=req[f.PROTOCOL_VERSION.nm],
+                   signature=req[f.SIG.nm]
+                   if req.__contains__(f.SIG.nm) else None,
+                   ).key
+
+
 def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                   timeout=None, override_eventually_timeout=False):
     # TODO: Move this logic to eventuallyAll
@@ -709,13 +717,13 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
 def check_request_ordered(node, request: Request):
     # it's ok to iterate through all txns since this is a test
     for seq_no, txn in node.domainLedger.getAllTxn():
-        if f.REQ_ID.nm not in txn:
+        if get_req_id(txn) is None:
             continue
-        if f.IDENTIFIER.nm not in txn:
+        if get_from(txn) is None:
             continue
-        if txn[f.REQ_ID.nm] != request.reqId:
+        if get_req_id(txn) != request.reqId:
             continue
-        if txn[f.IDENTIFIER.nm] != request.identifier:
+        if get_from(txn) != request.identifier:
             continue
         return True
     raise ValueError('{} request not ordered by node {}'.format(request, node.name))
@@ -733,12 +741,14 @@ def wait_for_requests_ordered(looper, nodes, requests):
 
 
 def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
-                         tdir, plugin_paths):
+                         tdir, plugin_paths, node_ha=None, client_ha=None):
     config_helper = node_config_helper_class(name, conf, chroot=tdir)
     return test_node_class(name,
                            config_helper=config_helper,
                            config=conf,
-                           pluginPaths=plugin_paths)
+                           pluginPaths=plugin_paths,
+                           ha=node_ha,
+                           cliha=client_ha)
 
 
 # ####### SDK
@@ -940,9 +950,10 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     return sdk_replies
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
     wallet_h, did = sdk_wallet
-    request = Request(operation=op, reqId=random.randint(10, 100000),
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
