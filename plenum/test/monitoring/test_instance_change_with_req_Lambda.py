@@ -23,6 +23,16 @@ Verify a view change happens
 """
 
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    tconf.Max3PCBatchSize = 5
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+
+
+
 @pytest.fixture()
 def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     sdk_send_random_and_check(looper, txnPoolNodeSet,
