@@ -2066,7 +2066,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
         requests = []
         for req_key in request_ids:
-            requests.append(self.requests[req_key].finalised)
+            req = self.requests[req_key].finalised
+            _, seq_no = self.seqNoDB.get(req.digest)
+            if seq_no is None:
+                requests.append(req)
         self.apply_reqs(requests, cons_time, ledger_id)
 
     def apply_reqs(self, requests, cons_time: int, ledger_id):
