@@ -299,7 +299,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
-        self._bls_bft_replica = bls_bft_replica
+        if isMaster:
+            self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
@@ -1285,11 +1286,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
-        # BLS multi-sig:
-        status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
-                                                            sender)
-        if status is not None:
-            return status
+        if self.isMaster:
+            # BLS multi-sig:
+            status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
+                                                                sender)
+            if status is not None:
+                return status
+
         return None
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
@@ -1381,8 +1384,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
                                  prepare)
 
-        # BLS multi-sig:
-        self._bls_bft_replica.validate_prepare(prepare, sender)
+        if self.isMaster:
+            # BLS multi-sig:
+            self._bls_bft_replica.validate_prepare(prepare, sender)
 
         return True
 
@@ -1393,8 +1397,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param prepare: the PREPARE to add to the list
         """
-        # BLS multi-sig:
-        self._bls_bft_replica.process_prepare(prepare, sender)
+        if self.isMaster:
+            # BLS multi-sig:
+            self._bls_bft_replica.process_prepare(prepare, sender)
 
         self.prepares.addVote(prepare, sender)
         self.dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
@@ -1489,17 +1494,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
 
-        # BLS multi-sig:
-        pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
+        if self.isMaster:
+            # BLS multi-sig:
+            pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
+            why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
-        if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
-            raise SuspiciousNode(sender,
-                                 Suspicions.CM_BLS_SIG_WRONG,
-                                 commit)
-        elif why_not is not None:
-            self.logger.warning("Unknown error code returned for bls commit "
-                                "validation {}".format(why_not))
+            if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
+                raise SuspiciousNode(sender,
+                                     Suspicions.CM_BLS_SIG_WRONG,
+                                     commit)
+            elif why_not is not None:
+                self.logger.warning("Unknown error code returned for bls commit "
+                                    "validation {}".format(why_not))
 
         return True
 
@@ -1511,8 +1517,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param commit: the COMMIT to add to the list
         :param sender: the name of the node that sent the COMMIT
         """
-        # BLS multi-sig:
-        self._bls_bft_replica.process_commit(commit, sender)
+        if self.isMaster:
+            # BLS multi-sig:
+            self._bls_bft_replica.process_commit(commit, sender)
 
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
@@ -1686,10 +1693,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
-        # BLS multi-sig:
-        self._bls_bft_replica.process_order(key,
-                                            self.quorums,
-                                            pp)
+        if self.isMaster:
+            # BLS multi-sig:
+            self._bls_bft_replica.process_order(key,
+                                                self.quorums,
+                                                pp)
 
         return True
 
@@ -1959,8 +1967,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.compact_ordered()
 
-        # BLS multi-sig:
-        self._bls_bft_replica.gc(till3PCKey)
+        if self.isMaster:
+            # BLS multi-sig:
+            self._bls_bft_replica.gc(till3PCKey)
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
