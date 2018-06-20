@@ -11,7 +11,7 @@ from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -242,7 +242,7 @@ class LedgerStatus(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
-        (f.PROTOCOL_VERSION.nm, NonNegativeNumberField(optional=True))
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField())
     )
 
 

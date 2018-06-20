@@ -55,7 +55,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, sdk_set_protocol_version
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -406,7 +406,9 @@ def _tconf(general_config):
 
 @pytest.fixture(scope="module")
 def tconf(general_conf_tdir):
-    return _tconf(general_conf_tdir)
+    conf = _tconf(general_conf_tdir)
+    conf.Max3PCBatchWait = 2
+    return conf
 
 
 @pytest.fixture()
@@ -1028,6 +1030,7 @@ async def _gen_pool_handler(work_dir, name):
 
 @pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
+    sdk_set_protocol_version(looper)
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle

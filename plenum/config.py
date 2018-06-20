@@ -127,9 +127,9 @@ ForceViewChangeFreq = 0
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
-DELTA = 0.4
-LAMBDA = 60
-OMEGA = 5
+DELTA = 0.1
+LAMBDA = 240
+OMEGA = 20
 SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
@@ -219,9 +219,9 @@ REMOTES_MESSAGE_QUOTA = 100
 # After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
 # Max batch size for 3 phase commit
-Max3PCBatchSize = 100
+Max3PCBatchSize = 10000
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = .001
+Max3PCBatchWait = 1
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
