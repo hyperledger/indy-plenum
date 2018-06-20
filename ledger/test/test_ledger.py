@@ -4,6 +4,7 @@ from binascii import hexlify
 from collections import OrderedDict
 
 import pytest
+from common.exceptions import PlenumValueError
 from common.serializers.compact_serializer import CompactSerializer
 from common.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -37,8 +38,6 @@ def test_add_txn(ledger, genesis_txns, genesis_txn_file):
     assert ledger.size == 2 + offset
 
     # Check that the data is appended to the immutable store
-    txn1[F.seqNo.name] = 1 + offset
-    txn2[F.seqNo.name] = 2 + offset
     assert sorted(txn1.items()) == sorted(ledger[1 + offset].items())
     assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
     check_ledger_generator(ledger)
@@ -62,8 +61,13 @@ def test_stop_start(ledger, genesis_txns, genesis_txn_file):
     ledger.start()
     ledger.add(txn2)
     assert ledger.size == 2 + offset
-    txn2[F.seqNo.name] = 2 + offset
     assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
+
+
+def test_merkle_info_raises_error_for_invalid_seqNo(ledger):
+    for seqNo in (-1, 0):
+        with pytest.raises(PlenumValueError):
+            ledger.merkleInfo(seqNo)
 
 
 def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):

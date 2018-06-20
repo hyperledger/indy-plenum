@@ -1,11 +1,11 @@
 import collections
 import json
 
-from ledger.util import F
+from plenum.common.txn_util import get_payload_data, get_seq_no, get_type
 from stp_core.network.exceptions import RemoteNotFound
 
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
+from plenum.common.constants import NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
     NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.types import f, HA
 from plenum.common.messages.node_messages import PoolLedgerTxns
@@ -36,7 +36,7 @@ class HasPoolManager(TxnStackManager):
         global t
         logger.debug("{} received pool txn {} from {}".format(self, msg, frm))
         txn = getattr(msg, t)
-        seqNo = txn.pop(F.seqNo.name)
+        seqNo = get_seq_no(txn)
         if seqNo not in self.tempNodeTxns:
             self.tempNodeTxns[seqNo] = {}
         self.tempNodeTxns[seqNo][frm] = txn
@@ -62,48 +62,49 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def processPoolTxn(self, txn):
         logger.debug("{} processing pool txn {} ".format(self, txn))
-        typ = txn[TXN_TYPE]
+        typ = get_type(txn)
+        txn_data = get_payload_data(txn)
 
         if typ == NODE:
-            remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-            nodeName = txn[DATA][ALIAS]
-            nodeNym = txn[TARGET_NYM]
+            remoteName = txn_data[DATA][ALIAS] + CLIENT_STACK_SUFFIX
+            nodeName = txn_data[DATA][ALIAS]
+            nodeNym = txn_data[TARGET_NYM]
 
-            def _update(txn):
+            def _update(txn_data):
                 if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}.\
-                        intersection(set(txn[DATA].keys())):
-                    self.stackHaChanged(txn, remoteName, self)
-                if VERKEY in txn:
-                    self.stackKeysChanged(txn, remoteName, self)
-                if SERVICES in txn[DATA]:
-                    self.nodeServicesChanged(txn)
+                        intersection(set(txn_data[DATA].keys())):
+                    self.stackHaChanged(txn_data, remoteName, self)
+                if VERKEY in txn_data:
+                    self.stackKeysChanged(txn_data, remoteName, self)
+                if SERVICES in txn_data[DATA]:
+                    self.nodeServicesChanged(txn_data)
                     self.setPoolParams()
 
             if nodeName in self.nodeReg:
                 # The node was already part of the pool so update
-                _update(txn)
+                _update(txn_data)
             else:
                 seqNos, info = self.getNodeInfoFromLedger(nodeNym)
                 if len(seqNos) == 1:
                     # Since only one transaction has been made, this is a new
                     # node transactions
-                    self.connectNewRemote(txn, remoteName, self)
+                    self.connectNewRemote(txn_data, remoteName, self)
                     self.setPoolParams()
                 else:
                     self.nodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
                         info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                    _update(txn)
+                    _update(txn_data)
         else:
             logger.error("{} received unknown txn type {} in txn {}"
                          .format(self.name, typ, txn))
             return
 
-    def nodeServicesChanged(self, txn):
-        nodeNym = txn[TARGET_NYM]
+    def nodeServicesChanged(self, txn_data):
+        nodeNym = txn_data[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
         oldServices = set(nodeInfo[DATA].get(SERVICES, []))
-        newServices = set(txn[DATA].get(SERVICES, []))
+        newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug(
                 "Client {} not changing {} since it is same as existing"
@@ -112,7 +113,7 @@ class HasPoolManager(TxnStackManager):
         else:
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
-                self.updateNodeTxns(nodeInfo, txn)
+                self.updateNodeTxns(nodeInfo, txn_data)
                 self.connectNewRemote(nodeInfo, remoteName, self)
 
             if VALIDATOR in oldServices.difference(newServices):

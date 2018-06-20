@@ -146,8 +146,11 @@ class HashStore:
 
     @staticmethod
     def _validatePos(start, end=None):
-        if end:
-            assert start < end, "start index must be less than end index"
+        if end and start >= end:
+            raise IndexError(
+                "start ({}) index must be less than end ({}) index"
+                .format(start, end)
+            )
         if start < 1:
             raise IndexError(
                 "seqNo starts from 1, index requested: {}".format(start))

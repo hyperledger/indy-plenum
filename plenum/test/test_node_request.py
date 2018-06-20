@@ -118,9 +118,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
-                                        senderNode: TestNode, identifier: str,
-                                        reqId: int):
-    key = identifier, reqId
+                                        senderNode: TestNode, key: str):
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
 

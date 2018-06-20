@@ -11,6 +11,7 @@ from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
+from indy.pool import set_protocol_version
 from psutil import Popen
 import json
 import asyncio
@@ -20,13 +21,13 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.client.client import Client
-from plenum.client.wallet import Wallet
-from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQACK, REQNACK, REJECT, \
+from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
-from plenum.common.types import f
+from plenum.common.txn_util import get_req_id, get_from
+from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
@@ -35,9 +36,8 @@ from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
-from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
+from plenum.test.test_node import TestNode, TestReplica, \
+    getPrimaryReplica
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -76,6 +76,7 @@ def check_sufficient_replies_received(client: Client,
                          .format(full_request_id))
 
 
+# TODO: delete after removal from node
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
@@ -188,55 +189,6 @@ def assertEquality(observed: Any, expected: Any, details=None):
                                  "was {}, details: {}".format(observed, expected, details)
 
 
-def setupNodesAndClient(
-        looper: Looper,
-        nodes: Sequence[TestNode],
-        nodeReg=None,
-        tmpdir=None):
-    looper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=looper, nodes=nodes)
-    return setupClient(looper, nodes, nodeReg=nodeReg, tmpdir=tmpdir)
-
-
-def setupClient(looper: Looper,
-                nodes: Sequence[TestNode] = None,
-                nodeReg=None,
-                tmpdir=None,
-                identifier=None,
-                verkey=None):
-    client1, wallet = genTestClient(nodes=nodes,
-                                    nodeReg=nodeReg,
-                                    tmpdir=tmpdir,
-                                    identifier=identifier,
-                                    verkey=verkey)
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    return client1, wallet
-
-
-def setupClients(count: int,
-                 looper: Looper,
-                 nodes: Sequence[TestNode] = None,
-                 nodeReg=None,
-                 tmpdir=None):
-    wallets = {}
-    clients = {}
-    for i in range(count):
-        name = "test-wallet-{}".format(i)
-        wallet = Wallet(name)
-        idr, _ = wallet.addIdentifier()
-        verkey = wallet.getVerkey(idr)
-        client, _ = setupClient(looper,
-                                nodes,
-                                nodeReg,
-                                tmpdir,
-                                identifier=idr,
-                                verkey=verkey)
-        clients[client.name] = client
-        wallets[client.name] = wallet
-    return clients, wallets
-
-
 def randomOperation():
     return {
         "type": "buy",
@@ -251,29 +203,6 @@ def random_requests(count):
 def random_request_objects(count, protocol_version):
     req_dicts = random_requests(count)
     return [Request(operation=op, protocolVersion=protocol_version) for op in req_dicts]
-
-
-def sign_request_objects(wallet, reqs: Sequence):
-    return [wallet.signRequest(req) for req in reqs]
-
-
-def sign_requests(wallet, reqs: Sequence):
-    return [wallet.signOp(req) for req in reqs]
-
-
-def signed_random_requests(wallet, count):
-    reqs = random_requests(count)
-    return sign_requests(wallet, reqs)
-
-
-def send_signed_requests(client: Client, signed_reqs: Sequence):
-    return client.submitReqs(*signed_reqs)[0]
-
-
-def sendRandomRequests(wallet: Wallet, client: Client, count: int):
-    logger.debug('Sending {} random requests'.format(count))
-    return send_signed_requests(client,
-                                signed_random_requests(wallet, count))
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -398,53 +327,45 @@ def addNodeBack(node_set,
     return restartedNode
 
 
-def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
-    key = identifier, reqId
-    assert key in node.requests
+def checkPropagateReqCountOfNode(node: TestNode, digest: str):
+    assert digest in node.requests
     assert node.quorums.propagate.is_reached(
-        len(node.requests[key].propagates))
+        len(node.requests[digest].propagates))
 
 
-def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def requestReturnedToNode(node: TestNode, key: str,
                           instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [
-        (p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
-    expected = (instId, identifier, reqId)
+        (p['ordered'].instId, p['ordered'].reqIdr[0]) for p in params]
+    expected = (instId, key)
     return expected in recvdOrderedReqs
 
 
-def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, key: str,
                                instId: int):
-    assert requestReturnedToNode(node, identifier, reqId, instId)
+    assert requestReturnedToNode(node, key, instId)
 
 
-def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
+def checkRequestNotReturnedToNode(node: TestNode, key: str,
                                   instId: int):
-    assert not requestReturnedToNode(node, identifier, reqId, instId)
+    assert not requestReturnedToNode(node, key, instId)
 
 
 def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
     instances = range(getNoInstances(len(txnPoolNodeSet)))
     for node, inst_id in itertools.product(txnPoolNodeSet, instances):
         checkRequestNotReturnedToNode(node,
-                                      request.identifier,
-                                      request.reqId,
+                                      request.key,
                                       inst_id)
-
-
-def verify_request_not_replied_and_not_ordered(request, looper, client, nodes):
-    with pytest.raises(AssertionError):
-        waitForSufficientRepliesForRequests(looper, client, requests=[request])
-    check_request_is_not_returned_to_nodes(nodes, request)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
-    assert [(req.identifier, req.reqId)] in \
+    assert [req.digest, ] in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
@@ -455,14 +376,14 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
+def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
-    assert [(identifier, reqId)] in args
-    idx = args.index([(identifier, reqId)])
+    assert [key] in args
+    idx = args.index([key])
     assert rv[idx]
 
 
@@ -483,64 +404,6 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         assert received > minimum
 
 
-def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
-    rec = {OP_FIELD_NAME: REQACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
-    if update:
-        rec.update(update)
-    expected = (rec, node.clientstack.name)
-    # More than one matching message could be present in the client's inBox
-    # since client on not receiving request under timeout might have retried
-    # the request
-    assert client.inBox.count(expected) > 0
-
-
-def checkReqNackWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found, "there is no Nack with reason: {}".format(reason)
-
-
-def wait_negative_resp(looper, client, reason, sender, timeout, chk_method):
-    return looper.run(eventually(chk_method,
-                                 client,
-                                 reason,
-                                 sender,
-                                 timeout=timeout))
-
-
-def waitReqNackWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqNAckQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkReqNackWithReason)
-
-
-def checkRejectWithReason(client, reason: str, sender: str):
-    found = False
-    for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(
-                f.REASON.nm, "") and sdr == sender:
-            found = True
-            break
-    assert found
-
-
-def waitRejectWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqRejectQuorumTime()
-    return wait_negative_resp(looper, client, reason, sender, timeout,
-                              checkRejectWithReason)
-
-
-def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
-    for node in nodes:
-        looper.run(eventually(checkRejectWithReason, client, reason,
-                              node.clientstack.name, retryWait=1,
-                              timeout=timeout))
-
-
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no
@@ -554,7 +417,8 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1, 'Expected 1, but got {}'.format(len(viewNos))
+    assert len(viewNos) == 1, 'Expected 1, but got {}. ' \
+                              'ViewNos: {}'.format(len(viewNos), [(n.name, n.viewNo) for n in nodes])
     vNo, = viewNos
     if expectedViewNo is not None:
         assert vNo >= expectedViewNo, \
@@ -770,13 +634,12 @@ def nodeByName(nodes, name):
 
 def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
                      state_root=None, txn_root=None):
-    last_req_id = wallet._getIdData().lastReqId or 0
     pre_prepare = PrePrepare(
         0,
         view_no,
         pp_seq_no,
         get_utc_epoch(),
-        [(wallet.defaultId, last_req_id + 1)],
+        ["requests digest"],
         0,
         "random digest",
         DOMAIN_LEDGER_ID,
@@ -814,6 +677,16 @@ def send_commit(view_no, pp_seq_no, nodes):
     sendMessageToAll(nodes, primary_node, commit)
 
 
+def get_key_from_req(req: dict):
+    return Request(identifier=req[f.IDENTIFIER.nm],
+                   reqId=req[f.REQ_ID.nm],
+                   operation=req[OPERATION],
+                   protocolVersion=req[f.PROTOCOL_VERSION.nm],
+                   signature=req[f.SIG.nm]
+                   if req.__contains__(f.SIG.nm) else None,
+                   ).key
+
+
 def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                   timeout=None, override_eventually_timeout=False):
     # TODO: Move this logic to eventuallyAll
@@ -845,13 +718,13 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
 def check_request_ordered(node, request: Request):
     # it's ok to iterate through all txns since this is a test
     for seq_no, txn in node.domainLedger.getAllTxn():
-        if f.REQ_ID.nm not in txn:
+        if get_req_id(txn) is None:
             continue
-        if f.IDENTIFIER.nm not in txn:
+        if get_from(txn) is None:
             continue
-        if txn[f.REQ_ID.nm] != request.reqId:
+        if get_req_id(txn) != request.reqId:
             continue
-        if txn[f.IDENTIFIER.nm] != request.identifier:
+        if get_from(txn) != request.identifier:
             continue
         return True
     raise ValueError('{} request not ordered by node {}'.format(request, node.name))
@@ -869,12 +742,14 @@ def wait_for_requests_ordered(looper, nodes, requests):
 
 
 def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
-                         tdir, plugin_paths):
+                         tdir, plugin_paths, node_ha=None, client_ha=None):
     config_helper = node_config_helper_class(name, conf, chroot=tdir)
     return test_node_class(name,
                            config_helper=config_helper,
                            config=conf,
-                           pluginPaths=plugin_paths)
+                           pluginPaths=plugin_paths,
+                           ha=node_ha,
+                           cliha=client_ha)
 
 
 # ####### SDK
@@ -942,6 +817,14 @@ def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
+
+
+def sdk_sign_and_submit_op(looper, pool_handle, sdk_wallet, op):
+    _, did = sdk_wallet
+    req_obj = sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+                              identifier=did)
     s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
     return sdk_send_signed_requests(pool_handle, [s_req])[0]
 
@@ -1068,9 +951,10 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     return sdk_replies
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
     wallet_h, did = sdk_wallet
-    request = Request(operation=op, reqId=random.randint(10, 100000),
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
@@ -1105,3 +989,13 @@ def sdk_json_couples_to_request_list(json_couples):
     for json_couple in json_couples:
         req_list.append(sdk_json_to_request_object(json_couple[0]))
     return req_list
+
+
+def sdk_get_bad_response(looper, reqs, exception, message):
+    with pytest.raises(exception) as e:
+        sdk_get_and_check_replies(looper, reqs)
+    assert message in e._excinfo[1].args[0]
+
+
+def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
+    looper.loop.run_until_complete(set_protocol_version(version))

@@ -123,7 +123,6 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
             raise ValueError("subtree %s > current smallest subtree %s" % (
                 subtree_h, mintree_h))
         root_hash, hashes = self.__hasher._hash_full(leaves, 0, size)
-        assert hashes == (root_hash,)
 
         if self.hashStore:
             for h in hashes:
