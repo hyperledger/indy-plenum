@@ -89,6 +89,9 @@ class TestDomainRequestHandler(DomainRequestHandler):
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
+    def gen_txn_path(self, txn):
+        return None
+
 
 NodeRef = TypeVar('NodeRef', Node, str)
 
