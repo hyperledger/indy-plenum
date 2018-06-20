@@ -11,7 +11,7 @@ from typing import Optional
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
-    CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME
+    CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME, CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
@@ -271,7 +271,6 @@ class LedgerManager(HasActionQueue):
                                  "ledger status {} from client {}"
                                  .format(self, status, frm))
                     return
-
                 # If our node is not ahead the client which has sent
                 # the ledger status then reply to it that its ledger is OK
                 if not self.isLedgerNew(ledgerStatus):

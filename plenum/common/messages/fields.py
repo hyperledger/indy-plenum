@@ -9,7 +9,7 @@ import dateutil
 
 from common.exceptions import PlenumTypeError, PlenumValueError
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
@@ -681,7 +681,13 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value {}'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(val, CURRENT_PROTOCOL_VERSION)

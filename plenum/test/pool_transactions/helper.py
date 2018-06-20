@@ -339,9 +339,9 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
         refresh_pool_ledger(sdk_pool_handle))
 
 
-def sdk_build_get_txn_request(looper, steward_did, data):
+def sdk_build_get_txn_request(looper, steward_did, seq_no):
     request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, data))
+        build_get_txn_request(steward_did, None, seq_no))
     return request
 
 
