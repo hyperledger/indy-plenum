@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25515, \
+    ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25519, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
     TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID
@@ -265,7 +265,7 @@ def do_req_to_txn(req_data, req_op):
 
     # 2. Fill Signature
     if (f.SIG.nm in req_data) or (f.SIGS.nm in req_data):
-        result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25515
+        result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25519
         signatures = {req_data.get(f.IDENTIFIER.nm, None): req_data.get(f.SIG.nm, None)} \
             if req_data.get(f.SIG.nm, None) is not None \
             else req_data.get(f.SIGS.nm, {})
