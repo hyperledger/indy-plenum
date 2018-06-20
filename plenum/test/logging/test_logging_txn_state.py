@@ -4,6 +4,8 @@ import json
 import pytest
 
 from plenum.common.exceptions import RequestRejectedException
+from plenum.common.request import Request
+from plenum.common.types import f, OPERATION
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
 
@@ -12,7 +14,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 from plenum.test.pool_transactions.helper import prepare_nym_request, \
     sdk_sign_and_send_prepared_request
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, sdk_get_and_check_replies
+from plenum.test.helper import sdk_send_random_and_check, \
+    sdk_get_and_check_replies, get_key_from_req
 
 ERORR_MSG = "something went wrong"
 
@@ -39,10 +42,10 @@ def testLoggingTxnStateForValidRequest(
                                      sdk_wallet_client, 1)
     req, _ = reqs[0]
 
-    reqId = str(req['reqId'])
-    assert any(reqId in record.getMessage() for record in logsPropagate)
-    assert any(reqId in record.getMessage() for record in logsOrdered)
-    assert any(reqId in record.getMessage() for record in logsCommited)
+    key = get_key_from_req(req)
+    assert any(key in record.getMessage() for record in logsPropagate)
+    assert any(key in record.getMessage() for record in logsOrdered)
+    assert any(key in record.getMessage() for record in logsCommited)
 
 
 def testLoggingTxnStateForInvalidRequest(
@@ -72,10 +75,11 @@ def testLoggingTxnStateForInvalidRequest(
         sdk_get_and_check_replies(looper, [request_couple])
 
     assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
-
-    reqId = str(json.loads(nym_request)['reqId'])
-    assert any(reqId in record.getMessage() for record in logsPropagate)
-    assert any(reqId in record.getMessage() for record in logsReject)
+    request = json.loads(nym_request)
+    req_id = str(request[f.REQ_ID.nm])
+    digest = get_key_from_req(request)
+    assert any(digest in record.getMessage() for record in logsPropagate)
+    assert any(req_id in record.getMessage() for record in logsReject)
 
 
 def testLoggingTxnStateWhenCommitFails(
@@ -142,8 +146,9 @@ def testLoggingTxnStateWhenCommitFails(
         eventually(checkSufficientExceptionsHappend,
                    retryWait=1, timeout=timeout))
 
-    reqId = str(json.loads(nym_request)['reqId'])
-    assert any(reqId in record.getMessage() for record in logsPropagate)
-    assert any(reqId in record.getMessage() for record in logsOrdered)
-    assert any(reqId in record.getMessage() for record in logsCommitFail)
+    request = json.loads(nym_request)
+    digest = get_key_from_req(request)
+    assert any(digest in record.getMessage() for record in logsPropagate)
+    assert any(digest in record.getMessage() for record in logsOrdered)
+    assert any(digest in record.getMessage() for record in logsCommitFail)
     assert any(ERORR_MSG in record.getMessage() for record in logsCommitFail)

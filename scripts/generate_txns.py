@@ -1,19 +1,21 @@
 #! /usr/bin/env python3
 
-import os
+import argparse
 import json
+import os
+import random
 import time
 from contextlib import ExitStack
-import argparse
-import random
 from typing import Sequence
-from plenum.common.request import Request
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
-from plenum.common.util import randomString
-from plenum.common.config_util import getConfig
-from plenum.common.txn_util import sdk_reqToTxn
-from indy.ledger import sign_request
+
 from indy import did, wallet
+from indy.ledger import sign_request
+
+from plenum.common.config_util import getConfig
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.request import Request
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.util import randomString
 from stp_core.loop.looper import Looper
 
 config = getConfig()
@@ -86,9 +88,10 @@ if __name__ == "__main__":
         with Looper() as looper:
             sdk_wallet, DID = looper.loop.run_until_complete(get_wallet_and_pool())
             with open(path_to_save, 'w') as outpath:
-                for _ in range(args.count):
+                for i in range(args.count):
                     req = sdk_signed_random_requests(looper, (sdk_wallet, DID), 1)[0]
-                    txn = sdk_reqToTxn(req, int(time.time()))
+                    txn = reqToTxn(req)
+                    append_txn_metadata(txn, txn_time=int(time.time()))
                     outpath.write(json.dumps(txn))
                     outpath.write(os.linesep)
             looper.stopall()

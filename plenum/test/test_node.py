@@ -3,16 +3,18 @@ import time
 import types
 from collections import OrderedDict
 from contextlib import ExitStack
-from copy import copy
 from functools import partial
-from itertools import combinations, permutations
-from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
+from itertools import combinations
+from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
+from plenum.common.request import Request
 from plenum.common.stacks import nodeStackClass, clientStackClass
+from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.propagator import Requests
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -26,7 +28,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, NYM, STATE_PROOF
+    DOMAIN_LEDGER_ID, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -41,10 +43,9 @@ from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
     getAllMsgReceivedForNode, getAllArgs
 from plenum.test.stasher import Stasher
-from plenum.test.test_client import TestClient
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
-    checkRemoteExists, RemoteState, checkState
+from plenum.test.test_stack import StackedTester, getTestableStack, \
+    RemoteState, checkState
 from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
@@ -68,9 +69,9 @@ class TestDomainRequestHandler(DomainRequestHandler):
     @staticmethod
     def prepare_buy_for_state(txn):
         from common.serializers.serialization import domain_state_serializer
-        identifier = txn.get(f.IDENTIFIER.nm)
-        req_id = txn.get(f.REQ_ID.nm)
-        value = domain_state_serializer.serialize({"amount": txn['amount']})
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
         key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
         return key, value
 
@@ -79,7 +80,7 @@ class TestDomainRequestHandler(DomainRequestHandler):
         return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = txn.get(TXN_TYPE)
+        typ = get_type(txn)
         if typ == 'buy':
             key, value = self.prepare_buy_for_state(txn)
             self.state.set(key, value)
@@ -87,6 +88,9 @@ class TestDomainRequestHandler(DomainRequestHandler):
                          format(self, self.state.headHash))
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def gen_txn_path(self, txn):
+        return None
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -143,6 +147,7 @@ class TestNodeCore(StackedTester):
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
         self.replicas._monitor = self.monitor
+        self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
         return TestReplicas(self, self.monitor, config)
@@ -283,7 +288,8 @@ class TestNodeCore(StackedTester):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
-                                        self.bls_bft.bls_store)
+                                        self.bls_bft.bls_store,
+                                        self.getStateTsDbStorage())
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
@@ -343,12 +349,15 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
                  Node.process_current_state_message,
+                 Node.transmitToClient,
                  ]
 
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
+
     def __init__(self, *args, **kwargs):
+        from plenum.common.stacks import nodeStackClass, clientStackClass
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
 
@@ -381,12 +390,18 @@ class TestNode(TestNodeCore, Node):
         committedTxns = list(committedTxns)
         req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
         for txn in committedTxns:
-            if txn[TXN_TYPE] == "buy":
+            if get_type(txn) == "buy":
                 key, value = req_handler.prepare_buy_for_state(txn)
-                proof = req_handler.make_proof(key)
+                _, proof = req_handler.get_value_from_state(key, with_proof=True)
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
+
+    def schedule_node_status_dump(self):
+        pass
+
+    def dump_additional_info(self):
+        pass
 
 
 elector_spyables = [
@@ -447,8 +462,13 @@ replica_spyables = [
     replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
-    replica.Replica.process_requested_pre_prepare,
+    replica.Replica._request_pre_prepare,
     replica.Replica._request_pre_prepare_for_prepare,
+    replica.Replica._request_prepare,
+    replica.Replica._request_commit,
+    replica.Replica.process_requested_pre_prepare,
+    replica.Replica.process_requested_prepare,
+    replica.Replica.process_requested_commit,
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
@@ -466,10 +486,15 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
+    _replica_class = TestReplica
+
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
+        return self.__class__._replica_class(self._node, instance_id,
+                                                self._config, is_master,
+                                                bls_bft)
 
 
+# TODO: probably delete when remove from node
 class TestNodeSet(ExitStack):
 
     def __init__(self,
@@ -529,7 +554,6 @@ class TestNodeSet(ExitStack):
                           ha=ha,
                           cliname=cliname,
                           cliha=cliha,
-                          nodeRegistry=copy(self.nodeReg),
                           config_helper=config_helper,
                           primaryDecider=self.primaryDecider,
                           pluginPaths=self.pluginPaths,
@@ -610,8 +634,7 @@ monitor_spyables = [Monitor.isMasterThroughputTooLow,
                     Monitor.isMasterReqLatencyTooHigh,
                     Monitor.sendThroughput,
                     Monitor.requestOrdered,
-                    Monitor.reset,
-                    Monitor.warn_has_lot_unordered_requests
+                    Monitor.reset
                     ]
 
 
@@ -622,11 +645,11 @@ class TestMonitor(Monitor):
         self.masterReqLatenciesTest = {}
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False):
-        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+                       requests: Dict, byMaster: bool = False):
+        durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
-            for (identifier, reqId), duration in durations.items():
-                self.masterReqLatenciesTest[identifier, reqId] = duration
+            for key, duration in durations.items():
+                self.masterReqLatenciesTest[key] = duration
 
     def reset(self):
         super().reset()
@@ -734,10 +757,10 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
                                                                 )) from ex
 
 
-def checkIfSameReplicaIPrimary(looper: Looper,
-                               replicas: Sequence[TestReplica] = None,
-                               retryWait: float = 1,
-                               timeout: float = 20):
+def checkIfSameReplicaIsPrimary(looper: Looper,
+                                replicas: Sequence[TestReplica] = None,
+                                retryWait: float = 1,
+                                timeout: float = 20):
     # One and only one primary should be found and every replica should agree
     # on same primary
 
@@ -792,10 +815,10 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
-        checkIfSameReplicaIPrimary(looper=looper,
-                                   replicas=replicas,
-                                   retryWait=retryWait,
-                                   timeout=newTimeout)
+        checkIfSameReplicaIsPrimary(looper=looper,
+                                    replicas=replicas,
+                                    retryWait=retryWait,
+                                    timeout=newTimeout)
 
 
 def checkEveryNodeHasAtMostOnePrimary(looper: Looper,

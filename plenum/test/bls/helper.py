@@ -3,19 +3,21 @@ import os
 
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.request import Request
+from plenum.common.txn_util import get_type, reqToTxn
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, ALIAS, BLS_KEY, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
+from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch, randomString, random_from_alphabet, hexToFriendly
-from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests, sdk_send_random_and_check
-from plenum.test.node_catchup.helper import waitNodeDataEquality, ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import updateNodeData, sdk_send_update_node, \
+from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.pool_transactions.helper import sdk_send_update_node, \
     sdk_pool_refresh
 from stp_core.common.log import getlogger
 
@@ -23,46 +25,7 @@ logger = getlogger()
 
 
 def generate_state_root():
-    return base58.b58encode(os.urandom(32))
-
-
-def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_handle,
-                                       saved_multi_sigs_count):
-    # at least two because first request could have no
-    # signature since state can be clear
-    number_of_requests = 3
-
-    # 1. send requests
-    # Using loop to avoid 3pc batching
-    state_roots = []
-    for i in range(number_of_requests):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_handle, 1)
-        waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
-        state_roots.append(
-            state_roots_serializer.serialize(
-                bytes(txnPoolNodeSet[0].getState(DOMAIN_LEDGER_ID).committedHeadHash)))
-
-    # 2. get all saved multi-sigs
-    multi_sigs_for_batch = []
-    for state_root in state_roots:
-        multi_sigs = []
-        for node in txnPoolNodeSet:
-            multi_sig = node.bls_bft.bls_store.get(state_root)
-            if multi_sig:
-                multi_sigs.append(multi_sig)
-        multi_sigs_for_batch.append(multi_sigs)
-
-    # 3. check how many multi-sigs are saved
-    for multi_sigs in multi_sigs_for_batch:
-        assert len(multi_sigs) == saved_multi_sigs_count, \
-            "{} != {}".format(len(multi_sigs), saved_multi_sigs_count)
-
-    # 3. check that bls multi-sig is the same for all nodes we get PrePrepare for (that is for all expect the last one)
-    for multi_sigs in multi_sigs_for_batch[:-1]:
-        if multi_sigs:
-            assert multi_sigs.count(multi_sigs[0]) == len(multi_sigs)
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
 
 
 def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -147,7 +110,7 @@ def create_pre_prepare_params(state_root,
               0,
               0,
               timestamp or get_utc_epoch(),
-              [('1' * 16, 1)],
+              ["random request digest"],
               0,
               "random digest",
               ledger_id,
@@ -203,29 +166,6 @@ def create_prepare(req_key, state_root):
     return Prepare(*params)
 
 
-def change_bls_key(looper, txnPoolNodeSet,
-                   node,
-                   steward_client, steward_wallet,
-                   add_wrong=False):
-    new_blspk = init_bls_keys(node.keys_dir, node.name)
-
-    key_in_txn = \
-        new_blspk \
-            if not add_wrong \
-            else ''.join(random_from_alphabet(32, base58.alphabet))
-
-    node_data = {
-        ALIAS: node.name,
-        BLS_KEY: key_in_txn
-    }
-
-    updateNodeData(looper, steward_client, steward_wallet, node, node_data)
-    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
-                                                  *txnPoolNodeSet)
-    return new_blspk
-
-
 def sdk_change_bls_key(looper, txnPoolNodeSet,
                        node,
                        sdk_pool_handle,
@@ -235,7 +175,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     new_blspk = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
-        else base58.b58encode(randomString(128).encode())
+        else base58.b58encode(randomString(128).encode()).decode("utf-8")
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
@@ -295,7 +235,25 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
                                        saved_multi_sigs_count)
 
 
-def validate_proof(result):
+def validate_proof_for_read(result, req):
+    """
+    Validates state proof
+    """
+    state_root_hash = result[STATE_PROOF]['root_hash']
+    state_root_hash = state_roots_serializer.deserialize(state_root_hash)
+    proof_nodes = result[STATE_PROOF]['proof_nodes']
+    if isinstance(proof_nodes, str):
+        proof_nodes = proof_nodes.encode()
+    proof_nodes = proof_nodes_serializer.deserialize(proof_nodes)
+    key, value = prepare_for_state_read(req)
+    valid = PruningState.verify_state_proof(state_root_hash,
+                                            key,
+                                            value,
+                                            proof_nodes,
+                                            serialized=True)
+    return valid
+
+def validate_proof_for_write(result):
     """
     Validates state proof
     """
@@ -315,9 +273,17 @@ def validate_proof(result):
 
 
 def prepare_for_state(result):
-    if result[TXN_TYPE] == "buy":
+    if get_type(result) == "buy":
         from plenum.test.test_node import TestDomainRequestHandler
         key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+        return key, value
+
+
+def prepare_for_state_read(req: Request):
+    if req.txn_type == "buy":
+        from plenum.test.test_node import TestDomainRequestHandler
+        txn = reqToTxn(req)
+        key, value = TestDomainRequestHandler.prepare_buy_for_state(txn)
         return key, value
 
 

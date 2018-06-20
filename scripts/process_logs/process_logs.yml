@@ -7,13 +7,13 @@ matchers:
 
   message_event:
   - message_sending:
-  - message_inbox:
+  - message_received:
 
   message_sending:
   - message: "sending message"
 
-  message_inbox:
-  - message: "appending to nodeInbox"
+  message_received:
+  - message: "received node message from"
 
 #########################################################################
 # Network matchers
@@ -98,13 +98,13 @@ matchers:
   - message: transmitting message
   - message: You can find logs in
   - message: created a PRE-PREPARE
+  - message: appending to nodeInbox
   - message: next check for retries
   - message: requesting PREPARE for
   - message: into fewer transmissions
   - message: processing a batch BATCH
   - message: requesting PREPREPARE for
   - message: missing PRE-PREPAREs from
-  - message: received node message from
   - message: Setting handler for SIGINT
   - message: Setting handler for SIGTERM
   - message: checking its request amount

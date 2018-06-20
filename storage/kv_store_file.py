@@ -101,7 +101,8 @@ class KeyValueStorageFile(KeyValueStorage):
     def _is_valid_range(self, start=None, end=None):
         if start and end:
             assert self.isLineNoKey
-            assert start <= end
+            if start > end:
+                raise ValueError("range [{}, {}] is invalid".format(start, end))
 
     def _keyIterator(self, lines, start=None, end=None, prefix=None):
         return self._baseIterator(lines, start, end, prefix, True, False)

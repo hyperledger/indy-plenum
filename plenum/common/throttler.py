@@ -1,5 +1,6 @@
 import time
 
+from common.exceptions import PlenumTypeError, PlenumValueError
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -14,8 +15,11 @@ class Throttler:
         :param windowSize: size (in seconds) of the time window events counted in
         :param delayFunction: function from **number of actions** to **time to wait after the last one**
         """
+        if not isinstance(windowSize, int):
+            raise PlenumTypeError('windowSize', windowSize, int)
+        if not windowSize > 0:
+            raise PlenumValueError('windowSize', windowSize, '> 0')
 
-        assert windowSize and windowSize > 0
         self.windowSize = windowSize
         self.delayFunction = delayFunction if delayFunction else self._defaultDelayFunction
         self.actionsLog = []

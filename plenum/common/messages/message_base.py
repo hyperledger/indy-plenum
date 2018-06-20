@@ -2,7 +2,10 @@ from collections import OrderedDict
 from operator import itemgetter
 from typing import Mapping
 
+from plenum.common.types import f
+
 from plenum.common.constants import OP_FIELD_NAME
+from plenum.common.exceptions import MissingProtocolVersionError
 from plenum.common.messages.fields import FieldValidator
 
 
@@ -47,9 +50,13 @@ class MessageValidator(FieldValidator):
                         .format(self.__error_msg_prefix, type(dct)))
 
     def _raise_missed_fields(self, *fields):
-        raise TypeError("{} missed fields - {}"
-                        .format(self.__error_msg_prefix,
-                                ', '.join(map(str, fields))))
+        msg = "{} missed fields - {}. " \
+            .format(self.__error_msg_prefix,
+                    ', '.join(map(str, fields)))
+        if (any(field == f.PROTOCOL_VERSION.nm for field in map(str, fields))):
+            raise MissingProtocolVersionError(msg)
+        else:
+            raise TypeError(msg)
 
     def _raise_unknown_fields(self, field, value):
         raise TypeError("{} unknown field - "
@@ -73,17 +80,20 @@ class MessageBase(Mapping, MessageValidator):
     typename = None
 
     def __init__(self, *args, **kwargs):
-        assert not (args and kwargs), \
-            '*args, **kwargs cannot be used together'
+        if args and kwargs:
+            raise ValueError("*args, **kwargs cannot be used together")
 
         if kwargs:
             # op field is not required since there is self.typename
             kwargs.pop(OP_FIELD_NAME, None)
 
         argsLen = len(args or kwargs)
-        assert argsLen <= len(self.schema), \
-            "number of parameters should be less than or equal to " \
-            "the number of fields in schema, but it was {}".format(argsLen)
+        if argsLen > len(self.schema):
+            raise ValueError(
+                "number of parameters {} should be less than or equal to "
+                "the number of fields in schema {}"
+                .format(argsLen, len(self.schema))
+            )
 
         super().__init__()
         input_as_dict = kwargs if kwargs else self._join_with_schema(args)

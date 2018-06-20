@@ -1,11 +1,17 @@
 import psutil
+from plenum.test.test_node import checkNodesConnected
+
+nodeCount = 1
 
 
 # noinspection PyIncorrectDocstring
-def testSystemStats(monkeypatch, testNode):
+def testSystemStats(looper, monkeypatch, txnPoolNodeSetNotStarted):
     """
     Checking if monitor captures system performance data
     """
+    A, = txnPoolNodeSetNotStarted
+    looper.add(A)
+    looper.run(checkNodesConnected(txnPoolNodeSetNotStarted))
     cpu = 10
     ram = 15
     bytes = 1024
@@ -34,8 +40,8 @@ def testSystemStats(monkeypatch, testNode):
     monkeypatch.setattr(psutil, 'cpu_percent', test_cpu_percent)
     monkeypatch.setattr(psutil, 'virtual_memory', test_virtual_memory)
     monkeypatch.setattr(psutil, 'net_io_counters', test_traffic)
-    testNode.monitor.lastKnownTraffic = 0
-    data1 = testNode.monitor.captureSystemPerformance()
+    A.monitor.lastKnownTraffic = 0
+    data1 = A.monitor.captureSystemPerformance()
     assert 'cpu' in data1
     assert 'ram' in data1
     assert 'traffic' in data1
@@ -45,8 +51,8 @@ def testSystemStats(monkeypatch, testNode):
     cpu = 50
     ram = 60
     bytes = 2048
-    assert testNode.monitor.lastKnownTraffic == data1['traffic']['value']
-    data2 = testNode.monitor.captureSystemPerformance()
+    assert A.monitor.lastKnownTraffic == data1['traffic']['value']
+    data2 = A.monitor.captureSystemPerformance()
     assert data2['cpu']['value'] == cpu
     assert data2['ram']['value'] == ram
     assert data2['traffic']['value'] == bytes / \

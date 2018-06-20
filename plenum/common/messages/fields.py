@@ -2,15 +2,18 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
+from typing import Iterable
 
 import base58
+import dateutil
 
+from common.exceptions import PlenumTypeError, PlenumValueError
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -121,7 +124,8 @@ class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
     def __init__(self, max_length: int, **kwargs):
-        assert max_length > 0, 'should be greater than 0'
+        if not max_length > 0:
+            raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)
         self._max_length = max_length
 
@@ -131,6 +135,26 @@ class LimitedLengthStringField(FieldBase):
         if len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
+
+
+class DatetimeStringField(FieldBase):
+    _base_types = (str,)
+    _exceptional_values = []
+
+    def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
+        super().__init__(**kwargs)
+        if exceptional_values is not None:
+            self._exceptional_values = exceptional_values
+
+    def _specific_validation(self, val):
+        if len(val) > DATETIME_LIMIT:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, DATETIME_LIMIT)
+        if val not in self._exceptional_values:
+            try:
+                dateutil.parser.parse(val)
+            except Exception:
+                return "datetime {} is not valid".format(val)
 
 
 class FixedLengthField(FieldBase):
@@ -196,12 +220,18 @@ class IterableField(FieldBase):
 
     def __init__(self, inner_field_type: FieldValidator, min_length=None,
                  max_length=None, **kwargs):
-        assert inner_field_type
-        assert isinstance(inner_field_type, FieldValidator)
-        for m in (min_length, max_length):
+
+        if not isinstance(inner_field_type, FieldValidator):
+            raise PlenumTypeError(
+                'inner_field_type', inner_field_type, FieldValidator)
+
+        for k in ('min_length', 'max_length'):
+            m = locals()[k]
             if m is not None:
-                assert isinstance(m, int)
-                assert m > 0
+                if not isinstance(m, int):
+                    raise PlenumTypeError(k, m, int)
+                if not m > 0:
+                    raise PlenumValueError(k, m, '> 0')
 
         self.inner_field_type = inner_field_type
         self.min_length = min_length
@@ -320,7 +350,7 @@ class Base58Field(FieldBase):
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet)
+        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
@@ -572,8 +602,11 @@ class LedgerInfoField(FieldBase):
     _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
-        assert len(val) == 3
+        if len(val) != 3:
+            return 'should have size of 3'
+
         ledgerId, ledgerLength, merkleRoot = val
+        # TODO test that as well
         for validator, value in ((self._ledger_id_class().validate, ledgerId),
                                  (NonNegativeNumberField().validate, ledgerLength),
                                  (MerkleRootField().validate, merkleRoot)):
@@ -648,7 +681,13 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value {}'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(val, CURRENT_PROTOCOL_VERSION)
