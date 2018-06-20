@@ -1,5 +1,7 @@
 from time import perf_counter
 
+import pytest
+
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.types import HA
