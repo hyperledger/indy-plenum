@@ -406,7 +406,9 @@ def _tconf(general_config):
 
 @pytest.fixture(scope="module")
 def tconf(general_conf_tdir):
-    return _tconf(general_conf_tdir)
+    conf = _tconf(general_conf_tdir)
+    conf.Max3PCBatchWait = 2
+    return conf
 
 
 @pytest.fixture()

@@ -16,6 +16,18 @@ from plenum.test.batching_3pc.conftest import tconf
 Max3PCBatchSize = 2
 
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = Max3PCBatchSize
+    tconf.Max3PCBatchWait = 1000
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
+
+
 def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
     One of the node experiences poor network and loses 3PC messages. It has to
