@@ -4,7 +4,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
-from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
+from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
@@ -25,7 +25,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         self.state_root_serializer = state_roots_serializer
 
     def _can_process_ledger(self, ledger_id):
-        return ledger_id == DOMAIN_LEDGER_ID
+        return ledger_id != POOL_LEDGER_ID
 
     # ----VALIDATE----
 
