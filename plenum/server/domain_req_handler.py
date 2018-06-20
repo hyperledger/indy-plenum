@@ -1,3 +1,4 @@
+from binascii import hexlify
 from hashlib import sha256
 
 from common.serializers.serialization import domain_state_serializer, \
@@ -71,7 +72,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         typ = get_type(txn)
         if typ == NYM:
             nym = get_payload_data(txn).get(TARGET_NYM)
-            return self.nym_to_state_key(nym)
+            return hexlify(self.nym_to_state_key(nym)).decode()
         else:
             logger.error('Cannot generate id for txn of type {}'.format(typ))
             return None
