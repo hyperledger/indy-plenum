@@ -67,6 +67,15 @@ class DomainRequestHandler(LedgerRequestHandler):
         for txn in txns:
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
+    def gen_txn_path(self, txn):
+        typ = get_type(txn)
+        if typ == NYM:
+            nym = get_payload_data(txn).get(TARGET_NYM)
+            return self.nym_to_state_key(nym)
+        else:
+            logger.error('Cannot generate id for txn of type {}'.format(typ))
+            return None
+
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
         if typ == NYM:
