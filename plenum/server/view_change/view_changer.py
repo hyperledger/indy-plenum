@@ -421,7 +421,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :return: the number of messages successfully processed
         """
         # do not start any view changes until catch-up is finished!
-        if self.node.mode == Mode.syncing:
+        if not Mode.is_done_syncing(self.node.mode):
             return 0
         return await self.inBoxRouter.handleAll(self.inBox, limit)
 

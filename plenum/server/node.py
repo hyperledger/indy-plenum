@@ -1911,6 +1911,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
+        if not self.view_change_in_progress:
+            return False
+
         if self.caught_up_for_current_view():
             logger.debug('{} is caught up for the current view {}'.
                          format(self, self.viewNo))
