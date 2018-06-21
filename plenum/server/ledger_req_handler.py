@@ -1,14 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-import base58
+from common.exceptions import PlenumValueError
+from common.serializers.serialization import state_roots_serializer
+from stp_core.common.log import getlogger
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.req_handler import RequestHandler
-from stp_core.common.log import getlogger
-from storage.state_ts_store import StateTsDbStorage
+from plenum.common.txn_util import reqToTxn
 
 from state.state import State
 
@@ -35,6 +35,23 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         Updates current state with a number of committed or
         not committed transactions
         """
+
+    def gen_txn_path(self, txn):
+        return None
+
+    def _reqToTxn(self, req: Request):
+        return reqToTxn(req)
+
+    def apply(self, req: Request, cons_time: int):
+        txn = self._reqToTxn(req)
+
+        txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
+
+        self.ledger.append_txns_metadata([txn], cons_time)
+        (start, end), _ = self.ledger.appendTxns(
+            [self.transform_txn_for_ledger(txn)])
+        self.updateState([txn])
+        return start, txn
 
     def commit(self, txnCount, stateRoot, txnRoot, ppTime) -> List:
         """
@@ -70,19 +87,23 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         return txn
 
     @staticmethod
-    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None,
-                ignore_txn_root_check=False):
-        (seqNoStart, seqNoEnd), committedTxns = ledger.commitTxns(txnCount)
-        stateRoot = base58.b58decode(stateRoot.encode()) if isinstance(
+    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
+        _, committedTxns = ledger.commitTxns(txnCount)
+        stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
             stateRoot, str) else stateRoot
-        if not ignore_txn_root_check:
-            # Probably the following assertion fail should trigger catchup
-            assert ledger.root_hash == txnRoot, '{} {}'.format(ledger.root_hash,
-                                                               txnRoot)
+        # TODO test for that
+        if ledger.root_hash != txnRoot:
+            # Probably the following fail should trigger catchup
+            # TODO add repr / str for Ledger class and dump it here as well
+            raise PlenumValueError(
+                'txnRoot', txnRoot,
+                ("equal to current ledger root hash {}"
+                 .format(ledger.root_hash))
+            )
         state.commit(rootHash=stateRoot)
         if ts_store:
             ts_store.set(ppTime, stateRoot)
-        return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
+        return committedTxns
 
     @property
     def operation_types(self) -> set:

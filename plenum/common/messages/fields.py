@@ -7,8 +7,9 @@ from typing import Iterable
 import base58
 import dateutil
 
+from common.exceptions import PlenumTypeError, PlenumValueError
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
@@ -123,7 +124,8 @@ class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
     def __init__(self, max_length: int, **kwargs):
-        assert max_length > 0, 'should be greater than 0'
+        if not max_length > 0:
+            raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)
         self._max_length = max_length
 
@@ -218,12 +220,18 @@ class IterableField(FieldBase):
 
     def __init__(self, inner_field_type: FieldValidator, min_length=None,
                  max_length=None, **kwargs):
-        assert inner_field_type
-        assert isinstance(inner_field_type, FieldValidator)
-        for m in (min_length, max_length):
+
+        if not isinstance(inner_field_type, FieldValidator):
+            raise PlenumTypeError(
+                'inner_field_type', inner_field_type, FieldValidator)
+
+        for k in ('min_length', 'max_length'):
+            m = locals()[k]
             if m is not None:
-                assert isinstance(m, int)
-                assert m > 0
+                if not isinstance(m, int):
+                    raise PlenumTypeError(k, m, int)
+                if not m > 0:
+                    raise PlenumValueError(k, m, '> 0')
 
         self.inner_field_type = inner_field_type
         self.min_length = min_length
@@ -339,21 +347,22 @@ class LedgerIdField(ChooseField):
 
 class Base58Field(FieldBase):
     _base_types = (str,)
+    _alphabet = set(base58.alphabet.decode("utf-8"))
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
         invalid_chars = set(val) - self._alphabet
         if invalid_chars:
             # only 10 chars to shorten the output
+            # TODO: Why does it need to be sorted
             to_print = sorted(invalid_chars)[:10]
             return 'should not contain the following chars {}{}'.format(
                 to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check
+            # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
@@ -594,8 +603,11 @@ class LedgerInfoField(FieldBase):
     _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
-        assert len(val) == 3
+        if len(val) != 3:
+            return 'should have size of 3'
+
         ledgerId, ledgerLength, merkleRoot = val
+        # TODO test that as well
         for validator, value in ((self._ledger_id_class().validate, ledgerId),
                                  (NonNegativeNumberField().validate, ledgerLength),
                                  (MerkleRootField().validate, merkleRoot)):
@@ -670,7 +682,13 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value {}'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(val, CURRENT_PROTOCOL_VERSION)

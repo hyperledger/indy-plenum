@@ -136,21 +136,21 @@ def sha3(seed):
 # assert encode_hex(sha3(b'')) == b'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
 
 
-def normalize_address(x, allow_blank=False):
-    if is_numeric(x):
-        return int_to_addr(x)
-    if allow_blank and x in {'', b''}:
-        return b''
-    if len(x) in (42, 50) and x[:2] in {'0x', b'0x'}:
-        x = x[2:]
-    if len(x) in (40, 48):
-        x = decode_hex(x)
-    if len(x) == 24:
-        assert len(x) == 24 and sha3(x[:20])[:4] == x[-4:]
-        x = x[:20]
-    if len(x) != 20:
-        raise Exception("Invalid address format: %r" % x)
-    return x
+#def normalize_address(x, allow_blank=False):
+#    if is_numeric(x):
+#        return int_to_addr(x)
+#    if allow_blank and x in {'', b''}:
+#        return b''
+#    if len(x) in (42, 50) and x[:2] in {'0x', b'0x'}:
+#        x = x[2:]
+#    if len(x) in (40, 48):
+#        x = decode_hex(x)
+#    if len(x) == 24:
+#        assert len(x) == 24 and sha3(x[:20])[:4] == x[-4:]
+#        x = x[:20]
+#    if len(x) != 20:
+#        raise Exception("Invalid address format: %r" % x)
+#    return x
 
 
 def zpad(x, l):

@@ -1,21 +1,20 @@
 import os
 
+from common.exceptions import PlenumValueError, ValueUndefinedError
+
 
 class PConfigHelper:
 
     def __init__(self, config, *, chroot=None):
-        assert config is not None
-        if chroot is not None:
-            assert chroot.startswith("/")
+        if config is None:
+            raise ValueUndefinedError('config')
+        if chroot is not None and not chroot.startswith("/"):
+            raise PlenumValueError('chroot', chroot, "starts with '/'")
         self.config = config
         self.chroot = chroot
 
     def chroot_if_needed(self, path):
-        result = path
-        if self.chroot is not None and self.chroot != "/":
-            _path = path[1:] if path.startswith("/") else path
-            result = os.path.join(self.chroot, _path)
-        return result
+        return self._chroot_if_needed(path, self.chroot)
 
     @property
     def log_dir(self):
@@ -37,11 +36,20 @@ class PConfigHelper:
     def node_info_dir(self):
         return self.chroot_if_needed(self.config.NODE_INFO_DIR)
 
+    @staticmethod
+    def _chroot_if_needed(path, chroot):
+        result = path
+        if chroot is not None and chroot != "/":
+            _path = path[1:] if path.startswith("/") else path
+            result = os.path.join(chroot, _path)
+        return result
+
 
 class PNodeConfigHelper(PConfigHelper):
 
     def __init__(self, name: str, config, *, chroot=None):
-        assert name is not None
+        if name is None:
+            raise ValueUndefinedError('name')
         super().__init__(config, chroot=chroot)
         self.name = name
 

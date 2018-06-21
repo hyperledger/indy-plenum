@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
-    PREPREPARE, PREPARE, PROPAGATE, COMMIT
+    PREPREPARE, PREPARE, PROPAGATE, COMMIT, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     AnyMapField, MessageRep, AnyField, LedgerStatus, ConsistencyProof, \
     PrePrepare, Prepare, Propagate, Commit
@@ -47,7 +47,7 @@ pre_prepare_msg = PrePrepare(
     1,
     3,
     get_utc_epoch(),
-    [['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ', 1499707723017300]],
+    ['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ',],
     1,
     'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
     1,
@@ -75,14 +75,15 @@ propagate_msg = Propagate(**{'request': {'identifier': '5rArie7XKukPCaEwq5XGQJnM
                                          'signature': 'ZbZG68WiaK67eU3CsgpVi85jpgCztW9Yqe7D5ezDUfWbKdiPPVbWq4Tb5m4Ur3jcR5wJ8zmBUZXZudjvMN63Aa9',
                                          'operation': {'amount': 62,
                                                        'type': 'buy'},
-                                         'reqId': 1499782864169193},
+                                         'reqId': 1499782864169193,
+                                         'protocolVersion': CURRENT_PROTOCOL_VERSION},
                              'senderClient': '+DG1:vO9#de6?R?>:3RwdAXSdefgLLfxSoN4WMEe'})
 
 bad_msgs = [
     (LEDGER_STATUS, {'p1': 'v1', 'p2': 'v2'}, LedgerStatus(
-        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq')),
+        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
     (LEDGER_STATUS, {f.LEDGER_ID.nm: 100}, LedgerStatus(
-        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq')),
+        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
     (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 1, f.SEQ_NO_START.nm: 10},
      ConsistencyProof(1, 2, 20, 1, 3,
                       'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',

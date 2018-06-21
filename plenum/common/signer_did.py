@@ -25,7 +25,12 @@ class DidIdentity:
                     self._verkey = ''
                 return
 
-        assert (verkey or rawVerkey) and not (verkey and rawVerkey)
+        if not ((verkey or rawVerkey) and not (verkey and rawVerkey)):
+            raise ValueError(
+                "Both verkey {} and rawVerkey {} can't be specified"
+                .format(verkey, rawVerkey)
+            )
+
         if identifier:
             self._identifier = identifier
             if rawVerkey:

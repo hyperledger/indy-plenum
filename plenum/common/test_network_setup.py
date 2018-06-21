@@ -5,6 +5,8 @@ from collections import namedtuple
 import fileinput
 import shutil
 
+from common.exceptions import PlenumValueError
+
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 
 from stp_core.crypto.nacl_wrappers import Signer
@@ -44,10 +46,12 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
-    def writeNodeParamsFile(filePath, name, nPort, cPort):
+    def writeNodeParamsFile(filePath, name, nIp, nPort, cIp, cPort):
         contents = [
             'NODE_NAME={}'.format(name),
+            'NODE_IP={}'.format(nIp),
             'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_IP={}'.format(cIp),
             'NODE_CLIENT_PORT={}'.format(cPort),
             'CLIENT_CONNECTIONS_LIMIT={}'.format(CLIENT_CONNECTIONS_LIMIT)
         ]
@@ -96,13 +100,27 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
                                               config, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
+        # 1. INIT DOMAIN LEDGER GENESIS FILE
+        seq_no = 1
+        trustee_txn = Member.nym_txn(trustee_def.nym, verkey=trustee_def.verkey, role=TRUSTEE,
+                                     seq_no=seq_no)
+        seq_no += 1
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym)
+            nym_txn = Member.nym_txn(sd.nym, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym,
+                                     seq_no=seq_no)
+            seq_no += 1
             domainLedger.add(nym_txn)
 
+        for cd in client_defs:
+            txn = Member.nym_txn(cd.nym, verkey=cd.verkey, creator=trustee_def.nym,
+                                 seq_no=seq_no)
+            seq_no += 1
+            domainLedger.add(txn)
+
+        # 2. INIT KEYS AND POOL LEDGER GENESIS FILE
+        seq_no = 1
         for nd in node_defs:
             if nd.idx in _localNodes:
                 _, verkey, blskey = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
@@ -112,7 +130,9 @@ class TestNetworkSetup:
                 if nd.ip != '127.0.0.1':
                     paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
-                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
+                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name,
+                                                         "0.0.0.0", nd.port,
+                                                         "0.0.0.0", nd.client_port)
 
                 print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
@@ -122,12 +142,10 @@ class TestNetworkSetup:
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
-                                        nd.ip, nd.port, nd.client_port, blskey=blskey)
+                                        nd.ip, nd.port, nd.client_port, blskey=blskey,
+                                        seq_no=seq_no)
+            seq_no += 1
             poolLedger.add(node_txn)
-
-        for cd in client_defs:
-            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
-            domainLedger.add(txn)
 
         poolLedger.stop()
         domainLedger.stop()
@@ -197,10 +215,17 @@ class TestNetworkSetup:
         args = parser.parse_args()
 
         if isinstance(args.nodeNum, int):
-            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less or equal to nodeCount"
+            if not (1 <= args.nodeNum <= args.nodes):
+                raise PlenumValueError(
+                    'args.nodeNum', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
         elif isinstance(args.nodeNum, list):
-            bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
-            assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
+            if any([True for x in args.nodeNum if not (1 <= x <= args.nodes)]):
+                raise PlenumValueError(
+                    'some items in nodeNum list', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
 
         node_num = [args.nodeNum, None] if args.nodeNum else [None]
 

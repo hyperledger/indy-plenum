@@ -60,6 +60,56 @@ stateSignatureStorage = KeyValueStorageType.Rocksdb
 
 transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
 
+rocksdb_default_config = {
+    'max_open_files': None,
+    'max_log_file_size': None,
+    'keep_log_file_num': 5,
+    # Compaction related options
+    'target_file_size_base': None,
+    # Memtable related options
+    'write_buffer_size': None,
+    'max_write_buffer_number': None,
+    'block_cache_size': None,
+    'block_cache_compressed_size': None,
+    'no_block_cache': None,
+    'block_size': None,
+    'db_log_dir': None
+}
+
+rocksdb_merkle_leaves_config = rocksdb_default_config.copy()
+# Change merkle leaves config here if you fully understand what's going on
+
+rocksdb_merkle_nodes_config = rocksdb_default_config.copy()
+# Change nodes config here if you fully understand what's going on
+
+rocksdb_state_config = rocksdb_default_config.copy()
+# Change state config here if you fully understand what's going on
+
+rocksdb_transactions_config = rocksdb_default_config.copy()
+# Change transactions config here if you fully understand what's going on
+
+rocksdb_seq_no_db_config = rocksdb_default_config.copy()
+# Change seq_no_db config here if you fully understand what's going on
+
+rocksdb_state_signature_config = rocksdb_default_config.copy()
+# Change state_signature config here if you fully understand what's going on
+
+rocksdb_state_ts_db_config = rocksdb_default_config.copy()
+# Change state_ts_db config here if you fully understand what's going on
+
+# FIXME: much more clear solution is to check which key-value storage type is
+# used for each storage and set corresponding config, but for now only RocksDB
+# tuning is supported (now other storage implementations ignore this parameter)
+# so here we set RocksDB configs unconditionally for simplicity.
+db_merkle_leaves_config = rocksdb_merkle_leaves_config
+db_merkle_nodes_config = rocksdb_merkle_nodes_config
+db_state_config = rocksdb_state_config
+db_transactions_config = rocksdb_transactions_config
+db_seq_no_db_config = rocksdb_seq_no_db_config
+db_state_signature_config = rocksdb_state_signature_config
+db_state_ts_db_config = rocksdb_state_ts_db_config
+
+
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",
@@ -77,9 +127,9 @@ ForceViewChangeFreq = 0
 
 # Temporarily reducing DELTA till the calculations for extra work are not
 # incorporated
-DELTA = 0.4
-LAMBDA = 60
-OMEGA = 5
+DELTA = 0.1
+LAMBDA = 240
+OMEGA = 20
 SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
@@ -138,7 +188,7 @@ ConsistencyProofsTimeout = 5
 CatchupTransactionsTimeout = 6
 
 # Log configuration
-logRotationBackupCount = 300
+logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
@@ -169,9 +219,9 @@ REMOTES_MESSAGE_QUOTA = 100
 # After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
 # Max batch size for 3 phase commit
-Max3PCBatchSize = 100
+Max3PCBatchSize = 10000
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = .001
+Max3PCBatchWait = 1
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
@@ -195,10 +245,10 @@ CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
-VIEW_CHANGE_TIMEOUT = 60  # seconds
+VIEW_CHANGE_TIMEOUT = 600  # seconds
 INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
-MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
+MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
 
 # permissions for keyring dirs/files
 WALLET_DIR_MODE = 0o700  # drwx------
@@ -231,4 +281,9 @@ VERSION_FIELD_LIMIT = 128
 DATETIME_LIMIT = 35
 
 PLUGIN_ROOT = 'plenum.server.plugin'
-ENABLED_PLUGINS = ['token', 'fees']
+ENABLED_PLUGINS = []
+
+# 0 for normal operation
+# 1 for recorder
+# 2 during replay
+STACK_COMPANION = 0

@@ -108,8 +108,9 @@ def test_get_range(populatedChunkedFileStore):
         num += 1
     assert num == 4 * chunkSize
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError) as excinfo:
         list(populatedChunkedFileStore.iterator(start=5, end=1))
+    assert "range [5, 1] is invalid" in str(excinfo.value)
 
     for frm, to in [(i, j) for i, j in itertools.permutations(
             range(1, dataSize + 1), 2) if i <= j]:

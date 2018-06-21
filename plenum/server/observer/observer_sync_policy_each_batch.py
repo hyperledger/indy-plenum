@@ -2,6 +2,7 @@ import json
 from heapq import heappush, heappop
 from logging import getLogger
 
+from common.exceptions import PlenumValueError
 from plenum.common.constants import BATCH, OBSERVER_PREFIX
 from plenum.common.request import Request
 from plenum.common.types import f
@@ -33,8 +34,8 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         return BATCH
 
     def apply_data(self, msg, sender):
-        assert msg.msg_type == BATCH, \
-            "'Each Batch' policy is used for Observer Data message of type {}".format(msg.msg_type)
+        if msg.msg_type != BATCH:
+            raise PlenumValueError('msg.msg_type', msg.msg_type, BATCH)
 
         logger.debug("{} got BATCH {} from Observable Node {}"
                      .format(OBSERVER_PREFIX, msg, sender))

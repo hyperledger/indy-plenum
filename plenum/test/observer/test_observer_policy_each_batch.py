@@ -2,6 +2,7 @@ import types
 
 import pytest
 
+from common.exceptions import PlenumValueError
 from plenum.common.constants import BATCH, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import BatchCommitted, ObservedData
 from plenum.common.util import get_utc_epoch
@@ -60,6 +61,13 @@ In all the tests we assume that consensus quorum to apply ObservedData is f+1=2
 
 def test_policy_type(observer_policy):
     assert observer_policy.policy_type == BATCH
+
+
+def test_apply_data_fails_on_invalid_args(observer_policy, observed_data_msg):
+    observed_data_msg.msg_type = "NOT_BATCH"
+    with pytest.raises(PlenumValueError) as excinfo:
+        observer_policy.apply_data(observed_data_msg, "Node1")
+    assert "expected: {}".format(BATCH) in str(excinfo.value)
 
 
 def test_quorum_same_message(observer_policy, observed_data_msg):
