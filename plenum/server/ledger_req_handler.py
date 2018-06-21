@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-import base58
-
 from common.exceptions import PlenumValueError
 from common.serializers.serialization import state_roots_serializer
 from stp_core.common.log import getlogger
@@ -10,7 +8,7 @@ from stp_core.common.log import getlogger
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.server.req_handler import RequestHandler
-from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.txn_util import reqToTxn
 
 from state.state import State
 

@@ -17,7 +17,7 @@ def checkForNamedTokens(printedTokens, expectedNames):
     for printedToken in printedTokens['tokens']:
         assert isNameToken(printedToken[0])
         assert printedToken[1] in lookingForNames
-        # Remove the name if token for that name is found
+        # Remove the name if sovtoken for that name is found
         lookingForNames.remove(printedToken[1])
 
     assert len(lookingForNames) == 0

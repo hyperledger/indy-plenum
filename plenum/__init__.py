@@ -39,6 +39,7 @@ def setup_plugins():
     installed_packages = {p.project_name: p for p in pip.get_installed_distributions()}
     for plugin_name in enabled_plugins:
         if plugin_name in installed_packages:
+            # TODO: Need to test for installed packages
             plugin = importlib.import_module(plugin_name)
         else:
             plugin_path = os.path.join(plugin_root.__path__[0],
