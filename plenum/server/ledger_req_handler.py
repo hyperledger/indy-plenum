@@ -4,6 +4,7 @@ from typing import List
 import base58
 
 from common.exceptions import PlenumValueError
+from common.serializers.serialization import state_roots_serializer
 from stp_core.common.log import getlogger
 
 from plenum.common.ledger import Ledger
@@ -82,22 +83,19 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         return txn
 
     @staticmethod
-    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None,
-                ignore_txn_root_check=False):
-        # TODO: remove ignore_txn_root_check
+    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
         _, committedTxns = ledger.commitTxns(txnCount)
-        stateRoot = base58.b58decode(stateRoot.encode()) if isinstance(
+        stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
             stateRoot, str) else stateRoot
-        if not ignore_txn_root_check:
-            # TODO test for that
-            if ledger.root_hash != txnRoot:
-                # Probably the following fail should trigger catchup
-                # TODO add repr / str for Ledger class and dump it here as well
-                raise PlenumValueError(
-                    'txnRoot', txnRoot,
-                    ("equal to current ledger root hash {}"
-                     .format(ledger.root_hash))
-                )
+        # TODO test for that
+        if ledger.root_hash != txnRoot:
+            # Probably the following fail should trigger catchup
+            # TODO add repr / str for Ledger class and dump it here as well
+            raise PlenumValueError(
+                'txnRoot', txnRoot,
+                ("equal to current ledger root hash {}"
+                 .format(ledger.root_hash))
+            )
         state.commit(rootHash=stateRoot)
         if ts_store:
             ts_store.set(ppTime, stateRoot)
