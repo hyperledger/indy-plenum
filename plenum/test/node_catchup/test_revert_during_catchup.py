@@ -69,12 +69,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     ensure_all_nodes_have_same_data(looper, other_nodes)
     waitNodeDataInequality(looper, slow_node, *other_nodes)
 
-    def is_catchup_needed_count():
-        return len(getAllReturnVals(slow_node, slow_node.is_catchup_needed,
-                                    compare_val_to=True))
-
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
-    old_cn_count = is_catchup_needed_count()
 
     # `slow_node` is slow to receive CatchupRep, so that it
     # gets a chance to order COMMITs
@@ -124,12 +119,6 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
             retryWait=1,
             timeout=waits.expectedPoolCatchupTime(
                 len(txnPoolNodeSet))))
-
-    def chk5():
-        # Once catchup was done, need of other catchup was not found
-        assertEquality(is_catchup_needed_count(), old_cn_count)
-
-    looper.run(eventually(chk5, retryWait=1, timeout=5))
 
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
