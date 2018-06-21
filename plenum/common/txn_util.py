@@ -65,12 +65,13 @@ def get_reply_digest(result):
             TXN_PAYLOAD_METADATA_DIGEST in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
         return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST]
     else:
-        return Request(
-            identifier=result.get(f.IDENTIFIER.nm, None),
-            reqId=result.get(f.REQ_ID.nm, None),
-            operation=result.get(OPERATION, None),
-            protocolVersion=result.get(f.PROTOCOL_VERSION.nm, None)
-        ).digest
+        kwargs = dict(identifier=result.get(f.IDENTIFIER.nm, None),
+                      reqId=result.get(f.REQ_ID.nm, None),
+                      operation=result.get(OPERATION, None),
+                      protocolVersion=result.get(f.PROTOCOL_VERSION.nm, None))
+        if result.get(f.FEES.nm):
+            kwargs[f.FEES.nm] = result[f.FEES.nm]
+        return Request(**kwargs).digest
 
 
 # TODO: remove after old client deprecation or uniforming read and write respnse formats
@@ -225,7 +226,7 @@ def reqToTxn(req):
     if isinstance(req, str):
         req = json.loads(req)
     if isinstance(req, dict):
-        req = Request(
+        kwargs = dict(
             identifier=req.get(f.IDENTIFIER.nm, None),
             reqId=req.get(f.REQ_ID.nm, None),
             operation=req.get(OPERATION, None),
@@ -233,6 +234,9 @@ def reqToTxn(req):
             signatures=req.get(f.SIGS.nm, None),
             protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
         )
+        if req.get(f.FEES.nm):
+            kwargs[f.FEES.nm] = req[f.FEES.nm]
+        req = Request(**kwargs)
     if isinstance(req, Request):
         req_data = req.as_dict
         req_data[f.DIGEST.nm] = req.digest
@@ -269,13 +273,7 @@ def do_req_to_txn(req_data, req_op):
         signatures = {req_data.get(f.IDENTIFIER.nm, None): req_data.get(f.SIG.nm, None)} \
             if req_data.get(f.SIG.nm, None) is not None \
             else req_data.get(f.SIGS.nm, {})
-        result[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = [
-            {
-                TXN_SIGNATURE_FROM: frm,
-                TXN_SIGNATURE_VALUE: sign,
-            }
-            for frm, sign in signatures.items()
-        ]
+        add_sigs_to_txn(result, sorted(signatures.items()), sig_type=ED25519)
         req_data.pop(f.SIG.nm, None)
         req_data.pop(f.SIGS.nm, None)
 
@@ -290,3 +288,17 @@ def do_req_to_txn(req_data, req_op):
     set_payload_data(result, req_op)
 
     return result
+
+
+def add_sigs_to_txn(txn, sigs, sig_type=ED25519):
+    if TXN_SIGNATURE_TYPE not in txn[TXN_SIGNATURE] or not txn[TXN_SIGNATURE][TXN_SIGNATURE_TYPE]:
+        txn[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = sig_type
+    if TXN_SIGNATURE_VALUES not in txn[TXN_SIGNATURE] or not txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES]:
+        txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = []
+    txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] += [
+            {
+                TXN_SIGNATURE_FROM: frm,
+                TXN_SIGNATURE_VALUE: sign,
+            }
+            for frm, sign in sigs
+    ]

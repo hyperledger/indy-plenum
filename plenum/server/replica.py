@@ -100,6 +100,7 @@ PP_APPLY_REJECT_WRONG = 7
 PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
+PP_APPLY_HOOK_ERROR = 11
 
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
@@ -769,6 +770,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.txnRootHash(ledger_id)
         ]
 
+        # TODO: Should only happen on master replica
         # BLS multi-sig:
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
@@ -913,19 +915,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.discard(pre_prepare, 'node is not participating',
                          self.logger.info)
             return None
-        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+        pre_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
         if why_not_applied is not None:
             return why_not_applied
         self.addToPrePrepares(pre_prepare)
         if self.isMaster:
-            # TODO: can old_state_root be used here instead?
+            # TODO: can pre_state_root be used here instead?
             state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
             self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
             # BLS multi-sig:
             self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
-            self.logger.trace("{} saved shared multi signature for root".format(self, old_state_root))
-        self.trackBatches(pre_prepare, old_state_root)
+            self.logger.trace("{} saved shared multi signature for "
+                              "root".format(self, pre_state_root))
+        self.trackBatches(pre_prepare, pre_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                           extra={"tags": ["processing"]})
@@ -964,6 +967,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     report_suspicious(Suspicions.PPR_STATE_WRONG)
                 elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_TXN_WRONG)
+                elif why_not_applied == PP_APPLY_HOOK_ERROR:
+                    report_suspicious(Suspicions.PPR_PLUGIN_EXCEPTION)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1111,7 +1116,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         prepare = Prepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
@@ -1247,6 +1252,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
                 revert()
                 return PP_APPLY_ROOT_HASH_MISMATCH
+
+            try:
+                self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
+            except Exception as ex:
+                self.logger.warning('{} encountered exception in replica '
+                                    'hook {} : {}'.
+                                    format(self, ReplicaHooks.APPLY_PPR, ex))
+                revert()
+                return PP_APPLY_HOOK_ERROR
 
             self.outBox.extend(rejects)
         return None
@@ -1387,6 +1401,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+
+        try:
+            self.execute_hook(ReplicaHooks.VALIDATE_PR, prepare, ppReq)
+        except Exception as ex:
+            self.logger.warning('{} encountered exception in replica '
+                                'hook {} : {}'.
+                                format(self, ReplicaHooks.VALIDATE_PR, ex))
+            raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
                                  prepare)
 
         # BLS multi-sig:
@@ -1677,7 +1700,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash)
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
 
         self._discard_ordered_req_keys(pp)
