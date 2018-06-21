@@ -296,9 +296,9 @@ def add_sigs_to_txn(txn, sigs, sig_type=ED25519):
     if TXN_SIGNATURE_VALUES not in txn[TXN_SIGNATURE] or not txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES]:
         txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = []
     txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] += [
-            {
-                TXN_SIGNATURE_FROM: frm,
-                TXN_SIGNATURE_VALUE: sign,
-            }
-            for frm, sign in sigs
+        {
+            TXN_SIGNATURE_FROM: frm,
+            TXN_SIGNATURE_VALUE: sign,
+        }
+        for frm, sign in sigs
     ]

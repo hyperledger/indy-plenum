@@ -8,7 +8,7 @@ from stp_core.common.log import getlogger
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.server.req_handler import RequestHandler
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
 
 from state.state import State
 

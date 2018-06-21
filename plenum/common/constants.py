@@ -233,4 +233,3 @@ class ReplicaHooks(UniqueSet):
     VALIDATE_CM = 7
     BATCH_CREATED = 8
     BATCH_REJECTED = 9
-
