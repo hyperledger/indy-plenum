@@ -1,5 +1,7 @@
 from time import perf_counter
 
+import pytest
+
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.types import HA
@@ -18,6 +20,17 @@ from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 txnCount = 5
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = txnCount
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 # TODO: This test passes but it is observed that PREPAREs are not received at

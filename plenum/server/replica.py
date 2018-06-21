@@ -75,6 +75,19 @@ class Stats:
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
 
+class Replica3PRouter(Router):
+    def __init__(self, replica, *args, **kwargs):
+        self.replica = replica
+        super().__init__(*args, *kwargs)
+
+    # noinspection PyCallingNonCallable
+    def handleSync(self, msg: Any) -> Any:
+        try:
+            super().handleSync(msg)
+        except SuspiciousNode as ex:
+            self.replica.node.reportSuspiciousNodeEx(ex)
+
+
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
 PP_CHECK_DUPLICATE = 2
@@ -117,7 +130,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (ThreePCState, self.process3PhaseState),
         )
 
-        self.threePhaseRouter = Router(
+        self.threePhaseRouter = Replica3PRouter(
+            self,
             (PrePrepare, self.processPrePrepare),
             (Prepare, self.processPrepare),
             (Commit, self.processCommit)
@@ -854,15 +868,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
 
         if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
-            try:
-                if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
-                    self.threePhaseRouter.handleSync((msg, senderRep))
-                else:
-                    self.discard(msg, 'un-acceptable pp seq no from previous '
-                                      'view', self.logger.warning)
-                    return
-            except SuspiciousNode as ex:
-                self.node.reportSuspiciousNodeEx(ex)
+            if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
+                self.threePhaseRouter.handleSync((msg, senderRep))
+            else:
+                self.discard(msg, 'un-acceptable pp seq no from previous '
+                                  'view', self.logger.warning)
         else:
             self.logger.info("{} stashing 3 phase message {} since ppSeqNo {} is "
                              "not between {} and {}".format(
@@ -2108,7 +2118,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.discard(pp, "Pre-Prepare from a previous view",
                              self.logger.debug)
                 continue
-            self.processPrePrepare(pp, sender)
+            self.threePhaseRouter.handleSync((pp, sender))
             r += 1
         return r
 
@@ -2136,7 +2146,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed PREPARE{}".format(self, key))
-                self.processPrepare(prepare, sender)
+                self.threePhaseRouter.handleSync((prepare, sender))
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self.logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
@@ -2163,7 +2173,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                self.processCommit(commit, sender)
+                self.threePhaseRouter.handleSync((commit, sender))
+
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
             self.logger.debug("{} processed {} COMMITs waiting for PREPARE for"
@@ -2421,7 +2432,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
                 stashed_pp[key] = (pp, sender, True)
-                self.processPrePrepare(pp, sender)
+                self.threePhaseRouter.handleSync((pp, sender))
                 return True
         return False
 
