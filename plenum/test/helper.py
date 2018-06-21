@@ -13,6 +13,7 @@ from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
+from indy.pool import set_protocol_version
 from psutil import Popen
 import json
 import asyncio
@@ -1048,3 +1049,6 @@ class ThreadWithReturn(Thread):
             # Avoid a refcycle if the thread is running a function with
             # an argument that has a member that points to the thread.
             del self._target, self._args, self._kwargs
+
+def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
+    looper.loop.run_until_complete(set_protocol_version(version))
