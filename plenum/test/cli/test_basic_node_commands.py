@@ -32,7 +32,7 @@ def testNodeNames(be, do, cli, validNodeNames):
         "Invalid node name '{}'. ".format(randName)])
     args = cli.printedTokens[-1]
     token, _ = args['tokens'][0]
-    # An error sovtoken should be printed
+    # An error token should be printed
     assert isErrorToken(token)
     # Count of cli.nodes should not change
     assert len(cli.nodes) == len(validNodeNames)

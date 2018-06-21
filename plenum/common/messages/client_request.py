@@ -102,7 +102,7 @@ class ClientMessageValidator(MessageValidator):
                                   optional=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
                                                optional=True)),
-        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField()),
         (f.SIGS.nm, MapField(IdentifierField(),
                              SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
                              optional=True, nullable=True)),

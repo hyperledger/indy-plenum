@@ -1,7 +1,16 @@
+import pytest
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from plenum.server.monitor import Monitor
 from plenum.test.helper import sdk_send_random_and_check
+
+
+@pytest.fixture(scope='module')
+def tconf(tconf):
+    old_val = tconf.Max3PCBatchSize
+    tconf.Max3PCBatchSize = 1
+    yield tconf
+    tconf.Max3PCBatchSize = old_val
 
 
 def testPostingThroughput(postingStatsEnabled,
