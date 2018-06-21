@@ -1033,7 +1033,8 @@ def create_node_inside_thread(testNodeClass,
         if do_post_node_creation:
             do_post_node_creation(node)
         l.add(node)
-        return node
+        yield node
+        node.stop()
 
     thread = ThreadWithReturn(target=create_node, daemon=True)
     return thread.run()

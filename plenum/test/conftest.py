@@ -893,6 +893,7 @@ def txnPoolNodeSet(node_config_helper_class,
                                              allPluginsPath,
                                              do_post_node_creation=do_post_node_creation,
                                              exitStack=exitStack)
+            node = next(node)
             nodes.append(node)
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
         ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
