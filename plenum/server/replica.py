@@ -2587,9 +2587,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                             '{} removing stashed checkpoints: '
                             'viewNo={}, seqNoStart={}, seqNoEnd={}'
                             .format(self, view_no, s, e))
-                        del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
-                if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
-                    del self.stashedRecvdCheckpoints[self.viewNo]
+                        try:
+                            # TODO: This is very suspicious, could it by a typo?
+                            del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
+                        except KeyError:
+                            pass
+                try:
+                    if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
+                        del self.stashedRecvdCheckpoints[self.viewNo]
+                except KeyError:
+                    pass
 
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
