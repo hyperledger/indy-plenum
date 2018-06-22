@@ -624,8 +624,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param sender:
         :return:
         """
-        return self.primaryName == sender if self.isMsgForCurrentView(
-            msg) else self.primaryNames[msg.viewNo] == sender
+        if self.isMsgForCurrentView(msg):
+            return self.primaryName == sender
+        try:
+            return self.primaryNames[msg.viewNo] == sender
+        except KeyError:
+            return False
 
     def _stateChanged(self):
         """
