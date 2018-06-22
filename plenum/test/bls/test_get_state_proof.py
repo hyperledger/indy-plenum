@@ -1,7 +1,7 @@
 from base58 import b58encode
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.common.types import f
-from plenum.common.constants import ROOT_HASH, VALUE
+from plenum.common.constants import ROOT_HASH
 
 
 def test_get_state_value_and_proof(looper, sdk_wallet_steward,

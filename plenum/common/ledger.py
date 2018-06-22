@@ -133,7 +133,6 @@ class Ledger(_Ledger):
         tempTree = copy(currentTree)
         for txn in txns:
             s = self.serialize_for_tree(txn)
-            logger.debug('Serialised txn {} to {}'.format(txn, s))
             tempTree.append(s)
         return tempTree
 
