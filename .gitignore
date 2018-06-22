@@ -103,7 +103,3 @@ target/
 
 # Hidden files
 .*
-
-#plugins
-plenum/server/plugin/*
-

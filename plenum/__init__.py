@@ -35,11 +35,13 @@ def setup_plugins():
     except ImportError:
         raise ImportError('Incorrect plugin root {}. No such package found'.
                           format(plugin_root))
+    sys.path.insert(0, plugin_root.__path__[0])
     enabled_plugins = config.ENABLED_PLUGINS
     installed_packages = {p.project_name: p for p in pip.get_installed_distributions()}
     for plugin_name in enabled_plugins:
         if plugin_name in installed_packages:
-            # TODO: Need to test for installed packages
+            # TODO: Need a test for installed packages
+            plugin_name = plugin_name.replace('-', '_')
             plugin = importlib.import_module(plugin_name)
         else:
             plugin_path = os.path.join(plugin_root.__path__[0],
