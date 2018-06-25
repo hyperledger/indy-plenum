@@ -20,14 +20,6 @@ def restrictiveVerifier(txnPoolNodeSet):
         n.opVerifiers = [TestVerifier()]
 
 
-@pytest.fixture(scope="module")
-def request1(wallet1):
-    op = {"type": "buy",
-          "amount": 999}
-    req = wallet1.signOp(op)
-    return req
-
-
 @pytest.mark.skip(reason="old style plugin")
 def testRequestFullRoundTrip(restrictiveVerifier,
                              sdk_pool_handle,

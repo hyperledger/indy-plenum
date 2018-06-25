@@ -132,3 +132,31 @@ def test_get_keys_with_prefix(db_with_no_comparator):
 
         # All and only keys with the prefix are retrieved
         assert retrieved_keys == set(keys_by_pfx[p])
+
+
+def test_large_integer_keys(db_with_int_comparator):
+    # Retrieve keys starting from an arbitrary key, or ending at an
+    # arbitrary key
+    db = db_with_int_comparator
+    k1, k2 = b'308085874513273', b'308086276986684'
+    db.put(k1, '1')
+    db.put(k2, '2')
+    assert db.get(k1) == bytearray(b'1')
+    assert db.get(k2) == bytearray(b'2')
+
+    k00 = b'2147483617'
+    db.put(k00, '00')
+
+    k00 = b'2147483648'
+    db.put(k00, '00')
+
+    k0 = b'4294967298'
+    db.put(k0, '0')
+
+    k3 = b'1157920892373161954235709850086879078532699846656405640394575840079131296398450'
+    k4 = b'2157920892373161954235709850086879078532699846656405640394575840079131296398550'
+
+    db.put(k3, '1')
+    db.put(k4, '2')
+    assert db.get(k3) == bytearray(b'1')
+    assert db.get(k4) == bytearray(b'2')

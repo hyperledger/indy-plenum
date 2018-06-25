@@ -3,7 +3,7 @@ from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test import waits
 
 logger = getlogger()
@@ -26,19 +26,19 @@ def tconf(tconf):
     tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
 
 
-def add_new_node(looper, nodes, steward, steward_wallet,
-                 tdir, client_tdir, tconf, all_plugins_path, name=None):
+def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
+                 tdir, tconf, all_plugins_path, name=None):
     node_name = name or randomString(5)
     new_steward_name = "testClientSteward" + randomString(3)
-    new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
-                                                                     steward,
-                                                                     steward_wallet,
-                                                                     new_steward_name,
-                                                                     node_name,
-                                                                     tdir,
-                                                                     client_tdir,
-                                                                     tconf,
-                                                                     all_plugins_path)
+    new_steward_wallet_handle, new_node = \
+        sdk_add_new_steward_and_node(looper,
+                                     sdk_pool_handle,
+                                     sdk_wallet_steward,
+                                     new_steward_name,
+                                     node_name,
+                                     tdir,
+                                     tconf,
+                                     all_plugins_path)
     nodes.append(new_node)
     looper.run(checkNodesConnected(nodes, customTimeout=60))
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
@@ -48,43 +48,38 @@ def add_new_node(looper, nodes, steward, steward_wallet,
 
 
 def test_add_node_with_f_changed(looper, txnPoolNodeSet, tdir, tconf,
-                                 allPluginsPath, steward1, stewardWallet,
-                                 client_tdir, limitTestRunningTime):
-
+                                 allPluginsPath, sdk_pool_handle,
+                                 sdk_wallet_steward, limitTestRunningTime):
     nodes = txnPoolNodeSet
     add_new_node(looper,
                  nodes,
-                 steward1,
-                 stewardWallet,
+                 sdk_pool_handle,
+                 sdk_wallet_steward,
                  tdir,
-                 client_tdir,
                  tconf,
                  allPluginsPath,
                  name="Node5")
     add_new_node(looper,
                  nodes,
-                 steward1,
-                 stewardWallet,
+                 sdk_pool_handle,
+                 sdk_wallet_steward,
                  tdir,
-                 client_tdir,
                  tconf,
                  allPluginsPath,
                  name="Node6")
     add_new_node(looper,
                  nodes,
-                 steward1,
-                 stewardWallet,
+                 sdk_pool_handle,
+                 sdk_wallet_steward,
                  tdir,
-                 client_tdir,
                  tconf,
                  allPluginsPath,
                  name="Node7")
     add_new_node(looper,
                  nodes,
-                 steward1,
-                 stewardWallet,
+                 sdk_pool_handle,
+                 sdk_wallet_steward,
                  tdir,
-                 client_tdir,
                  tconf,
                  allPluginsPath,
                  name="Node8")

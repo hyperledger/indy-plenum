@@ -126,6 +126,6 @@ class BlsBftReplica(metaclass=ABCMeta):
         """
         Do some cleaning if needed
 
-        :param key_3PC: 3PC-key
+        :param key_3PC: 3PC-key till which cleaning must be done
         """
         pass

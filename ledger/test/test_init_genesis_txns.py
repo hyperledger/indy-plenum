@@ -4,6 +4,7 @@ from common.serializers.json_serializer import JsonSerializer
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from ledger.test.helper import create_default_ledger
 from ledger.util import F
+from plenum.common.txn_util import append_txn_metadata
 from storage import store_utils
 
 
@@ -33,7 +34,6 @@ def test_ledger_with_genesis_txns(ledger_with_genesis, genesis_txns):
         assert ledger_with_genesis.getBySeqNo(seq_no)
 
         expected_txn = genesis_txns[i]
-        expected_txn[F.seqNo.name] = seq_no
         assert sorted(expected_txn.items()) == sorted(
             ledger_with_genesis.getBySeqNo(seq_no).items())
 

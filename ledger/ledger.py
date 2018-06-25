@@ -2,6 +2,7 @@ import logging
 import time
 
 import base58
+from common.exceptions import PlenumValueError
 from common.serializers.mapping_serializer import MappingSerializer
 from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
@@ -20,10 +21,12 @@ class Ledger(ImmutableStore):
                       logName,
                       ensureDurability,
                       open=True,
-                      config=None) -> KeyValueStorage:
+                      config=None,
+                      read_only=False) -> KeyValueStorage:
         config = config or getConfig()
         return initKeyValueStorageIntKeys(config.transactionLogDefaultStorage,
-                                          dataDir, logName, open)
+                                          dataDir, logName, open, read_only=read_only,
+                                          db_config=config.db_transactions_config)
 
     def __init__(self,
                  tree: MerkleTree,
@@ -34,7 +37,8 @@ class Ledger(ImmutableStore):
                  ensureDurability: bool = True,
                  transactionLogStore: KeyValueStorage = None,
                  genesis_txn_initiator: GenesisTxnInitiator = None,
-                 config=None):
+                 config=None,
+                 read_only=False):
         """
         :param tree: an implementation of MerkleTree
         :param dataDir: the directory where the transaction log is stored
@@ -48,6 +52,7 @@ class Ledger(ImmutableStore):
         self.dataDir = dataDir
         self.tree = tree
         self.config = config or getConfig()
+        self._read_only = read_only
         self.txn_serializer = txn_serializer or ledger_txn_serializer  # type: MappingSerializer
         # type: MappingSerializer
         self.hash_serializer = hash_serializer or ledger_hash_serializer
@@ -89,7 +94,8 @@ class Ledger(ImmutableStore):
 
     def recoverTreeFromTxnLog(self):
         # TODO: in this and some other lines specific fields of
-        self.tree.reset()
+        if not self._read_only:
+            self.tree.reset()
         self.seqNo = 0
         for key, entry in self._transactionLog.iterator():
             if self.txn_serializer != self.hash_serializer:
@@ -157,7 +163,6 @@ class Ledger(ImmutableStore):
             data = self.txn_serializer.deserialize(value)
             # If `kwargs` is a subset of `data`
             if set(kwargs.values()) == {data.get(k) for k in kwargs.keys()}:
-                data[F.seqNo.name] = int(seqNo)
                 return data
 
     def getBySeqNo(self, seqNo):
@@ -165,7 +170,6 @@ class Ledger(ImmutableStore):
         value = self._transactionLog.get(key)
         if value:
             data = self.txn_serializer.deserialize(value)
-            data[F.seqNo.name] = int(seqNo)
             return data
         else:
             return value
@@ -192,7 +196,8 @@ class Ledger(ImmutableStore):
 
     def merkleInfo(self, seqNo):
         seqNo = int(seqNo)
-        assert seqNo > 0
+        if seqNo <= 0:
+            raise PlenumValueError('seqNo', seqNo, '> 0')
         rootHash = self.tree.merkle_tree_hash(0, seqNo)
         auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
         return {
@@ -211,7 +216,8 @@ class Ledger(ImmutableStore):
                 self._defaultStore(self.dataDir,
                                    self._transactionLogName,
                                    ensureDurability,
-                                   config=self.config)
+                                   config=self.config,
+                                   read_only=self._read_only)
             if self._transactionLog.closed:
                 self._transactionLog.open()
             if self.tree.hashStore.closed:
@@ -237,7 +243,7 @@ class Ledger(ImmutableStore):
 
     @staticmethod
     def hashToStr(h):
-        return base58.b58encode(h)
+        return base58.b58encode(h).decode("utf-8")
 
     @staticmethod
     def strToHash(s):

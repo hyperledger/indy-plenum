@@ -18,8 +18,7 @@ def tconf(tconf):
 
 def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
         looper, txnPoolNodeSet, tdir, tconf,
-        allPluginsPath, steward1, stewardWallet,
-        client_tdir):
+        allPluginsPath, sdk_pool_handle, sdk_wallet_steward):
     """
     Test steps:
     1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
@@ -50,9 +49,9 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
                      node_ha,
                      client_ha,
                      txnPoolNodeSet,
-                     client_tdir,
-                     steward1, stewardWallet,
-                     sigseed, bls_key)
+                     sdk_pool_handle,
+                     sdk_wallet_steward,
+                     bls_key)
 
     # 5. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
     looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)

@@ -1,14 +1,17 @@
 from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
-    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
-    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
+from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
+    BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, \
+    CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
+    CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
-    SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
+    SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -109,7 +112,8 @@ class Ordered(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -134,7 +138,8 @@ class PrePrepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
-        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -237,6 +242,7 @@ class LedgerStatus(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField())
     )
 
 
@@ -320,8 +326,8 @@ class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
     """
-    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE,
-                     PROPAGATE, PREPARE}
+    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
+                     COMMIT, PROPAGATE}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),

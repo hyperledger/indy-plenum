@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
+from common.exceptions import PlenumTypeError
+
 
 class LoadBLSKeyError(RuntimeError):
     pass
@@ -7,8 +9,11 @@ class LoadBLSKeyError(RuntimeError):
 
 class BlsKeyManager(metaclass=ABCMeta):
     def save_keys(self, sk: str, pk: str):
-        assert isinstance(sk, str)
-        assert isinstance(pk, str)
+        if not isinstance(sk, str):
+            raise PlenumTypeError('sk', sk, str)
+        if not isinstance(pk, str):
+            raise PlenumTypeError('pk', pk, str)
+
         self._save_secret_key(sk)
         self._save_public_key(pk)
         return sk, pk

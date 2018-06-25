@@ -1,15 +1,28 @@
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Commit, ConsistencyProof
 from plenum.test.delayers import cpDelay, cDelay
 
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = 10
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet,

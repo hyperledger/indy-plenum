@@ -12,7 +12,11 @@ class MessageFactory:
     def __init__(self, class_module_name):
         classes_module = self.__load_module_by_name(class_module_name)
         self.__classes = self.__get_message_classes(classes_module)
-        assert len(self.__classes) > 0, "at least one message class loaded"
+        if not self.__classes:
+            raise ValueError(
+                "no messages classes found in 'class_module_name' {}"
+                .format(class_module_name)
+            )
 
     @classmethod
     def __load_module_by_name(cls, module_name):
@@ -54,7 +58,12 @@ class MessageFactory:
 
     def set_message_class(self, message_class):
         doesnt_fit_reason = self.__check_obj_fits(message_class)
-        assert not doesnt_fit_reason, doesnt_fit_reason
+        if doesnt_fit_reason:
+            raise ValueError(
+                "'message_class' value {} is incorrect: {}"
+                .format(message_class, doesnt_fit_reason)
+            )
+
         self.__classes.update({message_class.typename: message_class})
 
     @staticmethod

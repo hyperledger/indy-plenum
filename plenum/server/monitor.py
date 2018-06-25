@@ -1,8 +1,7 @@
 import time
 from datetime import datetime
-from operator import itemgetter
 from statistics import mean
-from typing import Dict, Iterable, Optional, Set
+from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
 
@@ -37,6 +36,10 @@ class RequestTimeTracker:
             self.timestamp = timestamp
             self.ordered = [False] * instance_count
 
+            # True if request was unordered for too long and
+            # was handled by handlers on master replica
+            self.handled = False
+
         def order(self, instId):
             if 0 <= instId < len(self.ordered):
                 self.ordered[instId] = True
@@ -49,6 +52,10 @@ class RequestTimeTracker:
             return self.ordered[0]
 
         @property
+        def is_handled(self):
+            return self.handled
+
+        @property
         def is_ordered_by_all(self):
             return all(self.ordered)
 
@@ -59,11 +66,10 @@ class RequestTimeTracker:
     def __contains__(self, item):
         return item in self._requests
 
-    def start(self, identifier, reqId, timestamp):
-        self._requests[identifier, reqId] = RequestTimeTracker.Request(timestamp, self.instance_count)
+    def start(self, key, timestamp):
+        self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
 
-    def order(self, instId, identifier, reqId, timestamp):
-        key = (identifier, reqId)
+    def order(self, instId, key, timestamp):
         req = self._requests[key]
         tto = timestamp - req.timestamp
         req.order(instId)
@@ -71,11 +77,22 @@ class RequestTimeTracker:
             del self._requests[key]
         return tto
 
+    def handle(self, key):
+        self._requests[key].handled = True
+
     def reset(self):
         self._requests.clear()
 
     def unordered(self):
         return ((key, req.timestamp) for key, req in self._requests.items() if not req.is_ordered)
+
+    def handled_unordered(self):
+        return ((key, req.timestamp) for key, req in self._requests.items()
+                if not req.is_ordered and req.is_handled)
+
+    def unhandled_unordered(self):
+        return ((key, req.timestamp) for key, req in self._requests.items()
+                if not req.is_ordered and not req.is_handled)
 
     def add_instance(self):
         self.instance_count += 1
@@ -97,9 +114,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     monitors the performance of each instance. Throughput of requests and
     latency per client request are measured.
     """
-    WARN_NOT_PARTICIPATING_WINDOW_MINS = 5
-    WARN_NOT_PARTICIPATING_UNORDERED_NUM = 10
-    WARN_NOT_PARTICIPATING_MIN_DIFF_SEC = 3
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack,
@@ -174,6 +188,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        # attention: handlers will work over unordered request only once
+        self.unordered_requests_handlers = []  # type: List[Callable]
+
         # Monitoring suspicious spikes in cluster throughput
         self.clusterThroughputSpikeMonitorData = {
             'value': 0,
@@ -195,6 +212,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.startRepeating(
             self.checkPerformance,
             self.config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+
+        self.startRepeating(self.check_unordered, self.config.UnorderedCheckFreq)
 
         if 'disable_view_change' in self.config.unsafe:
             self.isMasterDegraded = lambda: False
@@ -279,7 +298,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False) -> Dict:
+                       requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
         might have been reset due to view change due to which this method
@@ -287,30 +306,36 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         now = time.perf_counter()
         durations = {}
-        for identifier, reqId in reqIdrs:
-            if (identifier, reqId) not in self.requestTracker:
-                logger.debug(
-                    "Got untracked ordered request with identifier {} and reqId {}".
-                    format(identifier, reqId))
+        for key in reqIdrs:
+            if key not in self.requestTracker:
+                logger.debug("Got untracked ordered request with digest {}".
+                             format(key))
                 continue
-            duration = self.requestTracker.order(instId, identifier, reqId, now)
+            for req, started in self.requestTracker.handled_unordered():
+                if req == key:
+                    logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
+                                .format(req[1], self.name, instId, now - started))
+                    continue
+            duration = self.requestTracker.order(instId, key, now)
             if byMaster:
-                self.masterReqLatencies[(identifier, reqId)] = duration
+                self.masterReqLatencies[key] = duration
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
                 self.latenciesByBackupsInLast.setdefault(instId, []).append((now, duration))
 
-            if identifier not in self.clientAvgReqLatencies[instId]:
-                self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
-            totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
-            # If avg of `n` items is `a`, thus sum of `n` items is `x` where
-            # `x=n*a` then avg of `n+1` items where `y` is the new item is
-            # `((n*a)+y)/n+1`
-            self.clientAvgReqLatencies[instId][identifier] = (
-                totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            if key in requests:
+                identifier = requests[key].request.identifier
+                if identifier not in self.clientAvgReqLatencies[instId]:
+                    self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
+                totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
+                # If avg of `n` items is `a`, thus sum of `n` items is `x` where
+                # `x=n*a` then avg of `n+1` items where `y` is the new item is
+                # `((n*a)+y)/n+1`
+                self.clientAvgReqLatencies[instId][identifier] = (
+                    totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-            durations[identifier, reqId] = duration
+            durations[key] = duration
 
         reqs, tm = self.numOrderedRequests[instId]
         orderedNow = len(durations)
@@ -330,35 +355,24 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         return durations
 
-    def requestUnOrdered(self, identifier: str, reqId: int):
+    def requestUnOrdered(self, key: str):
         """
         Record the time at which request ordering started.
         """
-        self.requestTracker.start(identifier, reqId, time.perf_counter())
-        self.warn_has_lot_unordered_requests()
+        self.requestTracker.start(key, time.perf_counter())
 
-    def warn_has_lot_unordered_requests(self):
-        unordered_started_at = []
+    def check_unordered(self):
         now = time.perf_counter()
-        sorted_by_started_at = sorted(self.requestTracker.unordered(), key=itemgetter(1))
-        for _, started_at in sorted_by_started_at:
-            in_window = (now - started_at) < self.WARN_NOT_PARTICIPATING_WINDOW_MINS * 60
-            if not in_window:
-                continue
-            dt = (started_at - unordered_started_at[-1]) if unordered_started_at else None
-            if dt is None or dt > self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC:
-                unordered_started_at.append(started_at)
-
-        if len(unordered_started_at) >= self.WARN_NOT_PARTICIPATING_UNORDERED_NUM:
-            logger.warning('It looks like {} does not participate in processing messages '
-                           'because it has {} unordered requests '
-                           'in the last {} minutes (assumed that minimum difference between unordered '
-                           'requests is at least {} seconds)'
-                           .format(self, len(unordered_started_at),
-                                   self.WARN_NOT_PARTICIPATING_WINDOW_MINS,
-                                   self.WARN_NOT_PARTICIPATING_MIN_DIFF_SEC))
-            return True
-        return False
+        new_unordereds = [(req, now - started) for req, started in self.requestTracker.unhandled_unordered()
+                          if now - started > self.config.UnorderedCheckFreq]
+        if len(new_unordereds) == 0:
+            return
+        for handler in self.unordered_requests_handlers:
+            handler(new_unordereds)
+        for unordered in new_unordereds:
+            self.requestTracker.handle(unordered[0])
+            logger.debug('Following requests were not ordered for more than {} seconds: {}'
+                         .format(self.config.UnorderedCheckFreq, unordered[0]))
 
     def isMasterDegraded(self):
         """
@@ -441,8 +455,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                             "threshold".format(MONITORING_PREFIX, self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
-                    "avg request latency is {} ".
-                    format(self, avgLatM, avgLatB))
+                    "avg request latency is {}".format(self, avgLatM, avgLatB))
                 return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))

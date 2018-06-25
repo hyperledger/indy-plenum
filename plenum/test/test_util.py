@@ -1,3 +1,4 @@
+import pytest
 import math
 from itertools import combinations
 
@@ -6,11 +7,22 @@ import time
 import os
 from libnacl import crypto_hash_sha256
 
+from common.exceptions import PlenumTypeError, PlenumValueError
+from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.common.util import randomString, compare_3PC_keys, \
     check_if_all_equal_in_list, min_3PC_key, max_3PC_key, get_utc_epoch, \
     mostCommonElement
-from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
+
+
+def test_randomString_invalid_args():
+    for size in (None, '5', [4]):
+        with pytest.raises(PlenumTypeError):
+            randomString(size)
+
+    for size in (-1, 0):
+        with pytest.raises(PlenumValueError):
+            randomString(size)
 
 
 def test_even_compare():

@@ -216,6 +216,15 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 }
 
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum1: plenumTestUbuntuPart1, plenum2: plenumTestUbuntuPart2, plenum3: plenumTestUbuntuPart3,
-ledger: ledgerTestUbuntu,
-stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
+options.setPrContexts(["ci/hyperledger-jenkins/pr-merge"])
+testAndPublish(
+    name,
+    [
+        ubuntu: [plenum1: plenumTestUbuntuPart1,
+        plenum2: plenumTestUbuntuPart2,
+        plenum3: plenumTestUbuntuPart3,
+        ledger: ledgerTestUbuntu,
+        stp: stpTestUbuntu]
+    ],
+    true, options, [ubuntu: buildDebUbuntu]
+)
