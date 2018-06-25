@@ -29,9 +29,10 @@ from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 from sortedcontainers import SortedDict as _SortedDict
 
+from common.error import error
+from common.exceptions import PlenumTypeError, PlenumValueError
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
-from common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
@@ -56,14 +57,17 @@ def randomString(size: int = 20) -> str:
     """
 
     def randomStr(size):
-        assert (size > 0), "Expected random string size cannot be less than 1"
+        if not isinstance(size, int):
+            raise PlenumTypeError('size', size, int)
+        if not size > 0:
+            raise PlenumValueError('size', size, '> 0')
         # Approach 1
         rv = randombytes(size // 2).hex()
 
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
-        # that part of a random may not be truely random, so until
+        # that part of a random may not be truly random, so until
         # we have definite proof going to retain it commented
         # rstr = randombytes(size).hex()
         # return rstr[:size]
@@ -322,7 +326,7 @@ def friendlyToHexStr(f):
 
 
 def rawToFriendly(raw):
-    return base58.b58encode(raw)
+    return base58.b58encode(raw).decode("utf-8")
 
 
 def friendlyToRaw(f):

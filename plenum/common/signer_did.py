@@ -25,7 +25,12 @@ class DidIdentity:
                     self._verkey = ''
                 return
 
-        assert (verkey or rawVerkey) and not (verkey and rawVerkey)
+        if not ((verkey or rawVerkey) and not (verkey and rawVerkey)):
+            raise ValueError(
+                "Both verkey {} and rawVerkey {} can't be specified"
+                .format(verkey, rawVerkey)
+            )
+
         if identifier:
             self._identifier = identifier
             if rawVerkey:
@@ -120,5 +125,5 @@ class DidSigner(DidIdentity, Signer):
         """
         ser = serialize_msg_for_signing(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
-        sig = base58.b58encode(bsig)
+        sig = base58.b58encode(bsig).decode("utf-8")
         return sig

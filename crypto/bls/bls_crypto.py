@@ -2,6 +2,8 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from typing import Sequence
 
+from common.exceptions import PlenumTypeError
+
 GroupParams = namedtuple('GroupParams',
                          'group_name, g')
 
@@ -14,8 +16,19 @@ class BlsGroupParamsLoader(metaclass=ABCMeta):
 
 class BlsCryptoSigner(metaclass=ABCMeta):
     def __init__(self, sk: str, pk: str, params: GroupParams):
-        assert sk
-        assert pk
+
+        if not isinstance(sk, str):
+            raise PlenumTypeError('sk', sk, str)
+
+        if not sk:
+            raise ValueError("'sk' should be a non-empty string")
+
+        if not isinstance(pk, str):
+            raise PlenumTypeError('pk', pk, str)
+
+        if not pk:
+            raise ValueError("'pk' should be a non-empty string")
+
         self._sk = sk
         self.pk = pk
         self._group_params = params

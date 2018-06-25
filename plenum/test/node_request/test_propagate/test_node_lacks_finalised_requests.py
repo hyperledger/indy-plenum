@@ -6,6 +6,18 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = 5
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
+
+
 @pytest.fixture(scope='function', params=['client_requests',
                                           'no_client_requests'])
 def setup(request, txnPoolNodeSet):

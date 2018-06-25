@@ -1,6 +1,6 @@
 import collections
 from collections import OrderedDict
-from typing import Dict
+from typing import Dict, List
 
 import msgpack
 from common.serializers.mapping_serializer import MappingSerializer
@@ -25,7 +25,7 @@ class MsgPackSerializer(MappingSerializer, StreamSerializer):
         :return: serialized data as bytes
         """
         if isinstance(data, Dict):
-            data = self.__sort_dict(data)
+            data = self._sort_dict(data)
         return msgpack.packb(data, use_bin_type=True)
 
     def deserialize(self, data, fields=None):
@@ -42,9 +42,13 @@ class MsgPackSerializer(MappingSerializer, StreamSerializer):
     def get_lines(self, stream):
         return msgpack.Unpacker(stream, encoding='utf-8', object_pairs_hook=decode_to_sorted)
 
-    def __sort_dict(self, d) -> OrderedDict:
+    def _sort_dict(self, d) -> OrderedDict:
+        if not isinstance(d, Dict):
+            return d
         d = OrderedDict(sorted(d.items()))
         for k, v in d.items():
             if isinstance(v, Dict):
-                d[k] = self.__sort_dict(v)
+                d[k] = self._sort_dict(v)
+            if isinstance(v, List):
+                d[k] = [self._sort_dict(sub_v) for sub_v in v]
         return d

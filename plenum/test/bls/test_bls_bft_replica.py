@@ -102,7 +102,7 @@ def pre_prepare_with_bls_pool_ledger(multi_signature):
 
 @pytest.fixture()
 def pre_prepare_with_incorrect_bls(multi_signature):
-    multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature")
+    multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
                                        bls_multi_sig=multi_signature)
     return PrePrepare(*params)
@@ -110,7 +110,7 @@ def pre_prepare_with_incorrect_bls(multi_signature):
 
 @pytest.fixture()
 def pre_prepare_with_incorrect_bls_pool_ledger(multi_signature):
-    multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature")
+    multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
                                        bls_multi_sig=multi_signature,
                                        ledger_id=POOL_LEDGER_ID)
@@ -278,7 +278,7 @@ def test_validate_commit_correct_sig_second_time(bls_bft_replicas, pre_prepare_w
 def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature")
+        fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
         commit = create_commit_with_bls_sig(key, fake_sig)
         for verifier_bls_bft in bls_bft_replicas:
             status = verifier_bls_bft.validate_commit(commit,
@@ -290,7 +290,7 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
 def test_validate_commit_incorrect_sig_pool(bls_bft_replicas, pre_prepare_with_bls_pool_ledger):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature")
+        fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
         commit = create_commit_with_bls_sig(key, fake_sig)
         for verifier_bls_bft in bls_bft_replicas:
             status = verifier_bls_bft.validate_commit(commit,

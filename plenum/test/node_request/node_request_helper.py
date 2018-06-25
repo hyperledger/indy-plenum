@@ -81,7 +81,7 @@ def checkPrePrepared(looper,
                 primary.viewNo,
                 primary.lastPrePrepareSeqNo,
                 get_utc_epoch(),
-                [[propagated1.identifier, propagated1.reqId]],
+                [propagated1.digest],
                 1,
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
@@ -119,13 +119,9 @@ def checkPrePrepared(looper,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary, primary.sendPrePrepare)
-                              if (param['ppReq'].reqIdr[0][0],
-                                  param['ppReq'].reqIdr[0][1],
-                                  param['ppReq'].digest) ==
-                              (propagated1.identifier,
-                               propagated1.reqId,
-                               primary.batchDigest([propagated1, ]))
-                              ])
+                              if param['ppReq'].reqIdr[0] == propagated1.digest
+                              and param['ppReq'].digest ==
+                              primary.batchDigest([propagated1, ])])
 
             numOfMsgsWithZFN = 1
 
@@ -147,12 +143,9 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr, npr.addToPrePrepares)
-                          if (param['pp'].reqIdr[0][0],
-                              param['pp'].reqIdr[0][1],
-                              param['pp'].digest) == (
-                              propagated1.identifier,
-                              propagated1.reqId,
-                              primary.batchDigest([propagated1, ]))])
+                          if param['pp'].reqIdr[0] == propagated1.digest
+                          and param['pp'].digest ==
+                          primary.batchDigest([propagated1, ])])
 
                 numOfMsgsWithZFN = 1
                 numOfMsgsWithFaults = 0

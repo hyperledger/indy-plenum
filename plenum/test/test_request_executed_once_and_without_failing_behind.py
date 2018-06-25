@@ -1,9 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Checkpoint
-from plenum.test.helper import \
-    send_signed_requests, \
-    waitForSufficientRepliesForRequests, \
-    random_requests
+from plenum.common.txn_util import get_req_id
+from plenum.test.helper import sdk_send_random_and_check
 
 
 def set_checkpoint_faking(replica):
@@ -20,8 +18,8 @@ def set_checkpoint_faking(replica):
 
 def test_request_executed_once_and_without_failing_behind(tconf, looper,
                                                           txnPoolNodeSet,
-                                                          client1,
-                                                          wallet1):
+                                                          sdk_pool_handle,
+                                                          sdk_wallet_client):
     """
     Checks that all requests executed only once and without failing behind in
     wrote transactions
@@ -41,17 +39,14 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
         for replica in node.replicas:
             set_checkpoint_faking(replica)
 
-    requests = [wallet1.signOp(req)
-                for req in random_requests(number_of_requests)]
+    replies = sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                        sdk_pool_handle,
+                                        sdk_wallet_client,
+                                        number_of_requests)
 
-    for request in requests:
-        send_signed_requests(client1, [request])
-        waitForSufficientRepliesForRequests(looper,
-                                            client1,
-                                            requests=[request])
-
-    expected = [request.reqId for request in requests]
+    expected = [get_req_id(reply["result"]) for _, reply in replies]
     for node in txnPoolNodeSet:
-        real_ledger_state = [txn[1]['reqId']
-                             for txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn() if 'reqId' in txn[1]]
+        real_ledger_state = [get_req_id(txn)
+                             for _, txn in node.getLedger(DOMAIN_LEDGER_ID).getAllTxn()
+                             if get_req_id(txn) is not None]
         assert expected == real_ledger_state

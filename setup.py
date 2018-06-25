@@ -30,7 +30,7 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-tests_require = ['pytest==3.4.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-509']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-586']
 
 setup(
     name='indy-plenum',
@@ -53,7 +53,7 @@ setup(
     install_requires=['jsonpickle==0.9.6', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments==2.2.0',
                       'rlp==0.5.1', 'sha3==0.2.1', 'leveldb',
-                      'ioflo==1.5.4', 'semver==2.7.9', 'base58==0.2.4', 'orderedset==2.0',
+                      'ioflo==1.5.4', 'semver==2.7.9', 'base58==1.0.0', 'orderedset==2.0',
                       'sortedcontainers==1.5.7', 'psutil==5.4.3', 'pip<10.0.0',
                       'portalocker==0.5.7', 'pyzmq==17.0.0', 'libnacl==1.6.1',
                       'six==1.11.0', 'psutil==5.4.3', 'intervaltree==2.1.0',
@@ -73,5 +73,7 @@ setup(
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
-             'scripts/init_bls_keys']
+             'scripts/init_bls_keys',
+             'scripts/process_logs/process_logs',
+             'scripts/process_logs/process_logs.yml']
 )

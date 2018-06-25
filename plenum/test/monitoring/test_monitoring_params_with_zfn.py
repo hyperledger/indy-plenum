@@ -1,5 +1,7 @@
 import pytest
 
+from plenum.test.helper import get_key_from_req
+
 nodeCount = 7
 
 
@@ -15,7 +17,7 @@ def testThroughputThreshold(looper, txnPoolNodeSet, requests):
 def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
     for node in txnPoolNodeSet:
         for rq in requests:
-            key = rq['identifier'], rq['reqId']
+            key = get_key_from_req(rq)
             assert key in node.monitor.masterReqLatenciesTest
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
 

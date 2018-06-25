@@ -1,10 +1,7 @@
 import operator
+
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-
-
-def get_node_by_name(txnPoolNodeSet, name):
-    return next(node for node in txnPoolNodeSet if node.name == name)
 
 
 def nodes_by_rank(txnPoolNodeSet):
@@ -22,3 +19,7 @@ def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
                                          num_reqs,
                                          num_batches)
     ensure_all_nodes_have_same_data(looper, nodes)
+
+
+def get_node_by_name(txnPoolNodeSet, name):
+    return next(node for node in txnPoolNodeSet if node.name == name)

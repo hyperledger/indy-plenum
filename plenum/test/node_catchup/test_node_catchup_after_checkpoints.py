@@ -1,11 +1,14 @@
 from logging import getLogger
 
 import pytest
+
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import cDelay, delay_3pc_messages
+from plenum.server.replica import Replica
 
+from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
+    reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -15,50 +18,65 @@ logger = getLogger()
 TestRunningTimeLimitSec = 200
 
 
+CHK_FREQ = 5
+LOG_SIZE = 3 * CHK_FREQ
+
+
 def test_node_catchup_after_checkpoints(
         looper,
-        chk_freq_patched,
+        chkFreqPatched,
+        reqs_for_checkpoint,
         txnPoolNodeSet,
         sdk_pool_handle,
         sdk_wallet_client,
         broken_node_and_others):
     """
-    For some reason a node misses 3pc messages but eventually the node stashes
-    some amount checkpoints and decides to catchup.
+    A node misses 3pc messages and checkpoints during some period but later it
+    stashes some amount of checkpoints and decides to catchup.
     """
+    max_batch_size = chkFreqPatched.Max3PCBatchSize
     broken_node, other_nodes = broken_node_and_others
-    completed_catchups_before = get_number_of_completed_catchups(broken_node)
 
-    logger.info("Step 1: The node misses quite a lot requests")
+    logger.info("Step 1: The node misses quite a lot of requests")
+
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           chk_freq_patched + 1,
-                                           chk_freq_patched + 1)
+                                           reqs_for_checkpoint + max_batch_size)
+
     waitNodeDataInequality(looper, broken_node, *other_nodes)
 
     logger.info(
         "Step 2: The node gets requests but cannot process them because of "
         "missed ones. But the nodes eventually stashes some amount checkpoints "
         "after that the node starts catch up")
+
     repaired_node = repair_broken_node(broken_node)
+    completed_catchups_before = get_number_of_completed_catchups(broken_node)
+
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           2 * chk_freq_patched,
-                                           2 * chk_freq_patched)
-    waitNodeDataEquality(looper, repaired_node, *other_nodes)
+                                           (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
+                                           reqs_for_checkpoint - max_batch_size)
 
-    # check if there was at least 1 catchup
+    waitNodeDataEquality(looper, repaired_node, *other_nodes)
+    # Note that the repaired node might not fill the gap of missed 3PC-messages
+    # by requesting them from other nodes because these 3PC-batches start from
+    # an already stabilized checkpoint, so a part of these 3PC-messages are
+    # already unavailable
+
+    # Verify that a catch-up was done
     completed_catchups_after = get_number_of_completed_catchups(repaired_node)
-    assert completed_catchups_after >= completed_catchups_before + 1
+    assert completed_catchups_after > completed_catchups_before
 
     logger.info("Step 3: Check if the node is able to process requests")
+
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           chk_freq_patched + 2,
-                                           chk_freq_patched + 2)
+                                           reqs_for_checkpoint + max_batch_size)
+
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
 
@@ -66,7 +84,6 @@ def test_node_catchup_after_checkpoints(
 def broken_node_and_others(txnPoolNodeSet):
     node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
     other = [n for n in txnPoolNodeSet if n != node]
-    node._backup_send_to_replica = node.sendToReplica
 
     def brokenSendToReplica(msg, frm):
         logger.warning(
@@ -94,23 +111,6 @@ def repair_broken_node(node):
         )
     )
     return node
-
-
-@pytest.fixture(scope="module")
-def chk_freq_patched(tconf, request):
-    oldChkFreq = tconf.CHK_FREQ
-    oldLogSize = tconf.LOG_SIZE
-
-    tconf.CHK_FREQ = 5
-    tconf.LOG_SIZE = 3 * tconf.CHK_FREQ
-
-    def reset():
-        tconf.CHK_FREQ = oldChkFreq
-        tconf.LOG_SIZE = oldLogSize
-
-    request.addfinalizer(reset)
-
-    return tconf.CHK_FREQ
 
 
 def get_number_of_completed_catchups(node):
