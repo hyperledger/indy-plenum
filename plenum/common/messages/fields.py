@@ -618,7 +618,7 @@ class LedgerInfoField(FieldBase):
 
 class BlsMultiSignatureValueField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_validator = LedgerIdField()
+    _ledger_id_class = LedgerIdField
     _state_root_hash_validator = MerkleRootField()
     _pool_state_root_hash_validator = MerkleRootField()
     _txn_root_hash_validator = MerkleRootField()
@@ -627,7 +627,7 @@ class BlsMultiSignatureValueField(FieldBase):
     def _specific_validation(self, val):
         multi_sig_value = MultiSignatureValue(*val)
 
-        err = self._ledger_id_validator.validate(
+        err = self._ledger_id_class().validate(
             multi_sig_value.ledger_id)
         if err:
             return err
