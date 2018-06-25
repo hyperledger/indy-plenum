@@ -770,7 +770,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.txnRootHash(ledger_id)
         ]
 
-        # TODO: Should only happen on master replica
         # BLS multi-sig:
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
@@ -924,10 +923,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # TODO: can pre_state_root be used here instead?
             state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
             self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
-            # BLS multi-sig:
-            self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
-            self.logger.trace("{} saved shared multi signature for "
-                              "root".format(self, pre_state_root))
+        # BLS multi-sig:
+        self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
+        self.logger.trace("{} saved shared multi signature for "
+                          "root".format(self, pre_state_root))
         self.trackBatches(pre_prepare, pre_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
@@ -1134,10 +1133,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.instId, p.viewNo, p.ppSeqNo
         ]
 
+        pre_prepare = self.getPrePrepare(*key_3pc)
+
         # BLS multi-sig:
-        if p.stateRootHash is not None:
-            pre_prepare = self.getPrePrepare(*key_3pc)
-            params = self._bls_bft_replica.update_commit(params, pre_prepare)
+        params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
         if self.isMaster:

@@ -2631,10 +2631,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
-        # self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
-        #                   pp_time=pp_time, committed_txns=committedTxns,
-        #                   state_root=state_root, txn_root=txn_root)
-
         if not committedTxns:
             return
 
