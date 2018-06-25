@@ -1,4 +1,4 @@
-from plenum.common.constants import NYM, TARGET_NYM, ROLE, VERKEY, ALIAS
+from plenum.common.constants import NYM, TARGET_NYM, ROLE, VERKEY, ALIAS, CURRENT_PROTOCOL_VERSION
 from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata, append_txn_metadata
 
 
@@ -8,8 +8,9 @@ class Member:
     """
 
     @staticmethod
-    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None, seq_no=None):
-        txn = init_empty_txn(NYM)
+    def nym_txn(nym, name=None, verkey=None, role=None, creator=None, txn_id=None, seq_no=None,
+                protocol_version=CURRENT_PROTOCOL_VERSION):
+        txn = init_empty_txn(NYM, protocol_version=protocol_version)
 
         txn_data = {
             TARGET_NYM: nym,
