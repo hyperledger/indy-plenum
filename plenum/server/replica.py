@@ -1136,7 +1136,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pre_prepare = self.getPrePrepare(*key_3pc)
 
         # BLS multi-sig:
-        params = self._bls_bft_replica.update_commit(params, pre_prepare)
+        if p.stateRootHash is not None:
+            pre_prepare = self.getPrePrepare(*key_3pc)
+            params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
         if self.isMaster:

@@ -841,8 +841,6 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
         resp = e.error_code
     except TimeoutError as e:
         resp = ErrorCode.PoolLedgerTimeout
-    except Exception as e:
-        print(e)
 
     return req_json, resp
 
