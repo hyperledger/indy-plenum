@@ -2612,6 +2612,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
+
+        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
+                          pp_time=pp_time, reqs=reqs, state_root=state_root,
+                          txn_root=txn_root)
+
         try:
             committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
                                                          state_root, txn_root)
@@ -2682,6 +2687,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
+                          pp_time=ppTime, committed_txns=committedTxns,
+                          state_root=stateRoot, txn_root=txnRoot)
         self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
@@ -2694,9 +2702,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
-        return self.commitAndSendReplies(
-            ledger_id, pp_time, reqs, state_root,
-            txn_root)
+        return self.commitAndSendReplies(ledger_id,
+                                         pp_time, reqs, state_root, txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
@@ -2728,6 +2735,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledger_id))
+        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
         """
@@ -2745,6 +2753,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledger_id))
+        self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
@@ -2903,7 +2912,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if code in (s.code for s in (Suspicions.PPR_DIGEST_WRONG,
                                      Suspicions.PPR_REJECT_WRONG,
                                      Suspicions.PPR_TXN_WRONG,
-                                     Suspicions.PPR_STATE_WRONG)):
+                                     Suspicions.PPR_STATE_WRONG,
+                                     Suspicions.PPR_PLUGIN_EXCEPTION)):
             logger.info('{}{} got one of primary suspicions codes {}'
                         .format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
