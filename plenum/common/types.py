@@ -61,8 +61,6 @@ class f:  # provides a namespace for reusable field constants
     TXN_SEQ_NO = Field("txnSeqNo", int)
     # 0 for pool transaction ledger, 1 for domain transaction ledger
     LEDGER_ID = Field("ledgerId", int)
-    SEQ_NO_START = Field("seqNoStart", int)
-    SEQ_NO_END = Field("seqNoEnd", int)
     CATCHUP_TILL = Field("catchupTill", int)
     HASHES = Field("hashes", List[str])
     TXNS = Field("txns", List[Any])
@@ -74,6 +72,7 @@ class f:  # provides a namespace for reusable field constants
     PRIMARY = Field("primary", dict)
     SIGS = Field('signatures', dict)
     PLUGIN_FIELDS = Field('plugin_fields', dict)
+    FEES = Field('fees', dict)
 
 
 OPERATION = 'operation'

@@ -4,7 +4,7 @@ import time
 import base58
 from common.exceptions import PlenumValueError
 from common.serializers.mapping_serializer import MappingSerializer
-from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
+from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer, txn_root_serializer
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
 from ledger.immutable_store import ImmutableStore
 from ledger.merkle_tree import MerkleTree
@@ -243,8 +243,8 @@ class Ledger(ImmutableStore):
 
     @staticmethod
     def hashToStr(h):
-        return base58.b58encode(h).decode("utf-8")
+        return txn_root_serializer.serialize(h)
 
     @staticmethod
     def strToHash(s):
-        return base58.b58decode(s)
+        return txn_root_serializer.deserialize(s)

@@ -1,5 +1,6 @@
 import os
 import sys
+import __metadata__ as md
 
 from setuptools import setup, find_packages
 
@@ -26,23 +27,22 @@ if SETUP_DIRNAME != '':
 
 SETUP_DIRNAME = os.path.abspath(SETUP_DIRNAME)
 
-METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
-# Load the metadata using exec() so we don't trigger an import of ioflo.__init__
-exec(compile(open(METADATA).read(), METADATA, 'exec'))
+#METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')# Load the metadata using exec() so we don't trigger an import of ioflo.__init__
+#exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-586']
 
 setup(
     name='indy-plenum-dev',
-    version=__version__,
+    version=md.__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
     url='https://github.com/hyperledger/indy-plenum',
     download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
-        format(__version__),
-    author=__author__,
+        format(md.__version__),
+    author=md.__author__,
     author_email='hyperledger-indy@lists.hyperledger.org',
-    license=__license__,
+    license=md.__license__,
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],

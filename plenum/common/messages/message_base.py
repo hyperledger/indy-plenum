@@ -53,7 +53,7 @@ class MessageValidator(FieldValidator):
         msg = "{} missed fields - {}. " \
             .format(self.__error_msg_prefix,
                     ', '.join(map(str, fields)))
-        if (any(field == f.PROTOCOL_VERSION.nm for field in map(str, fields))):
+        if any(field == f.PROTOCOL_VERSION.nm for field in map(str, fields)):
             raise MissingProtocolVersionError(msg)
         else:
             raise TypeError(msg)

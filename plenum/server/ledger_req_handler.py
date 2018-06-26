@@ -1,11 +1,9 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-import base58
-
 from common.exceptions import PlenumValueError
+from common.serializers.serialization import state_roots_serializer
 from stp_core.common.log import getlogger
-from storage.state_ts_store import StateTsDbStorage
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
@@ -65,24 +63,8 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         :return: list of committed transactions
         """
 
-        (seqNoStart, seqNoEnd), committedTxns = \
-            self.ledger.commitTxns(txnCount)
-        stateRoot = base58.b58decode(stateRoot.encode())
-
-        # TODO test for that
-        if self.ledger.root_hash != txnRoot:
-            # Probably the following fail should trigger catchup
-            # TODO add repr / str for Ledger class and dump it here as well
-            raise PlenumValueError(
-                'txnRoot', txnRoot,
-                ("equal to current ledger root hash {}"
-                 .format(self.ledger.root_hash))
-            )
-
-        self.state.commit(rootHash=stateRoot)
-        if self.ts_store:
-            self.ts_store.set(ppTime, stateRoot)
-        return committedTxns
+        return self._commit(self.ledger, self.state, txnCount, stateRoot,
+                            txnRoot, ppTime, ts_store=self.ts_store)
 
     def onBatchCreated(self, state_root):
         pass
@@ -104,6 +86,29 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     def transform_txn_for_ledger(txn):
         return txn
 
+    @staticmethod
+    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
+        _, committedTxns = ledger.commitTxns(txnCount)
+        stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
+            stateRoot, str) else stateRoot
+        # TODO test for that
+        if ledger.root_hash != txnRoot:
+            # Probably the following fail should trigger catchup
+            # TODO add repr / str for Ledger class and dump it here as well
+            raise PlenumValueError(
+                'txnRoot', txnRoot,
+                ("equal to current ledger root hash {}"
+                 .format(ledger.root_hash))
+            )
+        state.commit(rootHash=stateRoot)
+        if ts_store:
+            ts_store.set(ppTime, stateRoot)
+        return committedTxns
+
     @property
     def operation_types(self) -> set:
+        return self.write_types.union(self.query_types)
+
+    @property
+    def valid_txn_types(self) -> set:
         return self.write_types.union(self.query_types)
