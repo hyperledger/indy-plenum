@@ -5,7 +5,6 @@ from plenum.test.helper import sdk_gen_request, \
     sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_sign_request_objects, sdk_send_signed_requests, \
     sdk_get_and_check_replies
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.common.request import Request
 from plenum.common.util import randomString
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID, dummy_field_length
 from plenum.test.plugin.demo_plugin.constants import GET_BAL

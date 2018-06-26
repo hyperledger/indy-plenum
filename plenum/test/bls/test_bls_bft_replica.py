@@ -6,7 +6,7 @@ import pytest
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
@@ -134,6 +134,14 @@ def pre_prepare_incorrect(state_root, request):
     elif request.param == 'txn_root':
         params = create_pre_prepare_params(state_root=state_root, txn_root=generate_state_root())
     return PrePrepare(*params)
+
+
+# ------ CHECK ACCEPTABLE LEDGER IDs ------
+def test_process_ledger(bls_bft_replicas):
+    for r in bls_bft_replicas:
+        assert r._can_process_ledger(DOMAIN_LEDGER_ID)
+        assert r._can_process_ledger(CONFIG_LEDGER_ID)
+        assert not r._can_process_ledger(POOL_LEDGER_ID)
 
 
 # ------ CREATE 3PC MESSAGES ------

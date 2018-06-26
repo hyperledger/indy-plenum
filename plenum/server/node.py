@@ -34,7 +34,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -673,7 +673,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            ledger_size)
         v, p = three_pc_key if three_pc_key else (None, None)
-        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash)
+        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash, CURRENT_PROTOCOL_VERSION)
 
     @property
     def poolLedgerStatus(self):
@@ -1667,13 +1667,35 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Request):
             msg = msg.as_dict
         identifier = idr_from_req_data(msg)
-        reqId = msg.get(f.REQ_ID.nm)
+        # we send reqId == 1 when we need to reply on invalid LEDGER_STATUS
+        reqId = msg.get(f.REQ_ID.nm) or 1
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
         self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
+        self._specific_invalid_client_msg_handling(ex, msg, frm)
+
+    def _specific_invalid_client_msg_handling(self, ex, msg, frm):
+        op = msg.get('op')
+        if (op == LEDGER_STATUS):
+            self._invalid_client_ledger_status_handling(ex, msg, frm)
+
+    def _invalid_client_ledger_status_handling(self, ex, msg, frm):
+        # This specific validation handles incorrect client LEDGER_STATUS message
+        logger.debug("{} received bad LEDGER_STATUS message from client {}. "
+                     "Reason: {}. "
+                     .format(self, frm, ex.args[0]))
+        # Since client can't yet handle denial of LEDGER_STATUS,
+        # node send his LEDGER_STATUS back
+        self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
+                                          msg.get(f.TXN_SEQ_NO.nm),
+                                          msg.get(f.VIEW_NO.nm),
+                                          msg.get(f.PP_SEQ_NO.nm),
+                                          msg.get(f.MERKLE_ROOT.nm),
+                                          CURRENT_PROTOCOL_VERSION,
+                                          frm)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1987,6 +2009,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
 
+    def send_ledger_status_to_client(self, lid, txn_s_n, v, p, merkle, protocol, client):
+        ls = LedgerStatus(lid, txn_s_n, v, p, merkle, protocol)
+        self.transmitToClient(ls, client)
+
     def doStaticValidation(self, request: Request):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation
         if TXN_TYPE not in operation:
@@ -2040,7 +2066,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
         requests = []
         for req_key in request_ids:
-            requests.append(self.requests[req_key].finalised)
+            req = self.requests[req_key].finalised
+            _, seq_no = self.seqNoDB.get(req.digest)
+            if seq_no is None:
+                requests.append(req)
         self.apply_reqs(requests, cons_time, ledger_id)
 
     def apply_reqs(self, requests, cons_time: int, ledger_id):
@@ -2583,6 +2612,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
+
+        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
+                          pp_time=pp_time, reqs=reqs, state_root=state_root,
+                          txn_root=txn_root)
+
         try:
             committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
                                                          state_root, txn_root)
@@ -2653,6 +2687,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
+                          pp_time=ppTime, committed_txns=committedTxns,
+                          state_root=stateRoot, txn_root=txnRoot)
         self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
@@ -2665,9 +2702,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
-        return self.commitAndSendReplies(
-            ledger_id, pp_time, reqs, state_root,
-            txn_root)
+        return self.commitAndSendReplies(ledger_id,
+                                         pp_time, reqs, state_root, txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
@@ -2699,6 +2735,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledger_id))
+        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
         """
@@ -2716,6 +2753,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledger_id))
+        self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
@@ -2874,7 +2912,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if code in (s.code for s in (Suspicions.PPR_DIGEST_WRONG,
                                      Suspicions.PPR_REJECT_WRONG,
                                      Suspicions.PPR_TXN_WRONG,
-                                     Suspicions.PPR_STATE_WRONG)):
+                                     Suspicions.PPR_STATE_WRONG,
+                                     Suspicions.PPR_PLUGIN_EXCEPTION)):
             logger.info('{}{} got one of primary suspicions codes {}'
                         .format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
