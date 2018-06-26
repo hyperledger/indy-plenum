@@ -1,7 +1,10 @@
+import json
+
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest
 from plenum.common.request import Request
+from plenum.common.txn_util import get_payload_data
 from plenum.common.types import f
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
@@ -69,5 +72,7 @@ class AuctionReqHandler(LedgerRequestHandler):
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        # Not doing anything since it is a sample plugin maintaining in memory state
-        pass
+        # Dummy update so that state root is non empty
+        data = get_payload_data(txn)
+        for k, v in data.items():
+            self.state.set(k.encode(), json.dumps(v).encode())
