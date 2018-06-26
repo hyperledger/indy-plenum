@@ -61,6 +61,7 @@ class Ledger(_Ledger):
         return merkle_info
 
     def _append_seq_no(self, txns, start_seq_no):
+        # TODO: Fix name `start_seq_no`, it is misleading. The seq no start from `start_seq_no`+1
         seq_no = start_seq_no
         for txn in txns:
             seq_no += 1
@@ -131,7 +132,8 @@ class Ledger(_Ledger):
         # number of leaves (no. of txns)
         tempTree = copy(currentTree)
         for txn in txns:
-            tempTree.append(self.serialize_for_tree(txn))
+            s = self.serialize_for_tree(txn)
+            tempTree.append(s)
         return tempTree
 
     def reset_uncommitted(self):

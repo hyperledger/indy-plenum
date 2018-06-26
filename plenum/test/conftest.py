@@ -72,6 +72,7 @@ GENERAL_CONFIG_DIR = 'etc/indy'
 DEV_NULL_PATH = '/dev/null'
 ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
 
+
 def get_data_for_role(pool_txn_data, role):
     name_and_seeds = []
     for txn in pool_txn_data['txns']:
