@@ -1,3 +1,4 @@
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.fields import BlsMultiSignatureValueField, TimestampField
 from plenum.common.util import get_utc_epoch
 from plenum.test.input_validation.utils import b58_by_len
@@ -6,7 +7,7 @@ validator = BlsMultiSignatureValueField()
 state_root_hash = b58_by_len(32)
 pool_state_root_hash = b58_by_len(32)
 txn_root_hash = b58_by_len(32)
-ledger_id = 1
+ledger_id = DOMAIN_LEDGER_ID
 timestamp = get_utc_epoch()
 
 
