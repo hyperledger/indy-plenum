@@ -68,7 +68,5 @@ def setup_plugins():
 setup_plugins()
 
 
-from __metadata__ import *  # noqa
-
 from plenum.common.jsonpickle_util import setUpJsonpickle   # noqa: E402
 setUpJsonpickle()
