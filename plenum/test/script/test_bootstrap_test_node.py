@@ -107,7 +107,7 @@ def test_domain_genesis_txns(bootstrap, domain_genesis_file):
             assert get_payload_data(txn)
             assert get_type(txn) == NYM
             assert get_version(txn) == "1"
-            assert get_protocol_version(txn) == 1
+            assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[VERKEY]
             assert get_payload_data(txn)[TARGET_NYM]
             assert ALIAS not in get_payload_data(txn)
@@ -133,7 +133,7 @@ def test_pool_genesis_txns(bootstrap, pool_genesis_file):
             assert get_payload_data(txn)
             assert get_type(txn) == NODE
             assert get_version(txn) == "1"
-            assert get_protocol_version(txn) == 1
+            assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[TARGET_NYM]
             data = get_payload_data(txn).get(DATA)
             assert data

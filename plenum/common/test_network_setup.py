@@ -102,7 +102,7 @@ class TestNetworkSetup:
                                               config, domainTxnFieldOrder)
 
         # TODO: make it parameter for generate genesis txns script
-        genesis_protocol_version = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
+        genesis_protocol_version = None
 
         # 1. INIT DOMAIN LEDGER GENESIS FILE
         seq_no = 1
