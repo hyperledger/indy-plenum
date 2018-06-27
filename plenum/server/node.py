@@ -897,8 +897,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer = self.newViewChanger()
             self.elector = self.newPrimaryDecider()
 
-            self._schedule(action=self.propose_view_change,
-                           seconds=self._view_change_timeout)
+            self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
             self.dump_additional_info()
@@ -914,6 +913,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.logNodeInfo()
 
+    def schedule_initial_propose_view_change(self):
+        self.lost_primary_at = time.perf_counter()
+        self._schedule(action=self.propose_view_change,
+                       seconds=self._view_change_timeout)
     def schedule_node_status_dump(self):
         # one-shot dump right after start
         self._schedule(action=self._info_tool.dump_general_info,
@@ -1482,7 +1485,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def _should_accept_current_state(self):
-        return (self.viewNo == 0) and (self.master_primary_name is None)
+        return self.viewNo == 0
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
         """
@@ -2444,13 +2447,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if self.nodestack.isConnectedTo(self.master_primary_name) or \
                 self.master_primary_name == self.name:
-            # since this is called after initial catch-up (on viewNo=0),
-            # while the current viewNo may be > 0, do not declare that
-            # the primary is found, since the actual primary for the current viewNo
-            # may be different.
-            # See test_view_change_after_back_to_quorum_with_disconnected_primary
-            if not self._first_catchup:
-                self.lost_primary_at = None
+            self.lost_primary_at = None
 
     def propose_view_change(self):
         # Sends instance change message when primary has been

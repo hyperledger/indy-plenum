@@ -302,6 +302,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             # it means we already processed this future View Change Done
             return
 
+        # This is the first Propagate Primary,
+        # so we need to make sure that we connected to the real primary for the proposed view
+        if self.view_no == 0:
+            self.node.schedule_initial_propose_view_change()
+
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = {}
         self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
