@@ -1482,7 +1482,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def _should_accept_current_state(self):
-        return self.viewNo == 0 and self.mode == Mode.starting and self.master_primary_name is None
+        return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
         """
@@ -1900,7 +1900,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # do not do it for the first catch-up (when node joins the pool)
             # since primary selection will be done later during processing of CURRENT_STATE
             # and primary propagation
-            if not self.view_change_in_progress and not self._first_catchup:
+            if not self.view_change_in_progress:
                 self.select_primaries()
         self._first_catchup = False
 
@@ -2444,7 +2444,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if self.nodestack.isConnectedTo(self.master_primary_name) or \
                 self.master_primary_name == self.name:
-            self.lost_primary_at = None
+            # since this is called after initial catch-up (on viewNo=0),
+            # while the current viewNo may be > 0, do not declare that
+            # the primary is found, since the actual primary for the current viewNo
+            # may be different.
+            # See test_view_change_after_back_to_quorum_with_disconnected_primary
+            if not self._first_catchup:
+                self.lost_primary_at = None
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
@@ -2463,7 +2469,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self.isReady():
                 logger.info('{} The node is not ready yet '
                             'so view change will not be proposed now, but re-scheduled.'.format(self))
-                self._schedule_view_change()
+                # self._schedule_view_change()
                 return
 
             self.view_changer.on_primary_loss()

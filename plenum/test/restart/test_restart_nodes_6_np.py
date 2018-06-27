@@ -9,11 +9,11 @@ from plenum.test.restart.test_restart_nodes import get_group, restart_nodes
 nodeCount = 7
 
 
-def test_restart_groups_wp(looper, txnPoolNodeSet, tconf, tdir,
+def test_restart_groups_np(looper, txnPoolNodeSet, tconf, tdir,
                            sdk_pool_handle, sdk_wallet_client, allPluginsPath):
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
 
-    restart_group = get_group(txnPoolNodeSet, 6, include_primary=True)
+    restart_group = get_group(txnPoolNodeSet, 6, include_primary=False)
 
     restart_nodes(looper, txnPoolNodeSet, restart_group, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, per_add_timeout=tm)

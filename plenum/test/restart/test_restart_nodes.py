@@ -1,9 +1,8 @@
-import pytest
-from plenum.test.test_node import ensure_node_disconnected, checkNodesConnected
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test import waits
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import TestNode
+from plenum.test.test_node import ensure_node_disconnected, checkNodesConnected, ensureElectionsDone
 
 
 def get_group(nodeSet, group_cnt, include_primary=False):
@@ -51,6 +50,8 @@ def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
 
     if not per_add_timeout:
         looper.run(checkNodesConnected(nodeSet, customTimeout=after_restart_timeout))
+
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
 
 nodeCount = 7
