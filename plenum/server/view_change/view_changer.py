@@ -10,7 +10,7 @@ from common.exceptions import PlenumValueError
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement, SortedDict
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
@@ -23,12 +23,6 @@ logger = getlogger()
 
 # TODO docs and types
 # TODO logging
-
-
-class FutureViewChangeDone:
-    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
-        self.vcd_msg = vcd_msg
-        self.from_current_state = from_current_state
 
 
 class ViewChanger(HasActionQueue, MessageProcessor):
