@@ -1890,6 +1890,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
+
+        # More than one catchup may be needed during the current ViewChange protocol
+        # TODO: separate view change and catchup logic
         if self.is_catchup_needed():
             logger.info('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -1909,6 +1912,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
+        # More than one catchup may be needed during the current ViewChange protocol
+        # No more catchup is needed if this is a common catchup (not part of View Change)
         if not self.view_change_in_progress:
             return False
 

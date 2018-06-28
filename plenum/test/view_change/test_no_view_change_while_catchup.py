@@ -1,22 +1,23 @@
 import pytest
 
+from plenum.common.messages.node_messages import InstanceChange
 from plenum.common.startable import Mode
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import do_view_change, revert_do_view_change
 from plenum.test.waits import expectedPoolViewChangeStartedTimeout
+from stp_core.loop.eventually import eventually
 
 
-@pytest.fixture(params=['starting', 'discovering', 'discovered', 'syncing'])
+@pytest.fixture(params=[Mode.starting, Mode.discovering, Mode.discovered, Mode.syncing])
 def mode(request):
-    if request.param == 'starting':
-        return Mode.starting
-    elif request.param == 'discovering':
-        return Mode.discovering
-    elif request.param == 'discovered':
-        return Mode.discovered
-    elif request.param == 'syncing':
-        return Mode.syncing
+    return request.param
+
+
+def check_instance_change_count(nodes, expected_count):
+    for node in nodes:
+        ic_count = len([msg for msg in node.view_changer.inBox if isinstance(msg[0], InstanceChange)])
+        assert expected_count == ic_count
 
 
 def test_no_view_change_until_synced(txnPoolNodeSet, looper, mode):
@@ -24,11 +25,16 @@ def test_no_view_change_until_synced(txnPoolNodeSet, looper, mode):
     for node in txnPoolNodeSet:
         node.mode = mode
 
+    check_instance_change_count(txnPoolNodeSet, 0)
+
     # start View Change
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     old_meths = do_view_change(txnPoolNodeSet)
     for node in txnPoolNodeSet:
         node.view_changer.sendInstanceChange(old_view_no + 1)
+    looper.run(eventually(check_instance_change_count, txnPoolNodeSet, 3,
+                          timeout=expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet))))
+
     looper.runFor(expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet)))
 
     # make sure View Change is not started

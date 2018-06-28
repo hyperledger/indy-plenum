@@ -544,12 +544,15 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # This is especially critical for Propagate Primary mode (on receiving CURRENT_STATE by a new node).
         if self.view_no in self._next_view_indications:
             for frm, vcd in self._next_view_indications[self.view_no].items():
+                # we call _on_verified_view_change_done_msg, not process_vchd_msg,
+                # since we may be in propagate primary mode where some of validation inside process_vchd_msg
+                # is not correct (for example, checking that the new primary differs from the current one)
                 self._on_verified_view_change_done_msg(vcd, frm)
 
         # remove all for previous views
         for view_no in tuple(self._next_view_indications.keys()):
             if view_no <= self.view_no:
-                self._next_view_indications.pop(view_no)
+                del self._next_view_indications[view_no]
 
     def _on_verified_view_change_done_msg(self, msg, frm):
         new_primary_name = msg.name
