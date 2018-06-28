@@ -18,8 +18,19 @@ def mode(request):
 
 
 def check_future_vcd_count(node, expected_count):
-    vcd_count = len([msg for msg in node.view_changer.inBox if isinstance(msg[0], FutureViewChangeDone)])
+    vcd_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg[0], FutureViewChangeDone))
     assert expected_count == vcd_count
+
+
+def try_view_change(looper, node):
+    looper.run(eventually(node.view_changer.serviceQueues))
+
+
+def check_no_view_change(looper, node):
+    looper.run(eventually(check_future_vcd_count, node, 3,
+                          timeout=expectedPoolViewChangeStartedTimeout(4)))
+    try_view_change(looper, node)
+    check_future_vcd_count(node, 3)
 
 
 def test_no_propagated_future_view_change_until_synced(txnPoolNodeSet, looper, mode):
@@ -42,9 +53,7 @@ def test_no_propagated_future_view_change_until_synced(txnPoolNodeSet, looper, m
         checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, numInstances=2)
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
-        looper.run(eventually(check_future_vcd_count, lagged_node, 3,
-                              timeout=expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet))))
-
+        check_no_view_change(looper, lagged_node)
         assert old_view_no == checkViewNoForNodes([lagged_node])
 
         # emulate finishing of catchup by setting Participating status

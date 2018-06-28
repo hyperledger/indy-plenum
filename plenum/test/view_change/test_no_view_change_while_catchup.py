@@ -16,8 +16,20 @@ def mode(request):
 
 def check_instance_change_count(nodes, expected_count):
     for node in nodes:
-        ic_count = len([msg for msg in node.view_changer.inBox if isinstance(msg[0], InstanceChange)])
+        ic_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg[0], InstanceChange))
         assert expected_count == ic_count
+
+
+def try_view_change(looper, nodes):
+    for node in nodes:
+        looper.run(eventually(node.view_changer.serviceQueues))
+
+
+def check_no_view_change(looper, nodes):
+    looper.run(eventually(check_instance_change_count, nodes, 3,
+                          timeout=expectedPoolViewChangeStartedTimeout(len(nodes))))
+    try_view_change(looper, nodes)
+    check_instance_change_count(nodes, 3)
 
 
 def test_no_view_change_until_synced(txnPoolNodeSet, looper, mode):
@@ -32,12 +44,9 @@ def test_no_view_change_until_synced(txnPoolNodeSet, looper, mode):
     old_meths = do_view_change(txnPoolNodeSet)
     for node in txnPoolNodeSet:
         node.view_changer.sendInstanceChange(old_view_no + 1)
-    looper.run(eventually(check_instance_change_count, txnPoolNodeSet, 3,
-                          timeout=expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet))))
-
-    looper.runFor(expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet)))
 
     # make sure View Change is not started
+    check_no_view_change(looper, txnPoolNodeSet)
     assert old_view_no == checkViewNoForNodes(txnPoolNodeSet)
 
     # emulate finishing of catchup by setting Participating status
