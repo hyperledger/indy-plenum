@@ -8,6 +8,7 @@ import shutil
 from common.exceptions import PlenumValueError
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 
 from stp_core.crypto.nacl_wrappers import Signer
 
@@ -100,22 +101,28 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
                                               config, domainTxnFieldOrder)
 
+        # TODO: make it parameter for generate genesis txns script
+        genesis_protocol_version = None
+
         # 1. INIT DOMAIN LEDGER GENESIS FILE
         seq_no = 1
         trustee_txn = Member.nym_txn(trustee_def.nym, verkey=trustee_def.verkey, role=TRUSTEE,
-                                     seq_no=seq_no)
+                                     seq_no=seq_no,
+                                     protocol_version=genesis_protocol_version)
         seq_no += 1
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
             nym_txn = Member.nym_txn(sd.nym, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym,
-                                     seq_no=seq_no)
+                                     seq_no=seq_no,
+                                     protocol_version=genesis_protocol_version)
             seq_no += 1
             domainLedger.add(nym_txn)
 
         for cd in client_defs:
             txn = Member.nym_txn(cd.nym, verkey=cd.verkey, creator=trustee_def.nym,
-                                 seq_no=seq_no)
+                                 seq_no=seq_no,
+                                 protocol_version=genesis_protocol_version)
             seq_no += 1
             domainLedger.add(txn)
 
@@ -143,7 +150,8 @@ class TestNetworkSetup:
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
                                         nd.ip, nd.port, nd.client_port, blskey=blskey,
-                                        seq_no=seq_no)
+                                        seq_no=seq_no,
+                                        protocol_version=genesis_protocol_version)
             seq_no += 1
             poolLedger.add(node_txn)
 
