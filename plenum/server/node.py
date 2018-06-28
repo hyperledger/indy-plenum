@@ -405,8 +405,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
 
-        self._first_catchup = True
-
         # Number of read requests the node has processed
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
@@ -1901,12 +1899,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
             self.no_more_catchups_needed()
             # select primaries after pool ledger caughtup
-            # do not do it for the first catch-up (when node joins the pool)
-            # since primary selection will be done later during processing of CURRENT_STATE
-            # and primary propagation
             if not self.view_change_in_progress:
                 self.select_primaries()
-        self._first_catchup = False
 
     def is_catchup_needed(self) -> bool:
         """

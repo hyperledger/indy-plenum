@@ -304,6 +304,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         # This is the first Propagate Primary,
         # so we need to make sure that we connected to the real primary for the proposed view
+        # see test_view_change_after_back_to_quorum_with_disconnected_primary
         if self.view_no == 0:
             self.node.schedule_initial_propose_view_change()
 
