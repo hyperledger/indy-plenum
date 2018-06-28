@@ -1,6 +1,5 @@
 import os
 import sys
-import __metadata__ as md
 
 from setuptools import setup, find_packages
 
@@ -14,35 +13,27 @@ if sys.version_info < (3, 5):
     print("NOTE: Installation failed. Run setup.py using python3")
     sys.exit(1)
 
-# Change to ioflo's source directory prior to running any command
-try:
-    SETUP_DIRNAME = os.path.dirname(__file__)
-except NameError:
-    # We're probably being frozen, and __file__ triggered this NameError
-    # Work around this
-    SETUP_DIRNAME = os.path.dirname(sys.argv[0])
+here = os.path.abspath(os.path.dirname(__file__))
 
-if SETUP_DIRNAME != '':
-    os.chdir(SETUP_DIRNAME)
-
-SETUP_DIRNAME = os.path.abspath(SETUP_DIRNAME)
-
-#METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')# Load the metadata using exec() so we don't trigger an import of ioflo.__init__
-#exec(compile(open(METADATA).read(), METADATA, 'exec'))
+md = {}
+with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
+    exec(f.read(), md)
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-586']
 
 setup(
-    name='indy-plenum-dev',
-    version=md.__version__,
-    description='Plenum Byzantine Fault Tolerant Protocol',
-    long_description='Plenum Byzantine Fault Tolerant Protocol',
-    url='https://github.com/hyperledger/indy-plenum',
-    download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
-        format(md.__version__),
-    author=md.__author__,
-    author_email='hyperledger-indy@lists.hyperledger.org',
-    license=md.__license__,
+    name='indy-plenum-dev',  # TODO refers to metadata as well
+    version=md['__version__'],
+    author=md['__author__'],
+    author_email=md['__author_email__'],
+    maintainer=md['__maintainer__'],
+    maintainer_email=md['__maintainer_email__'],
+    url=md['__url__'],
+    description=md['__description__'],
+    long_description=md['__long_description__'],
+    download_url=md['__download_url__'],
+    license=md['__license__'],
+
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
