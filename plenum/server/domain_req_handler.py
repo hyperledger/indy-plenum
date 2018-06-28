@@ -185,7 +185,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         if not multi_sig:
             # Just return the value and not proof
             try:
-                return self.state.get_for_root_hash(path, root_hash), None
+                return self.state.get_for_root_hash(root_hash, path), None
             except KeyError:
                 return None, None
         else:
