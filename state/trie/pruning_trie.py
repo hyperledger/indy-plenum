@@ -1047,7 +1047,8 @@ class Trie:
         rv = self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
-        return (o, rv) if get_value else o
+        value = rv if rv != BLANK_NODE else None
+        return (o, value) if get_value else o
 
     def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False):
         # Return a proof for keys in the trie with the given prefix.
