@@ -530,6 +530,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self.node.on_view_change_start()
         self.node.start_catchup()
+        for replica in self.node.replicas:
+            replica.clear_requests_and_fix_last_ordered()
 
     def _on_verified_view_change_done_msg(self, msg, frm):
         new_primary_name = msg.name
