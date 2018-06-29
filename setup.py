@@ -3,6 +3,7 @@ import sys
 
 from setuptools import setup, find_packages
 
+
 v = sys.version_info
 if sys.version_info < (3, 5):
     msg = "FAIL: Requires Python 3.5 or later, " \
