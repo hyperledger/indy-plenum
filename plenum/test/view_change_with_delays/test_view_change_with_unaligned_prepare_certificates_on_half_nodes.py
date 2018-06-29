@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.view_change.view_change_with_delays.helper import  \
+from plenum.test.view_change_with_delays.helper import  \
     do_view_change_with_unaligned_prepare_certificates
 
 @pytest.fixture(scope="module")
