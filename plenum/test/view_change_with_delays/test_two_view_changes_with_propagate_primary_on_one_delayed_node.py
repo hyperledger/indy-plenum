@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.view_change.view_change_with_delays.helper import \
+from plenum.test.view_change_with_delays.helper import \
     do_view_change_with_propagate_primary_on_one_delayed_node
 
 # This is needed only with current view change implementation to give enough time

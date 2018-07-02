@@ -2,23 +2,21 @@ from time import perf_counter
 
 import pytest
 
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.test.delayers import cr_delay
-
-from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
-from stp_core.common.log import getlogger
+from plenum.test import waits
+from plenum.test.delayers import cr_delay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected, TestNode
-from plenum.test import waits
-from plenum.common.config_helper import PNodeConfigHelper
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventually
 
 # Do not remove the next import
-from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 txnCount = 5
@@ -131,5 +129,5 @@ def test_node_catchup_after_restart_with_txns(
               2 * delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
-    assert new_node_ledger.num_txns_caught_up == more_requests
+
     send_and_chk(LedgerState.synced)
