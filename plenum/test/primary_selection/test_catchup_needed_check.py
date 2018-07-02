@@ -3,6 +3,7 @@ import types
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.test.delayers import lsDelay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
@@ -48,6 +49,12 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
 
     bad_node.master_replica.dispatchThreePhaseMsg = types.MethodType(
         bad_method, bad_node.master_replica)
+
+    # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
+    # node catch-ups 2 times.
+    # Otherwise other nodes may receive multiple LEDGER_STATUSes from slow node, and return Consistency proof for all
+    # missing txns, so no stashed ones are applied
+    bad_node.nodeIbStasher.delay(lsDelay(1000))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6 * Max3PCBatchSize)
     waitNodeDataInequality(looper, bad_node, *other_nodes)

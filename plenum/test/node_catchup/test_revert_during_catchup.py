@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, COMMIT
 from plenum.test import waits
-from plenum.test.delayers import cDelay, cr_delay
+from plenum.test.delayers import cDelay, cr_delay, lsDelay
 from plenum.test.helper import check_last_ordered_3pc, \
     assertEquality, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
@@ -58,6 +58,13 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
+
+    # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
+    # node catch-ups 2 times.
+    # Otherwise other nodes may receive multiple LEDGER_STATUSes from slow node, and return Consistency proof for all
+    # missing txns, so no stashed ones are applied
+    slow_node.nodeIbStasher.delay(lsDelay(1000))
+
     # Make the slow node receive txns for a smaller ledger so it still finds
     # the need to catchup
     delay_batches = 2
