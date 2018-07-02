@@ -55,7 +55,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, sdk_set_protocol_version
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -71,6 +71,7 @@ GENERAL_CONFIG_DIR = 'etc/indy'
 
 DEV_NULL_PATH = '/dev/null'
 ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
+
 
 def get_data_for_role(pool_txn_data, role):
     name_and_seeds = []
@@ -406,7 +407,9 @@ def _tconf(general_config):
 
 @pytest.fixture(scope="module")
 def tconf(general_conf_tdir):
-    return _tconf(general_conf_tdir)
+    conf = _tconf(general_conf_tdir)
+    conf.Max3PCBatchWait = 2
+    return conf
 
 
 @pytest.fixture()
@@ -1009,9 +1012,10 @@ def sdk_pool_name():
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_name():
+def sdk_wallet_data():
     w_name = "wallet_name_" + randomText(13)
-    yield w_name
+    sdk_wallet_credentials = '{"key": "key"}'
+    yield w_name, sdk_wallet_credentials
     w_dir = os.path.join(os.path.expanduser("~/.indy_client/wallet"), w_name)
     if os.path.isdir(w_dir):
         shutil.rmtree(w_dir, ignore_errors=True)
@@ -1027,6 +1031,7 @@ async def _gen_pool_handler(work_dir, name):
 
 @pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
+    sdk_set_protocol_version(looper)
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
     yield pool_handle
@@ -1036,16 +1041,17 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
         logger.debug("Unhandled exception: {}".format(e))
 
 
-async def _gen_wallet_handler(pool_name, wallet_name):
-    await create_wallet(pool_name, wallet_name, None, None, None)
-    wallet_handle = await open_wallet(wallet_name, None, None)
+async def _gen_wallet_handler(pool_name, wallet_data):
+    wallet_name, wallet_credentials = wallet_data
+    await create_wallet(pool_name, wallet_name, None, None, wallet_credentials)
+    wallet_handle = await open_wallet(wallet_name, None, wallet_credentials)
     return wallet_handle
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
+def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_data):
     wallet_handle = looper.loop.run_until_complete(
-        _gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+        _gen_wallet_handler(sdk_pool_name, sdk_wallet_data))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 

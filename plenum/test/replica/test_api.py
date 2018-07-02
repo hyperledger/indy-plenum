@@ -37,7 +37,7 @@ def test_on_propagate_primary_done(replica):
 def test_is_next_pre_prepare(replica):
     pp_view_no = 2
     pp_seq_no = 1
-    replica._last_ordered_3pc = (1,2)
+    replica._last_ordered_3pc = (1, 2)
 
     assert replica.viewNo != pp_view_no
     with pytest.raises(LogicError) as excinfo:
@@ -54,9 +54,10 @@ def test_last_prepared_certificate_in_view(replica):
 
 def test_order_3pc_key(replica):
     with pytest.raises(ValueError) as excinfo:
-        replica.order_3pc_key((1,1))
+        replica.order_3pc_key((1, 1))
     assert ("no PrePrepare with a 'key' {} found"
-            .format((1,1))) in str(excinfo.value)
+            .format((1, 1))) in str(excinfo.value)
+
 
 def test_can_pp_seq_no_be_in_view(replica):
     view_no = 1
@@ -65,3 +66,23 @@ def test_can_pp_seq_no_be_in_view(replica):
         replica.can_pp_seq_no_be_in_view(view_no, 1)
     assert ("expected: <= current view_no {}"
             .format(replica.viewNo)) in str(excinfo.value)
+
+
+def test_is_msg_from_primary_doesnt_crash_on_msg_with_view_greater_than_current(replica):
+    class FakeMsg:
+        def __init__(self, viewNo):
+            self.viewNo = viewNo
+
+    invalid_view_no = 1 if replica.viewNo is None else replica.viewNo + 1
+
+    # This shouldn't crash
+    replica.isMsgFromPrimary(FakeMsg(invalid_view_no), "some_sender")
+
+
+def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater_than_last_stashed_checkpoint(replica):
+    till_3pc_key = (1, 1)
+    replica.stashedRecvdCheckpoints[1] = {till_3pc_key: {}}
+    setattr(replica.node, 'viewNo', 2)
+
+    # This shouldn't crash
+    replica._remove_stashed_checkpoints(till_3pc_key)

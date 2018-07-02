@@ -1,4 +1,4 @@
-from plenum.common.constants import NYM, NODE
+from plenum.common.constants import NYM, NODE, CURRENT_PROTOCOL_VERSION
 from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata, append_txn_metadata
 from plenum.common.util import SortedDict
 
@@ -12,6 +12,7 @@ def test_init_empty_txn_no_protocol_ver():
             "metadata": {
             },
             "type": NYM,
+            "protocolVersion": CURRENT_PROTOCOL_VERSION
         },
         "txnMetadata": {
         },

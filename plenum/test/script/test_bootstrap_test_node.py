@@ -9,7 +9,8 @@ from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 from plenum.common.constants import NYM, VERKEY, ROLE, TARGET_NYM, ALIAS, NODE, DATA, CLIENT_IP, CLIENT_PORT, NODE_IP, \
     NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD
 from plenum.common.test_network_setup import TestNetworkSetup
-from plenum.common.txn_util import getTxnOrderedFields, get_seq_no, get_txn_id, get_payload_data, get_type, get_version
+from plenum.common.txn_util import getTxnOrderedFields, get_seq_no, get_txn_id, get_payload_data, get_type, get_version, \
+    get_protocol_version
 from plenum.common.util import randomString
 from storage import store_utils
 from stp_zmq.zstack import ZStack
@@ -106,6 +107,7 @@ def test_domain_genesis_txns(bootstrap, domain_genesis_file):
             assert get_payload_data(txn)
             assert get_type(txn) == NYM
             assert get_version(txn) == "1"
+            assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[VERKEY]
             assert get_payload_data(txn)[TARGET_NYM]
             assert ALIAS not in get_payload_data(txn)
@@ -131,6 +133,7 @@ def test_pool_genesis_txns(bootstrap, pool_genesis_file):
             assert get_payload_data(txn)
             assert get_type(txn) == NODE
             assert get_version(txn) == "1"
+            assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[TARGET_NYM]
             data = get_payload_data(txn).get(DATA)
             assert data

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.view_change.view_change_with_delays.helper import do_view_change_with_pending_request_and_one_fast_node
+from plenum.test.view_change_with_delays.helper import do_view_change_with_pending_request_and_one_fast_node
 
 # This is needed only with current view change implementation to give enough time
 # to show what is exactly broken

@@ -4,10 +4,10 @@ from copy import deepcopy
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25515, \
+    ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25519, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID
+    TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -55,22 +55,6 @@ def idr_from_req_data(data):
         return data[f.IDENTIFIER.nm]
     else:
         return Request.gen_idr_from_sigs(data.get(f.SIGS.nm, {}))
-
-
-# TODO: remove after old client deprecation or uniforming read and write respnse formats
-def get_reply_digest(result):
-    if f.DIGEST.nm in result:
-        return result[f.DIGEST.nm]
-    elif TXN_PAYLOAD in result and TXN_PAYLOAD_METADATA in result[TXN_PAYLOAD] and \
-            TXN_PAYLOAD_METADATA_DIGEST in result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]:
-        return result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST]
-    else:
-        return Request(
-            identifier=result.get(f.IDENTIFIER.nm, None),
-            reqId=result.get(f.REQ_ID.nm, None),
-            operation=result.get(OPERATION, None),
-            protocolVersion=result.get(f.PROTOCOL_VERSION.nm, None)
-        ).digest
 
 
 # TODO: remove after old client deprecation or uniforming read and write respnse formats
@@ -167,7 +151,7 @@ def is_forced(txn):
     return str(force) == 'True'
 
 
-def init_empty_txn(txn_type, protocol_version=None):
+def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION):
     result = {}
     result[TXN_PAYLOAD] = {}
     result[TXN_METADATA] = {}
@@ -225,7 +209,7 @@ def reqToTxn(req):
     if isinstance(req, str):
         req = json.loads(req)
     if isinstance(req, dict):
-        req = Request(
+        kwargs = dict(
             identifier=req.get(f.IDENTIFIER.nm, None),
             reqId=req.get(f.REQ_ID.nm, None),
             operation=req.get(OPERATION, None),
@@ -233,6 +217,7 @@ def reqToTxn(req):
             signatures=req.get(f.SIGS.nm, None),
             protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
         )
+        req = Request(**kwargs)
     if isinstance(req, Request):
         req_data = req.as_dict
         req_data[f.DIGEST.nm] = req.digest
@@ -265,17 +250,11 @@ def do_req_to_txn(req_data, req_op):
 
     # 2. Fill Signature
     if (f.SIG.nm in req_data) or (f.SIGS.nm in req_data):
-        result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25515
+        result[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = ED25519
         signatures = {req_data.get(f.IDENTIFIER.nm, None): req_data.get(f.SIG.nm, None)} \
             if req_data.get(f.SIG.nm, None) is not None \
             else req_data.get(f.SIGS.nm, {})
-        result[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = [
-            {
-                TXN_SIGNATURE_FROM: frm,
-                TXN_SIGNATURE_VALUE: sign,
-            }
-            for frm, sign in signatures.items()
-        ]
+        add_sigs_to_txn(result, sorted(signatures.items()), sig_type=ED25519)
         req_data.pop(f.SIG.nm, None)
         req_data.pop(f.SIGS.nm, None)
 
@@ -290,3 +269,17 @@ def do_req_to_txn(req_data, req_op):
     set_payload_data(result, req_op)
 
     return result
+
+
+def add_sigs_to_txn(txn, sigs, sig_type=ED25519):
+    if TXN_SIGNATURE_TYPE not in txn[TXN_SIGNATURE] or not txn[TXN_SIGNATURE][TXN_SIGNATURE_TYPE]:
+        txn[TXN_SIGNATURE][TXN_SIGNATURE_TYPE] = sig_type
+    if TXN_SIGNATURE_VALUES not in txn[TXN_SIGNATURE] or not txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES]:
+        txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] = []
+    txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES] += [
+        {
+            TXN_SIGNATURE_FROM: frm,
+            TXN_SIGNATURE_VALUE: sign,
+        }
+        for frm, sign in sigs
+    ]

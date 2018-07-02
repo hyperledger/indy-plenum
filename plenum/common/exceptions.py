@@ -3,6 +3,8 @@ from re import compile
 # TODO refactor hierarchy of exceptions taking into account
 # ones from common/exceptions.py
 
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+
 from plenum.server.suspicion_codes import Suspicion
 
 
@@ -299,3 +301,11 @@ class CommonSdkIOException(Exception):
 
 class PoolLedgerTimeoutException(Exception):
     pass
+
+
+class MissingProtocolVersionError(TypeError):
+    def __init__(self, message):
+        super().__init__(
+            message + 'Make sure that the latest LibIndy is '
+                      'used and `set_protocol_version({})` is called.'
+            .format(CURRENT_PROTOCOL_VERSION))

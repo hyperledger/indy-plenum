@@ -2,7 +2,7 @@ import pytest
 
 # noinspection PyUnresolvedReferences
 from ledger.test.conftest import tempdir, txn_serializer, hash_serializer  # noqa
-from plenum.common.constants import LedgerState
+from plenum.common.constants import LedgerState, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import LedgerStatus
 
 nodeCount = 7
@@ -74,7 +74,8 @@ def test_same_ledger_status_last_ordered_same_3PC(txnPoolNodeSet,
     ledger_status_2_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       2, 20,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_2_40, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_2_40, txnPoolNodeSet[2].name)
@@ -119,7 +120,8 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_last(txnPoolNodeSet,
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_none_3PC, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_none_3PC, txnPoolNodeSet[2].name)
@@ -145,7 +147,8 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_first(txnPoolNodeSet,
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_none_3PC, txnPoolNodeSet[2].name)
@@ -171,7 +174,8 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum_with_none(txnPoolNo
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[2].name)
@@ -197,12 +201,14 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum1(txnPoolNodeSet,
     ledger_status_1_10 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       1, 10,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_1_10, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_1_10, txnPoolNodeSet[2].name)
@@ -228,12 +234,14 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum2(txnPoolNodeSet,
     ledger_status_1_10 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       1, 10,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[2].name)
@@ -258,12 +266,14 @@ def test_same_ledger_status_last_ordered_not_none_3PC_no_quorum_equal(txnPoolNod
     ledger_status_1_10 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       1, 10,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_status_3_40 = LedgerStatus(ledger_status_none_3PC.ledgerId,
                                       ledger_status_none_3PC.txnSeqNo,
                                       3, 40,
-                                      ledger_status_none_3PC.merkleRoot)
+                                      ledger_status_none_3PC.merkleRoot,
+                                      CURRENT_PROTOCOL_VERSION)
 
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[1].name)
     ledger_manager.processLedgerStatus(ledger_status_3_40, txnPoolNodeSet[2].name)

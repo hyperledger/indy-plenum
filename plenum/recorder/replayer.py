@@ -1,7 +1,10 @@
 import json
 import os
+import sys
 import time
 from typing import Tuple
+
+import datetime
 
 from plenum.common.constants import OP_FIELD_NAME, PREPREPARE, BATCH, \
     KeyValueStorageType, CLIENT_STACK_SUFFIX
@@ -43,8 +46,16 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
                                    msg[f.DISCARDED.nm],
                                    ]
 
+    msg_count = 0
+    min_msg_time = sys.maxsize
+    max_msg_time = -1
+
     for k, v in node_recorder.store.iterator(include_value=True):
+        max_msg_time = max(max_msg_time, int(k))
+        min_msg_time = min(min_msg_time, int(k))
         parsed = Recorder.get_parsed(v.decode())
+        msg_count += len(parsed)
+
         outgoings = Recorder.filter_outgoing(parsed)
         if not outgoings:
             continue
@@ -72,6 +83,11 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
         r.sent_pps = sent_pps.pop(r.instId, {})
 
     replaying_node.sent_pps = sent_pps
+    replaying_node.replay_msg_count = msg_count
+
+    run_time = max_msg_time - min_msg_time
+    run_time = int(run_time / Recorder.TIME_FACTOR)
+    print("Aprox run time: {}".format(str(datetime.timedelta(seconds=run_time))))
 
 
 def get_combined_recorder(replaying_node, node_recorder, client_recorder):
@@ -110,13 +126,21 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
     cr.start_playing()
     next_stop_at = time.perf_counter() + (cr.start_times[node_run_no][1] -
                                           cr.start_times[node_run_no][0])
+
+    progress_data = _create_progress_data(replaying_node.replay_msg_count)
+    #
+    # n_msg_count = 0
+    # start_time = time.perf_counter()
+    # next_progress_note = start_time + 5
     while cr.is_playing:
+        _print_progress(progress_data)
+
         vals = cr.get_next()
         if next_stop_at is not None and time.perf_counter() >= next_stop_at:
             node_run_no += 1
             if node_run_no < len(cr.start_times):
                 # The node stopped here
-                sleep_for = cr.start_times[node_run_no][0] - cr.start_times[node_run_no - 1][1]
+                sleep_for, after = _cal_run_times(node_run_no, cr.start_times)
                 replaying_node.stop()
                 looper.removeProdable(replaying_node)
                 # Create new node since node is destroyed on stop
@@ -125,19 +149,25 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
                                                           ha=replaying_node.nodestack.ha,
                                                           cliha=replaying_node.clientstack.ha)
                 patch_replaying_node(replaying_node, node_recorder, cr.start_times)
-                print('sleeping for {} to simulate node stop'.format(sleep_for))
+                print('Sleeping for {}s to simulate node stop'.format(sleep_for))
                 time.sleep(sleep_for)
-                after = cr.start_times[node_run_no][1] - cr.start_times[node_run_no][0]
-                next_stop_at = time.perf_counter() + after
-                print('Next stop after {}'.format(after))
+
+                if after is None:
+                    next_stop_at = None
+                else:
+                    next_stop_at = time.perf_counter() + after
+                    print('Next stop after {}s'.format(after))
+
                 looper.add(replaying_node)
             else:
                 next_stop_at = None
 
         if not vals:
+            looper.run(replaying_node.prod())
             continue
 
         n_msgs, c_msgs = vals
+        progress_data = _update_progress_msg_count(progress_data, len(n_msgs))
         if n_msgs:
             for inc in n_msgs:
                 if Recorder.is_incoming(inc):
@@ -156,3 +186,45 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
         looper.run(replaying_node.prod())
 
     return replaying_node
+
+
+def _cal_run_times(run_no, start_times):
+    if run_no == 0:
+        raise Exception("Run times can't be calculated for run_no 0")
+    if run_no >= len(start_times):
+        raise Exception("Run times can't be calculated for run_no greater or equal to length of start_times")
+    sleep_for = start_times[run_no][0] - start_times[run_no - 1][1]
+
+    if len(start_times[run_no]) == 1:
+        stop_after = None
+    else:
+        stop_after = start_times[run_no][1] - start_times[run_no][0]
+    return sleep_for, stop_after
+
+
+def _create_progress_data(total_msg_count):
+    print("Replaying {} messages in total".format(total_msg_count))
+    return {
+        'replay_msg_count': total_msg_count,
+        'n_msg_count': 0,
+        'next_progress_note': time.perf_counter() + 5,
+        'last_msg_count': -1
+    }
+
+
+def _print_progress(progress_data):
+    current_time = time.perf_counter()
+    if current_time > progress_data['next_progress_note']:
+        progress_data['next_progress_note'] = current_time + 5
+        if progress_data['last_msg_count'] == progress_data['n_msg_count']:
+            print("node is idle")
+        else:
+            print("node msg count: {} of {}".format(progress_data['n_msg_count'], progress_data['replay_msg_count']))
+            progress_data['last_msg_count'] = progress_data['n_msg_count']
+
+    return progress_data
+
+
+def _update_progress_msg_count(progress_data, msg_count):
+    progress_data['n_msg_count'] += msg_count
+    return progress_data

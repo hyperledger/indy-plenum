@@ -78,7 +78,7 @@ class Stasher:
                 logger.info(
                     "{} unstashing message {} {}".
                         format(self.name, d.item, msg))
-                self.queue.appendleft(d.item)
+                self.queue.append(d.item)
                 to_remove.append(idx)
                 unstashed += 1
 
