@@ -2,6 +2,7 @@ from collections import deque
 from typing import List, Optional, Tuple
 from functools import partial
 
+from plenum.common.startable import Mode
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -9,7 +10,7 @@ from common.exceptions import PlenumValueError
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement, SortedDict
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
@@ -37,7 +38,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.outBox = deque()
         self.inBoxRouter = Router(
             (InstanceChange, self.process_instance_change_msg),
-            (ViewChangeDone, self.process_vchd_msg)
+            (ViewChangeDone, self.process_vchd_msg),
+            (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
         self.instanceChanges = InstanceChanges()
@@ -54,7 +56,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: Consider if sufficient ViewChangeDone for 2 different (and
         # higher views) are received, should one view change be interrupted in
         # between.
-        self._next_view_indications = SortedDict()
+        self._next_view_indications = {}
 
         self._view_change_in_progress = False
 
@@ -292,18 +294,23 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self._start_selection()
 
-    def on_future_view_vchd_msg(self, view_no, frm, from_current_state: bool = False):
+    def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
+        from_current_state = future_vcd_msg.from_current_state
+        view_no = future_vcd_msg.vcd_msg.viewNo
         if not ((view_no > self.view_no) or
                 (self.view_no == 0 and from_current_state)):
-            raise PlenumValueError(
-                'view_no', view_no,
-                ("= 0 or > {}" if from_current_state
-                 else "> {}").format(self.view_no),
-                prefix=self
-            )
+            # it means we already processed this future View Change Done
+            return
+
+        # This is the first Propagate Primary,
+        # so we need to make sure that we connected to the real primary for the proposed view
+        # see test_view_change_after_back_to_quorum_with_disconnected_primary
+        if self.view_no == 0:
+            self.node.schedule_initial_propose_view_change()
+
         if view_no not in self._next_view_indications:
-            self._next_view_indications[view_no] = set()
-        self._next_view_indications[view_no].add(frm)
+            self._next_view_indications[view_no] = {}
+        self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
         self._start_view_change_if_possible(view_no)
 
     # __ EXTERNAL EVENTS __
@@ -413,7 +420,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param limit: the maximum number of messages to service
         :return: the number of messages successfully processed
         """
-
+        # do not start any view changes until catch-up is finished!
+        if not Mode.is_done_syncing(self.node.mode):
+            return 0
         return await self.inBoxRouter.handleAll(self.inBox, limit)
 
     def sendInstanceChange(self, view_no: int,
@@ -517,19 +526,33 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
 
-        for view_no in tuple(self._next_view_indications.keys()):
-            if view_no > proposed_view_no:
-                break
-            self._next_view_indications.pop(view_no)
-
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
         self.previous_master_primary = self.node.master_primary_name
         self.set_defaults()
+        self._process_vcd_for_future_view()
+
         self.initInsChngThrottling()
 
         self.node.on_view_change_start()
         self.node.start_catchup()
+
+    def _process_vcd_for_future_view(self):
+        # make sure that all received VCD messages for future view
+        # (including the current view) are stored, as they will be needed for a quorum
+        # to finish the View Change and start selection.
+        # This is especially critical for Propagate Primary mode (on receiving CURRENT_STATE by a new node).
+        if self.view_no in self._next_view_indications:
+            for frm, vcd in self._next_view_indications[self.view_no].items():
+                # we call _on_verified_view_change_done_msg, not process_vchd_msg,
+                # since we may be in propagate primary mode where some of validation inside process_vchd_msg
+                # is not correct (for example, checking that the new primary differs from the current one)
+                self._on_verified_view_change_done_msg(vcd, frm)
+
+        # remove all for previous views
+        for view_no in tuple(self._next_view_indications.keys()):
+            if view_no <= self.view_no:
+                del self._next_view_indications[view_no]
 
     def _on_verified_view_change_done_msg(self, msg, frm):
         new_primary_name = msg.name

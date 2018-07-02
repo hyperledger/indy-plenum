@@ -1,16 +1,17 @@
 import types
 from functools import partial
 
+import pytest
+
 from plenum.common.util import check_if_all_equal_in_list
-from stp_core.common.log import getlogger
-from stp_core.loop.eventually import eventually
-from stp_core.types import HA
+from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
     check_seqno_db_equality, assertEquality, check_last_ordered_3pc
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode
-from plenum.test import waits
-import pytest
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.types import HA
 
 logger = getlogger()
 
@@ -169,3 +170,39 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
 
         node.ledgerManager._buildConsistencyProof = types.MethodType(
             patched_method, node.ledgerManager)
+
+def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
+    """
+    All `other_nodes` make the `node` catchup multiple times by serving
+    consistency proof of a ledger smaller by `shorten_by` txns
+    """
+    orig_methods = {}
+    for node in other_nodes:
+        node.catchup_twice = True
+        orig_methods[node.name] = node.ledgerManager._buildConsistencyProof
+
+        def patched_method(self, ledgerId, seqNoStart, seqNoEnd):
+            if self.owner.catchup_twice:
+                import inspect
+                curframe = inspect.currentframe()
+                calframe = inspect.getouterframes(curframe, 2)
+                # For domain ledger, send a proof for a small ledger to the bad
+                # node
+                if calframe[1][
+                    3] == node.ledgerManager.getConsistencyProof.__name__ \
+                        and calframe[2].frame.f_locals['frm'] == target_node.name \
+                        and ledgerId == ledger_id:
+                    logger.debug('{} sending a proof to {} for {} instead '
+                                 'of {}'.format(self.owner.name, target_node.name,
+                                                seqNoEnd - shorten_by, seqNoEnd))
+                    return orig_methods[node.name](ledgerId, seqNoStart,
+                                                   seqNoEnd - shorten_by)
+            return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
+
+        node.ledgerManager._buildConsistencyProof = types.MethodType(
+            patched_method, node.ledgerManager)
+
+
+def repair_node_catchup_less(other_nodes):
+    for node in other_nodes:
+        node.catchup_twice = False

@@ -404,3 +404,13 @@ class ObservedData(MessageBase):
         self._raise_invalid_fields(
             f.MSG.nm, msg,
             "The message type must be {} ".format(expected_type_cls.typename))
+
+
+class FutureViewChangeDone:
+    """
+    Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
+    In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
+    """
+    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+        self.vcd_msg = vcd_msg
+        self.from_current_state = from_current_state

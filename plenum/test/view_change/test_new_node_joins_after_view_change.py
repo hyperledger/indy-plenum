@@ -83,7 +83,7 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                         tdir, allPluginsPath)
     txnPoolNodeSet = remaining_nodes + [restarted_node]
     looper.run(eventually(checkViewNoForNodes,
-                          txnPoolNodeSet, old_view_no + 1, timeout=10))
+                          txnPoolNodeSet, old_view_no + 1, timeout=30))
     assert len(getAllReturnVals(restarted_node.view_changer,
                                 restarted_node.view_changer._start_view_change_if_possible,
                                 compare_val_to=True)) > 0
