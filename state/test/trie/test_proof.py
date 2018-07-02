@@ -322,9 +322,9 @@ def test_proof_prefix_with_other_nodes():
 def test_proof_multiple_prefix_nodes():
     node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
     prefix_1 = 'abcdefgh'
-    prefix_2 = 'abcdefxy'   # Prefix overlaps with previous
+    prefix_2 = 'abcdefxy'  # Prefix overlaps with previous
     prefix_3 = 'pqrstuvw'
-    prefix_4 = 'mnoptuvw'   # Suffix overlaps
+    prefix_4 = 'mnoptuvw'  # Suffix overlaps
 
     all_prefixes = (prefix_1, prefix_2, prefix_3, prefix_4)
 
@@ -388,3 +388,8 @@ def test_get_proof_and_value():
         proof.append(deepcopy(node_trie.root_node))
         assert v == test_data[k]
         assert client_trie.verify_spv_proof(node_trie.root_hash, k, v, proof)
+
+
+def test_get_proof_and_value_no_key():
+    node_trie = Trie(PersistentDB(KeyValueStorageInMemory()))
+    assert ([], None) == node_trie.produce_spv_proof(b"unknown_key", get_value=True)

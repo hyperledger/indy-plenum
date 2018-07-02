@@ -22,6 +22,21 @@ PLUGIN_LEDGER_IDS = set()
 PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 
+def find_and_load_plugin(plugin_name, plugin_root, installed_packages):
+    if plugin_name in installed_packages:
+        # TODO: Need a test for installed packages
+        plugin_name = plugin_name.replace('-', '_')
+        plugin = importlib.import_module(plugin_name)
+    else:
+        plugin_path = os.path.join(plugin_root.__path__[0],
+                                   plugin_name, '__init__.py')
+        spec = spec_from_file_location('__init__.py', plugin_path)
+        plugin = module_from_spec(spec)
+        spec.loader.exec_module(plugin)
+
+    return plugin
+
+
 def setup_plugins():
     # TODO: Should have a check to make sure no plugin defines any conflicting ledger id or request field
     global PLUGIN_LEDGER_IDS
@@ -39,17 +54,7 @@ def setup_plugins():
     enabled_plugins = config.ENABLED_PLUGINS
     installed_packages = {p.project_name: p for p in pip.get_installed_distributions()}
     for plugin_name in enabled_plugins:
-        if plugin_name in installed_packages:
-            # TODO: Need a test for installed packages
-            plugin_name = plugin_name.replace('-', '_')
-            plugin = importlib.import_module(plugin_name)
-        else:
-            plugin_path = os.path.join(plugin_root.__path__[0],
-                                       plugin_name, '__init__.py')
-            spec = spec_from_file_location('__init__.py', plugin_path)
-            plugin = module_from_spec(spec)
-            spec.loader.exec_module(plugin)
-
+        plugin = find_and_load_plugin(plugin_name, plugin_root, installed_packages)
         plugin_globals = plugin.__dict__
 
         if 'LEDGER_IDS' in plugin_globals:
@@ -68,7 +73,7 @@ def setup_plugins():
 setup_plugins()
 
 
-from __metadata__ import *  # noqa
+from .__metadata__ import *  # noqa
 
 from plenum.common.jsonpickle_util import setUpJsonpickle   # noqa: E402
 setUpJsonpickle()

@@ -12,7 +12,6 @@ TestRunningTimeLimitSec = 550
 
 whitelist = ['cannot find remote with name']
 
-
 @pytest.mark.skip(reason="The test takes too much time! Needs to be re-factored")
 def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
                                      some_txns_done, testNodeClass, viewNo,  # noqa
