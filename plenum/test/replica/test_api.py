@@ -5,12 +5,17 @@ from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def replica(tconf):
+    node_stack = FakeSomething(
+        name="fake stack",
+        connecteds={"Alpha", "Beta", "Gamma", "Delta"}
+    )
     node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
-        viewNo=0
+        viewNo=0,
+        nodestack=node_stack
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -86,3 +91,10 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
 
     # This shouldn't crash
     replica._remove_stashed_checkpoints(till_3pc_key)
+
+
+def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
+    replica.primaryName = 'Omega:0'
+    replica.node.request_msg = lambda t, d, r: None
+    # This shouldn't crash
+    replica._request_prepare((0, 1))
