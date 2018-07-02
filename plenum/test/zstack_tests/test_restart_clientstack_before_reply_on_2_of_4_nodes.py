@@ -1,9 +1,12 @@
 import types
 
+import pytest
+
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 
+@pytest.mark.skip(reason="Too much request. Needs for checking future implementation")
 def test_restart_clientstack_before_reply_on_2_of_4_nodes(looper,
                                                           txnPoolNodeSet,
                                                           sdk_pool_handle,

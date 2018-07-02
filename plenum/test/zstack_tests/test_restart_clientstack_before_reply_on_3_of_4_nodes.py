@@ -2,10 +2,9 @@ import types
 
 import pytest
 
-from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test.helper import sdk_send_random_and_check
 
-
+@pytest.mark.skip(reason="Too much request. Needs for checking future implementation")
 def test_restart_clientstack_before_reply_on_3_of_4_nodes(looper,
                                                           txnPoolNodeSet,
                                                           sdk_pool_handle,
