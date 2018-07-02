@@ -95,6 +95,13 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
 @pytest.fixture(scope="module")
 def some_requests(txn_pool_node_set_post_creation, looper,
                   sdk_wallet_steward, sdk_pool_handle):
+    old_bls_store_size = None
+    for node in txn_pool_node_set_post_creation:
+        if old_bls_store_size is None:
+            old_bls_store_size = node.bls_bft.bls_store._kvs.size
+        else:
+            assert node.bls_bft.bls_store._kvs.size == old_bls_store_size
+
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'pqr'}
@@ -129,6 +136,9 @@ def some_requests(txn_pool_node_set_post_creation, looper,
         DATA: {'id': 'pqr'}
     }
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
+    for node in txn_pool_node_set_post_creation:
+        # Not all batches might have BLS-sig but at least one of them will have
+        assert node.bls_bft.bls_store._kvs.size > old_bls_store_size
 
 
 def test_plugin_request_handling(some_requests):

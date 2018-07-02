@@ -17,9 +17,9 @@ GENERAL_CONFIG_DIR = '/etc/indy'
 NETWORK_NAME = ''
 USER_CONFIG_DIR = None
 
-GENERAL_CONFIG_FILE = 'plenum_config.py'
-NETWORK_CONFIG_FILE = 'plenum_config.py'
-USER_CONFIG_FILE = 'plenum_config.py'
+GENERAL_CONFIG_FILE = 'indy_config.py'
+NETWORK_CONFIG_FILE = 'indy_config.py'
+USER_CONFIG_FILE = 'indy_config.py'
 
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
