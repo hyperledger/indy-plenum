@@ -404,6 +404,13 @@ class TestNode(TestNodeCore, Node):
     def dump_additional_info(self):
         pass
 
+    def restart_clientstack(self):
+        logger.debug("Stopping clientstack on node {}".format(self))
+        self.clientstack.stop()
+        time.sleep(0.2)
+        logger.debug("Starting clientstack on node {}".format(self))
+        self.clientstack.start()
+
 
 elector_spyables = [
     PrimaryElector.discard,
