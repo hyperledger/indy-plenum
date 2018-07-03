@@ -2308,7 +2308,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if recipients is None:
             recipients = self.node.nodestack.connecteds.copy()
             primaryName = self.primaryName[:self.primaryName.rfind(":")]
-            recipients.remove(primaryName)
+            recipients.discard(primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],

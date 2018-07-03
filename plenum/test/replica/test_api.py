@@ -14,11 +14,16 @@ nodeCount = 4
 
 @pytest.fixture(scope='module')
 def replica(tconf):
+    node_stack = FakeSomething(
+        name="fake stack",
+        connecteds={"Alpha", "Beta", "Gamma", "Delta"}
+    )
     node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
         viewNo=0,
-        quorums=Quorums(nodeCount)
+        quorums=Quorums(nodeCount),
+        nodestack=node_stack
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -143,3 +148,9 @@ def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     prepare2.voters = ('Delta:0', )
     replica.prepares[(0, 2)] = prepare2
     assert replica.last_prepared_certificate_in_view() == (0, 1)
+
+def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
+    replica.primaryName = 'Omega:0'
+    replica.node.request_msg = lambda t, d, r: None
+    # This shouldn't crash
+    replica._request_prepare((0, 1))
