@@ -536,8 +536,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.requests.free(key)
             self.requestQueues[int(ledger_id)].discard(key)
         master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
-        if master_last_ordered_3pc[0] >= self.last_ordered_3pc[0] \
-                and master_last_ordered_3pc[1] > self.last_ordered_3pc[1]:
+        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0:
             self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):

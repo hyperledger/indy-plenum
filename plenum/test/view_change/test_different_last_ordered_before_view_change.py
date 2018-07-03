@@ -6,6 +6,7 @@ from plenum.test.delayers import cDelay, pDelay, ppDelay
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_replies
 from plenum.test.stasher import delay_rules
+from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
 
@@ -31,22 +32,24 @@ def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNode
         looper.run(
             eventually(last_ordered,
                        fast_nodes,
-                       (old_view_no, old_last_ordered[1] + 1),
-                       slow_instance))
-        last_ordered_for_slow = slow_nodes[0].replicas[slow_instance].last_ordered_3pc
+                       slow_instance,
+                       (old_view_no, old_last_ordered[1] + 1)))
 
         # trigger view change on all nodes
         for node in txnPoolNodeSet:
             node.view_changer.on_master_degradation()
 
         # wait for view change done on all nodes
-        looper.run(eventually(view_change_done, txnPoolNodeSet, old_view_no + 1))
+        ensureElectionsDone(looper, txnPoolNodeSet)
 
     looper.run(
         eventually(last_ordered,
-                   slow_nodes,
-                   (old_view_no, last_ordered_for_slow[1] + 1),
+                   txnPoolNodeSet,
                    slow_instance))
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 1)
+    assert all(0 == node.spylog.count(node.request_propagates)
+               for node in txnPoolNodeSet)
 
 
 def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
@@ -70,7 +73,6 @@ def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
             requests = sdk_send_random_requests(looper, sdk_pool_handle,
                                                 sdk_wallet_client, 1)
             sdk_get_replies(looper, requests)
-            old_view_no = txnPoolNodeSet[0].viewNo
             looper.run(
                 eventually(is_prepared,
                            fast_nodes,
@@ -82,7 +84,7 @@ def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
                 node.view_changer.on_master_degradation()
 
             # wait for view change done on all nodes
-            looper.run(eventually(view_change_done, txnPoolNodeSet, old_view_no + 1))
+            ensureElectionsDone(looper, txnPoolNodeSet)
 
     last_ordered_3pc = fast_nodes[0].replicas[slow_instance].last_ordered_3pc
     for node in txnPoolNodeSet:
@@ -92,8 +94,10 @@ def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
     looper.run(
         eventually(last_ordered,
                    txnPoolNodeSet,
-                   (txnPoolNodeSet[0].viewNo, 1),
-                   slow_instance))
+                   slow_instance,
+                   (txnPoolNodeSet[0].viewNo, 1)))
+    assert all(0 == node.spylog.count(node.request_propagates)
+               for node in txnPoolNodeSet)
 
 
 def test_different_last_ordered_on_master_before_view_change(looper, txnPoolNodeSet,
@@ -117,34 +121,24 @@ def test_different_last_ordered_on_master_before_view_change(looper, txnPoolNode
         looper.run(
             eventually(last_ordered,
                        fast_nodes,
-                       (old_view_no, old_last_ordered[1] + 1),
-                       master_instance))
+                       master_instance,
+                       (old_view_no, old_last_ordered[1] + 1)))
 
         # trigger view change on all nodes
         for node in txnPoolNodeSet:
             node.view_changer.on_master_degradation()
 
         # wait for view change done on all nodes
-        looper.run(eventually(view_change_done, txnPoolNodeSet, old_view_no + 1))
+        ensureElectionsDone(looper, txnPoolNodeSet)
 
     sdk_get_replies(looper, requests)
     looper.run(
         eventually(last_ordered,
                    slow_nodes,
-                   (old_view_no, last_ordered_for_slow[1] + 1),
-                   master_instance))
-
-
-def last_ordered(nodes: [Node],
-                 last_ordered,
-                 instId):
-    for node in nodes:
-        assert node.replicas[instId].last_ordered_3pc == last_ordered
-
-
-def view_change_done(nodes: [Node], view_no):
-    for node in nodes:
-        assert node.viewNo == view_no
+                   master_instance,
+                   (old_view_no, last_ordered_for_slow[1] + 1)))
+    assert all(0 == node.spylog.count(node.request_propagates)
+               for node in txnPoolNodeSet)
 
 
 def is_prepared(nodes: [Node], ppSeqNo, instId):
@@ -152,3 +146,12 @@ def is_prepared(nodes: [Node], ppSeqNo, instId):
         replica = node.replicas[instId]
         assert (node.viewNo, ppSeqNo) in replica.prepares or \
                (node.viewNo, ppSeqNo) in replica.sentPrePrepares
+
+
+def last_ordered(nodes: [Node],
+                 instId,
+                 last_ordered=None):
+    if last_ordered is None:
+        last_ordered = nodes[0].replicas[instId].last_ordered_3pc
+    for node in nodes:
+        assert node.replicas[instId].last_ordered_3pc == last_ordered

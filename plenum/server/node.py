@@ -596,6 +596,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer.propagate_primary:  # TODO VCH
             self.master_replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
+        for replica in self.replicas:
+            replica.clear_requests_and_fix_last_ordered()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
