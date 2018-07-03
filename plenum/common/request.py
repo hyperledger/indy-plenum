@@ -113,6 +113,8 @@ class Request:
 
     @property
     def all_identifiers(self):
+        if self.signatures is None:
+            return []
         return sorted(self.signatures.keys())
 
     @staticmethod
