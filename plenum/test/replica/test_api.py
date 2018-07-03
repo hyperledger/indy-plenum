@@ -1,6 +1,7 @@
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
+from plenum.common.util import get_utc_epoch
 from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
@@ -86,3 +87,8 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
 
     # This shouldn't crash
     replica._remove_stashed_checkpoints(till_3pc_key)
+
+
+def test_create_3pc_batch_with_empty_requests(replica):
+    Replica.utc_epoch = property(lambda self: get_utc_epoch())
+    assert replica.create3PCBatch(0) is None

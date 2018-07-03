@@ -10,7 +10,7 @@ from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
 
-def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNodeSet,
+def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
                                                   sdk_pool_handle, sdk_wallet_client):
     ''' Send random request and do view change then fast_nodes (1, 4 - without
     primary backup replicas) are already ordered transaction on master and some backup replica
@@ -30,11 +30,11 @@ def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNode
         sdk_get_replies(looper, requests)
         old_view_no = txnPoolNodeSet[0].viewNo
         looper.run(
-            eventually(last_ordered,
+            eventually(check_last_ordered,
                        fast_nodes,
                        slow_instance,
                        (old_view_no, old_last_ordered[1] + 1)))
-        last_ordered(slow_nodes, slow_instance, old_last_ordered)
+        check_last_ordered(slow_nodes, slow_instance, old_last_ordered)
 
         # trigger view change on all nodes
         for node in txnPoolNodeSet:
@@ -44,19 +44,19 @@ def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNode
         ensureElectionsDone(looper, txnPoolNodeSet)
 
     looper.run(
-        eventually(last_ordered,
+        eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance))
-    last_ordered(txnPoolNodeSet,
-                 txnPoolNodeSet[0].master_replica.instId,
-                 (old_last_ordered[0], old_last_ordered[1] + 1))
+    check_last_ordered(txnPoolNodeSet,
+                       txnPoolNodeSet[0].master_replica.instId,
+                       (old_last_ordered[0], old_last_ordered[1] + 1))
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
 
-def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
+def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, txnPoolNodeSet,
                                                   sdk_pool_handle, sdk_wallet_client):
     ''' Send random request and do view change then fast_nodes (2,3 - with
     primary backup replica) will have prepare or send preprepare on backup
@@ -96,7 +96,7 @@ def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     looper.run(
-        eventually(last_ordered,
+        eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
                    (txnPoolNodeSet[0].viewNo, 1)))
@@ -104,7 +104,7 @@ def test_different_prepares_on_backup_before_view_change(looper, txnPoolNodeSet,
                for node in txnPoolNodeSet)
 
 
-def test_different_last_ordered_on_master_before_view_change(looper, txnPoolNodeSet,
+def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(looper, txnPoolNodeSet,
                                                   sdk_pool_handle, sdk_wallet_client):
     ''' Send random request and do view change then fast_nodes (1, 4 - without
     primary after next view change) are already ordered transaction on master
@@ -123,7 +123,7 @@ def test_different_last_ordered_on_master_before_view_change(looper, txnPoolNode
         last_ordered_for_slow = slow_nodes[0].master_replica.last_ordered_3pc
         old_view_no = txnPoolNodeSet[0].viewNo
         looper.run(
-            eventually(last_ordered,
+            eventually(check_last_ordered,
                        fast_nodes,
                        master_instance,
                        (old_view_no, old_last_ordered[1] + 1)))
@@ -137,7 +137,7 @@ def test_different_last_ordered_on_master_before_view_change(looper, txnPoolNode
 
     sdk_get_replies(looper, requests)
     looper.run(
-        eventually(last_ordered,
+        eventually(check_last_ordered,
                    slow_nodes,
                    master_instance,
                    (old_view_no, last_ordered_for_slow[1] + 1)))
@@ -152,9 +152,9 @@ def is_prepared(nodes: [Node], ppSeqNo, instId):
                (node.viewNo, ppSeqNo) in replica.sentPrePrepares
 
 
-def last_ordered(nodes: [Node],
-                 instId,
-                 last_ordered=None):
+def check_last_ordered(nodes: [Node],
+                       instId,
+                       last_ordered=None):
     if last_ordered is None:
         last_ordered = nodes[0].replicas[instId].last_ordered_3pc
     for node in nodes:
