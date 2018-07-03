@@ -1,8 +1,14 @@
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
+from plenum.common.messages.node_messages import Prepare
+from plenum.server.models import ThreePhaseVotes
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
+
+
+nodeCount = 4
 
 
 @pytest.fixture(scope='module')
@@ -10,7 +16,8 @@ def replica(tconf):
     node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
-        viewNo=0
+        viewNo=0,
+        quorums=Quorums(nodeCount)
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -86,3 +93,58 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
 
     # This shouldn't crash
     replica._remove_stashed_checkpoints(till_3pc_key)
+
+
+def test_last_prepared_sertificate_return_max_3PC_key(replica):
+    """
+
+    All the prepares has enough quorum. Expected result is that last_prepared_sertificate
+    must be Max3PCKey(all of prepare's keys) == (0, 2)
+    """
+    replica.isMaster = True
+    replica.prepares.clear()
+    replica.prepares[(0, 1)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
+                                               msg=Prepare(digest='962c916c01b3e306748a3fdc8f2bf6a6f97f9db5330b56daa32df9c163b36d48',
+                                                           instId=0,
+                                                           ppSeqNo=1,
+                                                           ppTime=1530603633,
+                                                           stateRootHash='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB',
+                                                           txnRootHash='Hhyw96wihpeG9whMNuyPhUcTV76HiHcYJrepDsjuarYJ',
+                                                           viewNo=0))
+    replica.prepares[(0, 2)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
+                                               msg=Prepare(digest='12a05a12df55d4595807ec6edaf3bc36766feb4ab5479a5b45434a4288c9871b',
+                                                           instId=0,
+                                                           ppSeqNo=1,
+                                                           ppTime=1530603633,
+                                                           stateRootHash='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ',
+                                                           txnRootHash='2WfbH1TvYXrALiyRfgKr137siPFYveNrsb2LjjKjgwsE',
+                                                           viewNo=0))
+    assert replica.last_prepared_certificate_in_view() == (0, 2)
+
+
+
+def test_lst_sertificate_return_max_of_quorumed_prepare(replica):
+    """
+
+    Prepare with key (0, 2) does not have quorum of prepare.
+    Therefore, expected Max3PC key must be (0, 1), because of previous prepare has enough quorum
+    """
+    replica.isMaster = True
+    replica.prepares.clear()
+    replica.prepares[(0, 1)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
+                                               msg=Prepare(digest='962c916c01b3e306748a3fdc8f2bf6a6f97f9db5330b56daa32df9c163b36d48',
+                                                           instId=0,
+                                                           ppSeqNo=1,
+                                                           ppTime=1530603633,
+                                                           stateRootHash='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB',
+                                                           txnRootHash='Hhyw96wihpeG9whMNuyPhUcTV76HiHcYJrepDsjuarYJ',
+                                                           viewNo=0))
+    replica.prepares[(0, 2)] = ThreePhaseVotes(voters=('Delta:0',),
+                                               msg=Prepare(digest='12a05a12df55d4595807ec6edaf3bc36766feb4ab5479a5b45434a4288c9871b',
+                                                           instId=0,
+                                                           ppSeqNo=1,
+                                                           ppTime=1530603633,
+                                                           stateRootHash='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ',
+                                                           txnRootHash='2WfbH1TvYXrALiyRfgKr137siPFYveNrsb2LjjKjgwsE',
+                                                           viewNo=0))
+    assert replica.last_prepared_certificate_in_view() == (0, 1)

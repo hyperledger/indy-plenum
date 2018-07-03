@@ -5,6 +5,8 @@ from plenum.test.delayers import pDelay
 from plenum.test.helper import sdk_send_random_and_check
 
 
+txnCount = 5
+
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_m = tconf.Max3PCBatchSize
@@ -25,10 +27,11 @@ def test_empty_lst_before_vc_if_no_qourum_of_prepare(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_steward,
-                              5)
+                              txnCount)
     quorum = D.master_replica.quorums.prepare.value
     assert D.master_replica.prepares
+    assert len(D.master_replica.prepares) == txnCount
     # There is no quorum for all prepares
     for key in D.master_replica.prepares.keys():
-        assert D.master_replica.prepares.hasQuorum(ThreePhaseKey(*key), quorum) == False
+        assert not D.master_replica.prepares.hasQuorum(ThreePhaseKey(*key), quorum)
     assert D.master_replica.last_prepared_certificate_in_view() is None
