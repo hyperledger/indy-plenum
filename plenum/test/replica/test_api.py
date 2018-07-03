@@ -5,6 +5,7 @@ from plenum.common.messages.node_messages import Prepare
 from plenum.server.models import ThreePhaseVotes
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
+from plenum.test.bls.helper import create_prepare
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -95,6 +96,16 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
     replica._remove_stashed_checkpoints(till_3pc_key)
 
 
+def test_last_prepared_none_if_no_prepares(replica):
+    """
+    There is no any prepares for this replica. In that case we expect,
+    that last_prepares_sertificate will return None
+    """
+    replica.isMaster = True
+    assert len(replica.prepares) == 0
+    assert replica.last_prepared_certificate_in_view() is None
+
+
 def test_last_prepared_sertificate_return_max_3PC_key(replica):
     """
 
@@ -103,27 +114,19 @@ def test_last_prepared_sertificate_return_max_3PC_key(replica):
     """
     replica.isMaster = True
     replica.prepares.clear()
-    replica.prepares[(0, 1)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
-                                               msg=Prepare(digest='962c916c01b3e306748a3fdc8f2bf6a6f97f9db5330b56daa32df9c163b36d48',
-                                                           instId=0,
-                                                           ppSeqNo=1,
-                                                           ppTime=1530603633,
-                                                           stateRootHash='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB',
-                                                           txnRootHash='Hhyw96wihpeG9whMNuyPhUcTV76HiHcYJrepDsjuarYJ',
-                                                           viewNo=0))
-    replica.prepares[(0, 2)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
-                                               msg=Prepare(digest='12a05a12df55d4595807ec6edaf3bc36766feb4ab5479a5b45434a4288c9871b',
-                                                           instId=0,
-                                                           ppSeqNo=1,
-                                                           ppTime=1530603633,
-                                                           stateRootHash='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ',
-                                                           txnRootHash='2WfbH1TvYXrALiyRfgKr137siPFYveNrsb2LjjKjgwsE',
-                                                           viewNo=0))
+    prepare1 = create_prepare(req_key=(0, 1),
+                              state_root='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB')
+    prepare1.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 1)] = prepare1
+    prepare2 = create_prepare(req_key=(0, 1),
+                              state_root='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ')
+    prepare2.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 2)] = prepare2
     assert replica.last_prepared_certificate_in_view() == (0, 2)
 
 
 
-def test_lst_sertificate_return_max_of_quorumed_prepare(replica):
+def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     """
 
     Prepare with key (0, 2) does not have quorum of prepare.
@@ -131,20 +134,12 @@ def test_lst_sertificate_return_max_of_quorumed_prepare(replica):
     """
     replica.isMaster = True
     replica.prepares.clear()
-    replica.prepares[(0, 1)] = ThreePhaseVotes(voters=('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0'),
-                                               msg=Prepare(digest='962c916c01b3e306748a3fdc8f2bf6a6f97f9db5330b56daa32df9c163b36d48',
-                                                           instId=0,
-                                                           ppSeqNo=1,
-                                                           ppTime=1530603633,
-                                                           stateRootHash='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB',
-                                                           txnRootHash='Hhyw96wihpeG9whMNuyPhUcTV76HiHcYJrepDsjuarYJ',
-                                                           viewNo=0))
-    replica.prepares[(0, 2)] = ThreePhaseVotes(voters=('Delta:0',),
-                                               msg=Prepare(digest='12a05a12df55d4595807ec6edaf3bc36766feb4ab5479a5b45434a4288c9871b',
-                                                           instId=0,
-                                                           ppSeqNo=1,
-                                                           ppTime=1530603633,
-                                                           stateRootHash='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ',
-                                                           txnRootHash='2WfbH1TvYXrALiyRfgKr137siPFYveNrsb2LjjKjgwsE',
-                                                           viewNo=0))
+    prepare1 = create_prepare(req_key=(0, 1),
+                              state_root='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB')
+    prepare1.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 1)] = prepare1
+    prepare2 = create_prepare(req_key=(0, 1),
+                              state_root='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ')
+    prepare2.voters = ('Delta:0', )
+    replica.prepares[(0, 2)] = prepare2
     assert replica.last_prepared_certificate_in_view() == (0, 1)
