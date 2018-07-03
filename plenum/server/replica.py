@@ -761,14 +761,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        resp = self.consume_req_queue_for_pre_prepare(ledger_id, self.viewNo,
+        validReqs, inValidReqs, rejects, tm = self.consume_req_queue_for_pre_prepare(ledger_id, self.viewNo,
                                                       pp_seq_no)
-        if not resp:
+        if not (validReqs or inValidReqs):
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
             return
-
-        validReqs, inValidReqs, rejects, tm = resp
 
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)

@@ -34,6 +34,7 @@ def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNode
                        fast_nodes,
                        slow_instance,
                        (old_view_no, old_last_ordered[1] + 1)))
+        last_ordered(slow_nodes, slow_instance, old_last_ordered)
 
         # trigger view change on all nodes
         for node in txnPoolNodeSet:
