@@ -46,6 +46,9 @@ def test_different_last_ordered_on_backup_before_view_change(looper, txnPoolNode
         eventually(last_ordered,
                    txnPoolNodeSet,
                    slow_instance))
+    last_ordered(txnPoolNodeSet,
+                 txnPoolNodeSet[0].master_replica.instId,
+                 (old_last_ordered[0], old_last_ordered[1] + 1))
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     assert all(0 == node.spylog.count(node.request_propagates)
