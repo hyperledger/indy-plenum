@@ -51,7 +51,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData
+    ObservedData, FutureViewChangeDone
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -898,8 +898,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer = self.newViewChanger()
             self.elector = self.newPrimaryDecider()
 
-            self._schedule(action=self.propose_view_change,
-                           seconds=self._view_change_timeout)
+            self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
             self.dump_additional_info()
@@ -914,6 +913,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.start_catchup(just_started=True)
 
         self.logNodeInfo()
+
+    def schedule_initial_propose_view_change(self):
+        self.lost_primary_at = time.perf_counter()
+        self._schedule(action=self.propose_view_change,
+                       seconds=self._view_change_timeout)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
@@ -1483,7 +1487,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def _should_accept_current_state(self):
-        return self.viewNo == 0 and self.mode == Mode.starting and self.master_primary_name is None
+        return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
         """
@@ -1506,8 +1510,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                # TODO this is put of the msgs queue scope
-                self.view_changer.on_future_view_vchd_msg(view_no, frm, from_current_state=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
+                self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
@@ -1889,6 +1893,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
+
+        # More than one catchup may be needed during the current ViewChange protocol
+        # TODO: separate view change and catchup logic
         if self.is_catchup_needed():
             logger.info('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -1908,6 +1915,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
+        # More than one catchup may be needed during the current ViewChange protocol
+        # No more catchup is needed if this is a common catchup (not part of View Change)
+        if not self.view_change_in_progress:
+            return False
+
         if self.caught_up_for_current_view():
             logger.debug('{} is caught up for the current view {}'.
                          format(self, self.viewNo))
@@ -2445,19 +2457,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # disconnected for long enough
         self._cancel(self.propose_view_change)
         if not self.lost_primary_at:
-            logger.trace('{} The primary is already connected '
-                         'so view change will not be proposed'.format(self))
-            return
-
-        if not self.isReady():
-            logger.trace('{} The node is not ready yet '
-                         'so view change will not be proposed'.format(self))
+            logger.info('{} The primary is already connected '
+                        'so view change will not be proposed'.format(self))
             return
 
         disconnected_time = time.perf_counter() - self.lost_primary_at
         if disconnected_time >= self.config.ToleratePrimaryDisconnection:
             logger.info("{} primary has been disconnected for too long"
                         "".format(self))
+
+            if not self.isReady():
+                logger.info('{} The node is not ready yet '
+                            'so view change will not be proposed now, but re-scheduled.'.format(self))
+                # self._schedule_view_change()
+                return
+
             self.view_changer.on_primary_loss()
 
     def _schedule_view_change(self):

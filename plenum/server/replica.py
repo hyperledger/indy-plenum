@@ -1690,7 +1690,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: Consider stashed messages too?
         if not self.isMaster:
             raise LogicError("{} is not a master".format(self))
-        return max_3PC_key(self.commits.keys()) if self.commits else None
+        keys = []
+        quorum = self.quorums.prepare.value
+        for key in self.prepares.keys():
+            if self.prepares.hasQuorum(ThreePhaseKey(*key), quorum):
+                keys.append(key)
+        return max_3PC_key(keys) if keys else None
 
     def has_prepared(self, key):
         return self.getPrePrepare(*key) and self.prepares.hasQuorum(
@@ -2315,7 +2320,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if recipients is None:
             recipients = self.node.nodestack.connecteds.copy()
             primaryName = self.primaryName[:self.primaryName.rfind(":")]
-            recipients.remove(primaryName)
+            recipients.discard(primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],

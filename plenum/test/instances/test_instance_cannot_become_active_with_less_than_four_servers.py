@@ -17,8 +17,8 @@ from plenum.test import waits
 logger = getlogger()
 whitelist = ['Consensus for ReqId:']
 
-nodeCount = 13
-f = 4
+nodeCount = 7
+f = 2
 minimumNodesToBeUp = nodeCount - f
 
 
