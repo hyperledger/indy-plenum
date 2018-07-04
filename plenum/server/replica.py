@@ -33,7 +33,7 @@ from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
-from stp_core.common.log import getlogger, ReplicaFilter
+from stp_core.common.log import getlogger
 
 import plenum.server.node
 
@@ -142,7 +142,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.instId = instId
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
-        self.logger.addFilter(ReplicaFilter(self.name))
 
         self.outBox = deque()
         """
