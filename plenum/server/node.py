@@ -597,6 +597,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.master_replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
+        # If view change happen when one half of nodes ordered on master
+        # instance and backup but other only on master then we need to clear
+        # requests list.  We do this to stop transactions ordering  on backup
+        # replicas that have already been ordered on master.
         for replica in self.replicas:
             replica.clear_requests_and_fix_last_ordered()
 
