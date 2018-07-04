@@ -601,8 +601,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # instance and backup but other only on master then we need to clear
         # requests list.  We do this to stop transactions ordering  on backup
         # replicas that have already been ordered on master.
-        for replica in self.replicas:
-            replica.clear_requests_and_fix_last_ordered()
+        # Test for this case in plenum/test/view_change/
+        # test_no_propagate_request_on_different_last_ordered_before_vc.py
+        if not self.view_changer.propagate_primary:
+            for replica in self.replicas:
+                replica.clear_requests_and_fix_last_ordered()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)

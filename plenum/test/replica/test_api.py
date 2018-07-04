@@ -131,7 +131,6 @@ def test_last_prepared_sertificate_return_max_3PC_key(replica):
     assert replica.last_prepared_certificate_in_view() == (0, 2)
 
 
-
 def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     """
 
@@ -149,6 +148,7 @@ def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     prepare2.voters = ('Delta:0', )
     replica.prepares[(0, 2)] = prepare2
     assert replica.last_prepared_certificate_in_view() == (0, 1)
+
 
 def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
     replica.primaryName = 'Omega:0'
