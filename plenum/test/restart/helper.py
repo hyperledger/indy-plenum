@@ -42,10 +42,10 @@ def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
         idx = nodeSet.index(node_to_restart)
         nodeSet[idx] = restarted_node
         if per_add_timeout:
-            looper.run(checkNodesConnected(rest_nodes + [restarted_node], customTimeout=per_add_timeout))
+            looper.run(checkNodesConnected(rest_nodes + [restarted_node]))
         rest_nodes += [restarted_node]
 
     if not per_add_timeout:
-        looper.run(checkNodesConnected(nodeSet, customTimeout=after_restart_timeout))
+        looper.run(checkNodesConnected(nodeSet))
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)
