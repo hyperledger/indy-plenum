@@ -123,7 +123,6 @@ def some_requests(txn_pool_node_set_post_creation, looper,
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
         looper.run(eventually(check_auctions_amount, 20))
-        assert auctions['pqr'][did] == 20
 
     op = {
         TXN_TYPE: PLACE_BID,
