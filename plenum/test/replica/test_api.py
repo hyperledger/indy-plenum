@@ -159,4 +159,5 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
 
 def test_create_3pc_batch_with_empty_requests(replica):
     Replica.utc_epoch = property(lambda self: get_utc_epoch())
+    Replica.stateRootHash = lambda self, ledger_id, to_str: b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
     assert replica.create3PCBatch(0) is None
