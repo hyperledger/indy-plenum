@@ -181,7 +181,7 @@ class Replicas:
             n_commits = len(commits)
             str_commits = 'noone'
             if n_commits:
-                str_commits = ', '.join(prepares)
+                str_commits = ', '.join(commits)
 
             # get txn content
             content = replica.requests[req].finalised.as_dict \

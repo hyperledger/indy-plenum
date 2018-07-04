@@ -63,7 +63,8 @@ class Logger(metaclass=Singleton):
         self._handlers = {}
         self._clearAllHandlers()
         self._format = logging.Formatter(fmt=self._config.logFormat,
-                                         style=self._config.logFormatStyle)
+                                         style=self._config.logFormatStyle,
+                                         datefmt=self._config.logDateFormat)
         self._format.converter = time.gmtime
 
         if self._config.enableStdOutLogging:
@@ -128,7 +129,7 @@ class Logger(metaclass=Singleton):
 
     @staticmethod
     def _addDisplayToLogging():
-        logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
+        logging.addLevelName(DISPLAY_LOG_LEVEL, "NOTIFICATION")
 
         def display(self, message, *args, **kwargs):
             if self.isEnabledFor(DISPLAY_LOG_LEVEL):
