@@ -16,7 +16,7 @@ nodeCount = 6
 # f + 1 faults, i.e, num of faults greater than system can tolerate
 faultyNodes = 2
 
-whitelist = ['InvalidSignature']
+whitelist = ['InvalidSignature', 'Consensus for ReqId:']
 
 
 @pytest.fixture(scope="module")
