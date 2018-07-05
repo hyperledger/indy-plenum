@@ -31,6 +31,7 @@ class LedgerManager(HasActionQueue):
                  ownedByNode: bool = True,
                  postAllLedgersCaughtUp: Optional[Callable] = None,
                  preCatchupClbk: Optional[Callable] = None,
+                 postCatchupClbk: Optional[Callable] = None,
                  ledger_sync_order: Optional[List] = None):
         # If ledger_sync_order is not provided (is None), it is assumed that
         # `postCatchupCompleteClbk` of the LedgerInfo will be used
@@ -38,6 +39,7 @@ class LedgerManager(HasActionQueue):
         self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.preCatchupClbk = preCatchupClbk
+        self.postCatchupClbk = postCatchupClbk
         self.ledger_sync_order = ledger_sync_order
 
         self.config = getConfig()
@@ -847,6 +849,10 @@ class LedgerManager(HasActionQueue):
         if last_3PC is not None \
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
+
+        if self.postCatchupClbk:
+            self.postCatchupClbk(ledgerId, last_3PC)
+
         self.mark_ledger_synced(ledgerId)
         self.catchup_next_ledger(ledgerId)
 
