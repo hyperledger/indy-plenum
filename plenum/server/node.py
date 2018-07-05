@@ -1088,6 +1088,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
+        # do not process any client requests if view change is in progress
+        # TODO: process requests, but return a graceful Reject message, that can not process a message now because of
+        # View Change
+        if self.view_changer.view_change_in_progress:
+            return 0
         c = await self.clientstack.service(limit)
         await self.processClientInBox()
         return c
