@@ -1893,7 +1893,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ledger_size = self.getLedger(ledger_id).size
             three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                                ledger_size)
-            if not three_pc_key and self.master_last_ordered_3PC and self.master_last_ordered_3PC != (0,0):
+            if not three_pc_key and self.master_last_ordered_3PC and self.master_last_ordered_3PC != (0, 0):
                 self._update_txn_seq_range_to_3phase(first_txn_seq_no=ledger_size,
                                                      last_txn_seq_no=ledger_size,
                                                      ledger_id=ledger_id,
