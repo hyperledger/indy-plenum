@@ -1,18 +1,18 @@
+import types
+
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
-from plenum.common.messages.node_messages import Prepare
-from plenum.server.models import ThreePhaseVotes
+from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.bls.helper import create_prepare
 from plenum.test.testing_utils import FakeSomething
 
-
 nodeCount = 4
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def replica(tconf):
     node_stack = FakeSomething(
         name="fake stack",
@@ -23,7 +23,8 @@ def replica(tconf):
         ledger_ids=[0],
         viewNo=0,
         quorums=Quorums(nodeCount),
-        nodestack=node_stack
+        nodestack=node_stack,
+        utc_epoch=lambda *args: get_utc_epoch()
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -130,7 +131,6 @@ def test_last_prepared_sertificate_return_max_3PC_key(replica):
     assert replica.last_prepared_certificate_in_view() == (0, 2)
 
 
-
 def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     """
 
@@ -145,12 +145,22 @@ def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
     replica.prepares[(0, 1)] = prepare1
     prepare2 = create_prepare(req_key=(0, 1),
                               state_root='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ')
-    prepare2.voters = ('Delta:0', )
+    prepare2.voters = ('Delta:0',)
     replica.prepares[(0, 2)] = prepare2
     assert replica.last_prepared_certificate_in_view() == (0, 1)
+
 
 def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
     replica.primaryName = 'Omega:0'
     replica.node.request_msg = lambda t, d, r: None
     # This shouldn't crash
     replica._request_prepare((0, 1))
+
+
+def test_create_3pc_batch_with_empty_requests(replica):
+    def patched_stateRootHash(self, ledger_id, to_str):
+        return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+
+    replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
+
+    assert replica.create3PCBatch(0) is None

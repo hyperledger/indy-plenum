@@ -39,6 +39,7 @@ class FakeNode:
         self.name = 'Node1'
         self.f = 1
         self.replicas = []
+        self.requests = []
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
         self.nodeReg = {
