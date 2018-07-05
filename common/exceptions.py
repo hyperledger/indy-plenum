@@ -3,14 +3,14 @@ from typing import Any
 
 
 class PlenumError(Exception):
-    """Base exceptions class for Plenum exceptions"""
+    """Base exceptions class for Plenum exceptions
 
-    @staticmethod
-    def _prefix_msg(msg, prefix=None):
-        return "{}{}".format(
-            "" if prefix is None else "{}: ".format(prefix),
-            msg
-        )
+    :param prefix: (optional) prefix for the message
+    """
+    def __init__(self, *args, prefix=None):
+        if len(args) and prefix is not None:
+            args = ("{}: {}".format(prefix, args[0]),) + args[1:]
+        super().__init__(*args)
 
 
 class PlenumTypeError(PlenumError, TypeError):
@@ -22,14 +22,13 @@ class PlenumTypeError(PlenumError, TypeError):
     :param v_value: variable value
     :param v_exp_t: expected variable type
     """
-    def __init__(self, v_name: str, v_value: Any, v_exp_t: Any, *args,
-                 prefix=None):
+    def __init__(self, v_name: str, v_value: Any, v_exp_t: Any,
+                 *args, **kwargs):
         super().__init__(
-            self._prefix_msg(
-                ("variable '{}', type {}, expected: {}"
-                 .format(v_name, type(v_value), v_exp_t)),
-                prefix),
-            *args)
+            ("variable '{}', type {}, expected: {}"
+            .format(v_name, type(v_value), v_exp_t)),
+            *args, **kwargs
+        )
 
 
 class PlenumValueError(PlenumError, ValueError):
@@ -40,16 +39,13 @@ class PlenumValueError(PlenumError, ValueError):
     :param v_name: variable name
     :param v_value: variable value
     :param v_exp_value: expected variable value
-    :param prefix: (optional) prefix for the message
     """
-    def __init__(self, v_name: str, v_value: Any, v_exp_value: Any, *args,
-                 prefix=None):
+    def __init__(self, v_name: str, v_value: Any, v_exp_value: Any, *args, **kwargs):
         super().__init__(
-            self._prefix_msg(
-                ("variable '{}', value {}, expected: {}"
-                 .format(v_name, v_value, v_exp_value)),
-                prefix),
-            *args)
+            ("variable '{}', value {}, expected: {}"
+            .format(v_name, v_value, v_exp_value)),
+            *args, **kwargs
+        )
 
 
 class ValueUndefinedError(PlenumError, ValueError):
@@ -59,12 +55,11 @@ class ValueUndefinedError(PlenumError, ValueError):
 
     :param v_name: variable name
     """
-    def __init__(self, v_name: str, *args, prefix=None):
+    def __init__(self, v_name: str, *args, **kwargs):
         super().__init__(
-            self._prefix_msg(
-                "variable '{}' is undefined".format(v_name),
-                prefix),
-            *args)
+            "variable '{}' is undefined".format(v_name),
+            *args, **kwargs
+        )
 
 
 class LogicError(PlenumError, RuntimeError):
