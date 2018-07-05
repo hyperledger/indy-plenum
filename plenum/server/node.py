@@ -1887,6 +1887,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
+
+        # update 3PC key interval tree to return last ordered to other nodes in Ledger Status
+        for ledger_id in self.ledger_ids:
+            ledger_size = self.getLedger(ledger_id).size
+            three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
+                                                               ledger_size)
+            if not three_pc_key and self.master_last_ordered_3PC and self.master_last_ordered_3PC != (0,0):
+                self._update_txn_seq_range_to_3phase(first_txn_seq_no=ledger_size,
+                                                     last_txn_seq_no=ledger_size,
+                                                     ledger_id=ledger_id,
+                                                     view_no=self.master_last_ordered_3PC[0],
+                                                     pp_seq_no=self.master_last_ordered_3PC[1])
+
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
@@ -2667,6 +2680,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
+
+        self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
+                                             ledger_id,
+                                             view_no, pp_seq_no)
+
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+                                             ledger_id,
+                                             pp_time,
+                                             state_root,
+                                             txn_root,
+                                             first_txn_seq_no,
+                                             last_txn_seq_no)
+        self._observable.append_input(batch_committed_msg, self.name)
+
+    def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
+                                        ledger_id, view_no, pp_seq_no):
         if ledger_id not in self.txn_seq_range_to_3phase_key:
             self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
         # adding one to end of range since its exclusive
@@ -2679,17 +2708,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Remove the first element from the interval tree
             old = intrv_tree[intrv_tree.begin()].pop()
             intrv_tree.remove(old)
-            logger.debug('{} popped {} from txn to batch seqNo map'.
-                         format(self, old))
-
-        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
-                                             ledger_id,
-                                             pp_time,
-                                             state_root,
-                                             txn_root,
-                                             first_txn_seq_no,
-                                             last_txn_seq_no)
-        self._observable.append_input(batch_committed_msg, self.name)
+            logger.debug('{} popped {} from txn to batch seqNo map for ledger_id {}'.
+                         format(self, old, str(ledger_id)))
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
