@@ -280,6 +280,10 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._start_selection()
 
     def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
+        # do not go to Propagate Primary mode if we already started view change
+        if self.view_change_in_progress:
+            return
+
         from_current_state = future_vcd_msg.from_current_state
         view_no = future_vcd_msg.vcd_msg.viewNo
         if not ((view_no > self.view_no) or

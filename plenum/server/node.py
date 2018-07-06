@@ -595,6 +595,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer.propagate_primary:  # TODO VCH
             self.master_replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
+        # Remove already ordered requests from requests list after view change
+        # If view change happen when one half of nodes ordered on master
+        # instance and backup but other only on master then we need to clear
+        # requests list.  We do this to stop transactions ordering  on backup
+        # replicas that have already been ordered on master.
+        # Test for this case in plenum/test/view_change/
+        # test_no_propagate_request_on_different_last_ordered_before_vc.py
+        if not self.view_changer.propagate_primary:
+            for replica in self.replicas:
+                replica.clear_requests_and_fix_last_ordered()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
@@ -771,6 +781,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return LedgerManager(self, ownedByNode=True,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
                              preCatchupClbk=self.preLedgerCatchUp,
+                             postCatchupClbk=self.postLedgerCatchUp,
                              ledger_sync_order=ledger_sync_order)
 
     def init_ledger_manager(self):
@@ -1076,6 +1087,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
+        # do not process any client requests if view change is in progress
+        # TODO: process requests, but return a graceful Reject message, that can not process a message now because of
+        # View Change
+        if self.view_changer.view_change_in_progress:
+            return 0
         c = await self.clientstack.service(limit)
         await self.processClientInBox()
         return c
@@ -1828,6 +1844,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = self.master_replica.revert_unordered_batches()
         logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
 
+    def postLedgerCatchUp(self, ledger_id, last_caughtup_3pc):
+        # update 3PC key interval tree to return last ordered to other nodes in Ledger Status
+        self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_caughtup_3pc)
+
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
         if rh:
@@ -1868,6 +1888,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
+
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
@@ -1885,6 +1906,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # select primaries after pool ledger caughtup
             if not self.view_change_in_progress:
                 self.select_primaries()
+
+    def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
+        logger.info(
+            "{} is updating txn to batch seqNo map after catchup to {} for ledger_id {} "
+            .format(self.name, str(last_caughtup_3pc), str(ledger_id)))
+        if not last_caughtup_3pc:
+            return
+        # do not set if this is a 'fake' one, see replica.on_view_change_start
+        # also (0,0) will be passed from ledger_manager._buildConsistencyProof if 3PC is None
+        if last_caughtup_3pc[1] == 0:
+            return
+
+        ledger_size = self.getLedger(ledger_id).size
+        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
+                                                           ledger_size)
+        if three_pc_key:
+            return
+
+        self._update_txn_seq_range_to_3phase(first_txn_seq_no=ledger_size,
+                                             last_txn_seq_no=ledger_size,
+                                             ledger_id=ledger_id,
+                                             view_no=last_caughtup_3pc[0],
+                                             pp_seq_no=last_caughtup_3pc[1])
 
     def is_catchup_needed(self) -> bool:
         """
@@ -2633,6 +2677,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
+
+        self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
+                                             ledger_id,
+                                             view_no, pp_seq_no)
+
+        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+                                             ledger_id,
+                                             pp_time,
+                                             state_root,
+                                             txn_root,
+                                             first_txn_seq_no,
+                                             last_txn_seq_no)
+        self._observable.append_input(batch_committed_msg, self.name)
+
+    def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
+                                        ledger_id, view_no, pp_seq_no):
         if ledger_id not in self.txn_seq_range_to_3phase_key:
             self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
         # adding one to end of range since its exclusive
@@ -2645,17 +2705,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Remove the first element from the interval tree
             old = intrv_tree[intrv_tree.begin()].pop()
             intrv_tree.remove(old)
-            logger.debug('{} popped {} from txn to batch seqNo map'.
-                         format(self, old))
-
-        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
-                                             ledger_id,
-                                             pp_time,
-                                             state_root,
-                                             txn_root,
-                                             first_txn_seq_no,
-                                             last_txn_seq_no)
-        self._observable.append_input(batch_committed_msg, self.name)
+            logger.debug('{} popped {} from txn to batch seqNo map for ledger_id {}'.
+                         format(self, old, str(ledger_id)))
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):

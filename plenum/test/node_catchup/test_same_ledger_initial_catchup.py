@@ -17,6 +17,7 @@ def node_and_ledger_info(txnPoolNodeSet):
     '''
     node = txnPoolNodeSet[0]
 
+    node.txn_seq_range_to_3phase_key = {}
     node.master_replica.last_ordered_3pc = (0, 0)
 
     view_changer = node.view_changer
