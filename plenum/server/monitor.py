@@ -41,19 +41,18 @@ class RequestMeasurement:
         self.alpha = 2 / (self.min_cnt + 1)
 
     def add_request(self, ordered_ts):
-        self.moving_window(ordered_ts)
-        if ordered_ts >= self.window_start_ts and ordered_ts <= self.window_start_ts + self.inner_window:
-            self.reqs_in_window += 1
+        self.update_time(ordered_ts)
+        self.reqs_in_window += 1
 
-    def moving_average(self, next_val):
+    def _moving_average(self, next_val):
         """
         Implement exponential moving average
         """
         return self.throughput * (1 - self.alpha) + next_val * self.alpha
 
-    def moving_window(self, current_ts):
+    def update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.inner_window:
-            self.throughput = self.moving_average(self.reqs_in_window / self.inner_window)
+            self.throughput = self._moving_average(self.reqs_in_window / self.inner_window)
             self.window_start_ts = self.window_start_ts + self.inner_window
             self.reqs_in_window = 0
 
@@ -64,11 +63,10 @@ class RequestMeasurement:
         pass
 
     def get_throughput(self, request_time=None):
-        request_time = request_time or time.perf_counter()
         if request_time < self.first_ts + (self.inner_window * self.min_cnt):
             return None
-        self.moving_window(request_time)
-        return self.moving_average(self.reqs_in_window / self.inner_window)
+        self.update_time(request_time)
+        return self._moving_average(self.reqs_in_window / self.inner_window)
 
 
 class RequestTimeTracker:
@@ -528,8 +526,18 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         masterThrp = self.getThroughput(masterInstId)
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         # Average backup replica's throughput
-        backupThrp = sum([thr.get_throughput() or 0 for i, thr in enumerate(self.throughputs) if i != masterInstId]) /\
-                        (len(self.throughputs) - 1)
+        if len(self.throughputs) > 1:
+            perf_time = time.perf_counter()
+            thrs = []
+            for instId, thr_obj in enumerate(self.throughputs):
+                if instId != masterInstId:
+                    thr = thr_obj.get_throughput(perf_time)
+                    if thr is not None:
+                        thrs.append(thr)
+            backupThrp = sum(thrs) / len(thrs) if thrs else None
+
+        else:
+            backupThrp = None
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
                 avgReqsPerInst = (totalReqs or 0) / self.instances.count
@@ -549,8 +557,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # node are started at almost the same time.
         if instId >= self.instances.count:
             return None
-        throughput = self.throughputs[instId].get_throughput()
-        return throughput or 0
+        perf_time = time.perf_counter()
+        throughput = self.throughputs[instId].get_throughput(perf_time)
+        return throughput
 
     def getInstanceMetrics(
             self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:

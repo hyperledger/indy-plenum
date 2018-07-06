@@ -10,7 +10,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="Dublicated in testThroughputThreshold")
+@pytest.mark.skip(reason="Duplicated in testThroughputThreshold")
 def testThroughput(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     """
     Checking if the throughput is being set

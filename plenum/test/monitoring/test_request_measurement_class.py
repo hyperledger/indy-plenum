@@ -1,4 +1,6 @@
 import pytest
+import time
+
 from plenum.server.monitor import RequestMeasurement
 
 
@@ -47,7 +49,7 @@ def test_add_request_and_eval_first_throughput(request_measurement):
     assert len(ordered_ts) == rm.inner_window + 1
     for ts in ordered_ts:
         request_measurement.add_request(ordered_ts=ts)
-    assert rm.throughput != 0
+    assert rm.throughput > 0
     assert rm.window_start_ts == rm.first_ts + rm.inner_window
 
 
@@ -100,10 +102,10 @@ def test_get_throughput_return_if_ts_only_for_first_window(request_measurement):
 
 def test_get_throughput_return_0_if_there_is_no_any_requested(request_measurement):
     rm = request_measurement
-    assert rm.get_throughput() == 0
+    assert rm.get_throughput(time.perf_counter()) == 0
 
 
-def test_moving_window(request_measurement):
+def test_update_time(request_measurement):
     rm = request_measurement
     ordered_ts = [x for x in range(rm.inner_window + 2)]
     # Check, that last elem is out from first window
