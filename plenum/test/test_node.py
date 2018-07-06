@@ -384,6 +384,7 @@ class TestNode(TestNodeCore, Node):
             ownedByNode=True,
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp,
+            postCatchupClbk=self.postLedgerCatchUp,
             ledger_sync_order=self.ledger_ids
         )
 
