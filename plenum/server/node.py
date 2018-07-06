@@ -872,7 +872,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         self.bls_bft.bls_crypto_signer = bls_crypto_signer
-        logger.warning("{}BLS key is rotated/set for Node {}. " 
+        logger.warning("{}BLS key is rotated/set for Node {}. "
                        "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     def ledger_id_for_request(self, request: Request):

@@ -38,7 +38,7 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
     else:
         if len(msgs) == 1:
             # a batch with this message greater than limit so split fails
-            logger.error('The message {} is less than limit but the batch which contains only this ' 
+            logger.error('The message {} is less than limit but the batch which contains only this '
                          'message has size {} which is greater than limit'.format(msgs[:256], len(batch)))
             return None
         step_num += 1
