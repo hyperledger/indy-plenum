@@ -136,6 +136,14 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
+
+# Two following parameter is define collecting statistic timeout for
+# collecting ordered request and throughput evaluating them.
+# In other words, during ThroughputInnerWindowSize * ThroughputThresholdWindowCount seconds,
+# throughput will returned as None for corresponding getThroughput methods.
+ThroughputInnerWindowSize = 15
+ThroughputThresholdWindowCount = 16
+
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'bounds_coeff': 10,

@@ -4,8 +4,20 @@ from plenum.test.helper import get_key_from_req
 
 nodeCount = 7
 
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_thr_window_size = tconf.ThroughputInnerWindowSize
+    old_thr_window_count = tconf.ThroughputThresholdWindowCount
+    tconf.ThroughputInnerWindowSize = 5
+    tconf.ThroughputThresholdWindowCount = 2
+
+    yield tconf
+    tconf.ThroughputInnerWindowSize = old_thr_window_size
+    tconf.ThroughputThresholdWindowCount = old_thr_window_count
+
 
 def testThroughputThreshold(looper, txnPoolNodeSet, requests):
+    looper.runFor(10)
     for node in txnPoolNodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)
