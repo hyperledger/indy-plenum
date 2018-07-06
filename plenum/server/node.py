@@ -596,6 +596,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer.propagate_primary:  # TODO VCH
             self.master_replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
+        # Remove already ordered requests from requests list after view change
+        # If view change happen when one half of nodes ordered on master
+        # instance and backup but other only on master then we need to clear
+        # requests list.  We do this to stop transactions ordering  on backup
+        # replicas that have already been ordered on master.
+        # Test for this case in plenum/test/view_change/
+        # test_no_propagate_request_on_different_last_ordered_before_vc.py
+        if not self.view_changer.propagate_primary:
+            for replica in self.replicas:
+                replica.clear_requests_and_fix_last_ordered()
 
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
@@ -1078,6 +1088,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
+        # do not process any client requests if view change is in progress
+        # TODO: process requests, but return a graceful Reject message, that can not process a message now because of
+        # View Change
+        if self.view_changer.view_change_in_progress:
+            return 0
         c = await self.clientstack.service(limit)
         await self.processClientInBox()
         return c

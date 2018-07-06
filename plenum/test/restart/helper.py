@@ -20,7 +20,7 @@ def get_group(nodeSet, group_cnt, include_primary=False):
 
 
 def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
-                  after_restart_timeout=None, per_add_timeout=None):
+                  after_restart_timeout=None, restart_one_by_one=True):
     for node_to_stop in restart_set:
         node_to_stop.cleanupOnStopping = True
         node_to_stop.stop()
@@ -41,11 +41,11 @@ def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
         looper.add(restarted_node)
         idx = nodeSet.index(node_to_restart)
         nodeSet[idx] = restarted_node
-        if per_add_timeout:
-            looper.run(checkNodesConnected(rest_nodes + [restarted_node], customTimeout=per_add_timeout))
         rest_nodes += [restarted_node]
+        if restart_one_by_one:
+            looper.run(checkNodesConnected(rest_nodes))
 
-    if not per_add_timeout:
-        looper.run(checkNodesConnected(nodeSet, customTimeout=after_restart_timeout))
+    if not restart_one_by_one:
+        looper.run(checkNodesConnected(nodeSet))
 
     ensureElectionsDone(looper=looper, nodes=nodeSet)

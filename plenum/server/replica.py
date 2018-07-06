@@ -526,6 +526,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             raise LogicError("{} is not a master".format(self))
         self.last_prepared_before_view_change = None
 
+    def clear_requests_and_fix_last_ordered(self):
+        reqs_for_remove = []
+        for key in self.requests:
+            ledger_id, seq_no = self.node.seqNoDB.get(key)
+            if seq_no is not None:
+                reqs_for_remove.append((key, ledger_id, seq_no))
+        for key, ledger_id, seq_no in reqs_for_remove:
+            self.requests.free(key)
+            self.requestQueues[int(ledger_id)].discard(key)
+        master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
+        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0:
+            self.last_ordered_3pc = master_last_ordered_3pc
+
     def on_propagate_primary_done(self):
         if not self.isMaster:
             raise LogicError("{} is not a master".format(self))
@@ -748,14 +761,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        resp = self.consume_req_queue_for_pre_prepare(ledger_id, self.viewNo,
-                                                      pp_seq_no)
-        if not resp:
+        validReqs, inValidReqs, rejects, tm = self.consume_req_queue_for_pre_prepare(
+            ledger_id, self.viewNo,
+            pp_seq_no)
+        if not (validReqs or inValidReqs):
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
             return
-
-        validReqs, inValidReqs, rejects, tm = resp
 
         reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
@@ -1678,7 +1690,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: Consider stashed messages too?
         if not self.isMaster:
             raise LogicError("{} is not a master".format(self))
-        return max_3PC_key(self.commits.keys()) if self.commits else None
+        keys = []
+        quorum = self.quorums.prepare.value
+        for key in self.prepares.keys():
+            if self.prepares.hasQuorum(ThreePhaseKey(*key), quorum):
+                keys.append(key)
+        return max_3PC_key(keys) if keys else None
 
     def has_prepared(self, key):
         return self.getPrePrepare(*key) and self.prepares.hasQuorum(
@@ -2303,7 +2320,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if recipients is None:
             recipients = self.node.nodestack.connecteds.copy()
             primaryName = self.primaryName[:self.primaryName.rfind(":")]
-            recipients.remove(primaryName)
+            recipients.discard(primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -2613,16 +2630,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                             '{} removing stashed checkpoints: '
                             'viewNo={}, seqNoStart={}, seqNoEnd={}'
                             .format(self, view_no, s, e))
-                        try:
-                            # TODO: This is very suspicious, could it by a typo?
-                            del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
-                        except KeyError:
-                            pass
-                try:
-                    if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
-                        del self.stashedRecvdCheckpoints[self.viewNo]
-                except KeyError:
-                    pass
+                        del self.stashedRecvdCheckpoints[view_no][(s, e)]
+                if len(self.stashedRecvdCheckpoints[view_no]) == 0:
+                    del self.stashedRecvdCheckpoints[view_no]
 
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:

@@ -1,12 +1,13 @@
 import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
+from plenum.common.exceptions import CommonSdkIOException
 from plenum.test.helper import sdk_gen_request, \
     sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_send_signed_requests, \
     sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
+from stp_core.loop.eventually import eventually
 
 
 def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
@@ -95,6 +96,9 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
 @pytest.fixture(scope="module")
 def some_requests(txn_pool_node_set_post_creation, looper,
                   sdk_wallet_steward, sdk_pool_handle):
+    def check_auctions_amount(expected_amount):
+        assert auctions['pqr'][did] == expected_amount
+
     old_bls_store_size = None
     for node in txn_pool_node_set_post_creation:
         if old_bls_store_size is None:
@@ -118,7 +122,7 @@ def some_requests(txn_pool_node_set_post_creation, looper,
     for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
-        assert auctions['pqr'][did] == 20
+        looper.run(eventually(check_auctions_amount, 20))
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -129,7 +133,7 @@ def some_requests(txn_pool_node_set_post_creation, looper,
     for node in txn_pool_node_set_post_creation:
         auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
         assert 'pqr' in auctions
-        assert auctions['pqr'][did] == 40
+        looper.run(eventually(check_auctions_amount, 40))
 
     op = {
         TXN_TYPE: AUCTION_END,

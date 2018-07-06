@@ -366,10 +366,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
                 continue
-            for req, started in self.requestTracker.handled_unordered():
-                if req == key:
+            for reqId, started in self.requestTracker.handled_unordered():
+                if reqId == key:
                     logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
-                                .format(req[1], self.name, instId, now - started))
+                                .format(reqId, self.name, instId, now - started))
                     continue
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
