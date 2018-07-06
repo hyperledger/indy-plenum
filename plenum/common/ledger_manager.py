@@ -39,6 +39,7 @@ class LedgerManager(HasActionQueue):
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.preCatchupClbk = preCatchupClbk
         self.ledger_sync_order = ledger_sync_order
+        self.request_ledger_status_action_id = None
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -323,6 +324,7 @@ class LedgerManager(HasActionQueue):
                              format(self, ledgerInfo.ledgerStatusOk, ledgerId))
                 logger.debug('{} found from ledger status {} that it does '
                              'not need catchup'.format(self, ledgerStatus))
+                self._cancel(self.request_ledger_status_action_id)
                 self.do_pre_catchup(ledgerId)
                 last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
                 self.catchupCompleted(ledgerId, last_3PC_key)
@@ -882,6 +884,12 @@ class LedgerManager(HasActionQueue):
             ledger_info.canSync = True
             if request_ledger_statuses:
                 self.owner.request_ledger_status_from_nodes(ledger_id)
+                self.request_ledger_status_action_id = \
+                    self._schedule(
+                        partial(self.owner.request_ledger_status_from_nodes,
+                                ledger_id),
+                               self.config.LedgerStatusTimeout * (
+                                       self.owner.totalNodes - 1))
         except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledger_id))
