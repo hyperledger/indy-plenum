@@ -75,12 +75,11 @@ class Ledger(ImmutableStore):
         if not self.tree.hashStore \
                 or not self.tree.hashStore.is_persistent \
                 or self.tree.leafCount == 0:
-            logging.debug("Recovering tree from transaction log")
+            logging.info("Recovering tree from transaction log")
             self.recoverTreeFromTxnLog()
         else:
             try:
-                logging.debug("Recovering tree from hash store of size {}".
-                              format(self.tree.leafCount))
+                logging.info("Recovering tree from hash store of size {}".format(self.tree.leafCount))
                 self.recoverTreeFromHashStore()
             except ConsistencyVerificationFailed:
                 logging.error("Consistency verification of merkle tree "
@@ -90,7 +89,7 @@ class Ledger(ImmutableStore):
 
         end = time.perf_counter()
         t = end - start
-        logging.debug("Recovered tree in {} seconds".format(t))
+        logging.info("Recovered tree in {} seconds".format(t))
 
     def recoverTreeFromTxnLog(self):
         # TODO: in this and some other lines specific fields of
@@ -209,7 +208,7 @@ class Ledger(ImmutableStore):
         if self._transactionLog and not self._transactionLog.closed:
             logging.debug("Ledger already started.")
         else:
-            logging.debug("Starting ledger...")
+            logging.info("Starting ledger...")
             ensureDurability = ensureDurability or self.ensureDurability
             self._transactionLog = \
                 self._customTransactionLogStore or \

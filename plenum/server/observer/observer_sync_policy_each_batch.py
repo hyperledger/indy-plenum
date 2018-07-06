@@ -130,8 +130,7 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         return True
 
     def _do_apply_data(self, batch):
-        logger.info("{} applying BATCH {}"
-                    .format(OBSERVER_PREFIX, batch))
+        logger.debug("{} applying BATCH {}".format(OBSERVER_PREFIX, batch))
 
         self._do_apply_batch(batch)
 

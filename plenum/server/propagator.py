@@ -173,11 +173,8 @@ class Propagator:
         else:
             self.requests.add_propagate(request, self.name)
             propagate = self.createPropagate(request, clientName)
-            logger.info(
-                "{} propagating request {} from client {}".
-                format(self, request.key, clientName),
-                extra={"cli": True, "tags": ["node-propagate"]}
-            )
+            logger.debug("{} propagating request {} from client {}".format(self, request.key, clientName),
+                         extra={"cli": True, "tags": ["node-propagate"]})
             self.send(propagate)
 
     @staticmethod

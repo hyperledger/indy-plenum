@@ -38,8 +38,8 @@ def none_on_fail(func):
         try:
             return func(*args, **kwargs)
         except Exception as ex:
-            logger.debug('Validator info tool fails to '
-                         'execute {} because {}'.format(func.__name__, repr(ex)))
+            logger.warning('Validator info tool fails to execute {} because {}'.
+                           format(func.__name__, repr(ex)))
             return None
 
     return wrap
