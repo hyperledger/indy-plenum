@@ -62,7 +62,7 @@ class RequestMeasurement:
     def get_max_latency(self):
         pass
 
-    def get_throughput(self, request_time=None):
+    def get_throughput(self, request_time):
         if request_time < self.first_ts + (self.inner_window * self.min_cnt):
             return None
         self.update_time(request_time)
