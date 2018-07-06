@@ -1848,9 +1848,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug('{} reverted {} batches before starting catch up for '
                      'ledger {}'.format(self, r, ledger_id))
 
-    def postLedgerCatchUp(self, ledger_id, last_ordered_3pc):
+    def postLedgerCatchUp(self, ledger_id, last_caughtup_3pc):
         # update 3PC key interval tree to return last ordered to other nodes in Ledger Status
-        self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_ordered_3pc)
+        self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_caughtup_3pc)
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
@@ -1911,14 +1911,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self.view_change_in_progress:
                 self.select_primaries()
 
-    def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_ordered_3pc):
+    def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
         logger.info(
             "{} is updating txn to batch seqNo map after catchup to {} for ledger_id {} "
-            .format(self.name, str(last_ordered_3pc), str(ledger_id)))
-        if not last_ordered_3pc:
+            .format(self.name, str(last_caughtup_3pc), str(ledger_id)))
+        if not last_caughtup_3pc:
             return
         # do not set if this is a 'fake' one, see replica.on_view_change_start
-        if last_ordered_3pc[1] == 0:
+        # also (0,0) will be passed from ledger_manager._buildConsistencyProof if 3PC is None
+        if last_caughtup_3pc[1] == 0:
             return
 
         ledger_size = self.getLedger(ledger_id).size
@@ -1930,8 +1931,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._update_txn_seq_range_to_3phase(first_txn_seq_no=ledger_size,
                                              last_txn_seq_no=ledger_size,
                                              ledger_id=ledger_id,
-                                             view_no=last_ordered_3pc[0],
-                                             pp_seq_no=last_ordered_3pc[1])
+                                             view_no=last_caughtup_3pc[0],
+                                             pp_seq_no=last_caughtup_3pc[1])
 
     def is_catchup_needed(self) -> bool:
         """

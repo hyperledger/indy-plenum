@@ -25,7 +25,7 @@ def node(node_with_tnxs):
     return node_with_tnxs
 
 
-def test_updated_till_last_ordered_3pc_for_all_ledgers(node):
+def test_update_txn_seq_range_to_3phase_after_catchup(node):
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (3, 1))
     ledger_size = node.getLedger(ledger_id).size
 
@@ -34,7 +34,7 @@ def test_updated_till_last_ordered_3pc_for_all_ledgers(node):
     assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size + 1) is None
 
 
-def test_updated_till_last_ordered_3pc_multiple_times_same_size(node):
+def test_update_txn_seq_range_to_3phase_after_catchup_multiple_times_same_size(node):
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (3, 1))
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (5, 1))
     ledger_size = node.getLedger(ledger_id).size
@@ -44,7 +44,7 @@ def test_updated_till_last_ordered_3pc_multiple_times_same_size(node):
     assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size + 1) is None
 
 
-def test_updated_till_last_ordered_3pc_multiple_times_diff_size(node):
+def test_update_txn_seq_range_to_3phase_after_catchup_multiple_times_diff_size(node):
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (3, 1))
     add_txns(node, 1)
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (5, 1))
@@ -59,7 +59,7 @@ def test_updated_till_last_ordered_3pc_multiple_times_diff_size(node):
     assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size - 3) is None
 
 
-def test_does_not_update_existing(node):
+def test_test_update_txn_seq_range_to_3phase_after_catchup_does_not_update_existing(node):
     node._update_txn_seq_range_to_3phase(first_txn_seq_no=0,
                                          last_txn_seq_no=1000,
                                          ledger_id=ledger_id,
@@ -74,13 +74,21 @@ def test_does_not_update_existing(node):
     assert (5, 155) == node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size + 1)
 
 
-def test_does_not_update_initial_last_ordered(node):
+def test_update_txn_seq_range_to_3phase_after_catchup_does_not_update_initial(node):
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, None)
     ledger_size = node.getLedger(ledger_id).size
     assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size) is None
 
 
-def test_does_not_update_zero_pp_seq_no(node):
+def test_update_txn_seq_range_to_3phase_after_catchup_does_not_update_zero_pp_seqno(node):
     node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (3, 0))
+    ledger_size = node.getLedger(ledger_id).size
+    assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size) is None
+
+
+def test_update_txn_seq_range_to_3phase_after_catchup_does_not_update_0_0(node):
+    # (0,0) can be passed from ledger_manager._buildConsistencyProof if 3PC is None
+    # we should not process (0, 0)
+    node._update_txn_seq_range_to_3phase_after_catchup(ledger_id, (0, 0))
     ledger_size = node.getLedger(ledger_id).size
     assert node.three_phase_key_for_txn_seq_no(ledger_id, ledger_size) is None
