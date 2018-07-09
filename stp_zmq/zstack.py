@@ -720,7 +720,6 @@ class ZStack(NetworkInterface):
                         errors.append(exc)
 
                     if errors:
-                        # TODO special exception for better groupping
                         raise PlenumMultiIdentError(errors, prefix=prefix)
             else:
                 self.transmit(msg, remoteName)
