@@ -837,10 +837,11 @@ class Client(Motor,
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None, passExc=False):
         try:
             self.nodestack.send(msg, *rids, signer=signer)
-        except PlenumTransportError:
+        except PlenumTransportError as exc:
             if passExc:
                 raise
-            logger.exception("{} Failed to send client message".format(self))
+            logger.warning("{} Failed to send client message, reason: {}"
+                           .format(self, exc))
 
     def sendToNodes(self, msg: Any, names: Iterable[str], passExc=False):
         rids = [rid for rid, r in self.nodestack.remotes.items()

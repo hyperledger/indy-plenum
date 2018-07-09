@@ -668,9 +668,9 @@ class ZStack(NetworkInterface):
         except PlenumTransportError as exc:
             # TODO: ??? This fails the first time as socket is not established,
             # need to make it retriable
-            logger.exception(("{} failed to {} {} {}"
-                              .format(self.name, action, name, exc)),
-                             extra={"cli": False})
+            logger.warning(("{} failed to {} {}, reason: {}"
+                            .format(self.name, action, name, exc)),
+                           extra={"cli": False})
         else:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
 

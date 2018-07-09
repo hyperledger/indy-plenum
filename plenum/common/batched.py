@@ -115,7 +115,7 @@ class Batched(MessageProcessor):
                                     serialized=True
                                 )
                             except PlenumTransportError as exc:
-                                logger.exception(
+                                logger.warning(
                                     "{} failed to send payload to {}:"
                                     " reason {}, payload {}"
                                     .format(self, dest, exc, batch)
@@ -137,7 +137,7 @@ class Batched(MessageProcessor):
                                 serialized=True
                             )
                         except PlenumTransportError as exc:
-                            logger.exception(
+                            logger.warning(
                                 "{} failed to send message to {}:"
                                 " reason {}, payload {}"
                                 .format(self, dest, exc, msg)

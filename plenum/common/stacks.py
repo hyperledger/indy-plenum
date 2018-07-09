@@ -1,5 +1,6 @@
 from typing import Callable, Any, List, Dict
 
+from common.exceptions import PlenumTransportError
 from plenum.common.batched import Batched, logger
 from plenum.common.config_util import getConfig, \
     get_global_config_else_read_config
@@ -59,13 +60,17 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
                 remoteName = remoteName.encode()
             self.send(payload, remoteName)
         except Exception as ex:
-            # TODO: This should not be an error since the client might not have
+            # use warning for PlenumTransportError
+            # one expected case: unknown identity since the client might not have
             # sent the request to all nodes but only some nodes and other
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
-            logger.error(
-                "{}{} unable to send message {} to client {}; Exception: {}" .format(
-                    CONNECTION_PREFIX, self, msg, remoteName, ex.__repr__()))
+            # TODO make more accurate for other cases
+            _logf = (logger.warning if isinstance(ex, PlenumTransportError)
+                     else logger.error)
+            _logf("{}{} unable to send message {} to client {}; Exception: {}"
+                  .format(CONNECTION_PREFIX, self, msg,
+                          remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         # TODO: Handle `remoteNames`

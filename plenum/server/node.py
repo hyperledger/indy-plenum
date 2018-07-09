@@ -3025,8 +3025,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             self.nodestack.send(msg, *rids, signer=signer,
                                 message_splitter=message_splitter)
-        except PlenumTransportError:
-            logger.exception("{} Failed to send node message".format(self))
+        except PlenumTransportError as exc:
+            logger.warning("{} Failed to send node message, reason: {}"
+                           .format(self, exc))
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):
         # TODO: This method exists in `Client` too, refactor to avoid
