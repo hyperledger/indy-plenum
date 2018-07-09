@@ -14,6 +14,7 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable, Callable
 
+from common.exceptions import PlenumTransportError
 from common.serializers.serialization import ledger_txn_serializer, \
     state_roots_serializer, proof_nodes_serializer
 from crypto.bls.bls_crypto import BlsCryptoVerifier
@@ -312,16 +313,15 @@ class Client(Motor,
 
                 logger.debug('Client {} sending request {} to recipients {}'
                              .format(self, request, recipients))
-
-                stat, err_msg = self.sendToNodes(request, names=recipients)
-
-                if stat:
-                    self._expect_replies(request, recipients)
-                else:
-                    errs.append(err_msg)
+                try:
+                    self.sendToNodes(request, names=recipients, passExc=True)
+                except PlenumTransportError as exc:
+                    errs.append(str(exc))
                     logger.debug(
-                        'Client {} request failed {}'.format(self, err_msg))
+                        'Client {} request failed {}'.format(self, exc))
                     continue
+                else:
+                    self._expect_replies(request, recipients)
             else:
                 logger.debug(
                     "{} pending request since in mode {} and "
@@ -834,13 +834,18 @@ class Client(Motor,
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
-        return self.nodestack.send(msg, *rids, signer=signer)
+    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None, passExc=False):
+        try:
+            self.nodestack.send(msg, *rids, signer=signer)
+        except PlenumTransportError:
+            if passExc:
+                raise
+            logger.exception("{} Failed to send client message".format(self))
 
-    def sendToNodes(self, msg: Any, names: Iterable[str]):
+    def sendToNodes(self, msg: Any, names: Iterable[str], passExc=False):
         rids = [rid for rid, r in self.nodestack.remotes.items()
                 if r.name in names]
-        return self.send(msg, *rids)
+        self.send(msg, *rids, passExc=passExc)
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:

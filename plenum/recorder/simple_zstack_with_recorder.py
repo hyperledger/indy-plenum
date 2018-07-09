@@ -32,10 +32,8 @@ class SimpleZStackWithRecorder(SimpleZStack):
             self.recorder.add_incoming(msg, ident)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):
-        status, err = super().transmit(msg, uid, timeout=timeout, serialized=serialized)
-        if status:
-            self.recorder.add_outgoing(msg, uid)
-        return status, err
+        super().transmit(msg, uid, timeout=timeout, serialized=serialized)
+        self.recorder.add_outgoing(msg, uid)
 
     def _connsChanged(self, ins: Set[str], outs: Set[str]) -> None:
         from plenum.common.stacks import KITZStack

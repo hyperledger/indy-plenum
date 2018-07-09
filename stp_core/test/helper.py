@@ -129,9 +129,7 @@ class MessageSender(Motor):
         count = 0
         while self.sentMsgCount < self._numMsgs:
             msg = json.dumps({'random': randomSeed().decode()}).encode()
-            if self._fromStack.send(msg, self._toName):
-                self.sentMsgCount += 1
-                count += 1
-            else:
-                break
+            self._fromStack.send(msg, self._toName)
+            self.sentMsgCount += 1
+            count += 1
         return count

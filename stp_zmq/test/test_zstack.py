@@ -1,6 +1,12 @@
 import pytest
+import re
 
-from common.exceptions import PlenumTypeError, PlenumValueError
+from common.exceptions import (
+    PlenumTypeError,
+    PlenumValueError,
+    NoSocketForIdentity,
+    TooBigMessage
+)
 from stp_core.crypto.util import randomSeed
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -92,8 +98,9 @@ def testZStackSendMethodReturnsFalseIfDestinationIsUnknown(tdir, looper, tconf):
     (alpha, beta), _ = create_and_prep_stacks(names, tdir, looper, tconf)
     # disconnect remote
     alpha.getRemote(beta.name).disconnect()
-    # check send message returns False
-    assert alpha.send({'greetings': 'hello'}, beta.name)[0] is False
+    # check send raises error
+    with pytest.raises(NoSocketForIdentity):
+        alpha.send({'greetings': 'hello'}, beta.name)
 
 
 def test_zstack_non_utf8(tdir, looper, tconf):
@@ -228,8 +235,7 @@ def testZStackSendRecvHugeDataUnderLimit(set_info_log_level, tdir, looper, tconf
 
     prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
 
-    stat = alpha.send(msg, beta.name)
-    assert stat[0] is True
+    alpha.send(msg, beta.name)
 
     looper.runFor(5)
 
@@ -270,10 +276,10 @@ def testZStackSendHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
 
     prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
 
-    stat = alpha.send(msg, beta.name)
-    assert stat[0] is False
-    assert 'exceeded allowed limit of {}'.format(
-        tconf.MSG_LEN_LIMIT) in stat[1]
+    with pytest.raises(TooBigMessage) as excinfo:
+        alpha.send(msg, beta.name)
+    re.search(r"Message is too big: .* max_len {} ".format(tconf.MSG_LEN_LIMIT),
+              str(excinfo.value)) is not None
 
     looper.runFor(5)
 

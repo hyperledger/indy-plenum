@@ -282,6 +282,8 @@ class OperationError(Exception):
 
 class InvalidMessageExceedingSizeException(InvalidMessageException):
     def __init__(self, expLen, actLen, *args, **kwargs):
+        self.expLen = expLen
+        self.actLen = actLen
         ex_txt = 'Message len {} exceeded allowed limit of {}'.format(
             actLen, expLen)
         super().__init__(ex_txt, *args, **kwargs)

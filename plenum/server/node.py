@@ -9,7 +9,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 from intervaltree import IntervalTree
 
-from common.exceptions import LogicError
+from common.exceptions import LogicError, PlenumTransportError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from state.pruning_state import PruningState
 from state.state import State
@@ -3022,7 +3022,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.info("{} sending message {} to {} recipients: {}"
                     .format(self, msg, recipientsNum, remoteNames))
-        self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
+        try:
+            import pdb; pdb.set_trace()
+            self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
+        except PlenumTransportError:
+            logger.exception("{} Failed to send node message".format(self))
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):
         # TODO: This method exists in `Client` too, refactor to avoid

@@ -36,7 +36,7 @@ def genDoesntSendRequestToSomeNodes(*nodeName: str,
             logger.debug("EVIL: sending to less nodes {}, ignoring passed "
                          "rids {} and sending to {} instead.".
                          format(msg, rids, ovrdRids))
-            return self.nodestack.send(msg, *ovrdRids, signer=signer)
+            self.nodestack.send(msg, *ovrdRids, signer=signer)
 
         client.send = types.MethodType(evilSend, client)
         return client

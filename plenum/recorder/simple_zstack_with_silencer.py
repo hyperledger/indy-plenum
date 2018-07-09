@@ -22,7 +22,7 @@ class SimpleZStackWithSilencer(SimpleZStack):
         self.silencer.transmit(msg, uid, timeout=timeout, serialized=serialized)
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
-        return self.silencer.transmitThroughListener(msg, ident)
+        self.silencer.transmitThroughListener(msg, ident)
 
     def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
         self.silencer.sendPingPong(remote, is_ping=is_ping)
