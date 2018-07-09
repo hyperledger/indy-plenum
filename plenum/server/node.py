@@ -841,7 +841,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         bls_factory = create_default_bls_bft_factory(self)
         bls_bft = bls_factory.create_bls_bft()
         if bls_bft.can_sign_bls():
-            logger.warning("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
+            logger.display("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
         else:
             # TODO: for now we allow that BLS is optional, so that we don't require it
             logger.warning(
@@ -872,7 +872,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         self.bls_bft.bls_crypto_signer = bls_crypto_signer
-        logger.warning("{}BLS key is rotated/set for Node {}. "
+        logger.display("{}BLS key is rotated/set for Node {}. "
                        "BLS Signatures will be used for Node.".format(BLS_PREFIX, self.name))
 
     def ledger_id_for_request(self, request: Request):
@@ -1176,7 +1176,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.master_primary_name in joined:
             self.lost_primary_at = None
         if self.master_primary_name in left:
-            logger.warning('{} lost connection to primary of master'.format(self))
+            logger.display('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
         elif _prev_status == Status.starting and self.status == Status.started_hungry \
                 and self.lost_primary_at is not None \
@@ -1222,7 +1222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                               self.ledgerManager.ledger_sync_order[0])
 
     def nodeJoined(self, txn_data):
-        logger.warning("{} new node joined by txn {}".format(self, txn_data))
+        logger.display("{} new node joined by txn {}".format(self, txn_data))
         self.setPoolParams()
         new_replicas = self.adjustReplicas()
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
@@ -1233,7 +1233,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.select_primaries()
 
     def nodeLeft(self, txn_data):
-        logger.warning("{} node left by txn {}".format(self, txn_data))
+        logger.display("{} node left by txn {}".format(self, txn_data))
         self.setPoolParams()
         self.adjustReplicas()
 
@@ -1568,7 +1568,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.warning("{} invalidated msg {}".format(self, wrappedMsg),
+                logger.display("{} invalidated msg {}".format(self, wrappedMsg),
                                extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
@@ -1586,7 +1586,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted node {}".format(frm), logger.warning)
+            self.discard(msg[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
         try:
@@ -1689,7 +1689,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _invalid_client_ledger_status_handling(self, ex, msg, frm):
         # This specific validation handles incorrect client LEDGER_STATUS message
-        logger.warning("{} received bad LEDGER_STATUS message from client {}. "
+        logger.display("{} received bad LEDGER_STATUS message from client {}. "
                        "Reason: {}. ".format(self, frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
@@ -1709,7 +1709,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted client {}".format(frm), logger.warning)
+            self.discard(msg[:256], "received from blacklisted client {}".format(frm), logger.display)
             return None
 
         needStaticValidation = False
@@ -2425,7 +2425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
-                logger.warning('{} master instance performance degraded'.format(self))
+                logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()
                 return False
             else:
@@ -2476,7 +2476,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         disconnected_time = time.perf_counter() - self.lost_primary_at
         if disconnected_time >= self.config.ToleratePrimaryDisconnection:
-            logger.warning("{} primary has been disconnected for too long""".format(self))
+            logger.display("{} primary has been disconnected for too long".format(self))
 
             if not self.isReady():
                 logger.info('{} The node is not ready yet '
@@ -2764,7 +2764,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.get_req_handler(ledger_id):
             self.get_req_handler(ledger_id).onBatchCreated(state_root)
         else:
-            logger.warning('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+            logger.display('{} did not know how to handle for ledger {}'.format(self, ledger_id))
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
@@ -2781,7 +2781,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.get_req_handler(ledger_id):
             self.get_req_handler(ledger_id).onBatchRejected()
         else:
-            logger.warning('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+            logger.display('{} did not know how to handle for ledger {}'.format(self, ledger_id))
         self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
@@ -2943,7 +2943,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG,
                                      Suspicions.PPR_PLUGIN_EXCEPTION)):
-            logger.warning('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
+            logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
         if offendingMsg:
@@ -2977,7 +2977,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg = "{} blacklisting client {}".format(self, clientName)
         if reason:
             msg += " for reason {}".format(reason)
-        logger.warning(msg)
+        logger.display(msg)
         self.clientBlacklister.blacklist(clientName)
 
     def isNodeBlacklisted(self, nodeName: str) -> bool:
@@ -2998,7 +2998,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg += " for reason {}".format(reason)
         if code:
             msg += " for code {}".format(code)
-        logger.warning(msg)
+        logger.display(msg)
         self.nodeBlacklister.blacklist(nodeName)
 
     @property

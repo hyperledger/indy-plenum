@@ -408,7 +408,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         tooLow = r < self.Delta
         if tooLow:
-            logger.warning("{}{} master throughput ratio {} is lower than Delta {}.".
+            logger.display("{}{} master throughput ratio {} is lower than Delta {}.".
                            format(MONITORING_PREFIX, self, r, self.Delta))
         else:
             logger.trace("{} master throughput ratio {} is acceptable.".
@@ -424,7 +424,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             next(((key, lat) for key, lat in self.masterReqLatencies.items() if
                   lat > self.Lambda), None)
         if r:
-            logger.warning("{}{} found master's latency {} to be higher than the threshold for request {}.".
+            logger.display("{}{} found master's latency {} to be higher than the threshold for request {}.".
                            format(MONITORING_PREFIX, self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "

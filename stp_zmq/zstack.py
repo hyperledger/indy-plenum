@@ -144,7 +144,7 @@ class ZStack(NetworkInterface):
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
         else:
-            logger.warning('No remote named {} present')
+            logger.display('No remote named {} present')
 
     @staticmethod
     def initLocalKeys(name, baseDir, sigseed, override=False):
@@ -272,7 +272,7 @@ class ZStack(NetworkInterface):
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
-            logger.warning("Signing and Encryption keys were not found for {}. Creating them now".
+            logger.display("Signing and Encryption keys were not found for {}. Creating them now".
                            format(self), extra={"cli": False})
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
@@ -325,10 +325,10 @@ class ZStack(NetworkInterface):
 
     def stop(self):
         if self.opened:
-            logger.warning('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
+            logger.display('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
             self.close()
         self.teardownAuth()
-        logger.warning("stack {} stopped".format(self), extra={"cli": False, "demo": False})
+        logger.display("stack {} stopped".format(self), extra={"cli": False, "demo": False})
 
     @property
     def opened(self):
@@ -639,7 +639,7 @@ class ZStack(NetworkInterface):
         if remoteVerkey:
             self.addVerifier(remoteVerkey)
         else:
-            logger.info('{} adding a remote {}({}) without a verkey'.format(self, name, ha))
+            logger.display('{} adding a remote {}({}) without a verkey'.format(self, name, ha))
         return remote
 
     def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
@@ -726,7 +726,7 @@ class ZStack(NetworkInterface):
             logger.trace('{} transmitting message {} to {}'
                          .format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
-                logger.warning('Remote {} is not connected - message will not be sent immediately.'
+                logger.display('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'.format(uid))
             return True, err_str
         except zmq.Again:
@@ -902,7 +902,7 @@ class ZStack(NetworkInterface):
         try:
             os.remove(filePath)
         except Exception as ex:
-            logger.warning('{} could delete file {} due to {}'.format(self, filePath, ex))
+            logger.display('{} could delete file {} due to {}'.format(self, filePath, ex))
 
     def clearLocalRoleKeep(self):
         for d in (self.secretKeysDir, self.sigKeyDir):

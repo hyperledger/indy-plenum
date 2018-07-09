@@ -1725,6 +1725,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
                                  pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
                                  pp.reqIdr[pp.discarded:]))
+        self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
+                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
+                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
+                                 len(pp.reqIdr[pp.discarded:])))
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
@@ -1796,12 +1801,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not is_stashed_enough:
             return
 
-        self.logger.warning('{} has lagged for {} checkpoints so updating watermarks to {}'.
+        self.logger.display('{} has lagged for {} checkpoints so updating watermarks to {}'.
                             format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
         self.h = stashed_checkpoint_ends[-1]
 
         if self.isMaster and not self.isPrimary:
-            self.logger.warning('{} has lagged for {} checkpoints so the catchup procedure starts'.
+            self.logger.display('{} has lagged for {} checkpoints so the catchup procedure starts'.
                                 format(self, lag_in_checkpoints))
             self.node.start_catchup()
 

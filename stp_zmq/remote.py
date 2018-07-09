@@ -101,7 +101,7 @@ class Remote:
             self.socket.close(linger=0)
             self.socket = None
         else:
-            logger.warning('{} close was called on a null socket, maybe close is '
+            logger.display('{} close was called on a null socket, maybe close is '
                            'being called twice.'.format(self))
 
         self._isConnected = False

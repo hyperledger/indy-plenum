@@ -28,7 +28,7 @@ class GenesisTxnInitiatorFromFile(GenesisTxnInitiator):
         # This is not considered as an error as of now.
         init_file = os.path.join(self.__data_dir, self.__db_name)
         if not os.path.exists(init_file):
-            logger.warning("File that should be used for initialization of "
+            logger.display("File that should be used for initialization of "
                            "Ledger does not exist: {}".format(init_file))
             return
 

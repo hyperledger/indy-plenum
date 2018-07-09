@@ -69,7 +69,7 @@ class StatsPublisher:
         await self._writer.drain()
 
     def _connectionRefused(self, message, ex):
-        logger.warning("Connection refused for {}:{} while sending message: {}".
+        logger.display("Connection refused for {}:{} while sending message: {}".
                        format(self.ip, self.port, ex))
         self._writer = None
 

@@ -265,20 +265,20 @@ class Looper:
     def handleSignal(self, sig=None):
         # Allowing sig to be optional since asyncio not passing the signal or
         # KeyboardInterrupt (Ctrl+C)
-        logger.warning("Signal {} received, stopping looper...".format(sig))
+        logger.display("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):
         """
         Shut down this Looper.
         """
-        logger.warning("Looper shutting down now...", extra={"cli": False})
+        logger.display("Looper shutting down now...", extra={"cli": False})
         self.running = False
         start = time.perf_counter()
         if not self.runFut.done():
             await self.runFut
         self.stopall()
-        logger.warning("Looper shut down in {:.3f} seconds.".
+        logger.display("Looper shut down in {:.3f} seconds.".
                        format(time.perf_counter() - start), extra={"cli": False})
         # Unset signal handlers, bug: https://bugs.python.org/issue23548
         for sig_name in self.signals:

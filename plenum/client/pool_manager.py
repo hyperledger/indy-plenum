@@ -125,7 +125,7 @@ class HasPoolManager(TxnStackManager):
                     if rid:
                         self.nodestack.outBoxes.pop(rid, None)
                 except RemoteNotFound:
-                    logger.warning('{} did not find remote {} to remove'.format(self, remoteName))
+                    logger.display('{} did not find remote {} to remove'.format(self, remoteName))
 
     # noinspection PyUnresolvedReferences
     @property

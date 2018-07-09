@@ -159,10 +159,10 @@ class TxnStackManager(metaclass=ABCMeta):
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
             nodeOrClientObj.cliNodeReg[remoteName +
                                        CLIENT_STACK_SUFFIX] = HA(*cliHa)
-            logger.warning("{} adding new node {} with HA {}".format(self.name, remoteName, nodeHa))
+            logger.display("{} adding new node {} with HA {}".format(self.name, remoteName, nodeHa))
         else:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
-            logger.warning("{} adding new node {} with HA {}".format(self.name, remoteName, cliHa))
+            logger.display("{} adding new node {} with HA {}".format(self.name, remoteName, cliHa))
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
     def stackHaChanged(self, txn_data, remoteName, nodeOrClientObj):
@@ -216,7 +216,7 @@ class TxnStackManager(metaclass=ABCMeta):
     def stackKeysChanged(self, txn_data, remoteName, nodeOrClientObj):
         logger.debug("{} clearing remote role data in keep of {}".
                      format(nodeOrClientObj.nodestack.name, remoteName))
-        logger.warning("{} removing remote {}".format(nodeOrClientObj, remoteName))
+        logger.display("{} removing remote {}".format(nodeOrClientObj, remoteName))
         # Removing remote so that the nodestack will attempt to connect
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
@@ -238,7 +238,7 @@ class TxnStackManager(metaclass=ABCMeta):
         try:
             stack.disconnectByName(remoteName)
             rid = stack.removeRemoteByName(remoteName)
-            logger.warning("{} removed remote {}".format(stack, remoteName))
+            logger.display("{} removed remote {}".format(stack, remoteName))
         except RemoteNotFound as ex:
             logger.debug(str(ex))
             rid = None

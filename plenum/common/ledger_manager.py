@@ -189,7 +189,7 @@ class LedgerManager(HasActionQueue):
         # sent then either `catchUpReplies` was empty or it did not have
         #  transactions till `end`
         if leftMissing > 0:
-            logger.warning("{} still missing {} transactions after "
+            logger.display("{} still missing {} transactions after "
                            "looking at receivedCatchUpReplies".format(self, leftMissing))
             # `catchUpReplies` was empty
             if lastSeenSeqNo == ledger.size:
@@ -357,11 +357,11 @@ class LedgerManager(HasActionQueue):
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         if not ledgerInfo.canSync:
-            logger.warning("{} cannot process consistency proof since canSync is {}".
+            logger.display("{} cannot process consistency proof since canSync is {}".
                            format(self, ledgerInfo.canSync))
             return False
         if ledgerInfo.state != LedgerState.not_synced:
-            logger.warning("{} cannot process consistency proof since ledger state is {}".
+            logger.display("{} cannot process consistency proof since ledger state is {}".
                            format(self, ledgerInfo.state))
             return False
 
@@ -584,7 +584,7 @@ class LedgerManager(HasActionQueue):
             )
 
         except Exception as ex:
-            logger.warning("{} could not verify catchup reply {} since {}".format(self, catchupReply, ex))
+            logger.display("{} could not verify catchup reply {} since {}".format(self, catchupReply, ex))
             verified = False
         return bool(verified), nodeName, len(txns)
 
@@ -623,7 +623,7 @@ class LedgerManager(HasActionQueue):
         ledgerId = getattr(catchupReply, f.LEDGER_ID.nm)
         ledgerState = self.getLedgerInfoByType(ledgerId).state
         if ledgerState != LedgerState.syncing:
-            logger.warning("{} cannot process catchup reply {} since ledger is in state {}".
+            logger.display("{} cannot process catchup reply {} since ledger is in state {}".
                            format(self, catchupReply, ledgerState))
             return []
 
@@ -801,8 +801,8 @@ class LedgerManager(HasActionQueue):
                             ledgerId),
                         timeout)
             else:
-                logger.error('{}{} needs to catchup ledger {} but it has not'
-                             ' found any connected nodes'.format(CATCH_UP_PREFIX, self, ledgerId))
+                logger.info('{}{} needs to catchup ledger {} but it has not'
+                            ' found any connected nodes'.format(CATCH_UP_PREFIX, self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * self.config.CatchupTransactionsTimeout
@@ -884,7 +884,7 @@ class LedgerManager(HasActionQueue):
         # "minimum size" is some multiple of chunk size of the ledger
         node_count = len(self.nodes_to_request_txns_from)
         if node_count == 0:
-            logger.warning('{} did not find any connected to nodes to send CatchupReq'.format(self))
+            logger.display('{} did not find any connected to nodes to send CatchupReq'.format(self))
             return
         # TODO: Consider setting start to `max(ledger.size, consProof.start)`
         # since ordered requests might have been executed after receiving

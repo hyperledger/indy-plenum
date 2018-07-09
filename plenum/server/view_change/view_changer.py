@@ -164,7 +164,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             next_primary_name = self.node.elector._next_primary_node_name_for_master()
 
             if next_primary_name not in self._view_change_done:
-                logger.warning("{} has not received ViewChangeDone from the next "
+                logger.display("{} has not received ViewChangeDone from the next "
                                "primary {} (view_no: {}, totalNodes: {})".
                                format(self.name, next_primary_name, self.view_no, self.node.totalNodes))
             else:
@@ -205,7 +205,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         """
         view_no = self.view_no + 1
-        logger.warning("{} sending instance with view_no = {} and trying to start "
+        logger.display("{} sending instance with view_no = {} and trying to start "
                        "view change since performance of master instance degraded".format(self, view_no))
         self.sendInstanceChange(view_no)
         self.do_view_change_if_possible(view_no)
@@ -234,7 +234,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def on_primary_loss(self):
         view_no = self.view_no + 1
-        logger.warning("{} sending instance with view_no = {} and trying "
+        logger.display("{} sending instance with view_no = {} and trying "
                        "to start view change since primary was lost".format(self, view_no))
         self.sendInstanceChange(view_no,
                                 Suspicions.PRIMARY_DISCONNECTED)
@@ -253,21 +253,21 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
         view_no = self.view_no + 1
-        logger.warning("{} sending instance with view_no = {} "
+        logger.display("{} sending instance with view_no = {} "
                        "since primary is about to be disconnected".format(self, view_no))
         self.sendInstanceChange(
             view_no, Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def on_suspicious_primary(self, suspicion: Suspicions):
         view_no = self.view_no + 1
-        logger.warning("{} sending instance with view_no = {} since primary "
+        logger.display("{} sending instance with view_no = {} since primary "
                        "seems suspicious, reason {}".format(self, view_no, suspicion.reason))
         self.sendInstanceChange(view_no, suspicion)
         # TODO why we don't try to start view change here
 
     def on_view_change_not_completed_in_time(self):
         view_no = self.view_no + 1
-        logger.warning("{} sending instance with view_no = {} since "
+        logger.display("{} sending instance with view_no = {} since "
                        "view change to view {} is not completed in time".format(self, view_no, self.view_no))
         self.sendInstanceChange(view_no,
                                 Suspicions.INSTANCE_CHANGE_TIMEOUT)
@@ -337,7 +337,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                 logger.info("{} received instance change message {} but did not "
                             "find the master to be slow".format(self, instChg))
             else:
-                logger.warning("{}{} found master degraded after receiving instance change"
+                logger.display("{}{} found master degraded after receiving instance change"
                                " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
 
@@ -452,7 +452,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # malicious nodes sending messages early on
         can, whyNot = self._canViewChange(view_no)
         if can:
-            logger.warning("{}{} initiating a view change to {} from {}".
+            logger.display("{}{} initiating a view change to {} from {}".
                            format(VIEW_CHANGE_PREFIX, self, view_no, self.view_no))
             self.propagate_primary = False
             self.startViewChange(view_no)
@@ -463,7 +463,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def _start_view_change_if_possible(self, view_no) -> bool:
         ind_count = len(self._next_view_indications[view_no])
         if self.quorums.propagate_primary.is_reached(ind_count):
-            logger.warning('{}{} starting view change for {} after {} view change '
+            logger.display('{}{} starting view change for {} after {} view change '
                            'indications from other nodes'.format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
             self.propagate_primary = True
             self.startViewChange(view_no)

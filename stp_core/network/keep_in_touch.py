@@ -63,7 +63,7 @@ class KITNetworkInterface:
             self._conns = value
             ins = value - old
             outs = old - value
-            logger.warning("{}'s connections changed from {} to {}".format(self, old, value))
+            logger.display("{}'s connections changed from {} to {}".format(self, old, value))
             self._connsChanged(ins, outs)
 
     def checkConns(self):
@@ -85,10 +85,10 @@ class KITNetworkInterface:
         :param outs: nodes no longer connected
         """
         for o in outs:
-            logger.warning("{}{} disconnected from {}".format(CONNECTION_PREFIX, self, o),
+            logger.display("{}{} disconnected from {}".format(CONNECTION_PREFIX, self, o),
                            extra={"cli": "IMPORTANT", "tags": ["connected"]})
         for i in ins:
-            logger.warning("{}{} now connected to {}".format(CONNECTION_PREFIX, self, i),
+            logger.display("{}{} now connected to {}".format(CONNECTION_PREFIX, self, i),
                            extra={"cli": "IMPORTANT", "tags": ["connected"]})
 
             # remove remotes for same ha when a connection is made
