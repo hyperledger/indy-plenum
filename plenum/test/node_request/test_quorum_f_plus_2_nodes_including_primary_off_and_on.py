@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test import waits
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, \
     sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies, \
@@ -8,11 +9,12 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
-from plenum.common.exceptions import PoolLedgerTimeoutException
 
 TestRunningTimeLimitSec = 200
 
 nodeCount = 5
+
+whitelist = ['Consensus for ReqId:']
 
 
 def stop_node(node_to_stop, looper, pool_nodes):

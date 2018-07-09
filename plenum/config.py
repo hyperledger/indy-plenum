@@ -225,7 +225,7 @@ Max3PCBatchWait = 1
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
-ProcessedBatchMapsToKeep = 100
+ProcessedBatchMapsToKeep = 1000
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
