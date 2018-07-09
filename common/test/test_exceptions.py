@@ -75,7 +75,7 @@ def test_PlenumMultiIdentError():
 def test_TooBigMessage():
     msg = '1234567890'
     max_dump_len = 8
-    max_len=20
+    max_len = 20
     msg_len = len(msg)
     exc = TooBigMessage(msg=msg, msg_len=msg_len,
                         max_len=max_len, max_dump_len=max_dump_len)
@@ -85,7 +85,8 @@ def test_TooBigMessage():
     assert exc.msg_len == msg_len
     assert exc.max_dump_len == max_dump_len
     assert str(exc)[-max_dump_len:] == msg[:max_dump_len]
-    assert "Message is too big: msg_len {}, max_len {} msg {}",format(msg_len, max_len, msg[:max_dump_len]) == str(exc)
+    assert ("Message is too big: msg_len {}, max_len {} msg {}"
+            .format(msg_len, max_len, msg[:max_dump_len])) == str(exc)
 
 
 def test_IdentityIsUnknown():

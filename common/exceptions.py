@@ -111,7 +111,7 @@ class TooBigMessage(PlenumTransportError):
         self.max_len = max_len
         self.max_dump_len = max_dump_len
         super().__init__(
-             ("Message is too big: msg_len {}, max_len {} msg {!s:.{dlen}}"
+            ("Message is too big: msg_len {}, max_len {} msg {!s:.{dlen}}"
              .format(msg_len, max_len, msg, dlen=max_dump_len)),
             *args, msg=msg, **kwargs
         )

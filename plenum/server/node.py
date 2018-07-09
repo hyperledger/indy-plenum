@@ -3023,8 +3023,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} sending message {} to {} recipients: {}"
                     .format(self, msg, recipientsNum, remoteNames))
         try:
-            import pdb; pdb.set_trace()
-            self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
+            self.nodestack.send(msg, *rids, signer=signer,
+                                message_splitter=message_splitter)
         except PlenumTransportError:
             logger.exception("{} Failed to send node message".format(self))
 
