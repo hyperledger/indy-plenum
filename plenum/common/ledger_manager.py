@@ -322,8 +322,7 @@ class LedgerManager(HasActionQueue):
                     self.consistency_proof_action_ids[ledgerId] = \
                         self._schedule(
                             partial(self.request_last_CP, ledgerId),
-                            self.config.ConsistencyProofsTimeout * (
-                                    self.owner.totalNodes - 1))
+                            self.config.ConsistencyProofsTimeout * (self.owner.totalNodes - 1))
                 return
 
             # We are not behind the node which has sent the ledger status,
@@ -924,8 +923,7 @@ class LedgerManager(HasActionQueue):
                     self._schedule(
                         partial(self.request_ledger_status_if_needed,
                                 ledger_id),
-                        self.config.LedgerStatusTimeout * (
-                                self.owner.totalNodes - 1))
+                        self.config.LedgerStatusTimeout * (self.owner.totalNodes - 1))
         except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledger_id))
