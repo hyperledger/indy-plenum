@@ -428,7 +428,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             # if quorum is reached
             self._on_verified_instance_change_msg(msg, self.name)
         else:
-            logger.inf("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
+            logger.info("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
 
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):

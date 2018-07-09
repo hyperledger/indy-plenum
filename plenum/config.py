@@ -191,9 +191,8 @@ CatchupTransactionsTimeout = 6
 logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
-logFormat = '{asctime:s}{msecs:.0f}|{levelname:.1s}|{message:s}'
+logFormat = '{asctime:s}|{levelname:s}|{filename:s}|{message:s}'
 logFormatStyle = '{'
-logDateFormat = '%y%m%d%H%M%S'
 logLevel = logging.NOTSET
 enableStdOutLogging = True
 
