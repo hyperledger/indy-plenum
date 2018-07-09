@@ -93,7 +93,7 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
             elif not stack_restart_is_needed_prev:
                 logger.warning(
                     '{}: connections limit exceeded but too few time spent since client stack start, restart it later.'
-                        .format(self))
+                    .format(self))
         elif stack_restart_is_needed_prev:
             logger.warning('{}: client stack restart is not needed anymore. Connections: Actual: {}, limit: {}.'
                            .format(self, self.connected_clients_num, self.max_connected_clients_num))
