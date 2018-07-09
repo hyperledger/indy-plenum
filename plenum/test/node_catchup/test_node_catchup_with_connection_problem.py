@@ -79,14 +79,14 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
 
 
 def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
-                                         looper,
-                                         sdk_pool_handle,
-                                         sdk_wallet_steward,
-                                         tconf,
-                                         tdir,
-                                         allPluginsPath,
-                                         monkeypatch,
-                                         lost_count):
+                                                    looper,
+                                                    sdk_pool_handle,
+                                                    sdk_wallet_steward,
+                                                    tconf,
+                                                    tdir,
+                                                    allPluginsPath,
+                                                    monkeypatch,
+                                                    lost_count):
     node_to_disconnect = txnPoolNodeSet[-1]
 
     def unpatch_after_call(proof, frm):
@@ -119,7 +119,8 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
     # patch processLedgerStatus
-    monkeypatch.setattr(node_to_disconnect.ledgerManager, 'processConsistencyProof',
+    monkeypatch.setattr(node_to_disconnect.ledgerManager,
+                        'processConsistencyProof',
                         unpatch_after_call)
     # add node_to_disconnect to pool
     looper.add(node_to_disconnect)
@@ -129,19 +130,20 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
 
 
 def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
-                                             looper,
-                                             sdk_pool_handle,
-                                             sdk_wallet_steward,
-                                             tconf,
-                                             tdir,
-                                             allPluginsPath,
-                                             monkeypatch,
-                                             lost_count):
+                                                  looper,
+                                                  sdk_pool_handle,
+                                                  sdk_wallet_steward,
+                                                  tconf,
+                                                  tdir,
+                                                  allPluginsPath,
+                                                  monkeypatch,
+                                                  lost_count):
     node_to_disconnect = txnPoolNodeSet[-1]
     tmp_method = node_to_disconnect.ledgerManager.canProcessConsistencyProof
 
     def unpatch_after_call(proof):
-        if node_to_disconnect.ledgerManager.spylog.count(LedgerManager.processConsistencyProof) <= 2:
+        if node_to_disconnect.ledgerManager.spylog.count(
+                LedgerManager.processConsistencyProof) <= 2:
             tmp_method(proof)
         else:
             global call_count
@@ -173,7 +175,8 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
     # patch canProcessConsistencyProof
-    monkeypatch.setattr(node_to_disconnect.ledgerManager, 'processConsistencyProof',
+    monkeypatch.setattr(node_to_disconnect.ledgerManager,
+                        'processConsistencyProof',
                         unpatch_after_call)
 
     # add node_to_disconnect to pool

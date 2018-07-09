@@ -924,8 +924,8 @@ class LedgerManager(HasActionQueue):
                     self._schedule(
                         partial(self.request_ledger_status_if_needed,
                                 ledger_id),
-                               self.config.LedgerStatusTimeout * (
-                                       self.owner.totalNodes - 1))
+                        self.config.LedgerStatusTimeout * (
+                                self.owner.totalNodes - 1))
         except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledger_id))
