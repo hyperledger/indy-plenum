@@ -39,7 +39,8 @@ class LedgerManager(HasActionQueue):
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.preCatchupClbk = preCatchupClbk
         self.ledger_sync_order = ledger_sync_order
-        self.request_ledger_status_action_id = None
+        self.request_ledger_status_action_ids = dict()
+        self.consistency_proof_action_ids = dict()
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -84,6 +85,20 @@ class LedgerManager(HasActionQueue):
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher)
         )
+
+    def request_ledger_status_if_needed(self, ledger_id):
+        ledgerInfo = self.getLedgerInfoByType(ledger_id)
+        nodes = [node for node in self.owner.nodeReg if node not in ledgerInfo.ledgerStatusOk]
+        self.owner.request_ledger_status_from_nodes(ledger_id, nodes)
+
+    def request_last_CP(self, ledgerId):
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        recvdConsProof = ledgerInfo.recvdConsistencyProofs
+        ledger_status = self.owner.build_ledger_status(ledgerId)
+        nodes = [frm for frm in self.owner.nodeReg if
+                 frm not in recvdConsProof and frm != self.owner.name]
+        for frm in nodes:
+                self.sendTo(ledger_status, frm)
 
     def request_CPs_if_needed(self, ledgerId):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
@@ -299,6 +314,14 @@ class LedgerManager(HasActionQueue):
             if self.isLedgerOld(ledgerStatus):
                 ledger_status = self.owner.build_ledger_status(ledgerId)
                 self.sendTo(ledger_status, frm)
+                if ledgerId not in self.consistency_proof_action_ids or \
+                        ledgerId in self.consistency_proof_action_ids and \
+                        self.consistency_proof_action_ids[ledgerId] is None:
+                    self.consistency_proof_action_ids[ledgerId] = \
+                        self._schedule(
+                            partial(self.request_last_CP, ledgerId),
+                            self.config.ConsistencyProofsTimeout * (
+                                    self.owner.totalNodes - 1))
                 return
 
             # We are not behind the node which has sent the ledger status,
@@ -324,7 +347,9 @@ class LedgerManager(HasActionQueue):
                              format(self, ledgerInfo.ledgerStatusOk, ledgerId))
                 logger.debug('{} found from ledger status {} that it does '
                              'not need catchup'.format(self, ledgerStatus))
-                self._cancel(self.request_ledger_status_action_id)
+                if ledgerId in self.request_ledger_status_action_ids:
+                    self._cancel(self.request_ledger_status_action_ids[ledgerId])
+                    self.request_ledger_status_action_ids[ledgerId] = None
                 self.do_pre_catchup(ledgerId)
                 last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
                 self.catchupCompleted(ledgerId, last_3PC_key)
@@ -684,6 +709,11 @@ class LedgerManager(HasActionQueue):
                 adjustedQuorum.f + 1:
             # At least once correct node believes that this node is behind.
 
+            # Stop last consistensy proof requesting.
+            if ledgerId in self.consistency_proof_action_ids:
+                self._cancel(self.consistency_proof_action_ids[ledgerId])
+                self.consistency_proof_action_ids[ledgerId] = None
+
             # Start timer that will expire in some time and if till that time
             # enough CPs are not received, then explicitly request CPs
             # from other nodes, see `request_CPs_if_needed`
@@ -884,9 +914,9 @@ class LedgerManager(HasActionQueue):
             ledger_info.canSync = True
             if request_ledger_statuses:
                 self.owner.request_ledger_status_from_nodes(ledger_id)
-                self.request_ledger_status_action_id = \
+                self.request_ledger_status_action_ids[ledger_id] = \
                     self._schedule(
-                        partial(self.owner.request_ledger_status_from_nodes,
+                        partial(self.request_ledger_status_if_needed,
                                 ledger_id),
                                self.config.LedgerStatusTimeout * (
                                        self.owner.totalNodes - 1))

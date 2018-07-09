@@ -1183,8 +1183,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.send_current_state_to_lagging_node(node)
             self.send_ledger_status_to_newly_connected_node(node)
 
-    def request_ledger_status_from_nodes(self, ledger_id):
-        for node_name in self.nodeReg:
+    def request_ledger_status_from_nodes(self, ledger_id, nodes=None):
+        for node_name in nodes if nodes else self.nodeReg:
             if node_name == self.name:
                 continue
             try:
