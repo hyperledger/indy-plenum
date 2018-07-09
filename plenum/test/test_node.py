@@ -410,6 +410,8 @@ class TestNode(TestNodeCore, Node):
         time.sleep(0.2)
         logger.debug("Starting clientstack on node {}".format(self))
         self.clientstack.start()
+        # Sleep to allow disconnected clients to reconnect before sending replies from the server side.
+        time.sleep(1)
 
 
 elector_spyables = [
