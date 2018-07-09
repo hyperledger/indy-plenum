@@ -1726,10 +1726,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
                                  pp.reqIdr[pp.discarded:]))
         self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
-                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
-                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
-                                 len(pp.reqIdr[pp.discarded:])))
+                         "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
+                         format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                                pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
+                                len(pp.reqIdr[pp.discarded:])))
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 
