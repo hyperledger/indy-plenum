@@ -7,17 +7,18 @@ nodeCount = 7
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_thr_window_size = tconf.ThroughputInnerWindowSize
-    old_thr_window_count = tconf.ThroughputThresholdWindowCount
+    old_thr_window_count = tconf.ThroughputMinActivityThreshold
     tconf.ThroughputInnerWindowSize = 5
-    tconf.ThroughputThresholdWindowCount = 2
+    tconf.ThroughputMinActivityThreshold = 2
 
     yield tconf
     tconf.ThroughputInnerWindowSize = old_thr_window_size
-    tconf.ThroughputThresholdWindowCount = old_thr_window_count
+    tconf.ThroughputMinActivityThreshold = old_thr_window_count
 
 
-def testThroughputThreshold(looper, txnPoolNodeSet, requests):
-    looper.runFor(10)
+def testThroughputThreshold(looper, txnPoolNodeSet, tconf, requests):
+    looper.runFor(tconf.ThroughputInnerWindowSize *
+                  tconf.ThroughputMinActivityThreshold)
     for node in txnPoolNodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)

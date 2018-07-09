@@ -137,12 +137,12 @@ ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
-# Two following parameter is define collecting statistic timeout for
+# Two following parameters define collecting statistic timeout for
 # collecting ordered request and throughput evaluating them.
-# In other words, during ThroughputInnerWindowSize * ThroughputThresholdWindowCount seconds,
+# In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,
 # throughput will returned as None for corresponding getThroughput methods.
 ThroughputInnerWindowSize = 15
-ThroughputThresholdWindowCount = 16
+ThroughputMinActivityThreshold = 16
 
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {

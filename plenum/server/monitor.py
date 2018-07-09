@@ -28,7 +28,7 @@ logger = getlogger()
 
 class RequestMeasurement:
     """
-    Measure request params (throughput, latency)
+    Measure request params (throughput)
     """
 
     def __init__(self, inner_window=15, min_cnt=16):
@@ -327,7 +327,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.lastKnownTraffic = self.calculateTraffic()
         for i in range(num_instances):
             self.throughputs[i] = RequestMeasurement(inner_window=self.config.ThroughputInnerWindowSize,
-                                                     min_cnt=self.config.ThroughputThresholdWindowCount)
+                                                     min_cnt=self.config.ThroughputMinActivityThreshold)
 
     def addInstance(self):
         """
@@ -338,7 +338,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
         self.throughputs.append(RequestMeasurement(inner_window=self.config.ThroughputInnerWindowSize,
-                                                   min_cnt=self.config.ThroughputThresholdWindowCount))
+                                                   min_cnt=self.config.ThroughputMinActivityThreshold))
 
     def removeInstance(self, index=None):
         if self.instances.count > 0:
