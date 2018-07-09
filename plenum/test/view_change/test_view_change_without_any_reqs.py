@@ -20,15 +20,15 @@ TestRunningTimeLimitSec = 200
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_thr_window_size = tconf.ThroughputInnerWindowSize
-    old_thr_window_count = tconf.ThroughputThresholdWindowCount
+    old_thr_window_count = tconf.ThroughputMinActivityThreshold
     old_max_3pc_batch_size = tconf.Max3PCBatchSize
     tconf.ThroughputInnerWindowSize = 2
-    tconf.ThroughputThresholdWindowCount = 3
+    tconf.ThroughputMinActivityThreshold = 3
     tconf.Max3PCBatchSize = Max3PCBatchSize
 
     yield tconf
     tconf.ThroughputInnerWindowSize = old_thr_window_size
-    tconf.ThroughputThresholdWindowCount = old_thr_window_count
+    tconf.ThroughputMinActivityThreshold = old_thr_window_count
     tconf.Max3PCBatchSize = old_max_3pc_batch_size
 
 

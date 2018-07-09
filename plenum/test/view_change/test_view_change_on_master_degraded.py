@@ -17,13 +17,13 @@ nodeCount = 7
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_thr_window_size = tconf.ThroughputInnerWindowSize
-    old_thr_window_count = tconf.ThroughputThresholdWindowCount
+    old_thr_window_count = tconf.ThroughputMinActivityThreshold
     tconf.ThroughputInnerWindowSize = 2
-    tconf.ThroughputThresholdWindowCount = 3
+    tconf.ThroughputMinActivityThreshold = 3
 
     yield tconf
     tconf.ThroughputInnerWindowSize = old_thr_window_size
-    tconf.ThroughputThresholdWindowCount = old_thr_window_count
+    tconf.ThroughputMinActivityThreshold = old_thr_window_count
 
 
 # noinspection PyIncorrectDocstring
