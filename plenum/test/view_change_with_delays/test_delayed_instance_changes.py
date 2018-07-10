@@ -2,6 +2,7 @@ from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
 from plenum.test.delayers import icDelay, vcd_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 
 nodeCount = 7
@@ -37,44 +38,43 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
     # 1. DO FIRST VIEW CHANGE
 
     # delay VCD for the first ViewChange
-    slow_stasher.delay(vcd_delay())
+    with delay_rules(slow_stasher, vcd_delay()):
+        # Trigger view change
+        for n in nodes:
+            n.view_changer.on_master_degradation()
+        waitForViewChange(looper, nodes, expectedViewNo=1)
 
-    # Trigger view change
-    for n in nodes:
-        n.view_changer.on_master_degradation()
-    waitForViewChange(looper, nodes, expectedViewNo=1)
+        # make sure view change is finished on all nodes except the slow one
+        ensureElectionsDone(looper, fast_nodes, numInstances=3)
 
-    # make sure view change is finished on all nodes except the slow one
-    ensureElectionsDone(looper, fast_nodes, numInstances=3)
+        # drop all VCD to view=1
+        slow_stasher.drop_delayeds()
 
     # 2. DO SECOND VIEW CHANGE
 
-    # delay Instance Changes and drop all VCD to view=1
+    # delay Instance Changes and
     # so that the slow node receives VCD for view=2 before
     # a quorum of InstanceChanges for that view while still doing view change to view=1
-    slow_stasher.drop_delayeds()
-    slow_stasher.resetDelays()
-    slow_stasher.delay(icDelay())
+    with delay_rules(slow_stasher, icDelay()):
 
-    # Trigger view change
-    for n in nodes:
-        n.view_changer.on_master_degradation()
-    waitForViewChange(looper, fast_nodes, expectedViewNo=2)
+        # Trigger view change
+        for n in nodes:
+            n.view_changer.on_master_degradation()
+        waitForViewChange(looper, fast_nodes, expectedViewNo=2)
 
-    # make sure view change is finished on all nodes except the slow one
-    ensureElectionsDone(looper, fast_nodes, numInstances=3)
+        # make sure view change is finished on all nodes except the slow one
+        ensureElectionsDone(looper, fast_nodes, numInstances=3)
 
-    # slow node is still on view=1
-    assert slow_node.viewNo == 1
-    assert slow_node.view_change_in_progress
+        # slow node is still on view=1
+        assert slow_node.viewNo == 1
+        assert slow_node.view_change_in_progress
 
-    # make sure that the slow node receives VCD msgs for view=2
-    # and didn't receive IS msgs for view=2
-    check_vcd_msgs(slow_node, expected_view_no=2, expected_count=len(fast_nodes), )
-    check_no_ic_msgs(slow_node, expected_view_no=2)
+        # make sure that the slow node receives VCD msgs for view=2
+        # and didn't receive IS msgs for view=2
+        check_vcd_msgs(slow_node, expected_view_no=2, expected_count=len(fast_nodes), )
+        check_no_ic_msgs(slow_node, expected_view_no=2)
 
     # 3. RESET DELAYS AND CHECK
-    slow_stasher.reset_delays_and_process_delayeds()
 
     waitForViewChange(looper, nodes, expectedViewNo=2)
     ensureElectionsDone(looper, nodes)
