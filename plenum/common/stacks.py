@@ -73,7 +73,7 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
             self.min_stack_restart_timeout + \
             randint(0, self.max_stack_restart_time_deviation)
 
-    def check_listener_events(self):
+    def handle_listener_events(self):
         events = self.get_monitor_events(self.listener_monitor)
         for event in events:
             logger.trace('{} listener event: {}'.format(self, event))
@@ -99,7 +99,7 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
     def _can_restart(self):
         return self.next_restart_min_time < time.time()
 
-    def check_connections_limit_reached(self):
+    def handle_connections_limit(self):
         connections_limit_reached_prev = self.connections_limit_reached
         self.connections_limit_reached = self.connected_clients_num >= self.max_connected_clients_num
         if self.connections_limit_reached:
@@ -125,8 +125,8 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
 
     def serviceClientStack(self):
         if self.track_connected_clients_num_enabled:
-            self.check_listener_events()
-            self.check_connections_limit_reached()
+            self.handle_listener_events()
+            self.handle_connections_limit()
 
     def newClientsConnected(self, newClients):
         raise NotImplementedError("{} must implement this method".format(self))

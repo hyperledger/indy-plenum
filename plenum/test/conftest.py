@@ -1147,3 +1147,24 @@ def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
                                      sdk_wallet_steward,
                                      seed=sdk_new_client_seed)
     return wh, client_did
+
+
+@pytest.fixture(scope="module")
+def create_node_and_not_start(testNodeClass,
+                              node_config_helper_class,
+                              tconf,
+                              tdir,
+                              allPluginsPath,
+                              looper,
+                              tdirWithPoolTxns,
+                              tdirWithDomainTxns,
+                              tdirWithNodeKeepInited):
+    with ExitStack() as exitStack:
+        node = exitStack.enter_context(create_new_test_node(testNodeClass,
+                                node_config_helper_class,
+                                "Alpha",
+                                tconf,
+                                tdir,
+                                allPluginsPath))
+        yield node
+        node.stop()
