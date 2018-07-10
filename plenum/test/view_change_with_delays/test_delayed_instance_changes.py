@@ -77,5 +77,6 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
     slow_stasher.reset_delays_and_process_delayeds()
 
     waitForViewChange(looper, nodes, expectedViewNo=2)
-    ensureElectionsDone(looper, nodes, numInstances=3)
+    ensureElectionsDone(looper, nodes)
+    assert not slow_node.view_change_in_progress
     ensure_all_nodes_have_same_data(looper, nodes=nodes)
