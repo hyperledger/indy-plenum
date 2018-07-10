@@ -900,7 +900,7 @@ class ZStack(NetworkInterface):
         try:
             os.remove(filePath)
         except Exception as ex:
-            logger.display('{} could delete file {} due to {}'.format(self, filePath, ex))
+            logger.info('{} could delete file {} due to {}'.format(self, filePath, ex))
 
     def clearLocalRoleKeep(self):
         for d in (self.secretKeysDir, self.sigKeyDir):

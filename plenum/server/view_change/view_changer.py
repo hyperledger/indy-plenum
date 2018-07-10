@@ -164,9 +164,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             next_primary_name = self.node.elector._next_primary_node_name_for_master()
 
             if next_primary_name not in self._view_change_done:
-                logger.display("{} has not received ViewChangeDone from the next "
-                               "primary {} (view_no: {}, totalNodes: {})".
-                               format(self.name, next_primary_name, self.view_no, self.node.totalNodes))
+                logger.info("{} has not received ViewChangeDone from the next "
+                            "primary {} (view_no: {}, totalNodes: {})".
+                            format(self.name, next_primary_name, self.view_no, self.node.totalNodes))
             else:
                 logger.info('{} received ViewChangeDone from primary {}'.format(self, next_primary_name))
                 self._has_view_change_from_primary = True
