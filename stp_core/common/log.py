@@ -26,14 +26,6 @@ def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 
-class ReplicaFilter(logging.Filter):
-
-    def filter(self, record):
-        if record.module == "replica":
-            record.msg = "REPLICA:({}) {}".format(self.name, record.msg)
-        return record
-
-
 class Logger(metaclass=Singleton):
     def __init__(self, config=None):
 
@@ -128,7 +120,7 @@ class Logger(metaclass=Singleton):
 
     @staticmethod
     def _addDisplayToLogging():
-        logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
+        logging.addLevelName(DISPLAY_LOG_LEVEL, "NOTIFICATION")
 
         def display(self, message, *args, **kwargs):
             if self.isEnabledFor(DISPLAY_LOG_LEVEL):
