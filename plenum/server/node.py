@@ -568,6 +568,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
+        self._cancel(self._check_view_change_completed)
         self._schedule(action=self._check_view_change_completed,
                        seconds=self._view_change_timeout)
 
