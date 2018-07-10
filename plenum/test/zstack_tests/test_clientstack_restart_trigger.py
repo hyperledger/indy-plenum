@@ -30,23 +30,23 @@ def tconf(tconf, request):
 
 is_restarted = False
 
-def test_clientstack_restart_trigger(tconf, create_node_and_not_start):
+def new_restart(self):
+    global is_restarted
+    is_restarted = True
+
+def patch_stack_restart(node):
+    node.clientstack.restart = types.MethodType(new_restart, node.clientstack)
+
+def revert_origin_back(node, orig_restart):
+    node.clientstack.restart = types.MethodType(orig_restart, node.clientstack)
+
+def test_clientstack_restart_not_triggered(tconf, create_node_and_not_start):
     node = create_node_and_not_start
 
     global is_restarted
+    is_restarted = False
 
     orig_restart = ClientZStack.restart
-
-    def new_restart(self):
-        global is_restarted
-        is_restarted = True
-
-    def patch_stack_restart(node):
-        node.clientstack.restart = types.MethodType(new_restart, node.clientstack)
-
-    def revert_origin_back(node):
-        node.clientstack.restart = types.MethodType(orig_restart, node.clientstack)
-
     patch_stack_restart(node)
 
     node.clientstack.connected_clients_num = max_connected_clients_num - 1
@@ -54,13 +54,40 @@ def test_clientstack_restart_trigger(tconf, create_node_and_not_start):
 
     assert is_restarted is False
 
+    revert_origin_back(node, orig_restart)
+
+def test_clientstack_restart_triggered(tconf, create_node_and_not_start):
+    node = create_node_and_not_start
+
+    global is_restarted
+    is_restarted = False
+
+    orig_restart = ClientZStack.restart
+    patch_stack_restart(node)
+
     node.clientstack.connected_clients_num = max_connected_clients_num
     node.clientstack.handle_connections_limit()
 
     assert is_restarted is True
     is_restarted = False
 
-    node.clientstack.min_stack_restart_timeout = 300
+    node.clientstack.connected_clients_num = max_connected_clients_num + 1
+    node.clientstack.handle_connections_limit()
+
+    assert is_restarted is True
+
+    revert_origin_back(node, orig_restart)
+
+def test_clientstack_restart_trigger_delayed(tconf, looper, create_node_and_not_start):
+    node = create_node_and_not_start
+
+    global is_restarted
+    is_restarted = False
+
+    orig_restart = ClientZStack.restart
+    patch_stack_restart(node)
+
+    node.clientstack.min_stack_restart_timeout = 2
 
     node.clientstack.connected_clients_num = max_connected_clients_num + 1
     node.clientstack.handle_connections_limit()
@@ -73,4 +100,9 @@ def test_clientstack_restart_trigger(tconf, create_node_and_not_start):
 
     assert is_restarted is False
 
-    revert_origin_back(node)
+    looper.runFor(node.clientstack.min_stack_restart_timeout + 0.5)
+
+    node.clientstack.handle_connections_limit()
+    assert is_restarted is True
+
+    revert_origin_back(node, orig_restart)
