@@ -245,7 +245,12 @@ CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
-# Stack restart parameters
+# Connections tracking and stack restart parameters.
+# NOTE: TRACK_CONNECTED_CLIENTS_NUM_ENABLED must be set to True
+# if CLIENT_STACK_RESTART_ENABLED is set to True as stack restart
+# mechanism uses clients connections tracking.
+TRACK_CONNECTED_CLIENTS_NUM_ENABLED = False
+CLIENT_STACK_RESTART_ENABLED = False
 MAX_CONNECTED_CLIENTS_NUM = 10000
 MIN_STACK_RESTART_TIMEOUT = 1800  # seconds
 STACK_POSTRESTART_WAIT_TIME = 2  # seconds
