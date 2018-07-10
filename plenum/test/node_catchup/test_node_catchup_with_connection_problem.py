@@ -8,6 +8,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import LedgerStatus
 from plenum.common.txn_util import get_req_id, get_from, get_txn_time, \
     get_payload_data
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.delayers import lsDelay, msg_rep_delay, cpDelay
 from plenum.test.helper import sdk_send_random_and_check
@@ -36,6 +37,9 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
                                          allPluginsPath,
                                          monkeypatch,
                                          lost_count):
+    '''Skip processing of lost_count Message Responses with LEDGER STATUS
+    in catchup; test makes sure that the node eventually finishes catchup'''
+
     node_to_disconnect = txnPoolNodeSet[-1]
 
     def unpatch_after_call(status, frm):
@@ -87,13 +91,18 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                                     allPluginsPath,
                                                     monkeypatch,
                                                     lost_count):
+    '''Skip processing of first lost_count CONSISTENCY_PROOFs in catchup. In
+    this case catchup node has no quorum with f+1 CONSISTENCY_PROOFs for the
+    longer transactions list. It need to request CONSISTENCY_PROOFs again and
+    finishes catchup.
+    Test makes sure that the node eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
 
     def unpatch_after_call(proof, frm):
         global call_count
         call_count += 1
         if call_count >= lost_count:
-            # unpatch processLedgerStatus after lost_count calls
+            # unpatch processConsistencyProof after lost_count calls
             monkeypatch.undo()
             call_count = 0
 
@@ -118,7 +127,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                   config=tconf,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
-    # patch processLedgerStatus
+    # patch processConsistencyProof
     monkeypatch.setattr(node_to_disconnect.ledgerManager,
                         'processConsistencyProof',
                         unpatch_after_call)
@@ -138,21 +147,12 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
                                                   allPluginsPath,
                                                   monkeypatch,
                                                   lost_count):
+    '''Skip processing of lost_count CONSISTENCY_PROOFs that resieve for
+    consistency proof request (not for ledger status). In this case catchup node
+    has no quorum for proofing some long of transactions list. It need to request
+    CONSISTENCY_PROOFs again and finishes catchup. Test makes sure that the node
+    eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
-    tmp_method = node_to_disconnect.ledgerManager.canProcessConsistencyProof
-
-    def unpatch_after_call(proof):
-        if node_to_disconnect.ledgerManager.spylog.count(
-                LedgerManager.processConsistencyProof) <= 2:
-            tmp_method(proof)
-        else:
-            global call_count
-            call_count += 1
-            if call_count >= lost_count:
-                # unpatch canProcessConsistencyProof after lost_count calls
-                monkeypatch.undo()
-                call_count = 0
-
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
@@ -174,7 +174,24 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
                                   config=tconf,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
-    # patch canProcessConsistencyProof
+
+    original_process_cp = node_to_disconnect.ledgerManager.canProcessConsistencyProof
+
+    def unpatch_after_call(proof):
+        # patching processConsistencyProof after f+1 calls
+        if node_to_disconnect.ledgerManager.spylog.count(
+                LedgerManager.processConsistencyProof) <= \
+                Quorums(txnPoolNodeSet).f + 1:
+            original_process_cp(proof)
+        else:
+            global call_count
+            call_count += 1
+            if call_count >= lost_count:
+                # unpatch processConsistencyProof after lost_count calls
+                monkeypatch.undo()
+                call_count = 0
+
+    # patch processConsistencyProof
     monkeypatch.setattr(node_to_disconnect.ledgerManager,
                         'processConsistencyProof',
                         unpatch_after_call)
