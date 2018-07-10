@@ -149,7 +149,7 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
                                                   lost_count):
     '''Skip processing of lost_count CONSISTENCY_PROOFs that resieve for
     consistency proof request (not for ledger status). In this case catchup node
-    has no quorum for proofing some long of transactions list. It need to request
+    has no quorum for proofing some size of transactions list. It need to request
     CONSISTENCY_PROOFs again and finishes catchup. Test makes sure that the node
     eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
@@ -175,7 +175,7 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
 
-    original_process_cp = node_to_disconnect.ledgerManager.canProcessConsistencyProof
+    original_process_cp = node_to_disconnect.ledgerManager.processConsistencyProof
 
     def unpatch_after_call(proof):
         # patching processConsistencyProof after f+1 calls
