@@ -186,7 +186,7 @@ class Looper:
                 logger.warning("Trying to remove a prodable {} which is not present"
                                .format(prodable))
         else:
-            logger.debug("Provide a prodable object or a prodable name")
+            logger.error("Provide a prodable object or a prodable name")
 
     def hasProdable(self, prodable: Prodable=None, name: str=None) -> bool:
         if not lxor(prodable, name):
@@ -250,7 +250,7 @@ class Looper:
                         raise RuntimeError(
                             "don't know how to run {}".format(coro))
                 except Exception as ex:
-                    logger.debug("Error while running coroutine {}: {}".format(coro.__name__, ex.__repr__()))
+                    logger.error("Error while running coroutine {}: {}".format(coro.__name__, ex.__repr__()))
                     raise ex
             if len(results) == 1:
                 return results[0]

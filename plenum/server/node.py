@@ -1297,8 +1297,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This method is called whenever a connection with a  new node is
         established.
         """
-        logger.info("{} choosing to start election on the basis of count {} and nodes {}".
-                    format(self, self.connectedNodeCount, self.nodestack.conns))
+        logger.debug("{} choosing to start election on the basis of count {} and nodes {}".
+                     format(self, self.connectedNodeCount, self.nodestack.conns))
 
     def adjustReplicas(self):
         """
@@ -1568,8 +1568,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.display("{} invalidated msg {}".format(self, wrappedMsg),
-                               extra={"tags": ["node-msg-validation"]})
+                logger.debug("{} invalidated msg {}".format(self, wrappedMsg),
+                             extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
@@ -1689,8 +1689,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _invalid_client_ledger_status_handling(self, ex, msg, frm):
         # This specific validation handles incorrect client LEDGER_STATUS message
-        logger.display("{} received bad LEDGER_STATUS message from client {}. "
-                       "Reason: {}. ".format(self, frm, ex.args[0]))
+        logger.info("{} received bad LEDGER_STATUS message from client {}. "
+                    "Reason: {}. ".format(self, frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
         self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
@@ -2764,7 +2764,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.get_req_handler(ledger_id):
             self.get_req_handler(ledger_id).onBatchCreated(state_root)
         else:
-            logger.display('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+            logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
@@ -2781,7 +2781,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.get_req_handler(ledger_id):
             self.get_req_handler(ledger_id).onBatchRejected()
         else:
-            logger.display('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+            logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
         self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):

@@ -144,7 +144,7 @@ class ZStack(NetworkInterface):
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
         else:
-            logger.display('No remote named {} present')
+            logger.info('No remote named {} present')
 
     @staticmethod
     def initLocalKeys(name, baseDir, sigseed, override=False):
@@ -723,15 +723,13 @@ class ZStack(NetworkInterface):
                 msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
-            logger.trace('{} transmitting message {} to {}'
-                         .format(self, msg, uid))
+            logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
-                logger.display('Remote {} is not connected - message will not be sent immediately.'
-                               'If this problem does not resolve itself - check your firewall settings'.format(uid))
+                logger.info('Remote {} is not connected - message will not be sent immediately.'
+                            'If this problem does not resolve itself - check your firewall settings'.format(uid))
             return True, err_str
         except zmq.Again:
-            logger.debug(
-                '{} could not transmit message to {}'.format(self, uid))
+            logger.debug('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)

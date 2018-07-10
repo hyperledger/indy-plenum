@@ -339,7 +339,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         oldServices = set(nodeInfo[DATA].get(SERVICES, []))
         newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
-            logger.display("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
+            logger.info("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
             return
         else:
             if self.name != nodeName:
@@ -359,7 +359,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
-                        logger.display('{} did not find remote {} to remove'.format(self, nodeName))
+                        logger.info('{} did not find remote {} to remove'.format(self, nodeName))
 
                     self.node.nodeLeft(txn_data)
                     self.node_about_to_be_disconnected(nodeName)

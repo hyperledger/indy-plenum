@@ -17,7 +17,7 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
         return left_batch + right_batch if left_batch and right_batch else None
 
     if step_num > SPLIT_STEPS_LIMIT:
-        logger.display('Too many split steps were done {}. Batches were not created'.format(step_num))
+        logger.warning('Too many split steps were done {}. Batches were not created'.format(step_num))
         return None
 
     # precondition for case when total length is greater than limit
@@ -38,7 +38,7 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
     else:
         if len(msgs) == 1:
             # a batch with this message greater than limit so split fails
-            logger.display('The message {} is less than limit but the batch which contains only this '
+            logger.warning('The message {} is less than limit but the batch which contains only this '
                            'message has size {} which is greater than limit'.format(msgs[:256], len(batch)))
             return None
         step_num += 1
