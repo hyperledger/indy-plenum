@@ -126,8 +126,6 @@ class Cli:
         self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
-        Logger().enableCliLogging(self.out,
-                                  override_tags=override_tags)
         self.looper = looper
         self.withNode = withNode
         self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
@@ -235,6 +233,9 @@ class Cli:
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
+
+        Logger().enableCliLogging(self.out,
+                                  override_tags=override_tags)
 
         if logFileName:
             Logger().enableFileLogging(logFileName)

@@ -25,8 +25,7 @@ class StatsPublisher:
 
     def addMsgToBuffer(self, message):
         if len(self._messageBuffer) >= self.msg_buff_max_size:
-            logger.warning(
-                "Message buffer is too large. Refuse to add a new message {}".format(message))
+            logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
             return False
 
         self._messageBuffer.appendleft(message)
@@ -70,8 +69,8 @@ class StatsPublisher:
         await self._writer.drain()
 
     def _connectionRefused(self, message, ex):
-        logger.debug("Connection refused for {}:{} while sending message: {}".
-                     format(self.ip, self.port, ex))
+        logger.display("Connection refused for {}:{} while sending message: {}".
+                       format(self.ip, self.port, ex))
         self._writer = None
 
     def _connectionFailedUnexpectedly(self, message, ex):

@@ -10,7 +10,7 @@ baseDir = os.getcwd()
 logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
-logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
+logFormat = '{asctime:s}|{levelname:s}|{filename:s}|{message:s}'
 logFormatStyle = '{'
 
 logLevel = logging.NOTSET

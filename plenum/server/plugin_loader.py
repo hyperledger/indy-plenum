@@ -92,19 +92,14 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.debug("skipping plugin {}[class: {}] "
-                                     "because it does not have a '{}' "
-                                     "attribute".
-                                     format(mod, c, self._pluginTypeAttrName))
+                        logger.display("skipping plugin {}[class: {}] because it does not have a '{}' "
+                                       "attribute".format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
-                            logger.debug("skipping plugin '{0}' because it "
-                                         "does not have a valid '{1}' "
-                                         "attribute; valid {1} are: {2}".
-                                         format(mod,
-                                                self._pluginTypeAttrName,
-                                                self._validTypes))
+                            logger.display("skipping plugin '{0}' because it does not have a valid '{1}' "
+                                           "attribute; valid {1} are: {2}".
+                                           format(mod, self._pluginTypeAttrName, self._validTypes))
                         else:
                             inst = c()
                             if isinstance(inst, HasDynamicallyImportedModules):
@@ -122,8 +117,7 @@ class PluginLoader:
                                 else:
                                     plugins[typ] = {inst}
                             else:
-                                logger.info("** ERROR occurred while loading "
-                                            "{} plugin from module {}".
+                                logger.info("** ERROR occurred while loading {} plugin from module {}".
                                             format(c.__name__, mod))
 
             sys.path.pop(0)
