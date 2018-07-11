@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
-from plenum.test.helper import waitForViewChange, stopNodes
+from plenum.test.helper import waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count, getAllReturnVals
@@ -13,6 +13,50 @@ nodeCount = 7
 view_change_timeout = 5
 
 
+def _check_view_change_completed_count(node):
+    return get_count(node, node._check_view_change_completed)
+
+
+def _check_view_change_completed_true(node):
+    return len(getAllReturnVals(node, node._check_view_change_completed, compare_val_to=True))
+
+
+def _check_view_change_completed_stats(nodes):
+    return {node.name: (_check_view_change_completed_count(node), _check_view_change_completed_true(node))
+            for node in nodes}
+
+
+def check_view_change_completed__count(node, stats):
+    """
+    :return: Number of calls to _check_view_change_completed since stats were gathered
+    """
+    return _check_view_change_completed_count(node) - stats[node.name][0]
+
+
+def check_view_change_completed__true(node, stats):
+    """
+    :return: Number of times _check_view_change_completed returned true since stats were gathered
+    """
+    return _check_view_change_completed_true(node) - stats[node.name][1]
+
+
+def stop_next_primary(nodes):
+    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master()
+    next(node for node in nodes if node.name == m_next_primary_name).stop()
+    alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
+    return alive_nodes
+
+
+def delay_view_change_done_msg(nodes):
+    for node in nodes:
+        node.nodeIbStasher.delay(vcd_delay(delay=50))
+
+
+def start_view_change(nodes, next_view_no):
+    for node in nodes:
+        node.view_changer.startViewChange(next_view_no)
+
+
 @pytest.fixture()
 def setup(txnPoolNodeSet, looper):
     m_primary_node = get_master_primary_node(list(txnPoolNodeSet))
@@ -21,13 +65,8 @@ def setup(txnPoolNodeSet, looper):
     for node in txnPoolNodeSet:
         node._view_change_timeout = view_change_timeout
 
-    timeout_callback_stats = {}
-    for node in txnPoolNodeSet:
-        timeout_callback_stats[node.name] = {
-            'called': get_count(node, node._check_view_change_completed),
-            'returned_true': len(getAllReturnVals(
-                node, node._check_view_change_completed, compare_val_to=True))
-        }
+    timeout_callback_stats = _check_view_change_completed_stats(txnPoolNodeSet)
+
     return m_primary_node, initial_view_no, timeout_callback_stats
 
 
@@ -59,13 +98,8 @@ def test_view_change_retry_by_timeout(
 
     # The timeout method was called one time
     for node in txnPoolNodeSet:
-        assert get_count(node,
-                         node._check_view_change_completed) - \
-               timeout_callback_stats[node.name]['called'] == 1
-        assert len(getAllReturnVals(node,
-                                    node._check_view_change_completed,
-                                    compare_val_to=True)) - \
-               timeout_callback_stats[node.name]['returned_true'] == 1
+        assert check_view_change_completed__count(node, timeout_callback_stats) == 1
+        assert check_view_change_completed__true(node, timeout_callback_stats) == 1
 
     # 2 view changes have been initiated
     for node in txnPoolNodeSet:
@@ -91,13 +125,8 @@ def test_multiple_view_change_retries_by_timeouts(
 
     def check_timeout_callback_called(times):
         for node in txnPoolNodeSet:
-            assert get_count(node,
-                             node._check_view_change_completed) - \
-                   timeout_callback_stats[node.name]['called'] == times
-            assert len(getAllReturnVals(node,
-                                        node._check_view_change_completed,
-                                        compare_val_to=True)) - \
-                   timeout_callback_stats[node.name]['returned_true'] == times
+            assert check_view_change_completed__count(node, timeout_callback_stats) == times
+            assert check_view_change_completed__true(node, timeout_callback_stats) == times
 
     # Check that the timeout method was called 3 times
     # during the triple view_change_timeout period plus a margin
@@ -145,27 +174,5 @@ def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
 
     # The timeout method was called 1 time
     for node in alive_nodes:
-        assert get_count(node,
-                         node._check_view_change_completed) - \
-               timeout_callback_stats[node.name]['called'] == 1
-        assert len(getAllReturnVals(node,
-                                    node._check_view_change_completed,
-                                    compare_val_to=True)) - \
-               timeout_callback_stats[node.name]['returned_true'] == 1
-
-
-def stop_next_primary(nodes):
-    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master()
-    next(node for node in nodes if node.name == m_next_primary_name).stop()
-    alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
-    return alive_nodes
-
-
-def delay_view_change_done_msg(nodes):
-    for node in nodes:
-        node.nodeIbStasher.delay(vcd_delay(delay=50))
-
-
-def start_view_change(nodes, next_view_no):
-    for node in nodes:
-        node.view_changer.startViewChange(next_view_no)
+        assert check_view_change_completed__count(node, timeout_callback_stats) == 1
+        assert check_view_change_completed__true(node, timeout_callback_stats) == 1
