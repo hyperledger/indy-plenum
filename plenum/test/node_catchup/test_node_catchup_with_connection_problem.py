@@ -168,9 +168,7 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
     # check cancel of schedule with requesting ledger statuses and consistency proofs
     for ledger_id in range(0, 3):
         scheduled_ls = node_to_disconnect.ledgerManager.request_ledger_status_action_ids
-        if ledger_id in scheduled_ls:
-            assert not scheduled_ls[ledger_id]
+        assert ledger_id not in scheduled_ls
     for ledger_id in range(0, 3):
-        scheduled_cp = node_to_disconnect.ledgerManager.consistency_proof_action_ids
-        if ledger_id in scheduled_cp:
-            assert not scheduled_cp[ledger_id]
+        scheduled_cp = node_to_disconnect.ledgerManager.request_consistency_proof_action_ids
+        assert ledger_id not in scheduled_cp
