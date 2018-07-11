@@ -43,7 +43,7 @@ LOG_NAME_TO_LEVEL = {
     'CRITICAL': CRITICAL,
     'ERROR': ERROR,
     'WARNING': WARNING,
-    'DISPLAY': DISPLAY_LOG_LEVEL,
+    'NOTIFICATION': DISPLAY_LOG_LEVEL,
     'INFO': INFO,
     'DEBUG': DEBUG,
     'TRACE': TRACE_LOG_LEVEL
@@ -66,7 +66,7 @@ def parse_args():
                         choices=['CRITICAL',
                                  'ERROR',
                                  'WARNING',
-                                 'DISPLAY',
+                                 'NOTIFICATION',
                                  'INFO',
                                  'DEBUG',
                                  'TRACE'],

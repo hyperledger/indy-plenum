@@ -154,7 +154,7 @@ class ZStack(NetworkInterface):
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
         else:
-            logger.debug('No remote named {} present')
+            logger.info('No remote named {} present')
 
     @staticmethod
     def initLocalKeys(name, baseDir, sigseed, override=False):
@@ -162,10 +162,8 @@ class ZStack(NetworkInterface):
         eDir = os.path.join(baseDir, '__eDir')
         os.makedirs(sDir, exist_ok=True)
         os.makedirs(eDir, exist_ok=True)
-        (public_key, secret_key), (verif_key, sig_key) = createEncAndSigKeys(eDir,
-                                                                             sDir,
-                                                                             name,
-                                                                             seed=sigseed)
+        (public_key, secret_key), (verif_key, sig_key) = \
+            createEncAndSigKeys(eDir, sDir, name, seed=sigseed)
 
         homeDir = ZStack.homeDirPath(baseDir, name)
         verifDirPath = ZStack.verifDirPath(homeDir)
@@ -284,9 +282,8 @@ class ZStack(NetworkInterface):
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
-            logger.info("Signing and Encryption keys were not found for {}. "
-                        "Creating them now".format(self),
-                        extra={"cli": False})
+            logger.display("Signing and Encryption keys were not found for {}. Creating them now".
+                           format(self), extra={"cli": False})
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
             os.makedirs(tdirS, exist_ok=True)
@@ -338,12 +335,10 @@ class ZStack(NetworkInterface):
 
     def stop(self):
         if self.opened:
-            logger.info('stack {} closing its listener'.format(self),
-                        extra={"cli": False, "demo": False})
+            logger.display('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
             self.close()
         self.teardownAuth()
-        logger.info("stack {} stopped".format(self),
-                    extra={"cli": False, "demo": False})
+        logger.display("stack {} stopped".format(self), extra={"cli": False, "demo": False})
 
     @property
     def opened(self):
@@ -449,7 +444,7 @@ class ZStack(NetworkInterface):
         if self.listener:
             await self._serviceStack(self.age)
         else:
-            logger.debug("{} is stopped".format(self))
+            logger.info("{} is stopped".format(self))
 
         r = len(self.rxMsgs)
         if r > 0:
@@ -464,7 +459,7 @@ class ZStack(NetworkInterface):
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as exc:
             errstr = 'Message will be discarded due to {}'.format(exc)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
-            logger.warning("Got from {} {}".format(frm, errstr))
+            logger.error("Got from {} {}".format(frm, errstr))
             self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
@@ -615,7 +610,7 @@ class ZStack(NetworkInterface):
         """
         if not isinstance(remote, Remote):
             raise PlenumTypeError('remote', remote, Remote)
-        logger.debug('{} reconnecting to {}'.format(self, remote))
+        logger.info('{} reconnecting to {}'.format(self, remote))
         public, secret = self.selfEncKeys
         remote.disconnect()
         remote.connect(self.ctx, public, secret)
@@ -654,8 +649,8 @@ class ZStack(NetworkInterface):
         if remoteVerkey:
             self.addVerifier(remoteVerkey)
         else:
-            logger.debug("{} adding a remote {}({}) without a verkey"
-                         .format(self, name, ha))
+            logger.display("{} adding a remote {}({}) without a verkey"
+                           .format(self, name, ha))
         return remote
 
     def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
@@ -708,7 +703,7 @@ class ZStack(NetworkInterface):
                 except InvalidMessageExceedingSizeException as exc:
                     err_str = '{}Cannot send message. Error {}'.format(
                         CONNECTION_PREFIX, exc)
-                    logger.error(err_str)
+                    logger.warning(err_str)
                     raise TooBigMessage(msg, ident=remoteName,
                                         msg_len=exc.actLen,
                                         max_len=exc.expLen,
@@ -741,8 +736,7 @@ class ZStack(NetworkInterface):
                 msg = self.prepare_to_send(msg)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             socket.send(msg, flags=zmq.NOBLOCK)
-            logger.trace('{} transmitting message {} to {}'
-                         .format(self, msg, uid))
+            logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.info('Remote {} is not connected - '
                             'message will not be sent immediately.'
@@ -755,7 +749,7 @@ class ZStack(NetworkInterface):
         except InvalidMessageExceedingSizeException as exc:
             err_str = '{}Cannot transmit message. Error {}'.format(
                 CONNECTION_PREFIX, exc)
-            logger.error(err_str)
+            logger.warning(err_str)
             raise TooBigMessage(msg,
                                 ident=uid,
                                 msg_len=exc.actLen,
@@ -786,16 +780,16 @@ class ZStack(NetworkInterface):
         except InvalidMessageExceedingSizeException as exc:
             err_str = '{}Cannot transmit message. Error {}'.format(
                 CONNECTION_PREFIX, exc)
-            logger.error(err_str)
+            logger.warning(err_str)
             raise TooBigMessage(msg,
                                 ident=ident,
                                 msg_len=exc.actLen,
                                 max_len=exc.expLen,
                                 prefix=prefix) from exc
         except Exception as exc:
-            err_str = '{}{} got error {} while sending through listener to {}'\
-                .format(CONNECTION_PREFIX, self, exc, ident)
-            logger.error(err_str)
+            err_str = ("{}{} got error {} while sending through listener to {}"
+                       .format(CONNECTION_PREFIX, self, exc, ident))
+            logger.warning(err_str)
             raise PlenumTransportError(err_str, msg=msg, ident=ident) from exc
 
     @staticmethod
@@ -933,8 +927,8 @@ class ZStack(NetworkInterface):
         try:
             os.remove(filePath)
         except Exception as exc:
-            logger.debug('{} could delete file {} due to {}'.
-                         format(self, filePath, exc))
+            logger.info("{} failed to delete file {} due to {}"
+                        .format(self, filePath, exc))
 
     def clearLocalRoleKeep(self):
         for d in (self.secretKeysDir, self.sigKeyDir):

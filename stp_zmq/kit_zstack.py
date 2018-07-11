@@ -103,15 +103,15 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
         if not missing:
             return missing
 
-        logger.debug("{}{} found the following missing connections: {}"
-                     .format(CONNECTION_PREFIX, self, ", ".join(missing)))
+        logger.info("{}{} found the following missing connections: {}".
+                    format(CONNECTION_PREFIX, self, ", ".join(missing)))
 
         for name in missing:
             try:
                 self.connect(name, ha=self.registry[name])
             except ValueError as ex:
-                logger.error('{}{} cannot connect to {} due to {}'
-                             .format(CONNECTION_PREFIX, self, name, ex))
+                logger.warning('{}{} cannot connect to {} due to {}'.
+                               format(CONNECTION_PREFIX, self, name, ex))
         return missing
 
     async def service(self, limit=None):

@@ -45,19 +45,16 @@ def loadPlugins(plugins_dir, plugins_to_load=None):
                         i += 1
                     else:
                         if not pluginsNotFound.get(pluginPath):
-                            logger.warning(
-                                "Note: Plugin file does not exists: {}. "
-                                "Create plugin file if you want to load it" .format(pluginPath), extra={
-                                    "cli": False})
+                            logger.error("Note: Plugin file does not exists: {}. "
+                                         "Create plugin file if you want to load it"
+                                         .format(pluginPath), extra={"cli": False})
                             pluginsNotFound[pluginPath] = "Notified"
 
                 except Exception as ex:
                     # TODO: Is this strategy ok to catch any exception and
                     # just print the error and continue,
                     # or it should fail if there is error in plugin loading
-                    logger.warning(
-                        "** Error occurred during loading plugin {}: {}"
-                        .format(pluginPath, str(ex)))
+                    logger.error("** Error occurred during loading plugin {}: {}".format(pluginPath, str(ex)))
 
     logger.debug(
         "Total plugins loaded from plugins_dir {} are : {}".format(plugins_dir, i))

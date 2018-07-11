@@ -136,6 +136,14 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
+
+# Two following parameters define collecting statistic timeout for
+# collecting ordered request and throughput evaluating them.
+# In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,
+# throughput will returned as None for corresponding getThroughput methods.
+ThroughputInnerWindowSize = 15
+ThroughputMinActivityThreshold = 16
+
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'bounds_coeff': 10,
@@ -191,7 +199,7 @@ CatchupTransactionsTimeout = 6
 logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
-logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
+logFormat = '{asctime:s}|{levelname:s}|{filename:s}|{message:s}'
 logFormatStyle = '{'
 logLevel = logging.NOTSET
 enableStdOutLogging = True
@@ -225,7 +233,7 @@ Max3PCBatchWait = 1
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
-ProcessedBatchMapsToKeep = 100
+ProcessedBatchMapsToKeep = 1000
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent

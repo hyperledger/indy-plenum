@@ -121,8 +121,7 @@ class Batched(MessageProcessor):
                                     .format(self, dest, exc, batch)
                                 )
                     else:
-                        logger.warning("{} cannot create batch(es) for {}"
-                                       .format(self, dest))
+                        logger.error("{} cannot create batch(es) for {}".format(self, dest))
                 else:
                     while msgs:
                         msg = msgs.popleft()

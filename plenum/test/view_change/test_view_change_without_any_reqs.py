@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test import waits
 from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually
@@ -13,6 +15,21 @@ Max3PCBatchSize = 3
 from plenum.test.batching_3pc.conftest import tconf
 
 TestRunningTimeLimitSec = 200
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_thr_window_size = tconf.ThroughputInnerWindowSize
+    old_thr_window_count = tconf.ThroughputMinActivityThreshold
+    old_max_3pc_batch_size = tconf.Max3PCBatchSize
+    tconf.ThroughputInnerWindowSize = 2
+    tconf.ThroughputMinActivityThreshold = 3
+    tconf.Max3PCBatchSize = Max3PCBatchSize
+
+    yield tconf
+    tconf.ThroughputInnerWindowSize = old_thr_window_size
+    tconf.ThroughputMinActivityThreshold = old_thr_window_count
+    tconf.Max3PCBatchSize = old_max_3pc_batch_size
 
 
 def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
