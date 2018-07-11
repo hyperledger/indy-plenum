@@ -1242,7 +1242,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, txn))
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(
-            msg, list(self.clientstack.connectedClients))
+            msg, list(self.clientstack.peersWithoutRemotes))
 
     @property
     def clientStackName(self):

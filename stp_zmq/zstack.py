@@ -25,6 +25,7 @@ from stp_core.crypto.util import isHex, ed25519PkToCurve25519
 from stp_core.network.exceptions import PublicKeyNotFoundOnDisk, VerKeyNotFoundOnDisk
 from stp_zmq.authenticator import MultiZapAuthenticator
 from zmq.utils import z85
+from zmq.utils.monitor import recv_monitor_message
 
 import zmq
 from stp_core.common.log import getlogger
@@ -60,7 +61,8 @@ class ZStack(NetworkInterface):
     _RemoteClass = Remote
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
+                 create_listener_monitor=False):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
@@ -94,6 +96,8 @@ class ZStack(NetworkInterface):
 
         self.ctx = None  # type: Context
         self.listener = None
+        self.create_listener_monitor = create_listener_monitor
+        self.listener_monitor = None
         self.auth = None
 
         # Each remote is identified uniquely by the name
@@ -337,6 +341,8 @@ class ZStack(NetworkInterface):
     def open(self):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        if self.create_listener_monitor:
+            self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
         # self.poller.register(self.listener, test.POLLIN)
         public, secret = self.selfEncKeys
@@ -354,6 +360,9 @@ class ZStack(NetworkInterface):
         )
 
     def close(self):
+        if self.listener_monitor is not None:
+            self.listener.disable_monitor()
+            self.listener_monitor = None
         self.listener.unbind(self.listener.LAST_ENDPOINT)
         self.listener.close(linger=0)
         self.listener = None
@@ -929,6 +938,20 @@ class ZStack(NetworkInterface):
         msg_bytes = self.serializeMsg(msg)
         self.msgLenVal.validate(msg_bytes)
         return msg_bytes
+
+    @staticmethod
+    def get_monitor_events(monitor_socket, non_block=True):
+        events = []
+        # noinspection PyUnresolvedReferences
+        flags = zmq.NOBLOCK if non_block else 0
+        while True:
+            try:
+                # noinspection PyUnresolvedReferences
+                message = recv_monitor_message(monitor_socket, flags)
+                events.append(message)
+            except zmq.Again:
+                break
+        return events
 
 
 class DummyKeep:
