@@ -1731,7 +1731,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
                                 len(pp.reqIdr[pp.discarded:])))
 
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
+        self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId)
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key, self.quorums, pp)
@@ -1810,7 +1810,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 format(self, lag_in_checkpoints))
             self.node.start_catchup()
 
-    def addToCheckpoint(self, ppSeqNo, digest):
+    def addToCheckpoint(self, ppSeqNo, digest, ledger_id):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
                 state = self.checkpoints[s, e]  # type: CheckpointState
@@ -1836,8 +1836,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                          ).hexdigest(),
                                          digests=[])
                 self.checkpoints[s, e] = state
-                self.send(Checkpoint(self.instId, self.viewNo, s, e,
-                                     state.digest))
+                self.logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
+                                 "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
+                                 format(self, (s, e), self.viewNo, state.digest, ledger_id,
+                                        self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
+                                        self.stateRootHash(ledger_id, committed=False)))
+                self.send(Checkpoint(self.instId, self.viewNo, s, e, state.digest))
             self.processStashedCheckpoints((s, e))
 
     def markCheckPointStable(self, seqNo):
