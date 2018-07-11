@@ -60,6 +60,8 @@ class BaseHandler(metaclass=ABCMeta):
             return None
 
         valid_msg = self.create(msg.msg, **params)
+        if valid_msg is None:
+            return None
         return self.processor(valid_msg, params, frm)
 
 
