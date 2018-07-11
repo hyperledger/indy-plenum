@@ -42,7 +42,7 @@ class LedgerManager(HasActionQueue):
         self.postCatchupClbk = postCatchupClbk
         self.ledger_sync_order = ledger_sync_order
         self.request_ledger_status_action_ids = dict()
-        self.consistency_proof_action_ids = dict()
+        self.request_consistency_proof_action_ids = dict()
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -90,22 +90,26 @@ class LedgerManager(HasActionQueue):
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
         if ledger_id in self.request_ledger_status_action_ids:
-            self._cancel(self.request_ledger_status_action_ids[ledger_id])
-            self.request_ledger_status_action_ids[ledger_id] = None
+            action = self.request_ledger_status_action_ids.pop(ledger_id)
+            self._cancel(action)
 
-        if ledger_id in self.consistency_proof_action_ids:
-            self._cancel(self.consistency_proof_action_ids[ledger_id])
-            self.consistency_proof_action_ids[ledger_id] = None
+        if ledger_id in self.request_consistency_proof_action_ids:
+            action = self.request_consistency_proof_action_ids.pop(ledger_id)
+            self._cancel(action)
 
-    def request_ledger_status_if_needed(self, ledger_id):
+    def reask_for_ledger_status(self, ledger_id):
+        if ledger_id in self.request_ledger_status_action_ids:
+            self.request_ledger_status_action_ids.pop(ledger_id)
         ledgerInfo = self.getLedgerInfoByType(ledger_id)
         nodes = [node for node in self.owner.nodeReg if node not in ledgerInfo.ledgerStatusOk]
         self.owner.request_ledger_status_from_nodes(ledger_id, nodes)
 
-    def request_last_CP(self, ledgerId):
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+    def reask_for_last_consistency_proof(self, ledger_id):
+        if ledger_id in self.request_consistency_proof_action_ids:
+            self.request_consistency_proof_action_ids.pop(ledger_id)
+        ledgerInfo = self.getLedgerInfoByType(ledger_id)
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
-        ledger_status = self.owner.build_ledger_status(ledgerId)
+        ledger_status = self.owner.build_ledger_status(ledger_id)
         nodes = [frm for frm in self.owner.nodeReg if
                  frm not in recvdConsProof and frm != self.owner.name]
         for frm in nodes:
@@ -316,12 +320,10 @@ class LedgerManager(HasActionQueue):
             if self.isLedgerOld(ledgerStatus):
                 ledger_status = self.owner.build_ledger_status(ledgerId)
                 self.sendTo(ledger_status, frm)
-                if ledgerId not in self.consistency_proof_action_ids or \
-                        ledgerId in self.consistency_proof_action_ids and \
-                        self.consistency_proof_action_ids[ledgerId] is None:
-                    self.consistency_proof_action_ids[ledgerId] = \
+                if ledgerId not in self.request_consistency_proof_action_ids:
+                    self.request_consistency_proof_action_ids[ledgerId] = \
                         self._schedule(
-                            partial(self.request_last_CP, ledgerId),
+                            partial(self.reask_for_last_consistency_proof, ledgerId),
                             self.config.ConsistencyProofsTimeout * (self.owner.totalNodes - 1))
                 return
 
@@ -896,7 +898,7 @@ class LedgerManager(HasActionQueue):
                 self.owner.request_ledger_status_from_nodes(ledger_id)
                 self.request_ledger_status_action_ids[ledger_id] = \
                     self._schedule(
-                        partial(self.request_ledger_status_if_needed,
+                        partial(self.reask_for_ledger_status,
                                 ledger_id),
                         self.config.LedgerStatusTimeout * (self.owner.totalNodes - 1))
         except KeyError:
