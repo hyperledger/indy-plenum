@@ -3025,7 +3025,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             recipientsNum = 'all'
 
         logger.debug("{} sending message {} to {} recipients: {}"
-                    .format(self, msg, recipientsNum, remoteNames))
+                     .format(self, msg, recipientsNum, remoteNames))
         try:
             self.nodestack.send(msg, *rids, signer=signer,
                                 message_splitter=message_splitter)
