@@ -146,6 +146,10 @@ class Remote:
 
     @staticmethod
     def _get_monitor_events(socket, non_block=True):
+        # It looks strange to call get_monitor_socket() each time we
+        # want to get it instead of get it once and save reference.
+        # May side effects here, will create a ticket to check and clean
+        # up the implementation.
         monitor = socket.get_monitor_socket()
         events = []
         # noinspection PyUnresolvedReferences

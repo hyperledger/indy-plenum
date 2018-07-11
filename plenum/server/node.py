@@ -1242,7 +1242,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, txn))
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(
-            msg, list(self.clientstack.connectedClients))
+            msg, list(self.clientstack.peersWithoutRemotes))
 
     @property
     def clientStackName(self):
@@ -1952,8 +1952,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.info('{} ordered till last prepared certificate'.format(self))
                 return False
 
-            if self.is_catch_up_limit():
-                return False
+        if self.is_catch_up_limit():
+            return False
 
         return True
 
@@ -1985,8 +1985,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_catch_up_limit(self):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if ((self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE) and
-                (ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE)):
+        if ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE:
             logger.info('{} has completed {} catchup rounds for {} seconds'.
                         format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
             # No more 3PC messages will be processed since maximum catchup
