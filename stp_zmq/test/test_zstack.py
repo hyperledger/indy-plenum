@@ -1,5 +1,6 @@
 import pytest
 
+from common.exceptions import PlenumTypeError, PlenumValueError
 from stp_core.crypto.util import randomSeed
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -9,6 +10,38 @@ from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
 from stp_zmq.zstack import ZStack
 from stp_core.common.util import adict
 from stp_zmq.test.conftest import BIG_NUM_OF_MSGS
+
+
+@pytest.fixture
+def dummyZStack(tdir, tconf):
+    name = 'Alpha'
+    alphaP = Printer(name)
+    return ZStack(name, ha=genHa(), basedirpath=tdir,
+                  msgHandler=alphaP.print, seed=randomSeed(),
+                  config=tconf)
+
+
+def testReconnectRemoteApi(dummyZStack):
+    with pytest.raises(PlenumTypeError):
+        dummyZStack.reconnectRemote(None)
+
+
+def testReconnectRemoteWithNameApi(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.reconnectRemoteWithName('123')
+
+
+def testDisconnectByName(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.disconnectByName('')
+
+
+def testAddRemote(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.addRemote(None, genHa(), 'verkey', 'pubkey')
+
+    with pytest.raises(PlenumValueError):
+        dummyZStack.addRemote('', genHa(), 'verkey', 'pubkey')
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):

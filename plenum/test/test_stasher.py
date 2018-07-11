@@ -16,6 +16,10 @@ def delay_threes(item):
         return 2
 
 
+def delay_all(item):
+    return 10000
+
+
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def test_delay():
     q = deque([1, 2, 3])
@@ -128,3 +132,15 @@ def test_delay_rules_raise_type_error_when_given_stashers_of_wrong_type():
     with pytest.raises(TypeError):
         with delay_rules(range(3), delay_twos):
             pass
+
+
+def test_unstash_appends_to_right():
+    q = deque([1, 2, 3])
+    s = Stasher(q, "my-stasher")
+
+    s.delay(delay_all)
+    s.process()
+    assert len(q) == 0
+
+    s.force_unstash()
+    assert q == deque([1, 2, 3])

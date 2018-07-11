@@ -7,10 +7,10 @@ import logging
 baseDir = os.getcwd()
 
 # Log configuration
-logRotationBackupCount = 300
+logRotationBackupCount = 150
 logRotationMaxBytes = 100 * 1024 * 1024
 logRotationCompression = "xz"
-logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
+logFormat = '{asctime:s}|{levelname:s}|{filename:s}|{message:s}'
 logFormatStyle = '{'
 
 logLevel = logging.NOTSET
@@ -18,7 +18,7 @@ enableStdOutLogging = True
 
 RETRY_TIMEOUT_NOT_RESTRICTED = 6
 RETRY_TIMEOUT_RESTRICTED = 15
-MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 5
+MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 1
 
 # Enables/disables debug mode for Looper class
 LOOPER_DEBUG = False
@@ -38,4 +38,4 @@ ZMQ_NODE_QUEUE_SIZE = 15000  # messages (0 - no limit)
 
 
 # All messages exceeding the limit will be rejected without processing
-MSG_LEN_LIMIT = 128 * 1024
+MSG_LEN_LIMIT = 768 * 1024

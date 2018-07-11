@@ -73,6 +73,7 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
         looper.run(eventually(chk, retryWait=1))
 
     # Eventually another view change happens
+    ensure_view_change(looper, txnPoolNodeSet)
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, old_view_no + 1,
                           retryWait=1, timeout=2 * tconf.PerfCheckFreq))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)

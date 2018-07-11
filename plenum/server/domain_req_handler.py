@@ -1,3 +1,4 @@
+from binascii import hexlify
 from hashlib import sha256
 
 from common.serializers.serialization import domain_state_serializer, \
@@ -66,6 +67,15 @@ class DomainRequestHandler(LedgerRequestHandler):
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def gen_txn_path(self, txn):
+        typ = get_type(txn)
+        if typ == NYM:
+            nym = get_payload_data(txn).get(TARGET_NYM)
+            return hexlify(self.nym_to_state_key(nym)).decode()
+        else:
+            logger.error('Cannot generate id for txn of type {}'.format(typ))
+            return None
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
@@ -175,7 +185,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         if not multi_sig:
             # Just return the value and not proof
             try:
-                return self.state.get_for_root_hash(path, root_hash), None
+                return self.state.get_for_root_hash(root_hash, path), None
             except KeyError:
                 return None, None
         else:

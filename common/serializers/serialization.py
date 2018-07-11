@@ -14,6 +14,7 @@ pool_state_serializer = JsonSerializer()
 client_req_rep_store_serializer = JsonSerializer()
 multi_sig_store_serializer = JsonSerializer()
 state_roots_serializer = Base58Serializer()
+txn_root_serializer = Base58Serializer()
 proof_nodes_serializer = Base64Serializer()
 multi_signature_value_serializer = MsgPackSerializer()
 

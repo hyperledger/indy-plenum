@@ -2,6 +2,8 @@
 
 import copy
 
+from common.exceptions import PlenumTypeError, PlenumValueError
+
 import rlp
 from rlp.utils import encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
@@ -279,8 +281,10 @@ class Trie:
         self.set_root_hash(value)
 
     def set_root_hash(self, root_hash):
-        assert is_string(root_hash)
-        assert len(root_hash) in [0, 32]
+        if not is_string(root_hash):
+            raise PlenumTypeError('root_hash', root_hash, bytes)
+        if not (len(root_hash) in [0, 32]):
+            raise PlenumValueError('root_hash', root_hash, 'length in range [0, 32]')
         if self.transient:
             self.transient_root_hash = root_hash
             return
@@ -1043,7 +1047,8 @@ class Trie:
         rv = self.get_at(root, key)
         o = proof.get_nodelist()
         proof.pop()
-        return (o, rv) if get_value else o
+        value = rv if rv != BLANK_NODE else None
+        return (o, value) if get_value else o
 
     def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False):
         # Return a proof for keys in the trie with the given prefix.

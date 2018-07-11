@@ -171,7 +171,7 @@ class SimpleAuthNr(NaclAuthNr):
 class CoreAuthMixin:
     # TODO: This should know a list of valid fields rather than excluding
     # hardcoded fields
-    excluded_from_signing = {f.SIG.nm, f.SIGS.nm}
+    excluded_from_signing = {f.SIG.nm, f.SIGS.nm, f.FEES.nm}
     write_types = PoolRequestHandler.write_types.union(
         DomainRequestHandler.write_types
     )

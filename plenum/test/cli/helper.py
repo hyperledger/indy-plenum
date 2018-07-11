@@ -216,8 +216,7 @@ def checkClientConnected(cli, nodeNames, clientName):
 
     printedMsgs = set()
     stackName = cli.clients[clientName].stackName
-    expectedMsgs = {'{}{} now connected to {}C'.format(CONNECTION_PREFIX,
-                                                       stackName, nodeName)
+    expectedMsgs = {'{}{} now connected to {}C'.format(CONNECTION_PREFIX, stackName, nodeName)
                     for nodeName in nodeNames}
     for out in cli.printeds:
         msg = out.get('msg')

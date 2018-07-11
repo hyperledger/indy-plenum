@@ -149,8 +149,8 @@ start_plenum_node Alpha
 
 
 #### Updating configuration
-To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum/YOUR_NETWORK_NAME` directory inside your home directory. 
-eg. To update the node registry to use `127.0.0.1` as host put these in your `plenum_config.py`.
+To update any configuration parameters, you need to update the `indy_config.py` in `.plenum/YOUR_NETWORK_NAME` directory inside your home directory. 
+eg. To update the node registry to use `127.0.0.1` as host put these in your `indy_config.py`.
 
 ```python
 from collections import OrderedDict

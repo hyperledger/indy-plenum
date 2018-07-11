@@ -2,7 +2,7 @@ from hashlib import sha256
 
 from plenum.common.constants import STEWARD, TARGET_NYM, NODE, DATA, \
     CLIENT_IP, ALIAS, CLIENT_PORT, NODE_IP, NODE_PORT, SERVICES, VALIDATOR, \
-    BLS_KEY
+    BLS_KEY, CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import WalletNotSet, WalletNotInitialized
 from plenum.common.member.member import Member
 from plenum.common.txn_util import init_empty_txn, append_payload_metadata, set_payload_data, append_txn_metadata
@@ -60,8 +60,9 @@ class Steward(Member):
     @staticmethod
     def node_txn(steward_nym, node_name, nym, ip, node_port, client_port,
                  client_ip=None, blskey=None, services=None, txn_id=None,
-                 seq_no=None):
-        txn = init_empty_txn(txn_type=NODE)
+                 seq_no=None,
+                 protocol_version=CURRENT_PROTOCOL_VERSION):
+        txn = init_empty_txn(txn_type=NODE, protocol_version=protocol_version)
         txn = append_payload_metadata(txn, frm=steward_nym)
         txn_data = {
             TARGET_NYM: nym,

@@ -72,6 +72,9 @@ class Suspicions:
     PR_BLS_SIG_WRONG = \
         Suspicion(32, "Prepare message has invalid BLS signature")
 
+    PPR_PLUGIN_EXCEPTION = Suspicion(35, "Pre-Prepare message has error in plugin field")
+    PR_PLUGIN_EXCEPTION = Suspicion(36, "Prepare message has error in plugin field")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

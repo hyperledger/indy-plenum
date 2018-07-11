@@ -39,7 +39,7 @@ from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
     OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState, MULTI_SIGNATURE, MULTI_SIGNATURE_PARTICIPANTS, \
-    MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
+    MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, CURRENT_PROTOCOL_VERSION
 from plenum.common.txn_util import get_reply_identifier, get_reply_reqId
 from plenum.common.types import f
 from plenum.common.util import getMaxFailures, rawToFriendly, mostCommonElement
@@ -829,7 +829,8 @@ class Client(Motor,
             self.ledger.size,
             None,
             None,
-            self.ledger.root_hash)
+            self.ledger.root_hash,
+            CURRENT_PROTOCOL_VERSION)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)
 

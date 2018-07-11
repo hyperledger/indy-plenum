@@ -29,6 +29,8 @@ class Remote:
     def __init__(self, name, ha, verKey, publicKey, queue_size=0, config=None):
         # TODO, remove *args, **kwargs after removing test
 
+        assert name
+
         # Every remote has a unique name per stack, the name can be the
         # public key of the other end
         self.name = name
@@ -99,8 +101,8 @@ class Remote:
             self.socket.close(linger=0)
             self.socket = None
         else:
-            logger.debug('{} close was called on a null socket, maybe close is '
-                         'being called twice.'.format(self))
+            logger.info('{} close was called on a null socket, maybe close is '
+                        'being called twice.'.format(self))
 
         self._isConnected = False
 
@@ -144,6 +146,10 @@ class Remote:
 
     @staticmethod
     def _get_monitor_events(socket, non_block=True):
+        # It looks strange to call get_monitor_socket() each time we
+        # want to get it instead of get it once and save reference.
+        # May side effects here, will create a ticket to check and clean
+        # up the implementation.
         monitor = socket.get_monitor_socket()
         events = []
         # noinspection PyUnresolvedReferences

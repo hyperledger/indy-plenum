@@ -1,6 +1,6 @@
 import types
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF
+from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF, CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.test.node_request.message_request.helper import \
     count_msg_reqs_of_type
@@ -56,12 +56,13 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            next_size)
         v, p = three_pc_key if three_pc_key else None, None
-        ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash)
+        ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash,
+                                    CURRENT_PROTOCOL_VERSION)
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
     new_node.build_ledger_status = types.MethodType(
-            build_broken_ledger_status, new_node)
+        build_broken_ledger_status, new_node)
 
     logger.debug(
         'Domain Ledger status sender of {} patched'.format(new_node))

@@ -82,7 +82,8 @@ Contains dictionary of output log files, each with following options:
 Contains dictionary of output event intensity plots, each with following 
 options:
 - `interval`: sampling interval in seconds
-- `graphs`: list of graphs on plot, each being a `name: color` key-value
+- `filename`: output csv filename
+- `graphs`: list of graphs on plot
 
 #### counters
 
@@ -98,7 +99,7 @@ Contains reporting options of request tracker:
 - `report_stats`: whether to report statistics at all
 - `report_lags`: whether to report request id's which took more than minute 
   to order
-- `plot_graphs`: whether to plot graphs of requests time to order 
+- `filename`: csv filename to output requests time to order
 
 ### matchers
 

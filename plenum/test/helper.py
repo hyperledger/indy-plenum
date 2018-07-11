@@ -11,6 +11,7 @@ from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
 import pytest
+from indy.pool import set_protocol_version
 from psutil import Popen
 import json
 import asyncio
@@ -741,12 +742,14 @@ def wait_for_requests_ordered(looper, nodes, requests):
 
 
 def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
-                         tdir, plugin_paths):
+                         tdir, plugin_paths, node_ha=None, client_ha=None):
     config_helper = node_config_helper_class(name, conf, chroot=tdir)
     return test_node_class(name,
                            config_helper=config_helper,
                            config=conf,
-                           pluginPaths=plugin_paths)
+                           pluginPaths=plugin_paths,
+                           ha=node_ha,
+                           cliha=client_ha)
 
 
 # ####### SDK
@@ -992,3 +995,7 @@ def sdk_get_bad_response(looper, reqs, exception, message):
     with pytest.raises(exception) as e:
         sdk_get_and_check_replies(looper, reqs)
     assert message in e._excinfo[1].args[0]
+
+
+def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
+    looper.loop.run_until_complete(set_protocol_version(version))

@@ -6,6 +6,8 @@ import pytest
 from plenum.config import STATS_SERVER_PORT, STATS_SERVER_IP, STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher
 
+whitelist = ["Message buffer is too large"]
+
 
 @pytest.fixture(scope="function")
 def listener():

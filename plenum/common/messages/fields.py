@@ -9,7 +9,7 @@ import dateutil
 
 from common.exceptions import PlenumTypeError, PlenumValueError
 from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
@@ -347,16 +347,17 @@ class LedgerIdField(ChooseField):
 
 class Base58Field(FieldBase):
     _base_types = (str,)
+    _alphabet = set(base58.alphabet.decode("utf-8"))
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
         invalid_chars = set(val) - self._alphabet
         if invalid_chars:
             # only 10 chars to shorten the output
+            # TODO: Why does it need to be sorted
             to_print = sorted(invalid_chars)[:10]
             return 'should not contain the following chars {}{}'.format(
                 to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
@@ -617,7 +618,7 @@ class LedgerInfoField(FieldBase):
 
 class BlsMultiSignatureValueField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_validator = LedgerIdField()
+    _ledger_id_class = LedgerIdField
     _state_root_hash_validator = MerkleRootField()
     _pool_state_root_hash_validator = MerkleRootField()
     _txn_root_hash_validator = MerkleRootField()
@@ -626,7 +627,7 @@ class BlsMultiSignatureValueField(FieldBase):
     def _specific_validation(self, val):
         multi_sig_value = MultiSignatureValue(*val)
 
-        err = self._ledger_id_validator.validate(
+        err = self._ledger_id_class().validate(
             multi_sig_value.ledger_id)
         if err:
             return err
@@ -681,7 +682,13 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value {}'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(val, CURRENT_PROTOCOL_VERSION)
