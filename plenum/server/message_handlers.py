@@ -218,7 +218,7 @@ class PropagateHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
-        request = self.node._client_request_class(**ppg.request)
+        request = self.node.client_request_class(**ppg.request)
         if request.digest != kwargs[f.DIGEST.nm]:
             logger.debug(
                 '{} found PROPAGATE {} not '
