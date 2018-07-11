@@ -88,6 +88,15 @@ class LedgerManager(HasActionQueue):
             verifier=MerkleVerifier(ledger.hasher)
         )
 
+    def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
+        if ledger_id in self.request_ledger_status_action_ids:
+            self._cancel(self.request_ledger_status_action_ids[ledger_id])
+            self.request_ledger_status_action_ids[ledger_id] = None
+
+        if ledger_id in self.consistency_proof_action_ids:
+            self._cancel(self.consistency_proof_action_ids[ledger_id])
+            self.consistency_proof_action_ids[ledger_id] = None
+
     def request_ledger_status_if_needed(self, ledger_id):
         ledgerInfo = self.getLedgerInfoByType(ledger_id)
         nodes = [node for node in self.owner.nodeReg if node not in ledgerInfo.ledgerStatusOk]
@@ -338,9 +347,8 @@ class LedgerManager(HasActionQueue):
                             format(self, ledgerInfo.ledgerStatusOk, ledgerId))
                 logger.info('{} found from ledger status {} that it does not need catchup'.
                             format(self, ledgerStatus))
-                if ledgerId in self.request_ledger_status_action_ids:
-                    self._cancel(self.request_ledger_status_action_ids[ledgerId])
-                    self.request_ledger_status_action_ids[ledgerId] = None
+                # Stop requesting last consistency proofs and ledger statuses.
+                self._cancel_request_ledger_statuses_and_consistency_proofs(ledgerId)
                 self.do_pre_catchup(ledgerId)
                 last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
                 self.catchupCompleted(ledgerId, last_3PC_key)
@@ -687,10 +695,8 @@ class LedgerManager(HasActionQueue):
                 adjustedQuorum.f + 1:
             # At least once correct node believes that this node is behind.
 
-            # Stop last consistensy proof requesting.
-            if ledgerId in self.consistency_proof_action_ids:
-                self._cancel(self.consistency_proof_action_ids[ledgerId])
-                self.consistency_proof_action_ids[ledgerId] = None
+            # Stop requesting last consistency proofs and ledger statuses.
+            self._cancel_request_ledger_statuses_and_consistency_proofs(ledgerId)
 
             # Start timer that will expire in some time and if till that time
             # enough CPs are not received, then explicitly request CPs

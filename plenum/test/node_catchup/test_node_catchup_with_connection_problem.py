@@ -138,20 +138,15 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
 
 
-def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
-                                                  looper,
-                                                  sdk_pool_handle,
-                                                  sdk_wallet_steward,
-                                                  tconf,
-                                                  tdir,
-                                                  allPluginsPath,
-                                                  monkeypatch,
-                                                  lost_count):
-    '''Skip processing of lost_count CONSISTENCY_PROOFs that resieve for
-    consistency proof request (not for ledger status). In this case catchup node
-    has no quorum for proofing some size of transactions list. It need to request
-    CONSISTENCY_PROOFs again and finishes catchup. Test makes sure that the node
-    eventually finishes catchup'''
+def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
+                                                looper,
+                                                sdk_pool_handle,
+                                                sdk_wallet_steward,
+                                                tconf,
+                                                tdir,
+                                                allPluginsPath):
+    '''Test cancel of schedule with requesting ledger statuses and consistency
+    proofs after catchup.'''
     node_to_disconnect = txnPoolNodeSet[-1]
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
@@ -164,40 +159,18 @@ def test_catchup_with_lost_last_consistency_proof(txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward,
                               2)
-
-    nodeHa, nodeCHa = HA(*node_to_disconnect.nodestack.ha), HA(
-        *node_to_disconnect.clientstack.ha)
-    config_helper = PNodeConfigHelper(node_to_disconnect.name, tconf,
-                                      chroot=tdir)
-    node_to_disconnect = TestNode(node_to_disconnect.name,
-                                  config_helper=config_helper,
-                                  config=tconf,
-                                  ha=nodeHa, cliha=nodeCHa,
-                                  pluginPaths=allPluginsPath)
-
-    original_process_cp = node_to_disconnect.ledgerManager.processConsistencyProof
-
-    def unpatch_after_call(proof):
-        # patching processConsistencyProof after f+1 calls
-        if node_to_disconnect.ledgerManager.spylog.count(
-                LedgerManager.processConsistencyProof) <= \
-                Quorums(txnPoolNodeSet).f + 1:
-            original_process_cp(proof)
-        else:
-            global call_count
-            call_count += 1
-            if call_count >= lost_count:
-                # unpatch processConsistencyProof after lost_count calls
-                monkeypatch.undo()
-                call_count = 0
-
-    # patch processConsistencyProof
-    monkeypatch.setattr(node_to_disconnect.ledgerManager,
-                        'processConsistencyProof',
-                        unpatch_after_call)
-
     # add node_to_disconnect to pool
-    looper.add(node_to_disconnect)
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    # check cancel of schedule with requesting ledger statuses and consistency proofs
+    for ledger_id in range(0, 3):
+        scheduled_ls = node_to_disconnect.ledgerManager.request_ledger_status_action_ids
+        if ledger_id in scheduled_ls:
+            assert not scheduled_ls[ledger_id]
+    for ledger_id in range(0, 3):
+        scheduled_cp = node_to_disconnect.ledgerManager.consistency_proof_action_ids
+        if ledger_id in scheduled_cp:
+            assert not scheduled_cp[ledger_id]
