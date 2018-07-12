@@ -187,6 +187,10 @@ ToleratePrimaryDisconnection = 2
 # not found enough matching
 ConsistencyProofsTimeout = 5
 
+# Timeout factor after which a node starts requesting ledgerStatus if has
+# not found enough matching
+LedgerStatusTimeout = 5
+
 # Timeout factor after which a node starts requesting transactions
 # We assume, that making consistency proof + iterate over all transactions (getAllTxn)
 # will take a little time (0.003 sec for making cp for 10 000 txns +

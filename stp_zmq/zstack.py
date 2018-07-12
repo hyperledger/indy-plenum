@@ -108,7 +108,6 @@ class ZStack(NetworkInterface):
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
         self.onlyListener = onlyListener
-        self.peersWithoutRemotes = set()
 
         self._conns = set()  # type: Set[str]
 
@@ -403,33 +402,18 @@ class ZStack(NetworkInterface):
         return not self.isRestricted
 
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
-        if self.onlyListener:
-            return self.hasRemote(name)
-        return super().isConnectedTo(name, ha)
+        return not self.onlyListener and super().isConnectedTo(name, ha)
 
     def hasRemote(self, name):
-        if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return True
-        return super().hasRemote(name)
+        return not self.onlyListener and super().hasRemote(name)
 
     def removeRemoteByName(self, name: str):
-        if self.onlyListener:
-            if name in self.peersWithoutRemotes:
-                self.peersWithoutRemotes.remove(name)
-                return True
-        else:
-            return super().removeRemoteByName(name)
+        return not self.onlyListener and super().removeRemoteByName(name)
 
     def getHa(self, name):
         # Return HA as None when its a `peersWithoutRemote`
         if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return None
+            return None
         return super().getHa(name)
 
     async def service(self, limit=None) -> int:
@@ -479,8 +463,6 @@ class ZStack(NetworkInterface):
                     # Router probing sends empty message on connection
                     continue
                 i += 1
-                if self.onlyListener and ident not in self.remotesByKeys:
-                    self.peersWithoutRemotes.add(ident)
                 self._verifyAndAppend(msg, ident)
             except zmq.Again:
                 break
@@ -747,12 +729,6 @@ class ZStack(NetworkInterface):
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
         if isinstance(ident, str):
             ident = ident.encode()
-        if ident not in self.peersWithoutRemotes:
-            logger.debug('{} not sending message {} to {}'.
-                         format(self, msg, ident))
-            logger.debug("This is a temporary workaround for not being able to "
-                         "disconnect a ROUTER's remote")
-            return False, None
         try:
             msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
