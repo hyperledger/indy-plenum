@@ -1237,13 +1237,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas()
 
-    def sendPoolInfoToClients(self, txn):
-        logger.debug("{} sending new node info {} to all clients".
-                     format(self, txn))
-        msg = PoolLedgerTxns(txn)
-        self.clientstack.transmitToClients(
-            msg, list(self.clientstack.peersWithoutRemotes))
-
     @property
     def clientStackName(self):
         return self.getClientStackNameOfNode(self.name)

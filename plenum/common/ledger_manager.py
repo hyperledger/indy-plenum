@@ -1068,20 +1068,15 @@ class LedgerManager(HasActionQueue):
         return ledgerInfo.ledger.append(txn)
 
     def getStack(self, remoteName: str):
-        if self.ownedByNode and self.clientstack.hasRemote(remoteName):
-            return self.clientstack
-
         if self.nodestack.hasRemote(remoteName):
             return self.nodestack
-
-        logger.error("{}{} cannot find remote with name {}"
-                     .format(CONNECTION_PREFIX, self, remoteName))
+        else:
+            return self.clientstack
 
     def sendTo(self, msg: Any, to: str, message_splitter=None):
-        stack = self.getStack(to)
-
         # If the message is being sent by a node
         if self.ownedByNode:
+            stack = self.getStack(to)
             if stack == self.nodestack:
                 self.sendToNodes(msg, [to, ], message_splitter)
             if stack == self.clientstack:
