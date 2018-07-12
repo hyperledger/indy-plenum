@@ -80,10 +80,6 @@ def test_node_catchup_after_checkpoints(
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
 
-    for r in repaired_node.replicas:
-        if not r.isMaster:
-            assert r.H == sys.maxsize
-
 
 def repair_broken_node(node):
     node.nodeMsgRouter.extend(
