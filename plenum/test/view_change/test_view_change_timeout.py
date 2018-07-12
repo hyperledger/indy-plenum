@@ -1,4 +1,5 @@
 import pytest
+from contextlib import contextmanager
 
 from plenum.test.delayers import vcd_delay
 from plenum.test.stasher import delay_rules
@@ -14,23 +15,31 @@ nodeCount = 7
 VIEW_CHANGE_TIMEOUT = 5
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    """
-    Patch config so that monitor won't start view change unexpectedly.
-    Also increase minimum catchup timeout to some big value to fail tests
-    that attempt to wait for view change.
-    """
-    old_unsafe = tconf.unsafe
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_viewchange_timeout = tconf.VIEW_CHANGE_TIMEOUT
+@contextmanager
+def perf_monitor_disabled(tconf):
+    old_unsafe = tconf.unsafe.copy()
     tconf.unsafe.add("disable_view_change")
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 0.6 * VIEW_CHANGE_TIMEOUT
-    tconf.VIEW_CHANGE_TIMEOUT = VIEW_CHANGE_TIMEOUT
     yield tconf
     tconf.unsafe = old_unsafe
+
+
+@contextmanager
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None):
+    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
+    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
+        0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
+    tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    yield tconf
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_viewchange_timeout
+    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    with view_change_timeout(tconf, VIEW_CHANGE_TIMEOUT), \
+         perf_monitor_disabled(tconf):
+        yield tconf
 
 
 def _check_view_change_completed_count(node):
