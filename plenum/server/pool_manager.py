@@ -250,8 +250,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                 _updateNode(txn_data)
 
-        self.node.sendPoolInfoToClients(txn)
-
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
         if nodeName == self.name:
