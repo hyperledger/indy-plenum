@@ -545,7 +545,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-        else:
+        elif not self.isPrimary:
             self.h = 0
             self.H = sys.maxsize
 

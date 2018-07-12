@@ -36,3 +36,11 @@ def test_not_Master_watermarks_not_changed_if_last_ordered_not_changed(replica):
     assert replica.h == 0
     replica.on_propagate_primary_done()
     assert replica.h == 0
+
+
+def test_non_Master_watermarks_not_maxsize_if_is_primary(replica):
+    replica.isMaster = False
+    replica._primaryName = replica.name
+    replica.h = 100
+    replica.on_propagate_primary_done()
+    assert replica.H != sys.maxsize
