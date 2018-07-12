@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.constants import THREE_PC_PREFIX
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
-from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger
@@ -60,6 +59,8 @@ class BaseHandler(metaclass=ABCMeta):
             return None
 
         valid_msg = self.create(msg.msg, **params)
+        if valid_msg is None:
+            return None
         return self.processor(valid_msg, params, frm)
 
 
@@ -217,7 +218,7 @@ class PropagateHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
-        request = Request(**ppg.request)
+        request = self.node.client_request_class(**ppg.request)
         if request.digest != kwargs[f.DIGEST.nm]:
             logger.debug(
                 '{} found PROPAGATE {} not '

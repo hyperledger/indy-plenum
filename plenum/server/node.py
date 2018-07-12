@@ -119,7 +119,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
-    _client_request_class = SafeRequest
+    client_request_class = SafeRequest
     _info_tool_class = ValidatorNodeInfoTool
     # The order of ledger id in the following list determines the order in
     # which those ledgers will be synced. Think carefully before changing the
@@ -1715,7 +1715,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         needStaticValidation = False
         if all([msg.get(OPERATION), msg.get(f.REQ_ID.nm),
                 idr_from_req_data(msg)]):
-            cls = self._client_request_class
+            cls = self.client_request_class
             needStaticValidation = True
         elif OP_FIELD_NAME in msg:
             op = msg[OP_FIELD_NAME]
@@ -2212,7 +2212,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self.name, msg))
 
         reqDict = msg.request
-        request = self._client_request_class(**reqDict)
+        request = self.client_request_class(**reqDict)
 
         clientName = msg.senderClient
 
