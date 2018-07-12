@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.helper import perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change_with_delays.helper import \
     do_view_change_with_propagate_primary_on_one_delayed_node
@@ -14,10 +15,8 @@ def tconf(tconf):
     """
     Patch config so that monitor won't start view change unexpectedly
     """
-    old_unsafe = tconf.unsafe
-    tconf.unsafe.add("disable_view_change")
-    yield tconf
-    tconf.unsafe = old_unsafe
+    with perf_monitor_disabled(tconf):
+        yield tconf
 
 
 @pytest.mark.skip(reason='INDY-1303. Case 5 (simplified): the slow node gets '

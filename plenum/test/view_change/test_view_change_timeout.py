@@ -1,9 +1,8 @@
 import pytest
-from contextlib import contextmanager
 
 from plenum.test.delayers import vcd_delay
 from plenum.test.stasher import delay_rules
-from plenum.test.helper import waitForViewChange
+from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count, getAllReturnVals
@@ -13,26 +12,6 @@ from stp_core.loop.eventually import eventually
 
 nodeCount = 7
 VIEW_CHANGE_TIMEOUT = 5
-
-
-@contextmanager
-def perf_monitor_disabled(tconf):
-    old_unsafe = tconf.unsafe.copy()
-    tconf.unsafe.add("disable_view_change")
-    yield tconf
-    tconf.unsafe = old_unsafe
-
-
-@contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None):
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
-        0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
-    yield tconf
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
 
 
 @pytest.fixture(scope="module")

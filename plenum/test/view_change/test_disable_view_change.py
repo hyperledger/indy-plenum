@@ -1,13 +1,12 @@
 import pytest
-from plenum.test.helper import waitForViewChange
+from plenum.test.helper import waitForViewChange, perf_monitor_disabled
 from plenum.test.view_change.helper import simulate_slow_master
 
 
 @pytest.fixture(scope="module")
 def disable_view_change_config(tconf):
-    tconf.unsafe.add('disable_view_change')
-    yield tconf
-    tconf.unsafe.remove('disable_view_change')
+    with perf_monitor_disabled(tconf):
+        yield tconf
 
 
 def test_disable_view_change(
