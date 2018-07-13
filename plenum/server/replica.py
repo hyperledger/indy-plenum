@@ -538,10 +538,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):
-        # if this is a Primary that is re-connected (that is view change is not actually changed,
-        # we just propagate it, then make sure that we don;t break the sequence
-        # of ppSeqNo
         if self.isMaster:
+            # if this is a Primary that is re-connected (that is view change is not actually changed,
+            # we just propagate it, then make sure that we don;t break the sequence
+            # of ppSeqNo
             self.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
