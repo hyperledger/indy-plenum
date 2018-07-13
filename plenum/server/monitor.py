@@ -42,7 +42,6 @@ class RequestMeasurement:
         self.window_start_ts = self.first_ts
         self.alpha = 2 / (self.throughput_min_cnt + 1)
 
-
     def add_request(self, ordered_ts):
         self.update_time(ordered_ts)
         self.reqs_in_window += 1
