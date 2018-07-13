@@ -60,11 +60,6 @@ def test_set_H_greater_then_last_ppseqno(looper,
     # check, that there is no any stashed "outside watermark" messages.
     for r in new_node.replicas:
         assert len(r.stashingWhileOutsideWaterMarks) == 0
-    # check, that last_ordered_3pc are the same for all replicas
-    master_last_ordered = new_node.master_replica.last_ordered_3pc
-    for r in new_node.replicas:
-        if not r.isMaster:
-            assert master_last_ordered == r.last_ordered_3pc
 
     """Force view change and check, that all backup replicas setup H as a default
     (not propagate primary logic)"""

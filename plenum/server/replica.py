@@ -546,7 +546,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
-            self.h = 0
             self.H = sys.maxsize
 
     def get_lowest_probable_prepared_certificate_in_view(
