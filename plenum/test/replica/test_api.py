@@ -44,7 +44,7 @@ def test_order_3pc_key(replica):
 
 
 def test_can_pp_seq_no_be_in_view(replica):
-    view_no = 1
+    view_no = replica.viewNo + 1
     assert replica.viewNo < view_no
     with pytest.raises(PlenumValueError) as excinfo:
         replica.can_pp_seq_no_be_in_view(view_no, 1)

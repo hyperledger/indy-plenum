@@ -7,7 +7,7 @@ from plenum.test.conftest import getValueFromModule
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='function', params=[0, 10])
 def replica(tconf, request):
     node_stack = FakeSomething(
         name="fake stack",
@@ -16,7 +16,7 @@ def replica(tconf, request):
     node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
-        viewNo=0,
+        viewNo=request.param,
         quorums=Quorums(getValueFromModule(request, 'nodeCount', default=4)),
         nodestack=node_stack,
         utc_epoch=lambda *args: get_utc_epoch()
