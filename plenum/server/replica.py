@@ -546,6 +546,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
+            self.h = 0
             self.H = sys.maxsize
 
     def get_lowest_probable_prepared_certificate_in_view(
@@ -598,7 +599,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
-            self.h = 0
             for v in list(self.stashed_out_of_order_commits.keys()):
                 if v < current_view:
                     self.stashed_out_of_order_commits.pop(v)
