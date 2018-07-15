@@ -705,8 +705,8 @@ class ZStack(NetworkInterface):
                     except PlenumTransportError as exc:
                         errors.append(exc)
 
-                    if errors:
-                        raise PlenumMultiIdentError(errors, prefix=prefix)
+                if errors:
+                    raise PlenumMultiIdentError(errors, prefix=prefix)
             else:
                 self.transmit(msg, remoteName)
 

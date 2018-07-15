@@ -67,9 +67,9 @@ class LogicError(PlenumError, RuntimeError):
     pass
 
 
-###################
-# TANSPORT ERRORS #
-###################
+####################
+# TRANSPORT ERRORS #
+####################
 
 class PlenumTransportError(PlenumError):
     """Base exception for errors related to transport layer.
