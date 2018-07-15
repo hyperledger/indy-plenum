@@ -692,9 +692,6 @@ class ZStack(NetworkInterface):
                 try:
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as exc:
-                    err_str = '{}Cannot send message. Error {}'.format(
-                        CONNECTION_PREFIX, exc)
-                    logger.warning(err_str)
                     raise TooBigMessage(msg, ident=remoteName,
                                         msg_len=exc.actLen,
                                         max_len=exc.expLen,
@@ -712,15 +709,11 @@ class ZStack(NetworkInterface):
 
     def transmit(self, msg, uid, timeout=None, serialized=False):
         remote = self.remotes.get(uid)
-        err_str = None
         prefix = "{}{}".format(CONNECTION_PREFIX, self)
         if not remote:
-            logger.debug("Remote {} does not exist!".format(uid))
             raise IdentityIsUnknown(uid, msg=msg, prefix=prefix)
         socket = remote.socket
         if not socket:
-            logger.debug('{} has uninitialised socket '
-                         'for remote {}'.format(self, uid))
             raise NoSocketForIdentity(uid, msg=msg, prefix=prefix)
         try:
             if not serialized:
@@ -734,13 +727,8 @@ class ZStack(NetworkInterface):
                             'If this problem does not resolve itself - '
                             'check your firewall settings'.format(uid))
         except zmq.Again:
-            err_str = '{} could not transmit message to {}'.format(self, uid)
-            logger.debug(err_str)
             raise EAgainError(msg, uid, prefix=prefix)
         except InvalidMessageExceedingSizeException as exc:
-            err_str = '{}Cannot transmit message. Error {}'.format(
-                CONNECTION_PREFIX, exc)
-            logger.warning(err_str)
             raise TooBigMessage(msg,
                                 ident=uid,
                                 msg_len=exc.actLen,
@@ -763,9 +751,6 @@ class ZStack(NetworkInterface):
         except zmq.Again:
             raise EAgainError(msg, ident, prefix=prefix)
         except InvalidMessageExceedingSizeException as exc:
-            err_str = '{}Cannot transmit message. Error {}'.format(
-                CONNECTION_PREFIX, exc)
-            logger.warning(err_str)
             raise TooBigMessage(msg,
                                 ident=ident,
                                 msg_len=exc.actLen,
@@ -774,7 +759,6 @@ class ZStack(NetworkInterface):
         except Exception as exc:
             err_str = ("{}{} got error {} while sending through listener to {}"
                        .format(CONNECTION_PREFIX, self, exc, ident))
-            logger.warning(err_str)
             raise PlenumTransportError(err_str, msg=msg, ident=ident) from exc
 
     @staticmethod
