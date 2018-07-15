@@ -4,7 +4,7 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import TestNode
 
 
-def test_restart_clientstack_before_reply_on_2_of_4_nodes(looper,
+def test_restart_clientstack_before_reply_on_4_of_4_nodes(looper,
                                                           txnPoolNodeSet,
                                                           sdk_pool_handle,
                                                           sdk_wallet_steward):
@@ -14,7 +14,7 @@ def test_restart_clientstack_before_reply_on_2_of_4_nodes(looper,
         orig_send_reply(self, reply, reqKey)
 
     def patch_sendReplyToClient():
-        for node in txnPoolNodeSet[:2]:
+        for node in txnPoolNodeSet:
             node.sendReplyToClient = types.MethodType(send_after_restart,
                                                       node)
     def revert_origin_back():

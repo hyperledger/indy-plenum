@@ -3,6 +3,7 @@ import os
 import random
 import string
 from _signal import SIGINT
+from contextlib import contextmanager
 from functools import partial
 from itertools import permutations, combinations
 from shutil import copyfile
@@ -999,3 +1000,25 @@ def sdk_get_bad_response(looper, reqs, exception, message):
 
 def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
     looper.loop.run_until_complete(set_protocol_version(version))
+
+
+# Context managers to be used with tconf fixture
+
+@contextmanager
+def perf_monitor_disabled(tconf):
+    old_unsafe = tconf.unsafe.copy()
+    tconf.unsafe.add("disable_view_change")
+    yield tconf
+    tconf.unsafe = old_unsafe
+
+
+@contextmanager
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None):
+    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
+    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
+        0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
+    tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    yield tconf
+    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
+    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout

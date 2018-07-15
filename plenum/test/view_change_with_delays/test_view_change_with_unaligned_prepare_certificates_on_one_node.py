@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.helper import view_change_timeout, perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change_with_delays.helper import  \
     do_view_change_with_unaligned_prepare_certificates
@@ -11,16 +12,8 @@ def tconf(tconf):
     Also increase minimum catchup timeout to some big value to fail tests
     that attempt to wait for view change.
     """
-    old_unsafe = tconf.unsafe
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_viewchange_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.unsafe.add("disable_view_change")
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 150
-    tconf.VIEW_CHANGE_TIMEOUT = 300
-    yield tconf
-    tconf.unsafe = old_unsafe
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_viewchange_timeout
+    with view_change_timeout(tconf, 300), perf_monitor_disabled(tconf):
+        yield tconf
 
 
 def test_view_change_with_unaligned_prepare_certificates_on_one_node(

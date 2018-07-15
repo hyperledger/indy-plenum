@@ -187,6 +187,10 @@ ToleratePrimaryDisconnection = 2
 # not found enough matching
 ConsistencyProofsTimeout = 5
 
+# Timeout factor after which a node starts requesting ledgerStatus if has
+# not found enough matching
+LedgerStatusTimeout = 5
+
 # Timeout factor after which a node starts requesting transactions
 # We assume, that making consistency proof + iterate over all transactions (getAllTxn)
 # will take a little time (0.003 sec for making cp for 10 000 txns +
@@ -252,6 +256,17 @@ CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
+
+# Connections tracking and stack restart parameters.
+# NOTE: TRACK_CONNECTED_CLIENTS_NUM_ENABLED must be set to True
+# if CLIENT_STACK_RESTART_ENABLED is set to True as stack restart
+# mechanism uses clients connections tracking.
+TRACK_CONNECTED_CLIENTS_NUM_ENABLED = False
+CLIENT_STACK_RESTART_ENABLED = False
+MAX_CONNECTED_CLIENTS_NUM = 10000
+MIN_STACK_RESTART_TIMEOUT = 1800  # seconds
+STACK_POSTRESTART_WAIT_TIME = 2  # seconds
+MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
 
 VIEW_CHANGE_TIMEOUT = 600  # seconds
 INSTANCE_CHANGE_TIMEOUT = 60

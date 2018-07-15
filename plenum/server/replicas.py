@@ -186,19 +186,14 @@ class Replicas:
             content = replica.requests[reqId].finalised.as_dict \
                 if reqId in replica.requests else 'no content saved'
 
-            logger.error('Consensus for ReqId: {} was not achieved within {} seconds. '
-                         'Primary node is {}. '
-                         'Received Pre-Prepare from {}. '
-                         'Received {} valid Prepares from {}. '
-                         'Received {} valid Commits from {}. '
-                         'Transaction contents: {}. '
-                         .format(reqId, duration,
-                                 replica.primaryName.split(':')[0],
-                                 prepre_sender,
-                                 n_prepares, str_prepares,
-                                 n_commits, str_commits,
-                                 content
-                                 ))
+            logger.warning('Consensus for digest {} was not achieved within {} seconds. '
+                           'Primary node is {}. '
+                           'Received Pre-Prepare from {}. '
+                           'Received {} valid Prepares from {}. '
+                           'Received {} valid Commits from {}. '
+                           'Transaction contents: {}. '
+                           .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
+                                   n_prepares, str_prepares, n_commits, str_commits, content))
 
     def __getitem__(self, item):
         if not isinstance(item, int):

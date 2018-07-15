@@ -15,6 +15,10 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
+class TxnUtilConfig:
+    client_request_class = Request
+
+
 def getTxnOrderedFields():
     return OrderedDict([
         (f.IDENTIFIER.nm, (str, str)),
@@ -217,7 +221,7 @@ def reqToTxn(req):
             signatures=req.get(f.SIGS.nm, None),
             protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
         )
-        req = Request(**kwargs)
+        req = TxnUtilConfig.client_request_class(**kwargs)
     if isinstance(req, Request):
         req_data = req.as_dict
         req_data[f.DIGEST.nm] = req.digest

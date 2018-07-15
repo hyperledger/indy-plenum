@@ -34,6 +34,7 @@ from stp_core.crypto.util import isHex, ed25519PkToCurve25519
 from stp_core.network.exceptions import PublicKeyNotFoundOnDisk, VerKeyNotFoundOnDisk
 from stp_zmq.authenticator import MultiZapAuthenticator
 from zmq.utils import z85
+from zmq.utils.monitor import recv_monitor_message
 
 import zmq
 from stp_core.common.log import getlogger
@@ -70,7 +71,8 @@ class ZStack(NetworkInterface):
     _RemoteClass = Remote
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
+                 create_listener_monitor=False):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
@@ -104,6 +106,8 @@ class ZStack(NetworkInterface):
 
         self.ctx = None  # type: Context
         self.listener = None
+        self.create_listener_monitor = create_listener_monitor
+        self.listener_monitor = None
         self.auth = None
 
         # Each remote is identified uniquely by the name
@@ -114,7 +118,6 @@ class ZStack(NetworkInterface):
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
         self.onlyListener = onlyListener
-        self.peersWithoutRemotes = set()
 
         self._conns = set()  # type: Set[str]
 
@@ -347,6 +350,8 @@ class ZStack(NetworkInterface):
     def open(self):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        if self.create_listener_monitor:
+            self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
         # self.poller.register(self.listener, test.POLLIN)
         public, secret = self.selfEncKeys
@@ -364,6 +369,9 @@ class ZStack(NetworkInterface):
         )
 
     def close(self):
+        if self.listener_monitor is not None:
+            self.listener.disable_monitor()
+            self.listener_monitor = None
         self.listener.unbind(self.listener.LAST_ENDPOINT)
         self.listener.close(linger=0)
         self.listener = None
@@ -404,33 +412,18 @@ class ZStack(NetworkInterface):
         return not self.isRestricted
 
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
-        if self.onlyListener:
-            return self.hasRemote(name)
-        return super().isConnectedTo(name, ha)
+        return not self.onlyListener and super().isConnectedTo(name, ha)
 
     def hasRemote(self, name):
-        if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return True
-        return super().hasRemote(name)
+        return not self.onlyListener and super().hasRemote(name)
 
     def removeRemoteByName(self, name: str):
-        if self.onlyListener:
-            if name in self.peersWithoutRemotes:
-                self.peersWithoutRemotes.remove(name)
-                return True
-        else:
-            return super().removeRemoteByName(name)
+        return not self.onlyListener and super().removeRemoteByName(name)
 
     def getHa(self, name):
         # Return HA as None when its a `peersWithoutRemote`
         if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return None
+            return None
         return super().getHa(name)
 
     async def service(self, limit=None) -> int:
@@ -480,8 +473,6 @@ class ZStack(NetworkInterface):
                     # Router probing sends empty message on connection
                     continue
                 i += 1
-                if self.onlyListener and ident not in self.remotesByKeys:
-                    self.peersWithoutRemotes.add(ident)
                 self._verifyAndAppend(msg, ident)
             except zmq.Again:
                 break
@@ -761,12 +752,6 @@ class ZStack(NetworkInterface):
 
         if isinstance(ident, str):
             ident = ident.encode()
-        if ident not in self.peersWithoutRemotes:
-            logger.debug('{} not sending message {} to {}'.
-                         format(self, msg, ident))
-            logger.debug("This is a temporary workaround for not being able to "
-                         "disconnect a ROUTER's remote")
-            raise IdentityIsUnknown(ident, msg=msg, prefix=prefix)
         try:
             msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
@@ -957,6 +942,20 @@ class ZStack(NetworkInterface):
         msg_bytes = self.serializeMsg(msg)
         self.msgLenVal.validate(msg_bytes)
         return msg_bytes
+
+    @staticmethod
+    def get_monitor_events(monitor_socket, non_block=True):
+        events = []
+        # noinspection PyUnresolvedReferences
+        flags = zmq.NOBLOCK if non_block else 0
+        while True:
+            try:
+                # noinspection PyUnresolvedReferences
+                message = recv_monitor_message(monitor_socket, flags)
+                events.append(message)
+            except zmq.Again:
+                break
+        return events
 
 
 class DummyKeep:
