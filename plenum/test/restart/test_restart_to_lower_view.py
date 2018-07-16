@@ -6,6 +6,8 @@ from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.view_change.helper import ensure_view_change_complete
 
+nodeCount = 4
+
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
@@ -15,27 +17,54 @@ def tconf(tconf):
     tconf.ENABLE_NETWORK_I3PC_WATCHER = old_network_3pc_watcher_state
 
 
-def test_restart_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPluginsPath,
-                               sdk_pool_handle, sdk_wallet_client):
+def test_restart_majority_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPluginsPath,
+                                        sdk_pool_handle, sdk_wallet_client):
     # Add transaction to ledger
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
     # Move to higher view
     ensure_view_change_complete(looper, txnPoolNodeSet)
 
-    # Restart all nodes except last
-    all_except_last = txnPoolNodeSet[:-1]
-    last_node = txnPoolNodeSet[-1]
+    majority = txnPoolNodeSet[:3]
+    minority = txnPoolNodeSet[3:]
+
+    # Restart majority group
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
-    restart_nodes(looper, txnPoolNodeSet, all_except_last, tconf, tdir, allPluginsPath,
+    restart_nodes(looper, txnPoolNodeSet, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
 
-    # Check that last node is aware that there might be inconsistent 3PC state
-    assert last_node.spylog.count(last_node.on_inconsistent_3pc_state) == 1
+    # Check that nodes in minority group are aware that they might have inconsistent 3PC state
+    for node in minority:
+        assert node.spylog.count(node.on_inconsistent_3pc_state) == 1
 
-    # Restart last node
-    restart_nodes(looper, txnPoolNodeSet, [last_node], tconf, tdir, allPluginsPath,
+    # Check that nodes in majority group don't think they might have inconsistent 3PC state
+    for node in majority:
+        assert node.spylog.count(node.on_inconsistent_3pc_state) == 0
+
+    # Restart minority group
+    restart_nodes(looper, txnPoolNodeSet, minority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, start_one_by_one=False)
+
+    # Check that all nodes are still functional
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
+
+def test_restart_half_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPluginsPath,
+                                    sdk_pool_handle, sdk_wallet_client):
+    # Add transaction to ledger
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+
+    # Move to higher view
+    ensure_view_change_complete(looper, txnPoolNodeSet)
+
+    # Restart half of nodes
+    tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+    restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet[2:], tconf, tdir, allPluginsPath,
+                  after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
+
+    # Check that nodes don't think they may have inconsistent 3PC state
+    for node in txnPoolNodeSet:
+        assert node.spylog.count(node.on_inconsistent_3pc_state) == 0
 
     # Check that all nodes are still functional
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

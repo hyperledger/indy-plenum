@@ -252,6 +252,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.setPoolParams()
 
+        self.network_i3pc_watcher.connect(self.name)
+
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
 
