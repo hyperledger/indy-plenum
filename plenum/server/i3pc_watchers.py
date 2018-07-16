@@ -26,4 +26,3 @@ class NetworkI3PCWatcher:
         n = len(self.nodes)
         f = (n - 1) // 3
         return len(self.connected) > f
-
