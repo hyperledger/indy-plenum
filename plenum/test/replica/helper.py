@@ -1,6 +1,6 @@
-def emulate_catchup(replica):
+def emulate_catchup(replica, ppSeqNo=100):
     if replica.isMaster:
-        replica.caught_up_till_3pc((replica.viewNo, 100))
+        replica.caught_up_till_3pc((replica.viewNo, ppSeqNo))
     else:
         replica.catchup_clear_for_backup()
 

@@ -75,27 +75,29 @@ def test_reset_watermarks_before_new_view_non_master(replica, tconf):
 
 
 def test_catchup_without_vc_and_no_primary_on_master(replica, tconf):
+    ppSeqNo = 100
     replica.isMaster = True
     replica._primaryName = None
     # next calls emulate a catchup without vc when there is no primary selected
     # like it will be called for 'update watermark' procedure
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     # select_primaries after allLedgersCaughtUp
     emulate_select_primaries(replica)
     if replica.viewNo == 0:
-        assert replica.h == 100
-        assert replica.H == 100 + tconf.LOG_SIZE
+        assert replica.h == ppSeqNo
+        assert replica.H == ppSeqNo + tconf.LOG_SIZE
     else:
         assert replica.h == 0
         assert replica.H == tconf.LOG_SIZE
 
 
 def test_catchup_without_vc_and_no_primary_on_backup(replica, tconf):
+    ppSeqNo = 100
     replica.isMaster = False
     replica._primaryName = None
     # next calls emulate a catchup without vc when there is no primary selected
     # like it will be called for 'update watermark' procedure
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     # select_primaries after allLedgersCaughtUp
     emulate_select_primaries(replica)
     if replica.viewNo > 0:
@@ -109,45 +111,49 @@ def test_catchup_without_vc_and_no_primary_on_backup(replica, tconf):
 def test_catchup_without_during_vc_with_primary_on_master(replica, tconf):
     # this test emulate situation of simple catchup procedure without view_change
     # (by checkpoints or ledger_statuses)
+    ppSeqNo = 100
     replica._primaryName = 'SomeNode'
     replica.isMaster = True
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     assert replica.last_ordered_3pc == (replica.viewNo, 100)
-    assert replica.h == 100
-    assert replica.H == 100 + tconf.LOG_SIZE
+    assert replica.h == ppSeqNo
+    assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
 
 def test_catchup_without_during_vc_with_primary_on_backup(replica):
     # this test emulate situation of simple catchup procedure without view_change
     # (by checkpoints or ledger_statuses)
+    ppSeqNo = 100
     replica._primaryName = 'SomeNode'
     replica.isMaster = False
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     assert replica.last_ordered_3pc == (replica.viewNo, 0)
     assert replica.h == 0
     assert replica.H == sys.maxsize
 
 
 def test_view_change_no_propagate_primary_on_master(replica, tconf):
+    ppSeqNo = 100
     replica.isMaster = True
     replica._primaryName = 'SomeNode'
     # next calls emulate simple view_change procedure (replica's watermark related steps)
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
     if replica.viewNo > 0:
         assert replica.h == 0
         assert replica.H == tconf.LOG_SIZE
     else:
-        assert replica.h == 100
-        assert replica.H == 100 + tconf.LOG_SIZE
+        assert replica.h == ppSeqNo
+        assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
 def test_view_change_no_propagate_primary_on_backup(replica, tconf):
+    ppSeqNo = 100
     replica.isMaster = False
     replica._primaryName = 'SomeNode'
     # next calls emulate simple view_change procedure (replica's watermark related steps)
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
     if replica.viewNo > 0:
         assert replica.h == 0
@@ -158,23 +164,25 @@ def test_view_change_no_propagate_primary_on_backup(replica, tconf):
 
 
 def test_view_change_propagate_primary_on_master(replica, tconf):
+    ppSeqNo = 100
     replica.isMaster = True
     replica._primaryName = 'SomeNode'
     # next calls emulate view_change for propagate primary situation
     # (when the new node join to the pool)
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
     replica.on_propagate_primary_done()
-    assert replica.h == 100
-    assert replica.H == 100 + tconf.LOG_SIZE
+    assert replica.h == ppSeqNo
+    assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
 def test_view_change_propagate_primary_on_backup(replica):
+    ppSeqNo = 100
     replica.isMaster = False
     replica._primaryName = 'SomeNode'
     # next calls emulate view_change for propagate primary situation
     # (when the new node join to the pool)
-    emulate_catchup(replica)
+    emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
     replica.on_propagate_primary_done()
     assert replica.h == 0
