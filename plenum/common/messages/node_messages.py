@@ -414,12 +414,3 @@ class FutureViewChangeDone:
     def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
         self.vcd_msg = vcd_msg
         self.from_current_state = from_current_state
-
-
-class Inconsistent3PCState(MessageBase):
-    """
-    Purpose: notify interested parties that we detected inconsistent 3-phase commit state
-    Most simple reaction to this should be node reboot
-    """
-    def __init__(self) -> None:
-        pass

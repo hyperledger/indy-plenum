@@ -1,9 +1,9 @@
-from typing import Set, Callable
+from typing import Callable, Iterable
 
 
 class NetworkI3PCWatcher:
-    def __init__(self, nodes: Set[str], cb: Callable):
-        self.nodes = nodes
+    def __init__(self, cb: Callable):
+        self.nodes = set()
         self.connected = set()
         self.callback = cb
 
@@ -16,11 +16,8 @@ class NetworkI3PCWatcher:
         if had_consensus and not self._has_consensus():
             self.callback()
 
-    def add_node(self, name: str):
-        self.nodes.add(name)
-
-    def remove_node(self, name: str):
-        self.nodes.discard(name)
+    def set_nodes(self, nodes: Iterable[str]):
+        self.nodes = set(nodes)
 
     def _has_consensus(self):
         n = len(self.nodes)
