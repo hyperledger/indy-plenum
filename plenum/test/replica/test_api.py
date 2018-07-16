@@ -12,39 +12,9 @@ from plenum.test.testing_utils import FakeSomething
 nodeCount = 4
 
 
-@pytest.fixture(scope='function')
-def replica(tconf):
-    node_stack = FakeSomething(
-        name="fake stack",
-        connecteds={"Alpha", "Beta", "Gamma", "Delta"}
-    )
-    node = FakeSomething(
-        name="fake node",
-        ledger_ids=[0],
-        viewNo=0,
-        quorums=Quorums(nodeCount),
-        nodestack=node_stack,
-        utc_epoch=lambda *args: get_utc_epoch()
-    )
-    bls_bft_replica = FakeSomething(
-        gc=lambda *args: None,
-    )
-    replica = Replica(
-        node, instId=0, isMaster=False,
-        config=tconf, bls_bft_replica=bls_bft_replica
-    )
-    return replica
-
-
 def test_view_change_done(replica):
     with pytest.raises(LogicError) as excinfo:
         replica.on_view_change_done()
-    assert "is not a master" in str(excinfo.value)
-
-
-def test_on_propagate_primary_done(replica):
-    with pytest.raises(LogicError) as excinfo:
-        replica.on_propagate_primary_done()
     assert "is not a master" in str(excinfo.value)
 
 
@@ -74,7 +44,7 @@ def test_order_3pc_key(replica):
 
 
 def test_can_pp_seq_no_be_in_view(replica):
-    view_no = 1
+    view_no = replica.viewNo + 1
     assert replica.viewNo < view_no
     with pytest.raises(PlenumValueError) as excinfo:
         replica.can_pp_seq_no_be_in_view(view_no, 1)

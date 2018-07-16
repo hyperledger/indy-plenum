@@ -538,14 +538,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):
-        if not self.isMaster:
-            raise LogicError("{} is not a master".format(self))
-        # if this is a Primary that is re-connected (that is view change is not actually changed,
-        # we just propagate it, then make sure that we don;t break the sequence
-        # of ppSeqNo
-        self.update_watermark_from_3pc()
-        if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
-            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        if self.isMaster:
+            # if this is a Primary that is re-connected (that is view change is not actually changed,
+            # we just propagate it, then make sure that we don;t break the sequence
+            # of ppSeqNo
+            self.update_watermark_from_3pc()
+            if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
+                self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        elif not self.isPrimary:
+            self.h = 0
+            self.H = sys.maxsize
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -597,7 +599,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
-            self.h = 0
             for v in list(self.stashed_out_of_order_commits.keys()):
                 if v < current_view:
                     self.stashed_out_of_order_commits.pop(v)
