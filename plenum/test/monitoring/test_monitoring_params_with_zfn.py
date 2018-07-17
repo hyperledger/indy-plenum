@@ -8,10 +8,13 @@ nodeCount = 7
 def tconf(tconf):
     old_thr_window_size = tconf.ThroughputInnerWindowSize
     old_thr_window_count = tconf.ThroughputMinActivityThreshold
+    old_min_cnt = tconf.MIN_LATENCY_COUNT
     tconf.ThroughputInnerWindowSize = 5
     tconf.ThroughputMinActivityThreshold = 2
-
+    tconf.MIN_LATENCY_COUNT = 1
     yield tconf
+
+    tconf.MIN_LATENCY_COUNT = old_min_cnt
     tconf.ThroughputInnerWindowSize = old_thr_window_size
     tconf.ThroughputMinActivityThreshold = old_thr_window_count
 

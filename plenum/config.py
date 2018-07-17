@@ -137,6 +137,11 @@ ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
+# This parameter defines minimal count of accumulated latencies for each client
+MIN_LATENCY_COUNT = 50
+# This parameter defines coefficient alpha, which represents the degree of weighting decrease.
+LATENCY_ALPHA = 0.2
+
 # Two following parameters define collecting statistic timeout for
 # collecting ordered request and throughput evaluating them.
 # In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,

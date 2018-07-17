@@ -1,7 +1,7 @@
 import pytest
 import time
 
-from plenum.server.monitor import RequestMeasurement
+from plenum.server.monitor import ThroughputMeasurement
 
 
 ACCURACY = .1e-3
@@ -9,7 +9,7 @@ ACCURACY = .1e-3
 
 @pytest.fixture(scope="function")
 def request_measurement():
-    rm = RequestMeasurement()
+    rm = ThroughputMeasurement()
     rm.first_ts = 1
     rm.window_start_ts = 1
     return rm
@@ -17,10 +17,6 @@ def request_measurement():
 
 def test_add_request(request_measurement):
     assert request_measurement.add_request
-
-
-def test_get_avg_latency(request_measurement):
-    assert request_measurement.get_avg_latency
 
 
 @pytest.mark.skip(reason="Not implemented yet")
@@ -117,22 +113,3 @@ def test_update_time(request_measurement):
     assert rm.reqs_in_window == 1
     # Check, that throughput for first window was calculated
     assert rm.throughput > 0
-
-
-def test_add_duration(request_measurement):
-    rm = request_measurement
-    rm.add_duration('some_client_identifier', 1)
-    assert rm.avg_latencies['some_client_identifier'][1] != 0
-
-
-def test_avg_latency_accuracy(request_measurement):
-    count_of_insertion = 100
-    identifier = 'some_client_identifier'
-    rm = request_measurement
-    duration = 10
-    for _ in range(0, count_of_insertion):
-        rm.add_duration(identifier, duration)
-    avg_lat = rm.get_avg_latency(identifier)
-    assert abs(avg_lat - duration) < ACCURACY
-    total_reqs = rm.avg_latencies[identifier][0]
-    assert total_reqs == count_of_insertion

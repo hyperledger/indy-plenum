@@ -26,16 +26,14 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
-class RequestMeasurement:
+class ThroughputMeasurement:
     """
-    Measure request params (throughput)
+    Measure throughput params
     """
 
     def __init__(self, throughput_window_size=15, throughput_min_cnt=16):
         self.reqs_in_window = 0
         self.throughput = 0
-        # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latencies = {}    # type: Dict(str, (int, float))
         self.throughput_window_size = throughput_window_size
         self.throughput_min_cnt = throughput_min_cnt
         self.first_ts = time.perf_counter()
@@ -46,41 +44,59 @@ class RequestMeasurement:
         self.update_time(ordered_ts)
         self.reqs_in_window += 1
 
+    def _accumulate(self, old_accum, next_val):
+        """
+        Implement exponential moving average
+        """
+        return old_accum * (1 - self.alpha) + next_val * self.alpha
+
+    def update_time(self, current_ts):
+        while current_ts >= self.window_start_ts + self.throughput_window_size:
+            self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.throughput_window_size)
+            self.window_start_ts = self.window_start_ts + self.throughput_window_size
+            self.reqs_in_window = 0
+
+    def get_throughput(self, request_time):
+        if request_time < self.first_ts + (self.throughput_window_size * self.throughput_min_cnt):
+            return None
+        self.update_time(request_time)
+        return self.throughput
+
+
+class LatencyMeasurement:
+    """
+    Measure latency params
+    """
+
+    def __init__(self, min_latency_count=50, alpha=0.2):
+        self.min_latency_count = min_latency_count
+        # map of client identifier and (total_reqs, avg_latency) tuple
+        self.avg_latencies = {}    # type: Dict(str, (int, float))
+        self.alpha = alpha
+
     def add_duration(self, identifier, duration):
         if identifier not in self.avg_latencies:
             self.avg_latencies[identifier] = (0, .0)
         total_reqs, curr_avg_lat = self.avg_latencies[identifier]
         total_reqs += 1
         self.avg_latencies[identifier] = (total_reqs,
-                                          self._moving_average(curr_avg_lat,
-                                                               duration))
+                                          self._accumulate(curr_avg_lat,
+                                                           duration))
 
-    def _moving_average(self, p0, p1):
+    def _accumulate(self, old_accum, next_val):
         """
         Implement exponential moving average
         """
-        return p0 * (1 - self.alpha) + p1 * self.alpha
-
-    def update_time(self, current_ts):
-        while current_ts >= self.window_start_ts + self.throughput_window_size:
-            self.throughput = self._moving_average(self.throughput, self.reqs_in_window / self.throughput_window_size)
-            self.window_start_ts = self.window_start_ts + self.throughput_window_size
-            self.reqs_in_window = 0
+        return old_accum * (1 - self.alpha) + next_val * self.alpha
 
     def get_avg_latency(self, identifier):
         if identifier not in self.avg_latencies:
-            return .0
-
-        return self.avg_latencies[identifier][1]
-
-    def get_max_latency(self):
-        pass
-
-    def get_throughput(self, request_time):
-        if request_time < self.first_ts + (self.throughput_window_size * self.throughput_min_cnt):
             return None
-        self.update_time(request_time)
-        return self._moving_average(self.throughput, self.reqs_in_window / self.throughput_window_size)
+        total_reqs, curr_avg_lat = self.avg_latencies[identifier]
+        if total_reqs < self.min_latency_count:
+            return None
+
+        return curr_avg_lat
 
 
 class RequestTimeTracker:
@@ -201,8 +217,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests = []  # type: List[Tuple[int, int]]
 
         # List of throughputs for replicas. Index is a instId and value is a instance of
-        # RequestMeasurement class and provide throughputs evaluating mechanism
-        self.throughputs = []   # type: List[RequestMeasurement]
+        # ThroughputMeasurement class and provide throughputs evaluating mechanism
+        self.throughputs = []   # type: List[ThroughputMeasurement]
 
         # Utility object for tracking requests order start and end
         # TODO: Has very similar cleanup logic to propagator.Requests
@@ -218,9 +234,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
 
         # Request latency(time taken to be ordered) for the client. The value
-        # at index `i` in the list is the RequestMeasurement object which accumulate
+        # at index `i` in the list is the LatencyMeasurement object which accumulate
         # average latency and total request for each client.
-        self.clientAvgReqLatencies = []  # type: List[RequestMeasurement]
+        self.clientAvgReqLatencies = []  # type: List[LatencyMeasurement]
 
         # TODO: Set this if this monitor belongs to a node which has primary
         # of master. Will be used to set `totalRequests`
@@ -337,10 +353,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
         for i in range(num_instances):
-            rm = RequestMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
-                                    throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
-            self.clientAvgReqLatencies[i] = rm
+            rm = ThroughputMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
+                                       throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
             self.throughputs[i] = rm
+            lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT,
+                                    alpha=self.config.LATENCY_ALPHA)
+            self.clientAvgReqLatencies[i] = lm
 
     def addInstance(self):
         """
@@ -349,10 +367,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
-        rm = RequestMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
-                                throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
-        self.clientAvgReqLatencies.append(rm)
+        rm = ThroughputMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
+                                   throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
+
         self.throughputs.append(rm)
+        lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT,
+                                alpha=self.config.LATENCY_ALPHA)
+        self.clientAvgReqLatencies.append(lm)
 
     def removeInstance(self, index=None):
         if self.instances.count > 0:
@@ -386,7 +407,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:
-                self.masterReqLatencies[key] = duration
+                # TODO for now, view_change procedure can take more that 15 minutes
+                # (5 minutes for catchup and 10 minutes for primary's answer).
+                # Therefore, view_change triggering by max latency is not indicative now.
+                # self.masterReqLatencies[key] = duration
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
@@ -441,7 +465,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         return (self.instances.masterId is not None and
                 (self.isMasterThroughputTooLow() or
-                 self.isMasterReqLatencyTooHigh() or
+                 # TODO for now, view_change procedure can take more that 15 minutes
+                 # (5 minutes for catchup and 10 minutes for primary's answer).
+                 # Therefore, view_change triggering by max latency now is not indicative.
+                 # self.isMasterReqLatencyTooHigh() or
                  self.isMasterAvgReqLatencyTooHigh()))
 
     def masterThroughputRatio(self):
@@ -481,6 +508,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the request latency of the master instance is greater
         than the acceptable threshold
         """
+        # TODO for now, view_change procedure can take more that 15 minutes
+        # (5 minutes for catchup and 10 minutes for primary's answer).
+        # Therefore, view_change triggering by max latency is not indicative now.
+
         r = self.masterReqLatencyTooHigh or \
             next(((key, lat) for key, lat in self.masterReqLatencies.items() if
                   lat > self.Lambda), None)
@@ -589,18 +620,24 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         if len(self.clientAvgReqLatencies) == 0:
             return 0
-        return self.mean(
-            [self.clientAvgReqLatencies[i].get_avg_latency(identifier) for i in instId])
+        means = []
+        for i in instId:
+            avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(identifier)
+            if avg_lat:
+                means.append(avg_lat)
+        return self.mean(means)
 
     def getAvgLatency(self, *instIds: int) -> Dict[str, float]:
         if len(self.clientAvgReqLatencies) == 0:
             return 0
         avgLatencies = {}
         for i in instIds:
-            for cid, (_, avg_lat) in self.clientAvgReqLatencies[i].avg_latencies.items():
-                if cid not in avgLatencies:
-                    avgLatencies[cid] = []
-                avgLatencies[cid].append(avg_lat)
+            for cid in self.clientAvgReqLatencies[i].avg_latencies.keys():
+                avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(cid)
+                if avg_lat:
+                    if cid not in avgLatencies:
+                        avgLatencies[cid] = []
+                    avgLatencies[cid].append(avg_lat)
 
         avgLatencies = {cid: mean(lat) for cid, lat in avgLatencies.items()}
 
