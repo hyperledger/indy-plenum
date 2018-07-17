@@ -4,18 +4,21 @@ from plenum.server.quorums import Quorums
 
 class NetworkInconsistencyWatcher:
     def __init__(self, cb: Callable):
-        self._nodes = set()
-        self.connected = set()
         self.callback = cb
-        self.quorums = Quorums(0)
+        self._nodes = set()
+        self._connected = set()
+        self._quorums = Quorums(0)
+        self._reached_consensus = False
 
     def connect(self, name: str):
-        self.connected.add(name)
+        self._connected.add(name)
+        if self._quorums.strong.is_reached(len(self._connected)):
+            self._reached_consensus = True
 
     def disconnect(self, name: str):
-        had_consensus = self._has_consensus()
-        self.connected.discard(name)
-        if had_consensus and not self._has_consensus():
+        self._connected.discard(name)
+        if self._reached_consensus and not self._quorums.weak.is_reached(len(self._connected)):
+            self._reached_consensus = False
             self.callback()
 
     @property
@@ -24,7 +27,7 @@ class NetworkInconsistencyWatcher:
 
     def set_nodes(self, nodes: Iterable[str]):
         self._nodes = set(nodes)
-        self.quorums = Quorums(len(self._nodes))
+        self._quorums = Quorums(len(self._nodes))
 
     def _has_consensus(self):
-        return self.quorums.weak.is_reached(len(self.connected))
+        return self._quorums.weak.is_reached(len(self._connected))
