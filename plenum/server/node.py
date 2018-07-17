@@ -11,7 +11,7 @@ from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
-from plenum.server.i3pc_watchers import NetworkI3PCWatcher
+from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -248,7 +248,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientInBox = deque()
 
         # 3PC state consistency watchdog based on network events
-        self.network_i3pc_watcher = NetworkI3PCWatcher(self.on_inconsistent_3pc_state_from_network)
+        self.network_i3pc_watcher = NetworkInconsistencyWatcher(self.on_inconsistent_3pc_state_from_network)
 
         self.setPoolParams()
 

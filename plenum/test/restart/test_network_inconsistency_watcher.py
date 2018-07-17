@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.i3pc_watchers import NetworkI3PCWatcher
+from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 
 DEFAULT_NODE_SET = {'Alpha', 'Beta', 'Gamma', 'Delta'}
 
@@ -16,28 +16,28 @@ class WatcherCallbackMock:
 @pytest.fixture
 def watcher():
     cb = WatcherCallbackMock()
-    watcher = NetworkI3PCWatcher(cb)
+    watcher = NetworkInconsistencyWatcher(cb)
     watcher.set_nodes(DEFAULT_NODE_SET)
     return watcher
 
 
-def _add_node(watcher: NetworkI3PCWatcher, node: str):
+def _add_node(watcher: NetworkInconsistencyWatcher, node: str):
     nodes = watcher.nodes
     nodes.add(node)
     watcher.set_nodes(nodes)
 
 
-def _remove_node(watcher: NetworkI3PCWatcher, node: str):
+def _remove_node(watcher: NetworkInconsistencyWatcher, node: str):
     nodes = watcher.nodes
     nodes.discard(node)
     watcher.set_nodes(nodes)
 
 
-def test_watcher_is_not_triggered_when_created(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_created(watcher: NetworkInconsistencyWatcher):
     assert watcher.callback.call_count == 0
 
 
-def test_watcher_is_not_triggered_when_nodes_are_initially_connected(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_nodes_are_initially_connected(watcher: NetworkInconsistencyWatcher):
     watcher.connect('Alpha')
     watcher.connect('Beta')
     watcher.connect('Gamma')
@@ -46,14 +46,14 @@ def test_watcher_is_not_triggered_when_nodes_are_initially_connected(watcher: Ne
     assert watcher.callback.call_count == 0
 
 
-def test_watcher_is_not_triggered_when_just_one_node_connects_and_disconnects(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_just_one_node_connects_and_disconnects(watcher: NetworkInconsistencyWatcher):
     watcher.connect('Alpha')
     watcher.disconnect('Alpha')
 
     assert watcher.callback.call_count == 0
 
 
-def test_watcher_is_triggered_when_going_below_consensus(watcher: NetworkI3PCWatcher):
+def test_watcher_is_triggered_when_going_below_consensus(watcher: NetworkInconsistencyWatcher):
     watcher.connect('Alpha')
     watcher.connect('Beta')
     watcher.disconnect('Beta')
@@ -61,7 +61,7 @@ def test_watcher_is_triggered_when_going_below_consensus(watcher: NetworkI3PCWat
     assert watcher.callback.call_count == 1
 
 
-def test_watcher_is_not_triggered_when_adding_nodes_while_on_edge_of_consensus(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_adding_nodes_while_on_edge_of_consensus(watcher: NetworkInconsistencyWatcher):
     watcher.connect('Alpha')
     watcher.connect('Beta')
     _add_node(watcher, 'Epsilon')
@@ -71,7 +71,7 @@ def test_watcher_is_not_triggered_when_adding_nodes_while_on_edge_of_consensus(w
     assert watcher.callback.call_count == 0
 
 
-def test_watcher_is_not_triggered_when_removing_nodes_below_minimum_count(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_removing_nodes_below_minimum_count(watcher: NetworkInconsistencyWatcher):
     watcher.connect('Alpha')
     watcher.connect('Beta')
     watcher.connect('Gamma')
@@ -81,7 +81,7 @@ def test_watcher_is_not_triggered_when_removing_nodes_below_minimum_count(watche
     assert watcher.callback.call_count == 0
 
 
-def test_watcher_is_not_triggered_when_removing_nodes_and_going_below_consensus(watcher: NetworkI3PCWatcher):
+def test_watcher_is_not_triggered_when_removing_nodes_and_going_below_consensus(watcher: NetworkInconsistencyWatcher):
     _add_node(watcher, 'Theta')
     watcher.connect('Alpha')
     watcher.connect('Theta')
@@ -91,7 +91,7 @@ def test_watcher_is_not_triggered_when_removing_nodes_and_going_below_consensus(
 
 
 def test_watcher_is_not_triggered_when_just_two_nodes_connect_and_disconnect_in_7_node_pool(
-        watcher: NetworkI3PCWatcher):
+        watcher: NetworkInconsistencyWatcher):
     watcher.set_nodes(['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta'])
     watcher.connect('Alpha')
     watcher.connect('Beta')

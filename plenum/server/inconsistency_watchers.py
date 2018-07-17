@@ -2,7 +2,7 @@ from typing import Callable, Iterable
 from plenum.server.quorums import Quorums
 
 
-class NetworkI3PCWatcher:
+class NetworkInconsistencyWatcher:
     def __init__(self, cb: Callable):
         self._nodes = set()
         self.connected = set()
