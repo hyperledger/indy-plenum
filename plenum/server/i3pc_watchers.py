@@ -4,7 +4,7 @@ from plenum.server.quorums import Quorums
 
 class NetworkI3PCWatcher:
     def __init__(self, cb: Callable):
-        self.nodes = set()
+        self._nodes = set()
         self.connected = set()
         self.callback = cb
         self.quorums = Quorums(0)
@@ -18,9 +18,13 @@ class NetworkI3PCWatcher:
         if had_consensus and not self._has_consensus():
             self.callback()
 
+    @property
+    def nodes(self):
+        return self._nodes
+
     def set_nodes(self, nodes: Iterable[str]):
-        self.nodes = set(nodes)
-        self.quorums = Quorums(len(self.nodes))
+        self._nodes = set(nodes)
+        self.quorums = Quorums(len(self._nodes))
 
     def _has_consensus(self):
         return self.quorums.weak.is_reached(len(self.connected))
