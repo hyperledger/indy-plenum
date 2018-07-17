@@ -1,5 +1,6 @@
 import types
 
+from plenum.common.util import randomString
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -7,8 +8,8 @@ from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
 from plenum.test.helper import checkViewNoForNodes, \
     sdk_send_random_requests, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+    disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
     TestNode, checkNodesConnected
 from stp_core.common.log import getlogger
@@ -329,3 +330,21 @@ def view_change_in_between_3pc_random_delays(
     reset_delays_and_process_delayeds(slow_nodes)
 
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
+
+
+
+def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
+                 tdir, tconf, all_plugins_path, name=None):
+    node_name = name or "Psi"
+    new_steward_name = "testClientSteward" + randomString(3)
+    _, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, node_name, tdir, tconf,
+        allPluginsPath=all_plugins_path)
+    nodes.append(new_node)
+    looper.run(checkNodesConnected(nodes))
+    timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
+    waitNodeDataEquality(looper, new_node, *nodes[:-1],
+                         customTimeout=timeout)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return new_node
