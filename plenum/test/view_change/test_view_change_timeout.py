@@ -41,13 +41,17 @@ def check_watchdog_called_expected_times(nodes, stats, times):
     def true_count(node):
         return _check_view_change_completed_true(node) - stats[node.name][1]
 
-    n_minus_f = (2 * nodeCount + 1) // 3
+    n = nodeCount
+    f = (n - 1) // 3
+
+    call_counts = [call_count(node) for node in nodes]
+    true_counts = [true_count(node) for node in nodes]
 
     ok = True
-    ok = ok and all(call_count(node) <= times for node in nodes)
-    ok = ok and all(true_count(node) <= times for node in nodes)
-    ok = ok and (sum(1 for node in nodes if call_count(node) == times) >= n_minus_f)
-    ok = ok and (sum(1 for node in nodes if true_count(node) == times) >= n_minus_f)
+    ok = ok and all(v <= times for v in call_counts)
+    ok = ok and all(v <= times for v in true_counts)
+    ok = ok and sum(call_counts) >= times * (n - f)
+    ok = ok and sum(true_counts) >= times * (n - f)
 
     if not ok:
         actual = ""
