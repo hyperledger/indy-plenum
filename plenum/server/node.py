@@ -614,7 +614,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 replica.clear_requests_and_fix_last_ordered()
 
     def on_inconsistent_3pc_state_from_network(self):
-        if self.config.ENABLE_NETWORK_I3PC_WATCHER:
+        if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
             self.on_inconsistent_3pc_state()
 
     def on_inconsistent_3pc_state(self):

@@ -11,10 +11,10 @@ nodeCount = 4
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_network_3pc_watcher_state = tconf.ENABLE_NETWORK_I3PC_WATCHER
-    tconf.ENABLE_NETWORK_I3PC_WATCHER = True
+    old_network_3pc_watcher_state = tconf.ENABLE_INCONSISTENCY_WATCHER_NETWORK
+    tconf.ENABLE_INCONSISTENCY_WATCHER_NETWORK = True
     yield tconf
-    tconf.ENABLE_NETWORK_I3PC_WATCHER = old_network_3pc_watcher_state
+    tconf.ENABLE_INCONSISTENCY_WATCHER_NETWORK = old_network_3pc_watcher_state
 
 
 def test_restart_majority_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPluginsPath,
