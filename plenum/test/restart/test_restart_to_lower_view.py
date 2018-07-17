@@ -4,6 +4,7 @@ from plenum.test import waits
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change_complete
 
 nodeCount = 4
@@ -32,6 +33,7 @@ def test_restart_majority_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, all
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     restart_nodes(looper, txnPoolNodeSet, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
+    ensureElectionsDone(looper, majority, numInstances=2)
 
     # Check that nodes in minority group are aware that they might have inconsistent 3PC state
     for node in minority:
@@ -60,7 +62,7 @@ def test_restart_half_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPlug
     # Restart half of nodes
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet[2:], tconf, tdir, allPluginsPath,
-                  after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
+                  after_restart_timeout=tm, start_one_by_one=False)
 
     # Check that nodes don't think they may have inconsistent 3PC state
     for node in txnPoolNodeSet:
