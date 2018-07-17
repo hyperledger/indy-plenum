@@ -5,12 +5,11 @@ import random
 
 from plenum.server.monitor import LatencyMeasurement
 
-ACCURACY = .1e-3
+ACCURACY = 1e-3
 
 @pytest.fixture(scope='function')
 def latency_class(tconf):
-    return LatencyMeasurement(min_latency_count=tconf.MIN_LATENCY_COUNT,
-                              alpha=tconf.LATENCY_ALPHA)
+    return LatencyMeasurement(min_latency_count=tconf.MIN_LATENCY_COUNT)
 
 
 def test_get_avg_latency(latency_class):

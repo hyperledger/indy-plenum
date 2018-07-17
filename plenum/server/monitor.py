@@ -68,11 +68,12 @@ class LatencyMeasurement:
     Measure latency params
     """
 
-    def __init__(self, min_latency_count=50, alpha=0.2):
+    def __init__(self, min_latency_count=10):
         self.min_latency_count = min_latency_count
         # map of client identifier and (total_reqs, avg_latency) tuple
         self.avg_latencies = {}    # type: Dict(str, (int, float))
-        self.alpha = alpha
+        # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
+        self.alpha = 1 / (self.min_latency_count + 1)
 
     def add_duration(self, identifier, duration):
         if identifier not in self.avg_latencies:
@@ -356,8 +357,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             rm = ThroughputMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
                                        throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
             self.throughputs[i] = rm
-            lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT,
-                                    alpha=self.config.LATENCY_ALPHA)
+            lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
             self.clientAvgReqLatencies[i] = lm
 
     def addInstance(self):
@@ -371,8 +371,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                                    throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
 
         self.throughputs.append(rm)
-        lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT,
-                                alpha=self.config.LATENCY_ALPHA)
+        lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
         self.clientAvgReqLatencies.append(lm)
 
     def removeInstance(self, index=None):
