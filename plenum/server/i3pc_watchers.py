@@ -1,4 +1,5 @@
 from typing import Callable, Iterable
+from plenum.server.quorums import Quorums
 
 
 class NetworkI3PCWatcher:
@@ -6,6 +7,7 @@ class NetworkI3PCWatcher:
         self.nodes = set()
         self.connected = set()
         self.callback = cb
+        self.quorums = Quorums(0)
 
     def connect(self, name: str):
         self.connected.add(name)
@@ -18,8 +20,7 @@ class NetworkI3PCWatcher:
 
     def set_nodes(self, nodes: Iterable[str]):
         self.nodes = set(nodes)
+        self.quorums = Quorums(len(self.nodes))
 
     def _has_consensus(self):
-        n = len(self.nodes)
-        f = (n - 1) // 3
-        return len(self.connected) > f
+        return self.quorums.weak.is_reached(len(self.connected))
