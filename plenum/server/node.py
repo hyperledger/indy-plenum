@@ -2143,7 +2143,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.process_query(request, frm)
             self.total_read_request_number += 1
 
-        elif self.is_writable(txn_type):
+        elif self.is_txn_writable(txn_type):
             reply = self.getReplyFromLedgerForRequest(request)
             if reply:
                 logger.debug("{} returning REPLY from already processed "
@@ -2181,7 +2181,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_action(self, txn_type) -> bool:
         return txn_type in self.actionReqHandler.operation_types
 
-    def is_writable(self, txn_type):
+    def is_txn_writable(self, txn_type):
         return True
 
     def process_query(self, request: Request, frm: str):
