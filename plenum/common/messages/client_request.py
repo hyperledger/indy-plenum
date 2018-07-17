@@ -1,7 +1,7 @@
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
-    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, OPERATION_SCHEMA_IS_STRICT
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -52,7 +52,6 @@ class ClientNYMOperation(MessageValidator):
         # TODO: validate role using ChooseField,
         # do roles list expandable form outer context
     )
-    schema_is_strict = False
 
 
 class ClientGetTxnOperation(MessageValidator):
@@ -66,7 +65,7 @@ class ClientGetTxnOperation(MessageValidator):
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
-        strict = kwargs.get("schema_is_strict", True)
+        strict = kwargs.get("schema_is_strict", OPERATION_SCHEMA_IS_STRICT)
         self.operations = {
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
@@ -114,12 +113,11 @@ class ClientMessageValidator(MessageValidator):
         # TODO: refactor this
         # TODO: this (and all related functionality) can be removed when
         # when fixed problem with transaction serialization (INDY-338)
-        strict = operation_schema_is_strict
         # Adding fields from enabled plugins to schema.
         self.schema = self.schema + tuple(PLUGIN_CLIENT_REQUEST_FIELDS.items())
-        if not strict:
+        if operation_schema_is_strict:
             operation_field_index = 2
-            op = ClientOperationField(schema_is_strict=False)
+            op = ClientOperationField(schema_is_strict=operation_schema_is_strict)
             schema = list(self.schema)
             schema[operation_field_index] = (OPERATION, op)
             self.schema = tuple(schema)
