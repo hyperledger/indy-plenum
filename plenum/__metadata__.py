@@ -3,7 +3,7 @@ plenum package metadata
 """
 
 __title__ = 'indy-plenum'
-__version_info__ = (1, 4)
+__version_info__ = (1, 5)
 __version__ = '.'.join(map(str, __version_info__))
 __author__ = "Hyperledger"
 __author_email__ = 'hyperledger-indy@lists.hyperledger.org'
