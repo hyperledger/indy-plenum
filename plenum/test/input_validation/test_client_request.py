@@ -8,9 +8,13 @@ from plenum.test.input_validation.constants import TEST_TARGET_NYM
 from plenum.test.input_validation.constants import TEST_VERKEY_ABBREVIATED
 
 
-@pytest.fixture()
-def validator():
-    return ClientMessageValidator(operation_schema_is_strict=True)
+@pytest.fixture(params=['operation_schema_is_strict', 'operation_schema_is_not_strict',
+                        'schema_is_strict', 'schema_is_not_strict'])
+def validator(request):
+    operation_schema_is_strict = request.param == 'operation_schema_is_strict'
+    schema_is_strict = request.param == 'schema_is_strict'
+    return ClientMessageValidator(operation_schema_is_strict=operation_schema_is_strict,
+                                  schema_is_strict=schema_is_strict)
 
 
 @pytest.fixture()

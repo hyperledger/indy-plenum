@@ -143,7 +143,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                         node_request1)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'unknown field' in e._excinfo[1].args[0]
+    assert 'missed fields - node_port' in e._excinfo[1].args[0]
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         request_json = json.loads(node_request)
