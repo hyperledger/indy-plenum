@@ -4,7 +4,7 @@ from typing import Mapping
 
 from plenum.common.types import f
 
-from plenum.common.constants import OP_FIELD_NAME
+from plenum.common.constants import OP_FIELD_NAME, SCHEMA_IS_STRICT
 from plenum.common.exceptions import MissingProtocolVersionError
 from plenum.common.messages.fields import FieldValidator
 
@@ -15,9 +15,9 @@ class MessageValidator(FieldValidator):
 
     schema = ()
     optional = False
-    schema_is_strict = True
+    schema_is_strict = SCHEMA_IS_STRICT
 
-    def __init__(self, schema_is_strict=True):
+    def __init__(self, schema_is_strict=SCHEMA_IS_STRICT):
         self.schema_is_strict = schema_is_strict
 
     def validate(self, dct):
@@ -88,7 +88,7 @@ class MessageBase(Mapping, MessageValidator):
             kwargs.pop(OP_FIELD_NAME, None)
 
         argsLen = len(args or kwargs)
-        if argsLen > len(self.schema):
+        if self.schema_is_strict and argsLen > len(self.schema):
             raise ValueError(
                 "number of parameters {} should be less than or equal to "
                 "the number of fields in schema {}"
