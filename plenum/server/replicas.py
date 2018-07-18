@@ -148,21 +148,20 @@ class Replicas:
     def unordered_request_handler_logging(self, unordereds):
         replica = self._master_replica
         for unordered in unordereds:
-            req, duration = unordered
-            reqId = req[1]
+            reqId, duration = unordered
 
             # get ppSeqNo and viewNo
             preprepares = replica.sentPrePrepares if replica.isPrimary else replica.prePrepares
             ppSeqNo = None
             viewNo = None
             for key in preprepares:
-                if any([pre_pre_req == req for pre_pre_req in preprepares[key].reqIdr]):
+                if any([pre_pre_req == reqId for pre_pre_req in preprepares[key].reqIdr]):
                     ppSeqNo = preprepares[key].ppSeqNo
                     viewNo = preprepares[key].viewNo
                     break
             if ppSeqNo is None or viewNo is None:
                 logger.warning('Unordered request with reqId: {} was not found in prePrepares'.format(reqId))
-                return
+                continue
 
             # get pre-prepare sender
             prepre_sender = replica.primaryNames[viewNo]
@@ -181,25 +180,20 @@ class Replicas:
             n_commits = len(commits)
             str_commits = 'noone'
             if n_commits:
-                str_commits = ', '.join(prepares)
+                str_commits = ', '.join(commits)
 
             # get txn content
-            content = replica.requests[req].finalised.as_dict \
-                if req in replica.requests else 'no content saved'
+            content = replica.requests[reqId].finalised.as_dict \
+                if reqId in replica.requests else 'no content saved'
 
-            logger.error('Consensus for ReqId: {} was not achieved within {} seconds. '
-                         'Primary node is {}. '
-                         'Received Pre-Prepare from {}. '
-                         'Received {} valid Prepares from {}. '
-                         'Received {} valid Commits from {}. '
-                         'Transaction contents: {}. '
-                         .format(reqId, duration,
-                                 replica.primaryName.split(':')[0],
-                                 prepre_sender,
-                                 n_prepares, str_prepares,
-                                 n_commits, str_commits,
-                                 content
-                                 ))
+            logger.warning('Consensus for digest {} was not achieved within {} seconds. '
+                           'Primary node is {}. '
+                           'Received Pre-Prepare from {}. '
+                           'Received {} valid Prepares from {}. '
+                           'Received {} valid Commits from {}. '
+                           'Transaction contents: {}. '
+                           .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
+                                   n_prepares, str_prepares, n_commits, str_commits, content))
 
     def __getitem__(self, item):
         if not isinstance(item, int):

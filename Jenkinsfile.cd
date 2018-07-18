@@ -216,7 +216,7 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 }
 
 def options = new TestAndPublishOptions()
-options.setPrContexts(["ci/hyperledger-jenkins/pr-merge"])
+options.setPrContexts([env.INDY_GITHUB_PR_REQUIRED_CONTEXT ?: "ci/hyperledger-jenkins/pr-merge"])
 testAndPublish(
     name,
     [

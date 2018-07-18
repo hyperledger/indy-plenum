@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
-    ensure_view_change
+    ensure_view_change, add_new_node
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -40,23 +40,6 @@ def catchuped(node):
     assert node.mode == Mode.participating
 
 
-def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
-                 tdir, client_tdir, tconf, all_plugins_path, name=None):
-    node_name = name or "Psi"
-    new_steward_name = "testClientSteward" + randomString(3)
-    _, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
-        new_steward_name, node_name, tdir, tconf,
-        allPluginsPath=all_plugins_path)
-    nodes.append(new_node)
-    looper.run(checkNodesConnected(nodes))
-    timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
-    waitNodeDataEquality(looper, new_node, *nodes[:-1],
-                         customTimeout=timeout)
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    return new_node
-
-
 def test_6th_node_join_after_view_change_by_master_restart(
         looper, txnPoolNodeSet, tdir, tconf,
         allPluginsPath, sdk_pool_handle,
@@ -88,7 +71,6 @@ def test_6th_node_join_after_view_change_by_master_restart(
                                     sdk_pool_handle,
                                     sdk_wallet_steward,
                                     tdir,
-                                    client_tdir,
                                     tconf,
                                     allPluginsPath,
                                     name='Epsilon')
@@ -117,7 +99,6 @@ def test_6th_node_join_after_view_change_by_master_restart(
                                 sdk_pool_handle,
                                 sdk_wallet_steward,
                                 tdir,
-                                client_tdir,
                                 tconf,
                                 allPluginsPath,
                                 name='Psi')

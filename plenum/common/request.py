@@ -2,7 +2,7 @@ from hashlib import sha256
 from typing import Mapping, NamedTuple, Dict
 
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import REQKEY, FORCE, TXN_TYPE
+from plenum.common.constants import REQKEY, FORCE, TXN_TYPE, OPERATION_SCHEMA_IS_STRICT
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getTimeBasedId
@@ -113,6 +113,8 @@ class Request:
 
     @property
     def all_identifiers(self):
+        if self.signatures is None:
+            return []
         return sorted(self.signatures.keys())
 
     @staticmethod
@@ -138,7 +140,7 @@ class ReqKey(NamedTuple(REQKEY, [f.DIGEST])):
 
 class SafeRequest(Request, ClientMessageValidator):
     def __init__(self, **kwargs):
-        ClientMessageValidator.__init__(self, operation_schema_is_strict=False,
-                                        schema_is_strict=False)
+        ClientMessageValidator.__init__(self,
+                                        operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT)
         self.validate(kwargs)
         Request.__init__(self, **kwargs)

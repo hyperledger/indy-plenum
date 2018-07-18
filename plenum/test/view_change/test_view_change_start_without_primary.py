@@ -5,7 +5,7 @@ from plenum.test.test_node import checkProtocolInstanceSetup, getRequiredInstanc
     checkNodesConnected
 from plenum.test import waits
 
-view_change_timeout = 10
+VIEW_CHANGE_TIMEOUT = 10
 
 
 def test_view_change_without_primary(txnPoolNodeSet, looper,
@@ -42,7 +42,7 @@ def start_and_connect_nodes(looper, nodes):
 def patched_view_change_timeout(txnPoolNodeSet):
     old_view_change_timeout = txnPoolNodeSet[0]._view_change_timeout
     for node in txnPoolNodeSet:
-        node._view_change_timeout = view_change_timeout
-    yield view_change_timeout
+        node._view_change_timeout = VIEW_CHANGE_TIMEOUT
+    yield VIEW_CHANGE_TIMEOUT
     for node in txnPoolNodeSet:
         node._view_change_timeout = old_view_change_timeout

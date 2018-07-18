@@ -1,6 +1,7 @@
 from logging import getLogger
 
 import pytest
+import sys
 
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
 
@@ -78,27 +79,6 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-
-
-@pytest.fixture
-def broken_node_and_others(txnPoolNodeSet):
-    node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
-    other = [n for n in txnPoolNodeSet if n != node]
-
-    def brokenSendToReplica(msg, frm):
-        logger.warning(
-            "{} is broken. 'sendToReplica' does nothing".format(node.name))
-
-    node.nodeMsgRouter.extend(
-        (
-            (PrePrepare, brokenSendToReplica),
-            (Prepare, brokenSendToReplica),
-            (Commit, brokenSendToReplica),
-            (Checkpoint, brokenSendToReplica),
-        )
-    )
-
-    return node, other
 
 
 def repair_broken_node(node):

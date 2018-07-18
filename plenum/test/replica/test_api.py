@@ -1,36 +1,20 @@
+import types
+
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
+from plenum.common.util import get_utc_epoch
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
+from plenum.test.bls.helper import create_prepare
 from plenum.test.testing_utils import FakeSomething
 
-
-@pytest.fixture(scope='module')
-def replica(tconf):
-    node = FakeSomething(
-        name="fake node",
-        ledger_ids=[0],
-        viewNo=0
-    )
-    bls_bft_replica = FakeSomething(
-        gc=lambda *args: None,
-    )
-    replica = Replica(
-        node, instId=0, isMaster=False,
-        config=tconf, bls_bft_replica=bls_bft_replica
-    )
-    return replica
+nodeCount = 4
 
 
 def test_view_change_done(replica):
     with pytest.raises(LogicError) as excinfo:
         replica.on_view_change_done()
-    assert "is not a master" in str(excinfo.value)
-
-
-def test_on_propagate_primary_done(replica):
-    with pytest.raises(LogicError) as excinfo:
-        replica.on_propagate_primary_done()
     assert "is not a master" in str(excinfo.value)
 
 
@@ -60,7 +44,7 @@ def test_order_3pc_key(replica):
 
 
 def test_can_pp_seq_no_be_in_view(replica):
-    view_no = 1
+    view_no = replica.viewNo + 1
     assert replica.viewNo < view_no
     with pytest.raises(PlenumValueError) as excinfo:
         replica.can_pp_seq_no_be_in_view(view_no, 1)
@@ -86,3 +70,67 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
 
     # This shouldn't crash
     replica._remove_stashed_checkpoints(till_3pc_key)
+
+
+def test_last_prepared_none_if_no_prepares(replica):
+    """
+    There is no any prepares for this replica. In that case we expect,
+    that last_prepares_sertificate will return None
+    """
+    replica.isMaster = True
+    assert len(replica.prepares) == 0
+    assert replica.last_prepared_certificate_in_view() is None
+
+
+def test_last_prepared_sertificate_return_max_3PC_key(replica):
+    """
+
+    All the prepares has enough quorum. Expected result is that last_prepared_sertificate
+    must be Max3PCKey(all of prepare's keys) == (0, 2)
+    """
+    replica.isMaster = True
+    replica.prepares.clear()
+    prepare1 = create_prepare(req_key=(0, 1),
+                              state_root='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB')
+    prepare1.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 1)] = prepare1
+    prepare2 = create_prepare(req_key=(0, 1),
+                              state_root='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ')
+    prepare2.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 2)] = prepare2
+    assert replica.last_prepared_certificate_in_view() == (0, 2)
+
+
+def test_lst_sertificate_return_max_3PC_key_of_quorumed_prepare(replica):
+    """
+
+    Prepare with key (0, 2) does not have quorum of prepare.
+    Therefore, expected Max3PC key must be (0, 1), because of previous prepare has enough quorum
+    """
+    replica.isMaster = True
+    replica.prepares.clear()
+    prepare1 = create_prepare(req_key=(0, 1),
+                              state_root='8J7o1k3mDX2jtBvgVfFbijdy6NKbfeJ7SfY3K1nHLzQB')
+    prepare1.voters = ('Alpha:0', 'Beta:0', 'Gamma:0', 'Delta:0')
+    replica.prepares[(0, 1)] = prepare1
+    prepare2 = create_prepare(req_key=(0, 1),
+                              state_root='EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ')
+    prepare2.voters = ('Delta:0',)
+    replica.prepares[(0, 2)] = prepare2
+    assert replica.last_prepared_certificate_in_view() == (0, 1)
+
+
+def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
+    replica.primaryName = 'Omega:0'
+    replica.node.request_msg = lambda t, d, r: None
+    # This shouldn't crash
+    replica._request_prepare((0, 1))
+
+
+def test_create_3pc_batch_with_empty_requests(replica):
+    def patched_stateRootHash(self, ledger_id, to_str):
+        return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+
+    replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
+
+    assert replica.create3PCBatch(0) is None
