@@ -314,7 +314,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if frm not in self.node.nodestack.connecteds:
             self.node.discard(
                 instChg,
-                "received instance change requst: {} from {} "
+                "received instance change request: {} from {} "
                 "which is not in connected list: {}".
                 format(instChg, frm, self.node.nodestack.connecteds), logger.info)
             return
