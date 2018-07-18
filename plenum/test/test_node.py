@@ -351,7 +351,8 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.send_current_state_to_lagging_node,
                  Node.process_current_state_message,
                  Node.transmitToClient,
-                 Node.has_ordered_till_last_prepared_certificate
+                 Node.has_ordered_till_last_prepared_certificate,
+                 Node.on_inconsistent_3pc_state
                  ]
 
 

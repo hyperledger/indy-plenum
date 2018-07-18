@@ -310,3 +310,5 @@ ENABLED_PLUGINS = []
 # 1 for recorder
 # 2 during replay
 STACK_COMPANION = 0
+
+ENABLE_INCONSISTENCY_WATCHER_NETWORK = False

@@ -11,6 +11,7 @@ from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -59,7 +60,7 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
-from plenum.common.txn_util import idr_from_req_data, get_from, get_req_id, \
+from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
     get_txn_time, get_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
@@ -246,7 +247,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
+        # 3PC state consistency watchdog based on network events
+        self.network_i3pc_watcher = NetworkInconsistencyWatcher(self.on_inconsistent_3pc_state_from_network)
+
         self.setPoolParams()
+
+        self.network_i3pc_watcher.connect(self.name)
 
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
@@ -608,6 +614,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas:
                 replica.clear_requests_and_fix_last_ordered()
 
+    def on_inconsistent_3pc_state_from_network(self):
+        if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
+            self.on_inconsistent_3pc_state()
+
+    def on_inconsistent_3pc_state(self):
+        logger.warning("There is high probability that current 3PC state is inconsistent,"
+                       "immediate restart is recommended")
+
     def create_replicas(self) -> Replicas:
         return Replicas(self, self.monitor, self.config)
 
@@ -655,6 +669,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def setPoolParams(self):
         # TODO should be always called when nodeReg is changed - automate
         self.allNodeNames = set(self.nodeReg.keys())
+        self.network_i3pc_watcher.set_nodes(self.allNodeNames)
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
@@ -1197,6 +1212,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for node in joined:
             self.send_current_state_to_lagging_node(node)
             self.send_ledger_status_to_newly_connected_node(node)
+
+        for node in left:
+            self.network_i3pc_watcher.disconnect(node)
+
+        for node in joined:
+            self.network_i3pc_watcher.connect(node)
 
     def request_ledger_status_from_nodes(self, ledger_id, nodes=None):
         for node_name in nodes if nodes else self.nodeReg:

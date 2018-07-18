@@ -14,5 +14,5 @@ def test_restart_groups_7_of_7_wp_tm(looper, txnPoolNodeSet, tconf, tdir,
     restart_group = get_group(txnPoolNodeSet, 7, include_primary=False)
 
     restart_nodes(looper, txnPoolNodeSet, restart_group, tconf, tdir, allPluginsPath,
-                  after_restart_timeout=tm, restart_one_by_one=True)
+                  after_restart_timeout=tm, start_one_by_one=True)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
