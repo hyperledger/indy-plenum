@@ -6,7 +6,7 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
@@ -126,7 +126,8 @@ class Ordered(MessageBase):
 class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
-        (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
+        (f.REQUEST.nm, ClientMessageValidator(
+            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT)),
         (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT, nullable=True)),
     )
 
@@ -196,7 +197,7 @@ class ThreePCState(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.MSGS.nm, IterableField(ClientMessageValidator(
-            operation_schema_is_strict=True))),
+            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
     )
 
 
@@ -369,7 +370,8 @@ class BatchCommitted(MessageBase):
     typename = BATCH_COMMITTED
     schema = (
         (f.REQUESTS.nm,
-         IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+         IterableField(ClientMessageValidator(
+             operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
@@ -404,3 +406,13 @@ class ObservedData(MessageBase):
         self._raise_invalid_fields(
             f.MSG.nm, msg,
             "The message type must be {} ".format(expected_type_cls.typename))
+
+
+class FutureViewChangeDone:
+    """
+    Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
+    In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
+    """
+    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+        self.vcd_msg = vcd_msg
+        self.from_current_state = from_current_state

@@ -69,7 +69,7 @@ class SigningSerializer:
             keys.sort()
             strs = []
             for k in keys:
-                onm = ".".join([objname, k]) if objname else k
+                onm = ".".join([str(objname), str(k)]) if objname else k
                 strs.append(
                     str(k) + ":" + self.serialize(obj[k], level + 1, onm, toBytes=False))
             res = "|".join(strs)

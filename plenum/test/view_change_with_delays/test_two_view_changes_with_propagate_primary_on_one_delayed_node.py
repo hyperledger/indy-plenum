@@ -1,7 +1,7 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.view_change.view_change_with_delays.helper import \
+from plenum.test.helper import sdk_send_random_and_check, perf_monitor_disabled
+from plenum.test.view_change_with_delays.helper import \
     do_view_change_with_propagate_primary_on_one_delayed_node
 
 # This is needed only with current view change implementation to give enough time
@@ -14,10 +14,8 @@ def tconf(tconf):
     """
     Patch config so that monitor won't start view change unexpectedly
     """
-    old_unsafe = tconf.unsafe
-    tconf.unsafe.add("disable_view_change")
-    yield tconf
-    tconf.unsafe = old_unsafe
+    with perf_monitor_disabled(tconf):
+        yield tconf
 
 
 @pytest.mark.skip(reason='INDY-1303. Case 5: the second view change '

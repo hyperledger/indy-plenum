@@ -347,21 +347,22 @@ class LedgerIdField(ChooseField):
 
 class Base58Field(FieldBase):
     _base_types = (str,)
+    _alphabet = set(base58.alphabet.decode("utf-8"))
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
         invalid_chars = set(val) - self._alphabet
         if invalid_chars:
             # only 10 chars to shorten the output
+            # TODO: Why does it need to be sorted
             to_print = sorted(invalid_chars)[:10]
             return 'should not contain the following chars {}{}'.format(
                 to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check
+            # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
@@ -617,7 +618,7 @@ class LedgerInfoField(FieldBase):
 
 class BlsMultiSignatureValueField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_validator = LedgerIdField()
+    _ledger_id_class = LedgerIdField
     _state_root_hash_validator = MerkleRootField()
     _pool_state_root_hash_validator = MerkleRootField()
     _txn_root_hash_validator = MerkleRootField()
@@ -626,7 +627,7 @@ class BlsMultiSignatureValueField(FieldBase):
     def _specific_validation(self, val):
         multi_sig_value = MultiSignatureValue(*val)
 
-        err = self._ledger_id_validator.validate(
+        err = self._ledger_id_class().validate(
             multi_sig_value.ledger_id)
         if err:
             return err
