@@ -4,6 +4,7 @@ import glob
 import shutil
 from os.path import basename, dirname
 from typing import Iterable
+import logging
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -123,7 +124,7 @@ class Cli:
 
         if logFileName:
             Logger().enableFileLogging(logFileName)
-        else:
+        elif not logging.root.hasHandlers():  # TODO better to create Logger API
             Logger().enableStdLogging()
 
         self.unique_name = unique_name
