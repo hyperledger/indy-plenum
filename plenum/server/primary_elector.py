@@ -166,8 +166,7 @@ class PrimaryElector(PrimaryDecider):
                     "{} attempting to nominate a replica".format(self.name))
                 self.nominateRandomReplica()
             else:
-                logger.debug(
-                    "{} already has a primary replica".format(self.name))
+                logger.info("{} already has a primary replica".format(self.name))
         else:
             logger.debug(
                 "{} already has an election in progress".format(self.name))
@@ -184,19 +183,15 @@ class PrimaryElector(PrimaryDecider):
 
         undecideds, chosen = self._get_undecided_inst_id()
         if chosen is not None:
-            logger.debug("{} does not have a primary, "
-                         "replicas {} are undecided, "
-                         "choosing {} to nominate".
-                         format(self, undecideds, chosen))
+            logger.info("{} does not have a primary, replicas {} are undecided, "
+                        "choosing {} to nominate".format(self, undecideds, chosen))
 
             # A replica has nominated for itself, so set the flag
             self.replicaNominatedForItself = chosen
             self._schedule(partial(self.nominateReplica, chosen))
         else:
-            logger.debug("{} does not have a primary, "
-                         "but elections for all {} instances "
-                         "have been decided".
-                         format(self, len(self.replicas)))
+            logger.info("{} does not have a primary, but elections for all {} instances "
+                        "have been decided".format(self, len(self.replicas)))
 
     def nominateReplica(self, instId):
         """
@@ -219,8 +214,8 @@ class PrimaryElector(PrimaryDecider):
         undecideds = [i for i, r in enumerate(self.replicas)
                       if r.isPrimary is None]
         if 0 in undecideds and self.was_master_primary_in_prev_view:
-            logger.debug('{} was primary for master in previous view, '
-                         'so will not nominate master replica'.format(self))
+            logger.info('{} was primary for master in previous view, '
+                        'so will not nominate master replica'.format(self))
             undecideds.remove(0)
 
         if undecideds:
@@ -309,7 +304,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                                ' of master in previous view too'.
                          format(self, sender, prim.name),
-                         logMethod=logger.debug)
+                         logMethod=logger.info)
             return
 
         sndrRep = replica.generateName(sender, prim.instId)
@@ -627,9 +622,8 @@ class PrimaryElector(PrimaryDecider):
         self.primaryDeclarations[instId][replica.name] = (primaryName,
                                                           lastOrderedSeqNo)
         self.scheduledPrimaryDecisions[instId] = None
-        logger.debug("{} declaring primary as: {} on the basis of {}".
-                     format(replica, primaryName,
-                            self.nominations[instId]))
+        logger.info("{} declaring primary as: {} on the basis of {}".
+                    format(replica, primaryName, self.nominations[instId]))
         prim = Primary(primaryName, instId, self.viewNo,
                        lastOrderedSeqNo)
         self.send(prim)

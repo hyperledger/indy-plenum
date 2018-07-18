@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from common.serializers.serialization import state_roots_serializer
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     waitNodeDataEquality
@@ -72,11 +73,16 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
     Do some writes and reads on the config ledger
     """
     old_config_ledger_size = None
+    old_bls_store_size = None
+    state_root_hashes = set()
+    state = txnPoolNodeSet[0].getState(CONFIG_LEDGER_ID)
     for node in txnPoolNodeSet:
         if old_config_ledger_size is None:
             old_config_ledger_size = len(node.getLedger(CONFIG_LEDGER_ID))
+            old_bls_store_size = node.bls_bft.bls_store._kvs.size
         else:
             assert len(node.getLedger(CONFIG_LEDGER_ID)) == old_config_ledger_size
+            assert node.bls_bft.bls_store._kvs.size == old_bls_store_size
 
     # Do a write txn
     key, val = 'test_key', 'test_val'
@@ -84,6 +90,8 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
 
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
+
+    state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
 
     assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
     old_config_ledger_size += 1
@@ -93,6 +101,8 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
+    state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
+
     assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
     old_config_ledger_size += 1
 
@@ -101,7 +111,21 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
+    state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
+
     assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
+
+    for node in txnPoolNodeSet:
+        # Not all batches might have BLS-sig but at least one of them will have
+        assert node.bls_bft.bls_store._kvs.size > old_bls_store_size
+
+        # At least one state root hash should be in the BLS store
+        found = False
+        for root_hash in state_root_hashes:
+            if node.bls_bft.bls_store.get(root_hash) is not None:
+                found = True
+                break
+        assert found
 
 
 @pytest.fixture(scope="module")

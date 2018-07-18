@@ -171,42 +171,58 @@ class MessageAttrs:
 
 
 class LogMessage:
-    def __init__(self, body, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None, func=None):
+    def __init__(self, body, node=None, replica=REPLICA_NONE, timestamp=None, level=None, source=None):
         self.body = body
         self.timestamp = timestamp
         self.node = node
         self.replica = replica
         self.level = level
         self.source = source
-        self.func = func
         self.attrs = MessageAttrs()
 
 
 _replica_matcher = re.compile("^REPLICA:\((\w+):(\d+)\)").search
 
 
+def _parse_timestamp(line):
+    try:
+        return datetime(year=int(line[0:4]),
+                        month=int(line[5:7]),
+                        day=int(line[8:10]),
+                        hour=int(line[11:13]),
+                        minute=int(line[14:16]),
+                        second=int(line[17:19]),
+                        microsecond=int(line[20:23]) * 1000)
+    except ValueError:
+        return None
+
+
+def _parse_body(body):
+    replica = REPLICA_NONE
+    if body.startswith("REPLICA:"):
+        m = _replica_matcher(body)
+        replica = int(m.group(2))
+        body = body[m.end() + 1:]
+    return replica, body
+
+
 def _parse_messages(f, node):
     for line in f:
-        tokens = [t.strip() for t in line.split('|', maxsplit=4)]
-        if len(tokens) < 5:
+        timestamp = _parse_timestamp(line)
+        if timestamp is None:
             yield LogMessage(line, node)
+            continue
+
+        if line[23] == '|':
+            # New format
+            tokens = [t.strip() for t in line[24:].split('|', maxsplit=2)]
+            replica, body = _parse_body(tokens[2])
+            yield LogMessage(body, node, replica, timestamp, tokens[0], tokens[1])
         else:
-            # The following is just a much faster version of
-            # timestamp = datetime.strptime(tokens[0], "%Y-%m-%d %H:%M:%S,%f")
-            timestamp = datetime(year=int(tokens[0][0:4]),
-                                 month=int(tokens[0][5:7]),
-                                 day=int(tokens[0][8:10]),
-                                 hour=int(tokens[0][11:13]),
-                                 minute=int(tokens[0][14:16]),
-                                 second=int(tokens[0][17:19]),
-                                 microsecond=int(tokens[0][20:23]) * 1000)
-            body = tokens[4]
-            replica = REPLICA_NONE
-            if body.startswith("REPLICA:"):
-                m = _replica_matcher(body)
-                replica = int(m.group(2))
-                body = body[m.end():]
-            yield LogMessage(body, node, replica, timestamp, tokens[1], tokens[2], tokens[3])
+            # Old format
+            tokens = [t.strip() for t in line[25:].split('|', maxsplit=3)]
+            replica, body = _parse_body(tokens[3])
+            yield LogMessage(body, node, replica, timestamp, tokens[0], tokens[1])
 
 
 def messages_in_log(log: InputLogInfo):
@@ -294,10 +310,6 @@ def match_level(params):
     return match
 
 
-def match_func(name):
-    return lambda message: message.func == name
-
-
 def match_message(pattern):
     m = re.compile(str(pattern)).search
     return lambda message: m(message.body) is not None
@@ -334,8 +346,6 @@ def _create_matcher(config):
         return match_timestamp(params)
     if name == "level":
         return match_level(params)
-    if name == "func":
-        return match_func(params)
     if name == "message":
         return match_message(params)
     if name == "replica":
@@ -531,7 +541,7 @@ class OutputLog:
     def __init__(self, config):
         self.filename = parse_format_string(config.get("filename", "output.log"))
         self.pattern = parse_format_string(
-            config.get("pattern", "<timestamp> | <node> <replica> | <level> | <source> | <func> | <body>"))
+            config.get("pattern", "<timestamp> | <node> <replica> | <level> | <source> | <body>"))
         self.log_files = {}
 
     def add_message(self, message):

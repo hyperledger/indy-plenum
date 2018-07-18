@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.util import compare_3PC_keys
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
@@ -69,7 +71,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
     waitNodeDataInequality(looper, lagging_node, *rest_nodes)
     looper.run(eventually(backup_replicas_run_forward, lagging_node))
 
-    assert lagging_node.monitor.isMasterDegraded()
+    assert not lagging_node.monitor.isMasterDegraded()
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client,

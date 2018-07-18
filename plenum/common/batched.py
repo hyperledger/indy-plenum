@@ -117,8 +117,7 @@ class Batched(MessageProcessor):
                                 timeout=self.messageTimeout,
                                 serialized=True)
                     else:
-                        logger.warning("{} cannot create batch(es) for {}"
-                                       .format(self, dest))
+                        logger.error("{} cannot create batch(es) for {}".format(self, dest))
                 else:
                     while msgs:
                         msg = msgs.popleft()

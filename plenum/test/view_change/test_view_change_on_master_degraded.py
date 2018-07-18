@@ -1,5 +1,7 @@
 import types
 
+import pytest
+
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
@@ -10,6 +12,18 @@ from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
 from plenum.test.view_change.helper import simulate_slow_master
 
 nodeCount = 7
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_thr_window_size = tconf.ThroughputInnerWindowSize
+    old_thr_window_count = tconf.ThroughputMinActivityThreshold
+    tconf.ThroughputInnerWindowSize = 2
+    tconf.ThroughputMinActivityThreshold = 3
+
+    yield tconf
+    tconf.ThroughputInnerWindowSize = old_thr_window_size
+    tconf.ThroughputMinActivityThreshold = old_thr_window_count
 
 
 # noinspection PyIncorrectDocstring

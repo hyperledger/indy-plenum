@@ -1,20 +1,18 @@
 import pytest
 
 from plenum.common.config_util import getConfigOnce
-
-from plenum.test.recorder.helper import reload_modules_for_replay, \
-    get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.recorder.helper import reload_modules_for_replay, \
+    get_replayable_node_class, create_replayable_node_and_check
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.view_change.conftest import viewNo
 
 TestRunningTimeLimitSec = 550
 
 whitelist = ['cannot find remote with name']
 
-
+@pytest.mark.skip(reason="The test takes too much time! Needs to be re-factored")
 def test_view_change_after_some_txns(txnPoolNodesLooper, txnPoolNodeSet,
                                      some_txns_done, testNodeClass, viewNo,  # noqa
                                      sdk_pool_handle, sdk_wallet_client,

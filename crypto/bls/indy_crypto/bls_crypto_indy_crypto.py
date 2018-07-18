@@ -27,20 +27,20 @@ class IndyCryptoBlsUtils:
         try:
             return base58.b58encode(v.as_bytes()).decode("utf-8")
         except ValueError:
-            logger.error('BLS: BLS Entity can not be encoded as base58')
+            logger.warning('BLS: BLS Entity can not be encoded as base58')
 
     @staticmethod
     def bls_from_str(v: str, cls) -> Optional[BlsEntity]:
         try:
             bts = base58.b58decode(v)
         except ValueError:
-            logger.error('BLS: value {} can not be decoded to base58'.format(v))
+            logger.warning('BLS: value {} can not be decoded to base58'.format(v))
             return None
 
         try:
             return cls.from_bytes(bts)
         except IndyCryptoError as e:
-            logger.error('BLS: Indy Crypto error: {}'.format(e))
+            logger.warning('BLS: Indy Crypto error: {}'.format(e))
             return None
 
     @staticmethod

@@ -250,8 +250,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
                 _updateNode(txn_data)
 
-        self.node.sendPoolInfoToClients(txn)
-
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
         if nodeName == self.name:
@@ -339,8 +337,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         oldServices = set(nodeInfo[DATA].get(SERVICES, []))
         newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
-            logger.debug("Node {} not changing {} since it is same as existing"
-                         .format(nodeNym, SERVICES))
+            logger.info("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
             return
         else:
             if self.name != nodeName:
@@ -360,8 +357,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
-                        logger.debug('{} did not find remote {} to remove'.
-                                     format(self, nodeName))
+                        logger.info('{} did not find remote {} to remove'.format(self, nodeName))
 
                     self.node.nodeLeft(txn_data)
                     self.node_about_to_be_disconnected(nodeName)
@@ -430,9 +426,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.name, nodeName, nodeNym,
                 len(self._ordered_node_ids[nodeNym])))
         elif curName != nodeName:
-            msg = ("{} is trying to order already ordered node {} ({}) "
-                   "with other alias {}".format(self.name, curName, nodeNym, nodeName))
-            logger.warning(msg)
+            msg = "{} is trying to order already ordered node {} ({}) with other alias {}"\
+                .format(self.name, curName, nodeNym, nodeName)
+            logger.error(msg)
             raise LogicError(msg)
 
     def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
