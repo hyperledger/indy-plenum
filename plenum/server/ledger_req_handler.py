@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
-from common.exceptions import PlenumValueError
+from common.exceptions import PlenumValueError, LogicError
 from common.serializers.serialization import state_roots_serializer
 from stp_core.common.log import getlogger
 
@@ -65,6 +65,11 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
 
         return self._commit(self.ledger, self.state, txnCount, stateRoot,
                             txnRoot, ppTime, ts_store=self.ts_store)
+
+    def applyForced(self, req: Request):
+        if not req.isForced():
+            raise LogicError('requestHandler.applyForce method is called '
+                             'for not forced request: {}'.format(req))
 
     def onBatchCreated(self, state_root):
         pass

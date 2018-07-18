@@ -2130,32 +2130,46 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: What if the reply was a REQNACK? Its not gonna be found in the
         # replies.
 
-        if request.operation[TXN_TYPE] == GET_TXN:
+        txn_type = request.operation[TXN_TYPE]
+
+        if self.is_action(txn_type):
+            self.process_action(request, frm)
+
+        elif txn_type == GET_TXN:
             self.handle_get_txn_req(request, frm)
             self.total_read_request_number += 1
-            return
 
-        ledger_id = self.ledger_id_for_request(request)
-        ledger = self.getLedger(ledger_id)
-
-        if self.is_query(request.operation[TXN_TYPE]):
+        elif self.is_query(txn_type):
             self.process_query(request, frm)
-            return
+            self.total_read_request_number += 1
 
-        reply = self.getReplyFromLedger(ledger, request)
-        if reply:
-            logger.debug("{} returning REPLY from already processed "
-                         "REQUEST: {}".format(self, request))
-            self.transmitToClient(reply, frm)
-            return
+        elif self.is_txn_writable(txn_type):
+            reply = self.getReplyFromLedgerForRequest(request)
+            if reply:
+                logger.debug("{} returning REPLY from already processed "
+                             "REQUEST: {}".format(self, request))
+                self.transmitToClient(reply, frm)
+                return
 
-        # If the node is not already processing the request
-        if not self.isProcessingReq(request.key):
-            self.startedProcessingReq(request.key, frm)
-        # If not already got the propagate request(PROPAGATE) for the
-        # corresponding client request(REQUEST)
-        self.recordAndPropagate(request, frm)
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
+            # If the node is not already processing the request
+            if not self.isProcessingReq(request.key):
+                self.startedProcessingReq(request.key, frm)
+                if request.isForced():
+                    # forced request should be processed before consensus
+                    req_handler = self.get_req_handler(txn_type=txn_type)
+                    req_handler.validate(request)
+                    req_handler.applyForced(request)
+
+            # If not already got the propagate request(PROPAGATE) for the
+            # corresponding client request(REQUEST)
+            self.recordAndPropagate(request, frm)
+            self.send_ack_to_client((request.identifier, request.reqId), frm)
+
+        else:
+            raise InvalidClientRequest(
+                request.identifier,
+                request.reqId,
+                'Pool is in readonly mode, try again in 60 seconds')
 
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
@@ -2166,6 +2180,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_action(self, txn_type) -> bool:
         return txn_type in self.actionReqHandler.operation_types
+
+    def is_txn_writable(self, txn_type):
+        return True
 
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
@@ -2213,13 +2230,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if not self.isProcessingReq(request.key):
             ledger_id, seq_no = self.seqNoDB.get(request.key)
-            if seq_no is not None:
+            if ledger_id is not None and seq_no is not None:
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
                 return
 
             self.startedProcessingReq(request.key, clientName)
+            if request.isForced():
+                # forced request should be processed before consensus
+                req_handler = self.get_req_handler(
+                    txn_type=request.operation[TXN_TYPE])
+                req_handler.validate(request)
+                req_handler.applyForced(request)
 
         else:
             if clientName is not None and \
@@ -2264,17 +2287,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      'Invalid ledger id {}'.format(ledger_id),
                                      frm)
             return
+
         seq_no = request.operation.get(DATA)
         self.send_ack_to_client((request.identifier, request.reqId), frm)
         ledger = self.getLedger(ledger_id)
+
         try:
-            txn = self.getReplyFromLedger(ledger=ledger,
-                                          seq_no=seq_no)
+            txn = self.getReplyFromLedger(ledger, seq_no)
         except KeyError:
+            txn = None
+
+        if txn is None:
             logger.debug(
                 "{} can not handle GET_TXN request: ledger doesn't "
                 "have txn with seqNo={}". format(self, str(seq_no)))
-            txn = None
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
@@ -3029,17 +3055,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ) if r.name in names] if names else []
         self.send(msg, *rids, message_splitter=message_splitter)
 
-    def getReplyFromLedger(self, ledger, request=None, seq_no=None):
+    def getReplyFromLedgerForRequest(self, request):
+        ledger_id, seq_no = self.seqNoDB.get(request.digest)
+        if ledger_id is not None and seq_no is not None:
+            ledger = self.getLedger(ledger_id)
+            return self.getReplyFromLedger(ledger, seq_no)
+        else:
+            return None
+
+    def getReplyFromLedger(self, ledger, seq_no):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        if seq_no is None:
-            ledger_id, seq_no = self.seqNoDB.get(request.digest)
-        if seq_no:
-            txn = ledger.getBySeqNo(int(seq_no))
-            if txn:
-                txn.update(ledger.merkleInfo(seq_no))
-                txn = self.update_txn_with_extra_data(txn)
-                return Reply(txn)
+        txn = ledger.getBySeqNo(int(seq_no))
+        if txn:
+            txn.update(ledger.merkleInfo(seq_no))
+            txn = self.update_txn_with_extra_data(txn)
+            return Reply(txn)
+        else:
+            return None
 
     def update_txn_with_extra_data(self, txn):
         """
