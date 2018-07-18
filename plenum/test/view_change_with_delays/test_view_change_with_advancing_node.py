@@ -4,9 +4,15 @@ import sys
 from plenum.server.node import Node
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies
+    sdk_send_random_requests, sdk_get_replies, perf_monitor_disabled
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    with perf_monitor_disabled(tconf):
+        yield tconf
 
 
 @pytest.mark.skip(reason="INDY-1303")
@@ -33,7 +39,6 @@ def test_delay_commits(txnPoolNodeSet, looper,
     Expected result with current view change:
     node X can't finish second transaction
     """
-    tconf.unsafe.add("disable_view_change")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     nodes_stashers = [n.nodeIbStasher for n in txnPoolNodeSet

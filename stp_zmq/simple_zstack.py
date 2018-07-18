@@ -12,7 +12,8 @@ class SimpleZStack(ZStack):
                  onlyListener=False,
                  sighex: str=None,
                  config=None,
-                 msgRejectHandler=None):
+                 msgRejectHandler=None,
+                 create_listener_monitor=False):
 
         # TODO: sighex is unused as of now, remove once test is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
@@ -38,4 +39,5 @@ class SimpleZStack(ZStack):
                          onlyListener=onlyListener,
                          config=config,
                          msgRejectHandler=msgRejectHandler,
-                         queue_size=queue_size)
+                         queue_size=queue_size,
+                         create_listener_monitor=create_listener_monitor)

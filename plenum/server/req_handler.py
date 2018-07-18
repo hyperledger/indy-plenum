@@ -1,13 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import List
-
-import base58
-
-from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from stp_core.common.log import getlogger
-
-from state.state import State
 
 logger = getlogger()
 

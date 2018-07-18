@@ -4,6 +4,7 @@ import glob
 import shutil
 from os.path import basename, dirname
 from typing import Iterable
+import logging
 
 from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -120,14 +121,18 @@ class Cli:
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True, unique_name=None,
                  override_tags=None, nodes_chroot: str=None):
+
+        if logFileName:
+            Logger().enableFileLogging(logFileName)
+        elif not logging.root.hasHandlers():  # TODO better to create Logger API
+            Logger().enableStdLogging()
+
         self.unique_name = unique_name
         self.curClientPort = None
         self.basedirpath = os.path.expanduser(basedirpath)
         self.ledger_base_dir = os.path.expanduser(ledger_base_dir)
         self._config = config or getConfig(self.basedirpath)
 
-        Logger().enableCliLogging(self.out,
-                                  override_tags=override_tags)
         self.looper = looper
         self.withNode = withNode
         self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
@@ -236,8 +241,8 @@ class Cli:
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
 
-        if logFileName:
-            Logger().enableFileLogging(logFileName)
+        Logger().enableCliLogging(self.out,
+                                  override_tags=override_tags)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))

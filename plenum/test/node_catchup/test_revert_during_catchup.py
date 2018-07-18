@@ -4,11 +4,12 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, COMMIT
 from plenum.test import waits
-from plenum.test.delayers import cDelay, cr_delay
+from plenum.test.delayers import cDelay, cr_delay, lsDelay
 from plenum.test.helper import check_last_ordered_3pc, \
     assertEquality, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
-    make_a_node_catchup_twice, ensure_all_nodes_have_same_data
+    ensure_all_nodes_have_same_data, make_a_node_catchup_less, \
+    repair_node_catchup_less
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
@@ -58,28 +59,30 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     # Delay COMMITs to one node
     slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
+    # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
+    # node catch-ups 2 times.
+    # Otherwise other nodes may receive multiple LEDGER_STATUSes from slow node, and return Consistency proof for all
+    # missing txns, so no stashed ones are applied
+    slow_node.nodeIbStasher.delay(lsDelay(1000))
+
     # Make the slow node receive txns for a smaller ledger so it still finds
     # the need to catchup
     delay_batches = 2
-    make_a_node_catchup_twice(slow_node, other_nodes, DOMAIN_LEDGER_ID,
-                              delay_batches * Max3PCBatchSize)
+    make_a_node_catchup_less(slow_node, other_nodes, DOMAIN_LEDGER_ID,
+                             delay_batches * Max3PCBatchSize)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 6 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, other_nodes)
     waitNodeDataInequality(looper, slow_node, *other_nodes)
 
-    def is_catchup_needed_count():
-        return len(getAllReturnVals(slow_node, slow_node.is_catchup_needed,
-                                    compare_val_to=True))
-
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
-    old_cn_count = is_catchup_needed_count()
 
     # `slow_node` is slow to receive CatchupRep, so that it
     # gets a chance to order COMMITs
     slow_node.nodeIbStasher.delay(cr_delay(catchup_rep_delay))
 
+    # start view change (and hence catchup)
     ensure_view_change(looper, txnPoolNodeSet)
 
     # Check last ordered of `other_nodes` is same
@@ -96,7 +99,9 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     old_pc_count = slow_master_replica.spylog.count(
         slow_master_replica.can_process_since_view_change_in_progress)
 
-    # Repair the network so COMMITs are received and processed
+    assert len(slow_node.stashedOrderedReqs) == 0
+
+    # Repair the network so COMMITs are received, processed and stashed
     slow_node.reset_delays_and_process_delayeds(COMMIT)
 
     def chk2():
@@ -107,30 +112,34 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     looper.run(eventually(chk2, retryWait=1, timeout=5))
 
     def chk3():
+        # COMMITs are stashed
+        assert len(slow_node.stashedOrderedReqs) == delay_batches * Max3PCBatchSize
+
+    looper.run(eventually(chk3, retryWait=1, timeout=15))
+
+    # fix catchup, so the node gets a chance to be caught-up
+    repair_node_catchup_less(other_nodes)
+
+    def chk4():
         # Some COMMITs were ordered but stashed and they were processed
         rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
         assert delay_batches in rv
 
-    looper.run(eventually(chk3, retryWait=1, timeout=catchup_rep_delay + 5))
+    looper.run(eventually(chk4, retryWait=1, timeout=catchup_rep_delay + 5))
 
-    def chk4():
+    def chk5():
         # Catchup was done once
         assert slow_node.spylog.count(
             slow_node.allLedgersCaughtUp) > old_lcu_count
 
     looper.run(
         eventually(
-            chk4,
+            chk5,
             retryWait=1,
             timeout=waits.expectedPoolCatchupTime(
                 len(txnPoolNodeSet))))
 
-    def chk5():
-        # Once catchup was done, need of other catchup was not found
-        assertEquality(is_catchup_needed_count(), old_cn_count)
-
-    looper.run(eventually(chk5, retryWait=1, timeout=5))
-
+    # make sure that the pool is functional
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,

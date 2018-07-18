@@ -38,8 +38,8 @@ def none_on_fail(func):
         try:
             return func(*args, **kwargs)
         except Exception as ex:
-            logger.debug('Validator info tool fails to '
-                         'execute {} because {}'.format(func.__name__, repr(ex)))
+            logger.display('Validator info tool fails to execute {} because {}'.
+                           format(func.__name__, repr(ex)))
             return None
 
     return wrap
@@ -353,7 +353,7 @@ class ValidatorNodeInfoTool:
             replica_stat["Watermarks"] = "{}:{}".format(replica.h, replica.H)
             replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
-            stashed_txns["Stashed_checkoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
+            stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
             if replica.prePreparesPendingPrevPP:
                 stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(
                     [pp for pp in replica.prePreparesPendingPrevPP.itervalues()][-1])

@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
 from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
@@ -9,7 +10,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     sdk_add_new_steward_and_node, sdk_pool_refresh
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 
 
 def whitelist():
@@ -112,3 +113,24 @@ def poolAfterSomeTxns(
                               sdk_wallet_client,
                               txnCount)
     yield looper, sdk_pool_handle, sdk_wallet_client
+
+
+@pytest.fixture
+def broken_node_and_others(txnPoolNodeSet):
+    node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
+    other = [n for n in txnPoolNodeSet if n != node]
+
+    def brokenSendToReplica(msg, frm):
+        logger.warning(
+            "{} is broken. 'sendToReplica' does nothing".format(node.name))
+
+    node.nodeMsgRouter.extend(
+        (
+            (PrePrepare, brokenSendToReplica),
+            (Prepare, brokenSendToReplica),
+            (Commit, brokenSendToReplica),
+            (Checkpoint, brokenSendToReplica),
+        )
+    )
+
+    return node, other
