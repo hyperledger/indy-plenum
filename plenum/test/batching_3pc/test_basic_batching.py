@@ -65,8 +65,6 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
-    # TODO: Change this test for using SDK.
-    # Now SDK, can't distinguish REJECTED messages and simply raise IndyError
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}
 
@@ -85,9 +83,8 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client,
                                     tconf.Max3PCBatchSize)
-    sdk_get_and_check_replies(looper, reqs[:-1])
     with pytest.raises(RequestRejectedException) as e:
-        sdk_get_and_check_replies(looper, reqs[-1:])
+        sdk_get_and_check_replies(looper, reqs)
 
     assert 'Simulated rejection' in e._excinfo[1].args[0]
 
