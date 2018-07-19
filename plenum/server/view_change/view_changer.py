@@ -311,6 +311,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param instChg: the instance change request
         :param frm: the name of the node that sent this `msg`
         """
+        if frm not in self.node.nodestack.connecteds:
+            self.node.discard(
+                instChg,
+                "received instance change request: {} from {} "
+                "which is not in connected list: {}".
+                format(instChg, frm, self.node.nodestack.connecteds), logger.info)
+            return
+
         logger.info("{} received instance change request: {} from {}".format(self, instChg, frm))
 
         # TODO: add sender to blacklist?
