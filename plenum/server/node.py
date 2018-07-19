@@ -941,7 +941,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def schedule_initial_propose_view_change(self):
         self.lost_primary_at = time.perf_counter()
         self._schedule(action=self.propose_view_change,
-                       seconds=self._view_change_timeout)
+                       seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
