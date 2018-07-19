@@ -22,7 +22,7 @@ with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-586']
 
 setup(
-    name='indy-plenum-dev',  # TODO refers to metadata as well
+    name='indy-plenum',  # TODO refers to metadata as well
     version=md['__version__'],
     author=md['__author__'],
     author_email=md['__author_email__'],
