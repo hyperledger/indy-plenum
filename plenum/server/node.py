@@ -2123,6 +2123,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         state_root = self.stateRootHash(ledger_id, isCommitted=False)
         self.onBatchCreated(ledger_id, state_root)
 
+    def handle_request_if_forced(self, request: Request):
+        if request.isForced():
+            req_handler = self.get_req_handler(
+                txn_type=request.operation[TXN_TYPE])
+            req_handler.validate(request)
+            req_handler.applyForced(request)
+
     def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
@@ -2164,7 +2171,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.process_query(request, frm)
             self.total_read_request_number += 1
 
-        elif self.is_txn_writable(txn_type):
+        elif self.can_write_txn(txn_type):
             reply = self.getReplyFromLedgerForRequest(request)
             if reply:
                 logger.debug("{} returning REPLY from already processed "
@@ -2175,11 +2182,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # If the node is not already processing the request
             if not self.isProcessingReq(request.key):
                 self.startedProcessingReq(request.key, frm)
-                if request.isForced():
-                    # forced request should be processed before consensus
-                    req_handler = self.get_req_handler(txn_type=txn_type)
-                    req_handler.validate(request)
-                    req_handler.applyForced(request)
+                # forced request should be processed before consensus
+                self.handle_request_if_forced(request)
 
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
@@ -2202,7 +2206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_action(self, txn_type) -> bool:
         return txn_type in self.actionReqHandler.operation_types
 
-    def is_txn_writable(self, txn_type):
+    def can_write_txn(self, txn_type):
         return True
 
     def process_query(self, request: Request, frm: str):
@@ -2258,12 +2262,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return
 
             self.startedProcessingReq(request.key, clientName)
-            if request.isForced():
-                # forced request should be processed before consensus
-                req_handler = self.get_req_handler(
-                    txn_type=request.operation[TXN_TYPE])
-                req_handler.validate(request)
-                req_handler.applyForced(request)
+            # forced request should be processed before consensus
+            self.handle_request_if_forced(request)
 
         else:
             if clientName is not None and \
