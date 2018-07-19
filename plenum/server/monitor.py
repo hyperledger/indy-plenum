@@ -31,14 +31,14 @@ class ThroughputMeasurement:
     Measure throughput params
     """
 
-    def __init__(self, throughput_window_size=15, throughput_min_cnt=16):
+    def __init__(self, window_size=15, min_cnt=16, first_ts=time.perf_counter()):
         self.reqs_in_window = 0
         self.throughput = 0
-        self.throughput_window_size = throughput_window_size
-        self.throughput_min_cnt = throughput_min_cnt
-        self.first_ts = time.perf_counter()
+        self.window_size = window_size
+        self.min_cnt = min_cnt
+        self.first_ts = first_ts
         self.window_start_ts = self.first_ts
-        self.alpha = 2 / (self.throughput_min_cnt + 1)
+        self.alpha = 2 / (self.min_cnt + 1)
 
     def add_request(self, ordered_ts):
         self.update_time(ordered_ts)
@@ -51,13 +51,13 @@ class ThroughputMeasurement:
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
     def update_time(self, current_ts):
-        while current_ts >= self.window_start_ts + self.throughput_window_size:
-            self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.throughput_window_size)
-            self.window_start_ts = self.window_start_ts + self.throughput_window_size
+        while current_ts >= self.window_start_ts + self.window_size:
+            self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
+            self.window_start_ts = self.window_start_ts + self.window_size
             self.reqs_in_window = 0
 
     def get_throughput(self, request_time):
-        if request_time < self.first_ts + (self.throughput_window_size * self.throughput_min_cnt):
+        if request_time < self.first_ts + (self.window_size * self.min_cnt):
             return None
         self.update_time(request_time)
         return self.throughput
@@ -76,9 +76,7 @@ class LatencyMeasurement:
         self.alpha = 1 / (self.min_latency_count + 1)
 
     def add_duration(self, identifier, duration):
-        if identifier not in self.avg_latencies:
-            self.avg_latencies[identifier] = (0, .0)
-        total_reqs, curr_avg_lat = self.avg_latencies[identifier]
+        total_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
         total_reqs += 1
         self.avg_latencies[identifier] = (total_reqs,
                                           self._accumulate(curr_avg_lat,
@@ -354,8 +352,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
         for i in range(num_instances):
-            rm = ThroughputMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
-                                       throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
+            rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
+                                       min_cnt=self.config.ThroughputMinActivityThreshold,
+                                       first_ts=time.perf_counter())
             self.throughputs[i] = rm
             lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
             self.clientAvgReqLatencies[i] = lm
@@ -367,8 +366,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
-        rm = ThroughputMeasurement(throughput_window_size=self.config.ThroughputInnerWindowSize,
-                                   throughput_min_cnt=self.config.ThroughputMinActivityThreshold)
+        rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
+                                   min_cnt=self.config.ThroughputMinActivityThreshold,
+                                   first_ts=time.perf_counter())
 
         self.throughputs.append(rm)
         lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
@@ -634,9 +634,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             for cid in self.clientAvgReqLatencies[i].avg_latencies.keys():
                 avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(cid)
                 if avg_lat:
-                    if cid not in avgLatencies:
-                        avgLatencies[cid] = []
-                    avgLatencies[cid].append(avg_lat)
+                    avgLatencies.setdefault(cid, []).append(avg_lat)
 
         avgLatencies = {cid: mean(lat) for cid, lat in avgLatencies.items()}
 
