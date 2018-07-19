@@ -72,7 +72,11 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     return adict(nodes=txnPoolNodeSet, old_view_no=old_view_no)
 
 
+@pytest.mark.skip(reason="Turn off isMasterReqLatencyTooHigh for current view_change protocol")
 def testInstChangeWithMoreReqLat(looper, setup):
+    # TODO for now, view_change procedure can take more that 15 minutes
+    # (5 minutes for catchup and 10 minutes for primary's answer).
+    # Therefore, view_change triggering by max latency now is not indicative.
     nodes = setup.nodes
     old_view_no = setup.old_view_no
     for node in nodes:
