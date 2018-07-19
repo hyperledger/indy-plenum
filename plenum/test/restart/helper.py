@@ -33,14 +33,18 @@ def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
     if after_restart_timeout:
         looper.runFor(after_restart_timeout)
 
-    for node_to_restart in restart_set:
+    for node_to_restart in restart_set.copy():
         config_helper = PNodeConfigHelper(node_to_restart.name, tconf, chroot=tdir)
         restarted_node = TestNode(node_to_restart.name, config_helper=config_helper, config=tconf,
                                   pluginPaths=allPluginsPath, ha=node_to_restart.nodestack.ha,
                                   cliha=node_to_restart.clientstack.ha)
         looper.add(restarted_node)
+
         idx = nodeSet.index(node_to_restart)
         nodeSet[idx] = restarted_node
+        idx = restart_set.index(node_to_restart)
+        restart_set[idx] = restarted_node
+
         rest_nodes += [restarted_node]
         if start_one_by_one:
             looper.run(checkNodesConnected(rest_nodes))

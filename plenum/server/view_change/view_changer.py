@@ -30,7 +30,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def __init__(self, node):
         self.node = node
 
-        self.view_no = 0  # type: int
+        self._view_no = 0  # type: int
 
         HasActionQueue.__init__(self)
 
@@ -89,6 +89,15 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         return "{}".format(self.name)
 
     # PROPERTIES
+
+    @property
+    def view_no(self):
+        return self._view_no
+
+    @view_no.setter
+    def view_no(self, value):
+        logger.info("{} setting view no to {}".format(self.name, value))
+        self._view_no = value
 
     @property
     def name(self):
