@@ -124,7 +124,7 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
                 logger.warning('{}: client stack restart is not needed anymore.'.format(self))
 
     def serviceClientStack(self):
-        if self.track_connected_clients_num_enabled:
+        if self.opened and self.track_connected_clients_num_enabled and self.listener_monitor:
             self.handle_listener_events()
             self.handle_connections_limit()
 
