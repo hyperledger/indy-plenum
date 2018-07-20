@@ -26,7 +26,7 @@ def test_req_id_to_txn_add(req_ids_to_txn):
     req_ids_to_txn.add(digest, ledger_id, seq_no)
     new_ledger_id, new_seq_no = req_ids_to_txn.get(digest)
     assert new_ledger_id == ledger_id
-    assert seq_no == seq_no
+    assert new_seq_no == seq_no
 
 
 def test_req_id_to_txn_add_batch(req_ids_to_txn):

@@ -420,7 +420,7 @@ def prettyDateDifference(startTime, finishTime=None):
     elif isinstance(startTime, datetime):
         diff = endTime - startTime
     else:
-        diff = endTime - endTime
+        diff = 0
 
     second_diff = diff.seconds
     day_diff = diff.days

@@ -14,7 +14,7 @@ class TestClass:
         return random.random()
 
 
-def test_lazy_field():
+def test_lazy_field(): #FIXME: identical sub-expressions on both sides of comparison operator
     a = TestClass()
     b = TestClass()
     assert a.some_lazy == a.some_lazy

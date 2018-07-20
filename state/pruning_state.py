@@ -87,7 +87,7 @@ class PruningState(State):
                 rootHash = rootHash.encode()
             rootHash = unhexlify(rootHash)
         elif rootHash:
-            rootHash = rootHash
+            rootHash = rootHash #FIXME: useless self-assignment
         else:
             rootHash = self.headHash
         self._kv.put(self.rootHashKey, rootHash)
