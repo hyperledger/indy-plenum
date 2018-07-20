@@ -1,5 +1,4 @@
-import json
-
+from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest
@@ -75,4 +74,4 @@ class AuctionReqHandler(LedgerRequestHandler):
         # Dummy update so that state root is non empty
         data = get_payload_data(txn)
         for k, v in data.items():
-            self.state.set(k.encode(), json.dumps(v).encode())
+            self.state.set(k.encode(), JsonSerializer.dumps(v))
