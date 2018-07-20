@@ -4,7 +4,7 @@ from plenum.test.test_node import ensure_node_disconnected, checkNodesConnected,
 
 def get_group(nodeSet, group_cnt, include_primary=False):
     if group_cnt >= len(nodeSet):
-        return nodeSet
+        return nodeSet.copy()
 
     ret_group = []
     primary_name = nodeSet[0].master_primary_name
