@@ -4,7 +4,7 @@ from plenum.common.constants import LEDGER_STATUS
 from plenum.common.messages.fields import LedgerIdField, NonNegativeNumberField, \
     MerkleRootField
 from plenum.common.messages.message_base import MessageBase
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import \
@@ -61,6 +61,9 @@ def test_node_catchup_with_new_ls_form(txnPoolNodeSet,
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    # check discarding a Ledger Statuses from the break_node for all ledgers
+    assert countDiscarded(node_to_disconnect,
+                          'invalid replied message structure') >= 3
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
