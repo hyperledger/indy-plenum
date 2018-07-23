@@ -9,7 +9,7 @@ from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check
 def tconf(tconf, request):
     oldSize = tconf.Max3PCBatchSize
     oldTimeout = tconf.Max3PCBatchWait
-    tconf.Max3PCBatchSize = 3
+    tconf.Max3PCBatchSize = 10
     tconf.Max3PCBatchWait = 1
 
     def reset():

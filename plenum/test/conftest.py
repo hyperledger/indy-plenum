@@ -1003,9 +1003,10 @@ def set_info_log_level(request):
 
 
 @pytest.fixture(scope='module')
-def sdk_pool_name():
+def sdk_pool_data():
     p_name = "pool_name_" + randomText(13)
-    yield p_name
+    cfg = {"timeout": 15, "extended_timeout": 60, "conn_limit": 200, "conn_active_timeout": 120}
+    yield p_name, json.dumps(cfg)
     p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
     if os.path.isdir(p_dir):
         shutil.rmtree(p_dir, ignore_errors=True)
@@ -1022,19 +1023,20 @@ def sdk_wallet_data():
         shutil.rmtree(w_dir, ignore_errors=True)
 
 
-async def _gen_pool_handler(work_dir, name):
+async def _gen_pool_handler(work_dir, name, open_config):
     txn_file_name = os.path.join(work_dir, "pool_transactions_genesis")
     pool_config = json.dumps({"genesis_txn": str(txn_file_name)})
     await create_pool_ledger_config(name, pool_config)
-    pool_handle = await open_pool_ledger(name, None)
+    pool_handle = await open_pool_ledger(name, open_config)
     return pool_handle
 
 
 @pytest.fixture(scope='module')
-def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
+def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
     sdk_set_protocol_version(looper)
+    pool_name, open_config = sdk_pool_data
     pool_handle = looper.loop.run_until_complete(
-        _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
+        _gen_pool_handler(tdirWithPoolTxns, pool_name, open_config))
     yield pool_handle
     try:
         looper.loop.run_until_complete(close_pool_ledger(pool_handle))
