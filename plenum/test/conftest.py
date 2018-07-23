@@ -1005,7 +1005,7 @@ def set_info_log_level(request):
 @pytest.fixture(scope='module')
 def sdk_pool_data():
     p_name = "pool_name_" + randomText(13)
-    cfg = {"timeout": 15, "extended_timeout": 60, "conn_limit": 200, "conn_active_timeout": 120}
+    cfg = {"timeout": 20, "extended_timeout": 60, "conn_limit": 500, "conn_active_timeout": 120}
     yield p_name, json.dumps(cfg)
     p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
     if os.path.isdir(p_dir):
