@@ -1,13 +1,19 @@
+import pytest
+
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import get_master_primary_node
 from plenum.test.view_change.helper import start_stopped_node, ensure_view_change_by_primary_restart
 
-# We do 2 view changes during this test. Timeout for one view change is 60 sec.
-# Test running time will be expected near 2 * 60 = 120, so let's define it as 150 sec.
 TestRunningTimeLimitSec = 150
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    with view_change_timeout(tconf, 20):
+        yield tconf
 
 
 def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeSet, looper,
