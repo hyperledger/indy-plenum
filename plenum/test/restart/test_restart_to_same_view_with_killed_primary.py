@@ -7,7 +7,7 @@ from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 
 nodeCount = 7
-TestRunningTimeLimitSec = 150
+TestRunningTimeLimitSec = 450
 
 VIEW_CHANGE_TIMEOUT = 10
 
@@ -36,7 +36,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     primary.stop()
     looper.removeProdable(primary)
     ensure_node_disconnected(looper, primary, txnPoolNodeSet)
-    waitForViewChange(looper, alive_nodes, 1)
+    waitForViewChange(looper, alive_nodes, 5)
     ensureElectionsDone(looper, alive_nodes, numInstances=3)
 
     # Add transaction to ledger
