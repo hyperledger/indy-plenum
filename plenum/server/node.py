@@ -1602,7 +1602,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted node {}".format(frm), logger.display)
+            self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
         try:
