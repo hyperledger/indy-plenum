@@ -882,12 +882,27 @@ def sdk_check_reply(req_res):
         else:
             raise CommonSdkIOException('Got an error with code {} for request {}'
                                        .format(res, req))
-    if res['op'] == REQNACK:
-        raise RequestNackedException('ReqNack of id {}. Reason: {}'
-                                     .format(req['reqId'], res['reason']))
-    if res['op'] == REJECT:
-        raise RequestRejectedException('Reject of id {}. Reason: {}'
-                                       .format(req['reqId'], res['reason']))
+    if not isinstance(res, dict):
+        raise CommonSdkIOException("Unexpected response format {}".format(res))
+
+    def _parse_op(res_dict):
+        if res_dict['op'] == REQNACK:
+            raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                         .format(req['reqId'], res_dict['reason']))
+        if res_dict['op'] == REJECT:
+            raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                           .format(req['reqId'], res_dict['reason']))
+
+    if 'op' in res:
+        _parse_op(res)
+    else:
+        for resps in res.values():
+            if isinstance(resps, str):
+                _parse_op(json.loads(resps))
+            elif isinstance(resps, dict):
+                _parse_op(resps)
+            else:
+                raise CommonSdkIOException("Unexpected response format {}".format(res))
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
