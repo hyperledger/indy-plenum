@@ -1013,12 +1013,15 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None):
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None):
     old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
         0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
     yield tconf
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+    tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
