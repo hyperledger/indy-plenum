@@ -2515,17 +2515,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'so view change will not be proposed'.format(self))
             return
 
-        disconnected_time = time.perf_counter() - self.lost_primary_at
-        if disconnected_time >= self.config.ToleratePrimaryDisconnection:
-            logger.display("{} primary has been disconnected for too long".format(self))
+        logger.display("{} primary has been disconnected for too long".format(self))
 
-            if not self.isReady():
-                logger.info('{} The node is not ready yet '
-                            'so view change will not be proposed now, but re-scheduled.'.format(self))
-                # self._schedule_view_change()
-                return
+        if not self.isReady():
+            logger.info('{} The node is not ready yet '
+                        'so view change will not be proposed now, but re-scheduled.'.format(self))
+            # self._schedule_view_change()
+            return
 
-            self.view_changer.on_primary_loss()
+        self.view_changer.on_primary_loss()
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
