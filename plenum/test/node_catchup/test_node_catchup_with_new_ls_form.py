@@ -63,7 +63,7 @@ def test_node_catchup_with_new_ls_form(txnPoolNodeSet,
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
     # check discarding a Ledger Statuses from the break_node for all ledgers
     assert countDiscarded(node_to_disconnect,
-                          'invalid replied message structure') >= 3
+                          'replied message has invalid structure') >= 3
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
