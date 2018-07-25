@@ -58,10 +58,18 @@ class BaseHandler(metaclass=ABCMeta):
                               logMethod=logger.debug)
             return None
 
-        valid_msg = self.create(msg.msg, **params)
+        valid_msg = None
+
+        try:
+            valid_msg = self.create(msg.msg, **params)
+        except TypeError:
+            self.node.discard(msg, "invalid replied message structure",
+                              logMethod=logger.warning)
+
         if valid_msg is None:
             return None
-        return self.processor(valid_msg, params, frm)
+
+        self.processor(valid_msg, params, frm)
 
 
 class LedgerStatusHandler(BaseHandler):

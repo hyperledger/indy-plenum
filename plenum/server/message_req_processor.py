@@ -48,7 +48,7 @@ class MessageReqProcessor:
                          format(self, msg_type, frm))
             return
         handler = self.handlers[msg_type]
-        return handler.process(msg, frm)
+        handler.process(msg, frm)
 
     def request_msg(self, typ, params: Dict, frm: List[str]=None):
         self.sendToNodes(MessageReq(**{
