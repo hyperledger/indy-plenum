@@ -1274,7 +1274,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
         vch_messages = self.view_changer.get_msgs_for_lagged_nodes()
-        message = CurrentState(viewNo=self.viewNo, primary=vch_messages)
+        message = CurrentState(viewNo=self.view_changer.last_completed_view_no, primary=vch_messages)
 
         logger.info("{} sending current state {} to lagged node {}".format(self, message, nodeName))
         self.send(message, rid)
@@ -1504,7 +1504,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _should_accept_current_state(self):
+    def _is_initial_propagate_primary(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1521,14 +1521,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or (from_current_state and self._should_accept_current_state()):
+        elif (view_no > self.viewNo):
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
-                self.msgsToViewChanger.append((future_vcd_msg, frm))
+                if from_current_state and self._is_initial_propagate_primary():
+                    future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=True)
+                    self.msgsToViewChanger.append((future_vcd_msg, frm))
+                elif from_current_state:
+                    """It's just CurrentState with future viewNo while we already has a primary"""
+                    future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=False)
+                    self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
