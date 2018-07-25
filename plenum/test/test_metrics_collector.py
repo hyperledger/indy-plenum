@@ -34,7 +34,7 @@ def decode_key(key: bytes) -> (MetricType, datetime):
     key = int.from_bytes(key, byteorder='big', signed=False)
     id = key >> 48
     ts = key & ((1 << 48) - 1)
-    return id, datetime.utcfromtimestamp(ts / 1000)
+    return MetricType(id), datetime.utcfromtimestamp(ts / 1000)
 
 
 def decode_value(value: bytes) -> float:

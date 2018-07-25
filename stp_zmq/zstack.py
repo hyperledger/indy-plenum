@@ -1,5 +1,6 @@
 import inspect
 
+from plenum.common.metrics_collector import NullMetricsCollector, MetricType
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -62,7 +63,8 @@ class ZStack(NetworkInterface):
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
-                 create_listener_monitor=False):
+                 create_listener_monitor=False, metrics=NullMetricsCollector(),
+                 mt_incoming_size=None, mt_outgoing_size=None):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
@@ -71,6 +73,10 @@ class ZStack(NetworkInterface):
         self.queue_size = queue_size
         self.config = config or getConfig()
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
+
+        self.metrics = metrics
+        self.mt_incoming_size = mt_incoming_size
+        self.mt_outgoing_size = mt_outgoing_size
 
         self.listenerQuota = self.config.DEFAULT_LISTENER_QUOTA
         self.senderQuota = self.config.DEFAULT_SENDER_QUOTA
@@ -437,6 +443,7 @@ class ZStack(NetworkInterface):
 
     def _verifyAndAppend(self, msg, ident):
         try:
+            self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
@@ -712,9 +719,10 @@ class ZStack(NetworkInterface):
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
-            # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
-            socket.send(msg, flags=zmq.NOBLOCK)
             logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
+            self.metrics.add_event(self.mt_outgoing_size, len(msg))
+            socket.send(msg, flags=zmq.NOBLOCK)
+            # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.info('Remote {} is not connected - message will not be sent immediately.'
                             'If this problem does not resolve itself - check your firewall settings'.format(uid))
@@ -736,6 +744,7 @@ class ZStack(NetworkInterface):
             #                              flags=zmq.NOBLOCK)
             logger.trace('{} transmitting {} to {} through listener socket'.
                          format(self, msg, ident))
+            self.metrics.add_event(self.mt_outgoing_size, len(msg))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
         except zmq.Again:
             return False, None

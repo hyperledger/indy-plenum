@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.metrics_collector import KvStoreMetricsCollector
+from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricType
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from plenum.test.test_metrics_collector import decode_key, decode_value
 
@@ -18,8 +18,6 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wa
     node = txnPoolNodeSet[0]
     metrics = node.metrics
     assert isinstance(metrics, KvStoreMetricsCollector)
-    for replica in node.replicas:
-        assert replica.metrics == metrics
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
 
@@ -31,3 +29,8 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wa
 
     # Check that all events are stored in correct order
     assert sorted(result, key=lambda v: (v[0], v[1])) == result
+
+    # Check that all event types happened during test
+    metric_types = {v[0] for v in result}
+    for t in MetricType:
+        assert t in metric_types
