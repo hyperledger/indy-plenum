@@ -11,6 +11,7 @@ from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
@@ -181,6 +182,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
         self.requestExecuter = {}   # type: Dict[int, Callable]
+
+        self.metrics = self.createMetricsCollector()
 
         Motor.__init__(self)
 
@@ -623,7 +626,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                        "immediate restart is recommended")
 
     def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor, self.config)
+        return Replicas(self, self.monitor, self.config, self.metrics)
 
     def utc_epoch(self) -> int:
         """
@@ -664,6 +667,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def createMetricsCollector(self):
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return NullMetricsCollector()
+
+        if self.config.METRICS_COLLECTOR_TYPE == 'kv':
+            return KvStoreMetricsCollector(
+                initKeyValueStorageIntKeys(
+                    self.config.METRICS_KV_STORAGE,
+                    self.dataLocation,
+                    self.config.METRICS_KV_DB_NAME,
+                    db_config=self.config.METRICS_KV_CONFIG
+                )
+            )
+
+        logger.warning("Unknown metrics collector type: {}".format(self.config.METRICS_COLLECTOR_TYPE))
+        return NullMetricsCollector()
 
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):

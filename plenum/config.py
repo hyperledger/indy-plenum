@@ -315,3 +315,9 @@ ENABLED_PLUGINS = []
 STACK_COMPANION = 0
 
 ENABLE_INCONSISTENCY_WATCHER_NETWORK = False
+
+# None or 'kv'
+METRICS_COLLECTOR_TYPE = None
+METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
+METRICS_KV_DB_NAME = 'metrics_db'
+METRICS_KV_CONFIG = rocksdb_default_config.copy()

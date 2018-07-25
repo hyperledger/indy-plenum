@@ -150,7 +150,7 @@ class TestNodeCore(StackedTester):
         self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
-        return TestReplicas(self, self.monitor, config)
+        return TestReplicas(self, self.monitor, config, self.metrics)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -164,6 +164,7 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
+    # TODO: Is it really needed?
     def createReplica(self, instNo: int, isMaster: bool, config=None):
         return TestReplica(self, instNo, isMaster, config)
 
@@ -499,7 +500,7 @@ class TestReplicas(Replicas):
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
         return self.__class__._replica_class(self._node, instance_id,
                                                 self._config, is_master,
-                                                bls_bft)
+                                                bls_bft, self._metrics)
 
 
 # TODO: probably delete when remove from node
