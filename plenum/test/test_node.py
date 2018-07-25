@@ -164,10 +164,6 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    # TODO: Is it really needed?
-    def createReplica(self, instNo: int, isMaster: bool, config=None):
-        return TestReplica(self, instNo, isMaster, config)
-
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimarySelector
