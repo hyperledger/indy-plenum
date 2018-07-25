@@ -7,7 +7,7 @@ from plenum.test.test_metrics_collector import decode_key, decode_value
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with max_3pc_batch_limits(tconf, size=10) as tconf:
+    with max_3pc_batch_limits(tconf, size=3) as tconf:
         old_type = tconf.METRICS_COLLECTOR_TYPE
         tconf.METRICS_COLLECTOR_TYPE = 'kv'
         yield tconf
@@ -21,7 +21,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wa
     for replica in node.replicas:
         assert replica.metrics == metrics
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 10)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
 
     storage = metrics._storage
     result = [(*decode_key(k), decode_value(v)) for k, v in storage.iterator()]

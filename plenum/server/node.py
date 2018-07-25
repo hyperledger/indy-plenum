@@ -674,7 +674,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             return KvStoreMetricsCollector(
-                initKeyValueStorageIntKeys(
+                initKeyValueStorage(
                     self.config.METRICS_KV_STORAGE,
                     self.dataLocation,
                     self.config.METRICS_KV_DB_NAME,
