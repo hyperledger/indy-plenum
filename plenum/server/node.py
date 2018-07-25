@@ -1529,11 +1529,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if isinstance(msg, ViewChangeDone):
                 if from_current_state and self._is_initial_propagate_primary():
                     future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=True)
-                    self.msgsToViewChanger.append((future_vcd_msg, frm))
-                elif from_current_state:
+                else:
                     """It's just CurrentState with future viewNo while we already has a primary"""
                     future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=False)
-                    self.msgsToViewChanger.append((future_vcd_msg, frm))
+                self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
