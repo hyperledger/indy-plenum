@@ -90,7 +90,6 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
     def restart(self):
         logger.warning("Stopping client stack on node {}".format(self))
         self.stop()
-        time.sleep(0.2)
         logger.warning("Starting client stack on node {}".format(self))
         self.start()
         # Sleep to allow disconnected clients to reconnect before sending replies from the server side.

@@ -353,10 +353,21 @@ class ZStack(NetworkInterface):
             '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_size(self.listener, self.queue_size)
-        self.listener.bind(
-            '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
-                                              protocol=ZMQ_NETWORK_PROTOCOL)
-        )
+        # Cycle to deal with "Address already in use" in case of immediate stack restart.
+        bound = False
+        bind_retries = 0
+        while not bound:
+            try:
+                self.listener.bind(
+                    '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
+                                                      protocol=ZMQ_NETWORK_PROTOCOL)
+                )
+                bound = True
+            except zmq.error.ZMQError as zmq_err:
+                bind_retries += 1
+                if bind_retries == 5:
+                    raise zmq_err
+                time.sleep(0.2)
 
     def close(self):
         if self.listener_monitor is not None:
