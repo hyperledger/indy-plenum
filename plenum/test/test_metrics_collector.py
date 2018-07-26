@@ -2,7 +2,7 @@ import struct
 import pytest
 from datetime import datetime, timedelta
 
-from plenum.common.metrics_collector import MetricType, KvStoreMetricsCollector
+from plenum.common.metrics_collector import MetricsType, KvStoreMetricsCollector, KvStoreMetricsFormat
 from storage.kv_store import KeyValueStorage
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
@@ -30,33 +30,40 @@ class MockTimestamp:
         return self.value
 
 
-def decode_key(key: bytes) -> (MetricType, datetime):
-    key = int.from_bytes(key, byteorder='big', signed=False)
-    id = key >> 48
-    ts = key & ((1 << 48) - 1)
-    return MetricType(id), datetime.utcfromtimestamp(ts / 1000)
+def test_kv_store_codec_for_key_is_correct():
+    id = MetricsType.LOOPER_RUN_TIME_SPENT
+    ts = datetime(2018, month=7, day=24, hour=18, minute=12, second=35, microsecond=456000)
+
+    data = KvStoreMetricsFormat.encode_key(id, ts)
+    decoded_id, decoded_ts = KvStoreMetricsFormat.decode_key(data)
+
+    assert id == decoded_id
+    assert ts == decoded_ts
 
 
-def decode_value(value: bytes) -> float:
-    return struct.unpack('d', value)[0]
+def test_kv_store_codec_for_value_is_correct():
+    value = 4.2
+
+    data = KvStoreMetricsFormat.encode_value(value)
+    decoded_value = KvStoreMetricsFormat.decode_value(data)
+
+    assert value == decoded_value
 
 
-def test_kv_store_metrics_collector_can_store_data(storage: KeyValueStorage):
+def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyValueStorage):
     ts = MockTimestamp(datetime(2018, month=7, day=24, hour=18, minute=12, second=35, microsecond=456000))
     metrics = KvStoreMetricsCollector(storage, ts)
     assert len([(k, v) for k, v in storage.iterator()]) == 0
 
-    id = MetricType.LOOPER_RUN_TIME_SPENT
-    value = 6.2
+    id, value = MetricsType.LOOPER_RUN_TIME_SPENT, 6.2
+    encoded_key = KvStoreMetricsFormat.encode_key(id, ts.value)
+    encoded_value = KvStoreMetricsFormat.encode_value(value)
     metrics.add_event(id, value)
+
     result = [(k, v) for k, v in storage.iterator()]
     assert len(result) == 1
-
-    k, v = result[0]
-    decoded_id, decoded_ts = decode_key(k)
-    assert decoded_id == id
-    assert decoded_ts == ts.value
-    assert decode_value(v) == value
+    assert result[0][0] == encoded_key
+    assert result[0][1] == encoded_value
 
 
 def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueStorage):
@@ -64,17 +71,18 @@ def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueSto
     metrics = KvStoreMetricsCollector(storage, ts)
 
     events = [
-        (MetricType.CLIENT_STACK_MESSAGES_PROCESSED, 30),
-        (MetricType.LOOPER_RUN_TIME_SPENT, 1.2),
-        (MetricType.CLIENT_STACK_MESSAGES_PROCESSED, 163),
-        (MetricType.LOOPER_RUN_TIME_SPENT, 5.2),
-        (MetricType.CLIENT_STACK_MESSAGES_PROCESSED, 6),
-        (MetricType.LOOPER_RUN_TIME_SPENT, 0.3)
+        (MetricsType.CLIENT_STACK_MESSAGES_PROCESSED, 30),
+        (MetricsType.LOOPER_RUN_TIME_SPENT, 1.2),
+        (MetricsType.CLIENT_STACK_MESSAGES_PROCESSED, 163),
+        (MetricsType.LOOPER_RUN_TIME_SPENT, 5.2),
+        (MetricsType.CLIENT_STACK_MESSAGES_PROCESSED, 6),
+        (MetricsType.LOOPER_RUN_TIME_SPENT, 0.3)
     ]
     for id, value in events:
         metrics.add_event(id, value)
         ts.value += timedelta(seconds=0.1)
-    result = [(*decode_key(k), decode_value(v)) for k, v in storage.iterator()]
+    result = [(*KvStoreMetricsFormat.decode_key(k), KvStoreMetricsFormat.decode_value(v))
+              for k, v in storage.iterator()]
 
     # Check that all events are stored
     assert len(result) == 6
