@@ -489,7 +489,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self._qourum_is_reached(ind_count, is_initial_propagate_primary=is_initial_propagate_primary):
             logger.display('{}{} starting view change for {} after {} view change '
                            'indications from other nodes'.format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            self.propagate_primary = True
+            if is_initial_propagate_primary:
+                self.propagate_primary = True
             self.startViewChange(view_no)
             return True
         return False

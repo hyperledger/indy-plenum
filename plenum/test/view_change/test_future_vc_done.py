@@ -1,4 +1,4 @@
-from plenum.common.messages.node_messages import ViewChangeDone, FutureViewChangeDone
+from plenum.common.messages.node_messages import ViewChangeDone
 
 
 def test_future_vcdone_with_is_initial_propagate_primary_no_quorum(fake_node):
@@ -23,7 +23,7 @@ def test_future_vcdone_with_is_initial_propagate_primary_with_quorum(fake_node):
     Check, that view_change would be started with quorum of propagate_primary view_change_done messages
     if is_initial_propagate_primary is True
     """
-    quorum = fake_node.quorums.propagate_primary.value
+    quorum = fake_node.f + 1
     frms = fake_node.allNodeNames[-quorum:]
     current_view = fake_node.view_changer.last_completed_view_no
     proposed_view_no = current_view + 1
@@ -42,7 +42,7 @@ def test_future_vcdone_without_is_initial_propagate_primary_no_quorum(fake_node)
     Check, that view_change would be not started without quorum of propagate_primary view_change_done messages
     if is_initial_propagate_primary is False
     """
-    quorum = fake_node.quorums.propagate_primary.value
+    quorum = fake_node.f + 1
     frms = fake_node.allNodeNames[-quorum:]
     current_view = fake_node.view_changer.last_completed_view_no
     proposed_view_no = current_view + 1
@@ -61,7 +61,7 @@ def test_future_vcdone_without_is_initial_propagate_primary_with_quorum(fake_nod
     Check, that view_change would be started without quorum of propagate_primary view_change_done messages
     if is_initial_propagate_primary is False
     """
-    quorum = fake_node.quorums.view_change_done.value
+    quorum = fake_node.totalNodes - fake_node.f
     frms = fake_node.allNodeNames[-quorum:]
     current_view = fake_node.view_changer.last_completed_view_no
     proposed_view_no = current_view + 1
