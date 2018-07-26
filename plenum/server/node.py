@@ -1524,17 +1524,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
             self.discard(msg, "Proposed viewNo {} less, then current {}"
                          .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or from_current_state:
+        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                if from_current_state and self._is_initial_propagate_primary():
-                    future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=True)
-                else:
-                    """It's just CurrentState with future viewNo while we already has a primary"""
-                    future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=False)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
