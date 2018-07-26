@@ -11,6 +11,7 @@ from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricType
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
@@ -155,6 +156,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.created = time.time()
         self.name = name
+        self.last_prod_started = None
         self.config = config or getConfig()
 
         self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
@@ -181,6 +183,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
         self.requestExecuter = {}   # type: Dict[int, Callable]
+
+        self.metrics = self.createMetricsCollector()
 
         Motor.__init__(self)
 
@@ -215,7 +219,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeReg = self.poolManager.nodeReg
 
         kwargs = dict(stackParams=self.poolManager.nstack,
-                      msgHandler=self.handleOneNodeMsg, registry=self.nodeReg)
+                      msgHandler=self.handleOneNodeMsg,
+                      registry=self.nodeReg,
+                      metrics=self.metrics)
         cls = self.nodeStackClass
         kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
@@ -226,7 +232,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             stackParams=self.poolManager.cstack,
             msgHandler=self.handleOneClientMsg,
             # TODO, Reject is used when dynamic validation fails, use Reqnack
-            msgRejectHandler=self.reject_client_msg_handler)
+            msgRejectHandler=self.reject_client_msg_handler,
+            metrics=self.metrics)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -623,7 +630,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                        "immediate restart is recommended")
 
     def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor, self.config)
+        return Replicas(self, self.monitor, self.config, self.metrics)
 
     def utc_epoch(self) -> int:
         """
@@ -664,6 +671,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def createMetricsCollector(self):
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return NullMetricsCollector()
+
+        if self.config.METRICS_COLLECTOR_TYPE == 'kv':
+            return KvStoreMetricsCollector(
+                initKeyValueStorage(
+                    self.config.METRICS_KV_STORAGE,
+                    self.dataLocation,
+                    self.config.METRICS_KV_DB_NAME,
+                    db_config=self.config.METRICS_KV_CONFIG
+                )
+            )
+
+        logger.warning("Unknown metrics collector type: {}".format(self.config.METRICS_COLLECTOR_TYPE))
+        return NullMetricsCollector()
 
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
@@ -1058,6 +1082,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: total number of messages serviced by this node
         """
         c = 0
+
+        if self.last_prod_started:
+            self.metrics.add_event(MetricType.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
+        self.last_prod_started = time.perf_counter()
+
         if self.status is not Status.stopped:
             c += await self.serviceReplicas(limit)
             c += await self.serviceNodeMsgs(limit)
@@ -1094,6 +1123,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: the number of messages successfully processed
         """
         n = await self.nodestack.service(limit)
+        self.metrics.add_event(MetricType.NODE_STACK_MESSAGES_PROCESSED, n)
+
         await self.processNodeInBox()
         return n
 
@@ -1110,6 +1141,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer.view_change_in_progress:
             return 0
         c = await self.clientstack.service(limit)
+        self.metrics.add_event(MetricType.CLIENT_STACK_MESSAGES_PROCESSED, c)
+
         await self.processClientInBox()
         return c
 
