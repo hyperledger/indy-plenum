@@ -116,6 +116,10 @@ class ZStack(NetworkInterface):
 
         self.last_heartbeat_at = None
 
+        self._send_to_disconnected = {}
+        self._stashed_pongs = {}
+        self._stashed_pings = {}
+
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
 
@@ -556,6 +560,7 @@ class ZStack(NetworkInterface):
         if not name:
             raise ValueError('Remote name should be specified')
 
+        publicKey = None
         if name in self.remotes:
             remote = self.remotes[name]
         else:
@@ -577,7 +582,17 @@ class ZStack(NetworkInterface):
                             name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
+        logger.info("{} stashed pings: {}".format(self.name, str(self._stashed_pings)))
+        logger.info("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
+        if publicKey in self._stashed_pings:
+            self._stashed_pings.pop(publicKey)
+            self.sendPingPong(name, is_ping=True)
+        if publicKey in self._stashed_pongs:
+            self._stashed_pongs.pop(publicKey)
+            self.sendPingPong(name, is_ping=False)
+
         # This should be scheduled as an async task
+
         self.sendPingPong(remote, is_ping=True)
         return remote.uid
 
@@ -646,6 +661,10 @@ class ZStack(NetworkInterface):
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, name, r[1]),
                          extra={"cli": False})
+            if is_ping and name not in self._stashed_pings:
+                self._stashed_pings[name] = msg
+            if not is_ping and name not in self._stashed_pongs:
+                self._stashed_pongs[name] = msg
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
@@ -658,13 +677,22 @@ class ZStack(NetworkInterface):
             if msg == self.pingMessage:
                 logger.trace('{} got ping from {}'.format(self, frm))
                 self.sendPingPong(frm, is_ping=False)
-
+                self._resend_to_disconnected(frm)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
+                    self._resend_to_disconnected(frm)
                 logger.trace('{} got pong from {}'.format(self, frm))
             return True
         return False
+
+    def _resend_to_disconnected(self, to):
+        if to not in self._send_to_disconnected:
+            return
+        msgs = self._send_to_disconnected[to]
+        while (msgs):
+            msg = msgs.popleft()
+            self.send(msg, to, stash_not_connected=False)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
@@ -673,7 +701,7 @@ class ZStack(NetworkInterface):
             self.sendPingPong(remote)
         self.last_heartbeat_at = time.perf_counter()
 
-    def send(self, msg: Any, remoteName: str = None, ha=None):
+    def send(self, msg: Any, remoteName: str = None, ha=None, stash_not_connected=True):
         if self.onlyListener:
             return self.transmitThroughListener(msg, remoteName)
         else:
@@ -696,9 +724,9 @@ class ZStack(NetworkInterface):
                 ret_err = None if len(e) == 0 else "\n".join(e)
                 return all(r), ret_err
             else:
-                return self.transmit(msg, remoteName)
+                return self.transmit(msg, remoteName, stash_not_connected=stash_not_connected)
 
-    def transmit(self, msg, uid, timeout=None, serialized=False):
+    def transmit(self, msg, uid, timeout=None, serialized=False, stash_not_connected=True):
         remote = self.remotes.get(uid)
         err_str = None
         if not remote:
@@ -716,11 +744,13 @@ class ZStack(NetworkInterface):
             socket.send(msg, flags=zmq.NOBLOCK)
             logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
             if not remote.isConnected and msg not in self.healthMessages:
-                logger.info('Remote {} is not connected - message will not be sent immediately.'
+                logger.warning('Remote {} is not connected - message will not be sent immediately.'
                             'If this problem does not resolve itself - check your firewall settings'.format(uid))
+                if stash_not_connected:
+                    self._send_to_disconnected.setdefault(uid, deque(maxlen=1000)).append(msg)
             return True, err_str
         except zmq.Again:
-            logger.debug('{} could not transmit message to {}'.format(self, uid))
+            logger.warning('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)
