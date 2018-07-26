@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 from abc import ABCMeta, abstractmethod
 
-from plenum.common.constants import THREE_PC_PREFIX
+from plenum.common.exceptions import MismatchedMessageReplyException
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.types import f
@@ -42,7 +42,8 @@ class BaseHandler(metaclass=ABCMeta):
             params[field_name] = msg.params.get(type_name)
 
         if not self.validate(**params):
-            self.node.discard(msg, 'cannot serve request', logMethod=logger.debug)
+            self.node.discard(msg, 'cannot serve request',
+                              logMethod=logger.debug)
             return None
 
         return self.requestor(params)
@@ -54,14 +55,19 @@ class BaseHandler(metaclass=ABCMeta):
             params[field_name] = msg.params.get(type_name)
 
         if not self.validate(**params):
-            self.node.discard(msg, 'cannot process requested message response',
+            self.node.discard(msg, 'cannot process message reply',
                               logMethod=logger.debug)
-            return None
+            return
 
-        valid_msg = self.create(msg.msg, **params)
-        if valid_msg is None:
-            return None
-        return self.processor(valid_msg, params, frm)
+        try:
+            valid_msg = self.create(msg.msg, **params)
+            self.processor(valid_msg, params, frm)
+        except TypeError:
+            self.node.discard(msg, 'replied message has invalid structure',
+                              logMethod=logger.warning)
+        except MismatchedMessageReplyException:
+            self.node.discard(msg, 'replied message does not satisfy query criteria',
+                              logMethod=logger.warning)
 
 
 class LedgerStatusHandler(BaseHandler):
@@ -73,7 +79,10 @@ class LedgerStatusHandler(BaseHandler):
         return kwargs['ledger_id'] in self.node.ledger_ids
 
     def create(self, msg: Dict, **kwargs) -> LedgerStatus:
-        return LedgerStatus(**msg)
+        ls = LedgerStatus(**msg)
+        if ls.ledgerId != kwargs['ledger_id']:
+            raise MismatchedMessageReplyException
+        return ls
 
     def requestor(self, params: Dict[str, Any]) -> LedgerStatus:
         return self.node.getLedgerStatus(params['ledger_id'])
@@ -97,7 +106,12 @@ class ConsistencyProofHandler(BaseHandler):
              'seq_no_end'] > 0)
 
     def create(self, msg: Dict, **kwargs) -> ConsistencyProof:
-        return ConsistencyProof(**msg)
+        cp = ConsistencyProof(**msg)
+        if cp.ledgerId != kwargs['ledger_id'] \
+                or cp.seqNoStart != kwargs['seq_no_start'] \
+                or cp.seqNoEnd != kwargs['seq_no_end']:
+            raise MismatchedMessageReplyException
+        return cp
 
     def requestor(self, params: Dict[str, Any]) -> ConsistencyProof:
         return self.node.ledgerManager._buildConsistencyProof(
@@ -124,11 +138,10 @@ class PreprepareHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Optional[PrePrepare]:
         pp = PrePrepare(**msg)
-        if pp.instId != kwargs['inst_id'] or pp.viewNo != kwargs['view_no']:
-            logger.warning(
-                '{}{} found PREPREPARE {} not satisfying query criteria' .format(
-                    THREE_PC_PREFIX, self, pp))
-            return None
+        if pp.instId != kwargs['inst_id'] \
+                or pp.viewNo != kwargs['view_no'] \
+                or pp.ppSeqNo != kwargs['pp_seq_no']:
+            raise MismatchedMessageReplyException
         return pp
 
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
@@ -157,11 +170,10 @@ class PrepareHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Optional[Prepare]:
         prepare = Prepare(**msg)
-        if prepare.instId != kwargs['inst_id'] or prepare.viewNo != kwargs['view_no']:
-            logger.warning(
-                '{}{} found PREPARE {} not satisfying query criteria' .format(
-                    THREE_PC_PREFIX, self, prepare))
-            return None
+        if prepare.instId != kwargs['inst_id'] \
+                or prepare.viewNo != kwargs['view_no'] \
+                or prepare.ppSeqNo != kwargs['pp_seq_no']:
+            raise MismatchedMessageReplyException
         return prepare
 
     def requestor(self, params: Dict[str, Any]) -> Prepare:
@@ -190,11 +202,10 @@ class CommitHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Optional[Commit]:
         commit = Commit(**msg)
-        if commit.instId != kwargs['inst_id'] or commit.viewNo != kwargs['view_no']:
-            logger.warning(
-                '{}{} found COMMIT {} not satisfying query criteria' .format(
-                    THREE_PC_PREFIX, self, commit))
-            return None
+        if commit.instId != kwargs['inst_id'] \
+                or commit.viewNo != kwargs['view_no'] \
+                or commit.ppSeqNo != kwargs['pp_seq_no']:
+            raise MismatchedMessageReplyException
         return commit
 
     def requestor(self, params: Dict[str, Any]) -> Commit:
@@ -219,12 +230,8 @@ class PropagateHandler(BaseHandler):
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
         request = self.node.client_request_class(**ppg.request)
-        if request.digest != kwargs[f.DIGEST.nm]:
-            logger.debug(
-                '{} found PROPAGATE {} not '
-                'satisfying query criteria'.format(
-                    self, ppg))
-            return None
+        if request.digest != kwargs['digest']:
+            raise MismatchedMessageReplyException
         return ppg
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
