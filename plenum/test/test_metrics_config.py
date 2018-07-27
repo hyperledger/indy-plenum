@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.metrics_collector import KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsType
+from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsType
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from storage.helper import initKeyValueStorage
 

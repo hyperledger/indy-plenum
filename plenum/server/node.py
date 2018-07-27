@@ -184,7 +184,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
         self.requestExecuter = {}   # type: Dict[int, Callable]
 
-        self.metrics = self.createMetricsCollector()
+        self.metrics = self._createMetricsCollector()
 
         Motor.__init__(self)
 
@@ -672,7 +672,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 db_config=self.config.db_seq_no_db_config)
         )
 
-    def createMetricsCollector(self):
+    def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
             return NullMetricsCollector()
 
