@@ -1,9 +1,14 @@
+import functools
+from collections import deque
+
 import pytest
 
 from plenum.common.util import get_utc_epoch
+from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.conftest import getValueFromModule
+from plenum.test.primary_selection.test_primary_selector import FakeNode
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -49,3 +54,15 @@ def fake_view_changer(request, tconf):
     )
     view_changer = ViewChanger(node)
     return view_changer
+
+
+@pytest.fixture(scope='function', params=[0, 10])
+def fake_node(tdir, tconf, request):
+    node = FakeNode(tdir, config=tconf)
+    node.msgHasAcceptableViewNo = Node.msgHasAcceptableViewNo
+    node._is_initial_propagate_primary = functools.partial(Node._is_initial_propagate_primary, node)
+    node.msgsForFutureViews = {}
+    node.msgsToViewChanger = deque()
+    node.view_changer.view_no = request.param
+    node.view_changer.last_completed_view_no = request.param
+    return node
