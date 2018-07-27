@@ -15,7 +15,7 @@ class ValueAccumulator:
     def add(self, value: float):
         self._count += 1
         self._sum += value
-        self._sumsq += value*value
+        self._sumsq += value * value
         self._min = self._min_with_none(self._min, value)
         self._max = self._max_with_none(self._max, value)
 
@@ -27,7 +27,7 @@ class ValueAccumulator:
         self._max = self._max_with_none(self._max, acc._max)
 
     def __repr__(self):
-        return "{} samples, {}/{}/{} min/avg/max, {} stddev".\
+        return "{} samples, {}/{}/{} min/avg/max, {} stddev". \
             format(self.count, self.min, self.avg, self.max, self.stddev)
 
     @property
