@@ -34,9 +34,6 @@ def test_from_current_state(fake_node):
     msg = ViewChangeDone(proposed_view_no, frm, fake_node.ledger_summary)
     res = Node.msgHasAcceptableViewNo(fake_node, msg, frm, from_current_state=True)
     msg, frm = fake_node.msgsToViewChanger[0]
-    if current_view == 0:
-        assert len(fake_node.msgsToViewChanger) == 1
-        assert msg.is_initial_propagate_primary
-    else:
-        assert len(fake_node.msgsToViewChanger) == 1
-        assert msg.is_initial_propagate_primary is False
+    assert len(fake_node.msgsToViewChanger) == 1
+    assert msg.is_initial_propagate_primary
+    assert res is False
