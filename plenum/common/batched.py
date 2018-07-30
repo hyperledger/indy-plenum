@@ -109,10 +109,10 @@ class Batched(MessageProcessor):
                                                         )
                     msgs.clear()
                     if batches:
-                        for batch in batches:
+                        for batch, size in batches:
                             logger.trace("{} sending payload to {}: {}".format(
                                 self, dest, batch))
-                            self.metrics.add_event(MetricsType.TRANSPORT_BATCH_SIZE, len(batch))
+                            self.metrics.add_event(MetricsType.TRANSPORT_BATCH_SIZE, size)
                             # Setting timeout to never expire
                             self.transmit(
                                 batch,
