@@ -222,7 +222,7 @@ class ZStack(NetworkInterface):
     @staticmethod
     def keyDirNames():
         return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, \
-               ZStack.VerifKeyDirName, ZStack.SigKeyDirName
+            ZStack.VerifKeyDirName, ZStack.SigKeyDirName
 
     @staticmethod
     def getHaFromLocal(name, basedirpath):
@@ -536,9 +536,9 @@ class ZStack(NetworkInterface):
         # These checks are kept here and not moved to a function since
         # `_serviceStack` is called very often and function call is an overhead
         if self.config.ENABLE_HEARTBEATS and (
-                        self.last_heartbeat_at is None or
-                        (time.perf_counter() - self.last_heartbeat_at) >=
-                        self.config.HEARTBEAT_FREQ):
+            self.last_heartbeat_at is None or
+            (time.perf_counter() - self.last_heartbeat_at) >=
+                self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
         self._receiveFromListener(quota=self.listenerQuota)
