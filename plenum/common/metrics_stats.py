@@ -1,6 +1,8 @@
 import math
 from collections import defaultdict
+from copy import copy
 from datetime import datetime, timedelta
+from typing import List
 
 from plenum.common.metrics_collector import MetricsType, KvStoreMetricsFormat
 from storage.kv_store import KeyValueStorage
@@ -152,9 +154,7 @@ class MetricsStats:
     @property
     def total(self):
         if self._total is None:
-            self._total = MetricsStatsFrame()
-            for frame in self._frames.values():
-                self.total.merge(frame)
+            self._total = self.merge_all(list(self._frames.values()))
         return self._total
 
     def __eq__(self, other):
@@ -164,6 +164,20 @@ class MetricsStats:
             if self._frames[k] != other._frames[k]:
                 return False
         return True
+
+    @staticmethod
+    def merge_all(frames: List[MetricsStatsFrame]) -> MetricsStatsFrame:
+        count = len(frames)
+        if count == 0:
+            return MetricsStatsFrame()
+        if count == 1:
+            return copy(frames[0])
+
+        count_2 = count // 2
+        lo = MetricsStats.merge_all(frames[:count_2])
+        hi = MetricsStats.merge_all(frames[count_2:])
+        lo.merge(hi)
+        return lo
 
 
 def load_metrics_from_kv_store(storage: KeyValueStorage,
