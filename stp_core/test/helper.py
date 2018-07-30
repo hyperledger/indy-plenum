@@ -62,7 +62,7 @@ class CounterMsgsHandler:
         received = self._received_from.get(sender, 0)
         assert received >= msg_num, \
             "Expected from {}: {}, but was {}. Received from others: {}" \
-                .format(sender, msg_num, received, str(self._received_from))
+            .format(sender, msg_num, received, str(self._received_from))
 
 
 class SMotor(Motor):
