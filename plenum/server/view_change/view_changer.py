@@ -293,23 +293,24 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self.view_change_in_progress:
             return
 
-        from_current_state = future_vcd_msg.from_current_state
+        is_initial_propagate_primary = future_vcd_msg.is_initial_propagate_primary
         view_no = future_vcd_msg.vcd_msg.viewNo
+        # ToDo maybe we should compare with last_completed_view_no instead of viewNo.
         if not ((view_no > self.view_no) or
-                (self.view_no == 0 and from_current_state)):
+                (self.view_no == 0 and is_initial_propagate_primary)):
             # it means we already processed this future View Change Done
             return
 
         # This is the first Propagate Primary,
         # so we need to make sure that we connected to the real primary for the proposed view
         # see test_view_change_after_back_to_quorum_with_disconnected_primary
-        if self.view_no == 0:
+        if self.view_no == 0 and is_initial_propagate_primary:
             self.node.schedule_initial_propose_view_change()
 
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = {}
         self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
-        self._start_view_change_if_possible(view_no)
+        self._start_view_change_if_possible(view_no, is_initial_propagate_primary=is_initial_propagate_primary)
 
     # __ EXTERNAL EVENTS __
 
@@ -477,12 +478,19 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.info(whyNot)
         return can
 
-    def _start_view_change_if_possible(self, view_no) -> bool:
+    def _qourum_is_reached(self, count, is_initial_propagate_primary):
+        if is_initial_propagate_primary:
+            return self.quorums.propagate_primary.is_reached(count)
+        else:
+            return self.quorums.view_change_done.is_reached(count)
+
+    def _start_view_change_if_possible(self, view_no, is_initial_propagate_primary=False) -> bool:
         ind_count = len(self._next_view_indications[view_no])
-        if self.quorums.propagate_primary.is_reached(ind_count):
+        if self._qourum_is_reached(ind_count, is_initial_propagate_primary=is_initial_propagate_primary):
             logger.display('{}{} starting view change for {} after {} view change '
                            'indications from other nodes'.format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            self.propagate_primary = True
+            if is_initial_propagate_primary:
+                self.propagate_primary = True
             self.startViewChange(view_no)
             return True
         return False
@@ -685,9 +693,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         messages = []
         accepted = self._accepted_view_change_done_message
         if accepted:
-            messages.append(ViewChangeDone(self.view_no, *accepted))
+            messages.append(ViewChangeDone(self.last_completed_view_no, *accepted))
         elif self.name in self._view_change_done:
-            messages.append(ViewChangeDone(self.view_no,
+            messages.append(ViewChangeDone(self.last_completed_view_no,
                                            *self._view_change_done[self.name]))
         else:
             logger.info('{} has no ViewChangeDone message to send for view {}'.

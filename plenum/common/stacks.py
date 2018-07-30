@@ -8,6 +8,7 @@ from plenum.common.batched import Batched, logger
 from plenum.common.config_util import getConfig, \
     get_global_config_else_read_config
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.metrics_collector import NullMetricsCollector, MetricType
 from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
 from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -28,7 +29,7 @@ else:
 
 class ClientZStack(simple_zstack_class, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
-                 config=None, msgRejectHandler=None):
+                 config=None, msgRejectHandler=None, metrics=NullMetricsCollector()):
         config = config or getConfig()
 
         simple_zstack_class.__init__(
@@ -39,7 +40,10 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
             onlyListener=True,
             config=config,
             msgRejectHandler=msgRejectHandler,
-            create_listener_monitor=config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED)
+            create_listener_monitor=config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED,
+            metrics=metrics,
+            mt_incoming_size=MetricType.INCOMING_CLIENT_MESSAGE_SIZE,
+            mt_outgoing_size=MetricType.OUTGOING_CLIENT_MESSAGE_SIZE)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
         if config.CLIENT_STACK_RESTART_ENABLED and not config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED:
@@ -90,7 +94,6 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
     def restart(self):
         logger.warning("Stopping client stack on node {}".format(self))
         self.stop()
-        time.sleep(0.2)
         logger.warning("Starting client stack on node {}".format(self))
         self.start()
         # Sleep to allow disconnected clients to reconnect before sending replies from the server side.
@@ -160,11 +163,14 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
 class NodeZStack(Batched, KITZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], seed=None, sighex: str=None,
-                 config=None):
+                 config=None, metrics=NullMetricsCollector()):
         config = config or getConfig()
-        Batched.__init__(self, config=config)
+        Batched.__init__(self, config=config, metrics=metrics)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
-                           seed=seed, sighex=sighex, config=config)
+                           seed=seed, sighex=sighex, config=config,
+                           metrics=metrics,
+                           mt_incoming_size=MetricType.INCOMING_NODE_MESSAGE_SIZE,
+                           mt_outgoing_size=MetricType.OUTGOING_NODE_MESSAGE_SIZE)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
     # TODO: Reconsider defaulting `reSetupAuth` to True.

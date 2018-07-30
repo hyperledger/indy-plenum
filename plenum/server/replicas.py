@@ -6,6 +6,7 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import BLS_PREFIX
+from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -18,10 +19,11 @@ MASTER_REPLICA_INDEX = 0
 class Replicas:
     _replica_class = Replica
 
-    def __init__(self, node, monitor: Monitor, config=None):
+    def __init__(self, node, monitor: Monitor, config=None, metrics: MetricsCollector = NullMetricsCollector()):
         # passing full node because Replica requires it
         self._node = node
         self._monitor = monitor
+        self._metrics = metrics
         self._config = config
         self._replicas = []  # type: List[Replica]
         self._messages_to_replicas = []  # type: List[deque]
@@ -111,7 +113,7 @@ class Replicas:
         """
         Create a new replica with the specified parameters.
         """
-        return self._replica_class(self._node, instance_id, self._config, is_master, bls_bft)
+        return self._replica_class(self._node, instance_id, self._config, is_master, bls_bft, self._metrics)
 
     def _create_bls_bft_replica(self, is_master):
         bls_factory = create_default_bls_bft_factory(self._node)

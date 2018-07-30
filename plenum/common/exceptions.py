@@ -182,6 +182,10 @@ class InvalidNodeMsg(InvalidNodeMessageException):
     pass
 
 
+class MismatchedMessageReplyException(InvalidNodeMsg):
+    pass
+
+
 class MissingNodeOp(InvalidNodeMsg):
     pass
 

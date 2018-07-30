@@ -1040,3 +1040,14 @@ def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
+
+
+@contextmanager
+def max_3pc_batch_limits(tconf, size, wait=10000):
+    old_size = tconf.Max3PCBatchSize
+    old_wait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = size
+    tconf.Max3PCBatchWait = wait
+    yield tconf
+    tconf.Max3PCBatchSize = old_size
+    tconf.Max3PCBatchWait = old_wait
