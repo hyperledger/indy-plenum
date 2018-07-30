@@ -413,6 +413,6 @@ class FutureViewChangeDone:
     Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
     In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
     """
-    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+    def __init__(self, vcd_msg: ViewChangeDone, is_initial_propagate_primary: bool) -> None:
         self.vcd_msg = vcd_msg
-        self.from_current_state = from_current_state
+        self.is_initial_propagate_primary = is_initial_propagate_primary

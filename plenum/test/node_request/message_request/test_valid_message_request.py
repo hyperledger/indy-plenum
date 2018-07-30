@@ -12,7 +12,9 @@ from stp_core.loop.eventually import eventually
 
 invalid_type_discard_log = "unknown value 'invalid_type'"
 invalid_req_discard_log = "cannot serve request"
-invalid_rep_discard_log = "cannot process requested message response"
+invalid_rep_discard_log = "cannot process message reply"
+invalid_replied_msg_structure = "replied message has invalid structure"
+mismatched_params_log = "replied message does not satisfy query criteria"
 
 whitelist = [invalid_type_discard_log, ]
 
@@ -38,6 +40,13 @@ def patched_MessageRep():
         )
 
     return PMessageRep
+
+
+def patched_LedgerStatus():
+    class PLedgerStatus(LedgerStatus):
+        schema = LedgerStatus.schema[:-1]
+
+    return PLedgerStatus
 
 
 discard_counts = {}
@@ -79,7 +88,7 @@ propagate_msg = Propagate(**{'request': {'identifier': '5rArie7XKukPCaEwq5XGQJnM
                                          'protocolVersion': CURRENT_PROTOCOL_VERSION},
                              'senderClient': '+DG1:vO9#de6?R?>:3RwdAXSdefgLLfxSoN4WMEe'})
 
-bad_msgs = [
+msg_reps_with_invalid_params = [
     (LEDGER_STATUS, {'p1': 'v1', 'p2': 'v2'}, LedgerStatus(
         1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
     (LEDGER_STATUS, {f.LEDGER_ID.nm: 100}, LedgerStatus(
@@ -108,6 +117,44 @@ bad_msgs = [
 ]
 
 
+msg_reqs_with_invalid_params = map(lambda triplet: triplet[:2],
+                                   msg_reps_with_invalid_params)
+
+
+msg_reps_with_mismatched_params = [
+    (LEDGER_STATUS, {f.LEDGER_ID.nm: 0}, LedgerStatus(
+        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
+    (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 2, f.SEQ_NO_START.nm: 2, f.SEQ_NO_END.nm: 20},
+     ConsistencyProof(1, 2, 20, 1, 3,
+                      'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
+                      'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
+                      ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
+    (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 1, f.SEQ_NO_START.nm: 1, f.SEQ_NO_END.nm: 20},
+     ConsistencyProof(1, 2, 20, 1, 3,
+                      'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
+                      'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
+                      ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
+    (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 1, f.SEQ_NO_START.nm: 2, f.SEQ_NO_END.nm: 10},
+     ConsistencyProof(1, 2, 20, 1, 3,
+                      'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
+                      'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
+                      ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
+    (PREPREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     pre_prepare_msg),
+    (PREPREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     pre_prepare_msg),
+    (PREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     prepare_msg),
+    (PREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     prepare_msg),
+    (COMMIT, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     commit_msg),
+    (COMMIT, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     commit_msg),
+    (PROPAGATE, {f.DIGEST.nm: 'MISMATCHED_DIGEST'}, propagate_msg),
+]
+
+
 def fill_counters(nodes, log_message):
     global discard_counts
     discard_counts[log_message] = {n.name: countDiscarded(n, log_message)
@@ -128,12 +175,10 @@ def nodes(txnPoolNodeSet):
     return bad_node, other_nodes
 
 
-def test_node_reject_invalid_req_resp_type(looper, nodes):
+def test_node_rejects_msg_reqs_with_invalid_type(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with an unacceptable type. Also
-    it does not accept invalid `MessageRep`
+    Node does not accept `MessageReq` with an invalid message type.
     """
-    global discard_counts
     bad_node, other_nodes = nodes
     fill_counters(other_nodes, invalid_type_discard_log)
     bad_msg = patched_MessageReq()('invalid_type', {'p1': 'v1', 'p2': 'v2'})
@@ -142,6 +187,12 @@ def test_node_reject_invalid_req_resp_type(looper, nodes):
     looper.run(eventually(chk, other_nodes,
                           invalid_type_discard_log, retryWait=1))
 
+
+def test_node_rejects_msg_reps_with_invalid_type(looper, nodes):
+    """
+    Node does not accept `MessageRep` with an invalid message type.
+    """
+    bad_node, other_nodes = nodes
     fill_counters(other_nodes, invalid_type_discard_log)
 
     bad_msg = patched_MessageRep()('invalid_type', {'p1': 'v1', 'p2': 'v2'},
@@ -151,31 +202,59 @@ def test_node_reject_invalid_req_resp_type(looper, nodes):
                           invalid_type_discard_log, retryWait=1))
 
 
-def test_node_reject_invalid_req_params(looper, nodes):
+def test_node_rejects_msg_reqs_with_invalid_params(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with missing params.
-    Also it does not accept invalid `MessageRep`
+    Node does not accept `MessageReq` with invalid query params.
     """
-    global discard_counts, bad_msgs
     bad_node, other_nodes = nodes
 
-    for bad_msg in bad_msgs:
+    for msg_req_with_invalid_params in msg_reqs_with_invalid_params:
         fill_counters(other_nodes, invalid_req_discard_log)
-        bad_node.send(patched_MessageReq()(*bad_msg[:2]))
+        bad_node.send(patched_MessageReq()(*msg_req_with_invalid_params))
         looper.run(eventually(chk, other_nodes, invalid_req_discard_log,
                               retryWait=1))
 
 
-def test_node_reject_invalid_resp_params(looper, nodes):
+def test_node_rejects_msg_reps_with_invalid_params(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with missing params.
-    Also it does not accept invalid `MessageRep`
+    Node does not accept `MessageRep` with invalid query params.
     """
-    global discard_counts, bad_msgs
     bad_node, other_nodes = nodes
 
-    for bad_msg in bad_msgs:
+    for msg_rep_with_invalid_params in msg_reps_with_invalid_params:
         fill_counters(other_nodes, invalid_rep_discard_log)
-        bad_node.send(patched_MessageRep()(*bad_msg))
+        bad_node.send(patched_MessageRep()(*msg_rep_with_invalid_params))
         looper.run(eventually(chk, other_nodes, invalid_rep_discard_log,
+                              retryWait=1))
+
+
+def test_node_rejects_msg_reps_with_invalid_msg_structure(looper, nodes):
+    """
+    Node does not accept `MessageRep` with invalid an replied message structure.
+    """
+    bad_node, other_nodes = nodes
+    fill_counters(other_nodes, invalid_replied_msg_structure)
+
+    # Message reply with a ledger status with an invalid structure
+    # (`protocolVersion` field is missed)
+    bad_msg = patched_MessageRep()(
+        LEDGER_STATUS,
+        {f.LEDGER_ID.nm: 1},
+        patched_LedgerStatus()(1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq'))
+    bad_node.send(bad_msg)
+    looper.run(eventually(chk, other_nodes,
+                          invalid_replied_msg_structure, retryWait=1))
+
+
+def test_node_rejects_msg_reps_with_mismatched_params(looper, nodes):
+    """
+    Node does not accept `MessageRep` with mismatched query params and
+    replied message.
+    """
+    bad_node, other_nodes = nodes
+
+    for msg_rep_with_mismatched_params in msg_reps_with_mismatched_params:
+        fill_counters(other_nodes, mismatched_params_log)
+        bad_node.send(patched_MessageRep()(*msg_rep_with_mismatched_params))
+        looper.run(eventually(chk, other_nodes, mismatched_params_log,
                               retryWait=1))

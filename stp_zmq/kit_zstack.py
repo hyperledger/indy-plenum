@@ -1,4 +1,5 @@
 from plenum.common.config_util import get_global_config_else_read_config
+from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
 from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -31,13 +32,19 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
                  seed=None,
                  sighex: str = None,
                  config=None,
-                 msgRejectHandler=None):
+                 msgRejectHandler=None,
+                 metrics=NullMetricsCollector(),
+                 mt_incoming_size=None,
+                 mt_outgoing_size=None):
 
         KITNetworkInterface.__init__(self, registry=registry)
 
         simple_zstack_class.__init__(self, stackParams, msgHandler,
                                      seed=seed, sighex=sighex, config=config,
-                                     msgRejectHandler=msgRejectHandler)
+                                     msgRejectHandler=msgRejectHandler,
+                                     metrics=metrics,
+                                     mt_incoming_size=mt_incoming_size,
+                                     mt_outgoing_size=mt_outgoing_size)
 
         self._retry_connect = {}
 

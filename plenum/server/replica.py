@@ -23,6 +23,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricType
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -110,7 +111,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  config=None,
                  isMaster: bool = False,
-                 bls_bft_replica: BlsBftReplica = None):
+                 bls_bft_replica: BlsBftReplica = None,
+                 metrics: MetricsCollector = NullMetricsCollector()):
         """
         Create a new replica.
 
@@ -121,6 +123,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
+        self.metrics = metrics
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
@@ -795,6 +798,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(validReqs), ledger_id))
+        self.metrics.add_event(MetricType.THREE_PC_BATCH_SIZE, len(reqs))
         self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:

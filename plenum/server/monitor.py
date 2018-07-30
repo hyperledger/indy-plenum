@@ -316,7 +316,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             ("ordered request durations",
              {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("master request latencies", self.masterReqLatencies),
-            ("client avg request latencies", self.clientAvgReqLatencies),
+            ("client avg request latencies", {i: self.getAvgLatency(i)
+                                              for i in self.instances.ids}),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
             ("master throughput", masterThrp),

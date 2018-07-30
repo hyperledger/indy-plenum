@@ -1,3 +1,4 @@
+from plenum.common.metrics_collector import NullMetricsCollector
 from stp_zmq.zstack import ZStack
 from typing import Dict, Callable
 from stp_core.network.auth_mode import AuthMode
@@ -13,7 +14,10 @@ class SimpleZStack(ZStack):
                  sighex: str=None,
                  config=None,
                  msgRejectHandler=None,
-                 create_listener_monitor=False):
+                 create_listener_monitor=False,
+                 metrics=NullMetricsCollector(),
+                 mt_incoming_size=None,
+                 mt_outgoing_size=None):
 
         # TODO: sighex is unused as of now, remove once test is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
@@ -40,4 +44,7 @@ class SimpleZStack(ZStack):
                          config=config,
                          msgRejectHandler=msgRejectHandler,
                          queue_size=queue_size,
-                         create_listener_monitor=create_listener_monitor)
+                         create_listener_monitor=create_listener_monitor,
+                         metrics=metrics,
+                         mt_incoming_size=mt_incoming_size,
+                         mt_outgoing_size=mt_outgoing_size)
