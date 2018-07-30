@@ -1,6 +1,6 @@
 import inspect
 
-from plenum.common.metrics_collector import NullMetricsCollector, MetricType
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsType
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -641,7 +641,7 @@ class ZStack(NetworkInterface):
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
         if not name:
             raise PlenumValueError('name', name, 'non-empty')
-        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size, self.ha[0])
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
