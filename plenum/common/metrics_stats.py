@@ -1,6 +1,6 @@
 import math
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from plenum.common.metrics_collector import MetricsType, KvStoreMetricsFormat
 from storage.kv_store import KeyValueStorage
@@ -18,6 +18,14 @@ def _max_with_none(a, b):
         return max(a, b)
     except TypeError:
         return a if a is not None else b
+
+
+def trunc_ts(ts: datetime, step: timedelta):
+    base = datetime.min.replace(year=2000)
+    step_s = step.total_seconds()
+    seconds = (ts - base).total_seconds()
+    seconds = int(seconds / step_s) * step_s
+    return (base + timedelta(seconds=seconds, milliseconds=500)).replace(microsecond=0)
 
 
 class ValueAccumulator:
@@ -51,9 +59,9 @@ class ValueAccumulator:
             return False
         if self._count != other._count:
             return False
-        if self._sum != other._sum:
+        if not math.isclose(self._sum, other._sum):
             return False
-        if self._sumsq != other._sumsq:
+        if not math.isclose(self._sumsq, other._sumsq):
             return False
         if self._min != other._min:
             return False
@@ -89,37 +97,71 @@ class ValueAccumulator:
         return self._max
 
 
-class MetricsStats:
+class MetricsStatsFrame:
     def __init__(self):
         self._stats = defaultdict(ValueAccumulator)
-        self._min_ts = None
-        self._max_ts = None
 
-    def add(self, id: MetricsType, ts: datetime, value: float):
+    def add(self, id: MetricsType, value: float):
         self._stats[id].add(value)
-        self._min_ts = _min_with_none(self._min_ts, ts)
-        self._max_ts = _max_with_none(self._max_ts, ts)
 
     def get(self, id: MetricsType):
         return self._stats[id]
 
+    def merge(self, other):
+        for id, acc in other._stats.items():
+            self._stats[id].merge(acc)
+
+    def __eq__(self, other):
+        if not isinstance(other, MetricsStatsFrame):
+            return False
+        for k in set(self._stats.keys()).union(other._stats.keys()):
+            if self._stats[k] != other._stats[k]:
+                return False
+        return True
+
+
+class MetricsStats:
+    def __init__(self, timestep=timedelta(minutes=1)):
+        self._timestep = timestep
+        self._frames = defaultdict(MetricsStatsFrame)
+        self._total = None
+
+    def add(self, id: MetricsType, ts: datetime, value: float):
+        ts = trunc_ts(ts, self._timestep)
+        self._frames[ts].add(id, value)
+        self._total = None
+
+    def frame(self, ts):
+        return self._frames[trunc_ts(ts, self._timestep)]
+
+    def frames(self):
+        return self._frames.items()
+
+    @property
+    def timestep(self):
+        return self._timestep
+
     @property
     def min_ts(self):
-        return self._min_ts
+        return min(k for k in self._frames.keys())
 
     @property
     def max_ts(self):
-        return self._max_ts
+        return max(k for k in self._frames.keys()) + self._timestep
+
+    @property
+    def total(self):
+        if self._total is None:
+            self._total = MetricsStatsFrame()
+            for frame in self._frames.values():
+                self.total.merge(frame)
+        return self._total
 
     def __eq__(self, other):
         if not isinstance(other, MetricsStats):
             return False
-        if self._min_ts != other._min_ts:
-            return False
-        if self._max_ts != other._max_ts:
-            return False
-        for k in set(self._stats.keys()).union(other._stats.keys()):
-            if self._stats[k] != other._stats[k]:
+        for k in set(self._frames.keys()).union(other._frames.keys()):
+            if self._frames[k] != other._frames[k]:
                 return False
         return True
 
