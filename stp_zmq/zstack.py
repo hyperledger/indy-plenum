@@ -641,7 +641,7 @@ class ZStack(NetworkInterface):
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
         if not name:
             raise PlenumValueError('name', name, 'non-empty')
-        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size, self.ha[0])
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
