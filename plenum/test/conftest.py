@@ -1004,9 +1004,10 @@ def set_info_log_level(request):
 
 
 @pytest.fixture(scope='module')
-def sdk_pool_data():
+def sdk_pool_data(txnPoolNodeSet):
     p_name = "pool_name_" + randomText(13)
-    cfg = {"timeout": 20, "extended_timeout": 60, "conn_limit": 1000, "conn_active_timeout": 1000}
+    cfg = {"timeout": 20, "extended_timeout": 60, "conn_limit": 100000, "conn_active_timeout": 1000,
+           "preordered_nodes": [n.name for n in txnPoolNodeSet]}
     yield p_name, json.dumps(cfg)
     p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
     if os.path.isdir(p_dir):
