@@ -2,7 +2,7 @@ import math
 from collections import defaultdict
 from copy import copy
 from datetime import datetime, timedelta
-from typing import List
+from typing import Sequence
 
 from plenum.common.metrics_collector import MetricsType, KvStoreMetricsFormat
 from storage.kv_store import KeyValueStorage
@@ -166,7 +166,7 @@ class MetricsStats:
         return True
 
     @staticmethod
-    def merge_all(frames: List[MetricsStatsFrame]) -> MetricsStatsFrame:
+    def merge_all(frames: Sequence[MetricsStatsFrame]) -> MetricsStatsFrame:
         count = len(frames)
         if count == 0:
             return MetricsStatsFrame()
@@ -182,8 +182,9 @@ class MetricsStats:
 
 def load_metrics_from_kv_store(storage: KeyValueStorage,
                                min_ts: datetime = None,
-                               max_ts: datetime = None) -> MetricsStats:
-    result = MetricsStats()
+                               max_ts: datetime = None,
+                               step: timedelta = timedelta(minutes=1)) -> MetricsStats:
+    result = MetricsStats(step)
 
     # TODO: Implement faster filtering by timestamps
     for k, v in storage.iterator():

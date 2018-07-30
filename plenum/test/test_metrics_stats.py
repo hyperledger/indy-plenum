@@ -244,24 +244,26 @@ def test_metrics_stats_eq_has_value_semantics():
 
 def test_load_metrics_from_kv_store_can_load_all_values(storage):
     events = generate_events(10)
+    step = timedelta(seconds=5)
     ts = MockTimestamp()
     metrics = KvStoreMetricsCollector(storage, ts)
-    expected_stats = MetricsStats()
+    expected_stats = MetricsStats(step)
 
     for id, time, value in events:
         ts.value = time
         metrics.add_event(id, value)
         expected_stats.add(id, time, value)
 
-    stats = load_metrics_from_kv_store(storage)
+    stats = load_metrics_from_kv_store(storage, step=step)
     assert stats == expected_stats
 
 
 def test_load_metrics_from_kv_store_can_filter_values(storage):
     events = generate_events(10)
+    step = timedelta(seconds=3)
     ts = MockTimestamp()
     metrics = KvStoreMetricsCollector(storage, ts)
-    expected_stats = MetricsStats()
+    expected_stats = MetricsStats(step)
 
     timestamps = sorted(v[1] for v in events)
     min_ts = timestamps[len(events) // 3]
@@ -273,5 +275,5 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
         if min_ts <= time <= max_ts:
             expected_stats.add(id, time, value)
 
-    stats = load_metrics_from_kv_store(storage, min_ts, max_ts)
+    stats = load_metrics_from_kv_store(storage, min_ts, max_ts, step)
     assert stats == expected_stats
