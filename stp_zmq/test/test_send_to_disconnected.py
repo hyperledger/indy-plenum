@@ -5,7 +5,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, CounterMsgsHandler, prepStacks, MessageSender, connectStack
-from stp_zmq.test.helper import genKeys
+from stp_zmq.test.helper import genKeys, check_ping_received, check_pong_received
 from stp_zmq.zstack import ZStack
 
 NUM_MSGS = 100
@@ -16,19 +16,12 @@ def patch_ping_pong(stack):
 
     stack.drop_ping = False
     stack.drop_pong = False
-    stack.has_ping = False
-    stack.has_pong = False
 
     def patchedHandlePingPong(self, msg, frm, ident):
         if self.drop_ping and msg == self.pingMessage:
             return
         if self.drop_pong and msg == self.pongMessage:
             return
-
-        if msg == self.pingMessage:
-            stack.has_ping = True
-        if msg == self.pongMessage:
-            stack.has_pong = True
 
         return origMethod(msg, frm, ident)
 
@@ -48,20 +41,6 @@ def check_all_received(looper, frm, to, to_msg_handler):
                           frm.name, NUM_MSGS,
                           retryWait=1,
                           timeout=15))
-
-
-def check_ping_received(looper, stack, frm):
-    def do_check_ping():
-        assert frm in stack._received_pings
-
-    looper.run(eventually(do_check_ping))
-
-
-def check_pong_received(looper, stack, frm):
-    def do_check_pong():
-        assert stack.hasRemote(frm) and stack.getRemote(frm).isConnected
-
-    looper.run(eventually(do_check_pong))
 
 
 def re_send_ping_pong(alpha, beta):
@@ -139,8 +118,8 @@ def send_to_disconnected(create_stacks, looper):
                           timeout=10))
     assert not alpha.isConnectedTo(beta.name)
     beta_msg_handler.check_received_from(alpha.name, 0)
-    assert beta.name in alpha._send_to_disconnected
-    assert len(alpha._send_to_disconnected[beta.name]) >= NUM_MSGS
+    assert beta.name in alpha._stashed_to_disconnected
+    assert len(alpha._stashed_to_disconnected[beta.name]) >= NUM_MSGS
 
     return alpha, beta, beta_msg_handler
 
@@ -185,10 +164,10 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
     # 5. make sure that ping (pong) is the first message received by Alpha
     if ping_pong_drop_strategy == 'ping_first':
         check_ping_received(looper, alpha, beta.name)
-        assert not alpha.has_pong
+        assert not alpha.hasPongFrom(beta.name)
     elif ping_pong_drop_strategy == 'pong_first':
         check_pong_received(looper, alpha, beta.name)
-        assert not alpha.has_ping
+        assert not alpha.hasPingFrom(beta.name)
 
     # 6. make sure that dropped pong (ping) is received to establish connection
     if ping_pong_drop_strategy != 'no_drop':
@@ -202,4 +181,4 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
 def test_send_to_disconnected_then_connect(send_to_disconnected_then_connect, looper):
     alpha, beta, beta_msg_handler = send_to_disconnected_then_connect
     check_all_received(looper, frm=alpha, to=beta, to_msg_handler=beta_msg_handler)
-    assert len(alpha._send_to_disconnected[beta.name]) == 0
+    assert len(alpha._stashed_to_disconnected[beta.name]) == 0

@@ -122,9 +122,9 @@ class ZStack(NetworkInterface):
 
         self.last_heartbeat_at = None
 
-        self._send_to_disconnected = {}
-        self._stashed_pongs = {}
-        self._stashed_pings = {}
+        self._stashed_to_disconnected = {}
+        self._stashed_pongs = set()
+        self._stashed_pings = set()
         self._received_pings = set()
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
@@ -423,6 +423,12 @@ class ZStack(NetworkInterface):
         # TODO: Change name after removing test
         return not self.isRestricted
 
+    def hasPingFrom(self, frm):
+        return frm in self._received_pings
+
+    def hasPongFrom(self, frm):
+        return self.hasRemote(frm) and self.getRemote(frm).isConnected
+
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
         return not self.onlyListener and super().isConnectedTo(name, ha)
 
@@ -481,8 +487,6 @@ class ZStack(NetworkInterface):
         i = 0
         while i < quota:
             try:
-                if self.name == 'Beta':
-                    logger.info("aaaaa")
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
                 if not msg:
                     # Router probing sends empty message on connection
@@ -607,15 +611,16 @@ class ZStack(NetworkInterface):
 
         self.sendPingPong(remote, is_ping=True)
 
+        # re-send previously stashed pings/pongs from unknown remotes
         logger.trace("{} stashed pings: {}".format(self.name, str(self._stashed_pings)))
         logger.trace("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
         if publicKey in self._stashed_pings:
             logger.trace("{} sending stashed pings to {}".format(self.name, str(publicKey)))
-            self._stashed_pings.pop(publicKey)
+            self._stashed_pings.discard(publicKey)
             self.sendPingPong(name, is_ping=True)
         if publicKey in self._stashed_pongs:
             logger.trace("{} sending stashed pongs to {}".format(self.name, str(publicKey)))
-            self._stashed_pongs.pop(publicKey)
+            self._stashed_pongs.discard(publicKey)
             self.sendPingPong(name, is_ping=False)
 
         return remote.uid
@@ -625,7 +630,6 @@ class ZStack(NetworkInterface):
         Disconnect remote and connect to it again
 
         :param remote: instance of Remote from self.remotes
-        :param remoteName: name of remote
         :param remoteName: name of remote
         :return:
         """
@@ -681,15 +685,14 @@ class ZStack(NetworkInterface):
         if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
         elif r[0] is False:
-            # TODO: This fails the first time as socket is not established,
-            # need to make it retriable
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, name, r[1]),
                          extra={"cli": False})
-            if is_ping and name not in self._stashed_pings:
-                self._stashed_pings[name] = msg
-            if not is_ping and name not in self._stashed_pongs:
-                self._stashed_pongs[name] = msg
+            # try to re-send ping/pongs later
+            if is_ping:
+                self._stashed_pings.add(name)
+            else:
+                self._stashed_pongs.add(name)
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
@@ -713,7 +716,7 @@ class ZStack(NetworkInterface):
         return False
 
     def _can_resend_to_disconnected(self, to, ident):
-        if to not in self._send_to_disconnected:
+        if to not in self._stashed_to_disconnected:
             return False
         if to not in self._received_pings:
             return False
@@ -727,7 +730,7 @@ class ZStack(NetworkInterface):
         if not self._can_resend_to_disconnected(to, ident):
             return
         logger.trace('{} resending stashed messages to {}'.format(self, to))
-        msgs = self._send_to_disconnected[to]
+        msgs = self._stashed_to_disconnected[to]
         while msgs:
             msg = msgs.popleft()
             self.send(msg, to)
@@ -786,7 +789,7 @@ class ZStack(NetworkInterface):
             if not remote.isConnected:
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'.format(uid))
-                self._send_to_disconnected\
+                self._stashed_to_disconnected\
                     .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE))\
                     .append(msg)
             return True, err_str
