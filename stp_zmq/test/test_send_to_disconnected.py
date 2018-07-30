@@ -48,7 +48,6 @@ def check_all_received(looper, frm, to, to_msg_handler):
                           frm.name, NUM_MSGS,
                           retryWait=1,
                           timeout=15))
-    assert len(frm._send_to_disconnected[to.name]) == 0
 
 
 def check_ping_received(looper, stack, frm):
@@ -75,46 +74,48 @@ def re_send_ping_pong(alpha, beta):
     beta.sendPingPong(alpha.name, is_ping=True)
 
 
-def make_sure_connected(looper, alpha, beta):
-    # do re-connect as well to make sure that Alpha's re-connected socket is used
-    # beta.reconnectRemoteWithName(alpha.name)
-    # looper.runFor(2)
-    # re_send_ping_pong(beta, alpha)
-    # re_send_ping_pong(alpha, beta)
-    # check_ping_received(looper, alpha, beta.name)
-    # check_pong_received(looper, alpha, beta.name)
-    # check_ping_received(looper, beta, alpha.name)
-    # check_pong_received(looper, beta, alpha.name)
-    pass
-
-
-@pytest.fixture()
-def create_stacks(tdir, looper):
-    names = ['Alpha', 'Beta']
-    genKeys(tdir, names)
-    alphaP = Printer(names[0])
-    beta_msg_handler = CounterMsgsHandler()
-
-    alpha = ZStack(names[0],
+def create_alpha(tdir, looper, name):
+    alphaP = Printer(name)
+    alpha = ZStack(name,
                    ha=genHa(),
                    basedirpath=tdir,
                    msgHandler=alphaP.print,
                    restricted=True)
-    beta = ZStack(names[1],
+    prepStacks(looper, alpha, connect=False)
+
+    patch_ping_pong(alpha)
+
+    return alpha
+
+
+def create_beta(tdir, looper, name, start_stack=True):
+    beta_msg_handler = CounterMsgsHandler()
+    beta = ZStack(name,
                   ha=genHa(),
                   basedirpath=tdir,
                   msgHandler=beta_msg_handler.handler,
                   restricted=True)
-    prepStacks(looper, alpha, beta, connect=False)
+    if start_stack:
+        prepStacks(looper, beta, connect=False)
 
-    patch_ping_pong(alpha)
     patch_ping_pong(beta)
 
+    return beta, beta_msg_handler
+
+
+@pytest.fixture()
+def create_stacks(tdir, looper, reconnect_strategy):
+    names = ['Alpha', 'Beta']
+    genKeys(tdir, names)
+
+    alpha = create_alpha(tdir, looper, names[0])
+    beta, beta_msg_handler = create_beta(tdir, looper, names[1],
+                                         start_stack=reconnect_strategy != 'reconnect')
     return alpha, beta, beta_msg_handler
 
 
 @pytest.fixture()
-def send_to_disconnected(create_stacks, looper, round):
+def send_to_disconnected(create_stacks, looper):
     # 1. create stacks (do not connect)
     alpha, beta, beta_msg_handler = create_stacks
 
@@ -163,19 +164,25 @@ def reconnect_strategy(request):
 def send_to_disconnected_then_connect(send_to_disconnected, looper,
                                       ping_pong_drop_strategy, reconnect_strategy,
                                       round):
+    # 1. send to disconnected stack
     alpha, beta, beta_msg_handler = send_to_disconnected
 
+    # 2. reconnect Alpha
     if reconnect_strategy == 'reconnect':
         alpha.reconnectRemoteWithName(beta.name)
-        looper.runFor(2)
+        prepStacks(looper, beta, connect=False)
 
+    # 3. Make sure that ping (pong) is the first message received by Alpha
+    # dropping pong (ping)
     if ping_pong_drop_strategy == 'ping_first':
         drop_pongs(alpha)
     elif ping_pong_drop_strategy == 'pong_first':
         drop_pings(alpha)
 
+    # 4. Connect beta to alpha
     connectStack(beta, alpha)
 
+    # 5. make sure that ping (pong) is the first message received by Alpha
     if ping_pong_drop_strategy == 'ping_first':
         check_ping_received(looper, alpha, beta.name)
         assert not alpha.has_pong
@@ -183,13 +190,11 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
         check_pong_received(looper, alpha, beta.name)
         assert not alpha.has_ping
 
-    if ping_pong_drop_strategy == 'ping_first' or ping_pong_drop_strategy == 'pong_first':
+    # 6. make sure that dropped pong (ping) is received to establish connection
+    if ping_pong_drop_strategy != 'no_drop':
         re_send_ping_pong(alpha, beta)
         check_ping_received(looper, alpha, beta.name)
         check_pong_received(looper, alpha, beta.name)
-
-    if reconnect_strategy == 'reconnect':
-        make_sure_connected(looper, alpha, beta)
 
     return alpha, beta, beta_msg_handler
 
@@ -197,3 +202,4 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
 def test_send_to_disconnected_then_connect(send_to_disconnected_then_connect, looper):
     alpha, beta, beta_msg_handler = send_to_disconnected_then_connect
     check_all_received(looper, frm=alpha, to=beta, to_msg_handler=beta_msg_handler)
+    assert len(alpha._send_to_disconnected[beta.name]) == 0

@@ -778,7 +778,8 @@ class ZStack(NetworkInterface):
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
-            logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
+            logger.trace('{} transmitting message {} to {} by socket {} {}'
+                         .format(self, msg, uid, socket.FD, socket.underlying))
             self.metrics.add_event(self.mt_outgoing_size, len(msg))
             socket.send(msg, flags=zmq.NOBLOCK)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
