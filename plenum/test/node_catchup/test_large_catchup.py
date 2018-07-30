@@ -9,7 +9,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from stp_core.validators.message_length_validator import MessageLenValidator
 
-TestRunningTimeLimitSec = 125
+TestRunningTimeLimitSec = 300
 
 
 def decrease_max_request_size(node):
