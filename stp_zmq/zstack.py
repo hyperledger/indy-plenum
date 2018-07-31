@@ -1,6 +1,6 @@
 import inspect
 
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsType
+from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -731,9 +731,10 @@ class ZStack(NetworkInterface):
             if not serialized:
                 msg = self.prepare_to_send(msg)
             logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
-            self.metrics.add_event(self.mt_outgoing_size, len(msg))
             socket.send(msg, flags=zmq.NOBLOCK)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
+            if remote.isConnected:
+                self.metrics.add_event(self.mt_outgoing_size, len(msg))
             if not remote.isConnected and msg not in self.healthMessages:
                 logger.info('Remote {} is not connected - message will not be sent immediately.'
                             'If this problem does not resolve itself - check your firewall settings'.format(uid))

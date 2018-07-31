@@ -39,8 +39,8 @@ def gen_next_timestamp(prev=None) -> datetime:
     return round_ts(prev + timedelta(seconds=uniform(0.001, 10.0)))
 
 
-def generate_events(num: int) -> List[Tuple[MetricsType, datetime, float]]:
-    ts = gen_next_timestamp()
+def generate_events(num: int, min_ts=None) -> List[Tuple[MetricsType, datetime, float]]:
+    ts = gen_next_timestamp(min_ts)
     result = []
     for _ in range(num):
         id = gen_metrics_type()
