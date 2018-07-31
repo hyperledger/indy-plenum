@@ -408,6 +408,7 @@ class ValidatorNodeInfoTool:
         uncommited_ledger_root_hashes = {}
         uncommitted_ledger_txns = {}
         committed_state_root_hashes = {}
+        uncommitted_state_root_hashes = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
             ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
@@ -422,8 +423,8 @@ class ValidatorNodeInfoTool:
             if linfo.ledger.tree.root_hash:
                 committed_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
         for l_id, req_handler in self._node.ledger_to_req_handler.items():
-            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
-
+            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
+            uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
 
         return {
             "Node_info": {
@@ -453,6 +454,8 @@ class ValidatorNodeInfoTool:
                     uncommited_ledger_root_hashes),
                 "Uncommitted_ledger_txns": self._prepare_for_json(
                     uncommitted_ledger_txns),
+                "Uncommitted_state_root_hashes": self._prepare_for_json(
+                    uncommitted_state_root_hashes),
                 "View_change_status": {
                     "View_No": self._prepare_for_json(
                         self._node.viewNo),
