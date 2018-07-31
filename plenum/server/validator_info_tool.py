@@ -181,6 +181,18 @@ class ValidatorNodeInfoTool:
     def __total_count(self):
         return len(self._node.nodestack.remotes) + 1
 
+
+    def _get_folder_size(self, start_path):
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                try:
+                    total_size += os.path.getsize(fp)
+                except OSError:
+                    pass
+        return total_size
+
     @property
     @none_on_fail
     def __hardware_info(self):
@@ -188,7 +200,7 @@ class ValidatorNodeInfoTool:
         ram_all = psutil.virtual_memory()
         current_process = psutil.Process()
         ram_by_process = current_process.memory_info()
-        nodes_data = psutil.disk_usage(self._node.ledger_dir)
+        nodes_data = self._get_folder_size(self._node.ledger_dir)
 
         return {
             "Hardware": {
