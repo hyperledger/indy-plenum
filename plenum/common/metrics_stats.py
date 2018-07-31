@@ -188,11 +188,11 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
 
     # TODO: Implement faster filtering by timestamps
     for k, v in storage.iterator():
-        id, ts = KvStoreMetricsFormat.decode_key(k)
-        if min_ts is not None and ts < min_ts:
+        ev = KvStoreMetricsFormat.decode(k, v)
+        if min_ts is not None and ev.timestamp < min_ts:
             continue
-        if max_ts is not None and ts > max_ts:
+        if max_ts is not None and ev.timestamp > max_ts:
             continue
-        result.add(id, ts, KvStoreMetricsFormat.decode_value(v))
+        result.add(ev.type, ev.timestamp, ev.value)
 
     return result

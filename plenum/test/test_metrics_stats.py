@@ -36,8 +36,8 @@ def _value_accumulator(values):
 
 def _metrics_stats_frame(events):
     frame = MetricsStatsFrame()
-    for id, _, value in events:
-        frame.add(id, value)
+    for ev in events:
+        frame.add(ev.type, ev.value)
     return frame
 
 
@@ -186,13 +186,13 @@ def test_metrics_stats_can_add_values():
     gap_ts = next_ts + 3 * stats.timestep
     max_ts = gap_ts + stats.timestep
 
-    first_events = [v for v in generate_events(10, min_ts) if v[1] < min_ts + stats.timestep]
-    next_events = [v for v in generate_events(10, next_ts) if v[1] < next_ts + stats.timestep]
-    after_gap_events = [v for v in generate_events(10, gap_ts) if v[1] < gap_ts + stats.timestep]
+    first_events = [ev for ev in generate_events(10, min_ts) if ev.timestamp < min_ts + stats.timestep]
+    next_events = [ev for ev in generate_events(10, next_ts) if ev.timestamp < next_ts + stats.timestep]
+    after_gap_events = [ev for ev in generate_events(10, gap_ts) if ev.timestamp < gap_ts + stats.timestep]
 
     all_events = first_events + next_events + after_gap_events
-    for id, ts, value in all_events:
-        stats.add(id, ts, value)
+    for ev in all_events:
+        stats.add(ev.type, ev.timestamp, ev.value)
 
     assert stats.min_ts == min_ts
     assert stats.max_ts == max_ts
@@ -214,8 +214,8 @@ def test_metrics_stats_total_is_merge_of_all_frames():
     events = generate_events(50)
 
     stats = MetricsStats()
-    for id, ts, value in events:
-        stats.add(id, ts, value)
+    for ev in events:
+        stats.add(ev.type, ev.timestamp, ev.value)
 
     expected_total = MetricsStatsFrame()
     for _, frame in stats.frames():
@@ -249,10 +249,10 @@ def test_load_metrics_from_kv_store_can_load_all_values(storage):
     metrics = KvStoreMetricsCollector(storage, ts)
     expected_stats = MetricsStats(step)
 
-    for id, time, value in events:
-        ts.value = time
-        metrics.add_event(id, value)
-        expected_stats.add(id, time, value)
+    for ev in events:
+        ts.value = ev.timestamp
+        metrics.add_event(ev.type, ev.value)
+        expected_stats.add(ev.type, ev.timestamp, ev.value)
 
     stats = load_metrics_from_kv_store(storage, step=step)
     assert stats == expected_stats
@@ -265,15 +265,15 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
     metrics = KvStoreMetricsCollector(storage, ts)
     expected_stats = MetricsStats(step)
 
-    timestamps = sorted(v[1] for v in events)
+    timestamps = sorted(ev.timestamp for ev in events)
     min_ts = timestamps[len(events) // 3]
     max_ts = timestamps[2 * len(events) // 3]
 
-    for id, time, value in events:
-        ts.value = time
-        metrics.add_event(id, value)
-        if min_ts <= time <= max_ts:
-            expected_stats.add(id, time, value)
+    for ev in events:
+        ts.value = ev.timestamp
+        metrics.add_event(ev.type, ev.value)
+        if min_ts <= ev.timestamp <= max_ts:
+            expected_stats.add(ev.type, ev.timestamp, ev.value)
 
     stats = load_metrics_from_kv_store(storage, min_ts, max_ts, step)
     assert stats == expected_stats

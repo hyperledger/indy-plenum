@@ -15,17 +15,16 @@ def tconf(tconf):
 
 
 def check_metrics_data(storage):
-    data = [(*KvStoreMetricsFormat.decode_key(k), KvStoreMetricsFormat.decode_value(v))
-              for k, v in storage.iterator()]
+    events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that metrics are actually written
-    assert len(data) > 0
+    assert len(events) > 0
 
     # Check that all events are stored in correct order
-    assert sorted(data, key=lambda v: (v[0], v[1])) == data
+    assert sorted(events, key=lambda v: v.timestamp) == events
 
     # Check that all event types happened during test
-    metric_types = {v[0] for v in data}
+    metric_types = {ev.type for ev in events}
     for t in MetricsType:
         assert t in metric_types
 
