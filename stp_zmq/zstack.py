@@ -124,7 +124,6 @@ class ZStack(NetworkInterface):
 
         self._stashed_to_disconnected = {}
         self._stashed_pongs = set()
-        self._stashed_pings = set()
         self._received_pings = set()
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
@@ -423,12 +422,6 @@ class ZStack(NetworkInterface):
         # TODO: Change name after removing test
         return not self.isRestricted
 
-    def hasPingFrom(self, frm):
-        return frm in self._received_pings
-
-    def hasPongFrom(self, frm):
-        return self.hasRemote(frm) and self.getRemote(frm).isConnected
-
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
         return not self.onlyListener and super().isConnectedTo(name, ha)
 
@@ -612,12 +605,7 @@ class ZStack(NetworkInterface):
         self.sendPingPong(remote, is_ping=True)
 
         # re-send previously stashed pings/pongs from unknown remotes
-        logger.trace("{} stashed pings: {}".format(self.name, str(self._stashed_pings)))
         logger.trace("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
-        if publicKey in self._stashed_pings:
-            logger.trace("{} sending stashed pings to {}".format(self.name, str(publicKey)))
-            self._stashed_pings.discard(publicKey)
-            self.sendPingPong(name, is_ping=True)
         if publicKey in self._stashed_pongs:
             logger.trace("{} sending stashed pongs to {}".format(self.name, str(publicKey)))
             self._stashed_pongs.discard(publicKey)
@@ -688,10 +676,8 @@ class ZStack(NetworkInterface):
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, name, r[1]),
                          extra={"cli": False})
-            # try to re-send ping/pongs later
-            if is_ping:
-                self._stashed_pings.add(name)
-            else:
+            # try to re-send pongs later
+            if not is_ping:
                 self._stashed_pongs.add(name)
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
@@ -704,9 +690,7 @@ class ZStack(NetworkInterface):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
                 logger.trace('{} got ping from {}'.format(self, frm, ident))
-                self._received_pings.add(frm)
                 self.sendPingPong(frm, is_ping=False)
-                self._resend_to_disconnected(frm, ident)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
@@ -717,8 +701,6 @@ class ZStack(NetworkInterface):
 
     def _can_resend_to_disconnected(self, to, ident):
         if to not in self._stashed_to_disconnected:
-            return False
-        if to not in self._received_pings:
             return False
         if ident not in self.remotesByKeys:
             return False

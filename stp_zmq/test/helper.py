@@ -113,15 +113,8 @@ def get_zstack_key_paths(stack_name, common_path):
     )
 
 
-def check_ping_received(looper, stack, frm):
-    def do_check_ping():
-        assert stack.hasPingFrom(frm)
-
-    looper.run(eventually(do_check_ping))
-
-
 def check_pong_received(looper, stack, frm):
     def do_check_pong():
-        assert stack.hasPongFrom(frm)
+        assert stack.isConnectedTo(frm)
 
     looper.run(eventually(do_check_pong))
