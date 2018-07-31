@@ -694,7 +694,7 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, frm, ident))
+                logger.trace('{} got ping from {}'.format(self, frm))
                 self.sendPingPong(frm, is_ping=False)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
