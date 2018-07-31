@@ -14,6 +14,7 @@ import datetime
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
+from pympler import muppy, summary
 
 
 def decode_err_handler(error):
@@ -31,6 +32,7 @@ NODE_CONTROL_CONFIG_FILE = "node_control.conf"
 INDY_NODE_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node.service"
 NODE_CONTROL_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node-control.service"
 NUMBER_TXNS_FOR_DISPLAY = 10
+LIMIT_OBJECTS_FOR_PROFILER = 10
 
 
 def none_on_fail(func):
@@ -65,6 +67,9 @@ class ValidatorNodeInfoTool:
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
+        memory_profiler = self.__memory_profiler
+        extractions_info = self.__extractions
+
         if hardware_info:
             general_info.update(hardware_info)
         if software_info:
@@ -75,17 +80,26 @@ class ValidatorNodeInfoTool:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
+        if memory_profiler:
+            general_info.update(memory_profiler)
+        if extractions_info:
+            general_info.update(extractions_info)
+
         return general_info
+
+    @property
+    @none_on_fail
+    def __memory_profiler(self):
+        all_objects = muppy.get_objects()
+        stats = summary.summarize(all_objects)
+        return {'Memory_profiler': [l for l in summary.format_(stats, LIMIT_OBJECTS_FOR_PROFILER)]}
 
     @property
     def additional_info(self):
         additional_info = {}
         config_info = self.__config_info
-        extractions_info = self.__extractions
         if config_info:
             additional_info.update(config_info)
-        if extractions_info:
-            additional_info.update(extractions_info)
         return additional_info
 
     def _prepare_for_json(self, item):
