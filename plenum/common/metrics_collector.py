@@ -42,12 +42,15 @@ class KvStoreMetricsFormat:
     seq_mask = (1 << seq_bits) - 1
 
     @staticmethod
-    def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
-        int_ts = int(1000000 * event.timestamp.replace(tzinfo=timezone.utc).timestamp())
+    def encode_key(ts: datetime, seq_no: int):
+        int_ts = int(1000000 * ts.replace(tzinfo=timezone.utc).timestamp())
         int_ts = int_ts & KvStoreMetricsFormat.ts_mask
         seq_no = seq_no & KvStoreMetricsFormat.seq_mask
-        key = ((int_ts << KvStoreMetricsFormat.seq_bits) | seq_no).to_bytes(64, byteorder='big', signed=False)
+        return ((int_ts << KvStoreMetricsFormat.seq_bits) | seq_no).to_bytes(64, byteorder='big', signed=False)
 
+    @staticmethod
+    def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
+        key = KvStoreMetricsFormat.encode_key(event.timestamp, seq_no)
         value = event.name.to_bytes(32, byteorder='big', signed=False) + struct.pack('d', event.value)
         return key, value
 
