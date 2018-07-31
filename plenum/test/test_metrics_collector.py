@@ -4,7 +4,7 @@ from typing import Tuple, List
 import pytest
 from datetime import datetime, timedelta
 
-from plenum.common.metrics_collector import MetricsType, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent
+from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent
 from storage.kv_store import KeyValueStorage
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
@@ -24,8 +24,8 @@ def storage(request, tdir) -> KeyValueStorage:
     db.close()
 
 
-def gen_metrics_type() -> MetricsType:
-    return choice(list(MetricsType))
+def gen_metrics_name() -> MetricsName:
+    return choice(list(MetricsName))
 
 
 def gen_next_timestamp(prev=None) -> datetime:
@@ -44,9 +44,9 @@ def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
     result = []
     for _ in range(num):
         ts = gen_next_timestamp(ts)
-        type = gen_metrics_type()
+        name = gen_metrics_name()
         value = gauss(0.0, 100.0)
-        result += [MetricsEvent(ts, type, value)]
+        result += [MetricsEvent(ts, name, value)]
     return result
 
 
@@ -59,7 +59,7 @@ class MockTimestamp:
 
 
 def test_kv_store_decode_restores_encoded_event():
-    event = MetricsEvent(gen_next_timestamp(), gen_metrics_type(), 4.2)
+    event = MetricsEvent(gen_next_timestamp(), gen_metrics_name(), 4.2)
 
     k, v = KvStoreMetricsFormat.encode(event)
     decoded_event = KvStoreMetricsFormat.decode(k, v)
@@ -68,7 +68,7 @@ def test_kv_store_decode_restores_encoded_event():
 
 
 def test_kv_store_encode_generate_different_keys_for_different_seq_no():
-    event = MetricsEvent(gen_next_timestamp(), gen_metrics_type(), 4.2)
+    event = MetricsEvent(gen_next_timestamp(), gen_metrics_name(), 4.2)
 
     k1, v1 = KvStoreMetricsFormat.encode(event, 1)
     k2, v2 = KvStoreMetricsFormat.encode(event, 2)
@@ -82,7 +82,7 @@ def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyVal
     metrics = KvStoreMetricsCollector(storage, ts)
     assert len([(k, v) for k, v in storage.iterator()]) == 0
 
-    id, value = gen_metrics_type(), gauss(0.0, 100.0)
+    id, value = gen_metrics_name(), gauss(0.0, 100.0)
     event = MetricsEvent(ts.value, id, value)
     encoded_key, encoded_value = KvStoreMetricsFormat.encode(event)
 
@@ -101,7 +101,7 @@ def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueSto
 
     for e in events:
         ts.value = e.timestamp
-        metrics.add_event(e.type, e.value)
+        metrics.add_event(e.name, e.value)
     stored_events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that all events are stored
@@ -119,7 +119,7 @@ def test_kv_store_metrics_collector_store_all_events_with_same_timestamp(storage
     values = [10, 2, 54, 2]
 
     for v in values:
-        metrics.add_event(MetricsType.THREE_PC_BATCH_SIZE, v)
+        metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, v)
     events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that all events are stored

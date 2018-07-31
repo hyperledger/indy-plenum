@@ -4,7 +4,7 @@ from copy import copy
 from datetime import datetime, timedelta
 from typing import Sequence
 
-from plenum.common.metrics_collector import MetricsType, KvStoreMetricsFormat
+from plenum.common.metrics_collector import MetricsName, KvStoreMetricsFormat
 from storage.kv_store import KeyValueStorage
 
 
@@ -103,10 +103,10 @@ class MetricsStatsFrame:
     def __init__(self):
         self._stats = defaultdict(ValueAccumulator)
 
-    def add(self, id: MetricsType, value: float):
+    def add(self, id: MetricsName, value: float):
         self._stats[id].add(value)
 
-    def get(self, id: MetricsType):
+    def get(self, id: MetricsName):
         return self._stats[id]
 
     def merge(self, other):
@@ -128,9 +128,9 @@ class MetricsStats:
         self._frames = defaultdict(MetricsStatsFrame)
         self._total = None
 
-    def add(self, ts: datetime, type: MetricsType, value: float):
+    def add(self, ts: datetime, name: MetricsName, value: float):
         ts = trunc_ts(ts, self._timestep)
-        self._frames[ts].add(type, value)
+        self._frames[ts].add(name, value)
         self._total = None
 
     def frame(self, ts):
@@ -193,6 +193,6 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
             continue
         if max_ts is not None and ev.timestamp > max_ts:
             continue
-        result.add(ev.timestamp, ev.type, ev.value)
+        result.add(ev.timestamp, ev.name, ev.value)
 
     return result

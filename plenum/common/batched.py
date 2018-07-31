@@ -2,7 +2,7 @@ from collections import deque
 from typing import Any, Iterable, Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsType
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsName
 from plenum.common.prepare_batch import split_messages_on_batches
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
@@ -112,7 +112,7 @@ class Batched(MessageProcessor):
                         for batch, size in batches:
                             logger.trace("{} sending payload to {}: {}".format(
                                 self, dest, batch))
-                            self.metrics.add_event(MetricsType.TRANSPORT_BATCH_SIZE, size)
+                            self.metrics.add_event(MetricsName.TRANSPORT_BATCH_SIZE, size)
                             # Setting timeout to never expire
                             self.transmit(
                                 batch,
@@ -126,7 +126,7 @@ class Batched(MessageProcessor):
                         msg = msgs.popleft()
                         logger.trace(
                             "{} sending msg {} to {}".format(self, msg, dest))
-                        self.metrics.add_event(MetricsType.TRANSPORT_BATCH_SIZE, 1)
+                        self.metrics.add_event(MetricsName.TRANSPORT_BATCH_SIZE, 1)
                         # Setting timeout to never expire
                         self.transmit(msg, rid, timeout=self.messageTimeout,
                                       serialized=True)

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsType
+from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from storage.helper import initKeyValueStorage
 
@@ -24,9 +24,9 @@ def check_metrics_data(storage):
     assert sorted(events, key=lambda v: v.timestamp) == events
 
     # Check that all event types happened during test
-    metric_types = {ev.type for ev in events}
-    for t in MetricsType:
-        assert t in metric_types
+    metric_names = {ev.name for ev in events}
+    for t in MetricsName:
+        assert t in metric_names
 
 
 def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_client):

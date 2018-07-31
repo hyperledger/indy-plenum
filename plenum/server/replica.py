@@ -23,7 +23,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsType
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -703,7 +703,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
-        self.metrics.add_event(MetricsType.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash]
 
