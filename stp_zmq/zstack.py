@@ -1,6 +1,6 @@
 import inspect
 
-from plenum.common.metrics_collector import NullMetricsCollector, MetricType
+from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -667,7 +667,7 @@ class ZStack(NetworkInterface):
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
         if not name:
             raise PlenumValueError('name', name, 'non-empty')
-        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size)
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size, self.ha[0])
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
@@ -783,9 +783,10 @@ class ZStack(NetworkInterface):
                 msg = self.prepare_to_send(msg)
             logger.trace('{} transmitting message {} to {} by socket {} {}'
                          .format(self, msg, uid, socket.FD, socket.underlying))
-            self.metrics.add_event(self.mt_outgoing_size, len(msg))
             socket.send(msg, flags=zmq.NOBLOCK)
             # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
+            if remote.isConnected:
+                self.metrics.add_event(self.mt_outgoing_size, len(msg))
             if not remote.isConnected:
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'.format(uid))

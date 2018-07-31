@@ -1,5 +1,5 @@
+import pytest
 import types
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.types import f
 from plenum.common.messages.node_messages import CatchupReq
@@ -11,6 +11,11 @@ from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
+
+
+@pytest.fixture(scope="function", autouse=True)
+def limitTestRunningTime():
+    return 300
 
 
 def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
@@ -55,5 +60,5 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 5)
     # TODO select or create a timeout for this case in 'waits'
     looper.run(eventually(checkNodeDataForEquality, new_node,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=80))
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=150))
     assert new_node.spylog.count(TestNode.processStashedOrderedReqs) > 0

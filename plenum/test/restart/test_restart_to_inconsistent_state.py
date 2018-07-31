@@ -115,4 +115,4 @@ def test_restart_half_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, allPlug
         assert node.spylog.count(node.on_inconsistent_3pc_state) == 0
 
     # Check that all nodes are still functional
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle, num_reqs=2, num_batches=1)

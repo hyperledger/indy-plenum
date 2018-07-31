@@ -34,7 +34,7 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit,
     # make a batch and check its length
     batch = make_batch_func(msgs)
     if is_batch_len_under_limit(len(batch)):
-        return [batch]  # success split
+        return [(batch, len(msgs))]  # success split
     else:
         if len(msgs) == 1:
             # a batch with this message greater than limit so split fails

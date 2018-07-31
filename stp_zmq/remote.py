@@ -26,7 +26,7 @@ def set_zmq_internal_queue_size(socket: Socket, queue_size: int):
 
 
 class Remote:
-    def __init__(self, name, ha, verKey, publicKey, queue_size=0, config=None):
+    def __init__(self, name, ha, verKey, publicKey, queue_size=0, bind_ip="0.0.0.0", config=None):
         # TODO, remove *args, **kwargs after removing test
 
         assert name
@@ -35,6 +35,7 @@ class Remote:
         # public key of the other end
         self.name = name
         self.ha = ha
+        self.bind_ip = bind_ip
         # self.publicKey is the public key of the other end of the remote
         self.publicKey = publicKey
         # self.verKey is the verification key of the other end of the remote
@@ -80,17 +81,17 @@ class Remote:
         sock.identity = localPubKey
         set_keepalive(sock, self.config)
         set_zmq_internal_queue_size(sock, self.queue_size)
-        addr = '{protocol}://{}:{}'.format(*self.ha, protocol=ZMQ_NETWORK_PROTOCOL)
+        addr = '{protocol}://{bind_ip}:0;{}:{}'.format(*self.ha, bind_ip=self.bind_ip,
+                                                       protocol=ZMQ_NETWORK_PROTOCOL)
+        logger.trace('connecting socket {} to remote {}, addr: {}'.
+                     format(sock.FD, self, addr))
         sock.connect(addr)
         self.socket = sock
-        logger.trace('connecting socket {} {} to remote {}'.
-                     format(self.socket.FD, self.socket.underlying, self))
 
     def disconnect(self):
         logger.debug('disconnecting remote {}'.format(self))
         if self.socket:
-            logger.trace('disconnecting socket {} {}'.
-                         format(self.socket.FD, self.socket.underlying))
+            logger.trace('disconnecting socket {}'.format(self.socket.FD))
 
             if self.socket._monitor_socket:
                 logger.trace('{} closing monitor socket'.format(self))
