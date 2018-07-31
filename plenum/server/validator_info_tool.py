@@ -404,19 +404,26 @@ class ValidatorNodeInfoTool:
         waiting_cp = {}
         num_txns_in_catchup = {}
         last_txn_3PC_keys = {}
-        root_hashes = {}
-        uncommited_root_hashes = {}
-        uncommited_txns = {}
+        committed_ledger_root_hashes = {}
+        uncommited_ledger_root_hashes = {}
+        uncommitted_ledger_txns = {}
+        committed_state_root_hashes = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
             ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
             num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
-                uncommited_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
-            uncommited_txns[idx] = [self._prepare_for_json(txn) for txn in linfo.ledger.uncommittedTxns]
+                uncommited_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
+            txns = {"Count": len[linfo.ledger.uncommittedTxns],
+                    "First_txn": self._prepare_for_json(linfo.ledger.uncommittedTxns[0]),
+                    "Last_txn": self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])}
+            uncommitted_ledger_txns[idx] = txns
             if linfo.ledger.tree.root_hash:
-                root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+                committed_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+        for l_id, req_handler in self._node.ledger_to_req_handler.items():
+            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
+
 
         return {
             "Node_info": {
@@ -438,12 +445,14 @@ class ValidatorNodeInfoTool:
                     self.__verkey),
                 "Metrics": self._prepare_for_json(
                     self._get_node_metrics()),
-                "Root_hashes": self._prepare_for_json(
-                    root_hashes),
-                "Uncommitted_root_hashes": self._prepare_for_json(
-                    uncommited_root_hashes),
-                "Uncommitted_txns": self._prepare_for_json(
-                    uncommited_txns),
+                "Committed_ledger_root_hashes": self._prepare_for_json(
+                    committed_ledger_root_hashes),
+                "Committed_state_root_hashes": self._prepare_for_json(
+                    committed_state_root_hashes),
+                "Uncommitted_ledger_root_hashes": self._prepare_for_json(
+                    uncommited_ledger_root_hashes),
+                "Uncommitted_ledger_txns": self._prepare_for_json(
+                    uncommitted_ledger_txns),
                 "View_change_status": {
                     "View_No": self._prepare_for_json(
                         self._node.viewNo),
