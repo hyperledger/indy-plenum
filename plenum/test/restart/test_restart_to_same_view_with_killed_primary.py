@@ -36,7 +36,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     primary.stop()
     looper.removeProdable(primary)
     ensure_node_disconnected(looper, primary, txnPoolNodeSet)
-    waitForViewChange(looper, alive_nodes, 1)
+    waitForViewChange(looper, alive_nodes, 1, customTimeout=VIEW_CHANGE_TIMEOUT)
     ensureElectionsDone(looper, alive_nodes, numInstances=3)
 
     # Add transaction to ledger
