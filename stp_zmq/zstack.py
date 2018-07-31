@@ -552,6 +552,11 @@ class ZStack(NetworkInterface):
 
             if self.handlePingPong(msg, frm, ident):
                 continue
+
+            if ident not in self.remotesByKeys:
+                logger.warning('{} received message from unknown remote {}'.format(self, ident))
+                continue
+
             try:
                 msg = self.deserializeMsg(msg)
             except Exception as e:
@@ -763,17 +768,16 @@ class ZStack(NetworkInterface):
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
-            logger.trace('{} transmitting message {} to {} by socket {} {}'
-                         .format(self, msg, uid, socket.FD, socket.underlying))
-            socket.send(msg, flags=zmq.NOBLOCK)
-            # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
-            if remote.isConnected:
+            if remote.isConnected or msg in self.healthMessages:
                 self.metrics.add_event(self.mt_outgoing_size, len(msg))
-            if not remote.isConnected:
+                logger.trace('{} transmitting message {} to {} by socket {} {}'
+                             .format(self, msg, uid, socket.FD, socket.underlying))
+                socket.send(msg, flags=zmq.NOBLOCK)
+            else:
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'.format(uid))
-                self._stashed_to_disconnected\
-                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE))\
+                self._stashed_to_disconnected \
+                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
                     .append(msg)
             return True, err_str
         except zmq.Again:
