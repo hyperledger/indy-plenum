@@ -128,9 +128,9 @@ class MetricsStats:
         self._frames = defaultdict(MetricsStatsFrame)
         self._total = None
 
-    def add(self, id: MetricsType, ts: datetime, value: float):
+    def add(self, ts: datetime, type: MetricsType, value: float):
         ts = trunc_ts(ts, self._timestep)
-        self._frames[ts].add(id, value)
+        self._frames[ts].add(type, value)
         self._total = None
 
     def frame(self, ts):
@@ -193,6 +193,6 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
             continue
         if max_ts is not None and ev.timestamp > max_ts:
             continue
-        result.add(ev.type, ev.timestamp, ev.value)
+        result.add(ev.timestamp, ev.type, ev.value)
 
     return result

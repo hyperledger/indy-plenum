@@ -192,7 +192,7 @@ def test_metrics_stats_can_add_values():
 
     all_events = first_events + next_events + after_gap_events
     for ev in all_events:
-        stats.add(ev.type, ev.timestamp, ev.value)
+        stats.add(ev.timestamp, ev.type, ev.value)
 
     assert stats.min_ts == min_ts
     assert stats.max_ts == max_ts
@@ -215,7 +215,7 @@ def test_metrics_stats_total_is_merge_of_all_frames():
 
     stats = MetricsStats()
     for ev in events:
-        stats.add(ev.type, ev.timestamp, ev.value)
+        stats.add(ev.timestamp, ev.type, ev.value)
 
     expected_total = MetricsStatsFrame()
     for _, frame in stats.frames():
@@ -231,14 +231,14 @@ def test_metrics_stats_eq_has_value_semantics():
     b = MetricsStats()
     assert a == b
 
-    a.add(MetricsType.LOOPER_RUN_TIME_SPENT, ts, 2.0)
+    a.add(ts, MetricsType.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a != b
 
-    b.add(MetricsType.LOOPER_RUN_TIME_SPENT, ts, 2.0)
+    b.add(ts, MetricsType.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(MetricsType.THREE_PC_BATCH_SIZE, datetime.utcnow(), 1)
-    b.add(MetricsType.TRANSPORT_BATCH_SIZE, datetime.utcnow(), 2)
+    a.add(datetime.utcnow(), MetricsType.THREE_PC_BATCH_SIZE, 1)
+    b.add(datetime.utcnow(), MetricsType.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
 
@@ -252,7 +252,7 @@ def test_load_metrics_from_kv_store_can_load_all_values(storage):
     for ev in events:
         ts.value = ev.timestamp
         metrics.add_event(ev.type, ev.value)
-        expected_stats.add(ev.type, ev.timestamp, ev.value)
+        expected_stats.add(ev.timestamp, ev.type, ev.value)
 
     stats = load_metrics_from_kv_store(storage, step=step)
     assert stats == expected_stats
@@ -273,7 +273,7 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
         ts.value = ev.timestamp
         metrics.add_event(ev.type, ev.value)
         if min_ts <= ev.timestamp <= max_ts:
-            expected_stats.add(ev.type, ev.timestamp, ev.value)
+            expected_stats.add(ev.timestamp, ev.type, ev.value)
 
     stats = load_metrics_from_kv_store(storage, min_ts, max_ts, step)
     assert stats == expected_stats
