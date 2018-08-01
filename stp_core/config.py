@@ -35,7 +35,7 @@ ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5      # seconds
 ZMQ_CLIENT_QUEUE_SIZE = 3000  # messages (0 - no limit)
 ZMQ_NODE_QUEUE_SIZE = 20000  # messages (0 - no limit)
-
+ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE = 10000
 
 # All messages exceeding the limit will be rejected without processing
 MSG_LEN_LIMIT = 768 * 1024

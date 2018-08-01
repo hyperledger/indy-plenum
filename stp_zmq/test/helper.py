@@ -7,7 +7,6 @@ from stp_core.common.util import adict
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, prepStacks, chkPrinted
-
 from stp_zmq.util import generate_certificates
 from stp_zmq.zstack import ZStack
 
@@ -112,3 +111,10 @@ def get_zstack_key_paths(stack_name, common_path):
             os.path.join(pubDirPath, stack_name) + '.key'
         ),
     )
+
+
+def check_pong_received(looper, stack, frm):
+    def do_check_pong():
+        assert stack.isConnectedTo(frm)
+
+    looper.run(eventually(do_check_pong))
