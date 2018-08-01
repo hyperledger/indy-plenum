@@ -195,7 +195,6 @@ class ValidatorNodeInfoTool:
     def __total_count(self):
         return len(self._node.nodestack.remotes) + 1
 
-
     def _get_folder_size(self, start_path):
         total_size = 0
         for dirpath, dirnames, filenames in os.walk(start_path):
