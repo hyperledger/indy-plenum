@@ -220,7 +220,7 @@ class ValidatorNodeInfoTool:
                 "HDD_all": "{} Mbs".format(int(hdd.used / MBs)),
                 "RAM_all_free": "{} Mbs".format(int(ram_all.free / MBs)),
                 "RAM_used_by_node": "{} Mbs".format(int(ram_by_process.vms / MBs)),
-                "HDD_used_by_node": "{} MBs".format(int(nodes_data.used / MBs)),
+                "HDD_used_by_node": "{} MBs".format(int(nodes_data / MBs)),
             }
         }
 
@@ -441,9 +441,10 @@ class ValidatorNodeInfoTool:
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
                 uncommited_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
-            txns = {"Count": len[linfo.ledger.uncommittedTxns],
-                    "First_txn": self._prepare_for_json(linfo.ledger.uncommittedTxns[0]),
-                    "Last_txn": self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])}
+            txns = {"Count": len(linfo.ledger.uncommittedTxns)}
+            if len(linfo.ledger.uncommittedTxns) > 0:
+                txns["First_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[0])
+                txns["Last_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])
             uncommitted_ledger_txns[idx] = txns
             if linfo.ledger.tree.root_hash:
                 committed_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
