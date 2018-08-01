@@ -1,6 +1,6 @@
 import pytest
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
@@ -34,6 +34,9 @@ def two_more_nodes_added(sdk_one_node_added, looper, txnPoolNodeSet,
 
     check_newly_added_nodes(looper, txnPoolNodeSet, new_nodes)
     return new_nodes
+
+
+TestRunningTimeLimitSec = 120
 
 
 def test_primary_selection_increase_f(
