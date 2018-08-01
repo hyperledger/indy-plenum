@@ -553,7 +553,7 @@ class ZStack(NetworkInterface):
             if self.handlePingPong(msg, frm, ident):
                 continue
 
-            if ident not in self.remotesByKeys:
+            if not self.onlyListener and ident not in self.remotesByKeys:
                 logger.warning('{} received message from unknown remote {}'.format(self, ident))
                 continue
 
