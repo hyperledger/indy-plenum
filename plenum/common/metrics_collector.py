@@ -18,6 +18,11 @@ class MetricsName(IntEnum):
     INCOMING_NODE_MESSAGE_SIZE = 6         # Incoming node message size, bytes
     OUTGOING_CLIENT_MESSAGE_SIZE = 7       # Outgoing client message size, bytes
     INCOMING_CLIENT_MESSAGE_SIZE = 8       # Incoming client message size, bytes
+    ORDERED_BATCH_SIZE = 9                 # Number of requests ordered
+    REQUEST_PROCESSING_TIME = 10           # Time spent on requests processing (including dynamic validation)
+    MASTER_3PC_BATCH_SIZE = 11             # Number of requests in one 3PC batch created on master instance
+    MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
+    MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])

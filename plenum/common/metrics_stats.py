@@ -106,7 +106,7 @@ class MetricsStatsFrame:
     def add(self, id: MetricsName, value: float):
         self._stats[id].add(value)
 
-    def get(self, id: MetricsName):
+    def get(self, id: MetricsName) -> ValueAccumulator:
         return self._stats[id]
 
     def merge(self, other):
