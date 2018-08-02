@@ -704,6 +704,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
         self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_3PC_BATCH_SIZE, len(pp.reqIdr))
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash]
 
@@ -816,6 +818,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         validReqs = []
         inValidReqs = []
         rejects = []
+        start = time.perf_counter()
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
@@ -826,6 +829,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
+        duration = time.perf_counter() - start
+        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
 
         return validReqs, inValidReqs, rejects, tm
 
@@ -1232,6 +1239,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 old_state_root,
                 old_txn_root))
 
+        start = time.perf_counter()
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
 
@@ -1240,6 +1248,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                        valid_reqs,
                                        invalid_reqs,
                                        rejects)
+        duration = time.perf_counter() - start
+        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
 
         def revert():
             self.revert(pre_prepare.ledgerId,
@@ -1735,6 +1747,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
                                 len(pp.reqIdr[pp.discarded:])))
+        self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, pp.discarded)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_ORDERED_BATCH_SIZE, pp.discarded)
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId)
 
