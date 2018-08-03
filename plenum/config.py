@@ -234,9 +234,9 @@ REMOTES_MESSAGE_QUOTA = 100
 # After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
 # Max batch size for 3 phase commit
-Max3PCBatchSize = 10000
+Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 1
+Max3PCBatchWait = 0.5
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
@@ -271,7 +271,7 @@ MIN_STACK_RESTART_TIMEOUT = 1800  # seconds
 STACK_POSTRESTART_WAIT_TIME = 2  # seconds
 MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
 
-VIEW_CHANGE_TIMEOUT = 600  # seconds
+VIEW_CHANGE_TIMEOUT = 420  # seconds
 INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
