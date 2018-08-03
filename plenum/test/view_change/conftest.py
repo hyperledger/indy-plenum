@@ -53,7 +53,7 @@ def fake_view_changer(request, tconf):
         config=tconf,
         monitor=monitor,
         discard=lambda a, b, c: print(b),
-        lost_primary_at=False,
+        lost_primary_at=None,
         master_primary_name='Alpha'
     )
     view_changer = ViewChanger(node)
