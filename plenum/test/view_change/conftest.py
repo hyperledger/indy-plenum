@@ -33,7 +33,7 @@ def perf_chk_patched(tconf, request):
     return tconf
 
 
-@pytest.fixture(scope='function', params=[0])
+@pytest.fixture(scope='function', params=[0, 10])
 def fake_view_changer(request, tconf):
     node_stack = FakeSomething(
         name="fake stack",
