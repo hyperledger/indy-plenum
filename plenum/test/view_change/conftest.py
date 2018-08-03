@@ -33,14 +33,16 @@ def perf_chk_patched(tconf, request):
     return tconf
 
 
-@pytest.fixture(scope='function', params=[0, 10])
+@pytest.fixture(scope='function', params=[0])
 def fake_view_changer(request, tconf):
     node_stack = FakeSomething(
         name="fake stack",
-        connecteds={"Alpha", "Beta", "Gamma", "Delta"}
+        connecteds={"Alpha", "Beta", "Gamma", "Delta"},
+        conns={"Alpha", "Beta", "Gamma", "Delta"}
     )
     monitor = FakeSomething(
         isMasterDegraded=lambda: False,
+        prettymetrics=''
     )
     node = FakeSomething(
         name="SomeNode",
@@ -51,6 +53,8 @@ def fake_view_changer(request, tconf):
         config=tconf,
         monitor=monitor,
         discard=lambda a, b, c: print(b),
+        lost_primary_at=False,
+        master_primary_name='Alpha'
     )
     view_changer = ViewChanger(node)
     return view_changer
