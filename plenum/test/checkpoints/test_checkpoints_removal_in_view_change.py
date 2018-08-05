@@ -103,14 +103,3 @@ def last_ordered_check(nodes, last_ordered, instance_id=None):
             if instance_id is None \
             else n.replicas[instance_id].last_ordered_3pc
         assert last_ordered_3pc == last_ordered
-
-
-def check_view_no(nodes, view_no):
-    for n in nodes:
-        assert n.viewNo == view_no
-
-
-def test_tmp(txnPoolNodeSet, looper):
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
-        ensureElectionsDone(looper, txnPoolNodeSet)
