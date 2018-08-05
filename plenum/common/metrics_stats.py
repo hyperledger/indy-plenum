@@ -106,7 +106,7 @@ class MetricsStatsFrame:
     def add(self, id: MetricsName, value: float):
         self._stats[id].add(value)
 
-    def get(self, id: MetricsName):
+    def get(self, id: MetricsName) -> ValueAccumulator:
         return self._stats[id]
 
     def merge(self, other):
@@ -186,13 +186,11 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
                                step: timedelta = timedelta(minutes=1)) -> MetricsStats:
     result = MetricsStats(step)
 
-    # TODO: Implement faster filtering by timestamps
-    for k, v in storage.iterator():
+    start = KvStoreMetricsFormat.encode_key(min_ts, 0) if min_ts else None
+    for k, v in storage.iterator(start=start):
         ev = KvStoreMetricsFormat.decode(k, v)
-        if min_ts is not None and ev.timestamp < min_ts:
-            continue
         if max_ts is not None and ev.timestamp > max_ts:
-            continue
+            break
         result.add(ev.timestamp, ev.name, ev.value)
 
     return result

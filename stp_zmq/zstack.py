@@ -122,6 +122,10 @@ class ZStack(NetworkInterface):
 
         self.last_heartbeat_at = None
 
+        self._stashed_to_disconnected = {}
+        self._stashed_pongs = set()
+        self._received_pings = set()
+
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
 
@@ -548,6 +552,11 @@ class ZStack(NetworkInterface):
 
             if self.handlePingPong(msg, frm, ident):
                 continue
+
+            if not self.onlyListener and ident not in self.remotesByKeys:
+                logger.warning('{} received message from unknown remote {}'.format(self, ident))
+                continue
+
             try:
                 msg = self.deserializeMsg(msg)
             except Exception as e:
@@ -574,6 +583,7 @@ class ZStack(NetworkInterface):
         if not name:
             raise ValueError('Remote name should be specified')
 
+        publicKey = None
         if name in self.remotes:
             remote = self.remotes[name]
         else:
@@ -596,7 +606,16 @@ class ZStack(NetworkInterface):
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
         # This should be scheduled as an async task
+
         self.sendPingPong(remote, is_ping=True)
+
+        # re-send previously stashed pings/pongs from unknown remotes
+        logger.trace("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
+        if publicKey in self._stashed_pongs:
+            logger.trace("{} sending stashed pongs to {}".format(self.name, str(publicKey)))
+            self._stashed_pongs.discard(publicKey)
+            self.sendPingPong(name, is_ping=False)
+
         return remote.uid
 
     def reconnectRemote(self, remote):
@@ -659,11 +678,12 @@ class ZStack(NetworkInterface):
         if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, name))
         elif r[0] is False:
-            # TODO: This fails the first time as socket is not established,
-            # need to make it retriable
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, name, r[1]),
                          extra={"cli": False})
+            # try to re-send pongs later
+            if not is_ping:
+                self._stashed_pongs.add(name)
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
@@ -676,13 +696,31 @@ class ZStack(NetworkInterface):
             if msg == self.pingMessage:
                 logger.trace('{} got ping from {}'.format(self, frm))
                 self.sendPingPong(frm, is_ping=False)
-
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
+                    self._resend_to_disconnected(frm, ident)
                 logger.trace('{} got pong from {}'.format(self, frm))
             return True
         return False
+
+    def _can_resend_to_disconnected(self, to, ident):
+        if to not in self._stashed_to_disconnected:
+            return False
+        if ident not in self.remotesByKeys:
+            return False
+        if not self.remotesByKeys[ident].isConnected:
+            return False
+        return True
+
+    def _resend_to_disconnected(self, to, ident):
+        if not self._can_resend_to_disconnected(to, ident):
+            return
+        logger.trace('{} resending stashed messages to {}'.format(self, to))
+        msgs = self._stashed_to_disconnected[to]
+        while msgs:
+            msg = msgs.popleft()
+            self.send(msg, to)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
@@ -730,17 +768,23 @@ class ZStack(NetworkInterface):
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
-            logger.trace('{} transmitting message {} to {}'.format(self, msg, uid))
+
+            logger.trace('{} transmitting message {} to {} by socket {} {}'
+                         .format(self, msg, uid, socket.FD, socket.underlying))
             socket.send(msg, flags=zmq.NOBLOCK)
-            # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
-            if remote.isConnected:
+
+            if remote.isConnected or msg in self.healthMessages:
                 self.metrics.add_event(self.mt_outgoing_size, len(msg))
-            if not remote.isConnected and msg not in self.healthMessages:
-                logger.info('Remote {} is not connected - message will not be sent immediately.'
-                            'If this problem does not resolve itself - check your firewall settings'.format(uid))
+            else:
+                logger.warning('Remote {} is not connected - message will not be sent immediately.'
+                               'If this problem does not resolve itself - check your firewall settings'.format(uid))
+                self._stashed_to_disconnected \
+                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
+                    .append(msg)
+
             return True, err_str
         except zmq.Again:
-            logger.debug('{} could not transmit message to {}'.format(self, uid))
+            logger.warning('{} could not transmit message to {}'.format(self, uid))
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)
@@ -765,7 +809,7 @@ class ZStack(NetworkInterface):
             logger.warning(err_str)
             return False, err_str
         except Exception as e:
-            err_str = '{}{} got error {} while sending through listener to {}'\
+            err_str = '{}{} got error {} while sending through listener to {}' \
                 .format(CONNECTION_PREFIX, self, e, ident)
             logger.warning(err_str)
             return False, err_str
@@ -787,7 +831,7 @@ class ZStack(NetworkInterface):
         msg = json.loads(msg)
         return msg
 
-    def signedMsg(self, msg: bytes, signer: Signer=None):
+    def signedMsg(self, msg: bytes, signer: Signer = None):
         sig = self.signer.signature(msg)
         return msg + sig
 

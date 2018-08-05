@@ -18,6 +18,11 @@ class MetricsName(IntEnum):
     INCOMING_NODE_MESSAGE_SIZE = 6         # Incoming node message size, bytes
     OUTGOING_CLIENT_MESSAGE_SIZE = 7       # Outgoing client message size, bytes
     INCOMING_CLIENT_MESSAGE_SIZE = 8       # Incoming client message size, bytes
+    ORDERED_BATCH_SIZE = 9                 # Number of requests ordered
+    REQUEST_PROCESSING_TIME = 10           # Time spent on requests processing (including dynamic validation)
+    MASTER_3PC_BATCH_SIZE = 11             # Number of requests in one 3PC batch created on master instance
+    MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
+    MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])
@@ -42,12 +47,15 @@ class KvStoreMetricsFormat:
     seq_mask = (1 << seq_bits) - 1
 
     @staticmethod
-    def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
-        int_ts = int(1000000 * event.timestamp.replace(tzinfo=timezone.utc).timestamp())
+    def encode_key(ts: datetime, seq_no: int):
+        int_ts = int(1000000 * ts.replace(tzinfo=timezone.utc).timestamp())
         int_ts = int_ts & KvStoreMetricsFormat.ts_mask
         seq_no = seq_no & KvStoreMetricsFormat.seq_mask
-        key = ((int_ts << KvStoreMetricsFormat.seq_bits) | seq_no).to_bytes(64, byteorder='big', signed=False)
+        return ((int_ts << KvStoreMetricsFormat.seq_bits) | seq_no).to_bytes(64, byteorder='big', signed=False)
 
+    @staticmethod
+    def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
+        key = KvStoreMetricsFormat.encode_key(event.timestamp, seq_no)
         value = event.name.to_bytes(32, byteorder='big', signed=False) + struct.pack('d', event.value)
         return key, value
 

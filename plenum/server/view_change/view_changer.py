@@ -223,7 +223,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         can, whyNot = self._canViewChange(proposed_view_no)
         # if scheduled action will be awakened after view change completed,
         # then this action must be stopped also.
-        if not can and self.view_no < proposed_view_no:
+        if not can and self.view_no < proposed_view_no and self.is_primary_disconnected():
             # Resend the same instance change message if we are not archive
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
@@ -701,3 +701,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.info('{} has no ViewChangeDone message to send for view {}'.
                         format(self, self.view_no))
         return messages
+
+    def is_primary_disconnected(self):
+        return \
+            self.node.lost_primary_at and self.node.master_primary_name and \
+            self.node.master_primary_name not in self.node.nodestack.conns
