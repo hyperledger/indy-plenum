@@ -236,7 +236,7 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 0.5
+Max3PCBatchWait = 1
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
