@@ -1,8 +1,11 @@
+from numbers import Rational
+
+import math
 import pytest
 import sys
 
 from plenum.common.constants import CHECKPOINT, COMMIT
-from plenum.test.delayers import cDelay, chk_delay
+from plenum.test.delayers import cDelay, chk_delay, lsDelay, vcd_delay
 from plenum.test.helper import sdk_send_random_requests, \
     sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -33,7 +36,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     delay_msg(slow_nodes, cDelay)
 
     requests = sdk_send_random_requests(looper, sdk_pool_handle,
-                                         sdk_wallet_client, 1)
+                                        sdk_wallet_client, 1)
     # check that slow nodes have prepared certificate with new txn
     looper.run(eventually(last_prepared_certificate,
                           slow_nodes,
@@ -42,28 +45,39 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     looper.run(eventually(last_ordered_check,
                           fast_nodes,
                           (0, CHK_FREQ + 1)))
-    # check that fast_nodes finalized first checkpoint
-    looper.run(eventually(check_checkpoint_finish,
+    # check that fast_nodes finalized first checkpoint and slow_nodes are not
+    looper.run(eventually(check_checkpoint_finalize,
                           fast_nodes,
                           1, CHK_FREQ))
-    # View change start emulation for change viewNo
-    # and fix last prepare certificate
+    for n in slow_nodes:
+        assert not n.master_replica.checkpoints[(1, CHK_FREQ)].isStable
+
+    # View change start emulation for change viewNo and fix last prepare
+    # certificate, because if we start a real view change then checkpoints will
+    # clean and the first checkpoint would not be need in finalizing.
     for node in txnPoolNodeSet:
         node.viewNo += 1
         node.master_replica.on_view_change_start()
+
     # reset delay for checkpoints and check that slow_nodes finalized
     # first checkpoint
     reset_delay(slow_nodes, CHECKPOINT)
-    looper.run(eventually(check_checkpoint_finish,
+    looper.run(eventually(check_checkpoint_finalize,
                           slow_nodes,
                           1, CHK_FREQ))
-    # reset view change emulation and start real view change
+    # reset view change emulation and start real view change for finish it in
+    # a normal mode with catchup
     for node in txnPoolNodeSet:
         node.viewNo -= 1
         node.view_changer.on_master_degradation()
-    # check ordering the last txn in catchup
+    # Check ordering the last txn before catchup. Check client reply is enough
+    # because slow_nodes contains 3 nodes and without their replies sdk method
+    # for get reply will not successfully finish.
     reset_delay(slow_nodes, COMMIT)
     sdk_get_and_check_replies(looper, requests)
+    looper.run(eventually(last_ordered_check,
+                          txnPoolNodeSet,
+                          (0, CHK_FREQ + 1)))
     # check view change finish
     ensureElectionsDone(looper, txnPoolNodeSet)
     # check that all nodes have same data after new txns ordering
@@ -90,11 +104,10 @@ def last_prepared_certificate(nodes, num):
         assert n.master_replica.last_prepared_certificate_in_view() == num
 
 
-def check_checkpoint_finish(nodes, start_pp_seq_no, end_pp_seq_no):
+def check_checkpoint_finalize(nodes, start_pp_seq_no, end_pp_seq_no):
     for n in nodes:
-        assert (start_pp_seq_no, end_pp_seq_no) in n.master_replica.checkpoints
-        ckState = n.master_replica.checkpoints[(start_pp_seq_no, end_pp_seq_no)]
-        assert n.master_replica.quorums.checkpoint.is_reached(len(ckState.receivedDigests))
+        checkpoint = n.master_replica.checkpoints[(start_pp_seq_no, end_pp_seq_no)]
+        assert checkpoint.isStable
 
 
 def last_ordered_check(nodes, last_ordered, instance_id=None):
@@ -103,3 +116,4 @@ def last_ordered_check(nodes, last_ordered, instance_id=None):
             if instance_id is None \
             else n.replicas[instance_id].last_ordered_3pc
         assert last_ordered_3pc == last_ordered
+
