@@ -33,7 +33,7 @@ KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
 ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5      # seconds
-ZMQ_CLIENT_QUEUE_SIZE = 3000  # messages (0 - no limit)
+ZMQ_CLIENT_QUEUE_SIZE = 100  # messages (0 - no limit)
 ZMQ_NODE_QUEUE_SIZE = 20000  # messages (0 - no limit)
 ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE = 10000
 
