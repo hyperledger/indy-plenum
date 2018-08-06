@@ -19,7 +19,7 @@ md = {}
 with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
     exec(f.read(), md)
 
-tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.1.dev657']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.1.dev683']
 
 setup(
     name='indy-plenum-dev',  # TODO refers to metadata as well
