@@ -44,6 +44,7 @@ class MetricsName(IntEnum):
     SERVICE_NODE_LIFECYCLE_TIME = 110
     SERVICE_CLIENT_STACK_TIME = 111
 
+
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])
 
 
