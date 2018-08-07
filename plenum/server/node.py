@@ -5,6 +5,7 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
+from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 from intervaltree import IntervalTree
@@ -2515,6 +2516,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
+
+            master_throughput, backup_throughput = self.monitor.getThroughputs(0)
+            if master_throughput is not None:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_THROUGHPUT, master_throughput)
+            if backup_throughput is not None:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, backup_throughput)
+
+            master_latencies = self.monitor.getAvgLatency(self.instances.masterId).values()
+            if len(master_latencies) > 0:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(master_latencies))
+
+            backup_latencies = self.monitor.getAvgLatency(*self.instances.backupIds).values()
+            if len(backup_latencies) > 0:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(backup_latencies))
+
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()

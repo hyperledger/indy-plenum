@@ -26,6 +26,11 @@ class MetricsName(IntEnum):
     MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
     MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
 
+    MONITOR_AVG_THROUGHPUT = 20            # Average throughput measured by monitor
+    MONITOR_AVG_LATENCY = 21               # Average latency measured by monitor
+    MASTER_MONITOR_AVG_THROUGHPUT = 22     # Average throughput measured by monitor on master instance
+    MASTER_MONITOR_AVG_LATENCY = 23        # Average latency measured by monitor on master instance
+
     NODE_PROD_TIME = 100
     SERVICE_REPLICAS_TIME = 101
     SERVICE_NODE_MSGS_TIME = 102
