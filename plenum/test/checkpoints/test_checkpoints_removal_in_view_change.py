@@ -66,6 +66,8 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     for node in txnPoolNodeSet:
         node.viewNo -= 1
         node.view_changer.on_master_degradation()
+    for n in slow_nodes:
+        assert not n.master_replica.checkpoints[(1, CHK_FREQ)].isStable
     # Check ordering the last txn before catchup. Check client reply is enough
     # because slow_nodes contains 3 nodes and without their replies sdk method
     # for get reply will not successfully finish.
