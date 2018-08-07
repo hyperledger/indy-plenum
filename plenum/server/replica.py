@@ -1889,9 +1889,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for k in previousCheckpoints:
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        view_no = self.last_ordered_3pc[0]
-        self._remove_stashed_checkpoints(till_3pc_key=(view_no, seqNo))
-        self._gc((view_no, seqNo))
+        self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
+        self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
