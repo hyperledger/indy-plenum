@@ -53,8 +53,8 @@ class ValueAccumulator:
         self._max = _max_with_none(self._max, acc._max)
 
     def __repr__(self):
-        return "{} samples, {:.2f}/{:.2f}/{:.2f} min/avg/max, {:.2f} stddev". \
-            format(self.count, self.min, self.avg, self.max, self.stddev)
+        return "{} samples, {:.2f} sum, {:.2f}/{:.2f}/{:.2f} min/avg/max, {:.2f} stddev". \
+            format(self.count, self.sum, self.min, self.avg, self.max, self.stddev)
 
     def __eq__(self, other):
         if not isinstance(other, ValueAccumulator):
