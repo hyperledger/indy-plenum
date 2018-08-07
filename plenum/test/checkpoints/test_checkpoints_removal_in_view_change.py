@@ -59,12 +59,8 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
         node.viewNo += 1
         node.master_replica.on_view_change_start()
 
-    # reset delay for checkpoints and check that slow_nodes finalized
-    # first checkpoint
+    # reset delay for checkpoints
     reset_delay(slow_nodes, CHECKPOINT)
-    looper.run(eventually(check_checkpoint_finalize,
-                          slow_nodes,
-                          1, CHK_FREQ))
     # reset view change emulation and start real view change for finish it in
     # a normal mode with catchup
     for node in txnPoolNodeSet:
@@ -78,8 +74,10 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     looper.run(eventually(last_ordered_check,
                           txnPoolNodeSet,
                           (0, CHK_FREQ + 1)))
-    # check view change finish
+    # check view change finish and checkpoints were cleaned
     ensureElectionsDone(looper, txnPoolNodeSet)
+    for n in slow_nodes:
+        assert (1, CHK_FREQ) not in n.master_replica.checkpoints
     # check that all nodes have same data after new txns ordering
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, CHK_FREQ)
