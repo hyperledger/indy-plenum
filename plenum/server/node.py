@@ -5,6 +5,7 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
+from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 from intervaltree import IntervalTree
@@ -1087,20 +1088,34 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
         self.last_prod_started = time.perf_counter()
 
-        if self.status is not Status.stopped:
-            c += await self.serviceReplicas(limit)
-            c += await self.serviceNodeMsgs(limit)
-            c += await self.serviceClientMsgs(limit)
-            c += self._serviceActions()
-            c += self.ledgerManager.service()
-            c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger(limit)
-            c += await self.service_observable(limit)
-            c += await self.service_observer(limit)
-            self.nodestack.flushOutBoxes()
-        if self.isGoing():
-            self.nodestack.serviceLifecycle()
-            self.clientstack.serviceClientStack()
+        # TODO: Implement decorators for measuring timings of normal and async functions
+        with self.metrics.event_timing(MetricsName.NODE_PROD_TIME):
+            if self.status is not Status.stopped:
+                with self.metrics.event_timing(MetricsName.SERVICE_REPLICAS_TIME):
+                    c += await self.serviceReplicas(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_NODE_MSGS_TIME):
+                    c += await self.serviceNodeMsgs(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_MSGS_TIME):
+                    c += await self.serviceClientMsgs(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                    c += self._serviceActions()
+                with self.metrics.event_timing(MetricsName.SERVICE_LEDGER_MANAGER_TIME):
+                    c += self.ledgerManager.service()
+                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                    c += self.monitor._serviceActions()
+                with self.metrics.event_timing(MetricsName.SERVICE_VIEW_CHANGER_TIME):
+                    c += await self.serviceViewChanger(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVABLE_TIME):
+                    c += await self.service_observable(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVER_TIME):
+                    c += await self.service_observer(limit)
+                with self.metrics.event_timing(MetricsName.FLUSH_OUTBOXES_TIME):
+                    self.nodestack.flushOutBoxes()
+            if self.isGoing():
+                with self.metrics.event_timing(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                    self.nodestack.serviceLifecycle()
+                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                    self.clientstack.serviceClientStack()
         return c
 
     async def serviceReplicas(self, limit) -> int:
@@ -2501,6 +2516,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
+
+            master_throughput, backup_throughput = self.monitor.getThroughputs(0)
+            if master_throughput is not None:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_THROUGHPUT, master_throughput)
+            if backup_throughput is not None:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, backup_throughput)
+
+            master_latencies = self.monitor.getAvgLatency(self.instances.masterId).values()
+            if len(master_latencies) > 0:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(master_latencies))
+
+            backup_latencies = self.monitor.getAvgLatency(*self.instances.backupIds).values()
+            if len(backup_latencies) > 0:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(backup_latencies))
+
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()

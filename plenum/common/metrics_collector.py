@@ -1,6 +1,8 @@
 import struct
+import time
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from enum import IntEnum
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple
@@ -24,6 +26,24 @@ class MetricsName(IntEnum):
     MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
     MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
 
+    MONITOR_AVG_THROUGHPUT = 20            # Average throughput measured by monitor
+    MONITOR_AVG_LATENCY = 21               # Average latency measured by monitor
+    MASTER_MONITOR_AVG_THROUGHPUT = 22     # Average throughput measured by monitor on master instance
+    MASTER_MONITOR_AVG_LATENCY = 23        # Average latency measured by monitor on master instance
+
+    NODE_PROD_TIME = 100
+    SERVICE_REPLICAS_TIME = 101
+    SERVICE_NODE_MSGS_TIME = 102
+    SERVICE_CLIENT_MSGS_TIME = 103
+    SERVICE_ACTIONS_TIME = 104
+    SERVICE_LEDGER_MANAGER_TIME = 105
+    SERVICE_VIEW_CHANGER_TIME = 106
+    SERVICE_OBSERVABLE_TIME = 107
+    SERVICE_OBSERVER_TIME = 108
+    FLUSH_OUTBOXES_TIME = 109
+    SERVICE_NODE_LIFECYCLE_TIME = 110
+    SERVICE_CLIENT_STACK_TIME = 111
+
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])
 
@@ -32,6 +52,12 @@ class MetricsCollector(ABC):
     @abstractmethod
     def add_event(self, name: MetricsName, value: float):
         pass
+
+    @contextmanager
+    def event_timing(self, name: MetricsName):
+        start = time.perf_counter()
+        yield
+        self.add_event(name, time.perf_counter() - start)
 
 
 class NullMetricsCollector(MetricsCollector):
