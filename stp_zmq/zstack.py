@@ -437,7 +437,7 @@ class ZStack(NetworkInterface):
             return None
         return super().getHa(name)
 
-    async def service(self, limit=None) -> int:
+    def service(self, limit=None) -> int:
         """
         Service `limit` number of received messages in this stack.
 
@@ -446,7 +446,7 @@ class ZStack(NetworkInterface):
         :return: the number of messages processed.
         """
         if self.listener:
-            await self._serviceStack(self.age)
+            self._serviceStack(self.age)
         else:
             logger.info("{} is stopped".format(self))
 
@@ -523,7 +523,7 @@ class ZStack(NetworkInterface):
             totalReceived += i
         return totalReceived
 
-    async def _serviceStack(self, age):
+    def _serviceStack(self, age):
         # TODO: age is unused
 
         # These checks are kept here and not moved to a function since

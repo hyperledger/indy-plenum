@@ -121,6 +121,6 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
                                format(CONNECTION_PREFIX, self, name, ex))
         return missing
 
-    async def service(self, limit=None):
-        c = await super().service(limit)
+    def service(self, limit=None):
+        c = super().service(limit)
         return c

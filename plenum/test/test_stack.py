@@ -29,8 +29,8 @@ class TestStack(BaseStackClass):
     #     super()._serviceStack(age)
     #     self.stasher.process(age)
 
-    async def _serviceStack(self, age):
-        await super()._serviceStack(age)
+    def _serviceStack(self, age):
+        super()._serviceStack(age)
         self.stasher.process(age)
 
     def resetDelays(self):
