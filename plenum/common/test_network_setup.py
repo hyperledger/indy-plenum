@@ -145,11 +145,12 @@ class TestNetworkSetup:
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(keys_dir, nd.name, nd.sigseed)
+                blskey, key_proof = init_bls_keys(keys_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
                                         nd.ip, nd.port, nd.client_port, blskey=blskey,
+                                        bls_key_proof=key_proof,
                                         seq_no=seq_no,
                                         protocol_version=genesis_protocol_version)
             seq_no += 1

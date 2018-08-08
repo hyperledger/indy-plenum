@@ -35,7 +35,7 @@ class BlsCryptoSigner(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
         pass
 
     @staticmethod

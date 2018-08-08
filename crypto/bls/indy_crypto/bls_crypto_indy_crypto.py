@@ -117,23 +117,16 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     @staticmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
         seed = IndyCryptoBlsUtils.prepare_seed(seed)
         gen = IndyCryptoBlsUtils.bls_from_str(params.g, Generator)
         sk = SignKey.new(seed)
         vk = VerKey.new(gen, sk)
+        key_proof = ProofOfPossession.new(ver_key=vk, sign_key=sk)
         sk_str = IndyCryptoBlsUtils.bls_to_str(sk)
         vk_str = IndyCryptoBlsUtils.bls_to_str(vk)
-        return sk_str, vk_str
-
-    @staticmethod
-    def generate_key_proof_of_possession(sk: str, pk: str) -> str:
-        sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
-        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
-        key_proof = ProofOfPossession.new(ver_key=pk_bls,
-                                          sign_key=sk_bls)
         key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
-        return key_proof_str
+        return sk_str, vk_str, key_proof_str
 
     def sign(self, message: bytes) -> str:
         sign = Bls.sign(message, self._sk_bls)

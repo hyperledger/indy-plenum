@@ -660,7 +660,7 @@ def poolTxnData(request):
                                     seq_no=i)
 
         if i <= nodes_with_bls:
-            _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(
+            _, bls_key, _ = create_default_bls_crypto_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
             data['nodesWithBls'][node_name] = True

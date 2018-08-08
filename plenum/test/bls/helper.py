@@ -172,7 +172,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        sdk_wallet_steward,
                        add_wrong=False,
                        new_bls=None):
-    new_blspk = init_bls_keys(node.keys_dir, node.name)
+    new_blspk, key_proof = init_bls_keys(node.keys_dir, node.name)
     key_in_txn = new_bls or new_blspk \
         if not add_wrong \
         else base58.b58encode(randomString(128).encode()).decode("utf-8")
@@ -183,7 +183,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          None, None,
                          bls_key=key_in_txn,
-                         services=None)
+                         services=None,
+                         key_proof=key_proof)
     poolSetExceptOne = list(txnPoolNodeSet)
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
