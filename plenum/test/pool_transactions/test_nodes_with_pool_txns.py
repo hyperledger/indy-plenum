@@ -117,7 +117,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                 alias='New steward' + randomString(
                                                     3),
                                                 role=STEWARD_STRING)
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     _, steward_did = new_steward_wallet_handle
     node_request = looper.loop.run_until_complete(
@@ -128,7 +128,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                              nodeIp=nodeIp,
                              nodePort=nodePort,
                              bls_key=bls_key,
-                             sigseed=sigseed))
+                             sigseed=sigseed,
+                             key_proof=key_proof))
 
     # case from the ticket
     request_json = json.loads(node_request)

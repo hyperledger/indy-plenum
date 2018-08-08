@@ -39,7 +39,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
     """
     new_node_name = "Epsilon"
 
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     _, steward_did = sdk_wallet_new_steward
     node_request = looper.loop.run_until_complete(
@@ -50,7 +50,8 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                              nodeIp=nodeIp,
                              nodePort=nodePort,
                              bls_key=bls_key,
-                             sigseed=sigseed))
+                             sigseed=sigseed,
+                             key_proof=key_proof))
 
     # get hex VerKey
     sigseed = randomString(32).encode()
@@ -83,7 +84,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
     """
     new_node_name = "Epsilon"
 
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     _, steward_did = sdk_wallet_new_steward
     node_request = looper.loop.run_until_complete(
@@ -94,7 +95,8 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                              nodeIp=nodeIp,
                              nodePort=nodePort,
                              bls_key=bls_key,
-                             sigseed=sigseed))
+                             sigseed=sigseed,
+                             key_proof=key_proof))
     # a sequence of the test cases for each field
     tests = itertools.chain(
         itertools.product(
