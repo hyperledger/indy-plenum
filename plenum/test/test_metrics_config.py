@@ -26,11 +26,20 @@ def check_metrics_data(storage):
     # Check that all event types happened during test
     metric_names = {ev.name for ev in events}
     for t in MetricsName:
+        if t in [MetricsName.MONITOR_AVG_THROUGHPUT,
+                 MetricsName.MASTER_MONITOR_AVG_THROUGHPUT]:
+            continue
         assert t in metric_names
 
 
 def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_client):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
+    total_time = 1.5 * tconf.PerfCheckFreq
+    total_iters = 5
+    iter_time = total_time / total_iters
+
+    for _ in range(total_iters):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
+        looper.runFor(iter_time)
 
     for node in txnPoolNodeSet:
         storage = initKeyValueStorage(tconf.METRICS_KV_STORAGE,
