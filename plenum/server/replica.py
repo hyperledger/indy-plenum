@@ -1782,7 +1782,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.discard(msg, reason="Checkpoint already stable", logMethod=self.logger.debug)
             return True
 
-        if self.isPrimary is None and msg.viewNo < self.viewNo:
+        if msg.viewNo < self.viewNo:
             self.discard(msg,
                          reason="Checkpoint from previous view",
                          logMethod=self.logger.debug)
