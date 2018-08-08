@@ -1093,9 +1093,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with self.metrics.event_timing(MetricsName.NODE_PROD_TIME):
             if self.status is not Status.stopped:
                 with self.metrics.event_timing(MetricsName.SERVICE_REPLICAS_TIME):
-                    c += await self.serviceReplicas(limit)
+                    c += self.serviceReplicas(limit)
                 with self.metrics.event_timing(MetricsName.SERVICE_NODE_MSGS_TIME):
-                    c += await self.serviceNodeMsgs(limit)
+                    c += self.serviceNodeMsgs(limit)
                 with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_MSGS_TIME):
                     c += await self.serviceClientMsgs(limit)
                 with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
@@ -1105,7 +1105,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
                     c += self.monitor._serviceActions()
                 with self.metrics.event_timing(MetricsName.SERVICE_VIEW_CHANGER_TIME):
-                    c += await self.serviceViewChanger(limit)
+                    c += self.serviceViewChanger(limit)
                 with self.metrics.event_timing(MetricsName.SERVICE_OBSERVABLE_TIME):
                     c += await self.service_observable(limit)
                 with self.metrics.event_timing(MetricsName.SERVICE_OBSERVER_TIME):
@@ -1119,7 +1119,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.clientstack.serviceClientStack()
         return c
 
-    async def serviceReplicas(self, limit) -> int:
+    def serviceReplicas(self, limit) -> int:
         """
         Processes messages from replicas outbox and gives it time
         for processing inbox
@@ -1131,17 +1131,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
 
-    async def serviceNodeMsgs(self, limit: int) -> int:
+    def serviceNodeMsgs(self, limit: int) -> int:
         """
         Process `limit` number of messages from the nodeInBox.
 
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        n = await self.nodestack.service(limit)
+        n = self.nodestack.service(limit)
         self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
 
-        await self.processNodeInBox()
+        self.processNodeInBox()
         return n
 
     async def serviceClientMsgs(self, limit: int) -> int:
@@ -1162,7 +1162,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    async def serviceViewChanger(self, limit) -> int:
+    def serviceViewChanger(self, limit) -> int:
         """
         Service the view_changer's inBox, outBox and action queues.
 
@@ -1171,7 +1171,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isReady():
             return 0
         o = self.serviceViewChangerOutBox(limit)
-        i = await self.serviceViewChangerInbox(limit)
+        i = self.serviceViewChangerInbox(limit)
         # TODO: Why is protected method accessed here?
         a = self.view_changer._serviceActions()
         return o + i + a
@@ -1482,7 +1482,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(msg))
         return msgCount
 
-    async def serviceViewChangerInbox(self, limit: int=None) -> int:
+    def serviceViewChangerInbox(self, limit: int=None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1493,7 +1493,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msgCount += 1
             msg = self.msgsToViewChanger.popleft()
             self.view_changer.inBox.append(msg)
-        await self.view_changer.serviceQueues(limit)
+        self.view_changer.serviceQueues(limit)
         return msgCount
 
     @property
@@ -1700,14 +1700,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
-    async def processNodeInBox(self):
+    def processNodeInBox(self):
         """
         Process the messages in the node inbox asynchronously.
         """
         while self.nodeInBox:
             m = self.nodeInBox.popleft()
             try:
-                await self.nodeMsgRouter.handle(m)
+                self.nodeMsgRouter.handleSync(m)
             except SuspiciousNode as ex:
                 self.reportSuspiciousNodeEx(ex)
                 self.discard(m, ex, logger.debug)

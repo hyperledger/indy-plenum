@@ -404,7 +404,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         logger.debug("{}'s view_changer sending {}".format(self.name, msg))
         self.outBox.append(msg)
 
-    async def serviceQueues(self, limit=None) -> int:
+    def serviceQueues(self, limit=None) -> int:
         """
         Service at most `limit` messages from the inBox.
 
@@ -414,7 +414,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # do not start any view changes until catch-up is finished!
         if not Mode.is_done_syncing(self.node.mode):
             return 0
-        return await self.inBoxRouter.handleAll(self.inBox, limit)
+        return self.inBoxRouter.handleAllSync(self.inBox, limit)
 
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):
