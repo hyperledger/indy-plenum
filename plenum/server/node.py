@@ -620,6 +620,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.view_changer.propagate_primary:
             for replica in self.replicas:
                 replica.clear_requests_and_fix_last_ordered()
+        self.monitor.reset()
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -2493,6 +2494,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Move ahead only if the node has synchronized its state with other
         # nodes
         if not self.isParticipating:
+            return
+
+        if self.view_change_in_progress:
             return
 
         if not self._update_new_ordered_reqs_count():
