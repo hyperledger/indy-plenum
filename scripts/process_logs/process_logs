@@ -316,6 +316,10 @@ def match_level(params):
     return match
 
 
+def match_source(source):
+    return lambda message: source == message.source
+
+
 def match_message(pattern):
     m = re.compile(str(pattern)).search
     return lambda message: m(message.body) is not None
@@ -352,6 +356,8 @@ def _create_matcher(config):
         return match_timestamp(params)
     if name == "level":
         return match_level(params)
+    if name == "source":
+        return match_source(params)
     if name == "message":
         return match_message(params)
     if name == "replica":
