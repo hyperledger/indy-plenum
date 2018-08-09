@@ -53,6 +53,8 @@ class ValueAccumulator:
         self._max = _max_with_none(self._max, acc._max)
 
     def __repr__(self):
+        if self.count == 0:
+            return "no samples"
         return "{} samples, {:.2f} sum, {:.2f}/{:.2f}/{:.2f} min/avg/max, {:.2f} stddev". \
             format(self.count, self.sum, self.min, self.avg, self.max, self.stddev)
 
