@@ -1,14 +1,9 @@
 import pytest
 
-from plenum.common.exceptions import PoolLedgerTimeoutException, \
-    RequestNackedException
-from plenum.common.messages.node_messages import InstanceChange
-from plenum.test.delayers import vcd_delay
+from plenum.common.exceptions import RequestNackedException
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_and_check_replies, sdk_gen_request, \
     checkDiscardMsg
-from plenum.test.stasher import delay_rules
-from plenum.test.test_node import ensureElectionsDone
 
 
 def test_client_msg_discard_in_view_change_integration(txnPoolNodeSet,
@@ -20,19 +15,11 @@ def test_client_msg_discard_in_view_change_integration(txnPoolNodeSet,
     '''
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 4)
-    for node in txnPoolNodeSet:
-        for node_for_send in txnPoolNodeSet:
-            node.view_changer.instanceChanges.addVote(InstanceChange(1, 25),
-                                                      node_for_send.name)
-    # Delay ViewChangeDone to send client request in view change.
-    stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
-    with delay_rules(stashers, vcd_delay(10)):
-        for node in txnPoolNodeSet:
-            node.view_changer.on_master_degradation()
-        discard_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
-                                                sdk_wallet_client, 4)
-    ensureElectionsDone(looper, txnPoolNodeSet)
 
+    for node in txnPoolNodeSet:
+        node.view_changer.view_change_in_progress = True
+    discard_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                            sdk_wallet_client, 4)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, discard_reqs)
         assert "Client request is discarded since view " \
