@@ -23,6 +23,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -110,7 +111,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  config=None,
                  isMaster: bool = False,
-                 bls_bft_replica: BlsBftReplica = None):
+                 bls_bft_replica: BlsBftReplica = None,
+                 metrics: MetricsCollector = NullMetricsCollector()):
         """
         Create a new replica.
 
@@ -121,6 +123,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
+        self.metrics = metrics
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
@@ -700,6 +703,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
+        self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_3PC_BATCH_SIZE, len(pp.reqIdr))
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash]
 
@@ -812,6 +818,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         validReqs = []
         inValidReqs = []
         rejects = []
+        start = time.perf_counter()
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
@@ -822,6 +829,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
+        duration = time.perf_counter() - start
+        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
 
         return validReqs, inValidReqs, rejects, tm
 
@@ -1228,6 +1239,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 old_state_root,
                 old_txn_root))
 
+        start = time.perf_counter()
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
 
@@ -1236,6 +1248,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                        valid_reqs,
                                        invalid_reqs,
                                        rejects)
+        duration = time.perf_counter() - start
+        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
 
         def revert():
             self.revert(pre_prepare.ledgerId,
@@ -1731,8 +1747,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
                                 len(pp.reqIdr[pp.discarded:])))
+        self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, pp.discarded)
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.MASTER_ORDERED_BATCH_SIZE, pp.discarded)
 
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId)
+        self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key, self.quorums, pp)
@@ -1761,6 +1780,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         seqNoEnd = msg.seqNoEnd
         if self.isPpSeqNoStable(seqNoEnd):
             self.discard(msg, reason="Checkpoint already stable", logMethod=self.logger.debug)
+            return True
+
+        if msg.viewNo < self.viewNo:
+            self.discard(msg,
+                         reason="Checkpoint from previous view",
+                         logMethod=self.logger.debug)
             return True
 
         seqNoStart = msg.seqNoStart
@@ -1811,7 +1836,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 format(self, lag_in_checkpoints))
             self.node.start_catchup()
 
-    def addToCheckpoint(self, ppSeqNo, digest, ledger_id):
+    def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
                 state = self.checkpoints[s, e]  # type: CheckpointState
@@ -1839,11 +1864,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.checkpoints[s, e] = state
                 self.logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
                                  "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
-                                 format(self, (s, e), self.viewNo, state.digest, ledger_id,
+                                 format(self, (s, e), view_no, state.digest, ledger_id,
                                         self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
                                         self.stateRootHash(ledger_id, committed=False)))
-                self.send(Checkpoint(self.instId, self.viewNo, s, e, state.digest))
-            self.processStashedCheckpoints((s, e))
+                self.send(Checkpoint(self.instId, view_no, s, e, state.digest))
+            self.processStashedCheckpoints((s, e), view_no)
 
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
@@ -1910,16 +1935,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 end_pp_seq_numbers.append(seq_no_end)
         return sorted(end_pp_seq_numbers)
 
-    def processStashedCheckpoints(self, key):
+    def processStashedCheckpoints(self, key, view_no):
         # Remove all checkpoints from previous views if any
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
 
-        if key not in self.stashedRecvdCheckpoints.get(self.viewNo, {}):
+        if key not in self.stashedRecvdCheckpoints.get(view_no, {}):
             self.logger.trace("{} have no stashed checkpoints for {}")
-            return 0
+            return
 
         # Get a snapshot of all the senders of stashed checkpoints for `key`
-        senders = list(self.stashedRecvdCheckpoints[self.viewNo][key].keys())
+        senders = list(self.stashedRecvdCheckpoints[view_no][key].keys())
         total_processed = 0
         consumed = 0
 
@@ -1928,11 +1953,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # `stashedRecvdCheckpoints` because it might be removed from there
             # in case own checkpoint was stabilized when we were processing
             # stashed checkpoints from previous senders in this loop
-            if self.viewNo in self.stashedRecvdCheckpoints \
-                    and key in self.stashedRecvdCheckpoints[self.viewNo] \
-                    and sender in self.stashedRecvdCheckpoints[self.viewNo][key]:
+            if view_no in self.stashedRecvdCheckpoints \
+                    and key in self.stashedRecvdCheckpoints[view_no] \
+                    and sender in self.stashedRecvdCheckpoints[view_no][key]:
                 if self.processCheckpoint(
-                        self.stashedRecvdCheckpoints[self.viewNo][key].pop(sender),
+                        self.stashedRecvdCheckpoints[view_no][key].pop(sender),
                         sender):
                     consumed += 1
                 # Note that if `processCheckpoint` returned False then the
@@ -1942,12 +1967,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # If we have consumed stashed checkpoints for `key` from all the
         # senders then remove entries which have become empty
-        if self.viewNo in self.stashedRecvdCheckpoints \
-                and key in self.stashedRecvdCheckpoints[self.viewNo] \
-                and len(self.stashedRecvdCheckpoints[self.viewNo][key]) == 0:
-            del self.stashedRecvdCheckpoints[self.viewNo][key]
-            if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
-                del self.stashedRecvdCheckpoints[self.viewNo]
+        if view_no in self.stashedRecvdCheckpoints \
+                and key in self.stashedRecvdCheckpoints[view_no] \
+                and len(self.stashedRecvdCheckpoints[view_no][key]) == 0:
+            del self.stashedRecvdCheckpoints[view_no][key]
+            if len(self.stashedRecvdCheckpoints[view_no]) == 0:
+                del self.stashedRecvdCheckpoints[view_no]
 
         restashed = total_processed - consumed
         self.logger.info('{} processed {} stashed checkpoints for {}, '

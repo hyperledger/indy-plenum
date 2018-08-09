@@ -2,6 +2,7 @@ from collections import deque
 from typing import Any, Iterable, Dict
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsName
 from plenum.common.prepare_batch import split_messages_on_batches
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
@@ -21,7 +22,7 @@ class Batched(MessageProcessor):
     Assumes a Stack (ZStack or RStack) is mixed
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, metrics=NullMetricsCollector()):
         """
         :param self: 'NodeStacked'
         :param config: 'stp config'
@@ -29,6 +30,7 @@ class Batched(MessageProcessor):
         self.outBoxes = {}  # type: Dict[int, deque]
         self.stp_config = config or getConfig()
         self.msg_len_val = MessageLenValidator(self.stp_config.MSG_LEN_LIMIT)
+        self.metrics = metrics
 
     def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
@@ -107,9 +109,10 @@ class Batched(MessageProcessor):
                                                         )
                     msgs.clear()
                     if batches:
-                        for batch in batches:
+                        for batch, size in batches:
                             logger.trace("{} sending payload to {}: {}".format(
                                 self, dest, batch))
+                            self.metrics.add_event(MetricsName.TRANSPORT_BATCH_SIZE, size)
                             # Setting timeout to never expire
                             self.transmit(
                                 batch,
@@ -121,11 +124,12 @@ class Batched(MessageProcessor):
                 else:
                     while msgs:
                         msg = msgs.popleft()
+                        logger.trace(
+                            "{} sending msg {} to {}".format(self, msg, dest))
+                        self.metrics.add_event(MetricsName.TRANSPORT_BATCH_SIZE, 1)
                         # Setting timeout to never expire
                         self.transmit(msg, rid, timeout=self.messageTimeout,
                                       serialized=True)
-                        logger.trace(
-                            "{} sending msg {} to {}".format(self, msg, dest))
 
         for rid in removedRemotes:
             logger.warning("{}{} has removed rid {}"

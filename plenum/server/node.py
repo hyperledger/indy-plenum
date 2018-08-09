@@ -5,12 +5,14 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
+from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
@@ -155,6 +157,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.created = time.time()
         self.name = name
+        self.last_prod_started = None
         self.config = config or getConfig()
 
         self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
@@ -181,6 +184,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
         self.requestExecuter = {}   # type: Dict[int, Callable]
+
+        self.metrics = self._createMetricsCollector()
 
         Motor.__init__(self)
 
@@ -215,7 +220,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeReg = self.poolManager.nodeReg
 
         kwargs = dict(stackParams=self.poolManager.nstack,
-                      msgHandler=self.handleOneNodeMsg, registry=self.nodeReg)
+                      msgHandler=self.handleOneNodeMsg,
+                      registry=self.nodeReg,
+                      metrics=self.metrics)
         cls = self.nodeStackClass
         kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
@@ -226,7 +233,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             stackParams=self.poolManager.cstack,
             msgHandler=self.handleOneClientMsg,
             # TODO, Reject is used when dynamic validation fails, use Reqnack
-            msgRejectHandler=self.reject_client_msg_handler)
+            msgRejectHandler=self.reject_client_msg_handler,
+            metrics=self.metrics)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -613,6 +621,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.view_changer.propagate_primary:
             for replica in self.replicas:
                 replica.clear_requests_and_fix_last_ordered()
+        self.monitor.reset()
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -623,7 +632,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                        "immediate restart is recommended")
 
     def create_replicas(self) -> Replicas:
-        return Replicas(self, self.monitor, self.config)
+        return Replicas(self, self.monitor, self.config, self.metrics)
 
     def utc_epoch(self) -> int:
         """
@@ -664,6 +673,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def _createMetricsCollector(self):
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return NullMetricsCollector()
+
+        if self.config.METRICS_COLLECTOR_TYPE == 'kv':
+            return KvStoreMetricsCollector(
+                initKeyValueStorage(
+                    self.config.METRICS_KV_STORAGE,
+                    self.dataLocation,
+                    self.config.METRICS_KV_DB_NAME,
+                    db_config=self.config.METRICS_KV_CONFIG
+                )
+            )
+
+        logger.warning("Unknown metrics collector type: {}".format(self.config.METRICS_COLLECTOR_TYPE))
+        return NullMetricsCollector()
 
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
@@ -941,7 +967,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def schedule_initial_propose_view_change(self):
         self.lost_primary_at = time.perf_counter()
         self._schedule(action=self.propose_view_change,
-                       seconds=self._view_change_timeout)
+                       seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
@@ -1058,20 +1084,39 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: total number of messages serviced by this node
         """
         c = 0
-        if self.status is not Status.stopped:
-            c += await self.serviceReplicas(limit)
-            c += await self.serviceNodeMsgs(limit)
-            c += await self.serviceClientMsgs(limit)
-            c += self._serviceActions()
-            c += self.ledgerManager.service()
-            c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger(limit)
-            c += await self.service_observable(limit)
-            c += await self.service_observer(limit)
-            self.nodestack.flushOutBoxes()
-        if self.isGoing():
-            self.nodestack.serviceLifecycle()
-            self.clientstack.serviceClientStack()
+
+        if self.last_prod_started:
+            self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
+        self.last_prod_started = time.perf_counter()
+
+        # TODO: Implement decorators for measuring timings of normal and async functions
+        with self.metrics.event_timing(MetricsName.NODE_PROD_TIME):
+            if self.status is not Status.stopped:
+                with self.metrics.event_timing(MetricsName.SERVICE_REPLICAS_TIME):
+                    c += await self.serviceReplicas(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_NODE_MSGS_TIME):
+                    c += await self.serviceNodeMsgs(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_MSGS_TIME):
+                    c += await self.serviceClientMsgs(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                    c += self._serviceActions()
+                with self.metrics.event_timing(MetricsName.SERVICE_LEDGER_MANAGER_TIME):
+                    c += self.ledgerManager.service()
+                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                    c += self.monitor._serviceActions()
+                with self.metrics.event_timing(MetricsName.SERVICE_VIEW_CHANGER_TIME):
+                    c += await self.serviceViewChanger(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVABLE_TIME):
+                    c += await self.service_observable(limit)
+                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVER_TIME):
+                    c += await self.service_observer(limit)
+                with self.metrics.event_timing(MetricsName.FLUSH_OUTBOXES_TIME):
+                    self.nodestack.flushOutBoxes()
+            if self.isGoing():
+                with self.metrics.event_timing(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                    self.nodestack.serviceLifecycle()
+                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                    self.clientstack.serviceClientStack()
         return c
 
     async def serviceReplicas(self, limit) -> int:
@@ -1094,6 +1139,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: the number of messages successfully processed
         """
         n = await self.nodestack.service(limit)
+        self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
+
         await self.processNodeInBox()
         return n
 
@@ -1110,6 +1157,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer.view_change_in_progress:
             return 0
         c = await self.clientstack.service(limit)
+        self.metrics.add_event(MetricsName.CLIENT_STACK_MESSAGES_PROCESSED, c)
+
         await self.processClientInBox()
         return c
 
@@ -1274,7 +1323,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
         vch_messages = self.view_changer.get_msgs_for_lagged_nodes()
-        message = CurrentState(viewNo=self.viewNo, primary=vch_messages)
+        message = CurrentState(viewNo=self.view_changer.last_completed_view_no, primary=vch_messages)
 
         logger.info("{} sending current state {} to lagged node {}".format(self, message, nodeName))
         self.send(message, rid)
@@ -1504,7 +1553,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _should_accept_current_state(self):
+    def _is_initial_propagate_primary(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1521,13 +1570,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or (from_current_state and self._should_accept_current_state()):
+        if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
+            self.discard(msg, "Proposed viewNo {} less, then current {}"
+                         .format(view_no, self.viewNo), logMethod=logger.warning)
+        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
@@ -1602,7 +1654,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isNodeBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted node {}".format(frm), logger.display)
+            self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
         try:
@@ -2459,12 +2511,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isParticipating:
             return
 
+        if self.view_change_in_progress:
+            return
+
         if not self._update_new_ordered_reqs_count():
             logger.trace("{} ordered no new requests".format(self))
             return
 
         if self.instances.masterId is not None:
             self.sendNodeRequestSpike()
+
+            master_throughput, backup_throughput = self.monitor.getThroughputs(0)
+            if master_throughput is not None:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_THROUGHPUT, master_throughput)
+            if backup_throughput is not None:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, backup_throughput)
+
+            master_latencies = self.monitor.getAvgLatency(self.instances.masterId).values()
+            if len(master_latencies) > 0:
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(master_latencies))
+
+            backup_latencies = self.monitor.getAvgLatency(*self.instances.backupIds).values()
+            if len(backup_latencies) > 0:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(backup_latencies))
+
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()
@@ -2515,17 +2585,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'so view change will not be proposed'.format(self))
             return
 
-        disconnected_time = time.perf_counter() - self.lost_primary_at
-        if disconnected_time >= self.config.ToleratePrimaryDisconnection:
-            logger.display("{} primary has been disconnected for too long".format(self))
+        logger.display("{} primary has been disconnected for too long".format(self))
 
-            if not self.isReady():
-                logger.info('{} The node is not ready yet '
-                            'so view change will not be proposed now, but re-scheduled.'.format(self))
-                # self._schedule_view_change()
-                return
+        if not self.isReady():
+            logger.info('{} The node is not ready yet '
+                        'so view change will not be proposed now, but re-scheduled.'.format(self))
+            # self._schedule_view_change()
+            return
 
-            self.view_changer.on_primary_loss()
+        self.view_changer.on_primary_loss()
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))

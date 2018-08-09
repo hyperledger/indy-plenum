@@ -1,10 +1,8 @@
+import json
+import logging
 import os
 
-import logging
-
-import json
 from stp_core.crypto.util import randomSeed
-
 from stp_core.loop.motor import Motor
 from stp_core.network.keep_in_touch import KITNetworkInterface
 
@@ -49,10 +47,22 @@ class CollectingMsgsHandler:
 class CounterMsgsHandler:
     def __init__(self):
         self.receivedMsgCount = 0
+        self._received_from = {}
 
     def handler(self, m):
         msg, sender = m
         self.receivedMsgCount += 1
+        self._received_from.setdefault(sender, 0)
+        self._received_from[sender] += 1
+
+    def check_received(self, msg_num):
+        assert self.receivedMsgCount == msg_num
+
+    def check_received_from(self, sender, msg_num):
+        received = self._received_from.get(sender, 0)
+        assert received >= msg_num, \
+            "Expected from {}: {}, but was {}. Received from others: {}" \
+            .format(sender, msg_num, received, str(self._received_from))
 
 
 class SMotor(Motor):
@@ -89,9 +99,20 @@ def connectStacks(stacks, useKeys=True):
     for stack in stacks:
         for otherStack in stacks:
             if stack != otherStack:
-                stack.connect(name=otherStack.name, ha=otherStack.ha,
-                              verKeyRaw=otherStack.verKeyRaw if useKeys else None,
-                              publicKeyRaw=otherStack.publicKeyRaw if useKeys else None)
+                connectStack(stack, otherStack)
+
+
+def connectStack(stack1, stack2, useKeys=True):
+    stack1.connect(name=stack2.name, ha=stack2.ha,
+                   verKeyRaw=stack2.verKeyRaw if useKeys else None,
+                   publicKeyRaw=stack2.publicKeyRaw if useKeys else None)
+
+
+def checkRemotesCreated(stacks):
+    for stack in stacks:
+        for otherStack in stacks:
+            if stack != otherStack:
+                assert stack.hasRemote(otherStack.name)
 
 
 def checkStacksConnected(stacks):
@@ -124,6 +145,9 @@ class MessageSender(Motor):
 
     def onStopping(self, *args, **kwargs):
         pass
+
+    def checkAllSent(self):
+        assert self.sentMsgCount == self._numMsgs
 
     async def prod(self, limit) -> int:
         count = 0
