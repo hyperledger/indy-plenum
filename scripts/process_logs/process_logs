@@ -257,7 +257,7 @@ def messages_in_log(log: InputLogInfo):
                     m.timestamp = cur_time
                     yield m
                 stashed_messages = []
-                if cur_time < last_time:
+                if last_time is not None and cur_time < last_time:
                     print("{}: time went back from {} to {}".format(log.filename, last_time, cur_time))
                 last_time = cur_time
                 yield message
@@ -543,6 +543,7 @@ class OutputLogFile:
 
     def dump(self):
         self.lines.sort()
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
         with open(self.filename, 'w') as f:
             for _, line in self.lines:
                 f.write(line)
