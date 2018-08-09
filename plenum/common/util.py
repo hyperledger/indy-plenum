@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import dateutil.tz
 import functools
 import glob
 import inspect
@@ -475,12 +476,18 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
+def get_utc_datetime() -> datetime:
+    """
+    :return: current datetime in UTC with explicit UTC marker
+    """
+    return datetime.utcnow().replace(tzinfo=dateutil.tz.tzutc())
+
+
 def get_utc_epoch() -> int:
     """
-    Returns epoch in UTC
-    :return:
+    :return: epoch in UTC
     """
-    return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+    return int(get_utc_datetime().timestamp())
 
 
 def lxor(a, b):

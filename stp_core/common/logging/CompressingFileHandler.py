@@ -17,7 +17,6 @@ class CompressingFileHandler(RotatingFileHandler):
         self.compressor = None
 
         log_dir, log_name = os.path.split(self.baseFilename)
-        self.tmp_filename = os.path.join(log_dir, ".tmp_{}".format(log_name))
         self.log_pattern = re.compile("^{}(?:|\.(\d+)(?:|\.gz|\.xz))$".format(log_name))
 
         file_indexes = [idx for name, idx in self._log_files()]
@@ -32,16 +31,22 @@ class CompressingFileHandler(RotatingFileHandler):
 
         self.max_index += 1
         self._finish_compression()
-        os.rename(self.baseFilename, self.tmp_filename)
-        dest = self._rotated_filename(self.max_index)
-        self.compressor = Process(target=CompressingFileHandler._recompress, args=(self.tmp_filename, dest))
-        self.compressor.start()
+        uncompressed = self._rotated_uncompressed_filename(self.max_index)
+        os.rename(self.baseFilename, uncompressed)
+
+        if self.compression is not None:
+            dest = self._rotated_filename(self.max_index)
+            self.compressor = Process(target=CompressingFileHandler._recompress, args=(uncompressed, dest))
+            self.compressor.start()
 
         if not self.delay:
             self.stream = self._open()
 
+    def _rotated_uncompressed_filename(self, index):
+        return "{}.{}".format(self.baseFilename, index)
+
     def _rotated_filename(self, index):
-        result = "{}.{}".format(self.baseFilename, index)
+        result = self._rotated_uncompressed_filename(index)
         if self.compression is not None:
             result = "{}.{}".format(result, self.compression)
         return result
