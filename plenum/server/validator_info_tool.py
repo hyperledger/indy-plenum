@@ -14,6 +14,7 @@ import datetime
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
+from pympler import muppy, summary
 
 
 def decode_err_handler(error):
@@ -31,6 +32,7 @@ NODE_CONTROL_CONFIG_FILE = "node_control.conf"
 INDY_NODE_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node.service"
 NODE_CONTROL_SERVICE_FILE_PATH = "/etc/systemd/system/indy-node-control.service"
 NUMBER_TXNS_FOR_DISPLAY = 10
+LIMIT_OBJECTS_FOR_PROFILER = 10
 
 
 def none_on_fail(func):
@@ -65,6 +67,9 @@ class ValidatorNodeInfoTool:
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
+        memory_profiler = self.__memory_profiler
+        extractions_info = self.__extractions
+
         if hardware_info:
             general_info.update(hardware_info)
         if software_info:
@@ -75,17 +80,26 @@ class ValidatorNodeInfoTool:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
+        if memory_profiler:
+            general_info.update(memory_profiler)
+        if extractions_info:
+            general_info.update(extractions_info)
+
         return general_info
+
+    @property
+    @none_on_fail
+    def __memory_profiler(self):
+        all_objects = muppy.get_objects()
+        stats = summary.summarize(all_objects)
+        return {'Memory_profiler': [l for l in summary.format_(stats, LIMIT_OBJECTS_FOR_PROFILER)]}
 
     @property
     def additional_info(self):
         additional_info = {}
         config_info = self.__config_info
-        extractions_info = self.__extractions
         if config_info:
             additional_info.update(config_info)
-        if extractions_info:
-            additional_info.update(extractions_info)
         return additional_info
 
     def _prepare_for_json(self, item):
@@ -181,6 +195,17 @@ class ValidatorNodeInfoTool:
     def __total_count(self):
         return len(self._node.nodestack.remotes) + 1
 
+    def _get_folder_size(self, start_path):
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                try:
+                    total_size += os.path.getsize(fp)
+                except OSError:
+                    pass
+        return total_size
+
     @property
     @none_on_fail
     def __hardware_info(self):
@@ -188,14 +213,14 @@ class ValidatorNodeInfoTool:
         ram_all = psutil.virtual_memory()
         current_process = psutil.Process()
         ram_by_process = current_process.memory_info()
-        nodes_data = psutil.disk_usage(self._node.ledger_dir)
+        nodes_data = self._get_folder_size(self._node.ledger_dir)
 
         return {
             "Hardware": {
                 "HDD_all": "{} Mbs".format(int(hdd.used / MBs)),
                 "RAM_all_free": "{} Mbs".format(int(ram_all.free / MBs)),
                 "RAM_used_by_node": "{} Mbs".format(int(ram_by_process.vms / MBs)),
-                "HDD_used_by_node": "{} MBs".format(int(nodes_data.used / MBs)),
+                "HDD_used_by_node": "{} MBs".format(int(nodes_data / MBs)),
             }
         }
 
@@ -404,19 +429,28 @@ class ValidatorNodeInfoTool:
         waiting_cp = {}
         num_txns_in_catchup = {}
         last_txn_3PC_keys = {}
-        root_hashes = {}
-        uncommited_root_hashes = {}
-        uncommited_txns = {}
+        committed_ledger_root_hashes = {}
+        uncommited_ledger_root_hashes = {}
+        uncommitted_ledger_txns = {}
+        committed_state_root_hashes = {}
+        uncommitted_state_root_hashes = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
             ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
             num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
-                uncommited_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
-            uncommited_txns[idx] = [self._prepare_for_json(txn) for txn in linfo.ledger.uncommittedTxns]
+                uncommited_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
+            txns = {"Count": len(linfo.ledger.uncommittedTxns)}
+            if len(linfo.ledger.uncommittedTxns) > 0:
+                txns["First_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[0])
+                txns["Last_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])
+            uncommitted_ledger_txns[idx] = txns
             if linfo.ledger.tree.root_hash:
-                root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+                committed_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+        for l_id, req_handler in self._node.ledger_to_req_handler.items():
+            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
+            uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
 
         return {
             "Node_info": {
@@ -438,12 +472,16 @@ class ValidatorNodeInfoTool:
                     self.__verkey),
                 "Metrics": self._prepare_for_json(
                     self._get_node_metrics()),
-                "Root_hashes": self._prepare_for_json(
-                    root_hashes),
-                "Uncommitted_root_hashes": self._prepare_for_json(
-                    uncommited_root_hashes),
-                "Uncommitted_txns": self._prepare_for_json(
-                    uncommited_txns),
+                "Committed_ledger_root_hashes": self._prepare_for_json(
+                    committed_ledger_root_hashes),
+                "Committed_state_root_hashes": self._prepare_for_json(
+                    committed_state_root_hashes),
+                "Uncommitted_ledger_root_hashes": self._prepare_for_json(
+                    uncommited_ledger_root_hashes),
+                "Uncommitted_ledger_txns": self._prepare_for_json(
+                    uncommitted_ledger_txns),
+                "Uncommitted_state_root_hashes": self._prepare_for_json(
+                    uncommitted_state_root_hashes),
                 "View_change_status": {
                     "View_No": self._prepare_for_json(
                         self._node.viewNo),

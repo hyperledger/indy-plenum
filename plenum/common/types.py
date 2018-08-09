@@ -48,7 +48,7 @@ class f:  # provides a namespace for reusable field constants
     IS_SUCCESS = Field('isSuccess', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
-    REQ_IDR = Field("reqIdr", List[Tuple[str, int]])
+    REQ_IDR = Field("reqIdr", List[str])
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)

@@ -19,7 +19,7 @@ md = {}
 with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
     exec(f.read(), md)
 
-tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.4.0-dev-586']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.1.dev683']
 
 setup(
     name='indy-plenum',  # TODO refers to metadata as well
@@ -49,7 +49,8 @@ setup(
                       'portalocker==0.5.7', 'pyzmq==17.0.0', 'libnacl==1.6.1',
                       'six==1.11.0', 'psutil==5.4.3', 'intervaltree==2.1.0',
                       'msgpack-python==0.4.6', 'indy-crypto==0.4.1',
-                      'python-rocksdb==0.6.9', 'python-dateutil==2.6.1'],
+                      'python-rocksdb==0.6.9', 'python-dateutil==2.6.1',
+                      'pympler==0.5'],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,
