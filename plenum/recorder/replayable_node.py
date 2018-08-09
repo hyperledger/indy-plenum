@@ -22,28 +22,28 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
 
         def consume_req_queue_for_pre_prepare(self, ledger_id, view_no,
                                               pp_seq_no):
+            valid_reqs = []
+            invalid_reqs = []
+            rejects = []
+
             tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
                                                    pp_seq_no)
             if tm is None:
                 # No time for this PRE-PREPARE since a PRE-PREPARE with
                 # (view_no, pp_seq_no) was not sent during normal execution
-                return
+                return valid_reqs, invalid_reqs, rejects, tm
 
             req_ids, discarded = self.sent_pps[(view_no, pp_seq_no)][1:]
             fin_reqs = {}
             for key in req_ids:
                 if key not in self.requestQueues[ledger_id]:
                     # Request not available yet
-                    return
+                    return valid_reqs, invalid_reqs, rejects, tm
                 fin_req = self.requests[key].finalised
                 fin_reqs[key] = fin_req
 
             for key in req_ids:
                 self.requestQueues[ledger_id].remove(key)
-
-            valid_reqs = []
-            invalid_reqs = []
-            rejects = []
 
             # Not entirely accurate as in the real execution invalid reqs
             # are interleaved with valid reqs but since invalid reqs are

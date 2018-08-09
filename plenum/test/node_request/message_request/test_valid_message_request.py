@@ -177,8 +177,7 @@ def nodes(txnPoolNodeSet):
 
 def test_node_rejects_msg_reqs_with_invalid_type(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with an unacceptable type. Also
-    it does not accept invalid `MessageRep`
+    Node does not accept `MessageReq` with an invalid message type.
     """
     bad_node, other_nodes = nodes
     fill_counters(other_nodes, invalid_type_discard_log)
@@ -191,8 +190,7 @@ def test_node_rejects_msg_reqs_with_invalid_type(looper, nodes):
 
 def test_node_rejects_msg_reps_with_invalid_type(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with an unacceptable type. Also
-    it does not accept invalid `MessageRep`
+    Node does not accept `MessageRep` with an invalid message type.
     """
     bad_node, other_nodes = nodes
     fill_counters(other_nodes, invalid_type_discard_log)
@@ -206,8 +204,7 @@ def test_node_rejects_msg_reps_with_invalid_type(looper, nodes):
 
 def test_node_rejects_msg_reqs_with_invalid_params(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with missing params.
-    Also it does not accept invalid `MessageRep`
+    Node does not accept `MessageReq` with invalid query params.
     """
     bad_node, other_nodes = nodes
 
@@ -220,8 +217,7 @@ def test_node_rejects_msg_reqs_with_invalid_params(looper, nodes):
 
 def test_node_rejects_msg_reps_with_invalid_params(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with missing params.
-    Also it does not accept invalid `MessageRep`
+    Node does not accept `MessageRep` with invalid query params.
     """
     bad_node, other_nodes = nodes
 
@@ -234,12 +230,13 @@ def test_node_rejects_msg_reps_with_invalid_params(looper, nodes):
 
 def test_node_rejects_msg_reps_with_invalid_msg_structure(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with an unacceptable type. Also
-    it does not accept invalid `MessageRep`
+    Node does not accept `MessageRep` with invalid an replied message structure.
     """
     bad_node, other_nodes = nodes
     fill_counters(other_nodes, invalid_replied_msg_structure)
 
+    # Message reply with a ledger status with an invalid structure
+    # (`protocolVersion` field is missed)
     bad_msg = patched_MessageRep()(
         LEDGER_STATUS,
         {f.LEDGER_ID.nm: 1},
@@ -251,8 +248,8 @@ def test_node_rejects_msg_reps_with_invalid_msg_structure(looper, nodes):
 
 def test_node_rejects_msg_reps_with_mismatched_params(looper, nodes):
     """
-    Node does not accept invalid `MessageReq`, with missing params.
-    Also it does not accept invalid `MessageRep`
+    Node does not accept `MessageRep` with mismatched query params and
+    replied message.
     """
     bad_node, other_nodes = nodes
 

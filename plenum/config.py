@@ -137,6 +137,9 @@ ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
+# This parameter defines minimal count of accumulated latencies for each client
+MIN_LATENCY_COUNT = 10
+
 # Two following parameters define collecting statistic timeout for
 # collecting ordered request and throughput evaluating them.
 # In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,
@@ -231,7 +234,7 @@ REMOTES_MESSAGE_QUOTA = 100
 # After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
 # Max batch size for 3 phase commit
-Max3PCBatchSize = 10000
+Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
 
@@ -261,14 +264,15 @@ CLIENT_MAX_RETRY_REPLY = 5
 # NOTE: TRACK_CONNECTED_CLIENTS_NUM_ENABLED must be set to True
 # if CLIENT_STACK_RESTART_ENABLED is set to True as stack restart
 # mechanism uses clients connections tracking.
-TRACK_CONNECTED_CLIENTS_NUM_ENABLED = False
-CLIENT_STACK_RESTART_ENABLED = False
+TRACK_CONNECTED_CLIENTS_NUM_ENABLED = True
+CLIENT_STACK_RESTART_ENABLED = True
 MAX_CONNECTED_CLIENTS_NUM = 10000
 MIN_STACK_RESTART_TIMEOUT = 1800  # seconds
 STACK_POSTRESTART_WAIT_TIME = 2  # seconds
 MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
 
-VIEW_CHANGE_TIMEOUT = 600  # seconds
+VIEW_CHANGE_TIMEOUT = 420  # seconds
+INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
@@ -312,3 +316,9 @@ ENABLED_PLUGINS = []
 STACK_COMPANION = 0
 
 ENABLE_INCONSISTENCY_WATCHER_NETWORK = False
+
+# None or 'kv'
+METRICS_COLLECTOR_TYPE = None
+METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
+METRICS_KV_DB_NAME = 'metrics_db'
+METRICS_KV_CONFIG = rocksdb_default_config.copy()

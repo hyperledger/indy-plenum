@@ -882,12 +882,27 @@ def sdk_check_reply(req_res):
         else:
             raise CommonSdkIOException('Got an error with code {} for request {}'
                                        .format(res, req))
-    if res['op'] == REQNACK:
-        raise RequestNackedException('ReqNack of id {}. Reason: {}'
-                                     .format(req['reqId'], res['reason']))
-    if res['op'] == REJECT:
-        raise RequestRejectedException('Reject of id {}. Reason: {}'
-                                       .format(req['reqId'], res['reason']))
+    if not isinstance(res, dict):
+        raise CommonSdkIOException("Unexpected response format {}".format(res))
+
+    def _parse_op(res_dict):
+        if res_dict['op'] == REQNACK:
+            raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                         .format(req['reqId'], res_dict['reason']))
+        if res_dict['op'] == REJECT:
+            raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                           .format(req['reqId'], res_dict['reason']))
+
+    if 'op' in res:
+        _parse_op(res)
+    else:
+        for resps in res.values():
+            if isinstance(resps, str):
+                _parse_op(json.loads(resps))
+            elif isinstance(resps, dict):
+                _parse_op(resps)
+            else:
+                raise CommonSdkIOException("Unexpected response format {}".format(res))
 
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
@@ -1013,12 +1028,26 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None):
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None):
     old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
         0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
     yield tconf
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+    tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
+
+
+@contextmanager
+def max_3pc_batch_limits(tconf, size, wait=10000):
+    old_size = tconf.Max3PCBatchSize
+    old_wait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = size
+    tconf.Max3PCBatchWait = wait
+    yield tconf
+    tconf.Max3PCBatchSize = old_size
+    tconf.Max3PCBatchWait = old_wait

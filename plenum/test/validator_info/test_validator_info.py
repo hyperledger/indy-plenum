@@ -27,7 +27,7 @@ TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
 PERIOD_SEC = 1
 nodeCount = 5
-MAX_TIME_FOR_INFO_BUILDING = 2
+MAX_TIME_FOR_INFO_BUILDING = 3
 
 
 def test_validator_info_file_alias_field_valid(info):
@@ -154,12 +154,11 @@ def test_node_info_section(info, node):
     assert info['Node_info']['Mode']
     assert info['Node_info']['Name']
     assert info['Node_info']['Replicas_status']
-    assert info['Node_info']['Root_hashes']
-    assert info['Node_info']['Root_hashes'][0]
-    assert info['Node_info']['Root_hashes'][1]
-    assert info['Node_info']['Root_hashes'][2]
-    assert 'Uncommitted_root_hashes' in info['Node_info']
-    assert 'Uncommitted_txns' in info['Node_info']
+    assert "Committed_ledger_root_hashes" in info['Node_info']
+    assert "Committed_state_root_hashes" in info['Node_info']
+    assert "Uncommitted_ledger_root_hashes" in info['Node_info']
+    assert "Uncommitted_ledger_txns" in info['Node_info']
+    assert "Uncommitted_state_root_hashes" in info['Node_info']
     assert info['Node_info']['View_change_status']
     assert 'IC_queue'       in info['Node_info']['View_change_status']
     assert 'VCDone_queue'   in info['Node_info']['View_change_status']
@@ -206,7 +205,7 @@ def test_config_info_section(node):
 
 
 def test_extractions_section(node):
-    info = node._info_tool.additional_info
+    info = node._info_tool.info
     assert "journalctl_exceptions" in info["Extractions"]
     assert "indy-node_status" in info["Extractions"]
     assert "node-control status" in info["Extractions"]
