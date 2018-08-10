@@ -623,6 +623,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.view_changer.propagate_primary:
             for replica in self.replicas:
                 replica.clear_requests_and_fix_last_ordered()
+        self.monitor.reset()
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -1152,11 +1153,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        # do not process any client requests if view change is in progress
-        # TODO: process requests, but return a graceful Reject message, that can not process a message now because of
-        # View Change
-        if self.view_changer.view_change_in_progress:
-            return 0
         c = await self.clientstack.service(limit)
         self.metrics.add_event(MetricsName.CLIENT_STACK_MESSAGES_PROCESSED, c)
 
@@ -1826,10 +1822,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         If the message is a batch message validate each message in the batch,
         otherwise add the message to the node's clientInBox.
-
+        But node return a Nack message if View Change in progress
         :param msg: a client message
         :param frm: the name of the client that sent this `msg`
         """
+        if self.view_changer.view_change_in_progress:
+            self.send_nack_to_client((msg.get(f.REQ_ID.nm, None), idr_from_req_data(msg)),
+                                     "Client request is discarded since view "
+                                     "change is in progress", frm)
+            self.discard(msg,
+                         reason="view change in progress",
+                         logMethod=logger.debug)
+            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can
@@ -2510,6 +2514,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Move ahead only if the node has synchronized its state with other
         # nodes
         if not self.isParticipating:
+            return
+
+        if self.view_change_in_progress:
             return
 
         if not self._update_new_ordered_reqs_count():

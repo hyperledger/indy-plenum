@@ -147,6 +147,11 @@ checks that message has attribute `reqId` containing value `xz 42`
   - level: WARNING
   ```
   As with timestamp any of `min` or `max` can be omitted.
+- `source`: checks if message originates from given source file, which is
+  parameter for this matcher, for example:
+  ```yaml
+  - source: monitor.py
+  ```
 - `message`: checks if body of message matches given regex, which is 
   parameter for this matcher, for example:
   ```yaml
