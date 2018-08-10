@@ -1,61 +1,8 @@
-from random import uniform, gauss, choice
-from typing import Tuple, List
-
-import pytest
-from datetime import datetime, timedelta
+from random import gauss
 
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent
+from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp
 from storage.kv_store import KeyValueStorage
-from storage.kv_store_leveldb import KeyValueStorageLeveldb
-from storage.kv_store_rocksdb import KeyValueStorageRocksdb
-
-db_no = 0
-
-
-@pytest.yield_fixture(params=['rocksdb', 'leveldb'])
-def storage(request, tdir) -> KeyValueStorage:
-    global db_no
-    if request.param == 'leveldb':
-        db = KeyValueStorageLeveldb(tdir, 'metrics_ldb_{}'.format(db_no))
-    else:
-        db = KeyValueStorageRocksdb(tdir, 'metrics_rdb_{}'.format(db_no))
-    db_no += 1
-    yield db
-    db.close()
-
-
-def gen_metrics_name() -> MetricsName:
-    return choice(list(MetricsName))
-
-
-def gen_next_timestamp(prev=None) -> datetime:
-    def round_ts(ts: datetime) -> datetime:
-        us = round(ts.microsecond - 500, -3)
-        return ts.replace(microsecond=us)
-
-    if prev is None:
-        return round_ts(datetime.utcnow())
-
-    return round_ts(prev + timedelta(seconds=uniform(0.001, 10.0)))
-
-
-def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
-    ts = gen_next_timestamp(min_ts)
-    result = []
-    for _ in range(num):
-        ts = gen_next_timestamp(ts)
-        name = gen_metrics_name()
-        value = gauss(0.0, 100.0)
-        result += [MetricsEvent(ts, name, value)]
-    return result
-
-
-class MockTimestamp:
-    def __init__(self, value=datetime.utcnow()):
-        self.value = value
-
-    def __call__(self):
-        return self.value
 
 
 def test_kv_store_decode_restores_encoded_event():
