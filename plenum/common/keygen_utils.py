@@ -11,7 +11,8 @@ def initLocalKeys(name, keys_dir, sigseed, *, use_bls, override=False):
     pubkey, verkey = nodeStackClass.initLocalKeys(name, keys_dir, sigseed, override=override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
-    blspk, key_proof = init_bls_keys(keys_dir, name, sigseed) if use_bls else None
+    blspk, key_proof = init_bls_keys(keys_dir, name, sigseed) if use_bls \
+        else (None, None)
     return pubkey, verkey, blspk, key_proof
 
 

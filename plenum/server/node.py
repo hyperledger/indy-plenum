@@ -215,6 +215,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.addGenesisNyms()
 
         self.mode = None  # type: Optional[Mode]
+        self.poolManager.reqHandler.bls_crypto_verifier = \
+            self.bls_bft.bls_crypto_verifier
         self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
 
         self.nodeReg = self.poolManager.nodeReg

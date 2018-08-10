@@ -42,9 +42,6 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     def _reqToTxn(self, req: Request):
         return reqToTxn(req)
 
-    def verify_bls_key_proof_of_possession(self):
-        pass
-
     def apply(self, req: Request, cons_time: int):
         txn = self._reqToTxn(req)
 

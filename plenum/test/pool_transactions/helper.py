@@ -295,7 +295,7 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
         data['node_ip'] = nodeIp
     if nodePort is not None:
         data['node_port'] = nodePort
-    if bls_key is not None:
+    if key_proof is not None:
         data['blskey_pop'] = key_proof
     if bls_key is not None:
         data['blskey'] = bls_key
@@ -398,7 +398,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     return restartedNode
 
 
-def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verkey):
+def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
+                         verkey):
     _, steward_did = sdk_wallet_steward
     node_dest = hexToFriendly(node.nodestack.verhex)
     node_request = looper.loop.run_until_complete(
