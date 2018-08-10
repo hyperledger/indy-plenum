@@ -1,8 +1,67 @@
 from random import gauss
 
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent
-from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp
+from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp, \
+    MockMetricsCollector
 from storage.kv_store import KeyValueStorage
+
+
+def test_metrics_collector_dont_add_events_when_accumulating():
+    mc = MockMetricsCollector()
+
+    mc.acc_event(gen_metrics_name(), 3.0)
+
+    assert mc.events == []
+
+
+def test_metrics_collector_dont_add_events_when_flushing_empty():
+    mc = MockMetricsCollector()
+
+    mc.flush_accumulated()
+
+    assert mc.events == []
+
+
+def test_metrics_collector_adds_events_when_flushing_accumulated():
+    mc = MockMetricsCollector()
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+    mc.flush_accumulated()
+
+    assert len(mc.events) == 1
+    assert mc.events[0] == (MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+
+
+def test_metrics_collector_accumulate_same_events_into_one():
+    mc = MockMetricsCollector()
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 2.0)
+    mc.flush_accumulated()
+
+    assert len(mc.events) == 1
+    assert mc.events[0] == (MetricsName.THREE_PC_BATCH_SIZE, 5.0)
+
+
+def test_metrics_collector_separates_different_events():
+    mc = MockMetricsCollector()
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+    mc.acc_event(MetricsName.ORDERED_BATCH_SIZE, 2.0)
+    mc.flush_accumulated()
+
+    assert len(mc.events) == 2
+    assert (MetricsName.THREE_PC_BATCH_SIZE, 3.0) in mc.events
+    assert (MetricsName.ORDERED_BATCH_SIZE, 2.0) in mc.events
+
+
+def test_metrics_collector_resets_accumulated_after_flush():
+    mc = MockMetricsCollector()
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+    mc.flush_accumulated()
+    mc.acc_event(MetricsName.THREE_PC_BATCH_SIZE, 2.0)
+    mc.flush_accumulated()
+
+    assert len(mc.events) == 2
+    assert mc.events[0] == (MetricsName.THREE_PC_BATCH_SIZE, 3.0)
+    assert mc.events[1] == (MetricsName.THREE_PC_BATCH_SIZE, 2.0)
 
 
 def test_kv_store_decode_restores_encoded_event():

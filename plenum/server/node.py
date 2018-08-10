@@ -323,6 +323,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
+        self.startRepeating(self.flush_metrics, 1.0)
+
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
         # verification. Expressly prohibited from being in this is
@@ -2497,6 +2499,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         else:
             return False
+
+    def flush_metrics(self):
+        self.metrics.flush_accumulated()
 
     def checkPerformance(self) -> Optional[bool]:
         """

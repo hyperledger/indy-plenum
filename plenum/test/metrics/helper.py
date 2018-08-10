@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from random import choice, uniform, gauss
 from typing import List
 
-from plenum.common.metrics_collector import MetricsName, MetricsEvent
+from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsCollector
 from plenum.common.value_accumulator import ValueAccumulator
 
 
@@ -45,3 +45,12 @@ def _value_accumulator(values):
     for v in values:
         acc.add(v)
     return acc
+
+
+class MockMetricsCollector(MetricsCollector):
+    def __init__(self):
+        super().__init__()
+        self.events = []
+
+    def add_event(self, name: MetricsName, value: float):
+        self.events.append((name, value))

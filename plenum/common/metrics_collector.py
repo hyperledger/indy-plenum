@@ -2,11 +2,13 @@ import struct
 import time
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from contextlib import contextmanager
-from enum import IntEnum
+from enum import IntEnum, Enum
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple
 
+from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
 
@@ -53,14 +55,28 @@ class MetricsCollector(ABC):
     def add_event(self, name: MetricsName, value: float):
         pass
 
+    def __init__(self):
+        self._accumulators = defaultdict(ValueAccumulator)
+
+    def acc_event(self, name: MetricsName, value: float):
+        self._accumulators[name].add(value)
+
+    def flush_accumulated(self):
+        for name, value in self._accumulators.items():
+            self.add_event(name, value.sum)
+        self._accumulators.clear()
+
     @contextmanager
     def event_timing(self, name: MetricsName):
         start = time.perf_counter()
         yield
-        self.add_event(name, time.perf_counter() - start)
+        self.acc_event(name, time.perf_counter() - start)
 
 
 class NullMetricsCollector(MetricsCollector):
+    def __init__(self):
+        super().__init__()
+
     def add_event(self, name: MetricsName, value: float):
         pass
 
@@ -96,6 +112,7 @@ class KvStoreMetricsFormat:
 
 class KvStoreMetricsCollector(MetricsCollector):
     def __init__(self, storage: KeyValueStorage, ts_provider: Callable = datetime.utcnow):
+        super().__init__()
         self._storage = storage
         self._ts_provider = ts_provider
         self._seq_no = 0
