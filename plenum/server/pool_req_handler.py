@@ -31,10 +31,10 @@ class PoolRequestHandler(LedgerRequestHandler):
     def doStaticValidation(self, request: Request):
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
         blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
-        if request.txn_type == NODE and blskey_proof is not None and (
-                blskey is None or
-                not self._verify_bls_key_proof_of_possession(blskey,
-                                                             blskey_proof)):
+        if request.txn_type == NODE and blskey is not None and (
+                blskey_proof is None or
+                not self._verify_bls_key_proof_of_possession(blskey_proof,
+                                                             blskey)):
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "BLS key proof {} incorrect for key {}".
                                        format(blskey_proof, blskey))
