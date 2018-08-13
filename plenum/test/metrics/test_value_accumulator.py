@@ -1,7 +1,7 @@
 import statistics
+import struct
 
 from plenum.common.value_accumulator import ValueAccumulator
-from plenum.test.metrics.helper import _value_accumulator
 
 
 def test_value_accumulator_dont_return_anything_when_created():
@@ -73,13 +73,63 @@ def test_value_accumulator_eq_has_value_semantics():
 
 def test_value_accumulator_can_merge():
     values = [4.2, -1.3, 10.8]
-    acc = _value_accumulator(values)
+    acc = ValueAccumulator(values)
 
     other_values = [3.7, 7.6, -8.5]
-    other_acc = _value_accumulator(other_values)
+    other_acc = ValueAccumulator(other_values)
 
     all_values = values + other_values
-    all_acc = _value_accumulator(all_values)
+    all_acc = ValueAccumulator(all_values)
 
     acc.merge(other_acc)
     assert acc == all_acc
+
+
+def test_value_accumulator_can_be_stored_as_bytes():
+    values = [4.2, -1.3, 10.8]
+    acc = ValueAccumulator(values)
+
+    data = acc.to_bytes()
+    assert isinstance(data, bytes)
+
+    restored_acc = ValueAccumulator.from_bytes(data)
+    assert acc == restored_acc
+
+
+def test_value_accumulator_with_one_value_is_stored_as_single_float64():
+    acc = ValueAccumulator()
+    acc.add(4.2)
+
+    data = acc.to_bytes()
+    assert struct.unpack('d', data)[0] == 4.2
+
+    restored_acc = ValueAccumulator.from_bytes(data)
+    assert acc == restored_acc
+
+
+def test_value_accumulator_can_be_created_from_value():
+    reference = ValueAccumulator()
+    reference.add(4.2)
+
+    acc = ValueAccumulator(4.2)
+
+    assert acc == reference
+
+
+def test_value_accumulator_can_be_created_from_list():
+    reference = ValueAccumulator()
+    reference.add(4.2)
+    reference.add(1.3)
+
+    acc = ValueAccumulator([4.2, 1.3])
+
+    assert acc == reference
+
+
+def test_value_accumulator_is_convertible_to_float():
+    assert float(ValueAccumulator(4.2)) == 4.2
+
+
+def test_value_accumulator_can_be_compared_with_floats():
+    assert ValueAccumulator(4.2) == 4.2
+
