@@ -1941,7 +1941,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-        rh = self.get_req_handler(ledgerId)
+        typ = get_type(txn)
+        # Since a ledger can contain txns which can be processed by an arbitrary number of request handlers;
+        # ledger-to-request_handler is a one-to-many relationship
+        rh = self.get_req_handler(txn_type=typ)
         return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
