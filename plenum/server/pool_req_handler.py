@@ -29,14 +29,19 @@ class PoolRequestHandler(LedgerRequestHandler):
         self.bls_crypto_verifier = bls_crypto_verifier
 
     def doStaticValidation(self, request: Request):
+        if request.txn_type != NODE:
+            return
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
+        if blskey is None:
+            return
         blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
-        if request.txn_type == NODE and blskey is not None and (
-                blskey_proof is None or
-                not self._verify_bls_key_proof_of_possession(blskey_proof,
-                                                             blskey)):
+        if blskey_proof is None:
             raise InvalidClientRequest(request.identifier, request.reqId,
-                                       "BLS key proof {} incorrect for key {}".
+                                       "A Proof of possession must be provided with BLS key")
+        if not self._verify_bls_key_proof_of_possession(blskey_proof,
+                                                        blskey):
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Proof of possession {} is incorrect for BLS key {}".
                                        format(blskey_proof, blskey))
 
     def validate(self, req: Request, config=None):

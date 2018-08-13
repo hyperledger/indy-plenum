@@ -3,6 +3,8 @@ import pytest
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
     BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
+from indy_crypto import IndyCryptoError
+from indy_crypto.error import ErrorCode
 
 
 @pytest.fixture()
@@ -77,15 +79,19 @@ def test_generate_keys_str_seed(default_params, seed, bls_verifier):
     assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
-def test_generate_keys_bytes_seed(default_params, seed, bls_verifier):
+def test_generate_keys_with_incorrect_seed(default_params):
+    seed_len = 40
+    incorrect_seed = 'Seed' + '0' * (seed_len - len('Seed'))
+    with pytest.raises(IndyCryptoError) as e:
+        BlsCryptoSignerIndyCrypto.generate_keys(default_params, incorrect_seed)
+        assert e.error_code == ErrorCode.CommonInvalidStructure
+
+
+def test_verify_incorrect_keys(default_params, seed, bls_verifier):
     seed = seed.encode()
     sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
-    assert sk
-    assert isinstance(sk, str)
-    assert pk
-    assert isinstance(pk, str)
-    assert sk != pk
-    assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
+    key_proof = key_proof.upper()
+    assert not bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_generate_keys_str_seed_32bit_for_nodes(default_params):

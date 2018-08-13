@@ -43,11 +43,6 @@ def test_add_node_with_invalid_key_proof(looper,
     # waitng for replies
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert "BLS key proof {} incorrect for key {}".format(key_proof, bls_key) \
+    assert "Proof of possession {} is incorrect for BLS key {}".format(key_proof,
+                                                                       bls_key) \
            in e._excinfo[1].args[0]
-
-    return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
-                                     (nodeIp, nodePort), (clientIp, clientPort),
-                                     tconf, None, allPluginsPath,
-                                     TestNode,
-                                     configClass=PNodeConfigHelper)

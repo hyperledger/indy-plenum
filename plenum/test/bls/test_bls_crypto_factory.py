@@ -31,6 +31,8 @@ def test_create_and_store_bls_keys(bls_crypto_factory):
     pk, key_proof = bls_crypto_factory.generate_and_store_bls_keys()
     assert pk
     assert isinstance(pk, str)
+    assert not bls_crypto_factory.bls_verifier\
+        .verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_create_bls_keys(bls_crypto_factory):
@@ -39,6 +41,8 @@ def test_create_bls_keys(bls_crypto_factory):
     assert sk
     assert isinstance(sk, str)
     assert isinstance(pk, str)
+    assert not bls_crypto_factory.bls_verifier\
+        .verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_create_and_store_bls_keys_multiple(bls_crypto_factory):
@@ -46,6 +50,7 @@ def test_create_and_store_bls_keys_multiple(bls_crypto_factory):
     pk2, key_proof2 = bls_crypto_factory.generate_and_store_bls_keys()
     pk3, key_proof3 = bls_crypto_factory.generate_and_store_bls_keys()
     assert pk1 != pk2 != pk3
+    assert key_proof1 != key_proof2 != key_proof3
 
 
 def test_create_bls_keys_multiple(bls_crypto_factory):
