@@ -40,17 +40,12 @@ class MockTimestamp:
         return self.value
 
 
-def _value_accumulator(values):
-    acc = ValueAccumulator()
-    for v in values:
-        acc.add(v)
-    return acc
-
-
 class MockMetricsCollector(MetricsCollector):
     def __init__(self):
         super().__init__()
         self.events = []
 
     def add_event(self, name: MetricsName, value: float):
+        if isinstance(value, ValueAccumulator):
+            value = value.sum
         self.events.append((name, value))

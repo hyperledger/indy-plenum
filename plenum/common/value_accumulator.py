@@ -72,12 +72,7 @@ class ValueAccumulator:
         return "{} samples, {:.2f} sum, {:.2f}/{:.2f}/{:.2f} min/avg/max, {:.2f} stddev". \
             format(self.count, self.sum, self.min, self.avg, self.max, self.stddev)
 
-    def __float__(self):
-        return self._sum
-
     def __eq__(self, other):
-        if isinstance(other, Number):
-            other = ValueAccumulator(other)
         if not isinstance(other, ValueAccumulator):
             return False
         if self._count != other._count:

@@ -2,7 +2,7 @@ import math
 from collections import defaultdict
 from copy import copy
 from datetime import datetime, timedelta
-from typing import Sequence
+from typing import Sequence, Union
 
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsFormat
 from plenum.common.value_accumulator import ValueAccumulator
@@ -21,8 +21,11 @@ class MetricsStatsFrame:
     def __init__(self):
         self._stats = defaultdict(ValueAccumulator)
 
-    def add(self, id: MetricsName, value: float):
-        self._stats[id].add(value)
+    def add(self, id: MetricsName, value: Union[float, ValueAccumulator]):
+        if isinstance(value, ValueAccumulator):
+            self._stats[id].merge(value)
+        else:
+            self._stats[id].add(value)
 
     def get(self, id: MetricsName) -> ValueAccumulator:
         return self._stats[id]
@@ -46,7 +49,7 @@ class MetricsStats:
         self._frames = defaultdict(MetricsStatsFrame)
         self._total = None
 
-    def add(self, ts: datetime, name: MetricsName, value: float):
+    def add(self, ts: datetime, name: MetricsName, value: Union[float, ValueAccumulator]):
         ts = trunc_ts(ts, self._timestep)
         self._frames[ts].add(name, value)
         self._total = None

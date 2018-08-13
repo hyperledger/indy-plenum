@@ -4,9 +4,9 @@ import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
-from enum import IntEnum, Enum
+from enum import IntEnum
 from datetime import datetime, timezone
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Union
 
 from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
@@ -47,12 +47,13 @@ class MetricsName(IntEnum):
     SERVICE_CLIENT_STACK_TIME = 111
 
 
-MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])
+MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
+                                           ('value', Union[float, ValueAccumulator])])
 
 
 class MetricsCollector(ABC):
     @abstractmethod
-    def add_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
     def __init__(self):
@@ -63,7 +64,7 @@ class MetricsCollector(ABC):
 
     def flush_accumulated(self):
         for name, value in self._accumulators.items():
-            self.add_event(name, value.sum)
+            self.add_event(name, value)
         self._accumulators.clear()
 
     @contextmanager
@@ -77,7 +78,7 @@ class NullMetricsCollector(MetricsCollector):
     def __init__(self):
         super().__init__()
 
-    def add_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
 
@@ -98,7 +99,11 @@ class KvStoreMetricsFormat:
     @staticmethod
     def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
         key = KvStoreMetricsFormat.encode_key(event.timestamp, seq_no)
-        value = event.name.to_bytes(32, byteorder='big', signed=False) + struct.pack('d', event.value)
+        value = event.name.to_bytes(32, byteorder='big', signed=False)
+        if isinstance(event.value, ValueAccumulator):
+            value += event.value.to_bytes()
+        else:
+            value += struct.pack('d', event.value)
         return key, value
 
     @staticmethod
@@ -106,7 +111,11 @@ class KvStoreMetricsFormat:
         key = int.from_bytes(key, byteorder='big', signed=False)
         ts = datetime.utcfromtimestamp((key >> KvStoreMetricsFormat.seq_bits) / 1000000.0)
         name = MetricsName(int.from_bytes(value[:32], byteorder='big', signed=False))
-        value = struct.unpack('d', value[32:])[0]
+        data = value[32:]
+        if len(data) == 8:
+            value = struct.unpack('d', data)[0]
+        else:
+            value = ValueAccumulator.from_bytes(data)
         return MetricsEvent(ts, name, value)
 
 
@@ -120,7 +129,7 @@ class KvStoreMetricsCollector(MetricsCollector):
     def close(self):
         self._storage.close()
 
-    def add_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         if self._storage.closed:
             return
 

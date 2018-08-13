@@ -124,12 +124,3 @@ def test_value_accumulator_can_be_created_from_list():
     acc = ValueAccumulator([4.2, 1.3])
 
     assert acc == reference
-
-
-def test_value_accumulator_is_convertible_to_float():
-    assert float(ValueAccumulator(4.2)) == 4.2
-
-
-def test_value_accumulator_can_be_compared_with_floats():
-    assert ValueAccumulator(4.2) == 4.2
-

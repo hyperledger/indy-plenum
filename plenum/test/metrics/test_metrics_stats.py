@@ -4,7 +4,7 @@ from random import shuffle
 from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricsName
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
-from plenum.test.metrics.helper import _value_accumulator, generate_events, MockTimestamp
+from plenum.test.metrics.helper import generate_events, MockTimestamp
 
 
 def _metrics_stats_frame(events):
@@ -48,8 +48,8 @@ def test_metrics_stats_frame_can_add_values():
     for id, value in events:
         frame.add(id, value)
 
-    assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == _value_accumulator(events_transport_batch_size)
-    assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == _value_accumulator(events_looper_run_time_spent)
+    assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == ValueAccumulator(events_transport_batch_size)
+    assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == ValueAccumulator(events_looper_run_time_spent)
     assert frame.get(MetricsName.THREE_PC_BATCH_SIZE) == ValueAccumulator()
 
 
