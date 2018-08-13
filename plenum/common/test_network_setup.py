@@ -130,7 +130,7 @@ class TestNetworkSetup:
         seq_no = 1
         for nd in node_defs:
             if nd.idx in _localNodes:
-                _, verkey, blskey, _ = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
+                _, verkey, blskey, key_proof = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
