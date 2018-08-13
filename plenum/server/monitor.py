@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from statistics import mean
+from statistics import mean, median_low, median, median_high
 from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
@@ -71,7 +71,7 @@ class LatencyMeasurement:
     def __init__(self, min_latency_count=10):
         self.min_latency_count = min_latency_count
         # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latencies = {}    # type: Dict(str, (int, float))
+        self.avg_latencies = {}    # type: Dict[str, (int, float)]
         # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
         self.alpha = 1 / (self.min_latency_count + 1)
 
@@ -564,15 +564,26 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         # Average backup replica's throughput
         if len(self.throughputs) > 1:
-            perf_time = time.perf_counter()
             thrs = []
             for instId, thr_obj in enumerate(self.throughputs):
                 if instId != masterInstId:
-                    thr = thr_obj.get_throughput(perf_time)
+                    thr = self.getThroughput(instId)
                     if thr is not None:
                         thrs.append(thr)
-            backupThrp = sum(thrs) / len(thrs) if thrs else None
-
+            if thrs:
+                low_thr = median_low(thrs)
+                medium_thr = median(thrs)
+                high_thr = median_high(thrs)
+                if masterThrp / low_thr > self.Delta:
+                    backupThrp = low_thr
+                elif masterThrp / medium_thr > self.Delta:
+                    backupThrp = medium_thr
+                elif masterThrp / high_thr > self.Delta:
+                    backupThrp = high_thr
+                else:
+                    backupThrp = medium_thr
+            else:
+                backupThrp = None
         else:
             backupThrp = None
         if masterThrp == 0:
