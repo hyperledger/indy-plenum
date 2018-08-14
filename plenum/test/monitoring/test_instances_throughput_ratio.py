@@ -6,9 +6,6 @@ import pytest
 from plenum.server.monitor import ThroughputMeasurement
 
 
-TM_WINDOW_SIZE = 15
-
-
 class ReqStream:
     Period = namedtuple('Period', ['start', 'interval', 'quantity'])
     Once = namedtuple('Once', ['time', 'quantity'])
@@ -105,7 +102,7 @@ class ReqStream:
                              .stop(t=4 * 60 * 60)
                              .build()]
                  + [ReqStream().period(s=0, i=1, q=11)
-                               .stop(t=4 * 60 * 60 + 20 * TM_WINDOW_SIZE)
+                               .stop(t=4 * 60 * 60 + 5 * 60)
                                .build()
                     for inst_id in range(1, 9)],
                  True,
@@ -137,7 +134,12 @@ class ReqStream:
 def test_instances_throughput_ratio(inst_req_streams,
                                     expected_is_master_degraded,
                                     tconf):
+
     # print('DELTA = {}'.format(tconf.DELTA))
+    # print('ThroughputInnerWindowSize = {}'
+    #       .format(tconf.ThroughputInnerWindowSize))
+    # print('ThroughputMinActivityThreshold = {}'
+    #       .format(tconf.ThroughputMinActivityThreshold))
     # print('Max3PCBatchSize = {}'.format(tconf.Max3PCBatchSize))
     # print('Max3PCBatchWait = {}'.format(tconf.Max3PCBatchWait))
 
@@ -162,7 +164,8 @@ def test_instances_throughput_ratio(inst_req_streams,
     # Calculate throughput after the latest request ordering plus
     # the window size to take into account all the requests in calculation
     for tm in inst_tms:
-        inst_throughput.append(tm.get_throughput(max_end_ts + TM_WINDOW_SIZE))
+        inst_throughput.append(
+            tm.get_throughput(max_end_ts + tconf.ThroughputInnerWindowSize))
 
     master_throughput = inst_throughput[0]
     backups_throughput = inst_throughput[1:]
