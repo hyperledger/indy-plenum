@@ -1,8 +1,7 @@
 import pytest
 
-from indy_common.constants import NODE
 from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, \
-    DATA
+    DATA, NODE
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.test.pool_transactions.helper import prepare_new_node_data
