@@ -126,7 +126,7 @@ def test_instances_throughput_ratio(inst_req_streams, is_master_degraded,
         inst_tms.append(tm)
 
     inst_throughput = []
-    # Calculate throughput after the latest request reception plus
+    # Calculate throughput after the latest request ordering plus
     # the window size to take into account all the requests in calculation
     for tm in inst_tms:
         inst_throughput.append(tm.get_throughput(max_end_ts + TM_WINDOW_SIZE))
