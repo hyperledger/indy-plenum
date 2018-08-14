@@ -1,17 +1,10 @@
-import base58
 import pytest
 
-from common.serializers.serialization import state_roots_serializer
-from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
-    BlsCryptoSignerIndyCrypto
 from indy_common.constants import NODE
-from plenum.common.constants import VALIDATOR, BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, \
+from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, \
     DATA
-from plenum.common.exceptions import RequestNackedException, \
-    InvalidClientRequest
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
-from plenum.common.util import get_utc_epoch
 from plenum.test.pool_transactions.helper import prepare_new_node_data
 from stp_core.types import Identifier
 
