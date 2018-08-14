@@ -13,25 +13,43 @@ from storage.kv_store import KeyValueStorage
 
 
 class MetricsName(IntEnum):
-    NODE_STACK_MESSAGES_PROCESSED = 0      # Number of node stack messages processed in one looper run
-    CLIENT_STACK_MESSAGES_PROCESSED = 1    # Number of client stack messages processed in one looper run
-    LOOPER_RUN_TIME_SPENT = 2              # Seconds passed between looper runs
-    THREE_PC_BATCH_SIZE = 3                # Number of requests in one 3PC batch
-    TRANSPORT_BATCH_SIZE = 4               # Number of messages in one tranport batch
-    OUTGOING_NODE_MESSAGE_SIZE = 5         # Outgoing node message size, bytes
-    INCOMING_NODE_MESSAGE_SIZE = 6         # Incoming node message size, bytes
-    OUTGOING_CLIENT_MESSAGE_SIZE = 7       # Outgoing client message size, bytes
-    INCOMING_CLIENT_MESSAGE_SIZE = 8       # Incoming client message size, bytes
-    ORDERED_BATCH_SIZE = 9                 # Number of requests ordered
-    REQUEST_PROCESSING_TIME = 10           # Time spent on requests processing (including dynamic validation)
-    MASTER_3PC_BATCH_SIZE = 11             # Number of requests in one 3PC batch created on master instance
-    MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
-    MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
+    # Number of node stack messages processed in one looper run
+    NODE_STACK_MESSAGES_PROCESSED = 0
+    # Number of client stack messages processed in one looper run
+    CLIENT_STACK_MESSAGES_PROCESSED = 1
+    # Seconds passed between looper runs
+    LOOPER_RUN_TIME_SPENT = 2
+    # Number of requests in one 3PC batch
+    THREE_PC_BATCH_SIZE = 3
+    # Number of messages in one tranport batch
+    TRANSPORT_BATCH_SIZE = 4
+    # Outgoing node message size, bytes
+    OUTGOING_NODE_MESSAGE_SIZE = 5
+    # Incoming node message size, bytes
+    INCOMING_NODE_MESSAGE_SIZE = 6
+    # Outgoing client message size, bytes
+    OUTGOING_CLIENT_MESSAGE_SIZE = 7
+    # Incoming client message size, bytes
+    INCOMING_CLIENT_MESSAGE_SIZE = 8
+    # Number of requests ordered
+    ORDERED_BATCH_SIZE = 9
+    # Time spent on requests processing (including dynamic validation)
+    REQUEST_PROCESSING_TIME = 10
+    # Number of requests in one 3PC batch created on master instance
+    MASTER_3PC_BATCH_SIZE = 11
+    # Number of requests ordered on master instance
+    MASTER_ORDERED_BATCH_SIZE = 12
+    # Time spent on requests processing on master instance
+    MASTER_REQUEST_PROCESSING_TIME = 13
 
-    MONITOR_AVG_THROUGHPUT = 20            # Average throughput measured by monitor
-    MONITOR_AVG_LATENCY = 21               # Average latency measured by monitor
-    MASTER_MONITOR_AVG_THROUGHPUT = 22     # Average throughput measured by monitor on master instance
-    MASTER_MONITOR_AVG_LATENCY = 23        # Average latency measured by monitor on master instance
+    # Average throughput measured by monitor
+    MONITOR_AVG_THROUGHPUT = 20
+    # Average latency measured by monitor
+    MONITOR_AVG_LATENCY = 21
+    # Average throughput measured by monitor on master instance
+    MASTER_MONITOR_AVG_THROUGHPUT = 22
+    # Average latency measured by monitor on master instance
+    MASTER_MONITOR_AVG_LATENCY = 23
 
     NODE_PROD_TIME = 100
     SERVICE_REPLICAS_TIME = 101
@@ -45,6 +63,7 @@ class MetricsName(IntEnum):
     FLUSH_OUTBOXES_TIME = 109
     SERVICE_NODE_LIFECYCLE_TIME = 110
     SERVICE_CLIENT_STACK_TIME = 111
+    SERVICE_MONITOR_ACTIONS_TIME = 112
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
@@ -68,10 +87,34 @@ class MetricsCollector(ABC):
         self._accumulators.clear()
 
     @contextmanager
-    def event_timing(self, name: MetricsName):
+    def measure_time(self, name: MetricsName):
         start = time.perf_counter()
         yield
         self.acc_event(name, time.perf_counter() - start)
+
+
+def measure_time(name: MetricsName, attr='metrics'):
+    def decorator(f):
+        def wrapper(self, *args, **kwargs):
+            metrics = getattr(self, attr)
+            with metrics.measure_time(name):
+                return f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def async_measure_time(name: MetricsName, attr='metrics'):
+    def decorator(f):
+        async def wrapper(self, *args, **kwargs):
+            metrics = getattr(self, attr)
+            with metrics.measure_time(name):
+                return await f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class NullMetricsCollector(MetricsCollector):

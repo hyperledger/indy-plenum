@@ -1,6 +1,10 @@
+import asyncio
 from random import gauss
 
-from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent
+import time
+
+from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent, \
+    measure_time, async_measure_time
 from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp, \
     MockMetricsCollector
 from storage.kv_store import KeyValueStorage
@@ -62,6 +66,65 @@ def test_metrics_collector_resets_accumulated_after_flush():
     assert len(mc.events) == 2
     assert mc.events[0] == (MetricsName.THREE_PC_BATCH_SIZE, 3.0)
     assert mc.events[1] == (MetricsName.THREE_PC_BATCH_SIZE, 2.0)
+
+
+def test_metrics_collector_measures_time():
+    mc = MockMetricsCollector()
+    with mc.measure_time(MetricsName.LOOPER_RUN_TIME_SPENT):
+        time.sleep(0.1)
+    assert len(mc.events) == 0
+
+    mc.flush_accumulated()
+
+    assert len(mc.events) == 1
+    assert mc.events[0][0] == MetricsName.LOOPER_RUN_TIME_SPENT
+    assert abs(mc.events[0][1] - 0.1) < 0.001  # we want at least 1 ms precision
+
+
+def test_measure_time_decorator():
+    class Example:
+        def __init__(self, metrics):
+            self.metrics = metrics
+            self.data = 2
+
+        @measure_time(MetricsName.LOOPER_RUN_TIME_SPENT)
+        def slow_add(self, a, b):
+            time.sleep(0.1)
+            return self.data + a + b
+
+    mc = MockMetricsCollector()
+    e = Example(mc)
+    r = e.slow_add(1, 3)
+    assert len(mc.events) == 0
+    assert r == 6
+
+    mc.flush_accumulated()
+    assert len(mc.events) == 1
+    assert mc.events[0][0] == MetricsName.LOOPER_RUN_TIME_SPENT
+    assert abs(mc.events[0][1] - 0.1) < 0.001  # we want at least 1 ms precision
+
+
+def test_async_measure_time_decorator(looper):
+    class Example:
+        def __init__(self, metrics):
+            self.metrics = metrics
+            self.data = 2
+
+        @async_measure_time(MetricsName.LOOPER_RUN_TIME_SPENT)
+        async def slow_add(self, a, b):
+            await asyncio.sleep(0.1)
+            return self.data + a + b
+
+    mc = MockMetricsCollector()
+    e = Example(mc)
+    r = looper.loop.run_until_complete(e.slow_add(1, 3))
+    assert len(mc.events) == 0
+    assert r == 6
+
+    mc.flush_accumulated()
+    assert len(mc.events) == 1
+    assert mc.events[0][0] == MetricsName.LOOPER_RUN_TIME_SPENT
+    assert abs(mc.events[0][1] - 0.1) < 0.005  # we want at least 5 ms precision
 
 
 def test_kv_store_decode_restores_encoded_event():
@@ -135,4 +198,3 @@ def test_kv_store_metrics_collector_store_all_events_with_same_timestamp(storage
     # Check that all events stored were in source events
     for ev in events:
         assert ev.value in values
-

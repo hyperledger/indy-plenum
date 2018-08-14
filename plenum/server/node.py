@@ -12,7 +12,8 @@ from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
-from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName
+from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
+    async_measure_time
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
@@ -1092,35 +1093,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.last_prod_started = time.perf_counter()
 
         # TODO: Implement decorators for measuring timings of normal and async functions
-        with self.metrics.event_timing(MetricsName.NODE_PROD_TIME):
+        with self.metrics.measure_time(MetricsName.NODE_PROD_TIME):
             if self.status is not Status.stopped:
-                with self.metrics.event_timing(MetricsName.SERVICE_REPLICAS_TIME):
-                    c += await self.serviceReplicas(limit)
-                with self.metrics.event_timing(MetricsName.SERVICE_NODE_MSGS_TIME):
-                    c += await self.serviceNodeMsgs(limit)
-                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_MSGS_TIME):
-                    c += await self.serviceClientMsgs(limit)
-                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                c += await self.serviceReplicas(limit)
+                c += await self.serviceNodeMsgs(limit)
+                c += await self.serviceClientMsgs(limit)
+                with self.metrics.measure_time(MetricsName.SERVICE_ACTIONS_TIME):
                     c += self._serviceActions()
-                with self.metrics.event_timing(MetricsName.SERVICE_LEDGER_MANAGER_TIME):
+                with self.metrics.measure_time(MetricsName.SERVICE_LEDGER_MANAGER_TIME):
                     c += self.ledgerManager.service()
-                with self.metrics.event_timing(MetricsName.SERVICE_ACTIONS_TIME):
+                with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                     c += self.monitor._serviceActions()
-                with self.metrics.event_timing(MetricsName.SERVICE_VIEW_CHANGER_TIME):
-                    c += await self.serviceViewChanger(limit)
-                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVABLE_TIME):
-                    c += await self.service_observable(limit)
-                with self.metrics.event_timing(MetricsName.SERVICE_OBSERVER_TIME):
-                    c += await self.service_observer(limit)
-                with self.metrics.event_timing(MetricsName.FLUSH_OUTBOXES_TIME):
+                c += await self.serviceViewChanger(limit)
+                c += await self.service_observable(limit)
+                c += await self.service_observer(limit)
+                with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                     self.nodestack.flushOutBoxes()
             if self.isGoing():
-                with self.metrics.event_timing(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
                     self.nodestack.serviceLifecycle()
-                with self.metrics.event_timing(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
                     self.clientstack.serviceClientStack()
         return c
 
+    @async_measure_time(MetricsName.SERVICE_REPLICAS_TIME)
     async def serviceReplicas(self, limit) -> int:
         """
         Processes messages from replicas outbox and gives it time
@@ -1133,6 +1129,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
 
+    @async_measure_time(MetricsName.SERVICE_NODE_MSGS_TIME)
     async def serviceNodeMsgs(self, limit: int) -> int:
         """
         Process `limit` number of messages from the nodeInBox.
@@ -1146,6 +1143,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processNodeInBox()
         return n
 
+    @async_measure_time(MetricsName.SERVICE_CLIENT_MSGS_TIME)
     async def serviceClientMsgs(self, limit: int) -> int:
         """
         Process `limit` number of messages from the clientInBox.
@@ -1164,6 +1162,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
+    @async_measure_time(MetricsName.SERVICE_VIEW_CHANGER_TIME)
     async def serviceViewChanger(self, limit) -> int:
         """
         Service the view_changer's inBox, outBox and action queues.
@@ -1178,6 +1177,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         a = self.view_changer._serviceActions()
         return o + i + a
 
+    @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
         """
         Service the observable's inBox and outBox
@@ -1211,6 +1211,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendToNodes(msg, observer_ids)
         return msg_count
 
+    @async_measure_time(MetricsName.SERVICE_OBSERVER_TIME)
     async def service_observer(self, limit) -> int:
         """
         Service the observer's inBox and outBox
