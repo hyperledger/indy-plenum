@@ -1,3 +1,5 @@
+from statistics import median_high
+
 import pytest
 
 from plenum.test.helper import get_key_from_req
@@ -41,8 +43,8 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
 def testClientLatencyThreshold(looper, txnPoolNodeSet, requests):
     rq = requests[0]
     for node in txnPoolNodeSet:
-        latc = node.monitor.getAvgLatency(
+        latc = node.monitor.getLatencies(
             node.instances.masterId)[rq['identifier']]
-        avglat = node.monitor.getAvgLatency(
+        avglat = node.monitor.getLatencies(
             *node.instances.backupIds)[rq['identifier']]
-        assert latc - avglat <= node.monitor.Omega
+        assert latc[0] - median_high(avglat) <= node.monitor.Omega

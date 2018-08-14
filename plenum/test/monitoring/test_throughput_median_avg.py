@@ -60,12 +60,21 @@ def test_medium_median(fake_monitor, tconf):
 
 def test_high_median(fake_monitor, tconf):
     monitor = fake_monitor
-    # Filling for case, when the most os backup throughputs a similar with master,
+    # Filling for case, when the most of backup throughputs a similar with master,
     # but there is a some very big values
-    # Case is [100, 1000, 120, 120, 10000]
+    # Case is [100, 1, 120, 120, 1]
     monitor.throughputs[0].throughput = 100
-    monitor.throughputs[1].throughput = 1000
-    monitor.throughputs[-1].throughput = 10000
+    monitor.throughputs[1].throughput = 1
+    monitor.throughputs[-1].throughput = 1
     for i in range(2, NUM_OF_REPLICAS - 1):
         monitor.throughputs[i].throughput = 120
     assert monitor.masterThroughputRatio() > tconf.DELTA
+
+
+def test_triggering_view_change(fake_monitor, tconf):
+    monitor = fake_monitor
+    # Filling for case, when the all of backup throughputs are higher, then for master
+    monitor.throughputs[0].throughput = 100
+    for i in range(1, NUM_OF_REPLICAS):
+        monitor.throughputs[i].throughput = 1001
+    assert monitor.masterThroughputRatio() < tconf.DELTA
