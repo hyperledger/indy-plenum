@@ -1,6 +1,7 @@
 import math
 import struct
-from numbers import Number
+from numbers import Real
+from typing import List, Union
 
 
 def _min_with_none(a, b):
@@ -18,14 +19,8 @@ def _max_with_none(a, b):
 
 
 class ValueAccumulator:
-    def __init__(self, value=None):
-        if value is None:
-            self._count = 0
-            self._sum = 0
-            self._sumsq = 0
-            self._min = None
-            self._max = None
-        elif isinstance(value, Number):
+    def __init__(self, value: Union[Real, List[Real]] = []):
+        if isinstance(value, Real):
             self._count = 1
             self._sum = value
             self._sumsq = value * value
@@ -34,7 +29,7 @@ class ValueAccumulator:
         else:
             self._count = len(value)
             self._sum = sum(value)
-            self._sumsq = sum(v**2 for v in value)
+            self._sumsq = sum(v ** 2 for v in value)
             self._min = min(value) if value else None
             self._max = max(value) if value else None
 
