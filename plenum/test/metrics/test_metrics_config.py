@@ -14,24 +14,6 @@ def tconf(tconf):
         tconf.METRICS_COLLECTOR_TYPE = old_type
 
 
-def check_metrics_data(storage):
-    events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
-
-    # Check that metrics are actually written
-    assert len(events) > 0
-
-    # Check that all events are stored in correct order
-    assert sorted(events, key=lambda v: v.timestamp) == events
-
-    # Check that all event types happened during test
-    metric_names = {ev.name for ev in events}
-    for t in MetricsName:
-        if t in [MetricsName.MONITOR_AVG_THROUGHPUT,
-                 MetricsName.MASTER_MONITOR_AVG_THROUGHPUT]:
-            continue
-        assert t in metric_names
-
-
 def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_client):
     total_time = 1.5 * tconf.PerfCheckFreq
     total_iters = 5
@@ -47,4 +29,38 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
                                       tconf.METRICS_KV_DB_NAME,
                                       read_only=True)
 
-        check_metrics_data(storage)
+        events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
+
+        # Check that metrics are actually written
+        assert len(events) > 0
+
+        # Check that all events are stored in correct order
+        assert sorted(events, key=lambda v: v.timestamp) == events
+
+        # We don't expect some events in this test
+        unexpected_events = {
+            MetricsName.PROCESS_CHECKPOINT_TIME,
+            MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME,
+            MetricsName.PROCESS_CONSISTENCY_PROOF_TIME,
+            MetricsName.PROCESS_CATCHUP_REQ_TIME,
+            MetricsName.PROCESS_CATCHUP_REP_TIME,
+
+            # TODO: reduce monitor window so these events are also captured
+            MetricsName.MONITOR_AVG_THROUGHPUT,
+            MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT
+        }
+
+        # Don't expect some metrics from master primary
+        if node.master_replica.isPrimary:
+            unexpected_events.add(MetricsName.PROCESS_PREPREPARE_TIME)
+
+        # Don't expect some metrics from backup primary
+        if node.replicas.num_replicas == 2 and node.replicas[1].isPrimary:
+            unexpected_events.add(MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
+
+        # Check that all event types happened during test
+        metric_names = {ev.name for ev in events}
+        for t in MetricsName:
+            if t in unexpected_events:
+                continue
+            assert t in metric_names

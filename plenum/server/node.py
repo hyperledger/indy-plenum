@@ -13,7 +13,7 @@ from intervaltree import IntervalTree
 from common.exceptions import LogicError
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time
+    async_measure_time, measure_time
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from state.pruning_state import PruningState
 from state.state import State
@@ -248,7 +248,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Propagator.__init__(self)
 
-        MessageReqProcessor.__init__(self)
+        MessageReqProcessor.__init__(self, metrics=self.metrics)
 
         self.view_changer = view_changer
         self.primaryDecider = primaryDecider
@@ -828,7 +828,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
                              preCatchupClbk=self.preLedgerCatchUp,
                              postCatchupClbk=self.postLedgerCatchUp,
-                             ledger_sync_order=ledger_sync_order)
+                             ledger_sync_order=ledger_sync_order,
+                             metrics=self.metrics)
 
     def init_ledger_manager(self):
         self._add_pool_ledger()
@@ -1078,6 +1079,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.elector = None
         self.view_changer = None
 
+    @async_measure_time(MetricsName.NODE_PROD_TIME)
     async def prod(self, limit: int=None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
@@ -1092,28 +1094,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
         self.last_prod_started = time.perf_counter()
 
-        # TODO: Implement decorators for measuring timings of normal and async functions
-        with self.metrics.measure_time(MetricsName.NODE_PROD_TIME):
-            if self.status is not Status.stopped:
-                c += await self.serviceReplicas(limit)
-                c += await self.serviceNodeMsgs(limit)
-                c += await self.serviceClientMsgs(limit)
-                with self.metrics.measure_time(MetricsName.SERVICE_ACTIONS_TIME):
-                    c += self._serviceActions()
-                with self.metrics.measure_time(MetricsName.SERVICE_LEDGER_MANAGER_TIME):
-                    c += self.ledgerManager.service()
-                with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
-                    c += self.monitor._serviceActions()
-                c += await self.serviceViewChanger(limit)
-                c += await self.service_observable(limit)
-                c += await self.service_observer(limit)
-                with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
-                    self.nodestack.flushOutBoxes()
-            if self.isGoing():
-                with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
-                    self.nodestack.serviceLifecycle()
-                with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
-                    self.clientstack.serviceClientStack()
+        if self.status is not Status.stopped:
+            c += await self.serviceReplicas(limit)
+            c += await self.serviceNodeMsgs(limit)
+            c += await self.serviceClientMsgs(limit)
+            with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
+                c += self._serviceActions()
+            c += self.ledgerManager.service()
+            with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
+                c += self.monitor._serviceActions()
+            c += await self.serviceViewChanger(limit)
+            c += await self.service_observable(limit)
+            c += await self.service_observer(limit)
+            with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
+                self.nodestack.flushOutBoxes()
+        if self.isGoing():
+            with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                self.nodestack.serviceLifecycle()
+            with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                self.clientstack.serviceClientStack()
+
         return c
 
     @async_measure_time(MetricsName.SERVICE_REPLICAS_TIME)
@@ -2289,6 +2289,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          str(ex)), frm)
 
     # noinspection PyUnusedLocal
+    @measure_time(MetricsName.PROCESS_PROPAGATE_TIME)
     def processPropagate(self, msg: Propagate, frm):
         """
         Process one propagateRequest sent to this node asynchronously
@@ -2529,17 +2530,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             master_throughput, backup_throughput = self.monitor.getThroughputs(0)
             if master_throughput is not None:
-                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_THROUGHPUT, master_throughput)
+                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, master_throughput)
             if backup_throughput is not None:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, backup_throughput)
+                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
 
             master_latencies = self.monitor.getAvgLatency(self.instances.masterId).values()
             if len(master_latencies) > 0:
-                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(master_latencies))
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(master_latencies))
 
             backup_latencies = self.monitor.getAvgLatency(*self.instances.backupIds).values()
             if len(backup_latencies) > 0:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(backup_latencies))
+                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, mean(backup_latencies))
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))

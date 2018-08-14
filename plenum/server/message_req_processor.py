@@ -3,6 +3,7 @@ from typing import Dict, List
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, PREPARE, COMMIT
 from plenum.common.messages.node_messages import MessageReq, MessageRep
+from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.types import f
 from stp_core.common.log import getlogger
 from plenum.server.message_handlers import LedgerStatusHandler, \
@@ -14,7 +15,8 @@ logger = getlogger()
 
 class MessageReqProcessor:
     # This is a mixin, it's mixed with node.
-    def __init__(self):
+    def __init__(self, metrics=NullMetricsCollector):
+        self.metrics = metrics
         self.handlers = {
             LEDGER_STATUS: LedgerStatusHandler(self),
             CONSISTENCY_PROOF: ConsistencyProofHandler(self),
@@ -24,6 +26,7 @@ class MessageReqProcessor:
             PROPAGATE: PropagateHandler(self)
         }
 
+    @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
     def process_message_req(self, msg: MessageReq, frm):
         # Assumes a shared memory architecture. In case of multiprocessing,
         # RPC architecture, use deques to communicate the message and node will
@@ -41,6 +44,7 @@ class MessageReqProcessor:
             f.MSG.nm: resp
         }), names=[frm, ])
 
+    @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):
         msg_type = msg.msg_type
         if msg.msg is None:
@@ -50,7 +54,7 @@ class MessageReqProcessor:
         handler = self.handlers[msg_type]
         handler.process(msg, frm)
 
-    def request_msg(self, typ, params: Dict, frm: List[str]=None):
+    def request_msg(self, typ, params: Dict, frm: List[str] = None):
         self.sendToNodes(MessageReq(**{
             f.MSG_TYPE.nm: typ,
             f.PARAMS.nm: params

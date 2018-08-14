@@ -20,7 +20,7 @@ class MetricsName(IntEnum):
     # Seconds passed between looper runs
     LOOPER_RUN_TIME_SPENT = 2
     # Number of requests in one 3PC batch
-    THREE_PC_BATCH_SIZE = 3
+    BACKUP_THREE_PC_BATCH_SIZE = 3
     # Number of messages in one tranport batch
     TRANSPORT_BATCH_SIZE = 4
     # Outgoing node message size, bytes
@@ -32,30 +32,31 @@ class MetricsName(IntEnum):
     # Incoming client message size, bytes
     INCOMING_CLIENT_MESSAGE_SIZE = 8
     # Number of requests ordered
-    ORDERED_BATCH_SIZE = 9
-    # Time spent on requests processing (including dynamic validation)
-    REQUEST_PROCESSING_TIME = 10
+    BACKUP_ORDERED_BATCH_SIZE = 9
+    # Time spent on requests processing on backup instances
+    BACKUP_REQUEST_PROCESSING_TIME = 10
     # Number of requests in one 3PC batch created on master instance
-    MASTER_3PC_BATCH_SIZE = 11
+    THREE_PC_BATCH_SIZE = 11
     # Number of requests ordered on master instance
-    MASTER_ORDERED_BATCH_SIZE = 12
+    ORDERED_BATCH_SIZE = 12
     # Time spent on requests processing on master instance
-    MASTER_REQUEST_PROCESSING_TIME = 13
+    REQUEST_PROCESSING_TIME = 13
 
-    # Average throughput measured by monitor
-    MONITOR_AVG_THROUGHPUT = 20
-    # Average latency measured by monitor
-    MONITOR_AVG_LATENCY = 21
+    # Average throughput measured by monitor on backup instances
+    BACKUP_MONITOR_AVG_THROUGHPUT = 20
+    # Average latency measured by monitor on backup instances
+    BACKUP_MONITOR_AVG_LATENCY = 21
     # Average throughput measured by monitor on master instance
-    MASTER_MONITOR_AVG_THROUGHPUT = 22
+    MONITOR_AVG_THROUGHPUT = 22
     # Average latency measured by monitor on master instance
-    MASTER_MONITOR_AVG_LATENCY = 23
+    MONITOR_AVG_LATENCY = 23
 
+    # Node service statistics
     NODE_PROD_TIME = 100
     SERVICE_REPLICAS_TIME = 101
     SERVICE_NODE_MSGS_TIME = 102
     SERVICE_CLIENT_MSGS_TIME = 103
-    SERVICE_ACTIONS_TIME = 104
+    SERVICE_NODE_ACTIONS_TIME = 104
     SERVICE_LEDGER_MANAGER_TIME = 105
     SERVICE_VIEW_CHANGER_TIME = 106
     SERVICE_OBSERVABLE_TIME = 107
@@ -64,6 +65,27 @@ class MetricsName(IntEnum):
     SERVICE_NODE_LIFECYCLE_TIME = 110
     SERVICE_CLIENT_STACK_TIME = 111
     SERVICE_MONITOR_ACTIONS_TIME = 112
+
+    # Master replica message statistics
+    PROCESS_PREPREPARE_TIME = 1000
+    PROCESS_PREPARE_TIME = 1001
+    PROCESS_COMMIT_TIME = 1002
+    PROCESS_CHECKPOINT_TIME = 1003
+
+    # Backup replica message statistics
+    BACKUP_PROCESS_PREPREPARE_TIME = 2000
+    BACKUP_PROCESS_PREPARE_TIME = 2001
+    BACKUP_PROCESS_COMMIT_TIME = 2002
+    BACKUP_PROCESS_CHECKPOINT_TIME = 2003
+
+    # Node message statistics
+    PROCESS_PROPAGATE_TIME = 3000
+    PROCESS_MESSAGE_REQ_TIME = 3001
+    PROCESS_MESSAGE_REP_TIME = 3002
+    PROCESS_LEDGER_STATUS_TIME = 3003
+    PROCESS_CONSISTENCY_PROOF_TIME = 3004
+    PROCESS_CATCHUP_REQ_TIME = 3005
+    PROCESS_CATCHUP_REP_TIME = 3006
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),

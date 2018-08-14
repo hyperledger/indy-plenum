@@ -23,7 +23,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName, measure_time
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -102,6 +102,22 @@ PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
 PP_APPLY_HOOK_ERROR = 11
+
+
+def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
+    def decorator(f):
+        def wrapper(self, *args, **kwargs):
+            metrics = self.metrics
+            if self.isMaster:
+                with metrics.measure_time(master_name):
+                    return f(self, *args, **kwargs)
+            else:
+                with metrics.measure_time(backup_name):
+                    return f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
@@ -703,9 +719,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
-        self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
         if self.isMaster:
-            self.metrics.add_event(MetricsName.MASTER_3PC_BATCH_SIZE, len(pp.reqIdr))
+            self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash]
 
@@ -810,6 +828,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     ledger_id, to_str=False))
         return pre_prepare
 
+    @measure_replica_time(MetricsName.REQUEST_PROCESSING_TIME,
+                          MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
     def consume_req_queue_for_pre_prepare(self, ledger_id, view_no, pp_seq_no):
         # DO NOT REMOVE `view_no` argument, used while replay
         # tm = self.utc_epoch
@@ -818,7 +838,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         validReqs = []
         inValidReqs = []
         rejects = []
-        start = time.perf_counter()
         while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
@@ -829,10 +848,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
-        duration = time.perf_counter() - start
-        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
-        if self.isMaster:
-            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
 
         return validReqs, inValidReqs, rejects, tm
 
@@ -955,6 +970,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           extra={"tags": ["processing"]})
         return None
 
+    @measure_replica_time(MetricsName.PROCESS_PREPREPARE_TIME,
+                          MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
     def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Validate and process provided PRE-PREPARE, create and
@@ -1045,6 +1062,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.debug("{} cannot send PREPARE since {}".format(self, msg))
 
+    @measure_replica_time(MetricsName.PROCESS_PREPARE_TIME,
+                          MetricsName.BACKUP_PROCESS_PREPARE_TIME)
     def processPrepare(self, prepare: Prepare, sender: str) -> None:
         """
         Validate and process the PREPARE specified.
@@ -1075,6 +1094,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
+    @measure_replica_time(MetricsName.PROCESS_COMMIT_TIME,
+                          MetricsName.BACKUP_PROCESS_COMMIT_TIME)
     def processCommit(self, commit: Commit, sender: str) -> None:
         """
         Validate and process the COMMIT specified.
@@ -1249,9 +1270,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                        invalid_reqs,
                                        rejects)
         duration = time.perf_counter() - start
-        self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
+        self.metrics.add_event(MetricsName.BACKUP_REQUEST_PROCESSING_TIME, duration)
         if self.isMaster:
-            self.metrics.add_event(MetricsName.MASTER_REQUEST_PROCESSING_TIME, duration)
+            self.metrics.add_event(MetricsName.REQUEST_PROCESSING_TIME, duration)
 
         def revert():
             self.revert(pre_prepare.ledgerId,
@@ -1747,9 +1768,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
                                 pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
                                 len(pp.reqIdr[pp.discarded:])))
-        self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, pp.discarded)
         if self.isMaster:
-            self.metrics.add_event(MetricsName.MASTER_ORDERED_BATCH_SIZE, pp.discarded)
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, pp.discarded)
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, pp.discarded)
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
@@ -1770,6 +1792,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
+    @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
+                          MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
     def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages

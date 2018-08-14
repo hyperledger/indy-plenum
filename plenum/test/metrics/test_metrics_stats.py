@@ -50,7 +50,7 @@ def test_metrics_stats_frame_can_add_values():
 
     assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == ValueAccumulator(events_transport_batch_size)
     assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == ValueAccumulator(events_looper_run_time_spent)
-    assert frame.get(MetricsName.THREE_PC_BATCH_SIZE) == ValueAccumulator()
+    assert frame.get(MetricsName.BACKUP_THREE_PC_BATCH_SIZE) == ValueAccumulator()
 
 
 def test_metrics_stats_frame_eq_has_value_semantics():
@@ -64,7 +64,7 @@ def test_metrics_stats_frame_eq_has_value_semantics():
     b.add(MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(MetricsName.THREE_PC_BATCH_SIZE, 1)
+    a.add(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
     b.add(MetricsName.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
@@ -129,7 +129,7 @@ def test_metrics_stats_eq_has_value_semantics():
     b.add(ts, MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(datetime.utcnow(), MetricsName.THREE_PC_BATCH_SIZE, 1)
+    a.add(datetime.utcnow(), MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
     b.add(datetime.utcnow(), MetricsName.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
