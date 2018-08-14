@@ -63,7 +63,7 @@ class ReqStream:
         return [(once.time, once.quantity)]
 
 
-@pytest.mark.parametrize('inst_req_streams, is_master_degraded', [
+@pytest.mark.parametrize('inst_req_streams, expected_is_master_degraded', [
     pytest.param([ReqStream().period(s=0, i=5, q=1)
                              .stop(t=4 * 60)
                              .build()
@@ -101,8 +101,41 @@ class ReqStream:
                  True,
                  id='master_degraded_on_spike'
                     '_in_2_batches_in_2_windows_on_backups'),
+    pytest.param([ReqStream().period(s=0, i=1, q=11)
+                             .stop(t=4 * 60 * 60)
+                             .build()]
+                 + [ReqStream().period(s=0, i=1, q=11)
+                               .stop(t=4 * 60 * 60 + 20 * TM_WINDOW_SIZE)
+                               .build()
+                    for inst_id in range(1, 9)],
+                 True,
+                 id='master_degraded_on_stop_ordering_on_master'),
+    pytest.param([ReqStream().period(s=0, i=1, q=11)
+                             .stop(t=4 * 60 * 60 + 15 * 60)
+                             .build()
+                    for inst_id in range(0, 8)]
+                 + [ReqStream().period(s=0, i=1, q=11)
+                               .stop(t=4 * 60 * 60)
+                               .once(t=4 * 60 * 60 + 15 * 60, q=9900)
+                               .build()],
+                 False,
+                 id='master_not_degraded_on_queuing_reqs'
+                    '_and_ordering_at_once_on_one_backup'),
+    pytest.param([ReqStream().period(s=0, i=1, q=15)
+                 .stop(t=4 * 60 * 60 + 11 * 60)
+                 .build()
+                  for inst_id in range(0, 8)]
+                 + [ReqStream().period(s=0, i=1, q=15)
+                 .stop(t=4 * 60 * 60)
+                 .once(t=4 * 60 * 60 + 17 * 60, q=9900)
+                 .build()],
+                 False,
+                 id='master_not_degraded_on_queuing_reqs'
+                    '_and_ordering_at_once_on_one_backup'
+                    '_while_load_stopped_in_meantime'),
 ])
-def test_instances_throughput_ratio(inst_req_streams, is_master_degraded,
+def test_instances_throughput_ratio(inst_req_streams,
+                                    expected_is_master_degraded,
                                     tconf):
     # print('DELTA = {}'.format(tconf.DELTA))
     # print('Max3PCBatchSize = {}'.format(tconf.Max3PCBatchSize))
@@ -136,4 +169,4 @@ def test_instances_throughput_ratio(inst_req_streams, is_master_degraded,
     avg_backup_throughput = sum(backups_throughput) / len(backups_throughput)
 
     assert (master_throughput / avg_backup_throughput < tconf.DELTA) == \
-        is_master_degraded
+        expected_is_master_degraded
