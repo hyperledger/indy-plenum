@@ -2535,11 +2535,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             master_latencies = self.monitor.getLatencies(self.instances.masterId).values()
             if len(master_latencies) > 0:
-                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(*master_latencies))
+                self.metrics.add_event(MetricsName.MASTER_MONITOR_AVG_LATENCY, mean(master_latencies))
 
-            backup_latencies = self.monitor.getLatencies(*self.instances.backupIds).values()
+            backup_latencies = {}
+            for lat_item in [self.monitor.getLatencies(instId) for instId in self.instances.backupIds]:
+                for cid, lat in lat_item.items():
+                    backup_latencies.setdefault(cid, []).append(lat)
+            backup_latencies = [mean(lat) for cid, lat in backup_latencies.items()]
             if len(backup_latencies) > 0:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(*backup_latencies))
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(backup_latencies))
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))

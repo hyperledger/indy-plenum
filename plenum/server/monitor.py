@@ -529,7 +529,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         greater than the acceptable threshold
         """
         avgLatM = self.getLatencies(self.instances.masterId)
-        avgLatB = self.getLatencies(*self.instances.backupIds)
+        avgLatB = {}
+        for lat_item in [self.getLatencies(instId) for instId in self.instances.backupIds]:
+            for cid, lat in lat_item.items():
+                avgLatB.setdefault(cid, []).append(lat)
 
         # If latency of the master for any client is greater than that of
         # backups by more than the threshold `Omega`, then a view change
@@ -541,7 +544,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 return False
             if latencies:
                 high_avg_lat = median_high(latencies)
-                avg_master_lat = avgLatM[cid][0]
+                avg_master_lat = avgLatM[cid]
                 if avg_master_lat - high_avg_lat < self.Omega:
                     return False
                 else:
@@ -633,15 +636,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 means.append(avg_lat)
         return self.mean(means)
 
-    def getLatencies(self, *instIds: int) -> Dict[str, float]:
+    def getLatencies(self, instId: int) -> Dict[str, float]:
+        """
+        Return a dict with client identifier as a key and calculated latency as a value
+        """
         if len(self.clientAvgReqLatencies) == 0:
             return 0
         latencies = {}
-        for i in instIds:
-            for cid in self.clientAvgReqLatencies[i].avg_latencies.keys():
-                avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(cid)
-                if avg_lat:
-                    latencies.setdefault(cid, []).append(avg_lat)
+        for cid in self.clientAvgReqLatencies[instId].avg_latencies.keys():
+            avg_lat = self.clientAvgReqLatencies[instId].get_avg_latency(cid)
+            if avg_lat:
+                latencies[cid] = avg_lat
 
         return latencies
 
