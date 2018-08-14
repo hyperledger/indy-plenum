@@ -148,7 +148,9 @@ def test_instances_throughput_ratio(inst_req_streams,
     inst_tms = []
     max_end_ts = 0
     for req_stream in inst_req_streams:
-        tm = ThroughputMeasurement(first_ts=0)
+        tm = ThroughputMeasurement(window_size=tconf.ThroughputInnerWindowSize,
+                                   min_cnt=tconf.ThroughputMinActivityThreshold,
+                                   first_ts=0)
         ts = 0
 
         for ts, reqs_num in req_stream:
