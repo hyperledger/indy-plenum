@@ -3,8 +3,11 @@ from random import gauss
 
 import time
 
+import pytest
+
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent, \
     measure_time, async_measure_time
+from plenum.common.value_accumulator import ValueAccumulator
 from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp, \
     MockMetricsCollector
 from storage.kv_store import KeyValueStorage
@@ -146,12 +149,13 @@ def test_kv_store_encode_generate_different_keys_for_different_seq_no():
     assert v1 == v2
 
 
-def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyValueStorage):
+@pytest.mark.parametrize("value", [4.2, ValueAccumulator([42, -7, 0])])
+def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyValueStorage, value):
     ts = MockTimestamp(gen_next_timestamp())
     metrics = KvStoreMetricsCollector(storage, ts)
     assert len([(k, v) for k, v in storage.iterator()]) == 0
 
-    id, value = gen_metrics_name(), gauss(0.0, 100.0)
+    id = gen_metrics_name()
     event = MetricsEvent(ts.value, id, value)
     encoded_key, encoded_value = KvStoreMetricsFormat.encode(event)
 
@@ -180,6 +184,9 @@ def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueSto
     # Check that all events stored were in source events
     for ev in stored_events:
         assert ev in events
+    # Check that all source events are in stored events
+    for ev in events:
+        assert ev in stored_events
 
 
 def test_kv_store_metrics_collector_store_all_events_with_same_timestamp(storage: KeyValueStorage):

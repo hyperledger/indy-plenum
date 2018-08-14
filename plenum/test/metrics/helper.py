@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from random import choice, uniform, gauss
+from random import choice, uniform, gauss, random, randint
 from typing import List
 
 from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsCollector
@@ -27,7 +27,10 @@ def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
     for _ in range(num):
         ts = gen_next_timestamp(ts)
         name = gen_metrics_name()
-        value = gauss(0.0, 100.0)
+        if random() > 0.5:
+            value = gauss(0.0, 100.0)
+        else:
+            value = ValueAccumulator([gauss(0.0, 100.0) for _ in range(randint(2, 5))])
         result += [MetricsEvent(ts, name, value)]
     return result
 

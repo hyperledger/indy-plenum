@@ -19,7 +19,7 @@ def _max_with_none(a, b):
 
 
 class ValueAccumulator:
-    def __init__(self, value: Union[Real, List[Real]] = []):
+    def __init__(self, value: Union[float, List[float]] = []):
         if isinstance(value, Real):
             self._count = 1
             self._sum = value
