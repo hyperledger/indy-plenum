@@ -102,6 +102,6 @@ def test_fail_node_bls_key_validation(looper,
                              None, None,
                              bls_key=bls_key,
                              key_proof=key_proof)
-    assert "Proof of possession {} " \
-           "is incorrect for BLS key {}".format(key_proof, bls_key) \
-           in e._excinfo[1].args[0]
+        assert "Proof of possession {} " \
+               "is incorrect for BLS key {}".format(key_proof, bls_key) \
+               in e._excinfo[1].args[0]
