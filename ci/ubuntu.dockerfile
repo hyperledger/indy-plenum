@@ -6,7 +6,6 @@ ARG user=indy
 ARG venv=venv
 
 RUN echo "To invalidate cache"
-RUN echo "deb https://repo.sovrin.org/sdk/deb xenial stable" >> /etc/apt/sources.list
 
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
