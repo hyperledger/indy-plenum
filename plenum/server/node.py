@@ -247,7 +247,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasActionQueue.__init__(self)
 
-        Propagator.__init__(self)
+        Propagator.__init__(self, metrics=self.metrics)
 
         MessageReqProcessor.__init__(self, metrics=self.metrics)
 
@@ -2186,6 +2186,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req_handler.validate(request)
             req_handler.applyForced(request)
 
+    @measure_time(MetricsName.PROCESS_REQUEST_TIME)
     def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.

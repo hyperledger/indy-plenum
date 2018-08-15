@@ -104,6 +104,10 @@ class MetricsName(IntEnum):
     PROCESS_CONSISTENCY_PROOF_TIME = 3004
     PROCESS_CATCHUP_REQ_TIME = 3005
     PROCESS_CATCHUP_REP_TIME = 3006
+    PROCESS_REQUEST_TIME = 3100
+    SEND_PROPAGATE_TIME = 3500
+    SEND_MESSAGE_REQ_TIME = 3501
+    SEND_MESSAGE_REP_TIME = 3502
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),

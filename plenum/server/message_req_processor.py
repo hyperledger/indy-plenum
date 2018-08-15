@@ -38,11 +38,12 @@ class MessageReqProcessor:
         if not resp:
             return
 
-        self.sendToNodes(MessageRep(**{
-            f.MSG_TYPE.nm: msg_type,
-            f.PARAMS.nm: msg.params,
-            f.MSG.nm: resp
-        }), names=[frm, ])
+        with self.metrics.measure_time(MetricsName.SEND_MESSAGE_REP_TIME):
+            self.sendToNodes(MessageRep(**{
+                f.MSG_TYPE.nm: msg_type,
+                f.PARAMS.nm: msg.params,
+                f.MSG.nm: resp
+            }), names=[frm, ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):
@@ -54,6 +55,7 @@ class MessageReqProcessor:
         handler = self.handlers[msg_type]
         handler.process(msg, frm)
 
+    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def request_msg(self, typ, params: Dict, frm: List[str] = None):
         self.sendToNodes(MessageReq(**{
             f.MSG_TYPE.nm: typ,
