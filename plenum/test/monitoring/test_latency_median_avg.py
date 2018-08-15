@@ -3,7 +3,7 @@ import functools
 import pytest
 
 from plenum.server.instances import Instances
-from plenum.server.monitor import Monitor, LatencyMeasurement
+from plenum.server.monitor import Monitor, LatencyMeasurement, MedianHighStrategy
 from plenum.test.testing_utils import FakeSomething
 
 NUM_OF_REPLICAS = 5
@@ -20,6 +20,7 @@ def fake_monitor(tconf):
         instances=instances,
         Omega=tconf.OMEGA,
         clientAvgReqLatencies=latencies,
+        latency_avg_strategy_cls=MedianHighStrategy,
         )
     monitor.getLatencies = functools.partial(Monitor.getLatencies, monitor)
     monitor.isMasterAvgReqLatencyTooHigh = functools.partial(Monitor.isMasterAvgReqLatencyTooHigh, monitor)

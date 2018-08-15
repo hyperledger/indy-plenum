@@ -40,6 +40,7 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
 
 
+@pytest.mark.skip(reason="Logic is checked in unit tests")
 def testClientLatencyThreshold(looper, txnPoolNodeSet, requests):
     rq = requests[0]
     for node in txnPoolNodeSet:

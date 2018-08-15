@@ -1,4 +1,5 @@
 import time
+from abc import ABCMeta
 from datetime import datetime
 from statistics import mean, median_low, median, median_high
 from typing import Dict, Iterable, Optional
@@ -24,6 +25,30 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
+
+
+class AverageStrategyBase(metaclass=ABCMeta):
+    @staticmethod
+    def get_avg(metrics: List):
+        raise NotImplementedError()
+
+
+class MedianLowStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median_low(metrics)
+
+
+class MedianMediumStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median(metrics)
+
+
+class MedianHighStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median_high(metrics)
 
 
 class ThroughputMeasurement:
@@ -296,6 +321,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
+        self.latency_avg_strategy_cls = MedianHighStrategy
+        self.throughput_avg_strategy_cls = MedianLowStrategy
+
     def __repr__(self):
         return self.name
 
@@ -543,7 +571,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                              format(self, cid))
                 return False
             if latencies:
-                high_avg_lat = median_high(latencies)
+                high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
                 avg_master_lat = avgLatM[cid]
                 if avg_master_lat - high_avg_lat < self.Omega:
                     return False
@@ -579,7 +607,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                     if thr is not None:
                         thrs.append(thr)
             if thrs:
-                backupThrp = median_low(thrs)
+                backupThrp = self.throughput_avg_strategy_cls.get_avg(thrs)
             else:
                 backupThrp = None
         else:
