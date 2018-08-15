@@ -8,6 +8,7 @@ from functools import partial
 from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
+import psutil
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
@@ -2503,6 +2504,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
+        ram_by_process = psutil.Process().memory_info()
+        self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
+        self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
+        self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
+
         self.metrics.flush_accumulated()
 
     def checkPerformance(self) -> Optional[bool]:

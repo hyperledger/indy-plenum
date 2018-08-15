@@ -40,7 +40,9 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         # We don't expect some events in this test
         unexpected_events = {
             MetricsName.PROCESS_CHECKPOINT_TIME,
+            MetricsName.SEND_CHECKPOINT_TIME,
             MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME,
+            MetricsName.BACKUP_SEND_CHECKPOINT_TIME,
             MetricsName.PROCESS_CONSISTENCY_PROOF_TIME,
             MetricsName.PROCESS_CATCHUP_REQ_TIME,
             MetricsName.PROCESS_CATCHUP_REP_TIME,
@@ -53,10 +55,19 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         # Don't expect some metrics from master primary
         if node.master_replica.isPrimary:
             unexpected_events.add(MetricsName.PROCESS_PREPREPARE_TIME)
+            unexpected_events.add(MetricsName.SEND_PREPARE_TIME)
+        else:
+            unexpected_events.add(MetricsName.SEND_PREPREPARE_TIME)
+            unexpected_events.add(MetricsName.CREATE_3PC_BATCH_TIME)
 
         # Don't expect some metrics from backup primary
-        if node.replicas.num_replicas == 2 and node.replicas[1].isPrimary:
+        assert node.replicas.num_replicas == 2
+        if node.replicas[1].isPrimary:
             unexpected_events.add(MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
+            unexpected_events.add(MetricsName.BACKUP_SEND_PREPARE_TIME)
+        else:
+            unexpected_events.add(MetricsName.BACKUP_SEND_PREPREPARE_TIME)
+            unexpected_events.add(MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
 
         # Check that all event types happened during test
         metric_names = {ev.name for ev in events}
