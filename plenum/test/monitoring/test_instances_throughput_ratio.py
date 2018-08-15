@@ -3,7 +3,7 @@ from itertools import chain
 
 import pytest
 
-from plenum.server.monitor import ThroughputMeasurement
+from plenum.server.monitor import Monitor
 
 
 class ReqStream:
@@ -148,9 +148,7 @@ def test_instances_throughput_ratio(inst_req_streams,
     inst_tms = []
     max_end_ts = 0
     for req_stream in inst_req_streams:
-        tm = ThroughputMeasurement(window_size=tconf.ThroughputInnerWindowSize,
-                                   min_cnt=tconf.ThroughputMinActivityThreshold,
-                                   first_ts=0)
+        tm = Monitor.create_throughput_measurement(tconf, first_ts=0)
         ts = 0
 
         for ts, reqs_num in req_stream:

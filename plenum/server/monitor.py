@@ -1,4 +1,5 @@
 import time
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from statistics import mean
 from typing import Dict, Iterable, Optional
@@ -26,9 +27,23 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
-class ThroughputMeasurement:
+class ThroughputMeasurement(metaclass=ABCMeta):
     """
-    Measure throughput params
+    Measures request ordering throughput
+    """
+
+    @abstractmethod
+    def add_request(self, ordered_ts):
+        pass
+
+    @abstractmethod
+    def get_throughput(self, request_time):
+        return 0.0
+
+
+class EMAThroughputMeasurement(ThroughputMeasurement):
+    """
+    Measures request ordering throughput using exponential moving average
     """
 
     def __init__(self, window_size=15, min_cnt=16, first_ts=time.perf_counter()):
@@ -41,7 +56,7 @@ class ThroughputMeasurement:
         self.alpha = 2 / (self.min_cnt + 1)
 
     def add_request(self, ordered_ts):
-        self.update_time(ordered_ts)
+        self._update_time(ordered_ts)
         self.reqs_in_window += 1
 
     def _accumulate(self, old_accum, next_val):
@@ -50,7 +65,7 @@ class ThroughputMeasurement:
         """
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
-    def update_time(self, current_ts):
+    def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
             self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
             self.window_start_ts = self.window_start_ts + self.window_size
@@ -59,7 +74,7 @@ class ThroughputMeasurement:
     def get_throughput(self, request_time):
         if request_time < self.first_ts + (self.window_size * self.min_cnt):
             return None
-        self.update_time(request_time)
+        self._update_time(request_time)
         return self.throughput
 
 
@@ -340,6 +355,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         currNetwork /= 1024
         return currNetwork
 
+    @staticmethod
+    def create_throughput_measurement(config, first_ts):
+        return EMAThroughputMeasurement(window_size=config.ThroughputInnerWindowSize,
+                                        min_cnt=config.ThroughputMinActivityThreshold,
+                                        first_ts=first_ts)
+
     def reset(self):
         """
         Reset the monitor. Sets all monitored values to defaults.
@@ -353,9 +374,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
         for i in range(num_instances):
-            rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
-                                       min_cnt=self.config.ThroughputMinActivityThreshold,
-                                       first_ts=time.perf_counter())
+            rm = self.create_throughput_measurement(self.config, time.perf_counter())
             self.throughputs[i] = rm
             lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
             self.clientAvgReqLatencies[i] = lm
@@ -367,9 +386,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
-        rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
-                                   min_cnt=self.config.ThroughputMinActivityThreshold,
-                                   first_ts=time.perf_counter())
+        rm = self.create_throughput_measurement(self.config, time.perf_counter())
 
         self.throughputs.append(rm)
         lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)

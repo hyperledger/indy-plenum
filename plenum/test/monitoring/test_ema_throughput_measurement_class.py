@@ -1,7 +1,7 @@
 import pytest
 import time
 
-from plenum.server.monitor import ThroughputMeasurement
+from plenum.server.monitor import EMAThroughputMeasurement
 
 
 ACCURACY = .1e-3
@@ -9,7 +9,7 @@ ACCURACY = .1e-3
 
 @pytest.fixture(scope="function")
 def request_measurement():
-    rm = ThroughputMeasurement()
+    rm = EMAThroughputMeasurement()
     rm.first_ts = 1
     rm.window_start_ts = 1
     return rm
