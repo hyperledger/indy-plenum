@@ -33,6 +33,10 @@ class ThroughputMeasurement(metaclass=ABCMeta):
     """
 
     @abstractmethod
+    def init_time(self, start_ts):
+        pass
+
+    @abstractmethod
     def add_request(self, ordered_ts):
         pass
 
@@ -46,14 +50,26 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
     Measures request ordering throughput using exponential moving average
     """
 
-    def __init__(self, window_size=15, min_cnt=16, first_ts=time.perf_counter()):
+    def __init__(self, window_size=15, min_cnt=16):
+        """
+        Creates a throughput measurement instance.
+
+        :param window_size: window size in seconds for each next re-calculation
+        of throughput
+        :param min_cnt: minimal count of past windows since which
+        `get_throughput` method returns calculated throughput
+        """
         self.reqs_in_window = 0
         self.throughput = 0
         self.window_size = window_size
         self.min_cnt = min_cnt
-        self.first_ts = first_ts
-        self.window_start_ts = self.first_ts
         self.alpha = 2 / (self.min_cnt + 1)
+        self.first_ts = None
+        self.window_start_ts = None
+
+    def init_time(self, start_ts):
+        self.first_ts = start_ts
+        self.window_start_ts = self.first_ts
 
     def add_request(self, ordered_ts):
         self._update_time(ordered_ts)
@@ -356,10 +372,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return currNetwork
 
     @staticmethod
-    def create_throughput_measurement(config, first_ts):
-        return EMAThroughputMeasurement(window_size=config.ThroughputInnerWindowSize,
-                                        min_cnt=config.ThroughputMinActivityThreshold,
-                                        first_ts=first_ts)
+    def create_throughput_measurement(config, start_ts=time.perf_counter()):
+        tm = config.throughput_measurement_class(
+            **config.throughput_measurement_params)
+        tm.init_time(start_ts)
+        return tm
 
     def reset(self):
         """
@@ -374,7 +391,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
         for i in range(num_instances):
-            rm = self.create_throughput_measurement(self.config, time.perf_counter())
+            rm = self.create_throughput_measurement(self.config)
             self.throughputs[i] = rm
             lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
             self.clientAvgReqLatencies[i] = lm
@@ -386,7 +403,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
-        rm = self.create_throughput_measurement(self.config, time.perf_counter())
+        rm = self.create_throughput_measurement(self.config)
 
         self.throughputs.append(rm)
         lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
