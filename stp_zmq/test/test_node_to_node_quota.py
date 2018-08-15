@@ -102,4 +102,3 @@ def test_limit_by_msg_size(looper, tdir, tconf, connected_nodestacks):
         stackA.send(msg, 'Beta')
     received_msgs = stackB._receiveFromListener(stackA.listenerQuota, stackA.listenerSize)
     assert received_msgs < tconf.NODE_TO_NODE_STACK_QUOTA
-
