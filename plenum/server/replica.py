@@ -8,6 +8,8 @@ import math
 
 import sys
 
+import functools
+
 from common.exceptions import LogicError, PlenumValueError
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -106,6 +108,7 @@ PP_APPLY_HOOK_ERROR = 11
 
 def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     def decorator(f):
+        @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
             metrics = self.metrics
             if self.isMaster:

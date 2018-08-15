@@ -1,3 +1,4 @@
+import functools
 import struct
 import time
 
@@ -117,6 +118,7 @@ class MetricsCollector(ABC):
 
 def measure_time(name: MetricsName, attr='metrics'):
     def decorator(f):
+        @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
             metrics = getattr(self, attr)
             with metrics.measure_time(name):
@@ -129,6 +131,7 @@ def measure_time(name: MetricsName, attr='metrics'):
 
 def async_measure_time(name: MetricsName, attr='metrics'):
     def decorator(f):
+        @functools.wraps(f)
         async def wrapper(self, *args, **kwargs):
             metrics = getattr(self, attr)
             with metrics.measure_time(name):
