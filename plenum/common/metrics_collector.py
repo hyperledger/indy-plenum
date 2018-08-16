@@ -1,41 +1,68 @@
+import functools
 import struct
 import time
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from contextlib import contextmanager
 from enum import IntEnum
 from datetime import datetime, timezone
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Union
 
+from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
 
 class MetricsName(IntEnum):
-    NODE_STACK_MESSAGES_PROCESSED = 0      # Number of node stack messages processed in one looper run
-    CLIENT_STACK_MESSAGES_PROCESSED = 1    # Number of client stack messages processed in one looper run
-    LOOPER_RUN_TIME_SPENT = 2              # Seconds passed between looper runs
-    THREE_PC_BATCH_SIZE = 3                # Number of requests in one 3PC batch
-    TRANSPORT_BATCH_SIZE = 4               # Number of messages in one tranport batch
-    OUTGOING_NODE_MESSAGE_SIZE = 5         # Outgoing node message size, bytes
-    INCOMING_NODE_MESSAGE_SIZE = 6         # Incoming node message size, bytes
-    OUTGOING_CLIENT_MESSAGE_SIZE = 7       # Outgoing client message size, bytes
-    INCOMING_CLIENT_MESSAGE_SIZE = 8       # Incoming client message size, bytes
-    ORDERED_BATCH_SIZE = 9                 # Number of requests ordered
-    REQUEST_PROCESSING_TIME = 10           # Time spent on requests processing (including dynamic validation)
-    MASTER_3PC_BATCH_SIZE = 11             # Number of requests in one 3PC batch created on master instance
-    MASTER_ORDERED_BATCH_SIZE = 12         # Number of requests ordered on master instance
-    MASTER_REQUEST_PROCESSING_TIME = 13    # Time spent on requests processing on master instance
+    # Number of node stack messages processed in one looper run
+    NODE_STACK_MESSAGES_PROCESSED = 0
+    # Number of client stack messages processed in one looper run
+    CLIENT_STACK_MESSAGES_PROCESSED = 1
+    # Seconds passed between looper runs
+    LOOPER_RUN_TIME_SPENT = 2
+    # Number of requests in one 3PC batch
+    BACKUP_THREE_PC_BATCH_SIZE = 3
+    # Number of messages in one tranport batch
+    TRANSPORT_BATCH_SIZE = 4
+    # Outgoing node message size, bytes
+    OUTGOING_NODE_MESSAGE_SIZE = 5
+    # Incoming node message size, bytes
+    INCOMING_NODE_MESSAGE_SIZE = 6
+    # Outgoing client message size, bytes
+    OUTGOING_CLIENT_MESSAGE_SIZE = 7
+    # Incoming client message size, bytes
+    INCOMING_CLIENT_MESSAGE_SIZE = 8
+    # Number of requests ordered
+    BACKUP_ORDERED_BATCH_SIZE = 9
+    # Time spent on requests processing on backup instances
+    BACKUP_REQUEST_PROCESSING_TIME = 10
+    # Number of requests in one 3PC batch created on master instance
+    THREE_PC_BATCH_SIZE = 11
+    # Number of requests ordered on master instance
+    ORDERED_BATCH_SIZE = 12
+    # Time spent on requests processing on master instance
+    REQUEST_PROCESSING_TIME = 13
 
-    MONITOR_AVG_THROUGHPUT = 20            # Average throughput measured by monitor
-    MONITOR_AVG_LATENCY = 21               # Average latency measured by monitor
-    MASTER_MONITOR_AVG_THROUGHPUT = 22     # Average throughput measured by monitor on master instance
-    MASTER_MONITOR_AVG_LATENCY = 23        # Average latency measured by monitor on master instance
+    # Average throughput measured by monitor on backup instances
+    BACKUP_MONITOR_AVG_THROUGHPUT = 20
+    # Average latency measured by monitor on backup instances
+    BACKUP_MONITOR_AVG_LATENCY = 21
+    # Average throughput measured by monitor on master instance
+    MONITOR_AVG_THROUGHPUT = 22
+    # Average latency measured by monitor on master instance
+    MONITOR_AVG_LATENCY = 23
 
+    # System statistics
+    AVAILABLE_RAM_SIZE = 50
+    NODE_RSS_SIZE = 51
+    NODE_VMS_SIZE = 52
+
+    # Node service statistics
     NODE_PROD_TIME = 100
     SERVICE_REPLICAS_TIME = 101
     SERVICE_NODE_MSGS_TIME = 102
     SERVICE_CLIENT_MSGS_TIME = 103
-    SERVICE_ACTIONS_TIME = 104
+    SERVICE_NODE_ACTIONS_TIME = 104
     SERVICE_LEDGER_MANAGER_TIME = 105
     SERVICE_VIEW_CHANGER_TIME = 106
     SERVICE_OBSERVABLE_TIME = 107
@@ -43,25 +70,104 @@ class MetricsName(IntEnum):
     FLUSH_OUTBOXES_TIME = 109
     SERVICE_NODE_LIFECYCLE_TIME = 110
     SERVICE_CLIENT_STACK_TIME = 111
+    SERVICE_MONITOR_ACTIONS_TIME = 112
+
+    # Master replica message statistics
+    PROCESS_PREPREPARE_TIME = 1000
+    PROCESS_PREPARE_TIME = 1001
+    PROCESS_COMMIT_TIME = 1002
+    PROCESS_CHECKPOINT_TIME = 1003
+    SEND_PREPREPARE_TIME = 1500
+    SEND_PREPARE_TIME = 1501
+    SEND_COMMIT_TIME = 1502
+    SEND_CHECKPOINT_TIME = 1503
+    CREATE_3PC_BATCH_TIME = 1600
+    ORDER_3PC_BATCH_TIME = 1601
+
+    # Backup replica message statistics
+    BACKUP_PROCESS_PREPREPARE_TIME = 2000
+    BACKUP_PROCESS_PREPARE_TIME = 2001
+    BACKUP_PROCESS_COMMIT_TIME = 2002
+    BACKUP_PROCESS_CHECKPOINT_TIME = 2003
+    BACKUP_SEND_PREPREPARE_TIME = 2500
+    BACKUP_SEND_PREPARE_TIME = 2501
+    BACKUP_SEND_COMMIT_TIME = 2502
+    BACKUP_SEND_CHECKPOINT_TIME = 2503
+    BACKUP_CREATE_3PC_BATCH_TIME = 2600
+    BACKUP_ORDER_3PC_BATCH_TIME = 2601
+
+    # Node message statistics
+    PROCESS_PROPAGATE_TIME = 3000
+    PROCESS_MESSAGE_REQ_TIME = 3001
+    PROCESS_MESSAGE_REP_TIME = 3002
+    PROCESS_LEDGER_STATUS_TIME = 3003
+    PROCESS_CONSISTENCY_PROOF_TIME = 3004
+    PROCESS_CATCHUP_REQ_TIME = 3005
+    PROCESS_CATCHUP_REP_TIME = 3006
+    PROCESS_REQUEST_TIME = 3100
+    SEND_PROPAGATE_TIME = 3500
+    SEND_MESSAGE_REQ_TIME = 3501
+    SEND_MESSAGE_REP_TIME = 3502
 
 
-MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName), ('value', float)])
+MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
+                                           ('value', Union[float, ValueAccumulator])])
 
 
 class MetricsCollector(ABC):
     @abstractmethod
-    def add_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
+    def __init__(self):
+        self._accumulators = defaultdict(ValueAccumulator)
+
+    def acc_event(self, name: MetricsName, value: float):
+        self._accumulators[name].add(value)
+
+    def flush_accumulated(self):
+        for name, value in self._accumulators.items():
+            self.add_event(name, value)
+        self._accumulators.clear()
+
     @contextmanager
-    def event_timing(self, name: MetricsName):
+    def measure_time(self, name: MetricsName):
         start = time.perf_counter()
         yield
-        self.add_event(name, time.perf_counter() - start)
+        self.acc_event(name, time.perf_counter() - start)
+
+
+def measure_time(name: MetricsName, attr='metrics'):
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(self, *args, **kwargs):
+            metrics = getattr(self, attr)
+            with metrics.measure_time(name):
+                return f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def async_measure_time(name: MetricsName, attr='metrics'):
+    def decorator(f):
+        @functools.wraps(f)
+        async def wrapper(self, *args, **kwargs):
+            metrics = getattr(self, attr)
+            with metrics.measure_time(name):
+                return await f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class NullMetricsCollector(MetricsCollector):
-    def add_event(self, name: MetricsName, value: float):
+    def __init__(self):
+        super().__init__()
+
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
 
@@ -82,7 +188,11 @@ class KvStoreMetricsFormat:
     @staticmethod
     def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
         key = KvStoreMetricsFormat.encode_key(event.timestamp, seq_no)
-        value = event.name.to_bytes(32, byteorder='big', signed=False) + struct.pack('d', event.value)
+        value = event.name.to_bytes(32, byteorder='big', signed=False)
+        if isinstance(event.value, ValueAccumulator):
+            value += event.value.to_bytes()
+        else:
+            value += struct.pack('d', event.value)
         return key, value
 
     @staticmethod
@@ -90,12 +200,17 @@ class KvStoreMetricsFormat:
         key = int.from_bytes(key, byteorder='big', signed=False)
         ts = datetime.utcfromtimestamp((key >> KvStoreMetricsFormat.seq_bits) / 1000000.0)
         name = MetricsName(int.from_bytes(value[:32], byteorder='big', signed=False))
-        value = struct.unpack('d', value[32:])[0]
+        data = value[32:]
+        if len(data) == 8:
+            value = struct.unpack('d', data)[0]
+        else:
+            value = ValueAccumulator.from_bytes(data)
         return MetricsEvent(ts, name, value)
 
 
 class KvStoreMetricsCollector(MetricsCollector):
     def __init__(self, storage: KeyValueStorage, ts_provider: Callable = datetime.utcnow):
+        super().__init__()
         self._storage = storage
         self._ts_provider = ts_provider
         self._seq_no = 0
@@ -103,7 +218,7 @@ class KvStoreMetricsCollector(MetricsCollector):
     def close(self):
         self._storage.close()
 
-    def add_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         if self._storage.closed:
             return
 

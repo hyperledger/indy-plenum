@@ -384,7 +384,8 @@ class TestNode(TestNodeCore, Node):
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp,
             postCatchupClbk=self.postLedgerCatchUp,
-            ledger_sync_order=self.ledger_ids
+            ledger_sync_order=self.ledger_ids,
+            metrics=self.metrics
         )
 
     def sendRepliesToClients(self, committedTxns, ppTime):

@@ -10,16 +10,15 @@ from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.config_util import getConfig
-from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
-    CONSISTENCY_PROOF, CATCH_UP_PREFIX, TXN_TIME, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
+from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
-from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -32,7 +31,8 @@ class LedgerManager(HasActionQueue):
                  postAllLedgersCaughtUp: Optional[Callable] = None,
                  preCatchupClbk: Optional[Callable] = None,
                  postCatchupClbk: Optional[Callable] = None,
-                 ledger_sync_order: Optional[List] = None):
+                 ledger_sync_order: Optional[List] = None,
+                 metrics: MetricsCollector = NullMetricsCollector()):
         # If ledger_sync_order is not provided (is None), it is assumed that
         # `postCatchupCompleteClbk` of the LedgerInfo will be used
         self.owner = owner
@@ -43,6 +43,7 @@ class LedgerManager(HasActionQueue):
         self.ledger_sync_order = ledger_sync_order
         self.request_ledger_status_action_ids = dict()
         self.request_consistency_proof_action_ids = dict()
+        self.metrics = metrics
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -62,6 +63,7 @@ class LedgerManager(HasActionQueue):
     def __repr__(self):
         return self.owner.name
 
+    @measure_time(MetricsName.SERVICE_LEDGER_MANAGER_TIME)
     def service(self):
         return self._serviceActions()
 
@@ -268,6 +270,7 @@ class LedgerManager(HasActionQueue):
         for ledger_info in self.ledgerRegistry.values():
             ledger_info.set_defaults()
 
+    @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
         logger.info("{} received ledger status: {} from {}".format(self, status, frm))
         if not status:
@@ -378,6 +381,7 @@ class LedgerManager(HasActionQueue):
         quorum = Quorums(total_nodes).ledger_status
         return quorum.is_reached(leger_status_num)
 
+    @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
         logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
@@ -418,6 +422,7 @@ class LedgerManager(HasActionQueue):
             return False
         return True
 
+    @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
         if not self.ownedByNode:
@@ -476,6 +481,7 @@ class LedgerManager(HasActionQueue):
         string_proof = [Ledger.hashToStr(p) for p in proof]
         return string_proof
 
+    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
 

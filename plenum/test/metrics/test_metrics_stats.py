@@ -1,37 +1,10 @@
 from datetime import datetime, timedelta
 from random import shuffle
 
-import pytest
-import statistics
-
 from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricsName
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
-from plenum.test.test_metrics_collector import generate_events, MockTimestamp
-from storage.kv_store import KeyValueStorage
-from storage.kv_store_leveldb import KeyValueStorageLeveldb
-from storage.kv_store_rocksdb import KeyValueStorageRocksdb
-
-db_no = 0
-
-
-@pytest.yield_fixture(params=['rocksdb', 'leveldb'])
-def storage(request, tdir) -> KeyValueStorage:
-    global db_no
-    if request.param == 'leveldb':
-        db = KeyValueStorageLeveldb(tdir, 'metrics_ldb_{}'.format(db_no))
-    else:
-        db = KeyValueStorageRocksdb(tdir, 'metrics_rdb_{}'.format(db_no))
-    db_no += 1
-    yield db
-    db.close()
-
-
-def _value_accumulator(values):
-    acc = ValueAccumulator()
-    for v in values:
-        acc.add(v)
-    return acc
+from plenum.test.metrics.helper import generate_events, MockTimestamp
 
 
 def _metrics_stats_frame(events):
@@ -60,87 +33,6 @@ def test_trunc_ts():
     assert trunc_ts(base.replace(minute=40, second=0), timedelta(minutes=5)) == base.replace(minute=40)
 
 
-def test_value_accumulator_dont_return_anything_when_created():
-    acc = ValueAccumulator()
-    assert acc.count == 0
-    assert acc.sum == 0
-    assert acc.avg is None
-    assert acc.stddev is None
-    assert acc.min is None
-    assert acc.max is None
-
-
-def test_value_accumulator_can_add_value():
-    value = 4.2
-    acc = ValueAccumulator()
-    acc.add(value)
-    assert acc.count == 1
-    assert acc.sum == value
-    assert acc.avg == value
-    assert acc.stddev is None
-    assert acc.min == value
-    assert acc.max == value
-
-
-def test_value_accumulator_handles_same_values():
-    value = 4.2
-    count = 5
-    acc = ValueAccumulator()
-    for _ in range(count):
-        acc.add(value)
-
-    assert acc.count == count
-    assert acc.sum == value * count
-    assert acc.avg == value
-    assert acc.stddev == 0
-    assert acc.min == value
-    assert acc.max == value
-
-
-def test_value_accumulator_can_add_several_values():
-    values = [4.2, -1.3, 10.8]
-    acc = ValueAccumulator()
-    for value in values:
-        acc.add(value)
-
-    assert acc.count == len(values)
-    assert acc.sum == sum(values)
-    assert acc.avg == statistics.mean(values)
-    assert acc.stddev == statistics.stdev(values)
-    assert acc.min == min(values)
-    assert acc.max == max(values)
-
-
-def test_value_accumulator_eq_has_value_semantics():
-    a = ValueAccumulator()
-    b = ValueAccumulator()
-    assert a == b
-
-    a.add(1.0)
-    assert a != b
-
-    b.add(1.0)
-    assert a == b
-
-    a.add(2.0)
-    b.add(3.0)
-    assert a != b
-
-
-def test_value_accumulator_can_merge():
-    values = [4.2, -1.3, 10.8]
-    acc = _value_accumulator(values)
-
-    other_values = [3.7, 7.6, -8.5]
-    other_acc = _value_accumulator(other_values)
-
-    all_values = values + other_values
-    all_acc = _value_accumulator(all_values)
-
-    acc.merge(other_acc)
-    assert acc == all_acc
-
-
 def test_metrics_stats_frame_can_add_values():
     events_transport_batch_size = [10, 2, 54]
     events_looper_run_time_spent = [0.1, 3.4, 0.01, 0.5]
@@ -156,9 +48,9 @@ def test_metrics_stats_frame_can_add_values():
     for id, value in events:
         frame.add(id, value)
 
-    assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == _value_accumulator(events_transport_batch_size)
-    assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == _value_accumulator(events_looper_run_time_spent)
-    assert frame.get(MetricsName.THREE_PC_BATCH_SIZE) == ValueAccumulator()
+    assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == ValueAccumulator(events_transport_batch_size)
+    assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == ValueAccumulator(events_looper_run_time_spent)
+    assert frame.get(MetricsName.BACKUP_THREE_PC_BATCH_SIZE) == ValueAccumulator()
 
 
 def test_metrics_stats_frame_eq_has_value_semantics():
@@ -172,7 +64,7 @@ def test_metrics_stats_frame_eq_has_value_semantics():
     b.add(MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(MetricsName.THREE_PC_BATCH_SIZE, 1)
+    a.add(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
     b.add(MetricsName.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
@@ -237,7 +129,7 @@ def test_metrics_stats_eq_has_value_semantics():
     b.add(ts, MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(datetime.utcnow(), MetricsName.THREE_PC_BATCH_SIZE, 1)
+    a.add(datetime.utcnow(), MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
     b.add(datetime.utcnow(), MetricsName.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
