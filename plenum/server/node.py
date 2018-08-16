@@ -325,7 +325,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, 1.0)
+        self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
