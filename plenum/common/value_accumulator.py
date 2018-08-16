@@ -99,7 +99,7 @@ class ValueAccumulator:
         if self.count < 2:
             return None
         d = (self._sumsq - self.count * (self.avg ** 2)) / (self.count - 1)
-        return math.sqrt(d)
+        return math.sqrt(max(0.0, d))
 
     @property
     def min(self):
@@ -108,3 +108,24 @@ class ValueAccumulator:
     @property
     def max(self):
         return self._max
+
+    @property
+    def lo(self):
+        return self.std_range()[0]
+
+    @property
+    def hi(self):
+        return self.std_range()[1]
+
+    def std_range(self):
+        avg = self.avg
+        std = self.stddev
+        if not std or self._min == self._max:
+            return avg, avg
+
+        std = min(std, self._max - self._min)
+        skew = (self._max - avg) / (avg - self._min)
+        inv_skew = 1.0 / (1.0 + skew)
+        a = avg - std * inv_skew
+        b = avg + std * inv_skew * skew
+        return a, b
