@@ -1,3 +1,4 @@
+import math
 import statistics
 import struct
 
@@ -12,6 +13,8 @@ def test_value_accumulator_dont_return_anything_when_created():
     assert acc.stddev is None
     assert acc.min is None
     assert acc.max is None
+    assert acc.lo is None
+    assert acc.hi is None
 
 
 def test_value_accumulator_can_add_value():
@@ -24,6 +27,8 @@ def test_value_accumulator_can_add_value():
     assert acc.stddev is None
     assert acc.min == value
     assert acc.max == value
+    assert acc.lo == value
+    assert acc.hi == value
 
 
 def test_value_accumulator_handles_same_values():
@@ -39,6 +44,8 @@ def test_value_accumulator_handles_same_values():
     assert acc.stddev == 0
     assert acc.min == value
     assert acc.max == value
+    assert acc.lo == value
+    assert acc.hi == value
 
 
 def test_value_accumulator_can_add_several_values():
@@ -53,6 +60,9 @@ def test_value_accumulator_can_add_several_values():
     assert acc.stddev == statistics.stdev(values)
     assert acc.min == min(values)
     assert acc.max == max(values)
+    assert acc.min < acc.lo < acc.avg
+    assert acc.avg < acc.hi < acc.max
+    assert math.isclose(acc.hi - acc.lo, acc.stddev)
 
 
 def test_value_accumulator_eq_has_value_semantics():
