@@ -570,20 +570,22 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.trace("{} found master had no record yet for {}".
                              format(self, cid))
                 return False
-            if latencies:
-                high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
-                avg_master_lat = avgLatM[cid]
-                if avg_master_lat - high_avg_lat < self.Omega:
-                    return False
-                else:
-                    d = avg_master_lat - high_avg_lat
-                    logger.info("{}{} found difference between master's and "
-                                "backups's avg latency {} to be higher than the "
-                                "threshold".format(MONITORING_PREFIX, self, d))
-                    logger.trace(
-                        "{}'s master's avg request latency is {} and backup's "
-                        "avg request latency is {}".format(self, avgLatM, avgLatB))
-                    return True
+            if not latencies:
+                continue
+
+            high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
+            avg_master_lat = avgLatM[cid]
+            if avg_master_lat - high_avg_lat < self.Omega:
+                continue
+
+            d = avg_master_lat - high_avg_lat
+            logger.info("{}{} found difference between master's and "
+                        "backups's avg latency {} to be higher than the "
+                        "threshold".format(MONITORING_PREFIX, self, d))
+            logger.trace(
+                "{}'s master's avg request latency is {} and backup's "
+                "avg request latency is {}".format(self, avgLatM, avgLatB))
+            return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))
         return False
