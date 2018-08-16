@@ -1,6 +1,7 @@
 import time
+from abc import ABCMeta
 from datetime import datetime
-from statistics import mean
+from statistics import mean, median_low, median, median_high
 from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
@@ -24,6 +25,30 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
+
+
+class AverageStrategyBase(metaclass=ABCMeta):
+    @staticmethod
+    def get_avg(metrics: List):
+        raise NotImplementedError()
+
+
+class MedianLowStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median_low(metrics)
+
+
+class MedianMediumStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median(metrics)
+
+
+class MedianHighStrategy(AverageStrategyBase):
+    @staticmethod
+    def get_avg(metrics: List):
+        return median_high(metrics)
 
 
 class ThroughputMeasurement:
@@ -71,7 +96,7 @@ class LatencyMeasurement:
     def __init__(self, min_latency_count=10):
         self.min_latency_count = min_latency_count
         # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latencies = {}    # type: Dict(str, (int, float))
+        self.avg_latencies = {}    # type: Dict[str, (int, float)]
         # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
         self.alpha = 1 / (self.min_latency_count + 1)
 
@@ -296,6 +321,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
+        self.latency_avg_strategy_cls = MedianHighStrategy
+        self.throughput_avg_strategy_cls = MedianLowStrategy
+
     def __repr__(self):
         return self.name
 
@@ -316,7 +344,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             ("ordered request durations",
              {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("master request latencies", self.masterReqLatencies),
-            ("client avg request latencies", {i: self.getAvgLatency(i)
+            ("client avg request latencies", {i: self.getLatencies(i)
                                               for i in self.instances.ids}),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
@@ -528,26 +556,36 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the average request latency of the master instance is
         greater than the acceptable threshold
         """
-        avgLatM = self.getAvgLatency(self.instances.masterId)
-        avgLatB = self.getAvgLatency(*self.instances.backupIds)
+        avgLatM = self.getLatencies(self.instances.masterId)
+        avgLatB = {}
+        for lat_item in [self.getLatencies(instId) for instId in self.instances.backupIds]:
+            for cid, lat in lat_item.items():
+                avgLatB.setdefault(cid, []).append(lat)
 
         # If latency of the master for any client is greater than that of
         # backups by more than the threshold `Omega`, then a view change
         # needs to happen
-        for cid, lat in avgLatB.items():
+        for cid, latencies in avgLatB.items():
             if cid not in avgLatM:
                 logger.trace("{} found master had no record yet for {}".
                              format(self, cid))
                 return False
-            d = avgLatM[cid] - lat
-            if d > self.Omega:
-                logger.info("{}{} found difference between master's and "
-                            "backups's avg latency {} to be higher than the "
-                            "threshold".format(MONITORING_PREFIX, self, d))
-                logger.trace(
-                    "{}'s master's avg request latency is {} and backup's "
-                    "avg request latency is {}".format(self, avgLatM, avgLatB))
-                return True
+            if not latencies:
+                continue
+
+            high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
+            avg_master_lat = avgLatM[cid]
+            if avg_master_lat - high_avg_lat < self.Omega:
+                continue
+
+            d = avg_master_lat - high_avg_lat
+            logger.info("{}{} found difference between master's and "
+                        "backups's avg latency {} to be higher than the "
+                        "threshold".format(MONITORING_PREFIX, self, d))
+            logger.trace(
+                "{}'s master's avg request latency is {} and backup's "
+                "avg request latency is {}".format(self, avgLatM, avgLatB))
+            return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))
         return False
@@ -564,15 +602,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         # Average backup replica's throughput
         if len(self.throughputs) > 1:
-            perf_time = time.perf_counter()
             thrs = []
             for instId, thr_obj in enumerate(self.throughputs):
                 if instId != masterInstId:
-                    thr = thr_obj.get_throughput(perf_time)
+                    thr = self.getThroughput(instId)
                     if thr is not None:
                         thrs.append(thr)
-            backupThrp = sum(thrs) / len(thrs) if thrs else None
-
+            if thrs:
+                backupThrp = self.throughput_avg_strategy_cls.get_avg(thrs)
+            else:
+                backupThrp = None
         else:
             backupThrp = None
         if masterThrp == 0:
@@ -627,19 +666,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 means.append(avg_lat)
         return self.mean(means)
 
-    def getAvgLatency(self, *instIds: int) -> Dict[str, float]:
+    def getLatencies(self, instId: int) -> Dict[str, float]:
+        """
+        Return a dict with client identifier as a key and calculated latency as a value
+        """
         if len(self.clientAvgReqLatencies) == 0:
             return 0
-        avgLatencies = {}
-        for i in instIds:
-            for cid in self.clientAvgReqLatencies[i].avg_latencies.keys():
-                avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(cid)
-                if avg_lat:
-                    avgLatencies.setdefault(cid, []).append(avg_lat)
+        latencies = {}
+        for cid in self.clientAvgReqLatencies[instId].avg_latencies.keys():
+            avg_lat = self.clientAvgReqLatencies[instId].get_avg_latency(cid)
+            if avg_lat:
+                latencies[cid] = avg_lat
 
-        avgLatencies = {cid: mean(lat) for cid, lat in avgLatencies.items()}
-
-        return avgLatencies
+        return latencies
 
     def sendPeriodicStats(self):
         thoughputData = self.sendThroughput()
