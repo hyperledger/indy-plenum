@@ -121,13 +121,13 @@ class ReqStream:
                  id='master_not_degraded_on_queuing_reqs'
                     '_and_ordering_at_once_on_one_backup'),
     pytest.param([ReqStream().period(s=0, i=1, q=15)
-                 .stop(t=4 * 60 * 60 + 11 * 60)
-                 .build()
+                             .stop(t=4 * 60 * 60 + 11 * 60)
+                             .build()
                   for inst_id in range(0, 8)]
                  + [ReqStream().period(s=0, i=1, q=15)
-                 .stop(t=4 * 60 * 60)
-                 .once(t=4 * 60 * 60 + 17 * 60, q=9900)
-                 .build()],
+                               .stop(t=4 * 60 * 60)
+                               .once(t=4 * 60 * 60 + 17 * 60, q=9900)
+                               .build()],
                  False,
                  id='master_not_degraded_on_queuing_reqs'
                     '_and_ordering_at_once_on_one_backup'

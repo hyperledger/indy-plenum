@@ -1,6 +1,7 @@
 import time
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from enum import Enum, unique
 from statistics import mean
 from typing import Dict, Iterable, Optional
 from typing import List
@@ -8,6 +9,7 @@ from typing import Tuple
 
 import psutil
 
+from common.exceptions import LogicError
 from plenum.common.config_util import getConfig
 from plenum.common.constants import MONITORING_PREFIX
 from stp_core.common.log import getlogger
@@ -84,12 +86,117 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
             self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
-            self.window_start_ts = self.window_start_ts + self.window_size
+            self.window_start_ts += self.window_size
             self.reqs_in_window = 0
 
     def get_throughput(self, request_time):
         if request_time < self.first_ts + (self.window_size * self.min_cnt):
             return None
+        self._update_time(request_time)
+        return self.throughput
+
+
+class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
+    """
+    Measures request ordering throughput using exponential moving average but
+    is resistant to spikes after idles. This can be useful for getting rid of
+    treating a spike of queued requests on a backup instance after the primary
+    reconnection as a master degradation indicator which is false positive.
+    """
+
+    @unique
+    class State(Enum):
+        NORMAL = 0
+        IDLE = 1
+        REVIVAL = 2
+
+    def __init__(self, window_size=15, min_cnt=16):
+        """
+        Creates a throughput measurement instance.
+
+        :param window_size: window size in seconds for each next re-calculation
+        of throughput
+        :param min_cnt: minimal count of past windows from start or from revival (after long idle)
+        when `get_throughput` method begins to return not empty values
+        """
+        self.reqs_in_window = 0
+        self.throughput = None
+        self.window_size = window_size
+        self.min_cnt = min_cnt
+        self.alpha = 2 / (self.min_cnt + 1)
+        self.state = None
+        self.window_start_ts = None
+        self.idle_start_ts = None
+        self.revival_start_ts = None
+        self.reqs_during_revival = None
+
+    def init_time(self, start_ts):
+        self.state = self.State.REVIVAL
+        self.window_start_ts = start_ts
+        self.idle_start_ts = None
+        self.revival_start_ts = start_ts
+        self.reqs_during_revival += self.reqs_in_window
+
+    def add_request(self, ordered_ts):
+        self._update_time(ordered_ts)
+        self.reqs_in_window += 1
+
+    def _accumulate(self, old_accum, next_val):
+        """
+        Implement exponential moving average
+        """
+        return old_accum * (1 - self.alpha) + next_val * self.alpha
+
+    def _process_window_in_normal_mode(self):
+        self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
+        if self.reqs_in_window == 0:
+            self.state = self.State.IDLE
+            self.idle_start_ts = self.window_start_ts
+
+    def _process_window_in_idle_mode(self):
+        if self.reqs_in_window == 0:
+            self.throughput = self._accumulate(self.throughput, 0)
+        else:
+            self.throughput = None
+            self.state = self.State.REVIVAL
+            self.revival_start_ts = self.window_start_ts
+            self.reqs_during_revival = self.reqs_in_window
+
+    def _process_window_in_revival_mode(self):
+        if self.reqs_in_window > 0:
+            self.reqs_during_revival += self.reqs_in_window
+            min_revival_window_size = min(self.revival_start_ts - self.idle_start_ts,
+                                          self.min_cnt * self.window_size) if self.idle_start_ts is not None \
+                                      else self.min_cnt * self.window_size
+            if self.window_start_ts + self.window_size - self.revival_start_ts >= min_revival_window_size:
+                self.throughput = self.reqs_during_revival / \
+                                  (self.window_start_ts + self.window_size - self.idle_start_ts)
+                self.state = self.State.NORMAL
+                self.idle_start_ts = None
+                self.revival_start_ts = None
+                self.reqs_during_revival = None
+        else:
+            self.throughput = self.reqs_during_revival / \
+                              (self.window_start_ts + self.window_size - self.idle_start_ts)
+            self.state = self.State.IDLE
+            self.idle_start_ts = self.window_start_ts
+            self.revival_start_ts = None
+            self.reqs_during_revival = None
+
+    def _update_time(self, current_ts):
+        while current_ts >= self.window_start_ts + self.window_size:
+            if self.state == self.State.NORMAL is None:
+                self._process_window_in_normal_mode()
+            elif self.state == self.State.IDLE:
+                self._process_window_in_idle_mode()
+            elif self.state == self.State.REVIVAL:
+                self._process_window_in_revival_mode()
+            else:
+                raise LogicError("Internal state of througput measurement {} is unsupported".format(self.state))
+            self.window_start_ts += self.window_size
+            self.reqs_in_window = 0
+
+    def get_throughput(self, request_time):
         self._update_time(request_time)
         return self.throughput
 
