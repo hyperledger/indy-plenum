@@ -6,7 +6,8 @@ import base58
 from indy_crypto import IndyCryptoError
 
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
-from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
+from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
+    Signature, MultiSignature, ProofOfPossession
 
 logging.getLogger("indy_crypto").setLevel(logging.WARNING)
 logger = getLogger()
@@ -97,6 +98,15 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         bts = MultiSignature.new(sigs)
         return IndyCryptoBlsUtils.bls_to_str(bts)
 
+    def verify_key_proof_of_possession(self, key_proof, pk: str) -> bool:
+        bls_key_proof = IndyCryptoBlsUtils.bls_from_str(key_proof, ProofOfPossession)
+        bls_pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        if None in [bls_key_proof, bls_pk]:
+            return False
+        return Bls.verify_pop(bls_key_proof,
+                              bls_pk,
+                              self._generator)
+
 
 class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
     def __init__(self, sk: str, pk: str, params: GroupParams):
@@ -107,14 +117,16 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     @staticmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
         seed = IndyCryptoBlsUtils.prepare_seed(seed)
         gen = IndyCryptoBlsUtils.bls_from_str(params.g, Generator)
         sk = SignKey.new(seed)
         vk = VerKey.new(gen, sk)
+        key_proof = ProofOfPossession.new(ver_key=vk, sign_key=sk)
         sk_str = IndyCryptoBlsUtils.bls_to_str(sk)
         vk_str = IndyCryptoBlsUtils.bls_to_str(vk)
-        return sk_str, vk_str
+        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
+        return sk_str, vk_str, key_proof_str
 
     def sign(self, message: bytes) -> str:
         sign = Bls.sign(message, self._sk_bls)

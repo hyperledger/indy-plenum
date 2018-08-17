@@ -145,6 +145,10 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                                               timestamp=pre_prepare.ppTime)
         return multi_sig_value
 
+    def validate_key_proof_of_possession(self, key_proof, pk):
+        return self._bls_bft.bls_crypto_verifier\
+            .verify_key_proof_of_possession(key_proof, pk)
+
     def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
         sender_node = self.get_node_name(sender)
         pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node)

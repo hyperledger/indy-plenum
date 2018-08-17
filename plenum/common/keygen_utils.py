@@ -11,8 +11,9 @@ def initLocalKeys(name, keys_dir, sigseed, *, use_bls, override=False):
     pubkey, verkey = nodeStackClass.initLocalKeys(name, keys_dir, sigseed, override=override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
-    blspk = init_bls_keys(keys_dir, name, sigseed) if use_bls else None
-    return pubkey, verkey, blspk
+    blspk, key_proof = init_bls_keys(keys_dir, name, sigseed) if use_bls \
+        else (None, None)
+    return pubkey, verkey, blspk, key_proof
 
 
 def initRemoteKeys(name, remote_name, keys_dir, verkey, override=False):
@@ -24,9 +25,9 @@ def init_bls_keys(keys_dir, node_name, seed=None):
     # TODO: do we need keys based on transport keys?
     bls_keys_dir = os.path.join(keys_dir, node_name)
     bls_factory = create_default_bls_crypto_factory(keys_dir=bls_keys_dir)
-    stored_pk = bls_factory.generate_and_store_bls_keys(seed)
+    stored_pk, key_proof = bls_factory.generate_and_store_bls_keys(seed)
     print("BLS Public key is", stored_pk)
-    return stored_pk
+    return stored_pk, key_proof
 
 
 def initNodeKeysForBothStacks(name, keys_dir, sigseed, *, use_bls=True,
