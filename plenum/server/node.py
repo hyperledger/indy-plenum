@@ -1825,14 +1825,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the client that sent this `msg`
         """
         if self.view_changer.view_change_in_progress:
+
             msg_dict = msg if isinstance(msg, dict) else msg.as_dict
             self.discard(msg_dict,
                          reason="view change in progress",
                          logMethod=logger.debug)
-            raise InvalidClientRequest((msg_dict.get(f.REQ_ID.nm, None),
-                                        idr_from_req_data(msg_dict)),
-                                       "Client request is discarded since view "
-                                       "change is in progress")
+            self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                      msg_dict.get(f.REQ_ID.nm, None)),
+                                     "Client request is discarded since view "
+                                     "change is in progress", frm)
+            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can

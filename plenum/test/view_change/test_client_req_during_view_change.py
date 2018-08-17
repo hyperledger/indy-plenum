@@ -1,7 +1,6 @@
 import pytest
 
-from plenum.common.exceptions import RequestNackedException, \
-    InvalidClientRequest
+from plenum.common.exceptions import RequestNackedException
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_and_check_replies, sdk_gen_request, \
     checkDiscardMsg
@@ -30,20 +29,23 @@ def test_client_msg_discard_in_view_change_integration(txnPoolNodeSet,
 def test_client_msg_discard_in_view_change_with_dict(txnPoolNodeSet):
     node = txnPoolNodeSet[0]
     node.view_changer.view_change_in_progress = True
+    node.send_nack_to_client = check_nack_msg
+
     msg = sdk_gen_request("op").as_dict
-    with pytest.raises(InvalidClientRequest) as e:
-        node.unpackClientMsg(msg, "frm")
-        assert "Client request is discarded since view " \
-               "change is in progress" in e.args[0]
+    node.unpackClientMsg(msg, "frm")
     checkDiscardMsg([node, ], msg, "view change in progress")
 
 
 def test_client_msg_discard_in_view_change_with_request(txnPoolNodeSet):
     node = txnPoolNodeSet[0]
     node.view_changer.view_change_in_progress = True
+    node.send_nack_to_client = check_nack_msg
+
     msg = sdk_gen_request("op")
-    with pytest.raises(InvalidClientRequest) as e:
-        node.unpackClientMsg(msg, "frm")
-        assert "Client request is discarded since view " \
-               "change is in progress" in e.args[0]
+    node.unpackClientMsg(msg, "frm")
     checkDiscardMsg([node, ], msg.as_dict, "view change in progress")
+
+
+def check_nack_msg(req_key, reason, to_client):
+    assert "Client request is discarded since view " \
+           "change is in progress" == reason
