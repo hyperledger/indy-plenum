@@ -38,8 +38,8 @@ class PoolRequestHandler(LedgerRequestHandler):
                 return
             else:
                 raise InvalidClientRequest(request.identifier, request.reqId,
-                                           "A Proof of possession does not "
-                                           "need without BLS key")
+                                           "A Proof of possession is not "
+                                           "needed without BLS key")
         elif blskey_proof is None:
                 raise InvalidClientRequest(request.identifier, request.reqId,
                                            "A Proof of possession must be "
