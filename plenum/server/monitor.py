@@ -101,7 +101,8 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
     Measures request ordering throughput using exponential moving average but
     is resistant to spikes after idles. This can be useful for getting rid of
     treating a spike of queued requests on a backup instance after the primary
-    reconnection as a master degradation indicator which is false positive.
+    reconnection as a master degradation indicator which is false positive
+    in this case.
     """
 
     @unique
@@ -120,22 +121,20 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         when `get_throughput` method begins to return not empty values
         """
         self.reqs_in_window = 0
+        self.reqs_during_revival = 0
         self.throughput = None
         self.window_size = window_size
         self.min_cnt = min_cnt
         self.alpha = 2 / (self.min_cnt + 1)
-        self.state = None
+        self.state = self.State.REVIVAL
         self.window_start_ts = None
         self.idle_start_ts = None
         self.revival_start_ts = None
-        self.reqs_during_revival = None
 
     def init_time(self, start_ts):
-        self.state = self.State.REVIVAL
         self.window_start_ts = start_ts
-        self.idle_start_ts = None
+        self.idle_start_ts = start_ts
         self.revival_start_ts = start_ts
-        self.reqs_during_revival += self.reqs_in_window
 
     def add_request(self, ordered_ts):
         self._update_time(ordered_ts)
@@ -166,7 +165,8 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         if self.reqs_in_window > 0:
             self.reqs_during_revival += self.reqs_in_window
             min_revival_window_size = min(self.revival_start_ts - self.idle_start_ts,
-                                          self.min_cnt * self.window_size) if self.idle_start_ts is not None \
+                                          self.min_cnt * self.window_size) \
+                                      if self.revival_start_ts > self.idle_start_ts \
                                       else self.min_cnt * self.window_size
             if self.window_start_ts + self.window_size - self.revival_start_ts >= min_revival_window_size:
                 self.throughput = self.reqs_during_revival / \
@@ -185,7 +185,7 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
 
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
-            if self.state == self.State.NORMAL is None:
+            if self.state == self.State.NORMAL:
                 self._process_window_in_normal_mode()
             elif self.state == self.State.IDLE:
                 self._process_window_in_idle_mode()
