@@ -1332,10 +1332,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMsgFromPrimary(pre_prepare, sender):
             return PP_CHECK_NOT_FROM_PRIMARY
 
-        # A PRE-PREPARE is being sent to primary
-        if self.isPrimaryForMsg(pre_prepare) is True:
-            return PP_CHECK_TO_PRIMARY
-
         # Already has a PRE-PREPARE with same 3 phase key
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
