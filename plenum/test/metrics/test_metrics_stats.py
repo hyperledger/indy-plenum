@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from random import shuffle
 
+from copy import deepcopy
+
 from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricsName
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
@@ -114,6 +116,20 @@ def test_metrics_stats_total_is_merge_of_all_frames():
         expected_total.merge(frame)
 
     assert stats.total == expected_total
+
+
+def test_metrics_stats_merge_all_should_not_alter_source_frames():
+    events = generate_events(50)
+
+    stats = MetricsStats()
+    for ev in events:
+        stats.add(ev.timestamp, ev.name, ev.value)
+
+    frames = [frame for _, frame in stats.frames()]
+    saved_frames = deepcopy(frames)
+    MetricsStats.merge_all(frames)
+
+    assert frames == saved_frames
 
 
 def test_metrics_stats_eq_has_value_semantics():
