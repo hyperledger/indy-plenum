@@ -128,6 +128,14 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
         key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
         return sk_str, vk_str, key_proof_str
 
+    @staticmethod
+    def generate_key_proof(sk: str, pk: str):
+        sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
+        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        key_proof = ProofOfPossession.new(ver_key=pk_bls, sign_key=sk_bls)
+        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
+        return key_proof_str
+
     def sign(self, message: bytes) -> str:
         sign = Bls.sign(message, self._sk_bls)
         return IndyCryptoBlsUtils.bls_to_str(sign)
