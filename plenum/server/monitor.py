@@ -117,24 +117,31 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
 
         :param window_size: window size in seconds for each next re-calculation
         of throughput
-        :param min_cnt: minimal count of past windows from start or from revival (after long idle)
-        when `get_throughput` method begins to return not empty values
+        :param min_cnt: minimal count of empty past windows that is treated as
+        an idle; also minimal count of non-empty past windows from revival
+        (or start) when `get_throughput` method begins to return non-empty
+        values
         """
-        self.reqs_in_window = 0
-        self.reqs_during_revival = 0
-        self.throughput = None
         self.window_size = window_size
         self.min_cnt = min_cnt
         self.alpha = 2 / (self.min_cnt + 1)
-        self.state = self.State.REVIVAL
         self.window_start_ts = None
+        self.reqs_in_window = 0
+        self.throughput = None
+
+        self.state = self.State.IDLE
+
+        self.throughput_before_idle = 0
         self.idle_start_ts = None
+        self.empty_windows_count = 0
+
         self.revival_start_ts = None
+        self.revival_windows_count = None
+        self.reqs_during_revival = None
 
     def init_time(self, start_ts):
         self.window_start_ts = start_ts
         self.idle_start_ts = start_ts
-        self.revival_start_ts = start_ts
 
     def add_request(self, ordered_ts):
         self._update_time(ordered_ts)
@@ -147,41 +154,64 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
     def _process_window_in_normal_mode(self):
-        self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
-        if self.reqs_in_window == 0:
-            self.state = self.State.IDLE
-            self.idle_start_ts = self.window_start_ts
+        if self.reqs_in_window > 0:
+            self.idle_start_ts = None
+            self.empty_windows_count = 0
+
+        else:
+            if self.empty_windows_count == 0:
+                self.throughput_before_idle = self.throughput
+                self.idle_start_ts = self.window_start_ts
+            self.empty_windows_count += 1
+            if self.empty_windows_count == self.min_cnt:
+                self.state = self.State.IDLE
+
+        window_reqs_rate = self.reqs_in_window / self.window_size
+        self.throughput = self._accumulate(self.throughput, window_reqs_rate)
 
     def _process_window_in_idle_mode(self):
         if self.reqs_in_window == 0:
+            self.empty_windows_count += 1
             self.throughput = self._accumulate(self.throughput, 0)
+
         else:
-            self.throughput = None
             self.state = self.State.REVIVAL
             self.revival_start_ts = self.window_start_ts
+            self.revival_windows_count = 1
             self.reqs_during_revival = self.reqs_in_window
+            self.throughput = None
 
     def _process_window_in_revival_mode(self):
         if self.reqs_in_window > 0:
+            self.revival_windows_count += 1
             self.reqs_during_revival += self.reqs_in_window
-            min_revival_window_size = min(self.revival_start_ts - self.idle_start_ts,
-                                          self.min_cnt * self.window_size) \
-                                      if self.revival_start_ts > self.idle_start_ts \
-                                      else self.min_cnt * self.window_size
-            if self.window_start_ts + self.window_size - self.revival_start_ts >= min_revival_window_size:
-                self.throughput = self.reqs_during_revival / \
-                                  (self.window_start_ts + self.window_size - self.idle_start_ts)
+            if self.revival_windows_count == self.min_cnt:
+                leveling_windows_count = \
+                    self.empty_windows_count + self.revival_windows_count
+                leveled_reqs_per_window = \
+                    self.reqs_during_revival / leveling_windows_count
+                leveled_reqs_rate = leveled_reqs_per_window / self.window_size
+                self.throughput = self.throughput_before_idle
+                for i in range(leveling_windows_count):
+                    self.throughput = \
+                        self._accumulate(self.throughput, leveled_reqs_rate)
                 self.state = self.State.NORMAL
-                self.idle_start_ts = None
-                self.revival_start_ts = None
-                self.reqs_during_revival = None
+
         else:
-            self.throughput = self.reqs_during_revival / \
-                              (self.window_start_ts + self.window_size - self.idle_start_ts)
-            self.state = self.State.IDLE
+            leveling_windows_count = \
+                len(self.empty_windows_count) + len(self.revival_windows_count)
+            leveled_reqs_per_window = \
+                self.reqs_during_revival / leveling_windows_count
+            leveled_reqs_rate = leveled_reqs_per_window / self.window_size
+            self.throughput = self.throughput_before_idle
+            for i in range(leveling_windows_count):
+                self.throughput = \
+                    self._accumulate(self.throughput, leveled_reqs_rate)
+            self.state = self.State.NORMAL
+            self.throughput_before_idle = self.throughput
             self.idle_start_ts = self.window_start_ts
-            self.revival_start_ts = None
-            self.reqs_during_revival = None
+            self.empty_windows_count += 1
+            self.throughput = self._accumulate(self.throughput, 0)
 
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
@@ -192,7 +222,8 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
             elif self.state == self.State.REVIVAL:
                 self._process_window_in_revival_mode()
             else:
-                raise LogicError("Internal state of througput measurement {} is unsupported".format(self.state))
+                raise LogicError("Internal state of througput measurement {} "
+                                 "is unsupported".format(self.state))
             self.window_start_ts += self.window_size
             self.reqs_in_window = 0
 
