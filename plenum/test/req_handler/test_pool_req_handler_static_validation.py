@@ -33,7 +33,7 @@ def test_pool_req_handler_static_validation(bls_keys,
 def test_pool_req_handler_static_validation_with_full_bls(bls_keys,
                                                           pool_req_handler):
     bls_ver_key, key_proof = bls_keys
-    node_request = _generate_node_request(bls_key=None,
+    node_request = _generate_node_request(bls_key=bls_ver_key,
                                           bls_key_proof=key_proof)
     pool_req_handler.doStaticValidation(node_request)
 
@@ -58,6 +58,21 @@ def test_pool_req_handler_static_validation_with_full_proof(bls_keys,
     with pytest.raises(InvalidClientRequest) as e:
         pool_req_handler.doStaticValidation(node_request)
         assert "A Proof of possession must be provided with BLS key" \
+               in e._excinfo[1].args[0]
+
+
+def test_pool_req_handler_static_validation_with_not_full_proof(bls_keys,
+                                                                pool_req_handler):
+    '''
+    Test pool_req_handler static validation of message with not None key proof
+    and without bls key
+    '''
+    bls_ver_key, key_proof = bls_keys
+    node_request = _generate_node_request(bls_key=None,
+                                          bls_key_proof=key_proof)
+    with pytest.raises(InvalidClientRequest) as e:
+        pool_req_handler.doStaticValidation(node_request)
+        assert "A Proof of possession is not needed without BLS key" \
                in e._excinfo[1].args[0]
 
 
