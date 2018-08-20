@@ -20,6 +20,11 @@ def split_messages_on_batches(msgs, make_batch_func, is_batch_len_under_limit):
                 return
             msgs_for_batch.append(msg)
             batch = make_batch_func(msgs_for_batch)
+        """Need for limitation one batch size"""
+        if not is_batch_len_under_limit(len(batch)):
+            overload_msg = msgs_for_batch.pop()
+            batch = make_batch_func(msgs_for_batch)
+            msgs.insert(0, overload_msg)
         batches.append((batch, len(msgs_for_batch)))
     if len(batches) == 0:
         batches = [(make_batch_func([]), 0)]

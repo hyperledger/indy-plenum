@@ -38,7 +38,7 @@ def test_total_len_excesses_limit_two_batches():
 
 def test_small_msgs_with_one_huge_more_than_one_batch():
     msgs = [b'1', b'1', b'1', b'1' * MAX_ONE_MSG_LEN, b'1']
-    assert len(split_ut(msgs)) == 2
+    assert len(split_ut(msgs)) == 3
 
 
 def test_one_msg_excesses_limit_split_fails():
@@ -63,21 +63,30 @@ def test_split_messages_on_batches():
 def test_split_messages_by_size():
     str_len = 10
     msg_count = 100
-    msg_limit = 2 * len(json.dumps({1: randomString(str_len)}))
+    msg_limit = len(json.dumps([{1: randomString(str_len)}]))
     msgs = [{1: randomString(str_len)} for i in range(msg_count)]
     res = split_messages_on_batches(msgs, json.dumps, lambda l: l <= msg_limit)
-    assert len(res) == int(msg_count / 2)
+    assert len(res) == msg_count
 
 
 def test_no_split_if_msg_size_less_then_limit():
     msg_limit = 100
     msgs = [{1: randomString(10)}]
-    res = split_messages_on_batches(msgs, json.dumps, lambda l: l < msg_limit)
+    res = split_messages_on_batches(msgs, json.dumps, lambda l: l <= msg_limit)
     assert len(res) == 1
 
 
 def test_no_batch_if_msg_size_more_then_limit():
     msg_limit = 100
     msgs = [{1: randomString(101)}]
-    res = split_messages_on_batches(msgs, json.dumps, lambda l: l < msg_limit)
+    res = split_messages_on_batches(msgs, json.dumps, lambda l: l <= msg_limit)
     assert res is None
+
+
+def test_batch_size_limitations():
+    msg_limit = 100
+    msgs = [{1: randomString(10)}] * 100
+    res = split_messages_on_batches(msgs, json.dumps, lambda l: l <= msg_limit)
+    for r in res:
+        batch, length = r
+        assert len(batch) <= msg_limit
