@@ -252,6 +252,10 @@ MaxStateProofTime = 3
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
 CHK_FREQ = 100
 
+# We will ask for 3pc with lower seq_no if we got preprepare
+# with seq_no > last_ordered_seq_no + DELTA_3PC_ASKING
+DELTA_3PC_ASKING = CHK_FREQ / 10
+
 # Difference between low water mark and high water mark
 LOG_SIZE = 3 * CHK_FREQ
 

@@ -28,7 +28,7 @@ from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
-from plenum.config import CHK_FREQ
+from plenum.config import CHK_FREQ, DELTA_3PC_ASKING
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
@@ -1016,6 +1016,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self.isMaster or self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
                 seq_to = pp_seq_no - 1
+                if seq_to - seq_frm >= DELTA_3PC_ASKING:
+                    seq_frm -= 1
                 if seq_to >= seq_frm >= pp_seq_no - CHK_FREQ + 1:
                     self.logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "

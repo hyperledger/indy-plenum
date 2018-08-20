@@ -1,6 +1,11 @@
 import random
 import types
 from functools import partial
+from typing import Any
+
+from collections import Iterable
+
+from libnacl.sign import Signer
 
 import common.error
 import plenum.common.error
@@ -14,6 +19,7 @@ from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Bat
 from plenum.common.request import Request
 
 from plenum.common.util import updateNamedTuple
+from plenum.server.node import Node
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
@@ -42,6 +48,44 @@ def changesRequest(node):
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
     return node
+
+
+def evil_send_pr_com(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Prepare, Commit)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def evil_send_pre(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Prepare, Commit)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dontSendPrepareAndCommitTo(nodes, ignore_node_name):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(evil_send_pr_com, node)
+
+
+def dontSendPrePrepareTo(nodes, ignore_node_name):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(evil_send_pre, node)
+
+def resetSendPrepareAndCommitTo(nodes):
+    for node in nodes:
+        node.send = types.MethodType(Node.send, node)
 
 
 def delaysPrePrepareProcessing(node, delay: float = 30, instId: int = None):
