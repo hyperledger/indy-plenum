@@ -99,17 +99,18 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
 class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
     """
     Measures request ordering throughput using exponential moving average but
-    is resistant to spikes after idles. This can be useful for getting rid of
-    treating a spike of queued requests on a backup instance after the primary
-    reconnection as a master degradation indicator which is false positive
-    in this case.
+    is resistant to spikes after long idles (fade-outs). This can be useful for
+    getting rid of treating a spike of queued requests on a backup instance
+    after the primary reconnection as a master degradation indicator which is
+    false positive in this case.
     """
 
     @unique
     class State(Enum):
         NORMAL = 0
         IDLE = 1
-        REVIVAL = 2
+        FADED = 2
+        REVIVAL = 3
 
     def __init__(self, window_size=15, min_cnt=16):
         """
@@ -118,23 +119,28 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         :param window_size: window size in seconds for each next re-calculation
         of throughput
         :param min_cnt: minimal count of empty past windows that is treated as
-        an idle; also minimal count of non-empty past windows from revival
+        fade-out; also minimal count of non-empty past windows from revival
         (or start) when `get_throughput` method begins to return non-empty
         values
         """
+
+        # Constant fields
         self.window_size = window_size
         self.min_cnt = min_cnt
         self.alpha = 2 / (self.min_cnt + 1)
-        self.window_start_ts = None
+
+        # Common fields
+        self.window_start_ts = None  # will be initiated in `init_time`
         self.reqs_in_window = 0
-        self.throughput = None
+        self.throughput = 0
+        self.state = self.State.FADED
 
-        self.state = self.State.IDLE
-
+        # Fields being used in IDLE, FADED and REVIVAL states
         self.throughput_before_idle = 0
-        self.idle_start_ts = None
+        self.idle_start_ts = None  # will be initiated in `init_time`
         self.empty_windows_count = 0
 
+        # Fields being used in REVIVAL state only
         self.revival_start_ts = None
         self.revival_windows_count = None
         self.reqs_during_revival = None
@@ -149,22 +155,16 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
 
     def _accumulate(self, old_accum, next_val):
         """
-        Implement exponential moving average
+        Implements exponential moving average
         """
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
     def _process_window_in_normal_mode(self):
-        if self.reqs_in_window > 0:
-            self.idle_start_ts = None
-            self.empty_windows_count = 0
-
-        else:
-            if self.empty_windows_count == 0:
-                self.throughput_before_idle = self.throughput
-                self.idle_start_ts = self.window_start_ts
-            self.empty_windows_count += 1
-            if self.empty_windows_count == self.min_cnt:
-                self.state = self.State.IDLE
+        if self.reqs_in_window == 0:
+            self.state = self.State.IDLE
+            self.throughput_before_idle = self.throughput
+            self.idle_start_ts = self.window_start_ts
+            self.empty_windows_count = 1
 
         window_reqs_rate = self.reqs_in_window / self.window_size
         self.throughput = self._accumulate(self.throughput, window_reqs_rate)
@@ -172,8 +172,18 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
     def _process_window_in_idle_mode(self):
         if self.reqs_in_window == 0:
             self.empty_windows_count += 1
-            self.throughput = self._accumulate(self.throughput, 0)
+            if self.empty_windows_count == self.min_cnt:
+                self.state = self.State.FADED
+        else:
+            self.state = self.State.NORMAL
 
+        window_reqs_rate = self.reqs_in_window / self.window_size
+        self.throughput = self._accumulate(self.throughput, window_reqs_rate)
+
+    def _process_window_in_faded_mode(self):
+        if self.reqs_in_window == 0:
+            self.empty_windows_count += 1
+            self.throughput = self._accumulate(self.throughput, 0)
         else:
             self.state = self.State.REVIVAL
             self.revival_start_ts = self.window_start_ts
@@ -181,36 +191,31 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
             self.reqs_during_revival = self.reqs_in_window
             self.throughput = None
 
+    def _level_reqs(self):
+        leveling_windows_count = \
+            self.empty_windows_count + self.revival_windows_count
+        leveled_reqs_per_window = \
+            self.reqs_during_revival / leveling_windows_count
+        leveled_reqs_rate = leveled_reqs_per_window / self.window_size
+
+        self.throughput = self.throughput_before_idle
+        for i in range(leveling_windows_count):
+            self.throughput = \
+                self._accumulate(self.throughput, leveled_reqs_rate)
+
     def _process_window_in_revival_mode(self):
         if self.reqs_in_window > 0:
             self.revival_windows_count += 1
             self.reqs_during_revival += self.reqs_in_window
             if self.revival_windows_count == self.min_cnt:
-                leveling_windows_count = \
-                    self.empty_windows_count + self.revival_windows_count
-                leveled_reqs_per_window = \
-                    self.reqs_during_revival / leveling_windows_count
-                leveled_reqs_rate = leveled_reqs_per_window / self.window_size
-                self.throughput = self.throughput_before_idle
-                for i in range(leveling_windows_count):
-                    self.throughput = \
-                        self._accumulate(self.throughput, leveled_reqs_rate)
+                self._level_reqs()
                 self.state = self.State.NORMAL
-
         else:
-            leveling_windows_count = \
-                len(self.empty_windows_count) + len(self.revival_windows_count)
-            leveled_reqs_per_window = \
-                self.reqs_during_revival / leveling_windows_count
-            leveled_reqs_rate = leveled_reqs_per_window / self.window_size
-            self.throughput = self.throughput_before_idle
-            for i in range(leveling_windows_count):
-                self.throughput = \
-                    self._accumulate(self.throughput, leveled_reqs_rate)
-            self.state = self.State.NORMAL
+            self._level_reqs()
+            self.state = self.State.IDLE
             self.throughput_before_idle = self.throughput
             self.idle_start_ts = self.window_start_ts
-            self.empty_windows_count += 1
+            self.empty_windows_count = 1
             self.throughput = self._accumulate(self.throughput, 0)
 
     def _update_time(self, current_ts):
@@ -219,6 +224,8 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
                 self._process_window_in_normal_mode()
             elif self.state == self.State.IDLE:
                 self._process_window_in_idle_mode()
+            elif self.state == self.State.FADED:
+                self._process_window_in_faded_mode()
             elif self.state == self.State.REVIVAL:
                 self._process_window_in_revival_mode()
             else:
