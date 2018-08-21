@@ -32,7 +32,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----VALIDATE----
 
-    @measure_time(MetricsName.BLS_VALIDATE_PRE_PREPARE_TIME)
+    @measure_time(MetricsName.BLS_VALIDATE_PREPREPARE_TIME)
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
@@ -56,6 +56,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----CREATE/UPDATE----
 
+    @measure_time(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
     def update_pre_prepare(self, pre_prepare_params, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
