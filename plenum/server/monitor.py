@@ -191,7 +191,7 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
             self.reqs_during_revival = self.reqs_in_window
             self.throughput = None
 
-    def _level_reqs(self):
+    def _level_reqs_after_revival(self):
         leveling_windows_count = \
             self.empty_windows_count + self.revival_windows_count
         leveled_reqs_per_window = \
@@ -208,10 +208,10 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
             self.revival_windows_count += 1
             self.reqs_during_revival += self.reqs_in_window
             if self.revival_windows_count == self.min_cnt:
-                self._level_reqs()
+                self._level_reqs_after_revival()
                 self.state = self.State.NORMAL
         else:
-            self._level_reqs()
+            self._level_reqs_after_revival()
             self.state = self.State.IDLE
             self.throughput_before_idle = self.throughput
             self.idle_start_ts = self.window_start_ts
