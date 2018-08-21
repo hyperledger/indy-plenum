@@ -127,7 +127,6 @@ class MetricsName(IntEnum):
     BLS_UPDATE_COMMIT_TIME = 4012
 
 
-
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
                                            ('value', Union[float, ValueAccumulator])])
 
