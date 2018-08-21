@@ -63,24 +63,18 @@ class ValidatorNodeInfoTool:
         general_info['response-version'] = self.JSON_SCHEMA_VERSION
         general_info['timestamp'] = int(time.time())
         hardware_info = self.__hardware_info
-        software_info = self.__software_info
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
-        extractions_info = self.__extractions
 
         if hardware_info:
             general_info.update(hardware_info)
-        if software_info:
-            general_info.update(software_info)
         if pool_info:
             general_info.update(pool_info)
         if protocol_info:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
-        if extractions_info:
-            general_info.update(extractions_info)
 
         return general_info
 
@@ -205,19 +199,28 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
+    def __node_disk_size(self):
+        nodes_data = self._get_folder_size(self._node.ledger_dir)
+
+        return {
+            "Hardware": {
+                "HDD_used_by_node": "{} MBs".format(int(nodes_data / MBs)),
+            }
+        }
+
+    @property
+    @none_on_fail
     def __hardware_info(self):
         hdd = psutil.disk_usage('/')
         ram_all = psutil.virtual_memory()
         current_process = psutil.Process()
         ram_by_process = current_process.memory_info()
-        nodes_data = self._get_folder_size(self._node.ledger_dir)
 
         return {
             "Hardware": {
                 "HDD_all": "{} Mbs".format(int(hdd.used / MBs)),
                 "RAM_all_free": "{} Mbs".format(int(ram_all.free / MBs)),
                 "RAM_used_by_node": "{} Mbs".format(int(ram_by_process.vms / MBs)),
-                "HDD_used_by_node": "{} MBs".format(int(nodes_data / MBs)),
             }
         }
 
@@ -376,9 +379,7 @@ class ValidatorNodeInfoTool:
             replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
             stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica.stashedRecvdCheckpoints))
-            if replica.prePreparesPendingPrevPP:
-                stashed_txns["Min_stashed_PrePrepare"] = self._prepare_for_json(
-                    [pp for pp in replica.prePreparesPendingPrevPP.itervalues()][-1])
+            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica.prePreparesPendingPrevPP))
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
