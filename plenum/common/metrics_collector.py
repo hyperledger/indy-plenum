@@ -121,6 +121,12 @@ class MetricsName(IntEnum):
     SEND_MESSAGE_REQ_TIME = 3501
     SEND_MESSAGE_REP_TIME = 3502
 
+    # BLS statistics
+    BLS_VALIDATE_PRE_PREPARE_TIME = 4000
+    BLS_VALIDATE_COMMIT_TIME = 4002
+    BLS_UPDATE_COMMIT_TIME = 4012
+
+
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
                                            ('value', Union[float, ValueAccumulator])])
