@@ -141,4 +141,5 @@ class ValueAccumulator:
     def _stats_to_str(self, mul: float, units: Optional[str]):
         return "{:.2f}/{:.2f}/{:.2f} {}min/avg/max, {:.2f} stddev".format(
             self.min * mul, self.avg * mul, self.max * mul,
-            "{} ".format(units) if units else "", self.stddev * mul)
+            "{} ".format(units) if units else "",
+            self.stddev * mul if self.stddev else 0)
