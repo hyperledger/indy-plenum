@@ -208,7 +208,6 @@ class ValidatorNodeInfoTool:
             }
         }
 
-
     @property
     @none_on_fail
     def __hardware_info(self):
