@@ -496,8 +496,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
-        self.latency_avg_strategy_cls = MedianHighStrategy
-        self.throughput_avg_strategy_cls = MedianLowStrategy
+        self.latency_avg_strategy_cls = self.config.latency_averaging_strategy_class
+        self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
 
     def __repr__(self):
         return self.name

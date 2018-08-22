@@ -65,7 +65,7 @@ def create_throughput_measurement(start_ts, config):
 
 
 def get_average_throughput(calculated_throughputs, config):
-    return sum(calculated_throughputs) / len(calculated_throughputs)
+    return config.throughput_averaging_strategy_class.get_avg(calculated_throughputs)
 
 
 def get_througput_ratio(inst_req_streams, config):
