@@ -760,7 +760,7 @@ def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
                     identifier=None, **kwargs):
     # Question: Why this method is called sdk_gen_request? It does not use
     # the indy-sdk
-    return Request(operation=operation, reqId=random.randint(10, 100000),
+    return Request(operation=operation, reqId=random.randint(10, 1000000000),
                    protocolVersion=protocol_version, identifier=identifier,
                    **kwargs)
 

@@ -74,4 +74,4 @@ def _check_call_discard(ledger_manager, discard_reason):
         ledger_manager.owner.discard,
         required=False)
     assert last
-    assert discard_reason.find(last['reason'])
+    assert discard_reason in last['reason']

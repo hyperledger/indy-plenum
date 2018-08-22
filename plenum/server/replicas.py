@@ -162,7 +162,10 @@ class Replicas:
                     viewNo = preprepares[key].viewNo
                     break
             if ppSeqNo is None or viewNo is None:
-                logger.warning('Unordered request with reqId: {} was not found in prePrepares'.format(reqId))
+                logger.warning('Unordered request with reqId: {} was not found in prePrepares. '
+                               'Prepares count: {}, Commits count: {}'.format(reqId,
+                                                                              len(replica.prepares),
+                                                                              len(replica.commits)))
                 continue
 
             # get pre-prepare sender

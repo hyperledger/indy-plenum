@@ -1,3 +1,5 @@
+from statistics import median_high
+
 import pytest
 
 from plenum.server.monitor import EMAThroughputMeasurement
@@ -42,13 +44,3 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
             key = get_key_from_req(rq)
             assert key in node.monitor.masterReqLatenciesTest
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
-
-
-def testClientLatencyThreshold(looper, txnPoolNodeSet, requests):
-    rq = requests[0]
-    for node in txnPoolNodeSet:
-        latc = node.monitor.getAvgLatency(
-            node.instances.masterId)[rq['identifier']]
-        avglat = node.monitor.getAvgLatency(
-            *node.instances.backupIds)[rq['identifier']]
-        assert latc - avglat <= node.monitor.Omega

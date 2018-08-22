@@ -28,30 +28,35 @@ def bls_crypto_factory2(tdir_for_func):
 
 
 def test_create_and_store_bls_keys(bls_crypto_factory):
-    pk = bls_crypto_factory.generate_and_store_bls_keys()
+    pk, key_proof = bls_crypto_factory.generate_and_store_bls_keys()
     assert pk
     assert isinstance(pk, str)
+    assert bls_crypto_factory.create_bls_crypto_verifier()\
+        .verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_create_bls_keys(bls_crypto_factory):
-    sk, pk = bls_crypto_factory.generate_bls_keys()
+    sk, pk, key_proof = bls_crypto_factory.generate_bls_keys()
     assert pk
     assert sk
     assert isinstance(sk, str)
     assert isinstance(pk, str)
+    assert bls_crypto_factory.create_bls_crypto_verifier()\
+        .verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_create_and_store_bls_keys_multiple(bls_crypto_factory):
-    pk1 = bls_crypto_factory.generate_and_store_bls_keys()
-    pk2 = bls_crypto_factory.generate_and_store_bls_keys()
-    pk3 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk1, key_proof1 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk2, key_proof2 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk3, key_proof3 = bls_crypto_factory.generate_and_store_bls_keys()
     assert pk1 != pk2 != pk3
+    assert key_proof1 != key_proof2 != key_proof3
 
 
 def test_create_bls_keys_multiple(bls_crypto_factory):
-    sk1, pk1 = bls_crypto_factory.generate_bls_keys()
-    sk2, pk2 = bls_crypto_factory.generate_bls_keys()
-    sk3, pk3 = bls_crypto_factory.generate_bls_keys()
+    sk1, pk1, _ = bls_crypto_factory.generate_bls_keys()
+    sk2, pk2, _ = bls_crypto_factory.generate_bls_keys()
+    sk3, pk3, _ = bls_crypto_factory.generate_bls_keys()
     assert pk1 != pk2 != pk3
     assert sk1 != sk2 != sk3
 
@@ -62,7 +67,7 @@ def test_create_bls_crypto_no_keys(bls_crypto_factory):
 
 
 def test_create_bls_crypto(bls_crypto_factory):
-    pk = bls_crypto_factory.generate_and_store_bls_keys()
+    pk, _ = bls_crypto_factory.generate_and_store_bls_keys()
     bls_crypto_signer = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
     assert bls_crypto_signer
     assert isinstance(bls_crypto_signer, BlsCryptoSigner)
@@ -72,15 +77,15 @@ def test_create_bls_crypto(bls_crypto_factory):
 
 
 def test_create_bls_crypto_multiple_times(bls_crypto_factory):
-    pk1 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk1, _ = bls_crypto_factory.generate_and_store_bls_keys()
     bls_crypto_signer1 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
     assert pk1 == bls_crypto_signer1.pk
 
-    pk2 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk2, _ = bls_crypto_factory.generate_and_store_bls_keys()
     bls_crypto_signer2 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
     assert pk2 == bls_crypto_signer2.pk
 
-    pk3 = bls_crypto_factory.generate_and_store_bls_keys()
+    pk3, _ = bls_crypto_factory.generate_and_store_bls_keys()
     bls_crypto_signer3 = bls_crypto_factory.create_bls_crypto_signer_from_saved_keys()
     assert pk3 == bls_crypto_signer3.pk
 
