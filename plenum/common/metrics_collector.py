@@ -75,10 +75,12 @@ class MetricsName(IntEnum):
     # Node specific metrics
     SERVICE_NODE_STACK_TIME = 200
     PROCESS_NODE_INBOX_TIME = 201
-    SEND_TO_REPLICA_TIME = 202
+    # SEND_TO_REPLICA_TIME = 202   # This is called too often and takes too little time
     NODE_CHECK_PERFORMANCE_TIME = 203
     NODE_CHECK_NODE_REQUEST_SPIKE = 204
-    UNPACK_BATCH_TIME = 205
+    # UNPACK_BATCH_TIME = 205
+    DESERIALIZE_DURING_UNPACK_TIME = 206
+    VERIFY_SIGNATURE_TIME = 207
 
     # Replica specific metrics
     SERVICE_REPLICA_QUEUES_TIME = 300
