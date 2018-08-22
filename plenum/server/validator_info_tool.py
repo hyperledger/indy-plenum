@@ -80,7 +80,7 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __memory_profiler(self):
+    def memory_profiler(self):
         all_objects = muppy.get_objects()
         stats = summary.summarize(all_objects)
         return {'Memory_profiler': [l for l in summary.format_(stats, LIMIT_OBJECTS_FOR_PROFILER)]}
@@ -199,7 +199,7 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __node_disk_size(self):
+    def node_disk_size(self):
         nodes_data = self._get_folder_size(self._node.ledger_dir)
 
         return {
@@ -226,7 +226,7 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __software_info(self):
+    def software_info(self):
         os_version = self._prepare_for_json(platform.platform())
         installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
         output = self._run_external_cmd("dpkg-query --list | grep indy")
@@ -520,7 +520,7 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __extractions(self):
+    def extractions(self):
         return {
             "Extractions":
                 {
