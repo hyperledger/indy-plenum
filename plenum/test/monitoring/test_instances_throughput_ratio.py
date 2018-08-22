@@ -118,12 +118,12 @@ def get_througput_ratio(inst_req_streams, config):
     return throughput_ratio
 
 
-def assert_master_degraded(throughput_ratio, tconf):
-    assert throughput_ratio < tconf.DELTA
+def assert_master_degraded(throughput_ratio, config):
+    assert throughput_ratio < config.DELTA
 
 
-def assert_master_not_degraded(throughput_ratio, tconf):
-    assert throughput_ratio is None or throughput_ratio >= tconf.DELTA
+def assert_master_not_degraded(throughput_ratio, config):
+    assert throughput_ratio is None or throughput_ratio >= config.DELTA
 
 
 def test_master_not_degraded_if_same_throughput(tconf):
