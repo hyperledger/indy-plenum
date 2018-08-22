@@ -871,6 +871,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 'a primary so the replica will not process the request '
                                 'until a primary is chosen'.format(self))
 
+    @measure_replica_time(MetricsName.SERVICE_REPLICA_QUEUES_TIME,
+                          MetricsName.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
     def serviceQueues(self, limit=None):
         """
         Process `limit` number of messages in the inBox.

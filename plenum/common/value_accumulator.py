@@ -1,7 +1,7 @@
 import math
 import struct
 from numbers import Real
-from typing import List, Union
+from typing import List, Union, Optional
 
 
 def _min_with_none(a, b):
@@ -61,12 +61,6 @@ class ValueAccumulator:
         acc._sum, acc._count, acc._min, acc._max, acc._sumsq = struct.unpack('dQddd', data)
         return acc
 
-    def __repr__(self):
-        if self.count == 0:
-            return "no samples"
-        return "{} samples, {:.2f} sum, {:.2f}/{:.2f}/{:.2f} min/avg/max, {:.2f} stddev". \
-            format(self.count, self.sum, self.min, self.avg, self.max, self.stddev)
-
     def __eq__(self, other):
         if not isinstance(other, ValueAccumulator):
             return False
@@ -81,6 +75,16 @@ class ValueAccumulator:
         if self._max != other._max:
             return False
         return True
+
+    def to_str(self, show_sums=True, sums_mul=1.0, sums_unit=None, show_stats=True, stats_mul=1.0, stats_unit=None):
+        if self.count == 0:
+            return "no samples"
+        results = []
+        if show_sums:
+            results.append(self._sum_to_str(sums_mul, sums_unit))
+        if show_stats:
+            results.append(self._stats_to_str(stats_mul, stats_unit))
+        return ", ".join(results)
 
     @property
     def count(self):
@@ -111,13 +115,13 @@ class ValueAccumulator:
 
     @property
     def lo(self):
-        return self.std_range()[0]
+        return self._std_range()[0]
 
     @property
     def hi(self):
-        return self.std_range()[1]
+        return self._std_range()[1]
 
-    def std_range(self):
+    def _std_range(self):
         avg = self.avg
         std = self.stddev
         if not std or self._min == self._max:
@@ -129,3 +133,13 @@ class ValueAccumulator:
         a = avg - std * inv_skew
         b = avg + std * inv_skew * skew
         return a, b
+
+    def _sum_to_str(self, mul: float, units: Optional[str]):
+        return "{} samples, {:.2f} {}".format(self.count, self.sum * mul, units,
+                                              "{} total".format(units) if units else "sum")
+
+    def _stats_to_str(self, mul: float, units: Optional[str]):
+        return "{:.2f}/{:.2f}/{:.2f} {}min/avg/max, {:.2f} stddev".format(
+            self.min * mul, self.avg * mul, self.max * mul,
+            "{} ".format(units) if units else "",
+            self.stddev * mul if self.stddev else 0)

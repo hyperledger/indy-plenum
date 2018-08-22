@@ -1140,7 +1140,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        n = await self.nodestack.service(limit)
+        with self.metrics.measure_time(MetricsName.SERVICE_NODE_STACK_TIME):
+            n = await self.nodestack.service(limit)
         self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
 
         await self.processNodeInBox()
@@ -1586,6 +1587,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return False
 
+    @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
     def sendToReplica(self, msg, frm):
         """
         Send the message to the intended replica.
@@ -1685,9 +1687,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(msg, Batch):
             logger.trace("{} processing a batch {}".format(self, msg))
-            for m in msg.messages:
-                m = self.nodestack.deserializeMsg(m)
-                self.handleOneNodeMsg((m, frm))
+            with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
+                for m in msg.messages:
+                    m = self.nodestack.deserializeMsg(m)
+                    self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
 
@@ -1701,6 +1704,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
+    @async_measure_time(MetricsName.PROCESS_NODE_INBOX_TIME)
     async def processNodeInBox(self):
         """
         Process the messages in the node inbox asynchronously.
@@ -2523,6 +2527,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.flush_accumulated()
 
+    @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
         """
         Check if master instance is slow and send an instance change request.
@@ -2573,6 +2578,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(self))
         return True
 
+    @measure_time(MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE)
     def checkNodeRequestSpike(self):
         logger.trace("{} checking its request amount".format(self))
 

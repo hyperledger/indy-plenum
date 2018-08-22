@@ -72,6 +72,18 @@ class MetricsName(IntEnum):
     SERVICE_CLIENT_STACK_TIME = 111
     SERVICE_MONITOR_ACTIONS_TIME = 112
 
+    # Node specific metrics
+    SERVICE_NODE_STACK_TIME = 200
+    PROCESS_NODE_INBOX_TIME = 201
+    SEND_TO_REPLICA_TIME = 202
+    NODE_CHECK_PERFORMANCE_TIME = 203
+    NODE_CHECK_NODE_REQUEST_SPIKE = 204
+    UNPACK_BATCH_TIME = 205
+
+    # Replica specific metrics
+    SERVICE_REPLICA_QUEUES_TIME = 300
+    SERVICE_BACKUP_REPLICAS_QUEUES_TIME = 301
+
     # Master replica message statistics
     PROCESS_PREPREPARE_TIME = 1000
     PROCESS_PREPARE_TIME = 1001
@@ -108,6 +120,12 @@ class MetricsName(IntEnum):
     SEND_PROPAGATE_TIME = 3500
     SEND_MESSAGE_REQ_TIME = 3501
     SEND_MESSAGE_REP_TIME = 3502
+
+    # BLS statistics
+    BLS_VALIDATE_PREPREPARE_TIME = 4000
+    BLS_VALIDATE_COMMIT_TIME = 4002
+    BLS_UPDATE_PREPREPARE_TIME = 4010
+    BLS_UPDATE_COMMIT_TIME = 4012
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
