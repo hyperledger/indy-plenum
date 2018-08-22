@@ -60,84 +60,15 @@ class ReqStream:
         return [(once.time, once.quantity)]
 
 
-@pytest.mark.parametrize('inst_req_streams, expected_is_master_degraded', [
-    pytest.param([ReqStream().period(s=0, i=5, q=1)
-                             .stop(t=4 * 60)
-                             .build()
-                  for inst_id in range(9)],
-                 False,
-                 id='master_not_degraded_if_same_throughput'),
-    pytest.param([ReqStream().period(s=0, i=5, q=1)
-                             .stop(t=1 * 60 * 60)
-                             .build()]
-                 + [ReqStream().period(s=0, i=5, q=1)
-                               .once(t=1 * 60 * 60, q=1000)
-                               .build()
-                    for inst_id in range(1, 9)],
-                 False,
-                 id='master_not_degraded_on_spike_in_1_batch_on_backups',
-                 marks=pytest.mark.skip(reason='INDY-1565 is in progress')),
-    pytest.param([ReqStream().period(s=0, i=5, q=1)
-                             .stop(t=1 * 60 * 60)
-                             .build()]
-                 + [ReqStream().period(s=0, i=5, q=1)
-                               .period(s=1 * 60 * 60 - 2, i=1, q=1000)
-                               .stop(t=1 * 60 * 60)
-                               .build()
-                    for inst_id in range(1, 9)],
-                 False,
-                 id='master_not_degraded_on_spike'
-                    '_in_2_batches_in_1_window_on_backups',
-                 marks=pytest.mark.skip(reason='INDY-1565 is in progress')),
-    pytest.param([ReqStream().period(s=0, i=5, q=1)
-                             .stop(t=1 * 60 * 60)
-                             .build()]
-                 + [ReqStream().period(s=0, i=5, q=1)
-                               .period(s=1 * 60 * 60 - 1, i=1, q=1000)
-                               .stop(t=1 * 60 * 60 + 1)
-                               .build()
-                    for inst_id in range(1, 9)],
-                 True,
-                 id='master_degraded_on_spike'
-                    '_in_2_batches_in_2_windows_on_backups'),
-    pytest.param([ReqStream().period(s=0, i=1, q=11)
-                             .stop(t=4 * 60 * 60)
-                             .build()]
-                 + [ReqStream().period(s=0, i=1, q=11)
-                               .stop(t=4 * 60 * 60 + 5 * 60)
-                               .build()
-                    for inst_id in range(1, 9)],
-                 True,
-                 id='master_degraded_on_stop_ordering_on_master'),
-    pytest.param([ReqStream().period(s=0, i=1, q=11)
-                             .stop(t=4 * 60 * 60 + 15 * 60)
-                             .build()
-                    for inst_id in range(0, 8)]
-                 + [ReqStream().period(s=0, i=1, q=11)
-                               .stop(t=4 * 60 * 60)
-                               .once(t=4 * 60 * 60 + 15 * 60, q=9900)
-                               .build()],
-                 False,
-                 id='master_not_degraded_on_queuing_reqs'
-                    '_and_ordering_at_once_on_one_backup'),
-    pytest.param([ReqStream().period(s=0, i=1, q=15)
-                             .stop(t=4 * 60 * 60 + 11 * 60)
-                             .build()
-                  for inst_id in range(0, 8)]
-                 + [ReqStream().period(s=0, i=1, q=15)
-                               .stop(t=4 * 60 * 60)
-                               .once(t=4 * 60 * 60 + 17 * 60, q=9900)
-                               .build()],
-                 False,
-                 id='master_not_degraded_on_queuing_reqs'
-                    '_and_ordering_at_once_on_one_backup'
-                    '_while_load_stopped_in_meantime',
-                 marks=pytest.mark.skip(reason='INDY-1565 is in progress')),
-])
-def test_instances_throughput_ratio(inst_req_streams,
-                                    expected_is_master_degraded,
-                                    tconf):
+def create_throughput_measurement(start_ts, config):
+    return Monitor.create_throughput_measurement(config, start_ts)
 
+
+def get_average_throughput(calculated_throughputs, config):
+    return sum(calculated_throughputs) / len(calculated_throughputs)
+
+
+def get_througput_ratio(inst_req_streams, config):
     # print('DELTA = {}'.format(tconf.DELTA))
     # print('throughput_measurement_class = {}'
     #       .format(tconf.throughput_measurement_class))
@@ -151,7 +82,7 @@ def test_instances_throughput_ratio(inst_req_streams,
     inst_tms = []
     max_end_ts = 0
     for req_stream in inst_req_streams:
-        tm = Monitor.create_throughput_measurement(tconf, start_ts=0)
+        tm = create_throughput_measurement(start_ts=0, config=config)
         ts = 0
 
         for ts, reqs_num in req_stream:
@@ -171,8 +102,127 @@ def test_instances_throughput_ratio(inst_req_streams,
             tm.get_throughput(max_end_ts + 15))
 
     master_throughput = inst_throughput[0]
-    backups_throughput = inst_throughput[1:]
-    avg_backup_throughput = sum(backups_throughput) / len(backups_throughput)
 
-    assert (master_throughput / avg_backup_throughput < tconf.DELTA) == \
-        expected_is_master_degraded
+    backups_throughputs = inst_throughput[1:]
+    calculated_backups_throughputs = \
+        [t for t in backups_throughputs if t is not None]
+    average_backup_throughput = \
+        get_average_throughput(calculated_backups_throughputs, config) \
+        if calculated_backups_throughputs \
+        else None
+
+    throughput_ratio = master_throughput / average_backup_throughput \
+        if master_throughput is not None and average_backup_throughput is not None \
+        else None
+
+    return throughput_ratio
+
+
+def assert_master_degraded(throughput_ratio, tconf):
+    assert throughput_ratio < tconf.DELTA
+
+
+def assert_master_not_degraded(throughput_ratio, tconf):
+    assert throughput_ratio is None or throughput_ratio >= tconf.DELTA
+
+
+def test_master_not_degraded_if_same_throughput(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
+                                   .stop(t=4 * 60)
+                                   .build()
+                        for inst_id in range(9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
+@pytest.mark.skip(reason='INDY-1565 is in progress')
+def test_master_not_degraded_on_spike_in_1_batch_on_backups(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
+                                   .stop(t=1 * 60 * 60)
+                                   .build()] + \
+                       [ReqStream().period(s=0, i=5, q=1)
+                                   .once(t=1 * 60 * 60, q=1000)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
+@pytest.mark.skip(reason='INDY-1565 is in progress')
+def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
+                                   .stop(t=1 * 60 * 60)
+                                   .build()] + \
+                       [ReqStream().period(s=0, i=5, q=1)
+                                   .period(s=1 * 60 * 60 - 2, i=1, q=1000)
+                                   .stop(t=1 * 60 * 60)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
+def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
+                                   .stop(t=1 * 60 * 60)
+                                   .build()] + \
+                       [ReqStream().period(s=0, i=5, q=1)
+                                   .period(s=1 * 60 * 60 - 1, i=1, q=1000)
+                                   .stop(t=1 * 60 * 60 + 1)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_degraded(throughput_ratio, tconf)
+
+
+def test_master_degraded_on_stop_ordering_on_master(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=1, q=11)
+                                   .stop(t=4 * 60 * 60)
+                                   .build()] + \
+                       [ReqStream().period(s=0, i=1, q=11)
+                                   .stop(t=4 * 60 * 60 + 5 * 60)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_degraded(throughput_ratio, tconf)
+
+
+def test_master_not_degraded_on_revival_spike_on_one_backup(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=1, q=11)
+                                   .stop(t=4 * 60 * 60 + 15 * 60)
+                                   .build()
+                        for inst_id in range(0, 8)] + \
+                       [ReqStream().period(s=0, i=1, q=11)
+                                   .stop(t=4 * 60 * 60)
+                                   .once(t=4 * 60 * 60 + 15 * 60, q=9900)
+                                   .build()]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
+@pytest.mark.skip(reason='INDY-1565 is in progress')
+def test_master_not_degraded_on_revival_spike_on_one_backup_while_load_stopped(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=1, q=15)
+                                   .stop(t=4 * 60 * 60 + 11 * 60)
+                                   .build()
+                        for inst_id in range(0, 8)] + \
+                       [ReqStream().period(s=0, i=1, q=15)
+                                   .stop(t=4 * 60 * 60)
+                                   .once(t=4 * 60 * 60 + 17 * 60, q=9900)
+                                   .build()]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
