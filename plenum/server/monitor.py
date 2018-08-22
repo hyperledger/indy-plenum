@@ -1,5 +1,5 @@
 import time
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from statistics import mean, median_low, median, median_high
 from typing import Dict, Iterable, Optional
@@ -88,24 +88,37 @@ class ThroughputMeasurement:
         return self.throughput
 
 
-class LatencyMeasurement:
+class LatencyMeasurement(metaclass=ABCMeta):
     """
     Measure latency params
     """
+    @abstractmethod
+    def add_duration(self, identifier, duration):
+        pass
 
-    def __init__(self, min_latency_count=10):
-        self.min_latency_count = min_latency_count
+    @abstractmethod
+    def get_avg_latency(self):
+        pass
+
+
+class EMALatencyMeasurementForEachClient(LatencyMeasurement):
+
+    def __init__(self, config):
+        self.min_latency_count = config.MIN_LATENCY_COUNT
         # map of client identifier and (total_reqs, avg_latency) tuple
         self.avg_latencies = {}    # type: Dict[str, (int, float)]
         # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
         self.alpha = 1 / (self.min_latency_count + 1)
+        self.total_reqs = 0
+        self.avg_for_clients_cls = config.AvgStrategyForAllClients
 
     def add_duration(self, identifier, duration):
-        total_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
-        total_reqs += 1
-        self.avg_latencies[identifier] = (total_reqs,
+        client_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
+        client_reqs += 1
+        self.avg_latencies[identifier] = (client_reqs,
                                           self._accumulate(curr_avg_lat,
                                                            duration))
+        self.total_reqs += 1
 
     def _accumulate(self, old_accum, next_val):
         """
@@ -113,14 +126,49 @@ class LatencyMeasurement:
         """
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
-    def get_avg_latency(self, identifier):
-        if identifier not in self.avg_latencies:
+    def get_avg_latency(self):
+        if self.total_reqs < self.min_latency_count:
             return None
-        total_reqs, curr_avg_lat = self.avg_latencies[identifier]
-        if total_reqs < self.min_latency_count:
+        latencies = [lat for _, lat in self.avg_latencies.items()]
+
+        return self.avg_for_clients_cls.get_latency_for_clients(latencies)
+
+
+class EMALatencyMeasurementForAllClient(LatencyMeasurement):
+    def __init__(self, config):
+        self.min_latency_count = config.MIN_LATENCY_COUNT
+        # map of client identifier and (total_reqs, avg_latency) tuple
+        self.avg_latency = 0.0
+        # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
+        self.alpha = 1 / (self.min_latency_count + 1)
+        self.total_reqs = 0
+
+    def add_duration(self, identifier, duration):
+        self.avg_latency = self._accumulate(self.avg_latency, duration)
+        self.total_reqs += 1
+
+    def _accumulate(self, old_accum, next_val):
+        """
+        Implement exponential moving average
+        """
+        return old_accum * (1 - self.alpha) + next_val * self.alpha
+
+    def get_avg_latency(self):
+        if self.total_reqs < self.min_latency_count:
             return None
 
-        return curr_avg_lat
+        return self.avg_latency
+
+
+class ClientsLatencyForAll(metaclass=ABCMeta):
+    @abstractmethod
+    def get_latency_for_clients(self, metrics):
+        pass
+
+
+class MedianHighLatencyForAllClients(MedianHighStrategy):
+    def get_latency_for_clients(self, metrics):
+        return self.get_avg(metrics)
 
 
 class RequestTimeTracker:
@@ -321,7 +369,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
-        self.latency_avg_strategy_cls = MedianHighStrategy
+        self.latency_avg_for_backup_cls = self.config.AvgStrategyForBackups
+        self.latency_measurement_cls = self.config.LatencyMeasurementCls
         self.throughput_avg_strategy_cls = MedianLowStrategy
 
     def __repr__(self):
@@ -344,7 +393,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             ("ordered request durations",
              {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("master request latencies", self.masterReqLatencies),
-            ("client avg request latencies", {i: self.getLatencies(i)
+            ("client avg request latencies", {i: self.getLatency(i)
                                               for i in self.instances.ids}),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
@@ -385,7 +434,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                                        min_cnt=self.config.ThroughputMinActivityThreshold,
                                        first_ts=time.perf_counter())
             self.throughputs[i] = rm
-            lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
+            lm = self.latency_measurement_cls(self.config)
             self.clientAvgReqLatencies[i] = lm
 
     def addInstance(self):
@@ -400,7 +449,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                                    first_ts=time.perf_counter())
 
         self.throughputs.append(rm)
-        lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
+        lm = self.latency_measurement_cls(self.config)
         self.clientAvgReqLatencies.append(lm)
 
     def removeInstance(self, index=None):
@@ -556,39 +605,27 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the average request latency of the master instance is
         greater than the acceptable threshold
         """
-        avgLatM = self.getLatencies(self.instances.masterId)
-        avgLatB = {}
-        for lat_item in [self.getLatencies(instId) for instId in self.instances.backupIds]:
-            for cid, lat in lat_item.items():
-                avgLatB.setdefault(cid, []).append(lat)
+        avgLatM = self.getLatency(self.instances.masterId)
+        avgLatB = []
+        for instId in self.instances.backupIds:
+            lat = self.getLatency(instId)
+            if lat:
+                avgLatB.append(lat)
+        if avgLatM is None or len(avgLatB) == 0:
+            return False
 
-        # If latency of the master for any client is greater than that of
-        # backups by more than the threshold `Omega`, then a view change
-        # needs to happen
-        for cid, latencies in avgLatB.items():
-            if cid not in avgLatM:
-                logger.trace("{} found master had no record yet for {}".
-                             format(self, cid))
-                return False
-            if not latencies:
-                continue
+        high_avg_lat = self.latency_avg_for_backup_cls.get_avg(avgLatB)
+        if avgLatM - high_avg_lat < self.Omega:
+            return False
 
-            high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
-            avg_master_lat = avgLatM[cid]
-            if avg_master_lat - high_avg_lat < self.Omega:
-                continue
-
-            d = avg_master_lat - high_avg_lat
-            logger.info("{}{} found difference between master's and "
-                        "backups's avg latency {} to be higher than the "
-                        "threshold".format(MONITORING_PREFIX, self, d))
-            logger.trace(
-                "{}'s master's avg request latency is {} and backup's "
-                "avg request latency is {}".format(self, avgLatM, avgLatB))
-            return True
-        logger.trace("{} found difference between master and backups "
-                     "avg latencies to be acceptable".format(self))
-        return False
+        d = avgLatM - high_avg_lat
+        logger.info("{}{} found difference between master's and "
+                    "backups's avg latency {} to be higher than the "
+                    "threshold".format(MONITORING_PREFIX, self, d))
+        logger.trace(
+            "{}'s master's avg request latency is {} and backup's "
+            "avg request latency is {}".format(self, avgLatM, avgLatB))
+        return True
 
     def getThroughputs(self, masterInstId: int):
         """
@@ -652,33 +689,27 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             return None, None
 
-    def getAvgLatencyForClient(self, identifier: str, *instId: int) -> float:
-        """
-        Calculate and return the average latency of the requests of the
-        client(specified by identifier) for the specified protocol instances.
-        """
-        if len(self.clientAvgReqLatencies) == 0:
-            return 0
-        means = []
-        for i in instId:
-            avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(identifier)
-            if avg_lat:
-                means.append(avg_lat)
-        return self.mean(means)
+    # def getAvgLatencyForClient(self, identifier: str, *instId: int) -> float:
+    #     """
+    #     Calculate and return the average latency of the requests of the
+    #     client(specified by identifier) for the specified protocol instances.
+    #     """
+    #     if len(self.clientAvgReqLatencies) == 0:
+    #         return 0
+    #     means = []
+    #     for i in instId:
+    #         avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(identifier)
+    #         if avg_lat:
+    #             means.append(avg_lat)
+    #     return self.mean(means)
 
-    def getLatencies(self, instId: int) -> Dict[str, float]:
+    def getLatency(self, instId: int) -> float:
         """
         Return a dict with client identifier as a key and calculated latency as a value
         """
         if len(self.clientAvgReqLatencies) == 0:
-            return 0
-        latencies = {}
-        for cid in self.clientAvgReqLatencies[instId].avg_latencies.keys():
-            avg_lat = self.clientAvgReqLatencies[instId].get_avg_latency(cid)
-            if avg_lat:
-                latencies[cid] = avg_lat
-
-        return latencies
+            return 0.0
+        return self.clientAvgReqLatencies[instId].get_avg_latency()
 
     def sendPeriodicStats(self):
         thoughputData = self.sendThroughput()

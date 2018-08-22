@@ -2549,15 +2549,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if backup_throughput is not None:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
 
-            master_latencies = self.monitor.getLatencies(self.instances.masterId).values()
-            if len(master_latencies) > 0:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(master_latencies))
+            master_latency = self.monitor.getLatency(self.instances.masterId)
+            self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, master_latency)
 
-            backup_latencies = {}
-            for lat_item in [self.monitor.getLatencies(instId) for instId in self.instances.backupIds]:
-                for cid, lat in lat_item.items():
-                    backup_latencies.setdefault(cid, []).append(lat)
-            backup_latencies = [mean(lat) for cid, lat in backup_latencies.items()]
+            backup_latencies = []
+            for instId in self.instances.backupIds:
+                lat = self.monitor.getLatency(instId)
+                if lat:
+                    backup_latencies.append(lat)
             if len(backup_latencies) > 0:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, mean(backup_latencies))
 

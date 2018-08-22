@@ -17,6 +17,7 @@ def fake_node(fake_node):
     fake_node.instances = Instances()
     fake_node.instances.add()
     fake_node.spylog = []
+    fake_node.metrics = FakeSomething(add_event=lambda *args: True)
     return fake_node
 
 
@@ -37,7 +38,7 @@ def test_send_IC_if_master_degraded(fake_node,
     fake_node.sendNodeRequestSpike = lambda: True
     fake_monitor.isMasterDegraded = lambda: True
     fake_monitor.getThroughputs = lambda a: (None, None)
-    fake_monitor.getLatencies = lambda *a: {}
+    fake_monitor.getLatency = lambda a: 0.0
     fake_node.view_changer.on_master_degradation = lambda: True
     fake_node.monitor = fake_monitor
     fake_node.checkPerformance = functools.partial(testNodeClass.checkPerformance, fake_node)
