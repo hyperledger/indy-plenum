@@ -1,5 +1,6 @@
 import time
-from abc import ABCMeta
+from abc import ABC, abstractmethod
+from collections import defaultdict
 from datetime import datetime
 from statistics import mean, median_low, median, median_high
 from typing import Dict, Iterable, Optional
@@ -27,7 +28,7 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
-class AverageStrategyBase(metaclass=ABCMeta):
+class AverageStrategyBase(ABC):
     @staticmethod
     def get_avg(metrics: List):
         raise NotImplementedError()
@@ -49,6 +50,77 @@ class MedianHighStrategy(AverageStrategyBase):
     @staticmethod
     def get_avg(metrics: List):
         return median_high(metrics)
+
+
+class MonitorStrategy(ABC):
+    @abstractmethod
+    def add_instance(self):
+        pass
+
+    @abstractmethod
+    def remove_instance(self):
+        pass
+
+    @abstractmethod
+    def reset(self):
+        pass
+
+    @abstractmethod
+    def update_time(self, timestamp: float):
+        pass
+
+    @abstractmethod
+    def request_received(self, id: str):
+        pass
+
+    @abstractmethod
+    def request_ordered(self, id: str, inst_id: int):
+        pass
+
+    @abstractmethod
+    def is_master_degraded(self) -> bool:
+        return False
+
+
+class AccumulatingMonitorStrategy(MonitorStrategy):
+    def __init__(self, instances: int, threshold: int, timeout: float):
+        self._instances = instances
+        self._threshold = threshold
+        self._timeout = timeout
+        self._ordered = defaultdict(lambda: 0)
+        self._timestamp = None
+        self._alert_timestamp = None
+
+    def add_instance(self):
+        self._instances += 1
+
+    def remove_instance(self):
+        self._instances -= 1
+
+    def reset(self):
+        self._alert_timestamp = None
+        self._ordered.clear()
+
+    def update_time(self, timestamp: float):
+        self._timestamp = timestamp
+        master_ordered = self._ordered[0]
+        max_ordered = max(self._ordered[i] for i in range(1, self._instances))
+        is_degraded = (max_ordered - master_ordered) > self._threshold
+        if not is_degraded:
+            self._alert_timestamp = None
+        elif not self._alert_timestamp:
+            self._alert_timestamp = self._timestamp
+
+    def request_received(self, id: str):
+        pass
+
+    def request_ordered(self, id: str, inst_id: int):
+        self._ordered[inst_id] += 1
+
+    def is_master_degraded(self) -> bool:
+        if self._alert_timestamp is None:
+            return False
+        return self._timestamp - self._alert_timestamp > self._timeout
 
 
 class ThroughputMeasurement:
@@ -324,6 +396,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.latency_avg_strategy_cls = MedianHighStrategy
         self.throughput_avg_strategy_cls = MedianLowStrategy
 
+        config = getConfig()
+        self.acc_monitor_enabled = config.ACC_MONITOR_ENABLED
+        self.acc_monitor = AccumulatingMonitorStrategy(instances=instances.count,
+                                                       threshold=config.ACC_MONITOR_THRESHOLD,
+                                                       timeout=config.ACC_MONITOR_TIMEOUT)
+
     def __repr__(self):
         return self.name
 
@@ -380,6 +458,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
+        self.acc_monitor.reset()
         for i in range(num_instances):
             rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
                                        min_cnt=self.config.ThroughputMinActivityThreshold,
@@ -402,8 +481,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.throughputs.append(rm)
         lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
         self.clientAvgReqLatencies.append(lm)
+        self.acc_monitor.add_instance()
 
     def removeInstance(self, index=None):
+        # TODO: This doesn't take into account index, but this function is never called with defined index,
+        # probably we can simplify this thing?
+        self.acc_monitor.remove_instance()
+
         if self.instances.count > 0:
             if index is None:
                 index = self.instances.count - 1
@@ -421,8 +505,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         returns None
         """
         now = time.perf_counter()
+        self.acc_monitor.update_time(now)
         durations = {}
         for key in reqIdrs:
+            self.acc_monitor.request_ordered(key, instId)
             if key not in self.requestTracker:
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
@@ -472,7 +558,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Record the time at which request ordering started.
         """
-        self.requestTracker.start(key, time.perf_counter())
+        now = time.perf_counter()
+        self.acc_monitor.update_time(now)
+        self.acc_monitor.request_received(key)
+        self.requestTracker.start(key, now)
 
     def check_unordered(self):
         now = time.perf_counter()
@@ -491,13 +580,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Return whether the master instance is slow.
         """
-        return (self.instances.masterId is not None and
-                (self.isMasterThroughputTooLow() or
-                 # TODO for now, view_change procedure can take more that 15 minutes
-                 # (5 minutes for catchup and 10 minutes for primary's answer).
-                 # Therefore, view_change triggering by max latency now is not indicative.
-                 # self.isMasterReqLatencyTooHigh() or
-                 self.isMasterAvgReqLatencyTooHigh()))
+        self.acc_monitor.update_time(time.perf_counter())
+        if self.acc_monitor_enabled:
+            return self.acc_monitor.is_master_degraded()
+        else:
+            return (self.instances.masterId is not None and
+                    (self.isMasterThroughputTooLow() or
+                     # TODO for now, view_change procedure can take more that 15 minutes
+                     # (5 minutes for catchup and 10 minutes for primary's answer).
+                     # Therefore, view_change triggering by max latency now is not indicative.
+                     # self.isMasterReqLatencyTooHigh() or
+                     self.isMasterAvgReqLatencyTooHigh()))
 
     def masterThroughputRatio(self):
         """

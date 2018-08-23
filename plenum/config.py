@@ -322,3 +322,7 @@ METRICS_FLUSH_INTERVAL = 1.0  # seconds
 METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
+
+ACC_MONITOR_ENABLED = False
+ACC_MONITOR_THRESHOLD = 100  # transactions delta
+ACC_MONITOR_TIMEOUT = 900  # seconds
