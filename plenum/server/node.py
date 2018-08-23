@@ -1587,7 +1587,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return False
 
-    @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
+    # @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
     def sendToReplica(self, msg, frm):
         """
         Send the message to the intended replica.
@@ -1687,10 +1687,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(msg, Batch):
             logger.trace("{} processing a batch {}".format(self, msg))
-            with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
-                for m in msg.messages:
+            for m in msg.messages:
+                with self.metrics.measure_time(MetricsName.DESERIALIZE_DURING_UNPACK_TIME):
                     m = self.nodestack.deserializeMsg(m)
-                    self.handleOneNodeMsg((m, frm))
+                self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
 
@@ -2729,6 +2729,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug('{} ordered previous view batch {} by instance {}'.
                      format(self, pp_seqno, inst_id))
 
+    @measure_time(MetricsName.VERIFY_SIGNATURE_TIME)
     def verifySignature(self, msg):
         """
         Validate the signature of the request
