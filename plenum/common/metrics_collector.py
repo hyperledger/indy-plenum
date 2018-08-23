@@ -7,7 +7,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from enum import IntEnum
 from datetime import datetime, timezone
-from typing import Callable, NamedTuple, Union
+from typing import Callable, NamedTuple, Union, Optional
 
 from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
@@ -216,10 +216,13 @@ class KvStoreMetricsFormat:
         return key, value
 
     @staticmethod
-    def decode(key: bytes, value: bytes) -> MetricsEvent:
+    def decode(key: bytes, value: bytes) -> Optional[MetricsEvent]:
         key = int.from_bytes(key, byteorder='big', signed=False)
         ts = datetime.utcfromtimestamp((key >> KvStoreMetricsFormat.seq_bits) / 1000000.0)
-        name = MetricsName(int.from_bytes(value[:32], byteorder='big', signed=False))
+        name = int.from_bytes(value[:32], byteorder='big', signed=False)
+        if name not in MetricsName.__members__.values():
+            return None
+        name = MetricsName(name)
         data = value[32:]
         if len(data) == 8:
             value = struct.unpack('d', data)[0]

@@ -109,6 +109,8 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
     start = KvStoreMetricsFormat.encode_key(min_ts, 0) if min_ts else None
     for k, v in storage.iterator(start=start):
         ev = KvStoreMetricsFormat.decode(k, v)
+        if ev is None:
+            continue
         if max_ts is not None and ev.timestamp > max_ts:
             break
         result.add(ev.timestamp, ev.name, ev.value)
