@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
-from enum import IntEnum
+from enum import IntEnum, unique
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Union, Optional
 
@@ -13,6 +13,7 @@ from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
 
+@unique
 class MetricsName(IntEnum):
     # Number of node stack messages processed in one looper run
     NODE_STACK_MESSAGES_PROCESSED = 0
@@ -75,12 +76,13 @@ class MetricsName(IntEnum):
     # Node specific metrics
     SERVICE_NODE_STACK_TIME = 200
     PROCESS_NODE_INBOX_TIME = 201
-    # SEND_TO_REPLICA_TIME = 202   # This is called too often and takes too little time
     NODE_CHECK_PERFORMANCE_TIME = 203
     NODE_CHECK_NODE_REQUEST_SPIKE = 204
-    # UNPACK_BATCH_TIME = 205
     DESERIALIZE_DURING_UNPACK_TIME = 206
     VERIFY_SIGNATURE_TIME = 207
+    SERVICE_REPLICAS_OUTBOX_TIME = 208
+    NODE_SEND_TIME = 209
+    NODE_SEND_REJECT_TIME = 210
 
     # Replica specific metrics
     SERVICE_REPLICA_QUEUES_TIME = 300
@@ -128,6 +130,10 @@ class MetricsName(IntEnum):
     BLS_VALIDATE_COMMIT_TIME = 4002
     BLS_UPDATE_PREPREPARE_TIME = 4010
     BLS_UPDATE_COMMIT_TIME = 4012
+
+    # Obsolete metrics
+    SEND_TO_REPLICA_TIME = 202
+    UNPACK_BATCH_TIME = 205
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),

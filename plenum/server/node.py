@@ -1435,6 +1435,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_view_change_not_completed_in_time()
         return True
 
+    @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages
@@ -1449,16 +1450,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
-                digest, reject = message
-                result_reject = Reject(
-                    reject.identifier,
-                    reject.reqId,
-                    self.reasonForClientFromException(
-                        reject.reason))
-                # TODO: What the case when reqKey will be not in requestSender dict
-                if digest in self.requestSender:
-                    self.transmitToClient(result_reject, self.requestSender[digest])
-                    self.doneProcessingReq(digest)
+                with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
+                    digest, reject = message
+                    result_reject = Reject(
+                        reject.identifier,
+                        reject.reqId,
+                        self.reasonForClientFromException(
+                            reject.reason))
+                    # TODO: What the case when reqKey will be not in requestSender dict
+                    if digest in self.requestSender:
+                        self.transmitToClient(result_reject, self.requestSender[digest])
+                        self.doneProcessingReq(digest)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -3154,6 +3156,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
 
+    @measure_time(MetricsName.NODE_SEND_TIME)
     def send(self,
              msg: Any,
              *rids: Iterable[int],
