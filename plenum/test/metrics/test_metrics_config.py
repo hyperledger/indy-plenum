@@ -47,6 +47,10 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.PROCESS_CATCHUP_REQ_TIME,
             MetricsName.PROCESS_CATCHUP_REP_TIME,
             MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE,
+            MetricsName.NODE_SEND_REJECT_TIME,
+
+            # Obsolete metrics
+            MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
 
             # TODO: reduce monitor window so these events are also captured
             MetricsName.MONITOR_AVG_THROUGHPUT,
