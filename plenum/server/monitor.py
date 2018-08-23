@@ -155,13 +155,13 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
 
         # Common fields
         self.state = self.State.FADED
-        self.window_start_ts = None  # will be initiated in `init_time`
+        self.window_start_ts = None  # will be initialized in `init_time`
         self.reqs_in_window = 0
         self.throughput = 0
 
         # Fields being used in IDLE, FADED and REVIVAL states
         self.throughput_before_idle = 0
-        self.idle_start_ts = None  # will be initiated in `init_time`
+        self.idle_start_ts = None  # will be initialized in `init_time`
         self.empty_windows_count = 0
 
         # Fields being used in REVIVAL state only

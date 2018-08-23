@@ -8,6 +8,9 @@ from plenum.server.monitor import RevivalSpikeResistantEMAThroughputMeasurement
 State = RevivalSpikeResistantEMAThroughputMeasurement.State
 
 
+# TESTS OF INITIALIZATION
+
+
 def test_rsr_ema_throughput_measurement_creation():
     tm = RevivalSpikeResistantEMAThroughputMeasurement(window_size=5,
                                                        min_cnt=9)
@@ -18,16 +21,16 @@ def test_rsr_ema_throughput_measurement_creation():
 
     assert tm.state == State.FADED
 
-    assert tm.window_start_ts is None  # not initiated in `__init__`
+    assert tm.window_start_ts is None  # must not be initialized in `__init__`
     assert tm.reqs_in_window == 0
     assert tm.throughput == 0
 
     assert tm.throughput_before_idle == 0
-    assert tm.idle_start_ts is None  # not initiated in `__init__`
+    assert tm.idle_start_ts is None  # must not be initialized in `__init__`
     assert tm.empty_windows_count == 0
 
 
-def test_rsr_ema_throughput_measurement_init_time():
+def test_rsr_ema_throughput_measurement_time_initialization():
     tm = RevivalSpikeResistantEMAThroughputMeasurement(window_size=5,
                                                        min_cnt=9)
     tm.init_time(321.5)
@@ -35,6 +38,9 @@ def test_rsr_ema_throughput_measurement_init_time():
     assert tm.state == State.FADED
     assert tm.window_start_ts == 321.5
     assert tm.idle_start_ts == 321.5
+
+
+# TESTS OF WINDOWS PROCESSING
 
 
 @pytest.fixture(scope="function")
@@ -46,7 +52,7 @@ def tm():
     return throughput_measurement
 
 
-def test_rsr_ema_tm_past_windows_processing_on_add_request(tm):
+def test_rsr_ema_tm_past_windows_processed_on_add_request(tm):
     # [0, 15)
     tm.add_request(1)
     tm.add_request(5)
@@ -69,7 +75,7 @@ def test_rsr_ema_tm_past_windows_processing_on_add_request(tm):
     assert tm.reqs_in_window == 1
 
 
-def test_rsr_ema_tm_past_windows_processing_on_get_throughput(tm):
+def test_rsr_ema_tm_past_windows_processed_on_get_throughput(tm):
     # [0, 15)
     tm.add_request(1)
     tm.add_request(5)
@@ -95,6 +101,9 @@ def test_rsr_ema_tm_past_windows_processing_on_get_throughput(tm):
     tm.get_throughput(42)
     assert tm.window_start_ts == 30
     assert tm.reqs_in_window == 0
+
+
+# TESTS OF STATE MACHINE
 
 
 @pytest.fixture(scope="function")
@@ -171,7 +180,7 @@ def tm_in_normal(tm_after_start):
     for ts in range(0, 15, 5):
         tm.add_request(ts)
 
-    # [15, 30) - [225, 240) -- up to 16 windows
+    # [15, 30) - [225, 240) -- up to 16 not empty windows
     tm.get_throughput(15)
     assert tm.state == State.REVIVAL
 
@@ -245,10 +254,22 @@ def tm_in_idle_and_throughput_gotten_before_idle(tm_in_normal):
     return tm, throughput_gotten_before_idle
 
 
-def test_rsr_ema_tm_in_idle_stays_in_idle_while_windows_empty_and_less_min_cnt(
-        tm_in_idle_and_throughput_gotten_before_idle):
+@pytest.fixture(scope="function")
+def tm_in_idle(tm_in_idle_and_throughput_gotten_before_idle):
+    tm, _ = tm_in_idle_and_throughput_gotten_before_idle
+    return tm
 
-    tm, throughput_gotten_before_idle = tm_in_idle_and_throughput_gotten_before_idle
+
+@pytest.fixture(scope="function")
+def throughput_gotten_before_idle(tm_in_idle_and_throughput_gotten_before_idle):
+    _, throughput = tm_in_idle_and_throughput_gotten_before_idle
+    return throughput
+
+
+def test_rsr_ema_tm_in_idle_stays_in_idle_while_windows_empty_and_less_min_cnt(
+        tm_in_idle, throughput_gotten_before_idle):
+
+    tm = tm_in_idle
 
     # [315, 330) - [510, 525) -- up to 15 empty windows
 
@@ -263,10 +284,8 @@ def test_rsr_ema_tm_in_idle_stays_in_idle_while_windows_empty_and_less_min_cnt(
     assert tm.empty_windows_count == 15
 
 
-def test_rsr_ema_tm_in_idle_switches_to_normal_on_not_empty_window(
-        tm_in_idle_and_throughput_gotten_before_idle):
-
-    tm, _ = tm_in_idle_and_throughput_gotten_before_idle
+def test_rsr_ema_tm_in_idle_switches_to_normal_on_not_empty_window(tm_in_idle):
+    tm = tm_in_idle
 
     # [315, 330) - [345, 360)
 
@@ -281,9 +300,9 @@ def test_rsr_ema_tm_in_idle_switches_to_normal_on_not_empty_window(
 
 
 def test_rsr_ema_tm_in_idle_switches_to_faded_on_min_cnt_empty_windows(
-        tm_in_idle_and_throughput_gotten_before_idle):
+        tm_in_idle, throughput_gotten_before_idle):
 
-    tm, throughput_gotten_before_idle = tm_in_idle_and_throughput_gotten_before_idle
+    tm = tm_in_idle
 
     # [315, 330) - [525, 540) -- up to 16 empty windows
 
@@ -299,24 +318,24 @@ def test_rsr_ema_tm_in_idle_switches_to_faded_on_min_cnt_empty_windows(
 
 
 @pytest.fixture(scope="function")
-def tm_in_faded_and_throughput_gotten_before_idle(tm_in_idle_and_throughput_gotten_before_idle):
-    tm, throughput_gotten_before_idle = tm_in_idle_and_throughput_gotten_before_idle
+def tm_in_faded(tm_in_idle):
+    tm = tm_in_idle
 
     # [315, 330) - [525, 540) -- up to 16 empty windows
 
     # [540, 555)
-    throughput = tm.get_throughput(540)
+    tm.get_throughput(540)
     assert tm.state == State.FADED
 
     assert tm.idle_start_ts == 300
 
-    return tm, throughput_gotten_before_idle
+    return tm
 
 
 def test_rsr_ema_tm_in_faded_stays_in_faded_while_windows_are_empty(
-        tm_in_faded_and_throughput_gotten_before_idle):
+        tm_in_faded, throughput_gotten_before_idle):
 
-    tm, throughput_gotten_before_idle = tm_in_faded_and_throughput_gotten_before_idle
+    tm = tm_in_faded
 
     # [540, 555) - [585, 600)
 
@@ -332,9 +351,9 @@ def test_rsr_ema_tm_in_faded_stays_in_faded_while_windows_are_empty(
 
 
 def test_rsr_ema_tm_in_faded_switches_to_revival_on_not_empty_window(
-        tm_in_faded_and_throughput_gotten_before_idle):
+        tm_in_faded, throughput_gotten_before_idle):
 
-    tm, throughput_gotten_before_idle = tm_in_faded_and_throughput_gotten_before_idle
+    tm = tm_in_faded
 
     # [540, 555) - [570, 585)
 
@@ -358,8 +377,8 @@ def test_rsr_ema_tm_in_faded_switches_to_revival_on_not_empty_window(
 
 
 @pytest.fixture(scope="function")
-def tm_in_revival_and_throughput_gotten_before_idle(tm_in_faded_and_throughput_gotten_before_idle):
-    tm, throughput_gotten_before_idle = tm_in_faded_and_throughput_gotten_before_idle
+def tm_in_revival(tm_in_faded):
+    tm = tm_in_faded
 
     # [540, 555) - [585, 600)
 
@@ -374,13 +393,13 @@ def tm_in_revival_and_throughput_gotten_before_idle(tm_in_faded_and_throughput_g
     assert tm.idle_start_ts == 300
     assert tm.revival_start_ts == 600
 
-    return tm, throughput_gotten_before_idle
+    return tm
 
 
 def test_rsr_ema_tm_in_revival_stays_in_revival_while_windows_not_empty_and_less_min_cnt(
-        tm_in_revival_and_throughput_gotten_before_idle):
+        tm_in_revival, throughput_gotten_before_idle):
 
-    tm, throughput_gotten_before_idle = tm_in_revival_and_throughput_gotten_before_idle
+    tm = tm_in_revival
 
     # [615, 630) - [810, 825) -- up to 15 not empty windows
     for ts in range(615, 825, 5):
@@ -401,10 +420,8 @@ def test_rsr_ema_tm_in_revival_stays_in_revival_while_windows_not_empty_and_less
     assert tm.reqs_during_revival == 45
 
 
-def test_rsr_ema_tm_in_revival_switches_to_normal_on_min_cnt_not_empty_windows(
-        tm_in_revival_and_throughput_gotten_before_idle):
-
-    tm, _ = tm_in_revival_and_throughput_gotten_before_idle
+def test_rsr_ema_tm_in_revival_switches_to_normal_on_min_cnt_not_empty_windows(tm_in_revival):
+    tm = tm_in_revival
 
     # [615, 630) - [810, 840) -- up to 16 not empty windows
     for ts in range(615, 840, 5):
@@ -417,10 +434,8 @@ def test_rsr_ema_tm_in_revival_switches_to_normal_on_min_cnt_not_empty_windows(
     assert throughput is not None
 
 
-def test_rsr_ema_tm_in_revival_switches_to_idle_on_empty_window(
-        tm_in_revival_and_throughput_gotten_before_idle):
-
-    tm, _ = tm_in_revival_and_throughput_gotten_before_idle
+def test_rsr_ema_tm_in_revival_switches_to_idle_on_empty_window(tm_in_revival):
+    tm = tm_in_revival
 
     # [615, 630)
     tm.add_request(615)
@@ -437,3 +452,180 @@ def test_rsr_ema_tm_in_revival_switches_to_idle_on_empty_window(
     assert tm.throughput_before_idle > throughput
     assert tm.idle_start_ts == 630
     assert tm.empty_windows_count == 1
+
+
+# TESTS OF THROUGHPUT CALCULATION
+
+
+def test_rsr_ema_tm_throughput_in_normal_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255)
+    throughput_before = tm.get_throughput(240)
+    assert tm.state == State.NORMAL
+
+    for ts in range(240, 255, 1):  # load increases
+        tm.add_request(ts)
+
+    # [255, 270)
+    throughput = tm.get_throughput(255)
+    assert tm.state == State.NORMAL
+
+    assert isclose(throughput,
+                   (2 / 17) * 1 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_on_switch_from_normal_to_idle_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255)
+    throughput_before = tm.get_throughput(254)
+    assert tm.state == State.NORMAL
+
+    # [255, 270)
+    throughput = tm.get_throughput(255)
+    assert tm.state == State.IDLE
+
+    assert isclose(throughput,
+                   (2 / 17) * 0 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_in_idle_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255)
+
+    # [255, 270)
+    throughput_before = tm.get_throughput(269)
+    assert tm.state == State.IDLE
+
+    # [270, 285)
+    throughput = tm.get_throughput(270)
+    assert tm.state == State.IDLE
+
+    assert isclose(throughput,
+                   (2 / 17) * 0 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_on_switch_from_idle_to_normal_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255)
+
+    # [255, 270)
+    throughput_before = tm.get_throughput(255)
+    assert tm.state == State.IDLE
+
+    for ts in range(255, 270, 1):  # load increases after pause
+        tm.add_request(ts)
+
+    # [270, 285)
+    throughput = tm.get_throughput(270)
+    assert tm.state == State.NORMAL
+
+    assert isclose(throughput,
+                   (2 / 17) * 1 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_on_switch_from_idle_to_faded_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255) - [465, 480) -- 16 empty windows
+    throughput_before = tm.get_throughput(479)
+    assert tm.state == State.IDLE
+
+    # [480, 495)
+    throughput = tm.get_throughput(480)
+    assert tm.state == State.FADED
+
+    assert isclose(throughput,
+                   (2 / 17) * 0 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_in_faded_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 5):
+        tm.add_request(ts)
+
+    # [240, 255) - [465, 480) -- 16 empty windows
+
+    # [480, 495)
+    throughput_before = tm.get_throughput(494)
+    assert tm.state == State.FADED
+
+    # [495, 510)
+    throughput = tm.get_throughput(495)
+    assert tm.state == State.FADED
+
+    assert isclose(throughput,
+                   (2 / 17) * 0 + (1 - 2 / 17) * throughput_before)
+
+
+def test_rsr_ema_tm_throughput_on_switch_from_revival_to_normal_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 3):
+        tm.add_request(ts)
+
+    # [240, 255) - [705, 720) -- 32 empty windows
+    throughput_before_idle = tm.get_throughput(240)
+    assert tm.state == State.NORMAL
+
+    # [720, 960) -- 16 not empty windows
+    for ts in range(720, 960, 1):  # spike occurs on revival
+        tm.add_request(ts)
+
+    tm.get_throughput(959)
+    assert tm.state == State.REVIVAL
+
+    # [960, 975)
+    throughput = tm.get_throughput(960)
+    assert tm.state == State.NORMAL
+
+    thr = throughput_before_idle
+    # load is leveled over IDLE, FADED and REVIVAL periods
+    for ts in range(255, 975, 15):
+        thr = (2 / 17) * (1 / 3) + (1 - 2 / 17) * thr
+    expected_throughput = thr
+
+    assert isclose(throughput, expected_throughput)
+
+
+def test_rsr_ema_tm_throughput_on_switch_from_revival_to_idle_state(tm):
+    # [0, 15) - [225, 240) -- 16 not empty windows
+    for ts in range(0, 240, 3):
+        tm.add_request(ts)
+
+    # [240, 255) - [585, 600) -- 24 empty windows
+    throughput_before_idle = tm.get_throughput(240)
+    assert tm.state == State.NORMAL
+
+    # [600, 780) -- 12 not empty windows
+    for ts in range(600, 780, 1):  # spike occurs on revival but then load stops
+        tm.add_request(ts)
+
+    # [780, 795)
+    tm.get_throughput(794)
+    assert tm.state == State.REVIVAL
+
+    # [795, 810)
+    throughput = tm.get_throughput(795)
+    assert tm.state == State.IDLE
+
+    thr = throughput_before_idle
+    # load is leveled over IDLE, FADED and REVIVAL periods
+    for ts in range(255, 795, 15):
+        thr = (2 / 17) * (1 / 3) + (1 - 2 / 17) * thr
+    thr = (2 / 17) * 0 + (1 - 2 / 17) * thr
+    expected_throughput = thr
+
+    assert isclose(throughput, expected_throughput)
