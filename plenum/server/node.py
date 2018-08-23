@@ -1649,6 +1649,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg, frm = wrappedMsg
             self.discard(msg, ex, logger.info)
 
+    @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
     def validateNodeMsg(self, wrappedMsg):
         """
         Validate another node's message sent to this node.
@@ -1662,12 +1663,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
-        try:
-            message = node_message_factory.get_instance(**msg)
-        except (MissingNodeOp, InvalidNodeOp) as ex:
-            raise ex
-        except Exception as ex:
-            raise InvalidNodeMsg(str(ex))
+        with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
+            try:
+                message = node_message_factory.get_instance(**msg)
+            except (MissingNodeOp, InvalidNodeOp) as ex:
+                raise ex
+            except Exception as ex:
+                raise InvalidNodeMsg(str(ex))
 
         try:
             self.verifySignature(message)
@@ -2731,7 +2733,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug('{} ordered previous view batch {} by instance {}'.
                      format(self, pp_seqno, inst_id))
 
-    @measure_time(MetricsName.VERIFY_SIGNATURE_TIME)
     def verifySignature(self, msg):
         """
         Validate the signature of the request
@@ -2752,7 +2753,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.as_dict
 
-        identifiers = self.authNr(req).authenticate(req)
+        with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
+            identifiers = self.authNr(req).authenticate(req)
+
         logger.debug("{} authenticated {} signature on {} request {}".
                      format(self, identifiers, typ, req['reqId']),
                      extra={"cli": True,
