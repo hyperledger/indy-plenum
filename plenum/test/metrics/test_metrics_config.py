@@ -50,8 +50,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.NODE_SEND_REJECT_TIME,
 
             # Obsolete metrics
-            MetricsName.SEND_TO_REPLICA_TIME,
-            MetricsName.UNPACK_BATCH_TIME,
+            MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
 
             # TODO: reduce monitor window so these events are also captured
             MetricsName.MONITOR_AVG_THROUGHPUT,

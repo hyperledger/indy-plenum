@@ -1589,7 +1589,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return False
 
-    # @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
+    @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
     def sendToReplica(self, msg, frm):
         """
         Send the message to the intended replica.
@@ -1689,10 +1689,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(msg, Batch):
             logger.trace("{} processing a batch {}".format(self, msg))
-            for m in msg.messages:
-                with self.metrics.measure_time(MetricsName.DESERIALIZE_DURING_UNPACK_TIME):
+            with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
+                for m in msg.messages:
                     m = self.nodestack.deserializeMsg(m)
-                self.handleOneNodeMsg((m, frm))
+                    self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
 

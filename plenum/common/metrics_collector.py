@@ -76,9 +76,10 @@ class MetricsName(IntEnum):
     # Node specific metrics
     SERVICE_NODE_STACK_TIME = 200
     PROCESS_NODE_INBOX_TIME = 201
+    SEND_TO_REPLICA_TIME = 202
     NODE_CHECK_PERFORMANCE_TIME = 203
     NODE_CHECK_NODE_REQUEST_SPIKE = 204
-    DESERIALIZE_DURING_UNPACK_TIME = 206
+    UNPACK_BATCH_TIME = 205
     VERIFY_SIGNATURE_TIME = 207
     SERVICE_REPLICAS_OUTBOX_TIME = 208
     NODE_SEND_TIME = 209
@@ -132,8 +133,7 @@ class MetricsName(IntEnum):
     BLS_UPDATE_COMMIT_TIME = 4012
 
     # Obsolete metrics
-    SEND_TO_REPLICA_TIME = 202
-    UNPACK_BATCH_TIME = 205
+    DESERIALIZE_DURING_UNPACK_TIME = 206
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
