@@ -261,6 +261,10 @@ def test_get_for_old_root(state):
     assert state.get_for_root_hash(head_hash2, b'k2') == b'v2'
     assert state.get_for_root_hash(head_hash2, b'k3') == b'v3'
 
+    assert len(state.get_all_leaves_for_root_hash(head_hash1)) == 2
+
+    assert len(state.get_all_leaves_for_root_hash(head_hash2)) == 3
+
 
 def test_get_for_old_root_committed(state):
     state.set(b'k1', b'v1')
@@ -279,3 +283,7 @@ def test_get_for_old_root_committed(state):
     assert state.get_for_root_hash(head_hash2, b'k1') == b'v111'
     assert state.get_for_root_hash(head_hash2, b'k2') == b'v2'
     assert state.get_for_root_hash(head_hash2, b'k3') == b'v3'
+
+    assert len(state.get_all_leaves_for_root_hash(head_hash1)) == 2
+
+    assert len(state.get_all_leaves_for_root_hash(head_hash2)) == 3
