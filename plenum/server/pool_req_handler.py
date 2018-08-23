@@ -131,6 +131,13 @@ class PoolRequestHandler(LedgerRequestHandler):
             return {}
         return self.stateSerializer.deserialize(data)
 
+    def get_all_node_data_for_root_hash(self, root_hash):
+        leaves = self.state.get_all_leaves_for_root_hash(root_hash)
+        raw_node_data = leaves.values()
+        nodes = list(map(lambda x: self.stateSerializer.deserialize(
+            self.state.get_decoded(x)), raw_node_data))
+        return nodes
+
     def updateNodeData(self, nym, data):
         key = nym.encode()
         val = self.stateSerializer.serialize(data)
