@@ -139,7 +139,7 @@ LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
 # This parameter defines minimal count of accumulated latencies for each client
-MIN_LATENCY_COUNT = 10
+MIN_LATENCY_COUNT = 20
 
 # Two following parameters define collecting statistic timeout for
 # collecting ordered request and throughput evaluating them.

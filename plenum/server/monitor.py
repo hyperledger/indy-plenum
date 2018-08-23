@@ -110,7 +110,7 @@ class EMALatencyMeasurementForEachClient(LatencyMeasurement):
         # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
         self.alpha = 1 / (self.min_latency_count + 1)
         self.total_reqs = 0
-        self.avg_for_clients_cls = config.AvgStrategyForAllClients
+        self.avg_for_clients_cls = config.AvgStrategyForAllClients()
 
     def add_duration(self, identifier, duration):
         client_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
@@ -129,7 +129,7 @@ class EMALatencyMeasurementForEachClient(LatencyMeasurement):
     def get_avg_latency(self):
         if self.total_reqs < self.min_latency_count:
             return None
-        latencies = [lat for _, lat in self.avg_latencies.items()]
+        latencies = [lat[1] for _, lat in self.avg_latencies.items()]
 
         return self.avg_for_clients_cls.get_latency_for_clients(latencies)
 
