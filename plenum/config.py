@@ -7,7 +7,8 @@ import logging
 from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
     HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.server.monitor import MedianHighLatencyForAllClients, MedianHighStrategy, EMALatencyMeasurementForAllClient
+from plenum.server.monitor import MedianHighLatencyForAllClients, MedianHighStrategy, \
+    EMALatencyMeasurementForEachClient
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -326,4 +327,4 @@ METRICS_KV_CONFIG = rocksdb_default_config.copy()
 
 AvgStrategyForAllClients = MedianHighLatencyForAllClients
 AvgStrategyForBackups = MedianHighStrategy
-LatencyMeasurementCls = EMALatencyMeasurementForAllClient
+LatencyMeasurementCls = EMALatencyMeasurementForEachClient

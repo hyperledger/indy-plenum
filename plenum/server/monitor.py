@@ -689,20 +689,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             return None, None
 
-    # def getAvgLatencyForClient(self, identifier: str, *instId: int) -> float:
-    #     """
-    #     Calculate and return the average latency of the requests of the
-    #     client(specified by identifier) for the specified protocol instances.
-    #     """
-    #     if len(self.clientAvgReqLatencies) == 0:
-    #         return 0
-    #     means = []
-    #     for i in instId:
-    #         avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(identifier)
-    #         if avg_lat:
-    #             means.append(avg_lat)
-    #     return self.mean(means)
-
     def getLatency(self, instId: int) -> float:
         """
         Return a dict with client identifier as a key and calculated latency as a value

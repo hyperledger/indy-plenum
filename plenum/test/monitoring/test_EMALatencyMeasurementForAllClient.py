@@ -5,11 +5,9 @@ import pytest
 from plenum.server.monitor import EMALatencyMeasurementForAllClient, EMALatencyMeasurementForEachClient
 
 
-@pytest.fixture(scope='function', params=[EMALatencyMeasurementForAllClient,
-                                          EMALatencyMeasurementForEachClient])
+@pytest.fixture(scope='function', params=[EMALatencyMeasurementForEachClient])
 def latency_instance(tconf, request):
     lm = request.param(tconf)
-    # lm = EMALatencyMeasurementForEachClient(tconf)
     return lm
 
 
