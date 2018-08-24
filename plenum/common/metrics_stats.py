@@ -1,6 +1,5 @@
-import math
 from collections import defaultdict
-from copy import copy
+from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Sequence, Union
 
@@ -92,7 +91,7 @@ class MetricsStats:
         if count == 0:
             return MetricsStatsFrame()
         if count == 1:
-            return copy(frames[0])
+            return deepcopy(frames[0])
 
         count_2 = count // 2
         lo = MetricsStats.merge_all(frames[:count_2])
@@ -110,6 +109,8 @@ def load_metrics_from_kv_store(storage: KeyValueStorage,
     start = KvStoreMetricsFormat.encode_key(min_ts, 0) if min_ts else None
     for k, v in storage.iterator(start=start):
         ev = KvStoreMetricsFormat.decode(k, v)
+        if ev is None:
+            continue
         if max_ts is not None and ev.timestamp > max_ts:
             break
         result.add(ev.timestamp, ev.name, ev.value)

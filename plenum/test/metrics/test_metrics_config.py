@@ -46,6 +46,11 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.PROCESS_CONSISTENCY_PROOF_TIME,
             MetricsName.PROCESS_CATCHUP_REQ_TIME,
             MetricsName.PROCESS_CATCHUP_REP_TIME,
+            MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE,
+            MetricsName.NODE_SEND_REJECT_TIME,
+
+            # Obsolete metrics
+            MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
 
             # TODO: reduce monitor window so these events are also captured
             MetricsName.MONITOR_AVG_THROUGHPUT,
@@ -59,6 +64,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         else:
             unexpected_events.add(MetricsName.SEND_PREPREPARE_TIME)
             unexpected_events.add(MetricsName.CREATE_3PC_BATCH_TIME)
+            unexpected_events.add(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
 
         # Don't expect some metrics from backup primary
         assert node.replicas.num_replicas == 2
@@ -68,6 +74,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         else:
             unexpected_events.add(MetricsName.BACKUP_SEND_PREPREPARE_TIME)
             unexpected_events.add(MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
+            unexpected_events.add(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
 
         # Check that all event types happened during test
         metric_names = {ev.name for ev in events}

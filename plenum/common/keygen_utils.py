@@ -27,6 +27,7 @@ def init_bls_keys(keys_dir, node_name, seed=None):
     bls_factory = create_default_bls_crypto_factory(keys_dir=bls_keys_dir)
     stored_pk, key_proof = bls_factory.generate_and_store_bls_keys(seed)
     print("BLS Public key is", stored_pk)
+    print("Proof of possession for BLS key is", key_proof)
     return stored_pk, key_proof
 
 

@@ -120,6 +120,7 @@ def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper,
     assert latest_info['Pool_info']['Total_nodes_count'] == nodeCount
 
 
+@pytest.mark.skip(reason="info will not be included by default")
 def test_hardware_info_section(info):
     assert info['Hardware']
     assert info['Hardware']['HDD_all']
@@ -128,6 +129,7 @@ def test_hardware_info_section(info):
     assert info['Hardware']['HDD_used_by_node']
 
 
+@pytest.mark.skip(reason="info will not be included by default")
 def test_software_info_section(info):
     assert info['Software']
     assert info['Software']['OS_version']
@@ -204,6 +206,7 @@ def test_config_info_section(node):
     assert 'iptables_config' in info['Configuration']
 
 
+@pytest.mark.skip(reason="info will not be included by default")
 def test_extractions_section(node):
     info = node._info_tool.info
     assert "journalctl_exceptions" in info["Extractions"]

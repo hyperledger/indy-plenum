@@ -1140,7 +1140,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        n = await self.nodestack.service(limit)
+        with self.metrics.measure_time(MetricsName.SERVICE_NODE_STACK_TIME):
+            n = await self.nodestack.service(limit)
         self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
 
         await self.processNodeInBox()
@@ -1434,6 +1435,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_view_change_not_completed_in_time()
         return True
 
+    @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages
@@ -1448,16 +1450,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
-                digest, reject = message
-                result_reject = Reject(
-                    reject.identifier,
-                    reject.reqId,
-                    self.reasonForClientFromException(
-                        reject.reason))
-                # TODO: What the case when reqKey will be not in requestSender dict
-                if digest in self.requestSender:
-                    self.transmitToClient(result_reject, self.requestSender[digest])
-                    self.doneProcessingReq(digest)
+                with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
+                    digest, reject = message
+                    result_reject = Reject(
+                        reject.identifier,
+                        reject.reqId,
+                        self.reasonForClientFromException(
+                            reject.reason))
+                    # TODO: What the case when reqKey will be not in requestSender dict
+                    if digest in self.requestSender:
+                        self.transmitToClient(result_reject, self.requestSender[digest])
+                        self.doneProcessingReq(digest)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1586,6 +1589,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return False
 
+    @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
     def sendToReplica(self, msg, frm):
         """
         Send the message to the intended replica.
@@ -1645,6 +1649,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg, frm = wrappedMsg
             self.discard(msg, ex, logger.info)
 
+    @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
     def validateNodeMsg(self, wrappedMsg):
         """
         Validate another node's message sent to this node.
@@ -1658,12 +1663,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
-        try:
-            message = node_message_factory.get_instance(**msg)
-        except (MissingNodeOp, InvalidNodeOp) as ex:
-            raise ex
-        except Exception as ex:
-            raise InvalidNodeMsg(str(ex))
+        with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
+            try:
+                message = node_message_factory.get_instance(**msg)
+            except (MissingNodeOp, InvalidNodeOp) as ex:
+                raise ex
+            except Exception as ex:
+                raise InvalidNodeMsg(str(ex))
 
         try:
             self.verifySignature(message)
@@ -1685,9 +1691,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(msg, Batch):
             logger.trace("{} processing a batch {}".format(self, msg))
-            for m in msg.messages:
-                m = self.nodestack.deserializeMsg(m)
-                self.handleOneNodeMsg((m, frm))
+            with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
+                for m in msg.messages:
+                    m = self.nodestack.deserializeMsg(m)
+                    self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
 
@@ -1701,6 +1708,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
+    @async_measure_time(MetricsName.PROCESS_NODE_INBOX_TIME)
     async def processNodeInBox(self):
         """
         Process the messages in the node inbox asynchronously.
@@ -1831,12 +1839,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the client that sent this `msg`
         """
         if self.view_changer.view_change_in_progress:
-            self.send_nack_to_client((msg.get(f.REQ_ID.nm, None), idr_from_req_data(msg)),
-                                     "Client request is discarded since view "
-                                     "change is in progress", frm)
-            self.discard(msg,
+
+            msg_dict = msg if isinstance(msg, dict) else msg.as_dict
+            self.discard(msg_dict,
                          reason="view change in progress",
                          logMethod=logger.debug)
+            self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                      msg_dict.get(f.REQ_ID.nm, None)),
+                                     "Client request is discarded since view "
+                                     "change is in progress", frm)
             return
         if isinstance(msg, Batch):
             for m in msg.messages:
@@ -2520,6 +2531,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.flush_accumulated()
 
+    @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
         """
         Check if master instance is slow and send an instance change request.
@@ -2569,6 +2581,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(self))
         return True
 
+    @measure_time(MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE)
     def checkNodeRequestSpike(self):
         logger.trace("{} checking its request amount".format(self))
 
@@ -2739,7 +2752,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.as_dict
 
-        identifiers = self.authNr(req).authenticate(req)
+        with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
+            identifiers = self.authNr(req).authenticate(req)
+
         logger.debug("{} authenticated {} signature on {} request {}".
                      format(self, identifiers, typ, req['reqId']),
                      extra={"cli": True,
@@ -3143,6 +3158,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
 
+    @measure_time(MetricsName.NODE_SEND_TIME)
     def send(self,
              msg: Any,
              *rids: Iterable[int],

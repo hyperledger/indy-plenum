@@ -6,6 +6,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
+from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from stp_core.common.log import getlogger
@@ -17,18 +18,21 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def __init__(self,
                  node_id,
                  bls_bft: BlsBft,
-                 is_master):
+                 is_master,
+                 metrics: MetricsCollector = NullMetricsCollector()):
         super().__init__(bls_bft, is_master)
         self.node_id = node_id
         self._signatures = {}
         self._bls_latest_multi_sig = None  # MultiSignature
         self.state_root_serializer = state_roots_serializer
+        self.metrics = metrics
 
     def _can_process_ledger(self, ledger_id):
         return ledger_id != POOL_LEDGER_ID
 
     # ----VALIDATE----
 
+    @measure_time(MetricsName.BLS_VALIDATE_PREPREPARE_TIME)
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
@@ -41,6 +45,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def validate_prepare(self, prepare: Prepare, sender):
         pass
 
+    @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
@@ -51,6 +56,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----CREATE/UPDATE----
 
+    @measure_time(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
     def update_pre_prepare(self, pre_prepare_params, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
@@ -68,6 +74,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         # Send BLS signature in COMMITs only
         return prepare_params
 
+    @measure_time(MetricsName.BLS_UPDATE_COMMIT_TIME)
     def update_commit(self, commit_params, pre_prepare: PrePrepare):
         ledger_id = pre_prepare.ledgerId
         state_root_hash = pre_prepare.stateRootHash
