@@ -160,6 +160,37 @@ def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf)
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
+def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_after_silence(tconf):
+    window_size = tconf.throughput_measurement_params['window_size']
+    inst_req_streams = [ReqStream().once(t=1 * 60 * 60 + window_size + 1, q=1000)
+                                   .build()] + \
+                       [ReqStream().once(t=1 * 60 * 60, q=1000)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
+def test_master_not_degraded_on_2_spikes_devided_by_normal_load(tconf):
+    window_size = tconf.throughput_measurement_params['window_size']
+    start = 1 * 60 * 60
+    inst_req_streams = [ReqStream().once(t=start + window_size + 1, q=1000)
+                                   .period(s=start + 2 * window_size + 1, i=5, q=10)
+                                   .once(t=start + 4 * window_size + 1 + 60, q=1000)
+                                   .build()] + \
+                       [ReqStream().once(t=start, q=1000)
+                                   .period(s=start + 2 * window_size + 1, i=5, q=10)
+                                   .once(t=start + 3 * window_size + 1 + 60, q=1000)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
+
 def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
     inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
                                    .stop(t=1 * 60 * 60)
