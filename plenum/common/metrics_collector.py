@@ -5,14 +5,15 @@ import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
-from enum import IntEnum
+from enum import IntEnum, unique
 from datetime import datetime, timezone
-from typing import Callable, NamedTuple, Union
+from typing import Callable, NamedTuple, Union, Optional
 
 from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
 
+@unique
 class MetricsName(IntEnum):
     # Number of node stack messages processed in one looper run
     NODE_STACK_MESSAGES_PROCESSED = 0
@@ -79,6 +80,12 @@ class MetricsName(IntEnum):
     NODE_CHECK_PERFORMANCE_TIME = 203
     NODE_CHECK_NODE_REQUEST_SPIKE = 204
     UNPACK_BATCH_TIME = 205
+    VERIFY_SIGNATURE_TIME = 207
+    SERVICE_REPLICAS_OUTBOX_TIME = 208
+    NODE_SEND_TIME = 209
+    NODE_SEND_REJECT_TIME = 210
+    VALIDATE_NODE_MSG_TIME = 211
+    INT_VALIDATE_NODE_MSG_TIME = 212
 
     # Replica specific metrics
     SERVICE_REPLICA_QUEUES_TIME = 300
@@ -126,6 +133,9 @@ class MetricsName(IntEnum):
     BLS_VALIDATE_COMMIT_TIME = 4002
     BLS_UPDATE_PREPREPARE_TIME = 4010
     BLS_UPDATE_COMMIT_TIME = 4012
+
+    # Obsolete metrics
+    DESERIALIZE_DURING_UNPACK_TIME = 206
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
@@ -214,10 +224,13 @@ class KvStoreMetricsFormat:
         return key, value
 
     @staticmethod
-    def decode(key: bytes, value: bytes) -> MetricsEvent:
+    def decode(key: bytes, value: bytes) -> Optional[MetricsEvent]:
         key = int.from_bytes(key, byteorder='big', signed=False)
         ts = datetime.utcfromtimestamp((key >> KvStoreMetricsFormat.seq_bits) / 1000000.0)
-        name = MetricsName(int.from_bytes(value[:32], byteorder='big', signed=False))
+        name = int.from_bytes(value[:32], byteorder='big', signed=False)
+        if name not in MetricsName.__members__.values():
+            return None
+        name = MetricsName(name)
         data = value[32:]
         if len(data) == 8:
             value = struct.unpack('d', data)[0]

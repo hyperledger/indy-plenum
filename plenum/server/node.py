@@ -1435,6 +1435,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_view_change_not_completed_in_time()
         return True
 
+    @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages
@@ -1449,16 +1450,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
-                digest, reject = message
-                result_reject = Reject(
-                    reject.identifier,
-                    reject.reqId,
-                    self.reasonForClientFromException(
-                        reject.reason))
-                # TODO: What the case when reqKey will be not in requestSender dict
-                if digest in self.requestSender:
-                    self.transmitToClient(result_reject, self.requestSender[digest])
-                    self.doneProcessingReq(digest)
+                with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
+                    digest, reject = message
+                    result_reject = Reject(
+                        reject.identifier,
+                        reject.reqId,
+                        self.reasonForClientFromException(
+                            reject.reason))
+                    # TODO: What the case when reqKey will be not in requestSender dict
+                    if digest in self.requestSender:
+                        self.transmitToClient(result_reject, self.requestSender[digest])
+                        self.doneProcessingReq(digest)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
             else:
@@ -1647,6 +1649,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg, frm = wrappedMsg
             self.discard(msg, ex, logger.info)
 
+    @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
     def validateNodeMsg(self, wrappedMsg):
         """
         Validate another node's message sent to this node.
@@ -1660,12 +1663,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
-        try:
-            message = node_message_factory.get_instance(**msg)
-        except (MissingNodeOp, InvalidNodeOp) as ex:
-            raise ex
-        except Exception as ex:
-            raise InvalidNodeMsg(str(ex))
+        with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
+            try:
+                message = node_message_factory.get_instance(**msg)
+            except (MissingNodeOp, InvalidNodeOp) as ex:
+                raise ex
+            except Exception as ex:
+                raise InvalidNodeMsg(str(ex))
 
         try:
             self.verifySignature(message)
@@ -2749,7 +2753,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.as_dict
 
-        identifiers = self.authNr(req).authenticate(req)
+        with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
+            identifiers = self.authNr(req).authenticate(req)
+
         logger.debug("{} authenticated {} signature on {} request {}".
                      format(self, identifiers, typ, req['reqId']),
                      extra={"cli": True,
@@ -3153,6 +3159,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
 
+    @measure_time(MetricsName.NODE_SEND_TIME)
     def send(self,
              msg: Any,
              *rids: Iterable[int],
