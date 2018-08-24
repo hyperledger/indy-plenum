@@ -1,7 +1,19 @@
 import math
+from abc import ABC, abstractmethod
 
 
-class MovingAverage:
+class MovingAverage(ABC):
+    @abstractmethod
+    def update(self, value: float):
+        pass
+
+    @property
+    @abstractmethod
+    def value(self) -> float:
+        return self._value
+
+
+class ExponentialMovingAverage(MovingAverage):
     def __init__(self, start: float, alpha: float):
         self._value = start
         self._alpha = alpha
