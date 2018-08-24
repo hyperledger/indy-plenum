@@ -173,7 +173,7 @@ def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_after_silence(tc
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-def test_master_not_degraded_on_2_spikes_devided_by_normal_load(tconf):
+def test_master_not_degraded_on_2_spikes_divided_by_normal_load(tconf):
     window_size = tconf.throughput_measurement_params['window_size']
     start = 1 * 60 * 60
     inst_req_streams = [ReqStream().once(t=start + window_size + 1, q=1000)
