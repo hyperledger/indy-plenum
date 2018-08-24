@@ -46,19 +46,24 @@ class ExponentialMovingAverage(MovingAverage):
 
 class EventFrequencyEstimator:
     def __init__(self, start_time: float, window: float, averager: MovingAverage):
-        self._now = start_time
+        self._start = start_time
+        self._sum = 0.0
         self._window = window
         self._averager = averager
-        self._sum = 0.0
 
     def add_events(self, value: float):
         self._sum += value
 
+    def reset(self, start_time: float):
+        self._start = start_time
+        self._sum = 0.0
+        self._averager.reset(0.0)
+
     def update_time(self, timestamp: float):
-        while timestamp > self._now + self._window:
+        while timestamp > self._start + self._window:
             self._averager.update(self._sum)
             self._sum = 0.0
-            self._now += self._window
+            self._start += self._window
 
     @property
     def value(self):

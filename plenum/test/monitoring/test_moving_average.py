@@ -9,6 +9,7 @@ ESTIMATOR_WINDOW = 3
 class MockMovingAverage(MovingAverage):
     def __init__(self):
         self.updates = []
+        self.reset_called = False
         self._value = 0
 
     def update(self, value: float):
@@ -16,7 +17,8 @@ class MockMovingAverage(MovingAverage):
         self._value = value
 
     def reset(self, value: float):
-        pass
+        self.reset_called = True
+        self._value = 0
 
     @property
     def value(self) -> float:
@@ -169,6 +171,7 @@ def test_event_frequency_estimator_sums_all_events_in_same_window(mock_averager,
     estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
     estimator.add_events(4)
     estimator.update_time(START_TIME + 1.2 * ESTIMATOR_WINDOW)
+    estimator.add_events(2)
     assert estimator.value == 7
     assert mock_averager.updates == [7]
 
@@ -178,5 +181,24 @@ def test_event_frequency_estimator_doesnt_spread_events_between_windows(mock_ave
     estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
     estimator.add_events(4)
     estimator.update_time(START_TIME + 2.2 * ESTIMATOR_WINDOW)
+    estimator.add_events(2)
     assert estimator.value == 0
     assert mock_averager.updates == [7, 0]
+
+
+def test_event_frequency_estimator_resets_everything(mock_averager, estimator):
+    estimator.add_events(3)
+    estimator.update_time(START_TIME + 1.2 * ESTIMATOR_WINDOW)
+    estimator.add_events(4)
+    assert estimator.value == 3
+    assert mock_averager.updates == [3]
+    assert not mock_averager.reset_called
+
+    estimator.reset(START_TIME + 3.0 * ESTIMATOR_WINDOW)
+    assert estimator.value == 0
+    assert mock_averager.reset_called
+
+    estimator.add_events(2)
+    estimator.update_time(START_TIME + 4.2 * ESTIMATOR_WINDOW)
+    assert estimator.value == 2
+    assert mock_averager.updates == [3, 2]
