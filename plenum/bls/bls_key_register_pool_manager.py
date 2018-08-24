@@ -1,4 +1,5 @@
 from crypto.bls.bls_key_register import BlsKeyRegister
+from plenum import config
 from plenum.common.constants import BLS_KEY
 from plenum.server.pool_manager import TxnPoolManager
 
@@ -21,13 +22,17 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
         if self._current_pool_state_root_hash != pool_state_root_hash:
             self._current_pool_state_root_hash = pool_state_root_hash
             self._load_keys_for_root(pool_state_root_hash)
-
-        return self._current_bls_keys.get(node_name)
+        return self._current_bls_keys.get(node_name) \
+            if config.VALIDATE_SIGN_WITHOUT_BLS_KEY_PROOF or \
+               self._current_bls_keys_proof.get(node_name, None) not in [False, None] \
+            else None
 
     def _load_keys_for_root(self, pool_state_root_hash):
         self._current_bls_keys = {}
+        self._current_bls_keys_proof = {}
         for node_name in self._pool_manager.nodeReg.keys():
             node_nym = self._pool_manager.get_nym_by_name(node_name)
             data = self._pool_manager.reqHandler.get_node_data_for_root_hash(pool_state_root_hash, node_nym)
             if BLS_KEY in data:
                 self._current_bls_keys[node_name] = data[BLS_KEY]
+                self._current_bls_keys_proof[node_name] = BLS_KEY in data
