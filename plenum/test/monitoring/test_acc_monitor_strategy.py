@@ -1,12 +1,18 @@
 from plenum.server.monitor import AccumulatingMonitorStrategy
 
-ACC_MONITOR_TXN_DELTA = 2
+ACC_MONITOR_TXN_DELTA_K = 100
 ACC_MONITOR_TIMEOUT = 300.0
+ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300.0
+
+START_TIME = 100.0
+
 
 def createMonitor():
-    return AccumulatingMonitorStrategy(instances=2,
-                                       txn_delta=ACC_MONITOR_TXN_DELTA,
-                                       timeout=ACC_MONITOR_TIMEOUT)
+    return AccumulatingMonitorStrategy(start_time=START_TIME,
+                                       instances=2,
+                                       txn_delta_k=ACC_MONITOR_TXN_DELTA_K,
+                                       timeout=ACC_MONITOR_TIMEOUT,
+                                       input_rate_reaction_half_time=ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
 
 
 def test_acc_monitor_isnt_alerted_when_created():

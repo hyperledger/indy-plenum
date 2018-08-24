@@ -1,9 +1,11 @@
+import math
 import pytest
 
-from plenum.common.moving_average import MovingAverage, ExponentialMovingAverage, EventFrequencyEstimator
+from plenum.common.moving_average import MovingAverage, ExponentialMovingAverage, EventFrequencyEstimator, \
+    EMAEventFrequencyEstimator
 
 START_TIME = 10
-ESTIMATOR_WINDOW = 3
+STEP = 3
 
 
 class MockMovingAverage(MovingAverage):
@@ -37,7 +39,7 @@ def mock_averager():
 
 @pytest.fixture()
 def estimator(mock_averager):
-    return EventFrequencyEstimator(start_time=START_TIME, window=ESTIMATOR_WINDOW, averager=mock_averager)
+    return EventFrequencyEstimator(start_time=START_TIME, window=STEP, averager=mock_averager)
 
 
 def create_moving_average(cls, start: float) -> MovingAverage:
@@ -154,51 +156,73 @@ def test_event_frequency_estimator_is_initialized_to_zero(mock_averager, estimat
 
 
 def test_event_frequency_estimator_updates_with_time_even_if_there_are_no_events(mock_averager, estimator):
-    estimator.update_time(START_TIME + 3.1 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 3.1 * STEP)
     assert estimator.value == 0
     assert mock_averager.updates == [0, 0, 0]
 
 
 def test_event_frequency_estimator_doesnt_updates_when_time_doesnt_advance_enough(mock_averager, estimator):
     estimator.add_events(3)
-    estimator.update_time(START_TIME + 0.9 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 0.9 * STEP)
     assert estimator.value == 0
     assert mock_averager.updates == []
 
 
 def test_event_frequency_estimator_sums_all_events_in_same_window(mock_averager, estimator):
     estimator.add_events(3)
-    estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 0.3 * STEP)
     estimator.add_events(4)
-    estimator.update_time(START_TIME + 1.2 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 1.2 * STEP)
     estimator.add_events(2)
-    assert estimator.value == 7
-    assert mock_averager.updates == [7]
+    assert estimator.value == 7 / STEP
+    assert mock_averager.updates == [7 / STEP]
 
 
 def test_event_frequency_estimator_doesnt_spread_events_between_windows(mock_averager, estimator):
     estimator.add_events(3)
-    estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 0.3 * STEP)
     estimator.add_events(4)
-    estimator.update_time(START_TIME + 2.2 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 2.2 * STEP)
     estimator.add_events(2)
     assert estimator.value == 0
-    assert mock_averager.updates == [7, 0]
+    assert mock_averager.updates == [7 / STEP, 0]
 
 
 def test_event_frequency_estimator_resets_everything(mock_averager, estimator):
     estimator.add_events(3)
-    estimator.update_time(START_TIME + 1.2 * ESTIMATOR_WINDOW)
+    estimator.update_time(START_TIME + 1.2 * STEP)
     estimator.add_events(4)
-    assert estimator.value == 3
-    assert mock_averager.updates == [3]
+    assert estimator.value == 3 / STEP
+    assert mock_averager.updates == [3 / STEP]
     assert not mock_averager.reset_called
 
-    estimator.reset(START_TIME + 3.0 * ESTIMATOR_WINDOW)
+    estimator.reset(START_TIME + 3.0 * STEP)
     assert estimator.value == 0
     assert mock_averager.reset_called
 
     estimator.add_events(2)
-    estimator.update_time(START_TIME + 4.2 * ESTIMATOR_WINDOW)
-    assert estimator.value == 2
-    assert mock_averager.updates == [3, 2]
+    estimator.update_time(START_TIME + 4.2 * STEP)
+    assert estimator.value == 2 / STEP
+    assert mock_averager.updates == [3 / STEP, 2 / STEP]
+
+
+@pytest.mark.parametrize("step", [2, 10, 40])
+def test_ema_event_frequency_estimator_respects_reaction_time(step):
+    now = 0.0
+    half_time = 120.0
+    estimator = EMAEventFrequencyEstimator(now, half_time)
+    assert estimator.value == 0
+
+    while now < half_time:
+        estimator.update_time(now)
+        estimator.add_events(step)
+        now += step
+    estimator.update_time(now)
+    assert math.isclose(estimator.value, 0.5, rel_tol=0.07)
+
+    while now < 2.0 * half_time:
+        estimator.update_time(now)
+        estimator.add_events(step)
+        now += step
+    estimator.update_time(now)
+    assert math.isclose(estimator.value, 0.75, rel_tol=0.07)

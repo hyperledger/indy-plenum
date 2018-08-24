@@ -11,6 +11,7 @@ import psutil
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import MONITORING_PREFIX
+from plenum.common.moving_average import EMAEventFrequencyEstimator
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -83,13 +84,15 @@ class MonitorStrategy(ABC):
 
 
 class AccumulatingMonitorStrategy(MonitorStrategy):
-    def __init__(self, instances: int, txn_delta: int, timeout: float):
+    def __init__(self, start_time: float, instances: int, txn_delta_k: int, timeout: float,
+                 input_rate_reaction_half_time: float):
         self._instances = instances
-        self._txn_delta = txn_delta
+        self._txn_delta_k = txn_delta_k
         self._timeout = timeout
         self._ordered = defaultdict(lambda: 0)
-        self._timestamp = None
+        self._timestamp = start_time
         self._alert_timestamp = None
+        self._input_txn_rate = EMAEventFrequencyEstimator(start_time, input_rate_reaction_half_time)
 
     def add_instance(self):
         self._instances += 1
@@ -103,16 +106,17 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
 
     def update_time(self, timestamp: float):
         self._timestamp = timestamp
+        self._input_txn_rate.update_time(timestamp)
         master_ordered = self._ordered[0]
         max_ordered = max(self._ordered[i] for i in range(1, self._instances))
-        is_degraded = (max_ordered - master_ordered) > self._txn_delta
+        is_degraded = (max_ordered - master_ordered) > self._txn_delta_k * self._input_txn_rate.value
         if not is_degraded:
             self._alert_timestamp = None
         elif not self._alert_timestamp:
             self._alert_timestamp = self._timestamp
 
     def request_received(self, id: str):
-        pass
+        self._input_txn_rate.add_events(1)
 
     def request_ordered(self, id: str, inst_id: int):
         self._ordered[inst_id] += 1
@@ -398,9 +402,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         config = getConfig()
         self.acc_monitor_enabled = config.ACC_MONITOR_ENABLED
-        self.acc_monitor = AccumulatingMonitorStrategy(instances=instances.count,
-                                                       txn_delta=config.ACC_MONITOR_TXN_DELTA,
-                                                       timeout=config.ACC_MONITOR_TIMEOUT)
+        self.acc_monitor = AccumulatingMonitorStrategy(
+            start_time=time.perf_counter(),
+            instances=instances.count,
+            txn_delta_k=config.ACC_MONITOR_TXN_DELTA,
+            timeout=config.ACC_MONITOR_TIMEOUT,
+            input_rate_reaction_half_time=config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
 
     def __repr__(self):
         return self.name

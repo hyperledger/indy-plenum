@@ -61,10 +61,16 @@ class EventFrequencyEstimator:
 
     def update_time(self, timestamp: float):
         while timestamp > self._start + self._window:
-            self._averager.update(self._sum)
+            self._averager.update(self._sum / self._window)
             self._sum = 0.0
             self._start += self._window
 
     @property
     def value(self):
         return self._averager.value
+
+
+class EMAEventFrequencyEstimator(EventFrequencyEstimator):
+    def __init__(self, start_time: float, reaction_half_time: float, steps: int = 10):
+        avg = ExponentialMovingAverage(ExponentialMovingAverage.halfway_alpha(steps))
+        super().__init__(start_time, reaction_half_time / steps, avg)
