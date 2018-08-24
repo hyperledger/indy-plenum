@@ -1,14 +1,11 @@
-import os
-import sys
-from collections import OrderedDict
-
 import logging
+import sys
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
-    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
+    KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.server.monitor import SafeStartEMAThroughputMeasurement, MedianHighStrategy, \
-    MedianLowStrategy
+from plenum.server.monitor import MedianHighStrategy, \
+    MedianLowStrategy, RevivalSpikeResistantEMAThroughputMeasurement
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -145,7 +142,7 @@ MIN_LATENCY_COUNT = 10
 latency_averaging_strategy_class = MedianHighStrategy
 throughput_averaging_strategy_class = MedianLowStrategy
 
-throughput_measurement_class = SafeStartEMAThroughputMeasurement
+throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
 
 throughput_measurement_params = {
     'window_size': 15,
