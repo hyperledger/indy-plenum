@@ -105,7 +105,7 @@ def get_throughput_ratio(inst_req_streams, config):
         else None
 
     throughput_ratio = master_throughput / average_backup_throughput \
-        if master_throughput is not None and average_backup_throughput is not None \
+        if average_backup_throughput and master_throughput is not None \
         else None
 
     return throughput_ratio
