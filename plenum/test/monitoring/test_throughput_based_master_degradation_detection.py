@@ -71,6 +71,8 @@ def get_average_throughput(calculated_throughputs, config):
 def get_throughput_ratio(inst_req_streams, config):
     assert len(inst_req_streams) > 1
 
+    window_size = config.throughput_measurement_params['window_size']
+
     inst_tms = []
     max_end_ts = 0
     for req_stream in inst_req_streams:
@@ -90,8 +92,7 @@ def get_throughput_ratio(inst_req_streams, config):
     # Calculate throughput after the latest request ordering plus
     # the window size to take into account all the requests in calculation
     for tm in inst_tms:
-        inst_throughput.append(
-            tm.get_throughput(max_end_ts + 15))
+        inst_throughput.append(tm.get_throughput(max_end_ts + window_size))
 
     master_throughput = inst_throughput[0]
 
@@ -146,12 +147,15 @@ def test_master_not_degraded_on_spike_in_1_batch_on_backups(tconf):
 
 @pytest.mark.skip(reason='Currently selected strategy produces false positive.')
 def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf):
+    window_size = tconf.throughput_measurement_params['window_size']
+    window_start_after_1_hour = (1 * 60 * 60) // window_size * window_size
+
     inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
-                                   .stop(t=1 * 60 * 60)
+                                   .stop(t=window_start_after_1_hour + 2)
                                    .build()] + \
                        [ReqStream().period(s=0, i=5, q=1)
-                                   .period(s=1 * 60 * 60 - 2, i=1, q=1000)
-                                   .stop(t=1 * 60 * 60)
+                                   .once(t=window_start_after_1_hour, q=1000)
+                                   .once(t=window_start_after_1_hour + 1, q=1000)
                                    .build()
                         for inst_id in range(1, 9)]
 
@@ -160,9 +164,10 @@ def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf)
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_after_silence(tconf):
+def test_master_not_degraded_on_spike_after_silence_delayed_on_master(tconf):
     window_size = tconf.throughput_measurement_params['window_size']
-    inst_req_streams = [ReqStream().once(t=1 * 60 * 60 + window_size + 1, q=1000)
+
+    inst_req_streams = [ReqStream().once(t=1 * 60 * 60 + window_size, q=1000)
                                    .build()] + \
                        [ReqStream().once(t=1 * 60 * 60, q=1000)
                                    .build()
@@ -173,9 +178,10 @@ def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_after_silence(tc
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-def test_master_not_degraded_on_2_spikes_divided_by_normal_load(tconf):
+def test_master_not_degraded_on_2_spikes_divided_by_normal_load_delayed_on_master(tconf):
     window_size = tconf.throughput_measurement_params['window_size']
     start = 1 * 60 * 60
+
     inst_req_streams = [ReqStream().once(t=start + window_size + 1, q=1000)
                                    .period(s=start + 2 * window_size + 1, i=5, q=10)
                                    .once(t=start + 4 * window_size + 1 + 60, q=1000)
@@ -192,12 +198,14 @@ def test_master_not_degraded_on_2_spikes_divided_by_normal_load(tconf):
 
 
 def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
+    window_size = tconf.throughput_measurement_params['window_size']
+
     inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
                                    .stop(t=1 * 60 * 60)
                                    .build()] + \
                        [ReqStream().period(s=0, i=5, q=1)
-                                   .period(s=1 * 60 * 60 - 1, i=1, q=1000)
-                                   .stop(t=1 * 60 * 60 + 1)
+                                   .once(t=1 * 60 * 60 - window_size, q=1000)
+                                   .once(t=1 * 60 * 60, q=1000)
                                    .build()
                         for inst_id in range(1, 9)]
 
@@ -207,13 +215,15 @@ def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
 
 
 def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_delayed_on_master(tconf):
-    inst_req_streams = [ReqStream().period(s=0, i=15, q=1)
-                                   .period(s=1 * 60 * 60, i=15, q=1000)
-                                   .stop(t=1 * 60 * 60 + 30)
+    window_size = tconf.throughput_measurement_params['window_size']
+
+    inst_req_streams = [ReqStream().period(s=0, i=window_size, q=1)
+                                   .once(t=1 * 60 * 60, q=1000)
+                                   .once(t=1 * 60 * 60 + window_size, q=1000)
                                    .build()] + \
-                       [ReqStream().period(s=0, i=15, q=1)
-                                   .period(s=1 * 60 * 60 - 1, i=15, q=1000)
-                                   .stop(t=1 * 60 * 60 + 29)
+                       [ReqStream().period(s=0, i=window_size, q=1)
+                                   .once(t=1 * 60 * 60 - window_size, q=1000)
+                                   .once(t=1 * 60 * 60, q=1000)
                                    .build()
                         for inst_id in range(1, 9)]
 
