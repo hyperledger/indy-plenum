@@ -7,7 +7,7 @@ import logging
 from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
     HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.server.monitor import EMAThroughputMeasurement, MedianHighStrategy, \
+from plenum.server.monitor import SafeStartEMAThroughputMeasurement, MedianHighStrategy, \
     MedianLowStrategy
 
 walletsDir = 'wallets'
@@ -145,7 +145,7 @@ MIN_LATENCY_COUNT = 10
 latency_averaging_strategy_class = MedianHighStrategy
 throughput_averaging_strategy_class = MedianLowStrategy
 
-throughput_measurement_class = EMAThroughputMeasurement
+throughput_measurement_class = SafeStartEMAThroughputMeasurement
 
 throughput_measurement_params = {
     'window_size': 15,

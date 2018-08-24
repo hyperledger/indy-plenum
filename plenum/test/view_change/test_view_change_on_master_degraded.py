@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from plenum.server.monitor import EMAThroughputMeasurement
+from plenum.server.monitor import SafeStartEMAThroughputMeasurement
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
@@ -20,7 +20,7 @@ def tconf(tconf):
     old_throughput_measurement_class = tconf.throughput_measurement_class
     old_throughput_measurement_params = tconf.throughput_measurement_params
 
-    tconf.throughput_measurement_class = EMAThroughputMeasurement
+    tconf.throughput_measurement_class = SafeStartEMAThroughputMeasurement
     tconf.throughput_measurement_params = {
         'window_size': 2,
         'min_cnt': 3

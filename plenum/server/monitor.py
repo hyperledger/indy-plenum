@@ -82,20 +82,19 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
 
         :param window_size: window size in seconds for each next re-calculation
         of throughput
-        :param min_cnt: minimal count of past windows since which
-        `get_throughput` method returns calculated throughput
+        :param min_cnt: N - the count of last calculated values which
+        contribute with significant weight in the next value being calculated
+        (approximately 86% in total)
         """
         self.reqs_in_window = 0
         self.throughput = 0
         self.window_size = window_size
         self.min_cnt = min_cnt
         self.alpha = 2 / (self.min_cnt + 1)
-        self.first_ts = None
         self.window_start_ts = None
 
     def init_time(self, start_ts):
-        self.first_ts = start_ts
-        self.window_start_ts = self.first_ts
+        self.window_start_ts = start_ts
 
     def add_request(self, ordered_ts):
         self._update_time(ordered_ts)
@@ -107,26 +106,54 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
         """
         return old_accum * (1 - self.alpha) + next_val * self.alpha
 
+    def _process_window(self):
+        self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
+
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
-            self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
+            self._process_window()
             self.window_start_ts += self.window_size
             self.reqs_in_window = 0
 
     def get_throughput(self, request_time):
-        if request_time < self.first_ts + (self.window_size * self.min_cnt):
-            return None
         self._update_time(request_time)
         return self.throughput
 
 
-class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
+class SafeStartEMAThroughputMeasurement(EMAThroughputMeasurement):
+    """
+    Measures request ordering throughput using exponential moving average and
+    also has a safe period on start consisting of `min_cnt` windows when None
+    is returned instead of a calculated value. This can be useful for leveling
+    instances on start when request ordering is just beginning.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Creates a throughput measurement instance.
+        """
+        super().__init__(*args, **kwargs)
+        self.first_ts = None
+
+    def init_time(self, start_ts):
+        super().init_time(start_ts)
+        self.first_ts = start_ts
+
+    def get_throughput(self, request_time):
+        if request_time < self.first_ts + (self.window_size * self.min_cnt):
+            return None
+        return super().get_throughput(request_time)
+
+
+class RevivalSpikeResistantEMAThroughputMeasurement(EMAThroughputMeasurement):
     """
     Measures request ordering throughput using exponential moving average but
     is resistant to spikes after long idles (fade-outs). This can be useful for
     getting rid of treating a spike of queued requests on a backup instance
     after the primary reconnection as a master degradation indicator which is
-    false positive in this case.
+    false positive in this case. Fade-out period length (after which requests
+    are interpreted as a revival spike) and revival period length (during which
+    None is returned instead of a calculated value) are `min_cnt` windows.
     """
 
     @unique
@@ -136,28 +163,12 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         FADED = 2
         REVIVAL = 3
 
-    def __init__(self, window_size=15, min_cnt=16):
+    def __init__(self, *args, **kwargs):
         """
         Creates a throughput measurement instance.
-
-        :param window_size: window size in seconds for each next re-calculation
-        of throughput
-        :param min_cnt: minimal count of empty past windows that is treated as
-        fade-out; also minimal count of non-empty past windows from revival
-        (or start) when `get_throughput` method begins to return non-empty
-        values
         """
-
-        # Constant fields
-        self.window_size = window_size
-        self.min_cnt = min_cnt
-        self.alpha = 2 / (self.min_cnt + 1)
-
-        # Common fields
+        super().__init__(*args, **kwargs)
         self.state = self.State.FADED
-        self.window_start_ts = None  # will be initialized in `init_time`
-        self.reqs_in_window = 0
-        self.throughput = 0
 
         # Fields being used in IDLE, FADED and REVIVAL states
         self.throughput_before_idle = 0
@@ -170,18 +181,8 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
         self.reqs_during_revival = None
 
     def init_time(self, start_ts):
-        self.window_start_ts = start_ts
+        super().init_time(start_ts)
         self.idle_start_ts = start_ts
-
-    def add_request(self, ordered_ts):
-        self._update_time(ordered_ts)
-        self.reqs_in_window += 1
-
-    def _accumulate(self, old_accum, next_val):
-        """
-        Implements exponential moving average
-        """
-        return old_accum * (1 - self.alpha) + next_val * self.alpha
 
     def _process_window_in_normal_mode(self):
         if self.reqs_in_window == 0:
@@ -242,25 +243,18 @@ class RevivalSpikeResistantEMAThroughputMeasurement(ThroughputMeasurement):
             self.empty_windows_count = 1
             self.throughput = self._accumulate(self.throughput, 0)
 
-    def _update_time(self, current_ts):
-        while current_ts >= self.window_start_ts + self.window_size:
-            if self.state == self.State.NORMAL:
-                self._process_window_in_normal_mode()
-            elif self.state == self.State.IDLE:
-                self._process_window_in_idle_mode()
-            elif self.state == self.State.FADED:
-                self._process_window_in_faded_mode()
-            elif self.state == self.State.REVIVAL:
-                self._process_window_in_revival_mode()
-            else:
-                raise LogicError("Internal state of througput measurement {} "
-                                 "is unsupported".format(self.state))
-            self.window_start_ts += self.window_size
-            self.reqs_in_window = 0
-
-    def get_throughput(self, request_time):
-        self._update_time(request_time)
-        return self.throughput
+    def _process_window(self):
+        if self.state == self.State.NORMAL:
+            self._process_window_in_normal_mode()
+        elif self.state == self.State.IDLE:
+            self._process_window_in_idle_mode()
+        elif self.state == self.State.FADED:
+            self._process_window_in_faded_mode()
+        elif self.state == self.State.REVIVAL:
+            self._process_window_in_revival_mode()
+        else:
+            raise LogicError("Internal state of througput measurement {} "
+                             "is unsupported".format(self.state))
 
 
 class LatencyMeasurement:

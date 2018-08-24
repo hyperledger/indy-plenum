@@ -2,7 +2,7 @@ from statistics import median_high
 
 import pytest
 
-from plenum.server.monitor import EMAThroughputMeasurement
+from plenum.server.monitor import SafeStartEMAThroughputMeasurement
 from plenum.test.helper import get_key_from_req
 
 nodeCount = 7
@@ -13,7 +13,7 @@ def tconf(tconf):
     old_throughput_measurement_params = tconf.throughput_measurement_params
     old_min_latency_count = tconf.MIN_LATENCY_COUNT
 
-    tconf.throughput_measurement_class = EMAThroughputMeasurement
+    tconf.throughput_measurement_class = SafeStartEMAThroughputMeasurement
     tconf.throughput_measurement_params = {
         'window_size': 5,
         'min_cnt': 2
