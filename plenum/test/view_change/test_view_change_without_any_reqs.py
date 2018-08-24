@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.monitor import SafeStartEMAThroughputMeasurement
+from plenum.server.monitor import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test import waits
 from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually
@@ -24,7 +24,7 @@ def tconf(tconf):
     old_throughput_measurement_params = tconf.throughput_measurement_params
     old_max_3pc_batch_size = tconf.Max3PCBatchSize
 
-    tconf.throughput_measurement_class = SafeStartEMAThroughputMeasurement
+    tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
     tconf.throughput_measurement_params = {
         'window_size': 2,
         'min_cnt': 3
