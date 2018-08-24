@@ -46,7 +46,7 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, VALIDATOR, BLS_KEY, TRUSTEE
+    STEWARD, VALIDATOR, BLS_KEY, TRUSTEE, BLS_KEY_PROOF
 from plenum.common.txn_util import getTxnOrderedFields, get_payload_data, get_type
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances
@@ -660,9 +660,10 @@ def poolTxnData(request):
                                     seq_no=i)
 
         if i <= nodes_with_bls:
-            _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(
+            _, bls_key, bls_key_proof = create_default_bls_crypto_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
+            get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
             data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)

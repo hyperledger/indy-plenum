@@ -1,7 +1,8 @@
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
-    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, OPERATION_SCHEMA_IS_STRICT
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
+    OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -23,6 +24,7 @@ class ClientNodeOperationData(MessageValidator):
         (ALIAS, LimitedLengthStringField(max_length=ALIAS_FIELD_LIMIT)),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
         (BLS_KEY, Base58Field(byte_lengths=(128,), optional=True)),
+        (BLS_KEY_PROOF, Base58Field(byte_lengths=(128,), optional=True)),
     )
 
     def _validate_message(self, dct):

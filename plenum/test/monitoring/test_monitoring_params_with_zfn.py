@@ -38,14 +38,3 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
             key = get_key_from_req(rq)
             assert key in node.monitor.masterReqLatenciesTest
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
-
-
-@pytest.mark.skip(reason="Logic is checked in unit tests")
-def testClientLatencyThreshold(looper, txnPoolNodeSet, requests):
-    rq = requests[0]
-    for node in txnPoolNodeSet:
-        latc = node.monitor.getLatencies(
-            node.instances.masterId)[rq['identifier']]
-        avglat = node.monitor.getLatencies(
-            *node.instances.backupIds)[rq['identifier']]
-        assert latc[0] - median_high(avglat) <= node.monitor.Omega
