@@ -168,7 +168,7 @@ def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_after_silence(tc
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
@@ -186,7 +186,7 @@ def test_master_not_degraded_on_2_spikes_devided_by_normal_load(tconf):
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
