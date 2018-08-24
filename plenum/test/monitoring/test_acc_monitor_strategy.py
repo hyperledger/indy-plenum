@@ -1,10 +1,12 @@
 from plenum.server.monitor import AccumulatingMonitorStrategy
 
-MON_THRESHOLD = 2
-MON_TIMEOUT = 300.0
+ACC_MONITOR_TXN_DELTA = 2
+ACC_MONITOR_TIMEOUT = 300.0
 
 def createMonitor():
-    return AccumulatingMonitorStrategy(instances=2, threshold=MON_THRESHOLD, timeout=MON_TIMEOUT)
+    return AccumulatingMonitorStrategy(instances=2,
+                                       txn_delta=ACC_MONITOR_TXN_DELTA,
+                                       timeout=ACC_MONITOR_TIMEOUT)
 
 
 def test_acc_monitor_isnt_alerted_when_created():
@@ -16,26 +18,40 @@ def test_acc_monitor_isnt_alerted_when_created():
 def test_acc_monitor_behaves_as_expected():
     mon = createMonitor()
 
-    mon.update_time(100.0)
+    # Simulate txns receiving and ordering
+    start_time = 100.0
+    mon.update_time(start_time)
     mon.request_received('A')
     mon.request_received('B')
     mon.request_received('C')
     mon.request_received('D')
 
-    mon.update_time(150.0)
+    mon.update_time(start_time + 0.4 * ACC_MONITOR_TIMEOUT)
     mon.request_ordered('A', 1)
     mon.request_ordered('B', 1)
     mon.request_ordered('C', 1)
     mon.request_ordered('D', 1)
 
-    mon.update_time(200.0)
+    # Give monitor chance to observe txn statistics
+    triggered_time = start_time + 0.6 * ACC_MONITOR_TIMEOUT
+    mon.update_time(triggered_time)
+
+    # Monitor should not be triggered before timeout
+    mon.update_time(triggered_time + 0.8 * ACC_MONITOR_TIMEOUT)
     assert not mon.is_master_degraded()
 
-    mon.update_time(1000.0)
+    # Monitor should be triggered after timeout
+    mon.update_time(triggered_time + 1.2 * ACC_MONITOR_TIMEOUT)
     assert mon.is_master_degraded()
 
+    # Monitor should not be triggered after reset
     mon.reset()
     assert not mon.is_master_degraded()
 
-    mon.update_time(1100.0)
+    # Give monitor chance to observe txn statistics
+    reset_time = triggered_time + 2.4 * ACC_MONITOR_TIMEOUT
+    mon.update_time(reset_time)
+
+    # Monitor should not be triggered if nothing is ordered
+    mon.update_time(reset_time + 1.2 * ACC_MONITOR_TIMEOUT)
     assert not mon.is_master_degraded()

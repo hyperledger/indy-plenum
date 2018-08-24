@@ -323,6 +323,14 @@ METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
 
+
+# Accumulating performance monitor controls
+#
+# If number of txns ordered by any instance is more than ordered by master
+# by more than ACC_MONITOR_TXN_DELTA then monitor will enter alerted state.
+# If monitor is alerted for more than ACC_MONITOR_TIMEOUT seconds it will
+# fire master degradation event
+
 ACC_MONITOR_ENABLED = False
-ACC_MONITOR_THRESHOLD = 100  # transactions delta
-ACC_MONITOR_TIMEOUT = 900  # seconds
+ACC_MONITOR_TXN_DELTA = 100
+ACC_MONITOR_TIMEOUT = 300

@@ -83,9 +83,9 @@ class MonitorStrategy(ABC):
 
 
 class AccumulatingMonitorStrategy(MonitorStrategy):
-    def __init__(self, instances: int, threshold: int, timeout: float):
+    def __init__(self, instances: int, txn_delta: int, timeout: float):
         self._instances = instances
-        self._threshold = threshold
+        self._txn_delta = txn_delta
         self._timeout = timeout
         self._ordered = defaultdict(lambda: 0)
         self._timestamp = None
@@ -105,7 +105,7 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._timestamp = timestamp
         master_ordered = self._ordered[0]
         max_ordered = max(self._ordered[i] for i in range(1, self._instances))
-        is_degraded = (max_ordered - master_ordered) > self._threshold
+        is_degraded = (max_ordered - master_ordered) > self._txn_delta
         if not is_degraded:
             self._alert_timestamp = None
         elif not self._alert_timestamp:
@@ -399,7 +399,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         config = getConfig()
         self.acc_monitor_enabled = config.ACC_MONITOR_ENABLED
         self.acc_monitor = AccumulatingMonitorStrategy(instances=instances.count,
-                                                       threshold=config.ACC_MONITOR_THRESHOLD,
+                                                       txn_delta=config.ACC_MONITOR_TXN_DELTA,
                                                        timeout=config.ACC_MONITOR_TIMEOUT)
 
     def __repr__(self):
@@ -497,7 +497,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
             del self.throughputs[index]
 
-    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
+    def requestOrdered(self, reqIdrs: List[str], instId: int,
                        requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
@@ -508,11 +508,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.acc_monitor.update_time(now)
         durations = {}
         for key in reqIdrs:
-            self.acc_monitor.request_ordered(key, instId)
             if key not in self.requestTracker:
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
                 continue
+            self.acc_monitor.request_ordered(key, instId)
             for reqId, started in self.requestTracker.handled_unordered():
                 if reqId == key:
                     logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
