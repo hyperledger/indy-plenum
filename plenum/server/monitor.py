@@ -253,7 +253,7 @@ class RevivalSpikeResistantEMAThroughputMeasurement(EMAThroughputMeasurement):
         elif self.state == self.State.REVIVAL:
             self._process_window_in_revival_mode()
         else:
-            raise LogicError("Internal state of througput measurement {} "
+            raise LogicError("Internal state of throughput measurement {} "
                              "is unsupported".format(self.state))
 
 

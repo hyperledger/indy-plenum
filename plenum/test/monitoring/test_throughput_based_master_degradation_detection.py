@@ -129,7 +129,7 @@ def test_master_not_degraded_if_same_throughput(tconf):
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-@pytest.mark.skip(reason='INDY-1565 is in progress')
+@pytest.mark.skip(reason='Currently selected strategy produces false positive.')
 def test_master_not_degraded_on_spike_in_1_batch_on_backups(tconf):
     inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
                                    .stop(t=1 * 60 * 60)
@@ -144,7 +144,7 @@ def test_master_not_degraded_on_spike_in_1_batch_on_backups(tconf):
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-@pytest.mark.skip(reason='INDY-1565 is in progress')
+@pytest.mark.skip(reason='Currently selected strategy produces false positive.')
 def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf):
     inst_req_streams = [ReqStream().period(s=0, i=5, q=1)
                                    .stop(t=1 * 60 * 60)
@@ -173,6 +173,22 @@ def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
     throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_degraded(throughput_ratio, tconf)
+
+
+def test_master_not_degraded_on_spike_in_2_batches_in_2_windows_delayed_on_master(tconf):
+    inst_req_streams = [ReqStream().period(s=0, i=15, q=1)
+                                   .period(s=1 * 60 * 60, i=15, q=1000)
+                                   .stop(t=1 * 60 * 60 + 30)
+                                   .build()] + \
+                       [ReqStream().period(s=0, i=15, q=1)
+                                   .period(s=1 * 60 * 60 - 1, i=15, q=1000)
+                                   .stop(t=1 * 60 * 60 + 29)
+                                   .build()
+                        for inst_id in range(1, 9)]
+
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
 
 
 def test_master_degraded_on_stop_ordering_on_master(tconf):
