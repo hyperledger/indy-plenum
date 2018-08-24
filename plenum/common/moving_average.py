@@ -42,3 +42,24 @@ class ExponentialMovingAverage(MovingAverage):
     @staticmethod
     def halfway_alpha(steps):
         return -math.log(0.5) / steps
+
+
+class EventFrequencyEstimator:
+    def __init__(self, start_time: float, window: float, averager: MovingAverage):
+        self._now = start_time
+        self._window = window
+        self._averager = averager
+        self._sum = 0.0
+
+    def add_events(self, value: float):
+        self._sum += value
+
+    def update_time(self, timestamp: float):
+        while timestamp > self._now + self._window:
+            self._averager.update(self._sum)
+            self._sum = 0.0
+            self._now += self._window
+
+    @property
+    def value(self):
+        return self._averager.value

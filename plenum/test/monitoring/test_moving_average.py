@@ -1,11 +1,41 @@
 import pytest
 
-from plenum.common.moving_average import MovingAverage, ExponentialMovingAverage
+from plenum.common.moving_average import MovingAverage, ExponentialMovingAverage, EventFrequencyEstimator
+
+START_TIME = 10
+ESTIMATOR_WINDOW = 3
+
+
+class MockMovingAverage(MovingAverage):
+    def __init__(self):
+        self.updates = []
+        self._value = 0
+
+    def update(self, value: float):
+        self.updates.append(value)
+        self._value = value
+
+    def reset(self, value: float):
+        pass
+
+    @property
+    def value(self) -> float:
+        return self._value
 
 
 @pytest.fixture(params=[ExponentialMovingAverage])
 def ma_type(request):
     return request.param
+
+
+@pytest.fixture()
+def mock_averager():
+    return MockMovingAverage()
+
+
+@pytest.fixture()
+def estimator(mock_averager):
+    return EventFrequencyEstimator(start_time=START_TIME, window=ESTIMATOR_WINDOW, averager=mock_averager)
 
 
 def create_moving_average(cls, start: float) -> MovingAverage:
@@ -114,3 +144,39 @@ def test_exp_moving_average_moves_halfway_to_target_in_desired_number_of_steps()
 
     ma.update(target)
     assert ma.value > halfway
+
+
+def test_event_frequency_estimator_is_initialized_to_zero(mock_averager, estimator):
+    assert estimator.value == 0
+    assert mock_averager.updates == []
+
+
+def test_event_frequency_estimator_updates_with_time_even_if_there_are_no_events(mock_averager, estimator):
+    estimator.update_time(START_TIME + 3.1 * ESTIMATOR_WINDOW)
+    assert estimator.value == 0
+    assert mock_averager.updates == [0, 0, 0]
+
+
+def test_event_frequency_estimator_doesnt_updates_when_time_doesnt_advance_enough(mock_averager, estimator):
+    estimator.add_events(3)
+    estimator.update_time(START_TIME + 0.9 * ESTIMATOR_WINDOW)
+    assert estimator.value == 0
+    assert mock_averager.updates == []
+
+
+def test_event_frequency_estimator_sums_all_events_in_same_window(mock_averager, estimator):
+    estimator.add_events(3)
+    estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
+    estimator.add_events(4)
+    estimator.update_time(START_TIME + 1.2 * ESTIMATOR_WINDOW)
+    assert estimator.value == 7
+    assert mock_averager.updates == [7]
+
+
+def test_event_frequency_estimator_doesnt_spread_events_between_windows(mock_averager, estimator):
+    estimator.add_events(3)
+    estimator.update_time(START_TIME + 0.3 * ESTIMATOR_WINDOW)
+    estimator.add_events(4)
+    estimator.update_time(START_TIME + 2.2 * ESTIMATOR_WINDOW)
+    assert estimator.value == 0
+    assert mock_averager.updates == [7, 0]
