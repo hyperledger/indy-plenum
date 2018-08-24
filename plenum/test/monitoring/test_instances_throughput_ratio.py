@@ -68,15 +68,7 @@ def get_average_throughput(calculated_throughputs, config):
     return config.throughput_averaging_strategy_class.get_avg(calculated_throughputs)
 
 
-def get_througput_ratio(inst_req_streams, config):
-    # print('DELTA = {}'.format(tconf.DELTA))
-    # print('throughput_measurement_class = {}'
-    #       .format(tconf.throughput_measurement_class))
-    # print('throughput_measurement_params = {}'
-    #       .format(tconf.throughput_measurement_params))
-    # print('Max3PCBatchSize = {}'.format(tconf.Max3PCBatchSize))
-    # print('Max3PCBatchWait = {}'.format(tconf.Max3PCBatchWait))
-
+def get_throughput_ratio(inst_req_streams, config):
     assert len(inst_req_streams) > 1
 
     inst_tms = []
@@ -132,7 +124,7 @@ def test_master_not_degraded_if_same_throughput(tconf):
                                    .build()
                         for inst_id in range(9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
@@ -147,7 +139,7 @@ def test_master_not_degraded_on_spike_in_1_batch_on_backups(tconf):
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
@@ -163,7 +155,7 @@ def test_master_not_degraded_on_spike_in_2_batches_in_1_window_on_backups(tconf)
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
@@ -178,7 +170,7 @@ def test_master_degraded_on_spike_in_2_batches_in_2_windows_on_backups(tconf):
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_degraded(throughput_ratio, tconf)
 
@@ -192,7 +184,7 @@ def test_master_degraded_on_stop_ordering_on_master(tconf):
                                    .build()
                         for inst_id in range(1, 9)]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_degraded(throughput_ratio, tconf)
 
@@ -207,12 +199,11 @@ def test_master_not_degraded_on_revival_spike_on_one_backup(tconf):
                                    .once(t=4 * 60 * 60 + 15 * 60, q=9900)
                                    .build()]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-@pytest.mark.skip(reason='INDY-1565 is in progress')
 def test_master_not_degraded_on_revival_spike_on_one_backup_while_load_stopped(tconf):
     inst_req_streams = [ReqStream().period(s=0, i=1, q=15)
                                    .stop(t=4 * 60 * 60 + 11 * 60)
@@ -223,6 +214,6 @@ def test_master_not_degraded_on_revival_spike_on_one_backup_while_load_stopped(t
                                    .once(t=4 * 60 * 60 + 17 * 60, q=9900)
                                    .build()]
 
-    throughput_ratio = get_througput_ratio(inst_req_streams, tconf)
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
 
     assert_master_not_degraded(throughput_ratio, tconf)
