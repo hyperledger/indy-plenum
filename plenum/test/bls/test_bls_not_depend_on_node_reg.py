@@ -40,7 +40,6 @@ def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
     assert node.master_replica._bls_bft_replica._bls_bft.bls_key_register.get_key_by_name(node_name)
 
     node.nodeReg[node_name] = HA
-    a = 10
 
 
 def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
