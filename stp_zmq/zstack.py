@@ -1,6 +1,7 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.util import hexToFriendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -182,7 +183,7 @@ class ZStack(NetworkInterface):
 
         shutil.rmtree(sDir)
         shutil.rmtree(eDir)
-        return hexlify(public_key).decode(), hexlify(verif_key).decode()
+        return hexToFriendly(hexlify(public_key)), hexToFriendly(hexlify(verif_key))
 
     @staticmethod
     def initRemoteKeys(name, remoteName, baseDir, verkey, override=False):
