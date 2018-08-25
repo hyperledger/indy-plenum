@@ -1,7 +1,9 @@
 import pytest
 import os
 
+from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
+from plenum.test.bls.helper import check_bls_key
 
 
 @pytest.fixture()
@@ -32,3 +34,21 @@ def test_bls_crypto_verifier(bls_crypto_factory):
 
     multi_signature = bls_crypto_verifier.create_multi_sig(sigs)
     assert bls_crypto_verifier.verify_multi_sig(multi_signature, message, keys)
+
+
+def test_bls_crypto_verifier1(bls_crypto_factory, txnPoolNodeSet):
+    bls_crypto_factory = bls_crypto_factory  # type: BlsFactoryIndyCrypto
+    bls_crypto_verifier = bls_crypto_factory.create_bls_crypto_verifier()
+    assert bls_crypto_verifier
+
+    message = "some message"
+    sigs = []
+    keys = []
+    for i in range(3):
+        bls_crypto_signer, public_key = create_crypto_signer(bls_crypto_factory)
+        keys.append(public_key)
+        sigs.append(bls_crypto_signer.sign(message))
+
+    multi_signature = bls_crypto_verifier.create_multi_sig(sigs)
+    assert txnPoolNodeSet[0].replicas[0]._bls_bft_replica._validate_multi_sig(MultiSignature(multi_signature, keys, message))
+    # assert bls_crypto_verifier.verify_multi_sig(multi_signature, message, keys)

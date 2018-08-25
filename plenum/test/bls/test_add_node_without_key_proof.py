@@ -1,7 +1,7 @@
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.util import hexToFriendly
 from plenum.server.quorums import Quorum
-from plenum.test.bls.helper import check_update_bls_key
+from plenum.test.bls.helper import check_update_bls_key, check_bls_key
 from plenum.test.helper import sdk_send_random_request, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -42,11 +42,20 @@ def test_add_bls_two_nodes(looper,
     '''
     for n in txnPoolNodeSet:
         monkeypatch.setattr(n.poolManager.reqHandler, 'doStaticValidation', lambda req: True)
-    for node_index in range(0, 3):
-        update_bls_keys(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
+    #for node_index in range(0, 3):
+    new_blspk = update_bls_keys(0, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
     monkeypatch.undo()
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_stewards[0], 5)
+    # sdk_send_random_and_check(looper, txnPoolNodeSet,
+    #                           sdk_pool_handle, sdk_wallet_stewards[0], 5)
+    check_bls_key(new_blspk, txnPoolNodeSet[0], txnPoolNodeSet)
+
+
+
+def test(txnPoolNodeSet):
+
+    node = txnPoolNodeSet[0]
+
+
 
 
 def update_bls_keys(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet):
@@ -67,3 +76,4 @@ def update_bls_keys(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, tx
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    return new_blspk
