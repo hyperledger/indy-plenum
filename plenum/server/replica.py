@@ -1629,7 +1629,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stashed_out_of_order_commits[viewNo][ppSeqNo] = commit
             self.startRepeating(self.process_stashed_out_of_order_commits, 1)
             if commit.ppSeqNo - self.last_ordered_3pc[1] >= self.config.DELTA_3PC_ASKING:
-                self._request_earliest_3pc_batch()
+                self._request_earliest_unordered_commit()
             return False, "stashing {} since out of order". \
                 format(commit)
 
@@ -2682,12 +2682,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     return last_timestamp
         return None
 
-    def _request_earliest_3pc_batch(self):
+    def _request_earliest_unordered_commit(self):
         view_no = self.last_ordered_3pc[0]
         seq_no = self.last_ordered_3pc[1] + 1
-        _3pc = (view_no, seq_no)
-        if _3pc in self.requested_prepares:
-            del self.requested_prepares[_3pc]
-        if _3pc in self.requested_commits:
-            del self.requested_commits[_3pc]
-        self._request_missing_three_phase_messages(view_no, seq_no, seq_no)
+        key = (view_no, seq_no)
+        if key in self.requested_commits:
+            del self.requested_commits[key]
+        self._request_commit(key)
