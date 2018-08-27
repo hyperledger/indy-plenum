@@ -1,4 +1,6 @@
 import math
+from typing import Optional
+
 import pytest
 
 from plenum.common.moving_average import MovingAverage, ExponentialMovingAverage, EventFrequencyEstimator, \
@@ -18,7 +20,7 @@ class MockMovingAverage(MovingAverage):
         self.updates.append(value)
         self._value = value
 
-    def reset(self, value: float):
+    def reset(self, value: float = 0.0):
         self.reset_called = True
         self._value = 0
 
@@ -42,7 +44,7 @@ def estimator(mock_averager):
     return EventFrequencyEstimator(start_time=START_TIME, window=STEP, averager=mock_averager)
 
 
-def create_moving_average(cls, start: float) -> MovingAverage:
+def create_moving_average(cls, start: float) -> Optional[MovingAverage]:
     if cls == ExponentialMovingAverage:
         return cls(alpha=0.5, start=start)
     return None

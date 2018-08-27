@@ -8,7 +8,7 @@ class MovingAverage(ABC):
         pass
 
     @abstractmethod
-    def reset(self, value: float):
+    def reset(self, value: float = 0.0):
         pass
 
     @property
@@ -32,7 +32,7 @@ class ExponentialMovingAverage(MovingAverage):
     def update(self, value: float):
         self._value = value * self._alpha + self._value * (1 - self._alpha)
 
-    def reset(self, value: float):
+    def reset(self, value: float = 0.0):
         self._value = value
 
     @property
@@ -57,7 +57,7 @@ class EventFrequencyEstimator:
     def reset(self, start_time: float):
         self._start = start_time
         self._sum = 0.0
-        self._averager.reset(0.0)
+        self._averager.reset()
 
     def update_time(self, timestamp: float):
         while timestamp > self._start + self._window:

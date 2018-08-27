@@ -573,14 +573,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.latency_avg_strategy_cls = self.config.latency_averaging_strategy_class
         self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
 
+        self.acc_monitor = None
+
         config = getConfig()
-        self.acc_monitor_enabled = config.ACC_MONITOR_ENABLED
-        self.acc_monitor = AccumulatingMonitorStrategy(
-            start_time=time.perf_counter(),
-            instances=instances.count,
-            txn_delta_k=config.ACC_MONITOR_TXN_DELTA_K,
-            timeout=config.ACC_MONITOR_TIMEOUT,
-            input_rate_reaction_half_time=config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
+        if config.ACC_MONITOR_ENABLED:
+            self.acc_monitor = AccumulatingMonitorStrategy(
+                start_time=time.perf_counter(),
+                instances=instances.count,
+                txn_delta_k=config.ACC_MONITOR_TXN_DELTA_K,
+                timeout=config.ACC_MONITOR_TIMEOUT,
+                input_rate_reaction_half_time=config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
 
     def __repr__(self):
         return self.name
@@ -645,7 +647,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
-        self.acc_monitor.reset()
+        if self.acc_monitor:
+            self.acc_monitor.reset()
         for i in range(num_instances):
             rm = self.create_throughput_measurement(self.config)
             self.throughputs[i] = rm
@@ -664,12 +667,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.throughputs.append(rm)
         lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
         self.clientAvgReqLatencies.append(lm)
-        self.acc_monitor.add_instance()
+        if self.acc_monitor:
+            self.acc_monitor.add_instance()
 
     def removeInstance(self, index=None):
         # TODO: This doesn't take into account index, but this function is never called with defined index,
         # probably we can simplify this thing?
-        self.acc_monitor.remove_instance()
+        if self.acc_monitor:
+            self.acc_monitor.remove_instance()
 
         if self.instances.count > 0:
             if index is None:
@@ -688,14 +693,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         returns None
         """
         now = time.perf_counter()
-        self.acc_monitor.update_time(now)
+        if self.acc_monitor:
+            self.acc_monitor.update_time(now)
         durations = {}
         for key in reqIdrs:
             if key not in self.requestTracker:
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
                 continue
-            self.acc_monitor.request_ordered(key, instId)
+            if self.acc_monitor:
+                self.acc_monitor.request_ordered(key, instId)
             for reqId, started in self.requestTracker.handled_unordered():
                 if reqId == key:
                     logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
@@ -742,8 +749,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Record the time at which request ordering started.
         """
         now = time.perf_counter()
-        self.acc_monitor.update_time(now)
-        self.acc_monitor.request_received(key)
+        if self.acc_monitor:
+            self.acc_monitor.update_time(now)
+            self.acc_monitor.request_received(key)
         self.requestTracker.start(key, now)
 
     def check_unordered(self):
@@ -763,8 +771,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Return whether the master instance is slow.
         """
-        self.acc_monitor.update_time(time.perf_counter())
-        if self.acc_monitor_enabled:
+        if self.acc_monitor:
+            self.acc_monitor.update_time(time.perf_counter())
             return self.acc_monitor.is_master_degraded()
         else:
             return (self.instances.masterId is not None and
