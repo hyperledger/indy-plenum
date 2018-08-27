@@ -10,6 +10,8 @@ import sys
 
 import functools
 
+from bitarray import bitarray
+
 from common.exceptions import LogicError, PlenumValueError
 from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -759,8 +761,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self,
             req: Request,
             cons_time: int,
-            validReqs: List,
-            inValidReqs: List,
+            discarded_mask: bitarray,
+            reqs: List,
             rejects: List):
         """
         This method will do dynamic validation and apply requests, also it
@@ -774,9 +776,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.warning('{} encountered exception {} while processing {}, '
                                 'will reject'.format(self, ex, req))
             rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
-            inValidReqs.append(req)
+            discarded_mask.append(False)
         else:
-            validReqs.append(req)
+            discarded_mask.append(True)
+        finally:
+            reqs.append(req)
+
+    def _pack_discarded_mask(self, value):
+        discarded_mask = bitarray()
+        discarded_mask.pack(b''.fromhex(value))
+        return discarded_mask
+
+    def _unpack_discarded_mask(self, discarded_mask):
+        return discarded_mask.unpack().hex()
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
@@ -791,15 +803,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        validReqs, inValidReqs, rejects, tm = self.consume_req_queue_for_pre_prepare(
+        reqs, discarded_mask, rejects, tm = self.consume_req_queue_for_pre_prepare(
             ledger_id, self.viewNo,
             pp_seq_no)
-        if not (validReqs or inValidReqs):
+        if discarded_mask.length() == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
             return
 
-        reqs = validReqs + inValidReqs
         digest = self.batchDigest(reqs)
 
         state_root_hash = self.stateRootHash(ledger_id)
@@ -809,7 +820,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_seq_no,
             tm,
             [req.digest for req in reqs],
-            len(validReqs),
+            self._unpack_discarded_mask(discarded_mask),
             digest,
             ledger_id,
             state_root_hash,
@@ -825,7 +836,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pre_prepare = rv if rv is not None else pre_prepare
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
-            self, len(validReqs), ledger_id))
+            self, discarded_mask.length(), ledger_id))
         self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
@@ -840,21 +851,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tm = self.utc_epoch
         tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
                                                pp_seq_no)
-        validReqs = []
-        inValidReqs = []
+        reqs = []
+        discarded_mask = bitarray()
         rejects = []
-        while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
+        while discarded_mask.length() < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
                 self.processReqDuringBatch(
-                    fin_req, tm, validReqs, inValidReqs, rejects)
+                    fin_req, tm, discarded_mask, reqs, rejects)
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
 
-        return validReqs, inValidReqs, rejects, tm
+        return reqs, discarded_mask, rejects, tm
 
     @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
                           MetricsName.BACKUP_SEND_PREPREPARE_TIME)
@@ -1259,8 +1270,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         to the ledger and state
         """
 
-        valid_reqs = []
-        invalid_reqs = []
+        reqs = []
+        discarded_mask = bitarray()
         rejects = []
 
         if self.isMaster:
@@ -1278,21 +1289,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
             self.processReqDuringBatch(req,
                                        pre_prepare.ppTime,
-                                       valid_reqs,
-                                       invalid_reqs,
+                                       discarded_mask,
+                                       reqs,
                                        rejects)
 
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        len(valid_reqs))
-
-        if len(valid_reqs) != pre_prepare.discarded:
+                        discarded_mask.count())
+        discarded_from_pp = self._pack_discarded_mask(pre_prepare.discarded)
+        if self._unpack_discarded_mask(discarded_mask) != self._unpack_discarded_mask(discarded_from_pp):
             if self.isMaster:
                 revert()
             return PP_APPLY_REJECT_WRONG
 
-        digest = self.batchDigest(valid_reqs + invalid_reqs)
+        digest = self.batchDigest(reqs)
 
         # A PRE-PREPARE is sent that does not match request digest
         if digest != pre_prepare.digest:
@@ -1738,6 +1749,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
+    def _apply_bitmask_to_list(self, reqIdrs: List, mask: bitarray):
+        if len(reqIdrs) != mask.length():
+            raise LogicError("Length of reqIdr list and bitmask is not the same")
+        return self._get_valid_reqs(reqIdrs, mask), self._get_invalid_reqs(reqIdrs, mask)
+
+    def _get_valid_reqs(self, reqIdrs, mask: bitarray):
+        return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
+
+    def _get_invalid_reqs(self, reqIdrs, mask: bitarray):
+        return [b for a, b in zip(mask.tolist(), reqIdrs) if not a]
+
     @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
                           MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def order_3pc_key(self, key):
@@ -1749,9 +1771,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self.addToOrdered(*key)
+        valid_reqs, invalid_reqs = self._apply_bitmask_to_list(pp.reqIdr,
+                                                               self._pack_discarded_mask(pp.discarded))
         ordered = Ordered(self.instId,
                           pp.viewNo,
-                          pp.reqIdr[:pp.discarded],
+                          valid_reqs,
                           pp.ppSeqNo,
                           pp.ppTime,
                           pp.ledgerId,
@@ -1767,17 +1791,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordered batch request, view no {}, ppSeqNo {}, "
                           "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                           format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                 pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
-                                 pp.reqIdr[pp.discarded:]))
+                                 pp.stateRootHash, pp.txnRootHash, len(valid_reqs),
+                                 len(invalid_reqs)))
         self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                pp.stateRootHash, pp.txnRootHash, len(pp.reqIdr[:pp.discarded]),
-                                len(pp.reqIdr[pp.discarded:])))
+                                pp.stateRootHash, pp.txnRootHash, len(valid_reqs),
+                                len(invalid_reqs)))
         if self.isMaster:
-            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, pp.discarded)
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqs))
         else:
-            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, pp.discarded)
+            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqs))
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
@@ -2558,9 +2582,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                ledger_id, count, _, prevStateRoot = self.batches.pop(key)
+                ledger_id, discarded, _, prevStateRoot = self.batches.pop(key)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, count)
+                self.revert(ledger_id, prevStateRoot, discarded.count(1))
                 i += 1
             else:
                 break

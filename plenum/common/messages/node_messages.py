@@ -11,7 +11,7 @@ from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, NonEmptyStringField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -141,7 +141,7 @@ class PrePrepare(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
             max_length=DIGEST_FIELD_LIMIT))),
-        (f.DISCARDED.nm, NonNegativeNumberField()),
+        (f.DISCARDED.nm, SerializedValueField()),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),

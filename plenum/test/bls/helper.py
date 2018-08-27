@@ -1,6 +1,8 @@
 import base58
 import os
 
+from bitarray import bitarray
+
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
@@ -101,6 +103,13 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     return creator._calculate_multi_sig(key, pre_prepare)
 
 
+def init_discarded(value):
+    """init discarded field with value and return message like representation"""
+    discarded = bitarray()
+    discarded.append(value)
+    return discarded.unpack().hex()
+
+
 def create_pre_prepare_params(state_root,
                               ledger_id=DOMAIN_LEDGER_ID,
                               txn_root=None,
@@ -111,7 +120,7 @@ def create_pre_prepare_params(state_root,
               0,
               timestamp or get_utc_epoch(),
               ["random request digest"],
-              0,
+              init_discarded(False),
               "random digest",
               ledger_id,
               state_root,

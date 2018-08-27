@@ -1,5 +1,7 @@
 from functools import partial
 
+from bitarray import bitarray
+
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -8,6 +10,7 @@ from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.bls.helper import init_discarded
 from plenum.test.helper import chk_all_funcs
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
@@ -82,7 +85,7 @@ def checkPrePrepared(looper,
                 primary.lastPrePrepareSeqNo,
                 get_utc_epoch(),
                 [propagated1.digest],
-                1,
+                init_discarded(True),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
                 primary.stateRootHash(DOMAIN_LEDGER_ID),
