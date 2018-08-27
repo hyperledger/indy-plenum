@@ -1042,6 +1042,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self.isMaster or self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
                 seq_to = pp_seq_no - 1
+                if pp_seq_no - self.last_ordered_3pc[1] >= self.config.DELTA_3PC_ASKING:
+                    self._request_earliest_unordered_preprepare()
                 if seq_to >= seq_frm >= pp_seq_no - CHK_FREQ + 1:
                     self.logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "
@@ -2417,6 +2419,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return (*acceptable, {s for s, state in prepares.items()
                               if state == acceptable})
 
+    def _request_earliest_unordered_preprepare(self):
+        view_no = self.last_ordered_3pc[0]
+        seq_no = self.last_ordered_3pc[1] + 1
+        key = (view_no, seq_no)
+        self.logger.warning('{} requesting earliest unordered preprepare {}'.format(self, key))
+        if key in self.requested_pre_prepares:
+            del self.requested_pre_prepares[key]
+        self._request_pre_prepare(key)
+
+    def _request_earliest_unordered_commit(self):
+        view_no = self.last_ordered_3pc[0]
+        seq_no = self.last_ordered_3pc[1] + 1
+        key = (view_no, seq_no)
+        self.logger.warning('{} requesting earliest unordered commit {}'.format(self, key))
+        if key in self.requested_commits:
+            del self.requested_commits[key]
+        self._request_commit(key)
+
     def _process_requested_three_phase_msg(self, msg: object,
                                            sender: List[str],
                                            stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
@@ -2681,11 +2701,3 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
-
-    def _request_earliest_unordered_commit(self):
-        view_no = self.last_ordered_3pc[0]
-        seq_no = self.last_ordered_3pc[1] + 1
-        key = (view_no, seq_no)
-        if key in self.requested_commits:
-            del self.requested_commits[key]
-        self._request_commit(key)
