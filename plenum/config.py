@@ -1,12 +1,11 @@
-import os
-import sys
-from collections import OrderedDict
-
 import logging
+import sys
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
-    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
+    KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
+from plenum.server.monitor import MedianHighStrategy, \
+    MedianLowStrategy, RevivalSpikeResistantEMAThroughputMeasurement
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -140,12 +139,15 @@ LatencyGraphDuration = 240
 # This parameter defines minimal count of accumulated latencies for each client
 MIN_LATENCY_COUNT = 10
 
-# Two following parameters define collecting statistic timeout for
-# collecting ordered request and throughput evaluating them.
-# In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,
-# throughput will returned as None for corresponding getThroughput methods.
-ThroughputInnerWindowSize = 15
-ThroughputMinActivityThreshold = 16
+latency_averaging_strategy_class = MedianHighStrategy
+throughput_averaging_strategy_class = MedianLowStrategy
+
+throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+
+throughput_measurement_params = {
+    'window_size': 15,
+    'min_cnt': 16
+}
 
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
