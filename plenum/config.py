@@ -324,3 +324,18 @@ METRICS_FLUSH_INTERVAL = 1.0  # seconds
 METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
+
+
+# Accumulating performance monitor controls
+#
+# If number of txns ordered by any instance is more than ordered by master
+# by more than ACC_MONITOR_TXN_DELTA_K * input request rate per second
+# then monitor will enter alerted state. If monitor is alerted for more than
+# ACC_MONITOR_TIMEOUT seconds it will fire master degradation event.
+# Input request rate is averaged using moving average with reaction
+# half time of ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME
+
+ACC_MONITOR_ENABLED = False
+ACC_MONITOR_TXN_DELTA_K = 100
+ACC_MONITOR_TIMEOUT = 300
+ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
