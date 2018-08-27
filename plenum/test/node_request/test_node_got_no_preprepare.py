@@ -48,7 +48,7 @@ def test_1_node_got_no_preprepare(looper,
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(5)
+    looper.runFor(3)
 
     # behind_node stashing new 3pc messages and not ordering and not participating in consensus
     assert len(behind_node.master_replica.prePreparesPendingPrevPP) == 1
@@ -57,10 +57,9 @@ def test_1_node_got_no_preprepare(looper,
 
     # After DELTA_3PC_ASKING batches, behind_node asks for pre-prepare and starting ordering
     sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
-    looper.runFor(5)
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
+    looper.runFor(3)
+
     assert behind_node.master_last_ordered_3PC[1] == \
            master_node.master_last_ordered_3PC[1]
 
@@ -115,18 +114,19 @@ def test_2_node_got_no_preprepare(looper,
     # Send some txns and behind_node cant order them while pool is working
     sdk_send_batches_of_random(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(3)
 
     # Remove connection problems
     resetRouterAccepting(behind_nodes[1])
 
     assert len(txnPoolNodeSet[1].master_replica.prePrepares) - 1 == \
            len(behind_nodes[1].master_replica.prePrepares)
+    looper.runFor(3)
+    assert master_node.master_last_ordered_3PC[1] == \
+           behind_nodes[1].master_last_ordered_3PC[1]
 
     # Send txns and wait for some time
     sdk_send_batches_of_random(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(3)
 
     # Pool is not ordering because of lack of consensus
     # assert master_node.master_last_ordered_3PC[1] == 3
@@ -134,7 +134,6 @@ def test_2_node_got_no_preprepare(looper,
     # After DELTA_3PC_ASKING batches, behind_node asks for pre-prepare and starting ordering
     sdk_send_batches_of_random(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 8, 8)
-    looper.runFor(3)
 
     assert master_node.master_last_ordered_3PC[1] == \
            behind_nodes[0].master_last_ordered_3PC[1] == \

@@ -43,7 +43,7 @@ def test_1_node_get_only_preprepare(looper,
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(5)
+    looper.runFor(3)
 
     # behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -56,7 +56,7 @@ def test_1_node_get_only_preprepare(looper,
     # than we requesting 3pc messages for last_ordered seq_no + 1
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
-    looper.runFor(5)
+    looper.runFor(3)
     assert behind_node.master_last_ordered_3PC[1] == \
            master_node.master_last_ordered_3PC[1]
 
@@ -94,7 +94,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(5)
+    looper.runFor(3)
 
     # 1st behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -119,7 +119,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(5)
+    looper.runFor(3)
 
     # 2nd behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -138,7 +138,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # than last ordered of ours, than we requesting for last_ordered seq_no + 1 3pc messages
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
-    looper.runFor(5)
+    looper.runFor(3)
     assert master_node.master_last_ordered_3PC[1] == \
            behind_nodes[0].master_last_ordered_3PC[1] == \
            behind_nodes[1].master_last_ordered_3PC[1]

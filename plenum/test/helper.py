@@ -954,6 +954,9 @@ def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, coun
 def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
                                          num_reqs, num_batches=1, **kwargs):
     # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
+    if num_reqs < num_batches:
+        raise BaseException(
+            'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
@@ -970,7 +973,9 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
 
 def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
                                num_reqs, num_batches=1, timeout=Max3PCBatchWait):
-    # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
+    if num_reqs < num_batches:
+        raise BaseException(
+            'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
     if num_batches == 1:
         req = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
         looper.runFor(timeout)
