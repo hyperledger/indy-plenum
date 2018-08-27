@@ -18,6 +18,7 @@ def test_1_node_get_only_preprepare(looper,
                                     sdk_wallet_client):
     master_node = txnPoolNodeSet[0]
     behind_node = txnPoolNodeSet[-1]
+    last_ordered = master_node.master_last_ordered_3PC[1]
     num_of_batches = 1
 
     # Nodes order batches
@@ -32,7 +33,7 @@ def test_1_node_get_only_preprepare(looper,
     # Send some txns and behind_node cant order them while pool is working
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    assert master_node.master_last_ordered_3PC[1] == num_of_batches * 2
+    assert master_node.master_last_ordered_3PC[1] == last_ordered + num_of_batches * 2
     assert behind_node.master_last_ordered_3PC[1] + num_of_batches == \
            master_node.master_last_ordered_3PC[1]
 
@@ -46,17 +47,15 @@ def test_1_node_get_only_preprepare(looper,
 
     # behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
-    assert len(behind_node.master_replica.prepares[(0, num_of_batches * 2)].voters) == 1
-    assert len(behind_node.master_replica.prepares[(0, num_of_batches * 3)].voters) == 3
+    assert len(behind_node.master_replica.prepares[(0, last_ordered + num_of_batches * 2)].voters) == 1
+    assert len(behind_node.master_replica.prepares[(0, last_ordered + num_of_batches * 3)].voters) == 3
     assert behind_node.master_last_ordered_3PC[1] + num_of_batches * 2 == \
            master_node.master_last_ordered_3PC[1]
 
     # When we try to order commit, which seq_no > DELTA_3PC_ASKING + last_ordered of ours,
     # than we requesting 3pc messages for last_ordered seq_no + 1
     sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
     looper.runFor(5)
     assert behind_node.master_last_ordered_3PC[1] == \
            master_node.master_last_ordered_3PC[1]
@@ -69,7 +68,6 @@ def test_2_nodes_get_only_preprepare(looper,
     master_node = txnPoolNodeSet[0]
     behind_nodes = txnPoolNodeSet[-2:]
     last_ordered = master_node.master_last_ordered_3PC[1]
-
     num_of_batches = 1
 
     # Nodes order batches
@@ -139,9 +137,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # When we try to order commit, which seq_no is more (at DELTA_3PC_ASKING size)
     # than last ordered of ours, than we requesting for last_ordered seq_no + 1 3pc messages
     sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, 3)
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
     looper.runFor(5)
     assert master_node.master_last_ordered_3PC[1] == \
            behind_nodes[0].master_last_ordered_3PC[1] == \
