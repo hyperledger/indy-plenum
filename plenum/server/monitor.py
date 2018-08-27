@@ -107,10 +107,7 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
     def update_time(self, timestamp: float):
         self._timestamp = timestamp
         self._input_txn_rate.update_time(timestamp)
-        master_ordered = self._ordered[0]
-        max_ordered = max(self._ordered[i] for i in range(1, self._instances))
-        is_degraded = (max_ordered - master_ordered) > self._txn_delta_k * self._input_txn_rate.value
-        if not is_degraded:
+        if not self._is_degraded():
             self._alert_timestamp = None
         elif not self._alert_timestamp:
             self._alert_timestamp = self._timestamp
@@ -125,6 +122,13 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         if self._alert_timestamp is None:
             return False
         return self._timestamp - self._alert_timestamp > self._timeout
+
+    def _is_degraded(self):
+        if self._instances < 2:
+            return False
+        master_ordered = self._ordered[0]
+        max_ordered = max(self._ordered[i] for i in range(1, self._instances))
+        return (max_ordered - master_ordered) > self._txn_delta_k * self._input_txn_rate.value
 
 
 class ThroughputMeasurement:

@@ -61,3 +61,18 @@ def test_acc_monitor_behaves_as_expected():
     # Monitor should not be triggered if nothing is ordered
     mon.update_time(reset_time + 1.2 * ACC_MONITOR_TIMEOUT)
     assert not mon.is_master_degraded()
+
+
+def test_acc_monitor_works_even_with_one_instance():
+    mon = createMonitor()
+    mon.remove_instance()
+
+    start_time = 100.0
+    mon.update_time(start_time)
+    mon.request_received('A')
+    mon.update_time(start_time + 1.2 * ACC_MONITOR_TIMEOUT)
+    assert not mon.is_master_degraded()
+
+    mon.request_ordered('A', 0)
+    mon.update_time(start_time + 2.4 * ACC_MONITOR_TIMEOUT)
+    assert not mon.is_master_degraded()
