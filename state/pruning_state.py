@@ -76,6 +76,11 @@ class PruningState(State):
         if val:
             return self.get_decoded(val)
 
+    def get_all_leaves_for_root_hash(self, root_hash):
+        node = self._hash_to_node(root_hash)
+        leaves = self._trie.to_dict(node)
+        return leaves
+
     def remove(self, key: bytes):
         self._trie.delete(key)
 
