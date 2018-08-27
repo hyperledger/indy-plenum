@@ -83,7 +83,8 @@ def dontSendPrePrepareTo(nodes, ignore_node_name):
         node.old_send = types.MethodType(Node.send, node)
         node.send = types.MethodType(evil_send_pre, node)
 
-def resetSendPrepareAndCommitTo(nodes):
+
+def resetSending(nodes):
     for node in nodes:
         node.send = types.MethodType(Node.send, node)
 

@@ -1042,8 +1042,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self.isMaster or self.last_ordered_3pc[1] != 0):
                 seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
                 seq_to = pp_seq_no - 1
-                if seq_to - seq_frm >= DELTA_3PC_ASKING:
-                    seq_frm -= 1
                 if seq_to >= seq_frm >= pp_seq_no - CHK_FREQ + 1:
                     self.logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "
@@ -1630,6 +1628,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.stashed_out_of_order_commits[viewNo] = {}
             self.stashed_out_of_order_commits[viewNo][ppSeqNo] = commit
             self.startRepeating(self.process_stashed_out_of_order_commits, 1)
+            if commit.ppSeqNo - self.last_ordered_3pc[1] >= self.config.DELTA_3PC_ASKING:
+                self._request_earliest_3pc_batch()
             return False, "stashing {} since out of order". \
                 format(commit)
 
@@ -2681,3 +2681,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
+
+    def _request_earliest_3pc_batch(self):
+        view_no = self.last_ordered_3pc[0]
+        seq_no = self.last_ordered_3pc[1] + 1
+        _3pc = (view_no, seq_no)
+        if _3pc in self.requested_prepares:
+            del self.requested_prepares[_3pc]
+        if _3pc in self.requested_commits:
+            del self.requested_commits[_3pc]
+        self._request_missing_three_phase_messages(view_no, seq_no, seq_no)
