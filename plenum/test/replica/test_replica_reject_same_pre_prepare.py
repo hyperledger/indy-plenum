@@ -98,7 +98,9 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
         primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID)
+        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        0,
+        True
     )
 
     logger.debug("""Checking whether all the non primary replicas have received

@@ -158,7 +158,9 @@ def _create_prepare_and_preprepare(inst_id, pp_sq_no, view_no, timestamp,
                             "123",
                             1,
                             None,
-                            None)
+                            None,
+                            0,
+                            True)
     prepare = Prepare(inst_id,
                       pp_sq_no,
                       view_no,

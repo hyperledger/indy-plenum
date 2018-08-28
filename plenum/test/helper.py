@@ -645,7 +645,9 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
         "random digest",
         DOMAIN_LEDGER_ID,
         state_root or '0' * 44,
-        txn_root or '0' * 44
+        txn_root or '0' * 44,
+        0,
+        True
     )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}

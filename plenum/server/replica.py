@@ -106,6 +106,8 @@ PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
 PP_APPLY_HOOK_ERROR = 11
+PP_SUB_SEQ_NO_WRONG = 12
+PP_NOT_FINAL = 13
 
 
 def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
@@ -814,6 +816,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         digest = self.batchDigest(reqs)
 
         state_root_hash = self.stateRootHash(ledger_id)
+        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
             self.instId,
             self.viewNo,
@@ -824,7 +827,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             digest,
             ledger_id,
             state_root_hash,
-            self.txnRootHash(ledger_id)
+            self.txnRootHash(ledger_id),
+            0,
+            True
         ]
 
         # BLS multi-sig:
@@ -1027,6 +1032,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     report_suspicious(Suspicions.PPR_TXN_WRONG)
                 elif why_not_applied == PP_APPLY_HOOK_ERROR:
                     report_suspicious(Suspicions.PPR_PLUGIN_EXCEPTION)
+                elif why_not_applied == PP_SUB_SEQ_NO_WRONG:
+                    report_suspicious(Suspicions.PPR_SUB_SEQ_NO_WRONG)
+                elif why_not_applied == PP_NOT_FINAL:
+                    report_suspicious(Suspicions.PPR_NOT_FINAL)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1302,6 +1311,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isMaster:
                 revert()
             return PP_APPLY_REJECT_WRONG
+
+        if pre_prepare.sub_seq_no != 0:
+            return PP_SUB_SEQ_NO_WRONG
+
+        if not pre_prepare.final:
+            return PP_NOT_FINAL
 
         digest = self.batchDigest(reqs)
 

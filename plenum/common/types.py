@@ -73,6 +73,8 @@ class f:  # provides a namespace for reusable field constants
     SIGS = Field('signatures', dict)
     PLUGIN_FIELDS = Field('plugin_fields', dict)
     FEES = Field('fees', dict)
+    SUB_SEQ_NO = Field('sub_seq_no', int)
+    FINAL = Field('final', bool)
 
 
 OPERATION = 'operation'

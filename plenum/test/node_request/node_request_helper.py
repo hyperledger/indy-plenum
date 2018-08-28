@@ -90,6 +90,8 @@ def checkPrePrepared(looper,
                 DOMAIN_LEDGER_ID,
                 primary.stateRootHash(DOMAIN_LEDGER_ID),
                 primary.txnRootHash(DOMAIN_LEDGER_ID),
+                0,
+                True
             )
 
             passes = 0
