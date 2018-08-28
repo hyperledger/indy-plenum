@@ -729,7 +729,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
-        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, self._pack_discarded_mask(pp.discarded),
                                                  pp.ppTime, prevStateRootHash]
 
     def send3PCBatch(self):
@@ -1296,7 +1296,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        discarded_mask.count())
+                        self._get_valid_count(discarded_mask))
         discarded_from_pp = self._pack_discarded_mask(pre_prepare.discarded)
         if self._unpack_discarded_mask(discarded_mask) != self._unpack_discarded_mask(discarded_from_pp):
             if self.isMaster:
@@ -1760,6 +1760,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _get_invalid_reqs(self, reqIdrs, mask: bitarray):
         return [b for a, b in zip(mask.tolist(), reqIdrs) if not a]
 
+    def _get_valid_count(self, mask: bitarray):
+        return mask.count(1)
+
+    def _get_invalid_count(self, mask: bitarray):
+        return mask.count(0)
+
     @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
                           MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def order_3pc_key(self, key):
@@ -1791,8 +1797,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordered batch request, view no {}, ppSeqNo {}, "
                           "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                           format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                 pp.stateRootHash, pp.txnRootHash, len(valid_reqs),
-                                 len(invalid_reqs)))
+                                 pp.stateRootHash, pp.txnRootHash, valid_reqs,
+                                 invalid_reqs))
         self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
@@ -2584,7 +2590,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 ledger_id, discarded, _, prevStateRoot = self.batches.pop(key)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, discarded.count(1))
+                self.revert(ledger_id, prevStateRoot, self._get_valid_count(discarded))
                 i += 1
             else:
                 break

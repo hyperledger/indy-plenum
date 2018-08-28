@@ -6,6 +6,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
 from plenum.server.replica import Replica
+from plenum.test.bls.helper import init_discarded
 from state.trie.pruning_trie import BLANK_ROOT
 from stp_zmq.zstack import ZStack
 
@@ -26,7 +27,7 @@ def test_msg_len_limit_large_enough_for_preprepare():
         0,
         get_utc_epoch(),
         req_idr,
-        batch_size,
+        init_discarded('1'.encode()*batch_size),
         digest,
         0,
         state_root,
