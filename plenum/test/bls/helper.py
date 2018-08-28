@@ -124,7 +124,9 @@ def create_pre_prepare_params(state_root,
               "random digest",
               ledger_id,
               state_root,
-              txn_root or '1' * 32]
+              txn_root or '1' * 32,
+              0,
+              True]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params

@@ -1,5 +1,3 @@
-import functools
-
 import base58
 import pytest
 from orderedset._orderedset import OrderedSet
