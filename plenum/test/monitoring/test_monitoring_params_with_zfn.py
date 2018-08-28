@@ -2,18 +2,18 @@ from statistics import median_high
 
 import pytest
 
-from plenum.server.monitor import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test.helper import get_key_from_req
 
 nodeCount = 7
 
+
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_throughput_measurement_class = tconf.throughput_measurement_class
+    old_throughput_measurement_class_name = tconf.throughput_measurement_class_name
     old_throughput_measurement_params = tconf.throughput_measurement_params
     old_min_latency_count = tconf.MIN_LATENCY_COUNT
 
-    tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+    tconf.throughput_measurement_class_name = 'RevivalSpikeResistantEMAThroughputMeasurement'
     tconf.throughput_measurement_params = {
         'window_size': 5,
         'min_cnt': 2
@@ -23,7 +23,7 @@ def tconf(tconf):
     yield tconf
 
     tconf.MIN_LATENCY_COUNT = old_min_latency_count
-    tconf.throughput_measurement_class = old_throughput_measurement_class
+    tconf.throughput_measurement_class_name = old_throughput_measurement_class_name
     tconf.throughput_measurement_params = old_throughput_measurement_params
 
 

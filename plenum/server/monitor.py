@@ -570,8 +570,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
-        self.latency_avg_strategy_cls = self.config.latency_averaging_strategy_class
-        self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
+        self.latency_avg_strategy_cls = globals()[
+            self.config.latency_averaging_strategy_class_name]
+        self.throughput_avg_strategy_cls = globals()[
+            self.config.throughput_averaging_strategy_class_name]
 
         self.acc_monitor = None
 
@@ -630,7 +632,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     @staticmethod
     def create_throughput_measurement(config, start_ts=time.perf_counter()):
-        tm = config.throughput_measurement_class(
+        tm = globals()[config.throughput_measurement_class_name](
             **config.throughput_measurement_params)
         tm.init_time(start_ts)
         return tm

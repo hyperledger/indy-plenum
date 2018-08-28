@@ -5,6 +5,10 @@ import pytest
 
 from plenum.server.monitor import Monitor
 
+# It needs to be imported in current module
+from plenum.server.monitor import MedianLowStrategy, \
+    RevivalSpikeResistantEMAThroughputMeasurement
+
 
 class ReqStream:
     Period = namedtuple('Period', ['start', 'interval', 'quantity'])
@@ -65,7 +69,7 @@ def create_throughput_measurement(start_ts, config):
 
 
 def get_average_throughput(calculated_throughputs, config):
-    return config.throughput_averaging_strategy_class.get_avg(calculated_throughputs)
+    return globals()[config.throughput_averaging_strategy_class_name].get_avg(calculated_throughputs)
 
 
 def get_throughput_ratio(inst_req_streams, config):
