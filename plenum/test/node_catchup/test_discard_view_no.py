@@ -54,6 +54,8 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
         DOMAIN_LEDGER_ID,
         primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
         primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        0,
+        True
     )
     sender.send(three_pc, rid_x_node)
     looper.run(eventually(checkDiscardMsg, [new_node, ], three_pc,
