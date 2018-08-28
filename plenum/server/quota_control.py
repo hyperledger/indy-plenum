@@ -12,15 +12,9 @@ class QuotaControl:
         self._node_quota_reached = False
 
     def received_node_messages(self, count: int, size: int):
-        if count >= self._max_node_message_count_limit:
-            self._node_quota_reached = True
-            return
-
-        if size >= self._max_node_message_size_limit:
-            self._node_quota_reached = True
-            return
-
-        self._node_quota_reached = False
+        self._node_quota_reached = \
+            count >= self._max_node_message_count_limit or \
+            size >= self._max_node_message_size_limit
 
     def received_client_messages(self, count: int, size: int):
         pass
