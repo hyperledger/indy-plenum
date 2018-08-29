@@ -106,7 +106,8 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
 def init_discarded(value):
     """init discarded field with value and return message like representation"""
     discarded = bitarray()
-    discarded.append(value)
+    if value:
+        discarded.append(value)
     return discarded.unpack().hex()
 
 
@@ -120,7 +121,7 @@ def create_pre_prepare_params(state_root,
               0,
               timestamp or get_utc_epoch(),
               ["random request digest"],
-              init_discarded(False),
+              init_discarded(True),
               "random digest",
               ledger_id,
               state_root,

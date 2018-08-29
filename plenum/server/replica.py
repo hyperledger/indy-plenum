@@ -778,9 +778,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.warning('{} encountered exception {} while processing {}, '
                                 'will reject'.format(self, ex, req))
             rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
-            discarded_mask.append(False)
-        else:
             discarded_mask.append(True)
+        else:
+            discarded_mask.append(False)
         finally:
             reqs.append(req)
 
@@ -808,7 +808,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         reqs, discarded_mask, rejects, tm = self.consume_req_queue_for_pre_prepare(
             ledger_id, self.viewNo,
             pp_seq_no)
-        if discarded_mask.length() == 0:
+        # If all bits in mask are False
+        if not discarded_mask.any():
+            discarded_mask = self._drop_discarded_mask()
+        if len(reqs) == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
             return
@@ -841,7 +844,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pre_prepare = rv if rv is not None else pre_prepare
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
-            self, discarded_mask.length(), ledger_id))
+            self, len(reqs), ledger_id))
         self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
@@ -1273,6 +1276,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
+    def _drop_discarded_mask(self):
+        return bitarray()
+
     def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
         Applies (but not commits) requests of the PrePrepare
@@ -1307,6 +1313,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                         old_state_root,
                         self._get_valid_count(discarded_mask))
         discarded_from_pp = self._pack_discarded_mask(pre_prepare.discarded)
+        # If all bits in mask are False
+        if not discarded_mask.any():
+            discarded_mask = self._drop_discarded_mask()
         if self._unpack_discarded_mask(discarded_mask) != self._unpack_discarded_mask(discarded_from_pp):
             if self.isMaster:
                 revert()
@@ -1765,21 +1774,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self.order_3pc_key(key)
 
     def _apply_bitmask_to_list(self, reqIdrs: List, mask: bitarray):
+        if mask.length() == 0:
+            return reqIdrs, []
         if len(reqIdrs) != mask.length():
             raise LogicError("Length of reqIdr list and bitmask is not the same")
         return self._get_valid_reqs(reqIdrs, mask), self._get_invalid_reqs(reqIdrs, mask)
 
     def _get_valid_reqs(self, reqIdrs, mask: bitarray):
-        return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
-
-    def _get_invalid_reqs(self, reqIdrs, mask: bitarray):
         return [b for a, b in zip(mask.tolist(), reqIdrs) if not a]
 
+    def _get_invalid_reqs(self, reqIdrs, mask: bitarray):
+        return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
+
     def _get_valid_count(self, mask: bitarray):
-        return mask.count(1)
+        return mask.count(0)
 
     def _get_invalid_count(self, mask: bitarray):
-        return mask.count(0)
+        return mask.count(1)
 
     @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
                           MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)

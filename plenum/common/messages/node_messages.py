@@ -119,7 +119,7 @@ class Ordered(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
-        (f.DISCARDED.nm, SerializedValueField()),
+        (f.DISCARDED.nm, SerializedValueField(nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -142,7 +142,7 @@ class PrePrepare(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
             max_length=DIGEST_FIELD_LIMIT))),
-        (f.DISCARDED.nm, SerializedValueField()),
+        (f.DISCARDED.nm, SerializedValueField(nullable=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),

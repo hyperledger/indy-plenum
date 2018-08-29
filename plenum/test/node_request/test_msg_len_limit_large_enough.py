@@ -27,7 +27,7 @@ def test_msg_len_limit_large_enough_for_preprepare():
         0,
         get_utc_epoch(),
         req_idr,
-        init_discarded('1'.encode()*batch_size),
+        init_discarded('0'.encode()*batch_size),
         digest,
         0,
         state_root,
