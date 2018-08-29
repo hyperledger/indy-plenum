@@ -1,9 +1,7 @@
 import pytest
 import os
 
-from crypto.bls.bls_multi_signature import MultiSignature
 from plenum.bls.bls_crypto_factory import BlsFactoryIndyCrypto
-from plenum.test.bls.helper import check_bls_key
 
 
 @pytest.fixture()

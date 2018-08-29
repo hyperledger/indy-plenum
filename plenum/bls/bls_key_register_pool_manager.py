@@ -1,8 +1,7 @@
 from logging import getLogger
 
 from crypto.bls.bls_key_register import BlsKeyRegister
-from plenum.common.constants import BLS_KEY, ALIAS
-from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF
+from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, ALIAS
 from plenum.server.pool_manager import TxnPoolManager
 
 logger = getLogger()
@@ -39,5 +38,5 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
                 pool_state_root_hash):
             if BLS_KEY in data:
                 self._current_bls_keys[data[ALIAS]] = data[BLS_KEY]
-                self._current_bls_keys_proof[data[ALIAS]] = BLS_KEY_PROOF in data \
-                                                            and data[BLS_KEY_PROOF] is not None
+                self._current_bls_keys_proof[data[ALIAS]] = \
+                    BLS_KEY_PROOF in data and data[BLS_KEY_PROOF] is not None
