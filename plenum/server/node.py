@@ -2427,7 +2427,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            'does not exist'.format(self, ordered.instId))
             return False
 
-
         valid_reqIdr, invalid_reqIdr = \
             self.master_replica._apply_bitmask_to_list(ordered.reqIdr,
                                                        self.master_replica._pack_discarded_mask(ordered.discarded))
