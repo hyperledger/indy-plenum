@@ -2,7 +2,7 @@ from statistics import median_high
 
 import pytest
 
-from plenum.server.monitor import RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test.helper import get_key_from_req
 
 nodeCount = 7
