@@ -112,7 +112,9 @@ class Ordered(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
+        (f.VALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
+        (f.INVALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
             max_length=DIGEST_FIELD_LIMIT))),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),

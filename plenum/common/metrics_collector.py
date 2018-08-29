@@ -43,6 +43,8 @@ class MetricsName(IntEnum):
     ORDERED_BATCH_SIZE = 12
     # Time spent on requests processing on master instance
     REQUEST_PROCESSING_TIME = 13
+    # Number of invalid request for master
+    ORDERED_BATCH_INVALID_COUNT = 14
 
     # Average throughput measured by monitor on backup instances
     BACKUP_MONITOR_AVG_THROUGHPUT = 20

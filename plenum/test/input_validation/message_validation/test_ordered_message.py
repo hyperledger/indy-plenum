@@ -9,7 +9,8 @@ from plenum.common.messages.node_messages import Ordered
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
-    ("reqIdr", IterableField),
+    ("valid_reqIdr", IterableField),
+    ("invalid_reqIdr", IterableField),
     ("ppSeqNo", NonNegativeNumberField),
     ("ppTime", TimestampField),
     ("ledgerId", LedgerIdField),

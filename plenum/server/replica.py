@@ -17,6 +17,7 @@ from common.serializers.serialization import serialize_msg_for_signing, state_ro
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
+from plenum.common.bitmask_helper import BitmaskHelper
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
@@ -731,7 +732,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
-        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, self._pack_discarded_mask(pp.discarded),
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, BitmaskHelper.pack_discarded_mask(pp.discarded),
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     def send3PCBatch(self):
@@ -784,14 +785,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         finally:
             reqs.append(req)
 
-    def _pack_discarded_mask(self, value):
-        discarded_mask = bitarray()
-        discarded_mask.pack(bytes.fromhex(value))
-        return discarded_mask
-
-    def _unpack_discarded_mask(self, discarded_mask):
-        return discarded_mask.unpack().hex()
-
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
     def create3PCBatch(self, ledger_id):
@@ -810,7 +803,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_seq_no)
         # If all bits in mask are False
         if not discarded_mask.any():
-            discarded_mask = self._drop_discarded_mask()
+            discarded_mask = BitmaskHelper.drop_discarded_mask()
         if len(reqs) == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
@@ -826,7 +819,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_seq_no,
             tm,
             [req.digest for req in reqs],
-            self._unpack_discarded_mask(discarded_mask),
+            BitmaskHelper.unpack_discarded_mask(discarded_mask),
             digest,
             ledger_id,
             state_root_hash,
@@ -1276,9 +1269,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def _drop_discarded_mask(self):
-        return bitarray()
-
     def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
         """
         Applies (but not commits) requests of the PrePrepare
@@ -1311,12 +1301,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        self._get_valid_count(discarded_mask))
-        discarded_from_pp = self._pack_discarded_mask(pre_prepare.discarded)
+                        BitmaskHelper.get_valid_count(discarded_mask))
+        discarded_from_pp = BitmaskHelper.pack_discarded_mask(pre_prepare.discarded)
         # If all bits in mask are False
         if not discarded_mask.any():
-            discarded_mask = self._drop_discarded_mask()
-        if self._unpack_discarded_mask(discarded_mask) != self._unpack_discarded_mask(discarded_from_pp):
+            discarded_mask = BitmaskHelper.drop_discarded_mask()
+        if BitmaskHelper.unpack_discarded_mask(discarded_mask) != BitmaskHelper.unpack_discarded_mask(discarded_from_pp):
             if self.isMaster:
                 revert()
             return PP_APPLY_REJECT_WRONG
@@ -1773,30 +1763,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
-    @staticmethod
-    def _apply_bitmask_to_list(reqIdrs: List, mask: bitarray):
-        if mask.length() == 0:
-            return reqIdrs, []
-        if len(reqIdrs) != mask.length():
-            raise LogicError("Length of reqIdr list and bitmask is not the same")
-        return Replica._get_valid_reqs(reqIdrs, mask), Replica._get_invalid_reqs(reqIdrs, mask)
-
-    @staticmethod
-    def _get_valid_reqs(reqIdrs, mask: bitarray):
-        return [b for a, b in zip(mask.tolist(), reqIdrs) if not a]
-
-    @staticmethod
-    def _get_invalid_reqs(reqIdrs, mask: bitarray):
-        return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
-
-    def _get_valid_count(self, mask: bitarray, len_reqIdr=0):
-        if mask.length() == 0:
-            return len_reqIdr
-        return mask.count(0)
-
-    def _get_invalid_count(self, mask: bitarray):
-        return mask.count(1)
-
     @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
                           MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def order_3pc_key(self, key):
@@ -1808,11 +1774,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self.addToOrdered(*key)
-        valid_reqs, invalid_reqs = self._apply_bitmask_to_list(pp.reqIdr,
-                                                               self._pack_discarded_mask(pp.discarded))
+        valid_reqIdr, invalid_reqIdr = \
+            BitmaskHelper.apply_bitmask_to_list(pp.reqIdr,
+                                                BitmaskHelper.pack_discarded_mask(pp.discarded))
         ordered = Ordered(self.instId,
                           pp.viewNo,
-                          pp.reqIdr,
+                          valid_reqIdr,
+                          invalid_reqIdr,
                           pp.ppSeqNo,
                           pp.ppTime,
                           pp.ledgerId,
@@ -1829,17 +1797,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordered batch request, view no {}, ppSeqNo {}, "
                           "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                           format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                 pp.stateRootHash, pp.txnRootHash, valid_reqs,
-                                 invalid_reqs))
+                                 pp.stateRootHash, pp.txnRootHash, valid_reqIdr,
+                                 invalid_reqIdr))
         self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                pp.stateRootHash, pp.txnRootHash, len(valid_reqs),
-                                len(invalid_reqs)))
+                                pp.stateRootHash, pp.txnRootHash, len(valid_reqIdr),
+                                len(invalid_reqIdr)))
         if self.isMaster:
-            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqs))
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         else:
-            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqs))
+            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
@@ -2622,7 +2591,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, self._get_valid_count(discarded, len_reqIdr))
+                self.revert(ledger_id, prevStateRoot, BitmaskHelper.get_valid_count(discarded, len_reqIdr))
                 i += 1
             else:
                 break

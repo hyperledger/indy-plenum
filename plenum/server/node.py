@@ -16,6 +16,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
+from plenum.server.replica import Replica
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -2428,7 +2429,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
         valid_reqs = [self.requests[request_id].finalised
-                      for request_id in ordered.reqIdr
+                      for request_id in ordered.valid_reqIdr
                       if request_id in self.requests and
                       self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
@@ -2436,7 +2437,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} got ordered requests from backup replica {}"
                          .format(self, ordered.instId))
             with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
-                self.monitor.requestOrdered(ordered.reqIdr,
+                self.monitor.requestOrdered(ordered.valid_reqIdr + ordered.invalid_reqIdr,
                                             ordered.instId,
                                             self.requests,
                                             byMaster=False)
@@ -2445,17 +2446,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
 
-        if len(valid_reqs) != len(ordered.reqIdr):
+        if len(valid_reqs) != len(ordered.valid_reqIdr):
             logger.warning('{} did not find {} finalized '
                            'requests, but still ordered'
-                           .format(self, len(ordered.reqIdr) - len(valid_reqs)))
+                           .format(self, len(ordered.valid_reqIdr) - len(valid_reqs)))
             return False
 
         logger.debug("{} executing Ordered batch {} {} of {} requests"
                      .format(self.name,
                              ordered.viewNo,
                              ordered.ppSeqNo,
-                             len(ordered.reqIdr)))
+                             len(ordered.valid_reqIdr)))
 
         self.executeBatch(ordered.viewNo,
                           ordered.ppSeqNo,
@@ -2466,7 +2467,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.txnRootHash)
 
         with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
-            self.monitor.requestOrdered(ordered.reqIdr,
+            self.monitor.requestOrdered(ordered.valid_reqIdr + ordered.invalid_reqIdr,
                                         ordered.instId,
                                         self.requests,
                                         byMaster=True)
@@ -3028,7 +3029,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
-                self.apply_stashed_reqs(msg.reqIdr,
+                self.apply_stashed_reqs(msg.valid_reqIdr,
                                         msg.ppTime,
                                         msg.ledgerId)
 

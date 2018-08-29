@@ -75,6 +75,8 @@ class f:  # provides a namespace for reusable field constants
     FEES = Field('fees', dict)
     SUB_SEQ_NO = Field('sub_seq_no', int)
     FINAL = Field('final', bool)
+    VALID_REQ_IDR = Field("valid_reqIdr", List[str])
+    INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
 
 
 OPERATION = 'operation'
