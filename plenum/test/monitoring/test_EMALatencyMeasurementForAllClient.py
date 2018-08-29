@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from plenum.server.monitor import EMALatencyMeasurementForAllClient, EMALatencyMeasurementForEachClient
+from plenum.common.average_strategies import EMALatencyMeasurementForEachClient
 
 
 @pytest.fixture(scope='function', params=[EMALatencyMeasurementForEachClient])

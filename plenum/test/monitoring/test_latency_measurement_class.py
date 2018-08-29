@@ -23,7 +23,7 @@ def test_add_duration(latency_class):
 
 
 def test_avg_latency_accuracy(latency_class):
-    count_of_insertion = 100
+    count_of_insertion = 1000
     lc = latency_class
     duration = 10
     for _ in range(0, count_of_insertion):
