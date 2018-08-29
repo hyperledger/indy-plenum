@@ -786,7 +786,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _pack_discarded_mask(self, value):
         discarded_mask = bitarray()
-        discarded_mask.pack(b''.fromhex(value))
+        discarded_mask.pack(bytes.fromhex(value))
         return discarded_mask
 
     def _unpack_discarded_mask(self, discarded_mask):
@@ -1773,17 +1773,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
-    def _apply_bitmask_to_list(self, reqIdrs: List, mask: bitarray):
+    @staticmethod
+    def _apply_bitmask_to_list(reqIdrs: List, mask: bitarray):
         if mask.length() == 0:
             return reqIdrs, []
         if len(reqIdrs) != mask.length():
             raise LogicError("Length of reqIdr list and bitmask is not the same")
-        return self._get_valid_reqs(reqIdrs, mask), self._get_invalid_reqs(reqIdrs, mask)
+        return Replica._get_valid_reqs(reqIdrs, mask), Replica._get_invalid_reqs(reqIdrs, mask)
 
-    def _get_valid_reqs(self, reqIdrs, mask: bitarray):
+    @staticmethod
+    def _get_valid_reqs(reqIdrs, mask: bitarray):
         return [b for a, b in zip(mask.tolist(), reqIdrs) if not a]
 
-    def _get_invalid_reqs(self, reqIdrs, mask: bitarray):
+    @staticmethod
+    def _get_invalid_reqs(reqIdrs, mask: bitarray):
         return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
 
     def _get_valid_count(self, mask: bitarray):
