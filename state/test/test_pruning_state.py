@@ -279,3 +279,44 @@ def test_get_for_old_root_committed(state):
     assert state.get_for_root_hash(head_hash2, b'k1') == b'v111'
     assert state.get_for_root_hash(head_hash2, b'k2') == b'v2'
     assert state.get_for_root_hash(head_hash2, b'k3') == b'v3'
+
+
+def test_get_all_leaves_for_root_hash(state):
+    state.set(b'k1', b'v1')
+    state.set(b'k2', b'v2')
+    head_hash1 = state.headHash
+    state.set(b'k1', b'v111')
+    state.set(b'k3', b'v3')
+    head_hash2 = state.headHash
+
+    leaves = get_decoded_dict_values(state, head_hash1)
+    assert leaves == {b'k1': b'v1', b'k2': b'v2'}
+    assert len(state.get_all_leaves_for_root_hash(head_hash1)) == 2
+
+    leaves = get_decoded_dict_values(state, head_hash2)
+    assert leaves == {b'k1': b'v111', b'k2': b'v2', b'k3': b'v3'}
+    assert len(state.get_all_leaves_for_root_hash(head_hash2)) == 3
+
+
+def test_get_all_leaves_for_root_hash_commited(state):
+    state.set(b'k1', b'v1')
+    state.set(b'k2', b'v2')
+    state.commit()
+    head_hash1 = state.committedHeadHash
+    state.set(b'k1', b'v111')
+    state.set(b'k3', b'v3')
+    state.commit()
+    head_hash2 = state.committedHeadHash
+
+    leaves = get_decoded_dict_values(state, head_hash1)
+    assert leaves == {b'k1': b'v1', b'k2': b'v2'}
+    assert len(state.get_all_leaves_for_root_hash(head_hash1)) == 2
+
+    leaves = get_decoded_dict_values(state, head_hash2)
+    assert leaves == {b'k1': b'v111', b'k2': b'v2', b'k3': b'v3'}
+    assert len(state.get_all_leaves_for_root_hash(head_hash2)) == 3
+
+
+def get_decoded_dict_values(state, head_hash):
+    encoded_values = state.get_all_leaves_for_root_hash(head_hash)
+    return {k: state.get_decoded(v) for k, v in encoded_values.items()}

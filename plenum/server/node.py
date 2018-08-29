@@ -2413,6 +2413,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.transmitToClient(Reply(result), frm)
 
+    @measure_time(MetricsName.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):
         """
         Execute ordered request
@@ -2442,11 +2443,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
                          .format(self, ordered.instId))
-            self.monitor.requestOrdered(valid_reqIdr,
-                                        invalid_reqIdr,
-                                        ordered.instId,
-                                        self.requests,
-                                        byMaster=False)
+            with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
+                self.monitor.requestOrdered(valid_reqIdr,
+                                            invalid_reqIdr,
+                                            ordered.instId,
+                                            self.requests,
+                                            byMaster=False)
             return False
 
         logger.trace("{} got ordered requests from master replica"
@@ -2472,11 +2474,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
 
-        self.monitor.requestOrdered(valid_reqIdr,
-                                    invalid_reqIdr,
-                                    ordered.instId,
-                                    self.requests,
-                                    byMaster=True)
+        with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
+            self.monitor.requestOrdered(valid_reqIdr,
+                                        invalid_reqIdr,
+                                        ordered.instId,
+                                        self.requests,
+                                        byMaster=True)
 
         return True
 
@@ -2785,6 +2788,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return s.pop().data
         return None
 
+    @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
                      reqs: List[Request], ledger_id, state_root,
                      txn_root) -> None:

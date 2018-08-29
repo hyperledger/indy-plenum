@@ -1,12 +1,11 @@
-import os
-import sys
-from collections import OrderedDict
-
 import logging
+import sys
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE, HS_LEVELDB, \
-    HS_ROCKSDB, HS_MEMORY, KeyValueStorageType
+from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
+    KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
+from plenum.server.monitor import MedianHighStrategy, \
+    MedianLowStrategy, RevivalSpikeResistantEMAThroughputMeasurement
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -140,12 +139,15 @@ LatencyGraphDuration = 240
 # This parameter defines minimal count of accumulated latencies for each client
 MIN_LATENCY_COUNT = 10
 
-# Two following parameters define collecting statistic timeout for
-# collecting ordered request and throughput evaluating them.
-# In other words, during ThroughputInnerWindowSize * ThroughputMinActivityThreshold seconds,
-# throughput will returned as None for corresponding getThroughput methods.
-ThroughputInnerWindowSize = 15
-ThroughputMinActivityThreshold = 16
+latency_averaging_strategy_class = MedianHighStrategy
+throughput_averaging_strategy_class = MedianLowStrategy
+
+throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+
+throughput_measurement_params = {
+    'window_size': 15,
+    'min_cnt': 16
+}
 
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
@@ -322,3 +324,18 @@ METRICS_FLUSH_INTERVAL = 1.0  # seconds
 METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
+
+
+# Accumulating performance monitor controls
+#
+# If number of txns ordered by any instance is more than ordered by master
+# by more than ACC_MONITOR_TXN_DELTA_K * input request rate per second
+# then monitor will enter alerted state. If monitor is alerted for more than
+# ACC_MONITOR_TIMEOUT seconds it will fire master degradation event.
+# Input request rate is averaged using moving average with reaction
+# half time of ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME
+
+ACC_MONITOR_ENABLED = False
+ACC_MONITOR_TXN_DELTA_K = 100
+ACC_MONITOR_TIMEOUT = 300
+ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
