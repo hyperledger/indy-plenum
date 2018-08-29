@@ -753,7 +753,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             durations[key] = duration
 
         reqs, tm = self.numOrderedRequests[instId]
-        orderedNow = len(durations) + len(invalid_reqIdr)
+        orderedNow = len(durations)
         self.numOrderedRequests[instId] = (reqs + orderedNow,
                                            tm + sum(durations.values()))
 
