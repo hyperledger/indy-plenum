@@ -2426,11 +2426,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            'does not exist'.format(self, ordered.instId))
             return False
 
+
+        valid_reqIdr, invalid_reqIdr = \
+            self.master_replica._apply_bitmask_to_list(ordered.reqIdr,
+                                                       self.master_replica._pack_discarded_mask(ordered.discarded))
+        valid_reqs = [self.requests[request_id].finalised
+                      for request_id in valid_reqIdr
+                      if request_id in self.requests and
+                      self.requests[request_id].finalised]
+        invalid_reqs = [self.requests[request_id].finalised
+                        for request_id in invalid_reqIdr
+                        if request_id in self.requests and
+                        self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
                          .format(self, ordered.instId))
-            self.monitor.requestOrdered(ordered.reqIdr,
+            self.monitor.requestOrdered(valid_reqIdr,
+                                        invalid_reqIdr,
                                         ordered.instId,
                                         self.requests,
                                         byMaster=False)
@@ -2438,15 +2451,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
-        requests = [self.requests[request_id].finalised
-                    for request_id in ordered.reqIdr
-                    if request_id in self.requests and
-                    self.requests[request_id].finalised]
 
-        if len(requests) != len(ordered.reqIdr):
+        if len(valid_reqs) + len(invalid_reqs) != len(ordered.reqIdr):
             logger.warning('{} did not find {} finalized '
                            'requests, but still ordered'
-                           .format(self, len(ordered.reqIdr) - len(requests)))
+                           .format(self, len(ordered.reqIdr) - len(valid_reqs) - len(invalid_reqs)))
             return False
 
         logger.debug("{} executing Ordered batch {} {} of {} requests"
@@ -2458,12 +2467,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.executeBatch(ordered.viewNo,
                           ordered.ppSeqNo,
                           ordered.ppTime,
-                          requests,
+                          valid_reqs,
                           ordered.ledgerId,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
 
-        self.monitor.requestOrdered(ordered.reqIdr,
+        self.monitor.requestOrdered(valid_reqIdr,
+                                    invalid_reqIdr,
                                     ordered.instId,
                                     self.requests,
                                     byMaster=True)

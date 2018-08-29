@@ -1796,12 +1796,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                self._pack_discarded_mask(pp.discarded))
         ordered = Ordered(self.instId,
                           pp.viewNo,
-                          valid_reqs,
+                          pp.reqIdr,
                           pp.ppSeqNo,
                           pp.ppTime,
                           pp.ledgerId,
                           pp.stateRootHash,
-                          pp.txnRootHash)
+                          pp.txnRootHash,
+                          pp.discarded)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
