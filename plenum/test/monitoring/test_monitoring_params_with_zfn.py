@@ -2,28 +2,34 @@ from statistics import median_high
 
 import pytest
 
+from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test.helper import get_key_from_req
 
 nodeCount = 7
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_thr_window_size = tconf.ThroughputInnerWindowSize
-    old_thr_window_count = tconf.ThroughputMinActivityThreshold
-    old_min_cnt = tconf.MIN_LATENCY_COUNT
-    tconf.ThroughputInnerWindowSize = 5
-    tconf.ThroughputMinActivityThreshold = 2
+    old_throughput_measurement_class = tconf.throughput_measurement_class
+    old_throughput_measurement_params = tconf.throughput_measurement_params
+    old_min_latency_count = tconf.MIN_LATENCY_COUNT
+
+    tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+    tconf.throughput_measurement_params = {
+        'window_size': 5,
+        'min_cnt': 2
+    }
     tconf.MIN_LATENCY_COUNT = 1
+
     yield tconf
 
-    tconf.MIN_LATENCY_COUNT = old_min_cnt
-    tconf.ThroughputInnerWindowSize = old_thr_window_size
-    tconf.ThroughputMinActivityThreshold = old_thr_window_count
+    tconf.MIN_LATENCY_COUNT = old_min_latency_count
+    tconf.throughput_measurement_class = old_throughput_measurement_class
+    tconf.throughput_measurement_params = old_throughput_measurement_params
 
 
 def testThroughputThreshold(looper, txnPoolNodeSet, tconf, requests):
-    looper.runFor(tconf.ThroughputInnerWindowSize *
-                  tconf.ThroughputMinActivityThreshold)
+    looper.runFor(tconf.throughput_measurement_params['window_size'] *
+                  tconf.throughput_measurement_params['min_cnt'])
     for node in txnPoolNodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)

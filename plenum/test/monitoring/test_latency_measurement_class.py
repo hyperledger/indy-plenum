@@ -3,7 +3,7 @@ import copy
 import pytest
 import random
 
-from plenum.server.monitor import LatencyMeasurement
+from plenum.common.measurements import LatencyMeasurement
 
 ACCURACY = 1e-3
 

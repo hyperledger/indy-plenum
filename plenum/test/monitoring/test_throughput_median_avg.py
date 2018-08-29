@@ -3,7 +3,8 @@ import functools
 import pytest
 
 from plenum.server.instances import Instances
-from plenum.server.monitor import ThroughputMeasurement, Monitor, MedianLowStrategy
+from plenum.server.monitor import Monitor
+from plenum.common.average_strategies import MedianLowStrategy
 from plenum.test.testing_utils import FakeSomething
 
 NUM_OF_REPLICAS = 5
@@ -17,7 +18,8 @@ def fake_monitor(tconf):
     throughputs = []
     instances = Instances()
     for i in range(NUM_OF_REPLICAS):
-        throughputs.append(ThroughputMeasurement(first_ts=0))
+        throughputs.append(
+            Monitor.create_throughput_measurement(tconf, start_ts=0))
         instances.add()
     monitor = FakeSomething(
         throughputs=throughputs,

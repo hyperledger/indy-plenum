@@ -1,7 +1,6 @@
 import time
-from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from statistics import mean, median_low, median, median_high
+from statistics import mean
 from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
@@ -10,6 +9,8 @@ import psutil
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import MONITORING_PREFIX
+from plenum.common.measurements import LatencyMeasurement
+from plenum.common.monitor_strategies import AccumulatingMonitorStrategy
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -25,30 +26,6 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
-
-
-class AverageStrategyBase(metaclass=ABCMeta):
-    @staticmethod
-    def get_avg(metrics: List):
-        raise NotImplementedError()
-
-
-class MedianLowStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median_low(metrics)
-
-
-class MedianMediumStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median(metrics)
-
-
-class MedianHighStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median_high(metrics)
 
 
 class ThroughputMeasurement:
@@ -86,89 +63,6 @@ class ThroughputMeasurement:
             return None
         self.update_time(request_time)
         return self.throughput
-
-
-class LatencyMeasurement(metaclass=ABCMeta):
-    """
-    Measure latency params
-    """
-    @abstractmethod
-    def add_duration(self, identifier, duration):
-        pass
-
-    @abstractmethod
-    def get_avg_latency(self):
-        pass
-
-
-class EMALatencyMeasurementForEachClient(LatencyMeasurement):
-
-    def __init__(self, config):
-        self.min_latency_count = config.MIN_LATENCY_COUNT
-        # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latencies = {}    # type: Dict[str, (int, float)]
-        # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
-        self.alpha = 1 / (self.min_latency_count + 1)
-        self.total_reqs = 0
-        self.avg_for_clients_cls = config.AvgStrategyForAllClients()
-
-    def add_duration(self, identifier, duration):
-        client_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
-        client_reqs += 1
-        self.avg_latencies[identifier] = (client_reqs,
-                                          self._accumulate(curr_avg_lat,
-                                                           duration))
-        self.total_reqs += 1
-
-    def _accumulate(self, old_accum, next_val):
-        """
-        Implement exponential moving average
-        """
-        return old_accum * (1 - self.alpha) + next_val * self.alpha
-
-    def get_avg_latency(self):
-        if self.total_reqs < self.min_latency_count:
-            return None
-        latencies = [lat[1] for _, lat in self.avg_latencies.items()]
-
-        return self.avg_for_clients_cls.get_latency_for_clients(latencies)
-
-
-class EMALatencyMeasurementForAllClient(LatencyMeasurement):
-    def __init__(self, config):
-        self.min_latency_count = config.MIN_LATENCY_COUNT
-        # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latency = 0.0
-        # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
-        self.alpha = 1 / (self.min_latency_count + 1)
-        self.total_reqs = 0
-
-    def add_duration(self, identifier, duration):
-        self.avg_latency = self._accumulate(self.avg_latency, duration)
-        self.total_reqs += 1
-
-    def _accumulate(self, old_accum, next_val):
-        """
-        Implement exponential moving average
-        """
-        return old_accum * (1 - self.alpha) + next_val * self.alpha
-
-    def get_avg_latency(self):
-        if self.total_reqs < self.min_latency_count:
-            return None
-
-        return self.avg_latency
-
-
-class ClientsLatencyForAll(metaclass=ABCMeta):
-    @abstractmethod
-    def get_latency_for_clients(self, metrics):
-        pass
-
-
-class MedianHighLatencyForAllClients(MedianHighStrategy):
-    def get_latency_for_clients(self, metrics):
-        return self.get_avg(metrics)
 
 
 class RequestTimeTracker:
@@ -369,9 +263,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
-        self.latency_avg_for_backup_cls = self.config.AvgStrategyForBackups
+        self.latency_avg_for_backup_cls = self.config.latency_averaging_strategy_class
         self.latency_measurement_cls = self.config.LatencyMeasurementCls
-        self.throughput_avg_strategy_cls = MedianLowStrategy
+        self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
+
+        self.acc_monitor = None
+
+        if self.config.ACC_MONITOR_ENABLED:
+            self.acc_monitor = AccumulatingMonitorStrategy(
+                start_time=time.perf_counter(),
+                instances=instances.count,
+                txn_delta_k=self.config.ACC_MONITOR_TXN_DELTA_K,
+                timeout=self.config.ACC_MONITOR_TIMEOUT,
+                input_rate_reaction_half_time=self.config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
 
     def __repr__(self):
         return self.name
@@ -417,6 +321,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         currNetwork /= 1024
         return currNetwork
 
+    @staticmethod
+    def create_throughput_measurement(config, start_ts=time.perf_counter()):
+        tm = config.throughput_measurement_class(
+            **config.throughput_measurement_params)
+        tm.init_time(start_ts)
+        return tm
+
     def reset(self):
         """
         Reset the monitor. Sets all monitored values to defaults.
@@ -429,10 +340,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
         self.totalViewChanges += 1
         self.lastKnownTraffic = self.calculateTraffic()
+        if self.acc_monitor:
+            self.acc_monitor.reset()
         for i in range(num_instances):
-            rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
-                                       min_cnt=self.config.ThroughputMinActivityThreshold,
-                                       first_ts=time.perf_counter())
+            rm = self.create_throughput_measurement(self.config)
             self.throughputs[i] = rm
             lm = self.latency_measurement_cls(self.config)
             self.clientAvgReqLatencies[i] = lm
@@ -444,15 +355,20 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.instances.add()
         self.requestTracker.add_instance()
         self.numOrderedRequests.append((0, 0))
-        rm = ThroughputMeasurement(window_size=self.config.ThroughputInnerWindowSize,
-                                   min_cnt=self.config.ThroughputMinActivityThreshold,
-                                   first_ts=time.perf_counter())
+        rm = self.create_throughput_measurement(self.config)
 
         self.throughputs.append(rm)
         lm = self.latency_measurement_cls(self.config)
         self.clientAvgReqLatencies.append(lm)
+        if self.acc_monitor:
+            self.acc_monitor.add_instance()
 
     def removeInstance(self, index=None):
+        # TODO: This doesn't take into account index, but this function is never called with defined index,
+        # probably we can simplify this thing?
+        if self.acc_monitor:
+            self.acc_monitor.remove_instance()
+
         if self.instances.count > 0:
             if index is None:
                 index = self.instances.count - 1
@@ -462,7 +378,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
             del self.throughputs[index]
 
-    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
+    def requestOrdered(self, reqIdrs: List[str], instId: int,
                        requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
@@ -470,12 +386,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         returns None
         """
         now = time.perf_counter()
+        if self.acc_monitor:
+            self.acc_monitor.update_time(now)
         durations = {}
         for key in reqIdrs:
             if key not in self.requestTracker:
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
                 continue
+            if self.acc_monitor:
+                self.acc_monitor.request_ordered(key, instId)
             for reqId, started in self.requestTracker.handled_unordered():
                 if reqId == key:
                     logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
@@ -521,7 +441,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Record the time at which request ordering started.
         """
-        self.requestTracker.start(key, time.perf_counter())
+        now = time.perf_counter()
+        if self.acc_monitor:
+            self.acc_monitor.update_time(now)
+            self.acc_monitor.request_received(key)
+        self.requestTracker.start(key, now)
 
     def check_unordered(self):
         now = time.perf_counter()
@@ -540,13 +464,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Return whether the master instance is slow.
         """
-        return (self.instances.masterId is not None and
-                (self.isMasterThroughputTooLow() or
-                 # TODO for now, view_change procedure can take more that 15 minutes
-                 # (5 minutes for catchup and 10 minutes for primary's answer).
-                 # Therefore, view_change triggering by max latency now is not indicative.
-                 # self.isMasterReqLatencyTooHigh() or
-                 self.isMasterAvgReqLatencyTooHigh()))
+        if self.acc_monitor:
+            self.acc_monitor.update_time(time.perf_counter())
+            return self.acc_monitor.is_master_degraded()
+        else:
+            return (self.instances.masterId is not None and
+                    (self.isMasterThroughputTooLow() or
+                     # TODO for now, view_change procedure can take more that 15 minutes
+                     # (5 minutes for catchup and 10 minutes for primary's answer).
+                     # Therefore, view_change triggering by max latency now is not indicative.
+                     # self.isMasterReqLatencyTooHigh() or
+                     self.isMasterAvgReqLatencyTooHigh()))
 
     def masterThroughputRatio(self):
         """
