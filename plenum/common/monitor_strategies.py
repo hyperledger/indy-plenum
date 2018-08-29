@@ -1,33 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from statistics import median_low, median, median_high
-from typing import List
 
 from plenum.common.moving_average import EMAEventFrequencyEstimator
-
-
-class AverageStrategyBase(ABC):
-    @staticmethod
-    def get_avg(metrics: List):
-        raise NotImplementedError()
-
-
-class MedianLowStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median_low(metrics)
-
-
-class MedianMediumStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median(metrics)
-
-
-class MedianHighStrategy(AverageStrategyBase):
-    @staticmethod
-    def get_avg(metrics: List):
-        return median_high(metrics)
 
 
 class MonitorStrategy(ABC):

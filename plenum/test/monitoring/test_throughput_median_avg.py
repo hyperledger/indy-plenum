@@ -4,7 +4,7 @@ import pytest
 
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
-from plenum.common.strategies import MedianLowStrategy
+from plenum.common.average_strategies import MedianLowStrategy
 from plenum.test.testing_utils import FakeSomething
 
 NUM_OF_REPLICAS = 5

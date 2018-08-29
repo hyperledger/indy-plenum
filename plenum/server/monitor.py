@@ -10,7 +10,7 @@ import psutil
 from plenum.common.config_util import getConfig
 from plenum.common.constants import MONITORING_PREFIX
 from plenum.common.measurements import LatencyMeasurement
-from plenum.common.strategies import AccumulatingMonitorStrategy
+from plenum.common.monitor_strategies import AccumulatingMonitorStrategy
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
