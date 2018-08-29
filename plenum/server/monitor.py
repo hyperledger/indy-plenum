@@ -684,7 +684,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
             del self.throughputs[index]
 
-    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
+    def requestOrdered(self, reqIdrs: List[str], instId: int,
                        requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor

@@ -650,9 +650,9 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
         self.masterReqLatenciesTest = {}
 
-    def requestOrdered(self, reqIdr: List[Tuple[str, int]],
+    def requestOrdered(self, reqIdrs: List[str],
                        instId: int, requests, byMaster: bool = False) -> Dict:
-        durations = super().requestOrdered(reqIdr, instId, requests, byMaster)
+        durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
             for key, duration in durations.items():
                 self.masterReqLatenciesTest[key] = duration
