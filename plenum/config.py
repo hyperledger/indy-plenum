@@ -4,6 +4,8 @@ import sys
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
     KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
+from plenum.server.monitor import MedianHighStrategy, \
+    MedianLowStrategy, RevivalSpikeResistantEMAThroughputMeasurement
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -137,10 +139,10 @@ LatencyGraphDuration = 240
 # This parameter defines minimal count of accumulated latencies for each client
 MIN_LATENCY_COUNT = 10
 
-latency_averaging_strategy_class_name = 'MedianHighStrategy'
-throughput_averaging_strategy_class_name = 'MedianLowStrategy'
+latency_averaging_strategy_class = MedianHighStrategy
+throughput_averaging_strategy_class = MedianLowStrategy
 
-throughput_measurement_class_name = 'RevivalSpikeResistantEMAThroughputMeasurement'
+throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
 
 throughput_measurement_params = {
     'window_size': 15,
