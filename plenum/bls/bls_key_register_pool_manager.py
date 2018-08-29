@@ -1,7 +1,11 @@
+from logging import getLogger
+
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.constants import BLS_KEY, ALIAS
 from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF
 from plenum.server.pool_manager import TxnPoolManager
+
+logger = getLogger()
 
 
 class BlsKeyRegisterPoolManager(BlsKeyRegister):
@@ -22,10 +26,11 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
         if self._current_pool_state_root_hash != pool_state_root_hash:
             self._current_pool_state_root_hash = pool_state_root_hash
             self._load_keys_for_root(pool_state_root_hash)
-        return self._current_bls_keys.get(node_name) \
-            if self._pool_manager.config.VALIDATE_SIGN_WITHOUT_BLS_KEY_PROOF or \
-               self._current_bls_keys_proof.get(node_name, None) not in [False, None] \
-            else None
+        if not self._pool_manager.config.VALIDATE_SIGN_WITHOUT_BLS_KEY_PROOF and \
+                self._current_bls_keys_proof.get(node_name, None) in [False, None]:
+            logger.info("{} has no proof of possession for BLS public key.".format(node_name))
+            return None
+        return self._current_bls_keys.get(node_name)
 
     def _load_keys_for_root(self, pool_state_root_hash):
         self._current_bls_keys = {}
@@ -35,4 +40,4 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
             if BLS_KEY in data:
                 self._current_bls_keys[data[ALIAS]] = data[BLS_KEY]
                 self._current_bls_keys_proof[data[ALIAS]] = BLS_KEY_PROOF in data \
-                                                          and data[BLS_KEY_PROOF] is not None
+                                                            and data[BLS_KEY_PROOF] is not None
