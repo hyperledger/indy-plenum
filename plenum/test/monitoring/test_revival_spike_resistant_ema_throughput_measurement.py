@@ -2,8 +2,7 @@ from math import isclose
 
 import pytest
 
-from plenum.server.monitor import RevivalSpikeResistantEMAThroughputMeasurement
-
+from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
 
 State = RevivalSpikeResistantEMAThroughputMeasurement.State
 

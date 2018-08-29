@@ -4,8 +4,8 @@ import sys
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
     KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.server.monitor import MedianHighStrategy, \
-    MedianLowStrategy, RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'

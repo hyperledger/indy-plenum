@@ -3,7 +3,9 @@ import functools
 import pytest
 
 from plenum.server.instances import Instances
-from plenum.server.monitor import Monitor, LatencyMeasurement, MedianHighStrategy
+from plenum.server.monitor import Monitor
+from plenum.common.measurements import LatencyMeasurement
+from plenum.common.average_strategies import MedianHighStrategy
 from plenum.test.testing_utils import FakeSomething
 
 NUM_OF_REPLICAS = 5
