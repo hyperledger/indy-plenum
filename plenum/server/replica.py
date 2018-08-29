@@ -732,7 +732,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, self._pack_discarded_mask(pp.discarded),
-                                                 pp.ppTime, prevStateRootHash]
+                                                 pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     def send3PCBatch(self):
         r = 0
@@ -1789,7 +1789,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _get_invalid_reqs(reqIdrs, mask: bitarray):
         return [b for a, b in zip(mask.tolist(), reqIdrs) if a]
 
-    def _get_valid_count(self, mask: bitarray):
+    def _get_valid_count(self, mask: bitarray, len_reqIdr=0):
+        if mask.length() == 0:
+            return len_reqIdr
         return mask.count(0)
 
     def _get_invalid_count(self, mask: bitarray):
@@ -2618,9 +2620,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                ledger_id, discarded, _, prevStateRoot = self.batches.pop(key)
+                ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, self._get_valid_count(discarded))
+                self.revert(ledger_id, prevStateRoot, self._get_valid_count(discarded, len_reqIdr))
                 i += 1
             else:
                 break
