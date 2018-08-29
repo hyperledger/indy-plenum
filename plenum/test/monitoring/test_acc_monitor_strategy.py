@@ -1,4 +1,4 @@
-from plenum.server.monitor import AccumulatingMonitorStrategy
+from plenum.common.strategies import AccumulatingMonitorStrategy
 
 ACC_MONITOR_TXN_DELTA_K = 100
 ACC_MONITOR_TIMEOUT = 300.0
