@@ -575,14 +575,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self.acc_monitor = None
 
-        config = getConfig()
-        if config.ACC_MONITOR_ENABLED:
+        if self.config.ACC_MONITOR_ENABLED:
             self.acc_monitor = AccumulatingMonitorStrategy(
                 start_time=time.perf_counter(),
                 instances=instances.count,
-                txn_delta_k=config.ACC_MONITOR_TXN_DELTA_K,
-                timeout=config.ACC_MONITOR_TIMEOUT,
-                input_rate_reaction_half_time=config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
+                txn_delta_k=self.config.ACC_MONITOR_TXN_DELTA_K,
+                timeout=self.config.ACC_MONITOR_TIMEOUT,
+                input_rate_reaction_half_time=self.config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
 
     def __repr__(self):
         return self.name
