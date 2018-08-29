@@ -381,8 +381,6 @@ class RequestTimeTracker:
         def __init__(self, timestamp, instance_count):
             self.timestamp = timestamp
             self.ordered = [False] * instance_count
-            self._is_invalid = False
-            self.invalid_duration = None
 
             # True if request was unordered for too long and
             # was handled by handlers on master replica
@@ -392,20 +390,8 @@ class RequestTimeTracker:
             if 0 <= instId < len(self.ordered):
                 self.ordered[instId] = True
 
-        def mark_as_invalid(self, timestamp):
-            self._is_invalid = True
-            self.invalid_duration = timestamp - self.timestamp
-
         def remove_instance(self, instId):
             del self.ordered[instId]
-
-        @property
-        def is_invalid(self):
-            return self._is_invalid
-
-        @is_invalid.setter
-        def is_invalid(self):
-            self._is_invalid = True
 
         @property
         def is_ordered(self):
@@ -428,15 +414,6 @@ class RequestTimeTracker:
 
     def start(self, key, timestamp):
         self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
-
-    def mark_as_invalid(self, key, timestamp):
-        self._requests[key].mark_as_invalid(timestamp)
-
-    def is_invalid_req(self, key):
-        return self._requests[key].is_invalid
-
-    def get_invalid_ts(self, key):
-        return self._requests[key].invalid_duration
 
     def order(self, instId, key, timestamp):
         req = self._requests[key]
@@ -707,8 +684,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             del self.clientAvgReqLatencies[index]
             del self.throughputs[index]
 
-    def requestOrdered(self, valid_reqIdr: List[Tuple[str, int]],
-                       invalid_reqIdr: List[Tuple[str, int]], instId: int,
+    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        requests, byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
@@ -719,22 +695,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if self.acc_monitor:
             self.acc_monitor.update_time(now)
         durations = {}
-        for key in valid_reqIdr + invalid_reqIdr:
+        for key in reqIdrs:
             if key not in self.requestTracker:
                 logger.debug("Got untracked ordered request with digest {}".
                              format(key))
                 continue
             if self.acc_monitor:
                 self.acc_monitor.request_ordered(key, instId)
-            if byMaster and self.requestTracker.is_invalid_req(key):
-                duration = self.requestTracker.get_invalid_ts(key)
-            else:
-                for reqId, started in self.requestTracker.handled_unordered():
-                    if reqId == key:
-                        logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
-                                    .format(reqId, self.name, instId, now - started))
-                        continue
-                duration = self.requestTracker.order(instId, key, now)
+            for reqId, started in self.requestTracker.handled_unordered():
+                if reqId == key:
+                    logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
+                                .format(reqId, self.name, instId, now - started))
+                    continue
+            duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:
                 # TODO for now, view_change procedure can take more that 15 minutes
