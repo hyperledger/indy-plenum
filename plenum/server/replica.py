@@ -10,14 +10,12 @@ import sys
 
 import functools
 
-from bitarray import bitarray
-
 from common.exceptions import LogicError, PlenumValueError
-from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
+from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer, \
+    invalid_index_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
-from plenum.common.bitmask_helper import BitmaskHelper
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
@@ -732,7 +730,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
-        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, BitmaskHelper.pack_discarded_mask(pp.discarded),
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     def send3PCBatch(self):
@@ -763,27 +761,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def processReqDuringBatch(
             self,
             req: Request,
-            cons_time: int,
-            discarded_mask: bitarray,
-            reqs: List,
-            rejects: List):
+            cons_time: int):
         """
-        This method will do dynamic validation and apply requests, also it
-        will modify `validReqs`, `inValidReqs` and `rejects`
+        This method will do dynamic validation and apply requests.
+        If there is any errors during validation it would be raised
         """
-        try:
-            if self.isMaster:
-                self.node.doDynamicValidation(req)
-                self.node.applyReq(req, cons_time)
-        except (InvalidClientMessageException, UnknownIdentifier) as ex:
-            self.logger.warning('{} encountered exception {} while processing {}, '
-                                'will reject'.format(self, ex, req))
-            rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
-            discarded_mask.append(True)
-        else:
-            discarded_mask.append(False)
-        finally:
-            reqs.append(req)
+        if self.isMaster:
+            self.node.doDynamicValidation(req)
+            self.node.applyReq(req, cons_time)
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
@@ -798,12 +783,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        reqs, discarded_mask, rejects, tm = self.consume_req_queue_for_pre_prepare(
+        reqs, invalid_indices, rejects, tm = self.consume_req_queue_for_pre_prepare(
             ledger_id, self.viewNo,
             pp_seq_no)
-        # If all bits in mask are False
-        if not discarded_mask.any():
-            discarded_mask = BitmaskHelper.drop_discarded_mask()
         if len(reqs) == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
@@ -819,7 +801,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_seq_no,
             tm,
             [req.digest for req in reqs],
-            BitmaskHelper.unpack_discarded_mask(discarded_mask),
+            invalid_index_serializer.serialize(invalid_indices, toBytes=False),
             digest,
             ledger_id,
             state_root_hash,
@@ -853,20 +835,30 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
                                                pp_seq_no)
         reqs = []
-        discarded_mask = bitarray()
         rejects = []
-        while discarded_mask.length() < self.config.Max3PCBatchSize \
+        invalid_indices = []
+        idx = 0
+        while len(reqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(
-                    fin_req, tm, discarded_mask, reqs, rejects)
+                try:
+                    self.processReqDuringBatch(fin_req,
+                                               tm)
+                except (InvalidClientMessageException, UnknownIdentifier) as ex:
+                    self.logger.warning('{} encountered exception {} while processing {}, '
+                                        'will reject'.format(self, ex, fin_req))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    invalid_indices.append(idx)
+                finally:
+                    reqs.append(fin_req)
+                idx += 1
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
 
-        return reqs, discarded_mask, rejects, tm
+        return reqs, invalid_indices, rejects, tm
 
     @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
                           MetricsName.BACKUP_SEND_PREPREPARE_TIME)
@@ -1276,8 +1268,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
 
         reqs = []
-        discarded_mask = bitarray()
+        idx = 0
         rejects = []
+        invalid_indices = []
 
         if self.isMaster:
             old_state_root = \
@@ -1291,22 +1284,25 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
+            try:
+                self.processReqDuringBatch(req,
+                                           pre_prepare.ppTime)
+            except (InvalidClientMessageException, UnknownIdentifier) as ex:
+                self.logger.warning('{} encountered exception {} while processing {}, '
+                                    'will reject'.format(self, ex, req))
+                rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
+                invalid_indices.append(idx)
+            finally:
+                reqs.append(req)
+            idx += 1
 
-            self.processReqDuringBatch(req,
-                                       pre_prepare.ppTime,
-                                       discarded_mask,
-                                       reqs,
-                                       rejects)
+        invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
 
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        BitmaskHelper.get_valid_count(discarded_mask, len(pre_prepare.reqIdr)))
-        discarded_from_pp = BitmaskHelper.pack_discarded_mask(pre_prepare.discarded)
-        # If all bits in mask are False
-        if not discarded_mask.any():
-            discarded_mask = BitmaskHelper.drop_discarded_mask()
-        if BitmaskHelper.unpack_discarded_mask(discarded_mask) != BitmaskHelper.unpack_discarded_mask(discarded_from_pp):
+                        len(pre_prepare.reqIdr) - len(invalid_from_pp))
+        if len(invalid_indices) != len(invalid_from_pp):
             if self.isMaster:
                 revert()
             return PP_APPLY_REJECT_WRONG
@@ -1774,9 +1770,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self.addToOrdered(*key)
-        valid_reqIdr, invalid_reqIdr = \
-            BitmaskHelper.apply_bitmask_to_list(pp.reqIdr,
-                                                BitmaskHelper.pack_discarded_mask(pp.discarded))
+        invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
+        invalid_reqIdr = []
+        valid_reqIdr = []
+        for ind, reqIdr in enumerate(pp.reqIdr):
+            if ind in invalid_indices:
+                invalid_reqIdr.append(reqIdr)
+            else:
+                valid_reqIdr.append(reqIdr)
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -2589,8 +2590,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
+                discarded = invalid_index_serializer.deserialize(discarded)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, BitmaskHelper.get_valid_count(discarded, len_reqIdr))
+                self.revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
                 i += 1
             else:
                 break
