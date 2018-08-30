@@ -761,24 +761,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def processReqDuringBatch(
             self,
             req: Request,
-            cons_time: int,
-            idx: int,
-            reqs: List,
-            rejects: List):
+            cons_time: int):
         """
-        This method will do dynamic validation and apply requests, also it
-        will modify `validReqs`, `inValidReqs` and `rejects`
+        This method will do dynamic validation and apply requests.
+        If there is any errors during validation it would be raised
         """
-        try:
-            if self.isMaster:
-                self.node.doDynamicValidation(req)
-                self.node.applyReq(req, cons_time)
-        except (InvalidClientMessageException, UnknownIdentifier) as ex:
-            self.logger.warning('{} encountered exception {} while processing {}, '
-                                'will reject'.format(self, ex, req))
-            rejects.append((req.key, idx, Reject(req.identifier, req.reqId, ex)))
-        finally:
-            reqs.append(req)
+        if self.isMaster:
+            self.node.doDynamicValidation(req)
+            self.node.applyReq(req, cons_time)
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
@@ -793,10 +783,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        reqs, rejects, tm = self.consume_req_queue_for_pre_prepare(
+        reqs, invalid_indices, rejects, tm = self.consume_req_queue_for_pre_prepare(
             ledger_id, self.viewNo,
             pp_seq_no)
-        invalid_indices = [idx for _, idx, _ in rejects]
         if len(reqs) == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
@@ -847,20 +836,29 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                pp_seq_no)
         reqs = []
         rejects = []
+        invalid_indices = []
         idx = 0
         while len(reqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(
-                    fin_req, tm, idx, reqs, rejects)
+                try:
+                    self.processReqDuringBatch(fin_req,
+                                               tm)
+                except (InvalidClientMessageException, UnknownIdentifier) as ex:
+                    self.logger.warning('{} encountered exception {} while processing {}, '
+                                        'will reject'.format(self, ex, fin_req))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    invalid_indices.append(idx)
+                finally:
+                    reqs.append(fin_req)
                 idx += 1
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
 
-        return reqs, rejects, tm
+        return reqs, invalid_indices, rejects, tm
 
     @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
                           MetricsName.BACKUP_SEND_PREPREPARE_TIME)
@@ -1272,6 +1270,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         reqs = []
         idx = 0
         rejects = []
+        invalid_indices = []
 
         if self.isMaster:
             old_state_root = \
@@ -1285,22 +1284,25 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
-
-            self.processReqDuringBatch(req,
-                                       pre_prepare.ppTime,
-                                       idx,
-                                       reqs,
-                                       rejects)
+            try:
+                self.processReqDuringBatch(req,
+                                           pre_prepare.ppTime)
+            except (InvalidClientMessageException, UnknownIdentifier) as ex:
+                self.logger.warning('{} encountered exception {} while processing {}, '
+                                    'will reject'.format(self, ex, req))
+                rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
+                invalid_indices.append(idx)
+            finally:
+                reqs.append(req)
             idx += 1
 
         invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
-        invalid_reqIdr = [idx for _, idx, _ in rejects]
 
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
                         len(pre_prepare.reqIdr) - len(invalid_from_pp))
-        if len(invalid_reqIdr) != len(invalid_from_pp):
+        if len(invalid_indices) != len(invalid_from_pp):
             if self.isMaster:
                 revert()
             return PP_APPLY_REJECT_WRONG

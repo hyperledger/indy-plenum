@@ -3,6 +3,8 @@ import shutil
 from typing import Dict, List
 
 from plenum.common.config_helper import PConfigHelper
+from plenum.common.exceptions import InvalidClientMessageException, UnknownIdentifier
+from plenum.common.messages.node_messages import Reject
 
 from plenum.common.util import get_utc_epoch
 
@@ -52,19 +54,22 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
             # Can be fixed by capturing the exact order
             idx = 0
             reqs = []
+            invalid_indices = []
             for req_id in req_ids:
                 key = req_id
                 fin_req = fin_reqs[key]
-                self.processReqDuringBatch(
-                    fin_req, tm, idx, reqs, rejects)
+                try:
+                    self.processReqDuringBatch(fin_req,
+                                               tm)
+                except (InvalidClientMessageException, UnknownIdentifier) as ex:
+                    self.logger.warning('{} encountered exception {} while processing {}, '
+                                        'will reject'.format(self, ex, fin_req))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    invalid_indices.append(idx)
+                finally:
+                    reqs.append(fin_req)
                 idx += 1
-            invalid_indices = [idx for _, idx, _ in rejects]
-            for ind, req in enumerate(reqs):
-                if ind in invalid_indices:
-                    invalid_reqs.append(req)
-                else:
-                    valid_reqs.append(req)
-            return valid_reqs, invalid_reqs, rejects, tm
+            return reqs, invalid_indices, rejects, tm
 
     class _TestReplicas(replicas_class):
         _replica_class = _TestReplica
