@@ -101,9 +101,14 @@ class RequestTimeTracker:
     def __init__(self, instance_count):
         self.instance_count = instance_count
         self._requests = {}
+        self._handled_unordered = set()
 
     def __contains__(self, item):
         return item in self._requests
+
+    def started(self, key):
+        req = self._requests.get(key)
+        return req.timestamp if req is not None else None
 
     def start(self, key, timestamp):
         self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
@@ -112,22 +117,21 @@ class RequestTimeTracker:
         req = self._requests[key]
         tto = timestamp - req.timestamp
         req.order(instId)
+        if instId == 0:
+            self._handled_unordered.discard(key)
         if req.is_ordered_by_all:
             del self._requests[key]
         return tto
 
     def handle(self, key):
         self._requests[key].handled = True
+        self._handled_unordered.add(key)
 
     def reset(self):
         self._requests.clear()
 
-    def unordered(self):
-        return ((key, req.timestamp) for key, req in self._requests.items() if not req.is_ordered)
-
     def handled_unordered(self):
-        return ((key, req.timestamp) for key, req in self._requests.items()
-                if not req.is_ordered and req.is_handled)
+        return self._handled_unordered
 
     def unhandled_unordered(self):
         return ((key, req.timestamp) for key, req in self._requests.items()
@@ -396,11 +400,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 continue
             if self.acc_monitor:
                 self.acc_monitor.request_ordered(key, instId)
-            for reqId, started in self.requestTracker.handled_unordered():
-                if reqId == key:
-                    logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
-                                .format(reqId, self.name, instId, now - started))
-                    continue
+            if key in self.requestTracker.handled_unordered():
+                started = self.requestTracker.started(key)
+                logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
+                            .format(key, self.name, instId, now - started))
+                continue
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:

@@ -339,7 +339,7 @@ def requestReturnedToNode(node: TestNode, key: str,
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [
-        (p['ordered'].instId, p['ordered'].reqIdr[0]) for p in params]
+        (p['ordered'].instId, p['ordered'].valid_reqIdr[0]) for p in params]
     expected = (instId, key)
     return expected in recvdOrderedReqs
 
@@ -645,7 +645,9 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
         "random digest",
         DOMAIN_LEDGER_ID,
         state_root or '0' * 44,
-        txn_root or '0' * 44
+        txn_root or '0' * 44,
+        0,
+        True
     )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}
