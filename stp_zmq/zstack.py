@@ -441,7 +441,7 @@ class ZStack(NetworkInterface):
             return None
         return super().getHa(name)
 
-    async def service(self, quota: Quota, limit=None) -> int:
+    async def service(self, limit=None, quota: Optional[Quota] = None) -> int:
         """
         Service `limit` number of received messages in this stack.
 
@@ -528,7 +528,7 @@ class ZStack(NetworkInterface):
             totalReceived += i
         return totalReceived
 
-    async def _serviceStack(self, age, quota: Quota):
+    async def _serviceStack(self, age, quota: Optional[Quota] = None):
         # TODO: age is unused
 
         # These checks are kept here and not moved to a function since
@@ -538,6 +538,9 @@ class ZStack(NetworkInterface):
             (time.perf_counter() - self.last_heartbeat_at) >=
                 self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
+
+        if quota is None:
+            quota = Quota(count=self.listenerQuota, size=self.listenerSize)
 
         self._receiveFromListener(quota)
         self._receiveFromRemotes(quotaPerRemote=self.senderQuota)

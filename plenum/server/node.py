@@ -1153,7 +1153,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: the number of messages successfully processed
         """
         with self.metrics.measure_time(MetricsName.SERVICE_NODE_STACK_TIME):
-            n = await self.nodestack.service(self.quota_control.node_quota, limit)
+            n = await self.nodestack.service(limit, self.quota_control.node_quota)
 
         self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
 
@@ -1168,7 +1168,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        c = await self.clientstack.service(self.quota_control.client_quota, limit)
+        c = await self.clientstack.service(limit, self.quota_control.client_quota)
         self.metrics.add_event(MetricsName.CLIENT_STACK_MESSAGES_PROCESSED, c)
 
         await self.processClientInBox()
