@@ -50,12 +50,20 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
             # never applied as dynamic validation is a read only
             # operation, it is functionally correct.
             # Can be fixed by capturing the exact order
+            idx = 0
+            reqs = []
             for req_id in req_ids:
                 key = req_id
                 fin_req = fin_reqs[key]
                 self.processReqDuringBatch(
-                    fin_req, tm, valid_reqs, invalid_reqs, rejects)
-
+                    fin_req, tm, idx, reqs, rejects)
+                idx += 1
+            invalid_indexes = [idx for _, idx, _ in rejects]
+            for ind, req in enumerate(reqs):
+                if ind in invalid_indexes:
+                    invalid_reqs.append(req)
+                else:
+                    valid_reqs.append(req)
             return valid_reqs, invalid_reqs, rejects, tm
 
     class _TestReplicas(replicas_class):

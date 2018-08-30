@@ -1450,9 +1450,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
-            elif isinstance(message, tuple) and isinstance(message[1], Reject):
+            elif isinstance(message, tuple) and isinstance(message[2], Reject):
                 with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
-                    digest, reject = message
+                    digest, _, reject = message
                     result_reject = Reject(
                         reject.identifier,
                         reject.reqId,
