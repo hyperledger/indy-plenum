@@ -25,18 +25,19 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
         if self._current_pool_state_root_hash != pool_state_root_hash:
             self._current_pool_state_root_hash = pool_state_root_hash
             self._load_keys_for_root(pool_state_root_hash)
-        if not self._pool_manager.config.VALIDATE_SIGN_WITHOUT_BLS_KEY_PROOF and \
-                self._current_bls_keys_proof.get(node_name, None) in [False, None]:
-            logger.info("{} has no proof of possession for BLS public key.".format(node_name))
-            return None
-        return self._current_bls_keys.get(node_name)
+
+        return self._current_bls_keys.get(node_name, None)
 
     def _load_keys_for_root(self, pool_state_root_hash):
         self._current_bls_keys = {}
-        self._current_bls_keys_proof = {}
         for data in self._pool_manager.reqHandler.get_all_node_data_for_root_hash(
                 pool_state_root_hash):
+            node_name = data[ALIAS]
             if BLS_KEY in data:
-                self._current_bls_keys[data[ALIAS]] = data[BLS_KEY]
-                self._current_bls_keys_proof[data[ALIAS]] = \
-                    BLS_KEY_PROOF in data and data[BLS_KEY_PROOF] is not None
+                if not self._pool_manager.config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF and \
+                        data.get(BLS_KEY_PROOF, None) is None:
+                    logger.warning("{} has no proof of possession for BLS public key.".format(node_name))
+                    self._current_bls_keys[node_name] = None
+                else:
+                    self._current_bls_keys[node_name] = data[BLS_KEY]
+
