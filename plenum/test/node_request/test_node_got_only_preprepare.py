@@ -45,7 +45,7 @@ def test_1_node_get_only_preprepare(looper,
     # Remove connection problems
     reset_sending(txnPoolNodeSet[:-1])
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
 
@@ -96,7 +96,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # Remove connection problems
     reset_sending(txnPoolNodeSet[:-2])
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
 
@@ -120,7 +120,7 @@ def test_2_nodes_get_only_preprepare(looper,
     # Remove connection problems
     reset_sending(txnPoolNodeSet[:-2])
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
 

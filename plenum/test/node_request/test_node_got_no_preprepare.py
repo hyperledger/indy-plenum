@@ -49,7 +49,7 @@ def test_1_node_got_no_preprepare(looper,
     # Remove connection problems
     reset_router_accepting(behind_node)
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
 
@@ -97,7 +97,7 @@ def test_2_node_got_no_preprepare(looper,
     # Remove connection problems
     reset_router_accepting(behind_nodes[0])
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
 
@@ -115,16 +115,12 @@ def test_2_node_got_no_preprepare(looper,
     # Remove connection problems
     reset_router_accepting(behind_nodes[1])
 
-    assert len(txnPoolNodeSet[1].master_replica.prePrepares) - 1 == \
-           len(behind_nodes[1].master_replica.prePrepares)
-    assert nodes_last_ordered_equal(behind_nodes[1], master_node)
+    # Pool stayed alive
+    looper.run(eventually(nodes_last_ordered_equal, behind_nodes[1], master_node))
 
-    # Send txns and wait for some time
+    # Send txns
     sdk_send_batches_of_random(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-
-    # Pool is not ordering because of lack of consensus
-    # assert master_node.master_last_ordered_3PC[1] == 3
 
     # After DELTA_3PC_ASKING batches, behind_node asks for pre-prepare and starting ordering
     sdk_send_batches_of_random(
