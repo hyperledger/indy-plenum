@@ -1,7 +1,10 @@
 import pytest
 
+from plenum.test.node_request.helper import nodes_last_ordered_equal
+from stp_core.loop.eventually import eventually
+
 from plenum.test.helper import sdk_send_batches_of_random_and_check
-from plenum.test.malicious_behaviors_node import dontSendPrepareAndCommitTo, resetSending
+from plenum.test.malicious_behaviors_node import dont_send_prepare_and_commit_to, reset_sending
 
 
 @pytest.fixture(scope="module")
@@ -15,10 +18,12 @@ def tconf(tconf):
 def test_1_node_get_only_preprepare(looper,
                                     txnPoolNodeSet,
                                     sdk_pool_handle,
-                                    sdk_wallet_client):
+                                    sdk_wallet_client,
+                                    tconf):
     master_node = txnPoolNodeSet[0]
     behind_node = txnPoolNodeSet[-1]
     last_ordered = master_node.master_last_ordered_3PC[1]
+    delta = tconf.DELTA_3PC_ASKING
     num_of_batches = 1
 
     # Nodes order batches
@@ -28,7 +33,7 @@ def test_1_node_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC
 
     # Emulate connection problems, behind_node receiving only pre-prepares
-    dontSendPrepareAndCommitTo(txnPoolNodeSet[:-1], behind_node.name)
+    dont_send_prepare_and_commit_to(txnPoolNodeSet[:-1], behind_node.name)
 
     # Send some txns and behind_node cant order them while pool is working
     sdk_send_batches_of_random_and_check(
@@ -38,12 +43,11 @@ def test_1_node_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # Remove connection problems
-    resetSending(txnPoolNodeSet[:-1])
+    reset_sending(txnPoolNodeSet[:-1])
 
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(3)
 
     # behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -55,19 +59,20 @@ def test_1_node_get_only_preprepare(looper,
     # When we try to order commit, which seq_no > DELTA_3PC_ASKING + last_ordered of ours,
     # than we requesting 3pc messages for last_ordered seq_no + 1
     sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
-    looper.runFor(3)
-    assert behind_node.master_last_ordered_3PC[1] == \
-           master_node.master_last_ordered_3PC[1]
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+
+    looper.run(eventually(nodes_last_ordered_equal, behind_node, master_node))
 
 
 def test_2_nodes_get_only_preprepare(looper,
                                      txnPoolNodeSet,
                                      sdk_pool_handle,
-                                     sdk_wallet_client):
+                                     sdk_wallet_client,
+                                     tconf):
     master_node = txnPoolNodeSet[0]
     behind_nodes = txnPoolNodeSet[-2:]
     last_ordered = master_node.master_last_ordered_3PC[1]
+    delta = tconf.DELTA_3PC_ASKING
     num_of_batches = 1
 
     # Nodes order batches
@@ -79,7 +84,7 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC
 
     # Emulate connection problems, 1st behind_node receiving only pre-prepares
-    dontSendPrepareAndCommitTo(txnPoolNodeSet[:-2], behind_nodes[0].name)
+    dont_send_prepare_and_commit_to(txnPoolNodeSet[:-2], behind_nodes[0].name)
 
     # Send some txns and 1st behind_node cant order them while pool is working
     sdk_send_batches_of_random_and_check(
@@ -89,12 +94,11 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # Remove connection problems
-    resetSending(txnPoolNodeSet[:-2])
+    reset_sending(txnPoolNodeSet[:-2])
 
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(3)
 
     # 1st behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -104,7 +108,7 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # Emulate connection problems, 2nd behind_node receiving only pre-prepares
-    dontSendPrepareAndCommitTo(txnPoolNodeSet[:-2], behind_nodes[1].name)
+    dont_send_prepare_and_commit_to(txnPoolNodeSet[:-2], behind_nodes[1].name)
 
     # Send some txns and 2nd behind_node cant order them while pool is working
     sdk_send_batches_of_random_and_check(
@@ -114,12 +118,11 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # Remove connection problems
-    resetSending(txnPoolNodeSet[:-2])
+    reset_sending(txnPoolNodeSet[:-2])
 
     # Send txns and wait for some time
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 3, num_of_batches)
-    looper.runFor(3)
 
     # 2nd behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -137,8 +140,5 @@ def test_2_nodes_get_only_preprepare(looper,
     # When we try to order commit, which seq_no is more (at DELTA_3PC_ASKING size)
     # than last ordered of ours, than we requesting for last_ordered seq_no + 1 3pc messages
     sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6, 6)
-    looper.runFor(3)
-    assert master_node.master_last_ordered_3PC[1] == \
-           behind_nodes[0].master_last_ordered_3PC[1] == \
-           behind_nodes[1].master_last_ordered_3PC[1]
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+    looper.run(eventually(nodes_last_ordered_equal, *behind_nodes, master_node))

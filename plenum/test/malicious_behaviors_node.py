@@ -61,14 +61,14 @@ def dont_send_prepare_commit(self, msg: Any, *rids, signer=None, message_splitte
     self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
 
 
-def dontSendPrepareAndCommitTo(nodes, ignore_node_name):
+def dont_send_prepare_and_commit_to(nodes, ignore_node_name):
     for node in nodes:
         node.ignore_node_name = ignore_node_name
         node.old_send = types.MethodType(Node.send, node)
         node.send = types.MethodType(dont_send_prepare_commit, node)
 
 
-def resetSending(nodes):
+def reset_sending(nodes):
     for node in nodes:
         node.send = types.MethodType(Node.send, node)
 
@@ -78,13 +78,13 @@ def router_dont_accept(self, msg: Any):
         self.oldHandleSync(msg)
 
 
-def RouterDontAcceptMessagesFrom(node, ignore_node_name):
+def router_dont_accept_messages_from(node, ignore_node_name):
     node.nodeMsgRouter.ignore_node_name = ignore_node_name
     node.nodeMsgRouter.oldHandleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
     node.nodeMsgRouter.handleSync = types.MethodType(router_dont_accept, node.nodeMsgRouter)
 
 
-def resetRouterAccepting(node):
+def reset_router_accepting(node):
     node.nodeMsgRouter.handleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
 
 
