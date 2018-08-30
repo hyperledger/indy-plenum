@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import pytest
 import functools
 
@@ -14,10 +16,14 @@ def fake_monitor():
 
 @pytest.fixture(scope='function', params=[0, 10])
 def fake_node(fake_node):
+    @contextmanager
+    def measure_time(*args):
+        yield 
     fake_node.instances = Instances()
     fake_node.instances.add()
     fake_node.spylog = []
-    fake_node.metrics = FakeSomething(add_event=lambda *args: True)
+    fake_node.metrics = FakeSomething(add_event=lambda *args: True,
+                                      measure_time=measure_time)
     return fake_node
 
 

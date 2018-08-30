@@ -5,9 +5,9 @@ import pytest
 from plenum.common.average_strategies import EMALatencyMeasurementForEachClient
 
 
-@pytest.fixture(scope='function', params=[EMALatencyMeasurementForEachClient])
-def latency_instance(tconf, request):
-    lm = request.param(tconf)
+@pytest.fixture(scope='function')
+def latency_instance(tconf):
+    lm = EMALatencyMeasurementForEachClient(tconf)
     return lm
 
 
@@ -75,3 +75,16 @@ def test_spike_on_two_clients_on_backup(latency_instance, tconf):
     fill_durations(liB, clientB2)
 
     assert liM.get_avg_latency() - liB.get_avg_latency() < tconf.OMEGA
+
+
+def test_latency_too_high(latency_instance, tconf):
+    liM = latency_instance
+    liB = copy.deepcopy(latency_instance)
+    master_lat = 100
+    num_reqs = 50
+    clientM = {"master_client": [master_lat] * num_reqs}
+    clientB = {"backup_client": [master_lat / 2] * num_reqs}
+    fill_durations(liM, clientM)
+    fill_durations(liB, clientB)
+
+    assert liM.get_avg_latency() - liB.get_avg_latency() > tconf.OMEGA
