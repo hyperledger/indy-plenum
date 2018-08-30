@@ -58,9 +58,9 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
                 self.processReqDuringBatch(
                     fin_req, tm, idx, reqs, rejects)
                 idx += 1
-            invalid_indexes = [idx for _, idx, _ in rejects]
+            invalid_indices = [idx for _, idx, _ in rejects]
             for ind, req in enumerate(reqs):
-                if ind in invalid_indexes:
+                if ind in invalid_indices:
                     invalid_reqs.append(req)
                 else:
                     valid_reqs.append(req)

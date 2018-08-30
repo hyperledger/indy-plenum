@@ -796,7 +796,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         reqs, rejects, tm = self.consume_req_queue_for_pre_prepare(
             ledger_id, self.viewNo,
             pp_seq_no)
-        invalid_indexes = [idx for _, idx, _ in rejects]
+        invalid_indices = [idx for _, idx, _ in rejects]
         if len(reqs) == 0:
             self.logger.trace('{} not creating a Pre-Prepare for view no {} '
                               'seq no {}'.format(self, self.viewNo, pp_seq_no))
@@ -812,7 +812,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pp_seq_no,
             tm,
             [req.digest for req in reqs],
-            invalid_index_serializer.serialize(invalid_indexes, toBytes=False),
+            invalid_index_serializer.serialize(invalid_indices, toBytes=False),
             digest,
             ledger_id,
             state_root_hash,
@@ -1768,11 +1768,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self.addToOrdered(*key)
-        invalid_indexes = invalid_index_serializer.deserialize(pp.discarded)
+        invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
         invalid_reqIdr = []
         valid_reqIdr = []
         for ind, reqIdr in enumerate(pp.reqIdr):
-            if ind in invalid_indexes:
+            if ind in invalid_indices:
                 invalid_reqIdr.append(reqIdr)
             else:
                 valid_reqIdr.append(reqIdr)
