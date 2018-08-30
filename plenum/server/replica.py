@@ -1301,7 +1301,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def revert():
             self.revert(pre_prepare.ledgerId,
                         old_state_root,
-                        BitmaskHelper.get_valid_count(discarded_mask))
+                        BitmaskHelper.get_valid_count(discarded_mask, len(pre_prepare.reqIdr)))
         discarded_from_pp = BitmaskHelper.pack_discarded_mask(pre_prepare.discarded)
         # If all bits in mask are False
         if not discarded_mask.any():
