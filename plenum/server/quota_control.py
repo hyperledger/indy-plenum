@@ -1,40 +1,27 @@
+from stp_zmq.zstack import Quota
+
 
 class QuotaControl:
     def __init__(self,
-                 max_node_message_count_limit,
-                 max_node_message_size_limit,
-                 max_client_message_count_limit,
-                 max_client_message_size_limit):
-        self._max_node_message_count_limit = max_node_message_count_limit
-        self._max_node_message_size_limit = max_node_message_size_limit
-        self._max_client_message_count_limit = max_client_message_count_limit
-        self._max_client_message_size_limit = max_client_message_size_limit
-        self._node_quota_reached = False
+                 dynamic: bool,
+                 max_request_queue_size: int,
+                 max_node_quota: Quota,
+                 max_client_quota: Quota):
+        self._dynamic = dynamic
+        self._max_request_queue_size = max_request_queue_size
+        self._max_node_quota = max_node_quota
+        self._max_client_quota = max_client_quota
+        self._request_queue_overflow = False
 
-    def received_node_messages(self, count: int, size: int):
-        self._node_quota_reached = \
-            count >= self._max_node_message_count_limit or \
-            size >= self._max_node_message_size_limit
-
-    def received_client_messages(self, count: int, size: int):
-        pass
+    def set_request_queue_len(self, value):
+        self._request_queue_overflow = value >= self._max_request_queue_size
 
     @property
-    def node_message_count_limit(self):
-        return self._max_node_message_count_limit
+    def node_quota(self) -> Quota:
+        return self._max_node_quota
 
     @property
-    def node_message_size_limit(self):
-        return self._max_node_message_size_limit
-
-    @property
-    def client_message_count_limit(self):
-        if self._node_quota_reached:
-            return 0
-        return self._max_client_message_count_limit
-
-    @property
-    def client_message_size_limit(self):
-        if self._node_quota_reached:
-            return 0
-        return self._max_client_message_size_limit
+    def client_quota(self) -> Quota:
+        if not self._dynamic:
+            return self._max_client_quota
+        return Quota(count=0, size=0) if self._request_queue_overflow else self._max_client_quota

@@ -1,50 +1,49 @@
 from plenum.server.quota_control import QuotaControl
+from stp_zmq.zstack import Quota
 
-MAX_NODE_MESSAGE_COUNT_LIMIT = 100
-MAX_NODE_MESSAGE_SIZE_LIMIT = 1024 * 1024
-MAX_CLIENT_MESSAGE_COUNT_LIMIT = 20
-MAX_CLIENT_MESSAGE_SIZE_LIMIT = 24 * 1024
+MAX_REQUEST_QUEUE_LEN = 1000
+MAX_NODE_QUOTA = Quota(count=100, size=1024*1024)
+MAX_CLIENT_QUOTA = Quota(count=100, size=1024*1024)
+ZERO_QUOTA = Quota(count=0, size=0)
 
 
-def create_quota_control() -> QuotaControl:
-    return QuotaControl(max_node_message_count_limit=MAX_NODE_MESSAGE_COUNT_LIMIT,
-                        max_node_message_size_limit=MAX_NODE_MESSAGE_SIZE_LIMIT,
-                        max_client_message_count_limit=MAX_CLIENT_MESSAGE_COUNT_LIMIT,
-                        max_client_message_size_limit=MAX_CLIENT_MESSAGE_SIZE_LIMIT)
+def create_quota_control(dynamic: bool = True) -> QuotaControl:
+    return QuotaControl(dynamic=dynamic,
+                        max_request_queue_size=MAX_REQUEST_QUEUE_LEN,
+                        max_node_quota=MAX_NODE_QUOTA,
+                        max_client_quota=MAX_CLIENT_QUOTA)
 
 
 def test_quota_control_gives_maximum_quotas_initially():
     qc = create_quota_control()
-    assert qc.node_message_count_limit == MAX_NODE_MESSAGE_COUNT_LIMIT
-    assert qc.node_message_size_limit == MAX_NODE_MESSAGE_SIZE_LIMIT
-    assert qc.client_message_count_limit == MAX_CLIENT_MESSAGE_COUNT_LIMIT
-    assert qc.client_message_size_limit == MAX_CLIENT_MESSAGE_SIZE_LIMIT
+    assert qc.node_quota == MAX_NODE_QUOTA
+    assert qc.client_quota == MAX_CLIENT_QUOTA
 
 
-def test_quota_control_gives_maximum_quotas_when_none_are_reached():
+def test_quota_control_gives_maximum_quotas_when_request_queue_length_is_below_limit():
     qc = create_quota_control()
-    qc.received_node_messages(MAX_NODE_MESSAGE_COUNT_LIMIT // 2, MAX_NODE_MESSAGE_SIZE_LIMIT // 2)
-    qc.received_client_messages(MAX_CLIENT_MESSAGE_COUNT_LIMIT // 2, MAX_CLIENT_MESSAGE_SIZE_LIMIT // 2)
-    assert qc.node_message_count_limit == MAX_NODE_MESSAGE_COUNT_LIMIT
-    assert qc.node_message_size_limit == MAX_NODE_MESSAGE_SIZE_LIMIT
-    assert qc.client_message_count_limit == MAX_CLIENT_MESSAGE_COUNT_LIMIT
-    assert qc.client_message_size_limit == MAX_CLIENT_MESSAGE_SIZE_LIMIT
+    qc.set_request_queue_len(MAX_REQUEST_QUEUE_LEN - 1)
+    assert qc.node_quota == MAX_NODE_QUOTA
+    assert qc.client_quota == MAX_CLIENT_QUOTA
 
 
-def test_quote_control_gives_no_quota_for_client_when_node_quota_is_reached():
+def test_quote_control_gives_no_quota_for_client_when_queue_length_reaches_limit():
     qc = create_quota_control()
-    qc.received_node_messages(MAX_NODE_MESSAGE_COUNT_LIMIT, MAX_NODE_MESSAGE_SIZE_LIMIT)
-    assert qc.node_message_count_limit == MAX_NODE_MESSAGE_COUNT_LIMIT
-    assert qc.node_message_size_limit == MAX_NODE_MESSAGE_SIZE_LIMIT
-    assert qc.client_message_count_limit == 0
-    assert qc.client_message_size_limit == 0
+    qc.set_request_queue_len(MAX_REQUEST_QUEUE_LEN)
+    assert qc.node_quota == MAX_NODE_QUOTA
+    assert qc.client_quota == ZERO_QUOTA
 
 
-def test_quote_control_restores_client_quotas_when_node_quota_is_no_longer_reached():
+def test_quote_control_restores_client_quotas_when_request_queue_length_drops_below_limit():
     qc = create_quota_control()
-    qc.received_node_messages(MAX_NODE_MESSAGE_COUNT_LIMIT, MAX_NODE_MESSAGE_SIZE_LIMIT)
-    qc.received_node_messages(MAX_NODE_MESSAGE_COUNT_LIMIT // 2, MAX_NODE_MESSAGE_SIZE_LIMIT // 2)
-    assert qc.node_message_count_limit == MAX_NODE_MESSAGE_COUNT_LIMIT
-    assert qc.node_message_size_limit == MAX_NODE_MESSAGE_SIZE_LIMIT
-    assert qc.client_message_count_limit == MAX_CLIENT_MESSAGE_COUNT_LIMIT
-    assert qc.client_message_size_limit == MAX_CLIENT_MESSAGE_SIZE_LIMIT
+    qc.set_request_queue_len(MAX_REQUEST_QUEUE_LEN)
+    qc.set_request_queue_len(MAX_REQUEST_QUEUE_LEN - 1)
+    assert qc.node_quota == MAX_NODE_QUOTA
+    assert qc.client_quota == MAX_CLIENT_QUOTA
+
+
+def test_quota_control_gives_maximum_quotas_when_dynamic_control_is_disabled():
+    qc = create_quota_control(dynamic=False)
+    qc.set_request_queue_len(2 * MAX_REQUEST_QUEUE_LEN)
+    assert qc.node_quota == MAX_NODE_QUOTA
+    assert qc.client_quota == MAX_CLIENT_QUOTA

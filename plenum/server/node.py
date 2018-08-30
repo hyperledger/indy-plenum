@@ -16,6 +16,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
+from plenum.server.quota_control import QuotaControl
 from plenum.server.replica import Replica
 from state.pruning_state import PruningState
 from state.state import State
@@ -26,7 +27,7 @@ from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
-from stp_zmq.zstack import ZStack
+from stp_zmq.zstack import ZStack, Quota
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.hash_store import HashStore
@@ -386,6 +387,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (CatchupReq, self.ledgerManager.processCatchupReq),
         )
+
+        # Dynamic quotas control
+        self.quota_control = QuotaControl(dynamic=config.ENABLE_DYNAMIC_QUOTAS,
+                                          max_request_queue_size=config.MAX_REQUEST_QUEUE_SIZE,
+                                          max_node_quota=Quota(count=config.NODE_TO_NODE_STACK_QUOTA,
+                                                               size=config.NODE_TO_NODE_STACK_SIZE),
+                                          max_client_quota=Quota(count=config.CLIENT_TO_NODE_STACK_QUOTA,
+                                                                 size=config.CLIENT_TO_NODE_STACK_SIZE))
 
         # Ordered requests received from replicas while the node was not
         # participating
@@ -1098,6 +1107,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
         self.last_prod_started = time.perf_counter()
 
+        self.quota_control.set_request_queue_len(len(self.requests))
+
         if self.status is not Status.stopped:
             c += await self.serviceReplicas(limit)
             c += await self.serviceNodeMsgs(limit)
@@ -1142,7 +1153,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: the number of messages successfully processed
         """
         with self.metrics.measure_time(MetricsName.SERVICE_NODE_STACK_TIME):
-            n = await self.nodestack.service(limit)
+            n = await self.nodestack.service(self.quota_control.node_quota, limit)
+
         self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
 
         await self.processNodeInBox()
@@ -1156,7 +1168,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        c = await self.clientstack.service(limit)
+        c = await self.clientstack.service(self.quota_control.client_quota, limit)
         self.metrics.add_event(MetricsName.CLIENT_STACK_MESSAGES_PROCESSED, c)
 
         await self.processClientInBox()
