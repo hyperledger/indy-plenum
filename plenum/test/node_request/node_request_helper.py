@@ -8,6 +8,7 @@ from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.bls.helper import init_discarded
 from plenum.test.helper import chk_all_funcs
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
@@ -82,11 +83,13 @@ def checkPrePrepared(looper,
                 primary.lastPrePrepareSeqNo,
                 get_utc_epoch(),
                 [propagated1.digest],
-                1,
+                init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
                 primary.stateRootHash(DOMAIN_LEDGER_ID),
                 primary.txnRootHash(DOMAIN_LEDGER_ID),
+                0,
+                True
             )
 
             passes = 0

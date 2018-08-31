@@ -2,6 +2,7 @@ import types
 
 import pytest
 
+from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
@@ -16,14 +17,19 @@ nodeCount = 7
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_thr_window_size = tconf.ThroughputInnerWindowSize
-    old_thr_window_count = tconf.ThroughputMinActivityThreshold
-    tconf.ThroughputInnerWindowSize = 2
-    tconf.ThroughputMinActivityThreshold = 3
+    old_throughput_measurement_class = tconf.throughput_measurement_class
+    old_throughput_measurement_params = tconf.throughput_measurement_params
+
+    tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+    tconf.throughput_measurement_params = {
+        'window_size': 2,
+        'min_cnt': 3
+    }
 
     yield tconf
-    tconf.ThroughputInnerWindowSize = old_thr_window_size
-    tconf.ThroughputMinActivityThreshold = old_thr_window_count
+
+    tconf.throughput_measurement_class = old_throughput_measurement_class
+    tconf.throughput_measurement_params = old_throughput_measurement_params
 
 
 # noinspection PyIncorrectDocstring

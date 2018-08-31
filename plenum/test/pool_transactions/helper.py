@@ -4,6 +4,9 @@ from indy.did import create_and_store_my_did
 from indy.ledger import build_node_request, build_nym_request, \
     build_get_txn_request
 from indy.pool import refresh_pool_ledger
+
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
+    BlsCryptoSignerIndyCrypto
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
@@ -49,9 +52,9 @@ def prepare_new_node_data(tconf, tdir, newNodeName, configClass=PNodeConfigHelpe
     sigseed = randomString(32).encode()
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     config_helper = configClass(newNodeName, tconf, chroot=tdir)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
+    pubkey, verkey, bls_key, key_proof = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
                                                    sigseed, override=True)
-    return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort
+    return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof
 
 
 def start_not_added_node(looper,
@@ -61,14 +64,15 @@ def start_not_added_node(looper,
     Creates and starts a new node, but doesn't add it to the Pool
     (so, NODE txn is not sent).
     '''
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, newNodeName)
 
     new_node = create_and_start_new_node(looper, newNodeName,
                                          tdir, randomString(32).encode(),
                                          (nodeIp, nodePort), (clientIp, clientPort),
                                          tconf, True, allPluginsPath, TestNode)
-    return sigseed, bls_key, new_node, (nodeIp, nodePort), (clientIp, clientPort)
+    return sigseed, bls_key, new_node, (nodeIp, nodePort), \
+           (clientIp, clientPort), key_proof
 
 
 def add_started_node(looper,
@@ -78,7 +82,8 @@ def add_started_node(looper,
                      txnPoolNodeSet,
                      sdk_pool_handle,
                      sdk_wallet_steward,
-                     bls_key):
+                     bls_key,
+                     key_proof):
     '''
     Adds already created node to the pool,
     that is sends NODE txn.
@@ -95,7 +100,8 @@ def add_started_node(looper,
                          node_ha[0], node_ha[1],
                          client_ha[0], client_ha[1],
                          services=[VALIDATOR],
-                         bls_key=bls_key)
+                         bls_key=bls_key,
+                         key_proof=key_proof)
 
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -217,7 +223,7 @@ def sdk_add_new_node(looper,
                      do_post_node_creation: Callable = None,
                      services=[VALIDATOR]):
     nodeClass = nodeClass or TestNode
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
 
     # filling node request
@@ -231,7 +237,8 @@ def sdk_add_new_node(looper,
                              nodePort=nodePort,
                              bls_key=bls_key,
                              sigseed=sigseed,
-                             services=services))
+                             services=services,
+                             key_proof=key_proof))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
@@ -267,7 +274,8 @@ async def prepare_nym_request(wallet, named_seed, alias,
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
-                               sigseed=None, destination=None, services=[VALIDATOR]):
+                               sigseed=None, destination=None, services=[VALIDATOR],
+                               key_proof=None):
     use_sigseed = sigseed is not None
     use_dest = destination is not None
     if use_sigseed == use_dest:
@@ -287,6 +295,8 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
         data['node_ip'] = nodeIp
     if nodePort is not None:
         data['node_port'] = nodePort
+    if key_proof is not None:
+        data['blskey_pop'] = key_proof
     if bls_key is not None:
         data['blskey'] = bls_key
     if services is not None:
@@ -310,7 +320,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                          node_ip, node_port,
                          client_ip, client_port,
                          services=[VALIDATOR],
-                         bls_key=None):
+                         bls_key=None,
+                         key_proof=None):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -322,7 +333,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                              nodePort=node_port,
                              bls_key=bls_key,
                              destination=destination,
-                             services=services))
+                             services=services,
+                             key_proof=key_proof))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
@@ -386,7 +398,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     return restartedNode
 
 
-def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verkey):
+def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
+                         verkey):
     _, steward_did = sdk_wallet_steward
     node_dest = hexToFriendly(node.nodestack.verhex)
     node_request = looper.loop.run_until_complete(

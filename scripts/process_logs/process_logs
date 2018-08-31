@@ -88,6 +88,12 @@ class InputLogCache:
             data = yaml.load(f.read())
             self.min_timestamp = data.get("min_timestamp", None)
             self.max_timestamp = data.get("max_timestamp", None)
+
+            if not isinstance(self.min_timestamp, datetime):
+                self.min_timestamp = None
+            if not isinstance(self.max_timestamp, datetime):
+                self.max_timestamp = None
+
             if self.min_timestamp is None and self.max_timestamp is not None:
                 self.min_timestamp = self.max_timestamp
             if self.max_timestamp is None and self.min_timestamp is not None:
@@ -251,7 +257,7 @@ def messages_in_log(log: InputLogInfo):
                     m.timestamp = cur_time
                     yield m
                 stashed_messages = []
-                if cur_time < last_time:
+                if last_time is not None and cur_time < last_time:
                     print("{}: time went back from {} to {}".format(log.filename, last_time, cur_time))
                 last_time = cur_time
                 yield message
@@ -310,6 +316,10 @@ def match_level(params):
     return match
 
 
+def match_source(source):
+    return lambda message: source == message.source
+
+
 def match_message(pattern):
     m = re.compile(str(pattern)).search
     return lambda message: m(message.body) is not None
@@ -346,6 +356,8 @@ def _create_matcher(config):
         return match_timestamp(params)
     if name == "level":
         return match_level(params)
+    if name == "source":
+        return match_source(params)
     if name == "message":
         return match_message(params)
     if name == "replica":
@@ -531,6 +543,7 @@ class OutputLogFile:
 
     def dump(self):
         self.lines.sort()
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
         with open(self.filename, 'w') as f:
             for _, line in self.lines:
                 f.write(line)

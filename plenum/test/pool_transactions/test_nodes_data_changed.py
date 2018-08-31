@@ -1,6 +1,8 @@
 import pytest
 
-from plenum.common.exceptions import RequestRejectedException
+from plenum.common.exceptions import RequestRejectedException, \
+    RequestNackedException
+from plenum.common.keygen_utils import init_bls_keys
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
@@ -79,3 +81,27 @@ def testNodePortChanged(looper, txnPoolNodeSet,
                                    cli_ha.host, cli_ha.port,
                                    tdir, tconf)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
+
+
+def test_fail_node_bls_key_validation(looper,
+                                      sdk_pool_handle,
+                                      sdk_node_theta_added):
+    """
+    Test request for change node bls key with incorrect
+    bls key proof of possession.
+    """
+    new_steward_wallet, new_node = sdk_node_theta_added
+    node_dest = hexToFriendly(new_node.nodestack.verhex)
+    bls_key, key_proof = init_bls_keys(new_node.keys_dir, new_node.name)
+    # change key_proof
+    key_proof = key_proof.upper()
+    with pytest.raises(RequestNackedException) as e:
+        sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+                             node_dest, new_node.name,
+                             None, None,
+                             None, None,
+                             bls_key=bls_key,
+                             key_proof=key_proof)
+        assert "Proof of possession {} " \
+               "is incorrect for BLS key {}".format(key_proof, bls_key) \
+               in e._excinfo[1].args[0]

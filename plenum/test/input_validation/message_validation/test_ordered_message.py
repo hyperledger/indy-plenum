@@ -3,13 +3,14 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, IterableField, TimestampField, HexField, MerkleRootField, \
-    AnyValueField, AnyMapField
+    AnyValueField, AnyMapField, SerializedValueField
 from plenum.common.messages.node_messages import Ordered
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
-    ("reqIdr", IterableField),
+    ("valid_reqIdr", IterableField),
+    ("invalid_reqIdr", IterableField),
     ("ppSeqNo", NonNegativeNumberField),
     ("ppTime", TimestampField),
     ("ledgerId", LedgerIdField),

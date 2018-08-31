@@ -58,6 +58,8 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
         self.postrestart_wait_time = config.STACK_POSTRESTART_WAIT_TIME
         self.min_stack_restart_timeout = config.MIN_STACK_RESTART_TIMEOUT
         self.max_stack_restart_time_deviation = config.MAX_STACK_RESTART_TIME_DEVIATION
+        self.listenerQuota = config.CLIENT_TO_NODE_STACK_QUOTA
+        self.listenerSize = config.CLIENT_TO_NODE_STACK_SIZE
 
         if self.track_connected_clients_num_enabled:
             logger.info('{}: clients connections tracking is enabled.'.format(self))
@@ -172,6 +174,8 @@ class NodeZStack(Batched, KITZStack):
                            mt_incoming_size=MetricsName.INCOMING_NODE_MESSAGE_SIZE,
                            mt_outgoing_size=MetricsName.OUTGOING_NODE_MESSAGE_SIZE)
         MessageProcessor.__init__(self, allowDictOnly=False)
+        self.listenerQuota = config.NODE_TO_NODE_STACK_QUOTA
+        self.listenerSize = config.NODE_TO_NODE_STACK_SIZE
 
     # TODO: Reconsider defaulting `reSetupAuth` to True.
     def start(self, restricted=None, reSetupAuth=True):

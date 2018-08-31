@@ -1,5 +1,5 @@
 from crypto.bls.bls_key_register import BlsKeyRegister
-from plenum.common.constants import BLS_KEY
+from plenum.common.constants import BLS_KEY, ALIAS
 from plenum.server.pool_manager import TxnPoolManager
 
 
@@ -26,8 +26,7 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
 
     def _load_keys_for_root(self, pool_state_root_hash):
         self._current_bls_keys = {}
-        for node_name in self._pool_manager.nodeReg.keys():
-            node_nym = self._pool_manager.get_nym_by_name(node_name)
-            data = self._pool_manager.reqHandler.get_node_data_for_root_hash(pool_state_root_hash, node_nym)
+        for data in self._pool_manager.reqHandler.get_all_node_data_for_root_hash(
+                pool_state_root_hash):
             if BLS_KEY in data:
-                self._current_bls_keys[node_name] = data[BLS_KEY]
+                self._current_bls_keys[data[ALIAS]] = data[BLS_KEY]
