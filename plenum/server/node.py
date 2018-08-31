@@ -1113,7 +1113,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.last_prod_started = time.perf_counter()
 
         self.quota_control.update_state({
-            'request_queue_len': len(self.monitor.requestTracker.unordered())}
+            'request_queue_size': len(self.monitor.requestTracker.unordered())}
         )
 
         if self.status is not Status.stopped:

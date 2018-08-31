@@ -66,7 +66,7 @@ class RequestQueueQuotaControl(QuotaControl):
         self._request_queue_overflow = False
 
     def update_state(self, state: dict):
-        self._request_queue_overflow = state.get('request_queue_len', 0) >= self._max_request_queue_size
+        self._request_queue_overflow = state.get('request_queue_size', 0) >= self._max_request_queue_size
 
     @property
     def node_quota(self) -> Quota:
