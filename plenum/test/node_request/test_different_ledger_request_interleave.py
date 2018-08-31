@@ -66,12 +66,18 @@ def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
     # request
     next_node_name = 'next_node'
 
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, next_node_name)
     node_req = looper.loop.run_until_complete(
-        prepare_node_request(steward_did, next_node_name, clientIp,
-                             clientPort, nodeIp, nodePort, bls_key,
-                             sigseed))
+        prepare_node_request(steward_did,
+                             new_node_name=next_node_name,
+                             clientIp=clientIp,
+                             clientPort=clientPort,
+                             nodeIp=nodeIp,
+                             nodePort=nodePort,
+                             bls_key=bls_key,
+                             sigseed=sigseed,
+                             key_proof=key_proof))
 
     sdk_wallet = (new_steward_wallet, steward_did)
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet,

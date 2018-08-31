@@ -1,6 +1,8 @@
 import base58
 import os
 
+from bitarray import bitarray
+
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
@@ -8,7 +10,7 @@ from plenum.common.txn_util import get_type, reqToTxn
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
-from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, invalid_index_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
@@ -101,6 +103,14 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     return creator._calculate_multi_sig(key, pre_prepare)
 
 
+def init_discarded(value=None):
+    """init discarded field with value and return message like representation"""
+    discarded = []
+    if value:
+        discarded.append(value)
+    return invalid_index_serializer.serialize(discarded, toBytes=False)
+
+
 def create_pre_prepare_params(state_root,
                               ledger_id=DOMAIN_LEDGER_ID,
                               txn_root=None,
@@ -111,11 +121,13 @@ def create_pre_prepare_params(state_root,
               0,
               timestamp or get_utc_epoch(),
               ["random request digest"],
-              0,
+              init_discarded(0),
               "random digest",
               ledger_id,
               state_root,
-              txn_root or '1' * 32]
+              txn_root or '1' * 32,
+              0,
+              True]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params
@@ -171,11 +183,14 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        sdk_pool_handle,
                        sdk_wallet_steward,
                        add_wrong=False,
-                       new_bls=None):
-    new_blspk = init_bls_keys(node.keys_dir, node.name)
-    key_in_txn = new_bls or new_blspk \
-        if not add_wrong \
-        else base58.b58encode(randomString(128).encode()).decode("utf-8")
+                       new_bls=None,
+                       new_key_proof=None):
+    if add_wrong:
+        _, new_blspk, key_proof = create_default_bls_crypto_factory().generate_bls_keys()
+    else:
+        new_blspk, key_proof = init_bls_keys(node.keys_dir, node.name)
+    key_in_txn = new_bls or new_blspk
+    bls_key_proof = new_key_proof or key_proof
     node_dest = hexToFriendly(node.nodestack.verhex)
     sdk_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
@@ -183,7 +198,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          None, None,
                          bls_key=key_in_txn,
-                         services=None)
+                         services=None,
+                         key_proof=bls_key_proof)
     poolSetExceptOne = list(txnPoolNodeSet)
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)

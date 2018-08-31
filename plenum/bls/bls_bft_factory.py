@@ -25,7 +25,8 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
     def create_bls_bft_replica(self, is_master) -> BlsBftReplica:
         return BlsBftReplicaPlenum(self._node.name,
                                    self._node.bls_bft,
-                                   is_master)
+                                   is_master,
+                                   self._node.metrics)
 
 
 def create_default_bls_bft_factory(node):
@@ -37,5 +38,4 @@ def create_default_bls_bft_factory(node):
     '''
     bls_keys_dir = os.path.join(node.keys_dir, node.name)
     bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
-    return BlsFactoryBftPlenum(bls_crypto_factory,
-                               node)
+    return BlsFactoryBftPlenum(bls_crypto_factory, node)

@@ -3,6 +3,8 @@ import pytest
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
     BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
+from indy_crypto import IndyCryptoError
+from indy_crypto.error import ErrorCode
 
 
 @pytest.fixture()
@@ -23,12 +25,14 @@ def keys2(default_params):
 
 @pytest.fixture()
 def bls_signer1(keys1, default_params):
-    return BlsCryptoSignerIndyCrypto(*keys1, default_params)
+    sk, vk, key_proof = keys1
+    return BlsCryptoSignerIndyCrypto(sk, vk, default_params)
 
 
 @pytest.fixture()
 def bls_signer2(keys2, default_params):
-    return BlsCryptoSignerIndyCrypto(*keys2, default_params)
+    sk, vk, key_proof = keys2
+    return BlsCryptoSignerIndyCrypto(sk, vk, default_params)
 
 
 @pytest.fixture()
@@ -47,38 +51,47 @@ def test_default_params(default_params):
     assert isinstance(g, str)
 
 
-def test_generate_keys_no_seed(default_params):
-    sk, pk = BlsCryptoSignerIndyCrypto.generate_keys(default_params)
+def test_generate_keys_no_seed(default_params, bls_verifier):
+    sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params)
     assert sk
     assert isinstance(sk, str)
     assert pk
     assert isinstance(pk, str)
+    assert key_proof
+    assert isinstance(key_proof, str)
     assert sk != pk
+    assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
-@pytest.yield_fixture(scope="function", params=['48', '32', '31', '33'])
+@pytest.yield_fixture(scope="function", params=['30', '32', '31', '22'])
 def seed(request):
     seed_len = int(request.param)
     return 'Seed' + '0' * (seed_len - len('Seed'))
 
 
-def test_generate_keys_str_seed(default_params, seed):
-    sk, pk = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
+def test_generate_keys_str_seed(default_params, seed, bls_verifier):
+    sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
     assert sk
     assert isinstance(sk, str)
     assert pk
     assert isinstance(pk, str)
     assert sk != pk
+    assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
-def test_generate_keys_bytes_seed(default_params, seed):
+def test_generate_keys_with_incorrect_seed(default_params):
+    seed_len = 40
+    incorrect_seed = 'Seed' + '0' * (seed_len - len('Seed'))
+    with pytest.raises(IndyCryptoError) as e:
+        BlsCryptoSignerIndyCrypto.generate_keys(default_params, incorrect_seed)
+        assert e.error_code == ErrorCode.CommonInvalidStructure
+
+
+def test_verify_incorrect_keys(default_params, seed, bls_verifier):
     seed = seed.encode()
-    sk, pk = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
-    assert sk
-    assert isinstance(sk, str)
-    assert pk
-    assert isinstance(pk, str)
-    assert sk != pk
+    sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
+    key_proof = key_proof.upper()
+    assert not bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
 def test_generate_keys_str_seed_32bit_for_nodes(default_params):
@@ -91,7 +104,7 @@ def test_generate_keys_str_seed_32bit_for_nodes(default_params):
 
     pks = set()
     for i in range(nodes_count):
-        sk, pk = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seeds[i])
+        sk, pk, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seeds[i])
         pks.add(pk)
         print(pk)
 
@@ -103,10 +116,10 @@ def test_generate_different_keys(default_params):
     seed3 = 'seeeed' + '0' * (32 - len('seeeed'))
     seed4 = 'Seed' + '0' * (31 - len('Seed'))
 
-    sk1, pk1 = BlsCryptoSignerIndyCrypto.generate_keys(default_params)
-    sk2, pk2 = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed2)
-    sk3, pk3 = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed3)
-    sk4, pk4 = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed4)
+    sk1, pk1, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params)
+    sk2, pk2, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed2)
+    sk3, pk3, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed3)
+    sk4, pk4, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed4)
     assert sk1 != sk2 != sk3 != sk4
     assert pk1 != pk2 != pk3 != pk4
 

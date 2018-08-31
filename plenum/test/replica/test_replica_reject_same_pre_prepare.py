@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.bls.helper import init_discarded
 from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -93,11 +94,13 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         primaryRepl.lastPrePrepareSeqNo,
         get_utc_epoch(),
         reqIdr,
-        1,
+        init_discarded(),
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
         primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID)
+        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        0,
+        True
     )
 
     logger.debug("""Checking whether all the non primary replicas have received

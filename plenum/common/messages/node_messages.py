@@ -11,7 +11,7 @@ from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, NonEmptyStringField, BooleanField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -112,7 +112,9 @@ class Ordered(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
+        (f.VALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
+        (f.INVALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
             max_length=DIGEST_FIELD_LIMIT))),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
@@ -141,11 +143,13 @@ class PrePrepare(MessageBase):
         (f.PP_TIME.nm, TimestampField()),
         (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
             max_length=DIGEST_FIELD_LIMIT))),
-        (f.DISCARDED.nm, NonNegativeNumberField()),
+        (f.DISCARDED.nm, SerializedValueField(nullable=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.SUB_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.FINAL.nm, BooleanField()),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),

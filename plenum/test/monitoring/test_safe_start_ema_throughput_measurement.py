@@ -1,17 +1,15 @@
 import pytest
 import time
 
-from plenum.server.monitor import ThroughputMeasurement
-
+from plenum.common.measurements import SafeStartEMAThroughputMeasurement
 
 ACCURACY = .1e-3
 
 
 @pytest.fixture(scope="function")
 def request_measurement():
-    rm = ThroughputMeasurement()
-    rm.first_ts = 1
-    rm.window_start_ts = 1
+    rm = SafeStartEMAThroughputMeasurement()
+    rm.init_time(1)
     return rm
 
 

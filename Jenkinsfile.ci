@@ -142,7 +142,7 @@ def tests = [
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "1/5"
+            testOnlySlice: "1/3"
         )
     },
     plenum2: { python ->
@@ -151,7 +151,7 @@ def tests = [
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "2/5"
+            testOnlySlice: "2/3"
         )
     },
     plenum3: { python ->
@@ -160,25 +160,7 @@ def tests = [
             testDir: 'plenum',
             python: python,
             useRunner: true,
-            testOnlySlice: "3/5"
-        )
-    },
-    plenum4: { python ->
-        test(
-            resFile: "test-result-plenum-4.${NODE_NAME}.txt",
-            testDir: 'plenum',
-            python: python,
-            useRunner: true,
-            testOnlySlice: "4/5"
-        )
-    },
-    plenum5: { python ->
-        test(
-            resFile: "test-result-plenum-5.${NODE_NAME}.txt",
-            testDir: 'plenum',
-            python: python,
-            useRunner: true,
-            testOnlySlice: "5/5"
+            testOnlySlice: "3/3"
         )
     }
 ].collect {k, v -> [k, v]}
@@ -216,7 +198,7 @@ for (i = 0; i < _labels.size(); i++) {
 // PIPELINE
 
 try {
-    timeout(90) {
+    timeout(120) {
         stage('Static code validation') {
             if (config.codeValidation) {
                 node(labels.linux) {
