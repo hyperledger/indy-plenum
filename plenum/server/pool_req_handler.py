@@ -97,9 +97,10 @@ class PoolRequestHandler(LedgerRequestHandler):
                 origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
-        if self.isNodeDataConflicting(data):
+        error = self.isNodeDataConflicting(data)
+        if error:
             return "existing data has conflicts with " \
-                   "request data {}".format(operation.get(DATA))
+                   "request data {}. Error: {}".format(operation.get(DATA), error)
 
     def authErrorWhileUpdatingNode(self, request):
         # Check if steward of the node is updating it and its data does not
@@ -189,7 +190,7 @@ class PoolRequestHandler(LedgerRequestHandler):
             old_alias = self.getNodeData(updating_nym, isCommitted=False).get(ALIAS)
             new_alias = new_data.get(ALIAS)
             if old_alias != new_alias:
-                return True
+                return "Node's alias cannot be changed"
 
         nodes = self.state.as_dict.items()
         for other_node_nym, other_node_data in nodes:
@@ -198,12 +199,16 @@ class PoolRequestHandler(LedgerRequestHandler):
             if not updating_nym or other_node_nym != updating_nym:
                 # The node's ip, port and alias should be unique
                 same_alias = new_data.get(ALIAS) == other_node_data.get(ALIAS)
+                if same_alias:
+                    return "Node's alias must be unique"
                 same_node_ha = (new_data.get(NODE_IP), new_data.get(NODE_PORT)) == \
                                (other_node_data.get(NODE_IP), other_node_data.get(NODE_PORT))
+                if same_node_ha:
+                    return "Node's nodestack addresses must be unique"
                 same_cli_ha = (new_data.get(CLIENT_IP), new_data.get(CLIENT_PORT)) == \
                               (other_node_data.get(CLIENT_IP), other_node_data.get(CLIENT_PORT))
-                if any([same_alias, same_node_ha, same_cli_ha]):
-                    return True
+                if same_cli_ha:
+                    return "Node's clientstack addresses must be unique"
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):
         error = self.dataErrorWhileValidating(data, skipKeys=True)
@@ -213,9 +218,10 @@ class PoolRequestHandler(LedgerRequestHandler):
         if self.isNodeDataSame(nodeNym, data, isCommitted=False):
             return "node already has the same data as requested"
 
-        if self.isNodeDataConflicting(data, nodeNym):
+        error = self.isNodeDataConflicting(data, nodeNym)
+        if error:
             return "existing data has conflicts with " \
-                   "request data {}".format(data)
+                   "request data {}. Error: {}".format(data, error)
 
     def _verify_bls_key_proof_of_possession(self, key_proof, pk):
         return True if self.bls_crypto_verifier is None else \
