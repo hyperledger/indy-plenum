@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 
 from plenum.common.constants import GET_TXN, NODE, NYM
@@ -104,13 +106,16 @@ def correct_sigs(msg, signer, signer2, signer3, signer4):
 
 def test_verify_multi_sig_correct(multi_sa, msg, signer, signer2, signer3, signer4,
                                   correct_sigs):
-    idrs = correct_sigs.keys()
-    assert list(idrs) == multi_sa.authenticate_multi(msg, correct_sigs)
+    idrs = set(correct_sigs.keys())
+    msg_with_sigs = deepcopy(msg)
+    msg_with_sigs[f.SIGS.nm] = correct_sigs
+    assert idrs == set(multi_sa.authenticate_multi(msg, correct_sigs))
     for i in range(1, 5):
         # `authenticate_multi` returns threshold number of identifiers on success
         assert len(set(
             multi_sa.authenticate_multi(msg, correct_sigs, i)
-        ).intersection(set(idrs))) == i
+        ).intersection(idrs)) == i
+        assert len(set(multi_sa.authenticate(msg_with_sigs, threshold=i)).intersection(idrs)) == i
 
 
 @pytest.fixture(scope="module")
@@ -123,24 +128,38 @@ def two_correct_sigs(msg, signer, signer2, signer3, signer4):
 def test_verify_multi_sig_threshold(multi_sa, msg, signer, signer2, signer3,
                                     signer4, two_correct_sigs):
     idrs = {signer.identifier, signer2.identifier}
+    msg_with_sigs = deepcopy(msg)
+    msg_with_sigs[f.SIGS.nm] = two_correct_sigs
     for i in range(1, 3):
         # `authenticate_multi` returns threshold number of identifiers on success
         assert len(set(
             multi_sa.authenticate_multi(msg, two_correct_sigs, i)
         ).intersection(idrs)) == i
+        assert len(set(multi_sa.authenticate(msg_with_sigs, threshold=i)).intersection(idrs)) == i
 
     with pytest.raises(InsufficientCorrectSignatures):
-        assert multi_sa.authenticate_multi(msg, two_correct_sigs, 3)
+        multi_sa.authenticate_multi(msg, two_correct_sigs, 3)
+    with pytest.raises(InsufficientCorrectSignatures):
+        multi_sa.authenticate(msg_with_sigs, threshold=3)
 
     with pytest.raises(InsufficientCorrectSignatures):
-        assert multi_sa.authenticate_multi(msg, two_correct_sigs, 4)
+        multi_sa.authenticate_multi(msg, two_correct_sigs, 4)
+    with pytest.raises(InsufficientCorrectSignatures):
+        multi_sa.authenticate(msg_with_sigs, threshold=4)
 
     with pytest.raises(InsufficientCorrectSignatures):
         multi_sa.authenticate_multi(msg, two_correct_sigs)
+    with pytest.raises(InsufficientCorrectSignatures):
+        multi_sa.authenticate(msg_with_sigs)
 
+    only_2_sigs = {c.identifier: c.sign(msg) for c in (signer, signer2)}
+    
     with pytest.raises(InsufficientSignatures):
-        sigs = {c.identifier: c.sign(msg) for c in (signer, signer2)}
-        multi_sa.authenticate_multi(msg, sigs, 3)
+        multi_sa.authenticate_multi(msg, only_2_sigs, threshold=3)
+        
+    msg_with_sigs[f.SIGS.nm] = only_2_sigs
+    with pytest.raises(InsufficientSignatures):
+        multi_sa.authenticate(msg_with_sigs, threshold=3)
 
 
 def test_txn_types(sa):

@@ -2,7 +2,7 @@
 Clients are authenticated with a digital signature.
 """
 from abc import abstractmethod
-from typing import Dict
+from typing import Dict, Optional
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
@@ -30,8 +30,9 @@ class ClientAuthNr:
     @abstractmethod
     def authenticate(self,
                      msg: Dict,
-                     identifier: str = None,
-                     signature: str = None) -> str:
+                     identifier: Optional[str] = None,
+                     signature: Optional[str] = None,
+                     threshold: Optional[int] = None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
@@ -39,13 +40,15 @@ class ClientAuthNr:
         msg['identifier'] as identifier
         :param signature: a utf-8 and base58 encoded signature
         :param msg: the message to authenticate
+        :param threshold: The number of successful signature verification
+        required. By default all signatures are required to be verified.
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
         """
 
     @abstractmethod
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: int = None):
+                           threshold: Optional[int] = None):
         """
         :param msg:
         :param signatures: A mapping from identifiers to signatures.
@@ -81,7 +84,7 @@ class ClientAuthNr:
 class NaclAuthNr(ClientAuthNr):
 
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: int=None, verifier: Verifier=DidVerifier):
+                           threshold: Optional[int]=None, verifier: Verifier=DidVerifier):
         num_sigs = len(signatures)
         if threshold is not None:
             if num_sigs < threshold:
@@ -161,11 +164,11 @@ class SimpleAuthNr(NaclAuthNr):
 
     def authenticate(self,
                      msg: Dict,
-                     identifier: str = None,
-                     signature: str = None):
+                     identifier: Optional[str] = None,
+                     signature: Optional[str] = None,
+                     threshold: Optional[int] = None):
         signatures = {identifier: signature}
-        return self.authenticate_multi(msg,
-                                       signatures=signatures)
+        return self.authenticate_multi(msg, signatures=signatures, threshold=threshold)
 
 
 class CoreAuthMixin:
@@ -208,8 +211,9 @@ class CoreAuthMixin:
             raise EmptyIdentifier
         return msg[f.IDENTIFIER.nm]
 
-    def authenticate(self, req_data, identifier: str=None,
-                     signature: str=None, verifier: Verifier=DidVerifier):
+    def authenticate(self, req_data, identifier: Optional[str]=None,
+                     signature: Optional[str]=None, threshold: Optional[int] = None,
+                     verifier: Verifier=DidVerifier):
         """
         Prepares the data to be serialised for signing and then verifies the
         signature
@@ -242,8 +246,8 @@ class CoreAuthMixin:
                 raise ex
         else:
             signatures = req_data[f.SIGS.nm]
-        return self.authenticate_multi(to_serialize,
-                                       signatures=signatures, verifier=verifier)
+        return self.authenticate_multi(to_serialize, signatures=signatures,
+                                       threshold=threshold, verifier=verifier)
 
     def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
         if not msg.get(f.IDENTIFIER.nm):
