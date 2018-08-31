@@ -23,6 +23,7 @@ def replica(tconf, request):
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
+        update_pre_prepare=lambda params, l_id: params
     )
     replica = Replica(
         node, instId=0, isMaster=False,

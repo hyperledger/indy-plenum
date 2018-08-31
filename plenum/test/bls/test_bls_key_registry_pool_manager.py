@@ -2,6 +2,7 @@ import base58
 import pytest
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
 from plenum.common.constants import NODE, BLS_KEY, DATA
+from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.txn_util import get_type, get_payload_data
 from plenum.common.util import randomString
 from plenum.test.bls.helper import sdk_change_bls_key
@@ -58,7 +59,7 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            sdk_wallet_steward,
                                            sdk_pool_handle):
     old_bls_key = get_payload_data(pool_node_txns[0])[DATA][BLS_KEY]
-    new_bls_key = base58.b58encode(randomString(128).encode()).decode("utf-8")
+    new_bls_key, key_proof = init_bls_keys(node.keys_dir, node.name)
     old_pool_root_hash = node.poolManager.state.committedHeadHash
 
     # change BLS keys
@@ -68,7 +69,8 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                        sdk_pool_handle,
                        sdk_wallet_steward,
                        add_wrong=False,
-                       new_bls=new_bls_key)
+                       new_bls=new_bls_key,
+                       new_key_proof=key_proof)
 
     new_pool_root_hash = node.poolManager.state.committedHeadHash
     assert old_pool_root_hash != new_pool_root_hash

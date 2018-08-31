@@ -1,10 +1,11 @@
 from collections import OrderedDict, defaultdict
 
-from typing import Tuple, Union
+from typing import Union
 
 from orderedset import OrderedSet
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
+from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.server.quorums import Quorum
@@ -157,9 +158,10 @@ class Requests(OrderedDict):
 class Propagator:
     MAX_REQUESTED_KEYS_TO_KEEP = 1000
 
-    def __init__(self):
+    def __init__(self, metrics: MetricsCollector = NullMetricsCollector()):
         self.requests = Requests()
         self.requested_propagates_for = OrderedSet()
+        self.metrics = metrics
 
     # noinspection PyUnresolvedReferences
     def propagate(self, request: Request, clientName):
@@ -171,11 +173,12 @@ class Propagator:
         if self.requests.has_propagated(request, self.name):
             logger.trace("{} already propagated {}".format(self, request))
         else:
-            self.requests.add_propagate(request, self.name)
-            propagate = self.createPropagate(request, clientName)
-            logger.debug("{} propagating request {} from client {}".format(self, request.key, clientName),
-                         extra={"cli": True, "tags": ["node-propagate"]})
-            self.send(propagate)
+            with self.metrics.measure_time(MetricsName.SEND_PROPAGATE_TIME):
+                self.requests.add_propagate(request, self.name)
+                propagate = self.createPropagate(request, clientName)
+                logger.debug("{} propagating request {} from client {}".format(self, request.key, clientName),
+                             extra={"cli": True, "tags": ["node-propagate"]})
+                self.send(propagate)
 
     @staticmethod
     def createPropagate(

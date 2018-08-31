@@ -384,7 +384,8 @@ class TestNode(TestNodeCore, Node):
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp,
             postCatchupClbk=self.postLedgerCatchUp,
-            ledger_sync_order=self.ledger_ids
+            ledger_sync_order=self.ledger_ids,
+            metrics=self.metrics
         )
 
     def sendRepliesToClients(self, committedTxns, ppTime):
@@ -649,8 +650,8 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
         self.masterReqLatenciesTest = {}
 
-    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       requests: Dict, byMaster: bool = False):
+    def requestOrdered(self, reqIdrs: List[str],
+                       instId: int, requests, byMaster: bool = False) -> Dict:
         durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
             for key, duration in durations.items():

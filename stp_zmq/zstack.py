@@ -79,6 +79,7 @@ class ZStack(NetworkInterface):
         self.mt_outgoing_size = mt_outgoing_size
 
         self.listenerQuota = self.config.DEFAULT_LISTENER_QUOTA
+        self.listenerSize = self.config.DEFAULT_LISTENER_SIZE
         self.senderQuota = self.config.DEFAULT_SENDER_QUOTA
         self.msgLenVal = MessageLenValidator(self.config.MSG_LEN_LIMIT)
 
@@ -470,20 +471,23 @@ class ZStack(NetworkInterface):
         self.rxMsgs.append((decoded, ident))
         return True
 
-    def _receiveFromListener(self, quota) -> int:
+    def _receiveFromListener(self, quota, size) -> int:
         """
         Receives messages from listener
         :param quota: number of messages to receive
         :return: number of received messages
         """
         assert quota
+        assert size
         i = 0
-        while i < quota:
+        incoming_size = 0
+        while i < quota and incoming_size < size:
             try:
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
                 if not msg:
                     # Router probing sends empty message on connection
                     continue
+                incoming_size += len(msg)
                 i += 1
                 self._verifyAndAppend(msg, ident)
             except zmq.Again:
@@ -534,7 +538,7 @@ class ZStack(NetworkInterface):
                 self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
-        self._receiveFromListener(quota=self.listenerQuota)
+        self._receiveFromListener(quota=self.listenerQuota, size=self.listenerSize)
         self._receiveFromRemotes(quotaPerRemote=self.senderQuota)
         return len(self.rxMsgs)
 

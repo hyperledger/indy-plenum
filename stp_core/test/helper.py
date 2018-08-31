@@ -99,7 +99,7 @@ def connectStacks(stacks, useKeys=True):
     for stack in stacks:
         for otherStack in stacks:
             if stack != otherStack:
-                connectStack(stack, otherStack)
+                connectStack(stack, otherStack, useKeys=useKeys)
 
 
 def connectStack(stack1, stack2, useKeys=True):

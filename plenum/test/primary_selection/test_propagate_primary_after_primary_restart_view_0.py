@@ -34,7 +34,7 @@ def test_propagate_primary_after_primary_restart_view_0(
     Delay instance change msgs to prevent view change during primary restart
     to test propagate primary for primary node.
     ppSeqNo should be > 0 to be able to check that propagate primary restores all
-    indexes correctly
+    indices correctly
     case viewNo == 0
     """
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

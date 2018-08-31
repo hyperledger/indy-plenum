@@ -12,18 +12,18 @@ logger = getlogger()
 
 
 class BlsFactoryCrypto(metaclass=ABCMeta):
-    def generate_bls_keys(self, seed=None) -> str:
+    def generate_bls_keys(self, seed=None) -> (str, str, str):
         return self._get_bls_crypto_signer_class().generate_keys(
             self._load_group_params(),
             seed)
 
-    def generate_and_store_bls_keys(self, seed=None) -> str:
+    def generate_and_store_bls_keys(self, seed=None) -> (str, str):
         bls_key_manager = self._create_key_manager(self._load_group_params())
 
-        sk, pk = self.generate_bls_keys(seed)
+        sk, pk, key_proof = self.generate_bls_keys(seed)
         stored_sk, stored_pk = bls_key_manager.save_keys(sk, pk)
 
-        return stored_pk
+        return stored_pk, key_proof
 
     def create_bls_crypto_signer_from_saved_keys(self) -> BlsCryptoSigner:
         group_params = self._load_group_params()

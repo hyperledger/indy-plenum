@@ -35,7 +35,7 @@ class BlsCryptoSigner(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
         pass
 
     @abstractmethod
@@ -54,4 +54,8 @@ class BlsCryptoVerifier(metaclass=ABCMeta):
 
     @abstractmethod
     def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[str]) -> bool:
+        pass
+
+    @abstractmethod
+    def verify_key_proof_of_possession(self, key_proof, pk: str) -> bool:
         pass

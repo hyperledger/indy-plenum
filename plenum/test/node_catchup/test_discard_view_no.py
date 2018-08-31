@@ -1,5 +1,6 @@
 from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
+from plenum.test.bls.helper import init_discarded
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -48,11 +49,13 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
         10,
         get_utc_epoch(),
         ["random request digest"],
-        1,
+        init_discarded(),
         "random digest",
         DOMAIN_LEDGER_ID,
         primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
         primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        0,
+        True
     )
     sender.send(three_pc, rid_x_node)
     looper.run(eventually(checkDiscardMsg, [new_node, ], three_pc,
