@@ -64,6 +64,7 @@ class RequestTimeTracker:
     def __init__(self, instance_count):
         self.instance_count = instance_count
         self._requests = {}
+        self._unordered = set()
         self._handled_unordered = set()
 
     def __contains__(self, item):
@@ -75,6 +76,7 @@ class RequestTimeTracker:
 
     def start(self, key, timestamp):
         self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
+        self._unordered.add(key)
 
     def order(self, instId, key, timestamp):
         req = self._requests[key]
@@ -82,6 +84,7 @@ class RequestTimeTracker:
         req.order(instId)
         if instId == 0:
             self._handled_unordered.discard(key)
+            self._unordered.discard(key)
         if req.is_ordered_by_all:
             del self._requests[key]
         return tto
@@ -92,6 +95,11 @@ class RequestTimeTracker:
 
     def reset(self):
         self._requests.clear()
+        self._unordered.clear()
+        self._handled_unordered.clear()
+
+    def unordered(self):
+        return self._unordered
 
     def handled_unordered(self):
         return self._handled_unordered
@@ -109,6 +117,8 @@ class RequestTimeTracker:
         reqs_to_del = [key for key, req in self._requests.items() if req.is_ordered_by_all]
         for req in reqs_to_del:
             del self._requests[req]
+            self._unordered.discard(req)
+            self._handled_unordered.discard(req)
         self.instance_count -= 1
 
 
