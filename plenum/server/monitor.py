@@ -712,7 +712,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 len(latencies) > 0 else 0)
             self.latenciesByBackupsInLast[instId] = latencies
 
-        return self.mean(backupLatencies)
+        return self.latency_avg_for_backup_cls.get_avg(backupLatencies)
 
     def sendLatencies(self):
         logger.debug("{} sending latencies".format(self))
