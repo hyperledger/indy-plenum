@@ -65,7 +65,6 @@ def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
         update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
     monkeypatch.undo()
     if validate_bls_signature_without_key_proof:
-        looper.runFor(10)
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_stewards[3], 1)
     else:
