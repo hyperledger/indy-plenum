@@ -1,8 +1,6 @@
 import base58
 import os
 
-from bitarray import bitarray
-
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
