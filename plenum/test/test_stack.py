@@ -2,7 +2,7 @@ from functools import partial
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from stp_zmq.zstack import ZStack
+from stp_zmq.zstack import ZStack, Quota
 from stp_core.types import HA
 
 from stp_core.loop.eventually import eventuallyAll, eventually
@@ -29,8 +29,8 @@ class TestStack(BaseStackClass):
     #     super()._serviceStack(age)
     #     self.stasher.process(age)
 
-    async def _serviceStack(self, age):
-        await super()._serviceStack(age)
+    async def _serviceStack(self, age, quota: Quota):
+        await super()._serviceStack(age, quota)
         self.stasher.process(age)
 
     def resetDelays(self):

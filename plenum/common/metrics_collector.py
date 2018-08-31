@@ -55,6 +55,9 @@ class MetricsName(IntEnum):
     # Average latency measured by monitor on master instance
     MONITOR_AVG_LATENCY = 23
 
+    # Node incoming request queue size
+    REQUEST_QUEUE_SIZE = 30
+
     # System statistics
     AVAILABLE_RAM_SIZE = 50
     NODE_RSS_SIZE = 51
