@@ -16,7 +16,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.quota_control import QuotaControl
+from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.replica import Replica
 from state.pruning_state import PruningState
 from state.state import State
@@ -388,13 +388,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
         )
 
-        # Dynamic quotas control
-        self.quota_control = QuotaControl(dynamic=config.ENABLE_DYNAMIC_QUOTAS,
-                                          max_request_queue_size=config.MAX_REQUEST_QUEUE_SIZE,
-                                          max_node_quota=Quota(count=config.NODE_TO_NODE_STACK_QUOTA,
-                                                               size=config.NODE_TO_NODE_STACK_SIZE),
-                                          max_client_quota=Quota(count=config.CLIENT_TO_NODE_STACK_QUOTA,
-                                                                 size=config.CLIENT_TO_NODE_STACK_SIZE))
+        # Quotas control
+        node_quota = Quota(count=config.NODE_TO_NODE_STACK_QUOTA,
+                           size=config.NODE_TO_NODE_STACK_SIZE)
+        client_quota = Quota(count=config.CLIENT_TO_NODE_STACK_QUOTA,
+                             size=config.CLIENT_TO_NODE_STACK_SIZE)
+
+        if config.ENABLE_DYNAMIC_QUOTAS:
+            self.quota_control = RequestQueueQuotaControl(max_request_queue_size=config.MAX_REQUEST_QUEUE_SIZE,
+                                                          max_node_quota=node_quota,
+                                                          max_client_quota=client_quota)
+        else:
+            self.quota_control = StaticQuotaControl(node_quota=node_quota, client_quota=client_quota)
 
         # Ordered requests received from replicas while the node was not
         # participating
@@ -1107,7 +1112,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
         self.last_prod_started = time.perf_counter()
 
-        self.quota_control.set_request_queue_len(len(self.requests))
+        self.quota_control.update_state({
+            'request_queue_len': len(self.monitor.requestTracker.unordered())}
+        )
 
         if self.status is not Status.stopped:
             c += await self.serviceReplicas(limit)
