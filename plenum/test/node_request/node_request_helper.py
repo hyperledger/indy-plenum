@@ -1,7 +1,5 @@
 from functools import partial
 
-from bitarray import bitarray
-
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
