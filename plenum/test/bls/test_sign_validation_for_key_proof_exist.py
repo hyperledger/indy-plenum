@@ -12,7 +12,7 @@ nodes_wth_bls = 0
 
 
 @pytest.fixture(scope="module", params=[True, False])
-def conf(txnPoolNodeSet, request):
+def validate_bls_signature_without_key_proof(txnPoolNodeSet, request):
     for n in txnPoolNodeSet:
         n.bls_bft.bls_key_register._pool_manager.config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = request.param
     return request.param
@@ -24,7 +24,7 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
                                                           sdk_wallet_stewards,
                                                           sdk_wallet_client,
                                                           monkeypatch,
-                                                          conf):
+                                                          validate_bls_signature_without_key_proof):
     '''
     Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True, node use key sent without proof.
     Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = False, node does not use key sent without proof.
@@ -33,7 +33,7 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
         monkeypatch.setattr(n.poolManager.reqHandler, 'doStaticValidation', lambda req: True)
     new_blspk = update_bls_keys_no_proof(0, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
     monkeypatch.undo()
-    if conf:
+    if validate_bls_signature_without_key_proof:
         check_bls_key(new_blspk, txnPoolNodeSet[0], txnPoolNodeSet)
     else:
         for n in txnPoolNodeSet:
@@ -46,10 +46,11 @@ def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
                                                          sdk_wallet_stewards,
                                                          sdk_wallet_client,
                                                          monkeypatch,
-                                                         conf):
+                                                         validate_bls_signature_without_key_proof):
     '''
-    Add BLS key without BLS key proof for 3 nodes. Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = False
+    Add BLS key without BLS key proof for all nodes. Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = False
     node does not use key sent without proof and transaction can not be ordered.
+    And with VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True transaction successfully ordered.
     '''
 
     for n in txnPoolNodeSet:
@@ -57,7 +58,7 @@ def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
     for node_index in range(0, len(txnPoolNodeSet)):
         update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
     monkeypatch.undo()
-    if conf:
+    if validate_bls_signature_without_key_proof:
         looper.runFor(10)
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_stewards[3], 1)
