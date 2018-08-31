@@ -13,9 +13,15 @@ nodes_wth_bls = 0
 
 @pytest.fixture(scope="module", params=[True, False])
 def validate_bls_signature_without_key_proof(txnPoolNodeSet, request):
+    default_param = {}
     for n in txnPoolNodeSet:
-        n.bls_bft.bls_key_register._pool_manager.config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = request.param
-    return request.param
+        config = n.bls_bft.bls_key_register._pool_manager.config
+        default_param[n.name] = config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF
+        config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = request.param
+    yield request.param
+    for n in txnPoolNodeSet:
+        n.bls_bft.bls_key_register._pool_manager.\
+            config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = default_param[n.name]
 
 
 def test_switched_off_sign_validation_for_key_proof_exist(looper,

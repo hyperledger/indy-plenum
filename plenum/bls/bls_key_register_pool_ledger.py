@@ -33,7 +33,7 @@ class BlsKeyRegisterPoolLedger(BlsKeyRegister):
         for _, txn in self._ledger.getAllTxn():
             if get_type(txn) == NODE:
                 data = get_payload_data(txn)[DATA]
-                if not config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF or \
+                if not config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF and \
                         data.get(BLS_KEY_PROOF, None) is None:
                     logger.warning("{} has no proof of possession for BLS public key.".format(data[ALIAS]))
                     keys[data[ALIAS]] = None
