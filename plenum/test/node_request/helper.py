@@ -29,4 +29,4 @@ def nodes_last_ordered_equal(*nodes):
     if len(nodes) < 2:
         raise BaseException('nodes_last_ordered_equal can compare less than 2 nodes')
     seq_no = next(iter(nodes)).master_last_ordered_3PC[1]
-    return all(seq_no == n.master_last_ordered_3PC[1] for n in nodes)
+    assert all(seq_no == n.master_last_ordered_3PC[1] for n in nodes)
