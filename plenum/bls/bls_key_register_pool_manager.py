@@ -40,4 +40,3 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
                     self._current_bls_keys[node_name] = None
                 else:
                     self._current_bls_keys[node_name] = data[BLS_KEY]
-

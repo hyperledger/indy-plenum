@@ -41,12 +41,12 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
 
 
 def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
-                                                         txnPoolNodeSet,
-                                                         sdk_pool_handle,
-                                                         sdk_wallet_stewards,
-                                                         sdk_wallet_client,
-                                                         monkeypatch,
-                                                         validate_bls_signature_without_key_proof):
+                                                     txnPoolNodeSet,
+                                                     sdk_pool_handle,
+                                                     sdk_wallet_stewards,
+                                                     sdk_wallet_client,
+                                                     monkeypatch,
+                                                     validate_bls_signature_without_key_proof):
     '''
     Add BLS key without BLS key proof for all nodes. Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = False
     node does not use key sent without proof and transaction can not be ordered.
