@@ -7,6 +7,7 @@ from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     PrePrepare, Prepare, Propagate, Commit
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
+from plenum.test.bls.helper import init_discarded
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
 
@@ -57,11 +58,13 @@ pre_prepare_msg = PrePrepare(
     3,
     get_utc_epoch(),
     ['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ',],
-    1,
+    init_discarded(),
     'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
     1,
     'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
     '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+    0,
+    True
 )
 
 prepare_msg = Prepare(

@@ -2,8 +2,9 @@ from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES
-from plenum.common.exceptions import UnauthorizedClientRequest
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF
+from plenum.common.exceptions import UnauthorizedClientRequest, \
+    InvalidClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_from
@@ -21,13 +22,33 @@ class PoolRequestHandler(LedgerRequestHandler):
     write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
-                 domainState: State):
+                 domainState: State, bls_crypto_verifier=None):
         super().__init__(ledger, state)
         self.domainState = domainState
         self.stateSerializer = pool_state_serializer
+        self.bls_crypto_verifier = bls_crypto_verifier
 
     def doStaticValidation(self, request: Request):
-        pass
+        if request.txn_type != NODE:
+            return
+        blskey = request.operation.get(DATA).get(BLS_KEY, None)
+        blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
+        if blskey is None and blskey_proof is None:
+            return
+        if blskey is None and blskey_proof is not None:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "A Proof of possession is not "
+                                       "needed without BLS key")
+        if blskey is not None and blskey_proof is None:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "A Proof of possession must be "
+                                       "provided with BLS key")
+        if not self._verify_bls_key_proof_of_possession(blskey_proof,
+                                                        blskey):
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Proof of possession {} is incorrect "
+                                       "for BLS key {}".
+                                       format(blskey_proof, blskey))
 
     def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)
@@ -109,6 +130,13 @@ class PoolRequestHandler(LedgerRequestHandler):
         if not data:
             return {}
         return self.stateSerializer.deserialize(data)
+
+    def get_all_node_data_for_root_hash(self, root_hash):
+        leaves = self.state.get_all_leaves_for_root_hash(root_hash)
+        raw_node_data = leaves.values()
+        nodes = list(map(lambda x: self.stateSerializer.deserialize(
+            self.state.get_decoded(x)), raw_node_data))
+        return nodes
 
     def updateNodeData(self, nym, data):
         key = nym.encode()
@@ -202,3 +230,8 @@ class PoolRequestHandler(LedgerRequestHandler):
         if self.isNodeDataConflicting(data, nodeNym):
             return "existing data has conflicts with " \
                    "request data {}".format(data)
+
+    def _verify_bls_key_proof_of_possession(self, key_proof, pk):
+        return True if self.bls_crypto_verifier is None else \
+            self.bls_crypto_verifier.verify_key_proof_of_possession(key_proof,
+                                                                    pk)

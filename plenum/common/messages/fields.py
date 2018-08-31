@@ -525,7 +525,7 @@ class SerializedValueField(FieldBase):
     _base_types = (bytes, str)
 
     def _specific_validation(self, val):
-        if not val:
+        if not val and not self.nullable:
             return 'empty serialized value'
 
 

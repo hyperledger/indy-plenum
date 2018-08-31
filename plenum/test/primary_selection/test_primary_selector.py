@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 
+from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.types import HA
 
 from plenum.common.startable import Mode
@@ -62,6 +63,7 @@ class FakeNode:
         self.quorums = Quorums(self.totalNodes)
         self.view_changer = ViewChanger(self)
         self.elector = PrimarySelector(self)
+        self.metrics = NullMetricsCollector()
 
     @property
     def viewNo(self):

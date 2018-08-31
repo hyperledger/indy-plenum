@@ -6,8 +6,9 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
-from plenum.common.constants import NYM, VERKEY, ROLE, TARGET_NYM, ALIAS, NODE, DATA, CLIENT_IP, CLIENT_PORT, NODE_IP, \
-    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD
+from plenum.common.constants import NYM, VERKEY, ROLE, TARGET_NYM, ALIAS, NODE, \
+    DATA, CLIENT_IP, CLIENT_PORT, NODE_IP, \
+    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD, BLS_KEY_PROOF
 from plenum.common.test_network_setup import TestNetworkSetup
 from plenum.common.txn_util import getTxnOrderedFields, get_seq_no, get_txn_id, get_payload_data, get_type, get_version, \
     get_protocol_version
@@ -144,6 +145,7 @@ def test_pool_genesis_txns(bootstrap, pool_genesis_file):
             assert data[NODE_PORT]
             assert data[SERVICES] == [VALIDATOR]
             assert data[BLS_KEY]
+            assert data[BLS_KEY_PROOF]
 
 
 def test_check_valid_ip_host(params, tdir, tconf):
