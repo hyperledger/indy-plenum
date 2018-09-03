@@ -605,7 +605,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `last_ordered_3pc`
         :return:
         """
-        if not self.isMaster and self.last_ordered_3pc[1] == 0 and \
+        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
                 not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -1223,7 +1223,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if view_no != self.viewNo:
                 raise LogicError(
                     "{} 'view_no' {} is not equal to current view_no {}"
-                        .format(self, view_no, self.viewNo)
+                    .format(self, view_no, self.viewNo)
                 )
             last_pp_seq_no = 0
         if pp_seq_no - last_pp_seq_no > 1:
@@ -1684,7 +1684,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     continue
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
-                    if (v, p) in self.ordered or \
+                    if (v, p) in self.ordered or\
                             self.has_already_ordered(*(commit.viewNo, commit.ppSeqNo)):
                         pToRemove.add(p)
                         continue
@@ -1745,7 +1745,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if pp is None:
             raise ValueError(
                 "{} no PrePrepare with a 'key' {} found"
-                    .format(self, key)
+                .format(self, key)
             )
 
         self.addToOrdered(*key)
@@ -2304,8 +2304,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         return view_no == self.viewNo or (
-                view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
-            (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
+            view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
+                (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
     def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
         for pp_seq_no in range(seq_frm, seq_to + 1):
@@ -2398,8 +2398,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
         if pre_prepares:
             if [pp for pp in pre_prepares if (
-                                                     pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                                                     digest, state_root, txn_root)]:
+                pp.digest, pp.stateRootHash, pp.txnRootHash) == (
+                    digest, state_root, txn_root)]:
                 self.logger.debug('{} not requesting a PRE-PREPARE since already '
                                   'found stashed for {}'.format(self, three_pc_key))
                 return False
