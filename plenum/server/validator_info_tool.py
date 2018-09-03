@@ -12,6 +12,8 @@ from dateutil import parser
 import datetime
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
+from plenum.common.config_util import getConfig
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
 from pympler import muppy, summary
@@ -49,13 +51,25 @@ def none_on_fail(func):
 
 class ValidatorNodeInfoTool:
     JSON_SCHEMA_VERSION = '0.0.1'
+    GENERAL_DB_NAME_TEMPLATE = '{node_name}_info_db'
     GENERAL_FILE_NAME_TEMPLATE = '{node_name}_info.json'
     ADDITIONAL_FILE_NAME_TEMPLATE = '{node_name}_additional_info.json'
 
-    def __init__(self, node):
+    def __init__(self, node, config=None):
         self._node = node
+        self._config = config or getConfig()
+        self._db = None
+        self._use_db = self._config.VALIDATOR_INFO_USE_DB
         self.__name = self._node.name
         self.__node_info_dir = self._node.node_info_dir
+        if self._use_db:
+            self._db = KeyValueStorageRocksdbIntKeys(self.__node_info_dir,
+                                                     self.GENERAL_DB_NAME_TEMPLATE.format(
+                                                         node_name=self.__name.lower()))
+
+    def stop(self):
+        if self._use_db:
+            self._db.close()
 
     @property
     def info(self):
@@ -616,23 +630,29 @@ class ValidatorNodeInfoTool:
     def _get_config_ledger_size(self):
         return self._node.configLedger.size
 
-    def dump_general_info(self):
-        file_name = self.GENERAL_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
-        path = os.path.join(self.__node_info_dir, file_name)
-        with open(path, 'w') as fd:
+    def _dump_into_file(self, file_path, info):
+        with open(file_path, 'w') as fd:
             try:
-                json.dump(self.info, fd)
+                json.dump(info, fd)
             except Exception as ex:
                 logger.error("Error while dumping into json: {}".format(repr(ex)))
+
+    def _dump_into_db(self, info):
+        self._db.put(info['timestamp'], json.dumps(info))
+
+    def dump_general_info(self):
+        info = self.info
+        if self._use_db:
+            self._dump_into_db(info)
+
+        file_name = self.GENERAL_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+        path = os.path.join(self.__node_info_dir, file_name)
+        self._dump_into_file(path, info)
 
     def dump_additional_info(self):
         file_name = self.ADDITIONAL_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
         path = os.path.join(self.__node_info_dir, file_name)
-        with open(path, 'w') as fd:
-            try:
-                json.dump(self.additional_info, fd)
-            except Exception as ex:
-                logger.error("Error while dumping into json: {}".format(repr(ex)))
+        self._dump_into_file(path, self.additional_info)
 
     def _get_time_from_journalctl_line(self, line):
         items = line.split(' ')
