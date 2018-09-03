@@ -109,7 +109,6 @@ db_seq_no_db_config = rocksdb_seq_no_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
 
-
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",
@@ -251,10 +250,6 @@ MaxStateProofTime = 3
 
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
 CHK_FREQ = 100
-
-# We will ask for 3pc messages with lower seq_no if
-# income valid 3pc_message seq_no > last_ordered_seq_no + DELTA_3PC_ASKING
-DELTA_3PC_ASKING = CHK_FREQ / 10
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3 * CHK_FREQ

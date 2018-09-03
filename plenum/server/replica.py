@@ -30,7 +30,7 @@ from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
-from plenum.config import CHK_FREQ, DELTA_3PC_ASKING
+from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
@@ -605,7 +605,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `last_ordered_3pc`
         :return:
         """
-        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
+        if not self.isMaster and self.last_ordered_3pc[1] == 0 and \
                 not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -1223,7 +1223,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if view_no != self.viewNo:
                 raise LogicError(
                     "{} 'view_no' {} is not equal to current view_no {}"
-                    .format(self, view_no, self.viewNo)
+                        .format(self, view_no, self.viewNo)
                 )
             last_pp_seq_no = 0
         if pp_seq_no - last_pp_seq_no > 1:
@@ -1684,7 +1684,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     continue
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
-                    if (v, p) in self.ordered or\
+                    if (v, p) in self.ordered or \
                             self.has_already_ordered(*(commit.viewNo, commit.ppSeqNo)):
                         pToRemove.add(p)
                         continue
@@ -1745,7 +1745,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if pp is None:
             raise ValueError(
                 "{} no PrePrepare with a 'key' {} found"
-                .format(self, key)
+                    .format(self, key)
             )
 
         self.addToOrdered(*key)
@@ -2304,8 +2304,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         return view_no == self.viewNo or (
-            view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
-                (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
+                view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
+            (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
 
     def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
         for pp_seq_no in range(seq_frm, seq_to + 1):
@@ -2398,8 +2398,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
         if pre_prepares:
             if [pp for pp in pre_prepares if (
-                pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                    digest, state_root, txn_root)]:
+                                                     pp.digest, pp.stateRootHash, pp.txnRootHash) == (
+                                                     digest, state_root, txn_root)]:
                 self.logger.debug('{} not requesting a PRE-PREPARE since already '
                                   'found stashed for {}'.format(self, three_pc_key))
                 return False
@@ -2414,24 +2414,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         acceptable, freq = mostCommonElement(prepares.values())
         return (*acceptable, {s for s, state in prepares.items()
                               if state == acceptable})
-
-    def _request_earliest_unordered_preprepare(self):
-        view_no = self.last_ordered_3pc[0]
-        seq_no = self.last_ordered_3pc[1] + 1
-        key = (view_no, seq_no)
-        self.logger.warning('{} requesting earliest unordered preprepare {}'.format(self, key))
-        if key in self.requested_pre_prepares:
-            del self.requested_pre_prepares[key]
-        self._request_pre_prepare(key)
-
-    def _request_earliest_unordered_commit(self):
-        view_no = self.last_ordered_3pc[0]
-        seq_no = self.last_ordered_3pc[1] + 1
-        key = (view_no, seq_no)
-        self.logger.warning('{} requesting earliest unordered commit {}'.format(self, key))
-        if key in self.requested_commits:
-            del self.requested_commits[key]
-        self._request_commit(key)
 
     def _process_requested_three_phase_msg(self, msg: object,
                                            sender: List[str],
