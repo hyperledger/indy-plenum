@@ -50,9 +50,11 @@ def test_1_node_get_only_preprepare(looper,
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
 
+    # After achieving stable checkpoint, behind_node start ordering
     sdk_send_batches_of_random_and_check(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
 
+    # Pool is working
     looper.run(eventually(nodes_last_ordered_equal, behind_node, master_node))
 
 
@@ -114,6 +116,7 @@ def test_2_nodes_get_only_preprepare(looper,
     assert behind_nodes[1].master_last_ordered_3PC[1] + num_of_batches * 2 == \
            master_node.master_last_ordered_3PC[1]
 
+    # After achieving stable checkpoint, behind_node start ordering
     sdk_send_batches_of_random(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
 
