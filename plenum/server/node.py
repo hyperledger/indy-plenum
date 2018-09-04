@@ -1065,6 +1065,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.closeAllKVStores()
 
+        self._info_tool.stop()
+
         self.mode = None
         self.ledgerManager.prepare_ledgers_for_sync()
 

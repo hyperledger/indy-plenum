@@ -325,7 +325,6 @@ METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
 
-
 # Accumulating performance monitor controls
 #
 # If number of txns ordered by any instance is more than ordered by master
@@ -341,3 +340,5 @@ ACC_MONITOR_TIMEOUT = 300
 ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
 
 VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
+
+VALIDATOR_INFO_USE_DB = False
