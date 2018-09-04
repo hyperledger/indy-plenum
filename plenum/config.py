@@ -108,7 +108,6 @@ db_seq_no_db_config = rocksdb_seq_no_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
 
-
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",

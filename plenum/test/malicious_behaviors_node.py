@@ -1,6 +1,12 @@
 import random
 import types
 from functools import partial
+from typing import Any
+
+from collections import Iterable
+
+from libnacl.sign import Signer
+from plenum.server.router import Router
 
 import common.error
 import plenum.common.error
@@ -14,6 +20,7 @@ from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Bat
 from plenum.common.request import Request
 
 from plenum.common.util import updateNamedTuple
+from plenum.server.node import Node
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
@@ -42,6 +49,43 @@ def changesRequest(node):
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
     return node
+
+
+def dont_send_prepare_commit(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Prepare, Commit)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dont_send_prepare_and_commit_to(nodes, ignore_node_name):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(dont_send_prepare_commit, node)
+
+
+def reset_sending(nodes):
+    for node in nodes:
+        node.send = types.MethodType(Node.send, node)
+
+
+def router_dont_accept(self, msg: Any):
+    if self.ignore_node_name != msg[1]:
+        self.oldHandleSync(msg)
+
+
+def router_dont_accept_messages_from(node, ignore_node_name):
+    node.nodeMsgRouter.ignore_node_name = ignore_node_name
+    node.nodeMsgRouter.oldHandleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
+    node.nodeMsgRouter.handleSync = types.MethodType(router_dont_accept, node.nodeMsgRouter)
+
+
+def reset_router_accepting(node):
+    node.nodeMsgRouter.handleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
 
 
 def delaysPrePrepareProcessing(node, delay: float = 30, instId: int = None):
