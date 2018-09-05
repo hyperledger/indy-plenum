@@ -45,7 +45,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, InsufficientCorrectSignatures
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -2773,6 +2773,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Propagate):
             typ = 'propagate'
             req = msg.request
+
+            request = self.client_request_class(**req)
+            if request.key in self.requests:
+                if req["signature"] == self.requests[request.key].request.signature:
+                    return
+                else:
+                    raise InsufficientCorrectSignatures(0, 1)
         else:
             typ = ''
             req = msg
