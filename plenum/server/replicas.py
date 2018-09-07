@@ -25,7 +25,7 @@ class Replicas:
         self._monitor = monitor
         self._metrics = metrics
         self._config = config
-        self._replicas = []  # type: List[Replica]
+        self._replicas = dict()  # type: Dict[int, Replica]
         self._messages_to_replicas = []  # type: List[deque]
         self.register_monitor_handler()
 
@@ -35,7 +35,7 @@ class Replicas:
         description = "master" if is_master else "backup"
         bls_bft = self._create_bls_bft_replica(is_master)
         replica = self._new_replica(instance_id, is_master, bls_bft)
-        self._replicas.append(replica)
+        self._replicas[instance_id] = replica
         self._messages_to_replicas.append(deque())
         self._monitor.addInstance()
 
@@ -66,7 +66,7 @@ class Replicas:
     # TODO unit test
     @property
     def some_replica_is_primary(self) -> bool:
-        return any([r.isPrimary for r in self._replicas])
+        return any([r.isPrimary for r in self._replicas.values()])
 
     @property
     def master_replica_is_primary(self):
@@ -79,15 +79,17 @@ class Replicas:
 
     def service_inboxes(self, limit: int = None):
         number_of_processed_messages = \
-            sum(replica.serviceQueues(limit) for replica in self._replicas)
+            sum(replica.serviceQueues(limit) for replica in self._replicas.values())
         return number_of_processed_messages
 
     def pass_message(self, message, instance_id=None):
-        replicas = self._replicas
         if instance_id is not None:
-            replicas = replicas[instance_id:instance_id + 1]
-        for replica in replicas:
-            replica.inBox.append(message)
+            if instance_id not in self._replicas:
+                return
+            self._replicas[instance_id].inBox.append(message)
+        else:
+            for replica in self._replicas.values():
+                replica.inBox.append(message)
 
     def get_output(self, limit: int = None) -> Generator:
         if limit is None:
@@ -100,7 +102,7 @@ class Replicas:
                              .format(self._node.name,
                                      per_replica))
                 per_replica = 1
-        for replica in self._replicas:
+        for replica in self._replicas.values():
             num = 0
             while replica.outBox:
                 yield replica.outBox.popleft()
@@ -112,7 +114,7 @@ class Replicas:
         """
         Takes all Ordered messages from outbox out of turn
         """
-        for replica in self._replicas:
+        for replica in self._replicas.values():
             yield replica.instId, replica._remove_ordered_from_queue()
 
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft) -> Replica:
@@ -132,20 +134,23 @@ class Replicas:
 
     @property
     def sum_inbox_len(self):
-        return sum(len(replica.inBox) for replica in self._replicas)
+        return sum(len(replica.inBox) for replica in self._replicas.values())
 
     @property
     def all_instances_have_primary(self) -> bool:
         return all(replica.primaryName is not None
-                   for replica in self._replicas)
+                   for replica in self._replicas.values())
 
     # TODO unit test
     @property
-    def primaries(self) -> list:
-        return [r.primaryName for r in self._replicas]
+    def primaries(self) -> dict:
+        primaries = dict()
+        for r in self._replicas.values():
+            primaries[r.instId] = r
+        return primaries
 
     def register_new_ledger(self, ledger_id):
-        for replica in self._replicas:
+        for replica in self._replicas.values():
             replica.register_ledger(ledger_id)
 
     def register_monitor_handler(self):
@@ -215,4 +220,4 @@ class Replicas:
         return self.num_replicas
 
     def __iter__(self):
-        return self._replicas.__iter__()
+        return self._replicas.values().__iter__()
