@@ -664,9 +664,7 @@ class Cli:
             self.print(record.msg, Token.BoldOrange)  # orange
         elif extra_cli_value in ("STATUS",):
             self.print(record.msg, Token.BoldBlue)  # blue
-        elif extra_cli_value in ("PLAIN", "LOW_STATUS"):
-            self.print(record.msg, Token)  # white
-        else:
+        else: # white
             self.print(record.msg, Token)
 
     def cmdHandlerToCmdMappings(self):

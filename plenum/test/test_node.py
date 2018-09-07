@@ -241,10 +241,10 @@ class TestNodeCore(StackedTester):
         if nodeName in self.whitelistedClients:
             # If node whitelisted for all codes
             if len(self.whitelistedClients[nodeName]) == 0:
-                return
+                return # FIXME: suspicious code
             # If no code is provided or node is whitelisted for that code
             elif code is None or code in self.whitelistedClients[nodeName]:
-                return
+                return # FIXME: suspicious code
         super().blacklistNode(nodeName, reason, code)
 
     def whitelistClient(self, clientName: str, *codes: int):
@@ -259,10 +259,10 @@ class TestNodeCore(StackedTester):
         if clientName in self.whitelistedClients:
             # If node whitelisted for all codes
             if len(self.whitelistedClients[clientName]) == 0:
-                return
+                return # FIXME: suspicious code
             # If no code is provided or node is whitelisted for that code
             elif code is None or code in self.whitelistedClients[clientName]:
-                return
+                return # FIXME: suspicious code
         super().blacklistClient(clientName, reason, code)
 
     def validateNodeMsg(self, wrappedMsg):

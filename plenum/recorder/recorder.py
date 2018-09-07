@@ -86,7 +86,7 @@ class Recorder:
             now = time.perf_counter() * self.TIME_FACTOR
             if self.last_returned_at is None:
                 # First item, so return immediately
-                self.last_returned_at = (now, tm)
+                self.last_returned_at = (now, tm) # FIXME: same as line 94-95
                 return self.get_parsed(val)
             else:
                 if (now - self.last_returned_at[0]) >= (tm - self.last_returned_at[1]):

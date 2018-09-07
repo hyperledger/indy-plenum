@@ -135,14 +135,11 @@ class DomainRequestHandler(LedgerRequestHandler):
 
     @staticmethod
     def get_role(state, nym, role, isCommitted: bool=True):
-        nymData = DomainRequestHandler.getNymDetails(state, nym, isCommitted)
-        if not nymData:
-            return {}
+        nym_data = DomainRequestHandler.getNymDetails(state, nym, isCommitted)
+        if nym_data.get(ROLE) == role:
+            return nym_data
         else:
-            if nymData.get(ROLE) == role:
-                return nymData
-            else:
-                return {}
+            return {}
 
     @staticmethod
     def getSteward(state, nym, isCommitted: bool=True):

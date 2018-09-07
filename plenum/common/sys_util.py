@@ -6,13 +6,10 @@ import errno
 
 
 def getLoggedInUser():
-    if sys.platform == 'wind32':
-        return getpass.getuser()
+    if (not sys.platform == 'wind32') and 'SUDO_USER' in os.environ:
+        return os.environ['SUDO_USER']
     else:
-        if 'SUDO_USER' in os.environ:
-            return os.environ['SUDO_USER']
-        else:
-            return getpass.getuser()
+        return getpass.getuser()
 
 
 def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
