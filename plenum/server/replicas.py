@@ -47,11 +47,17 @@ class Replicas:
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
-    def shrink(self) -> int:
-        replica = self._replicas[-1]
-        self._replicas = self._replicas[:-1]
-        self._messages_to_replicas = self._messages_to_replicas[:-1]
-        self._monitor.removeInstance()
+    def shrink(self, index: int=None) -> int:
+        if index >= self.num_replicas:
+            return
+        if index is None:
+            index = self.num_replicas - 1
+        replica = self._replicas.pop(index)
+        for request_key in replica.requests:
+            replica.requests.free(request_key)
+        if index < len(self._messages_to_replicas):
+            self._messages_to_replicas.pop(index)
+        self._monitor.removeInstance(index)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})

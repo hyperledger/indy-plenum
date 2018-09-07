@@ -340,8 +340,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.acc_monitor.add_instance()
 
     def removeInstance(self, index=None):
-        # TODO: This doesn't take into account index, but this function is never called with defined index,
-        # probably we can simplify this thing?
         if self.acc_monitor:
             self.acc_monitor.remove_instance()
 

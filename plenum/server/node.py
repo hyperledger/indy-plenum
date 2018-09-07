@@ -2682,6 +2682,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
+        self.adjustReplicas()
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]

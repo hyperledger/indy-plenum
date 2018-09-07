@@ -955,7 +955,7 @@ def timeThis(func, *args, **kwargs):
 def instances(nodes: Sequence[Node],
               numInstances: int = None) -> Dict[int, List[replica.Replica]]:
     numInstances = (getRequiredInstances(len(nodes))
-    if numInstances is None else numInstances)
+                    if numInstances is None else numInstances)
     for n in nodes:
         assert len(n.replicas) == numInstances
     return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
