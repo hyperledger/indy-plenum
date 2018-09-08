@@ -1,11 +1,10 @@
 import copy
-
-import pytest
 import random
 
-from plenum.common.measurements import LatencyMeasurement
+import pytest
 
 ACCURACY = 1e-3
+
 
 @pytest.fixture(scope='function')
 def latency_class(tconf):

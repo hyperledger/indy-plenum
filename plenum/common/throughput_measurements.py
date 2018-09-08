@@ -59,6 +59,7 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
 
     def _process_window(self):
         self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
+        print('aaaa')
 
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:
@@ -206,38 +207,3 @@ class RevivalSpikeResistantEMAThroughputMeasurement(EMAThroughputMeasurement):
         else:
             raise LogicError("Internal state of throughput measurement {} "
                              "is unsupported".format(self.state))
-
-
-class LatencyMeasurement:
-    """
-    Measure latency params
-    """
-
-    def __init__(self, min_latency_count=10):
-        self.min_latency_count = min_latency_count
-        # map of client identifier and (total_reqs, avg_latency) tuple
-        self.avg_latencies = {}  # type: Dict[str, (int, float)]
-        # This parameter defines coefficient alpha, which represents the degree of weighting decrease.
-        self.alpha = 1 / (self.min_latency_count + 1)
-
-    def add_duration(self, identifier, duration):
-        total_reqs, curr_avg_lat = self.avg_latencies.get(identifier, (0, .0))
-        total_reqs += 1
-        self.avg_latencies[identifier] = (total_reqs,
-                                          self._accumulate(curr_avg_lat,
-                                                           duration))
-
-    def _accumulate(self, old_accum, next_val):
-        """
-        Implement exponential moving average
-        """
-        return old_accum * (1 - self.alpha) + next_val * self.alpha
-
-    def get_avg_latency(self, identifier):
-        if identifier not in self.avg_latencies:
-            return None
-        total_reqs, curr_avg_lat = self.avg_latencies[identifier]
-        if total_reqs < self.min_latency_count:
-            return None
-
-        return curr_avg_lat

@@ -2565,18 +2565,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if backup_throughput is not None:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
 
-            master_latency = self.monitor.getLatency(self.instances.masterId)
-            if master_latency:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, master_latency)
+            avg_lat_master, avg_lat_backup = self.monitor.getLatencies()
+            if avg_lat_master:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, avg_lat_master)
 
-            backup_latencies = []
-            for instId in self.instances.backupIds:
-                lat = self.monitor.getLatency(instId)
-                if lat:
-                    backup_latencies.append(lat)
-            if len(backup_latencies) > 0:
+            if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY,
-                                       self.monitor.latency_avg_for_backup_cls.get_avg(backup_latencies))
+                                       self.monitor.latency_avg_for_backup_cls.get_avg(avg_lat_backup))
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))

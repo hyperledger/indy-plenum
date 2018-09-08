@@ -3,10 +3,10 @@ import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
     KeyValueStorageType
+from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
-from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy, MedianHighLatencyForAllClients, \
-    EMALatencyMeasurementForEachClient
+from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
+from plenum.common.latency_measurements import EMALatencyMeasurementForEachClient
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -131,24 +131,24 @@ DELTA = 0.1
 LAMBDA = 240
 OMEGA = 20
 SendMonitorStats = False
-ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
-LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
-# This parameter defines minimal count of accumulated latencies for each client
-MIN_LATENCY_COUNT = 20
-
-latency_averaging_strategy_class = MedianHighStrategy
-throughput_averaging_strategy_class = MedianLowStrategy
-
+# Throughput strategy
 throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
-
+throughput_averaging_strategy_class = MedianLowStrategy
 throughput_measurement_params = {
     'window_size': 15,
     'min_cnt': 16
 }
+
+# Latency strategy
+# This parameter defines minimal count of accumulated latencies for each client
+LatencyMeasurementCls = EMALatencyMeasurementForEachClient
+LatencyAveragingStrategyClass = MedianHighStrategy
+LatencyAvgStrategyForClients = MedianHighStrategy
+MIN_LATENCY_COUNT = 20
 
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
@@ -325,10 +325,6 @@ METRICS_FLUSH_INTERVAL = 1.0  # seconds
 METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
-
-AvgStrategyForAllClients = MedianHighLatencyForAllClients
-AvgStrategyForBackups = MedianHighStrategy
-LatencyMeasurementCls = EMALatencyMeasurementForEachClient
 
 # Accumulating performance monitor controls
 #
