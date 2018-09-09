@@ -6,7 +6,7 @@ from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
-from plenum.common.latency_measurements import EMALatencyMeasurementForEachClient
+from plenum.common.latency_measurements import EMALatencyMeasurementForAllClient
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -144,7 +144,7 @@ throughput_measurement_params = {
 
 # Latency strategy
 # This parameter defines minimal count of accumulated latencies for each client
-LatencyMeasurementCls = EMALatencyMeasurementForEachClient
+LatencyMeasurementCls = EMALatencyMeasurementForAllClient
 LatencyAveragingStrategyClass = MedianHighStrategy
 LatencyAvgStrategyForClients = MedianHighStrategy
 MIN_LATENCY_COUNT = 20
