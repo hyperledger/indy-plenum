@@ -8,7 +8,7 @@ def requests(looper, sdk_wallet_client, sdk_pool_handle):
     requests = []
     for i in range(5):
         req = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
-        req, _ = sdk_get_reply(looper, req, timeout=30)
+        req, _ = sdk_get_reply(looper, req, timeout=sdk_eval_timeout(1, 4))
         requests.append(req)
     return requests
 

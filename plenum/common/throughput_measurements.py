@@ -59,7 +59,6 @@ class EMAThroughputMeasurement(ThroughputMeasurement):
 
     def _process_window(self):
         self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
-        print('aaaa')
 
     def _update_time(self, current_ts):
         while current_ts >= self.window_start_ts + self.window_size:

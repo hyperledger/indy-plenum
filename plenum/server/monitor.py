@@ -27,43 +27,6 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
-class ThroughputMeasurement:
-    """
-    Measure throughput params
-    """
-
-    def __init__(self, window_size=15, min_cnt=16, first_ts=time.perf_counter()):
-        self.reqs_in_window = 0
-        self.throughput = 0
-        self.window_size = window_size
-        self.min_cnt = min_cnt
-        self.first_ts = first_ts
-        self.window_start_ts = self.first_ts
-        self.alpha = 2 / (self.min_cnt + 1)
-
-    def add_request(self, ordered_ts):
-        self.update_time(ordered_ts)
-        self.reqs_in_window += 1
-
-    def _accumulate(self, old_accum, next_val):
-        """
-        Implement exponential moving average
-        """
-        return old_accum * (1 - self.alpha) + next_val * self.alpha
-
-    def update_time(self, current_ts):
-        while current_ts >= self.window_start_ts + self.window_size:
-            self.throughput = self._accumulate(self.throughput, self.reqs_in_window / self.window_size)
-            self.window_start_ts = self.window_start_ts + self.window_size
-            self.reqs_in_window = 0
-
-    def get_throughput(self, request_time):
-        if request_time < self.first_ts + (self.window_size * self.min_cnt):
-            return None
-        self.update_time(request_time)
-        return self.throughput
-
-
 class RequestTimeTracker:
     """
     Request time tracking utility

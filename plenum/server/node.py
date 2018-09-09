@@ -2593,8 +2593,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, avg_lat_master)
 
             if avg_lat_backup:
-                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY,
-                                       self.monitor.latency_avg_for_backup_cls.get_avg(avg_lat_backup))
+                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
