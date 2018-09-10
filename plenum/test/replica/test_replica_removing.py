@@ -26,7 +26,7 @@ def test_replica_removing(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_cl
     node = txnPoolNodeSet[0]
     start_replicas_count = node.replicas.num_replicas
     index = start_replicas_count - 1
-    node.replicas.shrink(index)
+    node.replicas.remove_replica(index)
     _check_replica_removed(node, start_replicas_count)
     # trigger view change on all nodes
     for node in txnPoolNodeSet:
@@ -50,7 +50,7 @@ def test_replica_removing_before_vc_with_primary_disconnected(looper,
     node = txnPoolNodeSet[0]
     start_replicas_count = node.replicas.num_replicas
     index = start_replicas_count - 1
-    node.replicas.shrink(index)
+    node.replicas.remove_replica(index)
     _check_replica_removed(node, start_replicas_count)
     # trigger view change on all nodes
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node)
@@ -74,7 +74,7 @@ def test_replica_removing_before_ordering(looper, txnPoolNodeSet, sdk_pool_handl
     node = txnPoolNodeSet[0]
     start_replicas_count = node.replicas.num_replicas
     index = start_replicas_count - 1
-    node.replicas.shrink(index)
+    node.replicas.remove_replica(index)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     _check_replica_removed(node, start_replicas_count)
@@ -101,7 +101,7 @@ def test_replica_removing_in_ordering(looper, txnPoolNodeSet, sdk_pool_handle, s
                                        sdk_pool_handle,
                                        sdk_wallet_client,
                                        1)
-        node.replicas.shrink(index)
+        node.replicas.remove_replica(index)
     sdk_get_replies(looper, req)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     _check_replica_removed(node, start_replicas_count)
@@ -122,7 +122,7 @@ def test_replica_removing_after_ordering(looper, txnPoolNodeSet, sdk_pool_handle
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     index = start_replicas_count - 1
-    node.replicas.shrink(index)
+    node.replicas.remove_replica(index)
     _check_replica_removed(node, start_replicas_count)
     # trigger view change on all nodes for return backup replicas
     for node in txnPoolNodeSet:
