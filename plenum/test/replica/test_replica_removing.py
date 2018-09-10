@@ -17,7 +17,10 @@ logger = getlogger()
 CHK_FREQ = 1
 
 
-def test_replica_removing(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_replica_removing(looper,
+                          txnPoolNodeSet,
+                          sdk_pool_handle,
+                          sdk_wallet_client):
     """
     1. Remove replica
     2. Ordering
@@ -40,7 +43,8 @@ def test_replica_removing_before_vc_with_primary_disconnected(looper,
                                                               sdk_wallet_client,
                                                               tconf,
                                                               tdir,
-                                                              allPluginsPath):
+                                                              allPluginsPath,
+                                                              chkFreqPatched):
     """
     1. Remove replica
     2. Reconnect master primary
@@ -65,7 +69,11 @@ def test_replica_removing_before_vc_with_primary_disconnected(looper,
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
 
-def test_replica_removing_before_ordering(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, chkFreqPatched):
+def test_replica_removing_before_ordering(looper,
+                                          txnPoolNodeSet,
+                                          sdk_pool_handle,
+                                          sdk_wallet_client,
+                                          chkFreqPatched):
     """
     1. Remove replica
     2. Ordering
@@ -84,7 +92,11 @@ def test_replica_removing_before_ordering(looper, txnPoolNodeSet, sdk_pool_handl
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
 
-def test_replica_removing_in_ordering(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_replica_removing_in_ordering(looper,
+                                      txnPoolNodeSet,
+                                      sdk_pool_handle,
+                                      sdk_wallet_client,
+                                      chkFreqPatched):
     """
     1. Start ordering (send pre-prepares on backup)
     2. Remove replica

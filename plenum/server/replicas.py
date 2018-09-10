@@ -112,7 +112,7 @@ class Replicas:
                              .format(self._node.name,
                                      per_replica))
                 per_replica = 1
-        for replica in self._replicas.values():
+        for replica in list(self._replicas.values()):
             num = 0
             while replica.outBox:
                 yield replica.outBox.popleft()
