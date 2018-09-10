@@ -40,7 +40,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     # check, that all of node set up watermark greater, then default and
     # ppSeqNo with number LOG_SIZE + 1 will be out from default watermark
     for n in txnPoolNodeSet:
-        for r in n.replicas._replicas:
+        for r in n.replicas._replicas.values():
             assert r.h >= LOG_SIZE
             assert r.H >= LOG_SIZE + LOG_SIZE
     """Adding new node, for scheduling propagate primary procedure"""

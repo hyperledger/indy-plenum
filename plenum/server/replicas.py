@@ -94,7 +94,7 @@ class Replicas:
 
     def pass_message(self, message, instance_id=None):
         if instance_id is not None:
-            if instance_id not in self._replicas:
+            if instance_id not in self._replicas.keys():
                 return
             self._replicas[instance_id].inBox.append(message)
         else:
