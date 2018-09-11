@@ -2896,13 +2896,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           state_root=stateRoot, txn_root=txnRoot)
         self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
-        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
-                          pp_time=ppTime)
+        self.hook_pre_send_reply(updated_committed_txns, ppTime)
         self.sendRepliesToClients(updated_committed_txns, ppTime)
-        self.execute_hook(NodeHooks.POST_SEND_REPLY,
-                          committed_txns=updated_committed_txns,
-                          pp_time=ppTime)
+        self.hook_post_send_reply(updated_committed_txns, ppTime)
         return committedTxns
+
+    def hook_pre_send_reply(self, txns, pp_time):
+        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
+
+    def hook_post_send_reply(self, txns, pp_time):
+        self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
@@ -3225,6 +3228,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
             txn.update(ledger.merkleInfo(seq_no))
+            self.hook_pre_send_reply([txn], None)
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:
