@@ -1319,8 +1319,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeJoined(self, txn_data):
         logger.display("{} new node joined by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        new_replicas = self.adjustReplicas()
+        new_replicas = self.adjustReplicas(old_required_number_of_instances)
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
         if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
                 ledgerInfo.state == LedgerState.synced:
@@ -1330,8 +1331,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeLeft(self, txn_data):
         logger.display("{} node left by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        self.adjustReplicas()
+        self.adjustReplicas(old_required_number_of_instances)
 
     @property
     def clientStackName(self):
@@ -1389,21 +1391,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} and nodes {}".
                      format(self, self.connectedNodeCount, self.nodestack.conns))
 
-    def adjustReplicas(self):
+    def adjustReplicas(self, old_required_number_of_instances: int=0):
         """
         Add or remove replicas depending on `f`
         """
         # TODO: refactor this
         newReplicas = 0
-        while len(self.replicas) < self.requiredNumberOfInstances:
-            self.replicas.grow()
+        while old_required_number_of_instances < self.requiredNumberOfInstances:
+            self.replicas.grow(old_required_number_of_instances)
             newReplicas += 1
-            self.processStashedMsgsForReplica(len(self.replicas) - 1)
-        while len(self.replicas) > self.requiredNumberOfInstances:
-            self.replicas.shrink()
+            self.processStashedMsgsForReplica(old_required_number_of_instances)
+            old_required_number_of_instances += 1
+        while old_required_number_of_instances > self.requiredNumberOfInstances:
+            self.replicas.shrink(old_required_number_of_instances)
             newReplicas -= 1
-        pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
+            old_required_number_of_instances -= 1
+        pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < self.requiredNumberOfInstances)
         return newReplicas
+
+    def update_replicas_status(self):
+        for inst_id in range(0, self.requiredNumberOfInstances):
+            if inst_id not in self.replicas.keys():
+                self.replicas.grow(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -2682,7 +2691,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        self.adjustReplicas()
+        self.update_replicas_status()
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]

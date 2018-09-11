@@ -342,15 +342,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def removeInstance(self, index=None):
         if self.acc_monitor:
             self.acc_monitor.remove_instance()
-
+        last_instance = self.instances.count - 1
         if self.instances.count > 0:
-            if index is None:
-                index = self.instances.count - 1
-            self.instances.remove(index)
-            self.requestTracker.remove_instance(index)
-            del self.numOrderedRequests[index]
-            del self.clientAvgReqLatencies[index]
-            del self.throughputs[index]
+            self.instances.remove(last_instance)
+            self.requestTracker.remove_instance(last_instance if index is None else index)
+            del self.numOrderedRequests[last_instance]
+            del self.clientAvgReqLatencies[last_instance]
+            del self.throughputs[last_instance]
 
     def requestOrdered(self, reqIdrs: List[str], instId: int,
                        requests, byMaster: bool = False) -> Dict:

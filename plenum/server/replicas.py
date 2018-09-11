@@ -26,17 +26,16 @@ class Replicas:
         self._metrics = metrics
         self._config = config
         self._replicas = dict()  # type: Dict[int, Replica]
-        self._messages_to_replicas = []  # type: List[deque]
+        self._messages_to_replicas = dict()  # type: Dict[deque]
         self.register_monitor_handler()
 
-    def grow(self) -> int:
-        instance_id = self.num_replicas
+    def grow(self, instance_id) -> int:
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
         bls_bft = self._create_bls_bft_replica(is_master)
         replica = self._new_replica(instance_id, is_master, bls_bft)
         self._replicas[instance_id] = replica
-        self._messages_to_replicas.append(deque())
+        self._messages_to_replicas[instance_id] = deque()
         self._monitor.addInstance()
 
         logger.display("{} added replica {} to instance {} ({})"
@@ -47,11 +46,10 @@ class Replicas:
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
-    def shrink(self) -> int:
-        index = max(self._replicas.keys())
+    def shrink(self, index) -> int:
         replica = self._replicas.pop(index)
-        self._messages_to_replicas = self._messages_to_replicas[:-1]
-        self._monitor.removeInstance()
+        self._messages_to_replicas.pop(index)
+        self._monitor.removeInstance(index)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
@@ -65,8 +63,8 @@ class Replicas:
         replica = self._replicas.pop(index)
         for request_key in replica.requests:
             replica.requests.free(request_key)
-        if index < len(self._messages_to_replicas):
-            self._messages_to_replicas.pop(index)
+        if index in self._messages_to_replicas:
+            self._messages_to_replicas[index] = None
         self._monitor.removeInstance(index)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
@@ -220,6 +218,9 @@ class Replicas:
                            'Transaction contents: {}. '
                            .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
                                    n_prepares, str_prepares, n_commits, str_commits, content))
+
+    def keys(self):
+        return self._replicas.keys()
 
     def __getitem__(self, item):
         if not isinstance(item, int):
