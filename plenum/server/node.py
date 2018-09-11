@@ -1403,9 +1403,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.processStashedMsgsForReplica(old_required_number_of_instances)
             old_required_number_of_instances += 1
         while old_required_number_of_instances > self.requiredNumberOfInstances:
+            old_required_number_of_instances -= 1
             self.replicas.shrink(old_required_number_of_instances)
             newReplicas -= 1
-            old_required_number_of_instances -= 1
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < self.requiredNumberOfInstances)
         return newReplicas
 
