@@ -28,7 +28,7 @@ def test_6_nodes_pool_cannot_reach_quorum_with_2_disconnected(
 
     current_node_set = set(txnPoolNodeSet)
     for node in faulties:
-        for r in node.replicas:
+        for r in node.replicas.values():
             assert not r.isPrimary
         disconnect_node_and_ensure_disconnected(
             looper, current_node_set, node, stopNode=False)

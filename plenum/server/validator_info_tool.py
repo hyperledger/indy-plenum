@@ -386,7 +386,7 @@ class ValidatorNodeInfoTool:
     @none_on_fail
     def __replicas_status(self):
         res = {}
-        for replica in self._node.replicas:
+        for replica in self._node.replicas.values():
             replica_stat = {}
             replica_stat["Primary"] = self._prepare_for_json(replica.primaryName)
             replica_stat["Watermarks"] = "{}:{}".format(replica.h, replica.H)

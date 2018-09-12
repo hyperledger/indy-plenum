@@ -345,7 +345,7 @@ def chk_commits_prepares_recvd(count, receivers, sender):
     counts = {}
     sender_replica_names = {r.instId: r.name for r in sender.replicas}
     for node in receivers:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             if replica.instId not in counts:
                 counts[replica.instId] = 0
             nm = sender_replica_names[replica.instId]

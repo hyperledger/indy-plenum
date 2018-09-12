@@ -39,7 +39,7 @@ class FakeNode:
         self.basedirpath = tmpdir
         self.name = 'Node1'
         self.f = 1
-        self.replicas = []
+        self.replicas = dict()
         self.requests = []
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']

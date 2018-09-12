@@ -587,13 +587,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_changer.start_view_change_ts = self.utc_epoch()
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.on_view_change_start()
         logger.info("{} resetting monitor stats at view change start".format(self))
         self.monitor.reset()
         self.processStashedMsgsForView(self.viewNo)
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.primaryName = None
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
@@ -629,7 +629,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.master_replica.on_view_change_done()
         if self.view_changer.propagate_primary:  # TODO VCH
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
@@ -640,7 +640,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Test for this case in plenum/test/view_change/
         # test_no_propagate_request_on_different_last_ordered_before_vc.py
         if not self.view_changer.propagate_primary:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
 
@@ -2002,7 +2002,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 if replica.isMaster:
                     replica.caught_up_till_3pc(last_caught_up_3PC)
                 else:
@@ -2692,7 +2692,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         duplicates of primary nodes for different replicas.
         '''
         self.update_replicas_status()
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
                 primaries.add(name)
@@ -2703,7 +2703,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     primary_rank = self.get_rank_by_name(name, nodeReg)
 
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue

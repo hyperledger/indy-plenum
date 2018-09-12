@@ -18,7 +18,7 @@ def delay_instance_change(txnPoolNodeSet, val):
 def _get_ppseqno(nodes):
     res = set()
     for node in nodes:
-        for repl in node.replicas:
+        for repl in node.replicas.values():
             if repl.isMaster:
                 res.add(repl.lastPrePrepareSeqNo)
     assert (len(res) == 1)
