@@ -29,14 +29,14 @@ class Replicas:
         self._messages_to_replicas = dict()  # type: Dict[deque]
         self.register_monitor_handler()
 
-    def grow(self, instance_id) -> int:
+    def add_replica(self, instance_id) -> int:
         is_master = instance_id == 0
         description = "master" if is_master else "backup"
         bls_bft = self._create_bls_bft_replica(is_master)
         replica = self._new_replica(instance_id, is_master, bls_bft)
         self._replicas[instance_id] = replica
         self._messages_to_replicas[instance_id] = deque()
-        self._monitor.addInstance()
+        self._monitor.addInstance(instance_id)
 
         logger.display("{} added replica {} to instance {} ({})"
                        .format(self._node.name,
@@ -46,30 +46,19 @@ class Replicas:
                        extra={"tags": ["node-replica"]})
         return self.num_replicas
 
-    def shrink(self, index) -> int:
-        replica = self._replicas.pop(index)
-        self._messages_to_replicas.pop(index)
-        self._monitor.removeInstance(index)
-        logger.display("{} removed replica {} from instance {}".
-                       format(self._node.name, replica, replica.instId),
-                       extra={"tags": ["node-replica"]})
-        return self.num_replicas
-
-    def remove_replica(self, index: int=None) -> int:
+    def remove_replica(self, index: int=None):
         if index >= self.num_replicas:
             return
         if index is None:
             index = self.num_replicas - 1
         replica = self._replicas.pop(index)
-        for request_key in replica.requests:
+        for request_key in replica.requestQueues:
             replica.requests.free(request_key)
-        if index in self._messages_to_replicas:
-            self._messages_to_replicas[index] = None
+        self._messages_to_replicas.pop(index, None)
         self._monitor.removeInstance(index)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
-        return self.num_replicas
 
     # TODO unit test
     @property

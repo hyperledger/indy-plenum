@@ -18,18 +18,17 @@ def fake_monitor(tconf):
     throughputs = []
     instances = Instances()
     for i in range(NUM_OF_REPLICAS):
-        throughputs.append(
-            Monitor.create_throughput_measurement(tconf, start_ts=0))
-        instances.add()
+        throughputs[i] = Monitor.create_throughput_measurement(tconf, start_ts=0)
+        instances.add(i)
     monitor = FakeSomething(
         throughputs=throughputs,
         instances=instances,
         Delta=tconf.DELTA,
         throughput_avg_strategy_cls=MedianLowStrategy,
         )
-    monitor.numOrderedRequests = []
+    monitor.numOrderedRequests = dict()
     for i in range(NUM_OF_REPLICAS):
-        monitor.numOrderedRequests.append((100, 100))
+        monitor.numOrderedRequests[i] = (100, 100)
     monitor.getThroughputs = functools.partial(Monitor.getThroughputs, monitor)
     monitor.getThroughput = functools.partial(getThroughput, monitor)
     monitor.getInstanceMetrics = functools.partial(Monitor.getInstanceMetrics, monitor)

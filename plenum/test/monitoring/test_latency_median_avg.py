@@ -13,11 +13,11 @@ NUM_OF_REPLICAS = 5
 
 @pytest.fixture(scope='function')
 def fake_monitor(tconf):
-    latencies = []
+    latencies = dict()
     instances = Instances()
     for i in range(NUM_OF_REPLICAS):
-        latencies.append(LatencyMeasurement())
-        instances.add()
+        latencies[i] = LatencyMeasurement()
+        instances.add(i)
     monitor = FakeSomething(
         instances=instances,
         Omega=tconf.OMEGA,

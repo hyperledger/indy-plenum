@@ -15,7 +15,7 @@ def fake_monitor():
 @pytest.fixture(scope='function', params=[0, 10])
 def fake_node(fake_node):
     fake_node.instances = Instances()
-    fake_node.instances.add()
+    fake_node.instances.add(0)
     fake_node.spylog = []
     return fake_node
 

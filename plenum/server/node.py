@@ -313,7 +313,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
-        self.adjustReplicas()
+        self.adjustReplicas(0, self.requiredNumberOfInstances)
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -1321,7 +1321,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.display("{} new node joined by txn {}".format(self, txn_data))
         old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        new_replicas = self.adjustReplicas(old_required_number_of_instances)
+        new_replicas = self.adjustReplicas(old_required_number_of_instances,
+                                           self.requiredNumberOfInstances)
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
         if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
                 ledgerInfo.state == LedgerState.synced:
@@ -1333,7 +1334,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.display("{} node left by txn {}".format(self, txn_data))
         old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        self.adjustReplicas(old_required_number_of_instances)
+        self.adjustReplicas(old_required_number_of_instances,
+                            self.requiredNumberOfInstances)
 
     @property
     def clientStackName(self):
@@ -1391,28 +1393,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} and nodes {}".
                      format(self, self.connectedNodeCount, self.nodestack.conns))
 
-    def adjustReplicas(self, old_required_number_of_instances: int=0):
+    def adjustReplicas(self,
+                       old_required_number_of_instances: int,
+                       new_required_number_of_instances: int):
         """
         Add or remove replicas depending on `f`
         """
         # TODO: refactor this
         newReplicas = 0
-        while old_required_number_of_instances < self.requiredNumberOfInstances:
-            self.replicas.grow(old_required_number_of_instances)
+        while old_required_number_of_instances < new_required_number_of_instances:
+            self.replicas.add_replica(old_required_number_of_instances)
             newReplicas += 1
             self.processStashedMsgsForReplica(old_required_number_of_instances)
             old_required_number_of_instances += 1
-        while old_required_number_of_instances > self.requiredNumberOfInstances:
+
+        while old_required_number_of_instances > new_required_number_of_instances:
             old_required_number_of_instances -= 1
-            self.replicas.shrink(old_required_number_of_instances)
+            self.replicas.remove_replica(old_required_number_of_instances)
             newReplicas -= 1
-        pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < self.requiredNumberOfInstances)
+
+        pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
         return newReplicas
 
-    def update_replicas_status(self):
+    def restore_replicas(self):
         for inst_id in range(0, self.requiredNumberOfInstances):
             if inst_id not in self.replicas.keys():
-                self.replicas.grow(inst_id)
+                self.replicas.add_replica(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -2550,7 +2556,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if new ordered requests, False otherwise
         """
         last_num_ordered = self._last_performance_check_data.get('num_ordered')
-        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests.values())
         if num_ordered != last_num_ordered:
             self._last_performance_check_data['num_ordered'] = num_ordered
             return True
@@ -2691,7 +2697,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        self.update_replicas_status()
         for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
