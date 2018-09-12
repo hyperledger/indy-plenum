@@ -343,7 +343,7 @@ def msgCountOK(nodesSize,
 
 def chk_commits_prepares_recvd(count, receivers, sender):
     counts = {}
-    sender_replica_names = {r.instId: r.name for r in sender.replicas}
+    sender_replica_names = {r.instId: r.name for r in sender.replicas.values()}
     for node in receivers:
         for replica in node.replicas.values():
             if replica.instId not in counts:
