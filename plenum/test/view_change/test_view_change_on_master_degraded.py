@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
