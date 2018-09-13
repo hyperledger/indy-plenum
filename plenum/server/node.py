@@ -1401,14 +1401,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         # TODO: refactor this
         newReplicas = 0
-        while old_required_number_of_instances < new_required_number_of_instances:
+        replica_num = old_required_number_of_instances
+        while replica_num < new_required_number_of_instances:
             self.replicas.add_replica(old_required_number_of_instances)
             newReplicas += 1
             self.processStashedMsgsForReplica(old_required_number_of_instances)
-            old_required_number_of_instances += 1
+            replica_num += 1
 
-        while old_required_number_of_instances > new_required_number_of_instances:
-            old_required_number_of_instances -= 1
+        while replica_num > new_required_number_of_instances:
+            replica_num -= 1
             self.replicas.remove_replica(old_required_number_of_instances)
             newReplicas -= 1
 
