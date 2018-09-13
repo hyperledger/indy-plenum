@@ -1587,7 +1587,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         instId = getattr(msg, f.INST_ID.nm, None)
         if not (isinstance(instId, int) and instId >= 0):
             return False
-        if instId >= self.replicas.num_replicas:
+        if instId >= self.requiredNumberOfInstances:
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
