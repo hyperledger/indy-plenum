@@ -1403,14 +1403,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         newReplicas = 0
         replica_num = old_required_number_of_instances
         while replica_num < new_required_number_of_instances:
-            self.replicas.add_replica(old_required_number_of_instances)
+            self.replicas.add_replica(replica_num)
             newReplicas += 1
-            self.processStashedMsgsForReplica(old_required_number_of_instances)
+            self.processStashedMsgsForReplica(replica_num)
             replica_num += 1
 
         while replica_num > new_required_number_of_instances:
             replica_num -= 1
-            self.replicas.remove_replica(old_required_number_of_instances)
+            self.replicas.remove_replica(replica_num)
             newReplicas -= 1
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
