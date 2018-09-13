@@ -86,8 +86,11 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
         def create_replicas(self, config=None):
             return _TestReplicas(self, self.monitor, config)
 
-        def adjustReplicas(self):
-            r = super().adjustReplicas(0, self.requiredNumberOfInstances)
+        def adjustReplicas(self,
+                           old_required_number_of_instances: int,
+                           new_required_number_of_instances: int):
+            r = super().adjustReplicas(old_required_number_of_instances,
+                                       new_required_number_of_instances)
             if r > 0:
                 if hasattr(self, 'sent_pps'):
                     new_replicas = self.replicas[-r:]
