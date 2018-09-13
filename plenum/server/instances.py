@@ -15,8 +15,8 @@ class Instances:
         """
         self.started[inst_id] = time.perf_counter()
 
-    def remove(self, index):
-        self.started.pop(index, None)
+    def remove(self, inst_id):
+        self.started.pop(inst_id, None)
 
     @property
     def ids(self) -> set:
@@ -31,7 +31,7 @@ class Instances:
         Return the index of the replica that belongs to the master protocol
         instance
         """
-        return 0 if len(self.started) > 0 else None
+        return 0 if 0 in self.started.keys() else None
 
     @property
     def backupIds(self) -> Sequence[int]:
