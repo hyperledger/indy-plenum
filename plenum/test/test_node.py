@@ -144,7 +144,7 @@ class TestNodeCore(StackedTester):
             nodeInfo=self.nodeInfo,
             notifierEventTriggeringConfig=notifierEventTriggeringConfig,
             pluginPaths=pluginPaths)
-        for i in range(len(self.replicas)):
+        for i in self.replicas.keys():
             self.monitor.addInstance(i)
         self.replicas._monitor = self.monitor
         self.replicas.register_monitor_handler()

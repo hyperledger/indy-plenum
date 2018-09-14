@@ -52,8 +52,9 @@ class Replicas:
         if index is None:
             index = self.num_replicas - 1
         replica = self._replicas.pop(index)
-        for request_key in replica.requestQueues:
-            replica.requests.free(request_key)
+        for request_list in replica.requestQueues.values():
+            for request_key in request_list:
+                replica.requests.free(request_key)
         self._messages_to_replicas.pop(index, None)
         self._monitor.removeInstance(index)
         logger.display("{} removed replica {} from instance {}".
@@ -141,10 +142,7 @@ class Replicas:
     # TODO unit test
     @property
     def primaries(self) -> dict:
-        primaries = dict()
-        for r in self._replicas.values():
-            primaries[r.instId] = r
-        return primaries
+        return {r.instId: r.name for r in self._replicas.values()}
 
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas.values():
