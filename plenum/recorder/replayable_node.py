@@ -93,7 +93,9 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
                                        new_required_number_of_instances)
             if r > 0:
                 if hasattr(self, 'sent_pps'):
-                    new_replicas = self.replicas[-r:]
+                    new_replicas = [r for inst_id, r in self.replicas
+                                    if old_required_number_of_instances >=
+                                    inst_id < new_required_number_of_instances]
                     for r in new_replicas:
                         if not hasattr(r, 'sent_pps'):
                             r.sent_pps = self.sent_pps.pop(r.instId, {})

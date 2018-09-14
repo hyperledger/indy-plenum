@@ -546,7 +546,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # We are using the instanceStarted time in the denominator instead of
         # a time interval. This is alright for now as all the instances on a
         # node are started at almost the same time.
-        if instId >= self.instances.count:
+        if instId not in self.instances.ids:
             return None
         perf_time = time.perf_counter()
         throughput = self.throughputs[instId].get_throughput(perf_time)

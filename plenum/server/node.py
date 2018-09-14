@@ -2460,7 +2460,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: whether executed
         """
 
-        if ordered.instId >= self.instances.count:
+        if ordered.instId not in self.instances.ids:
             logger.warning('{} got ordered request for instance {} which '
                            'does not exist'.format(self, ordered.instId))
             return False
