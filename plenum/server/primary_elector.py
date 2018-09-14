@@ -761,6 +761,6 @@ class PrimaryElector(PrimaryDecider):
         started node, a node that has crashed and recovered etc.)
         """
         msgs = []
-        for instId in range(len(self.replicas)):
+        for instId in self.replicas.keys():
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs
