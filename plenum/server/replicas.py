@@ -7,6 +7,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import BLS_PREFIX
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
+from plenum.common.util import SortedDict
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -25,7 +26,7 @@ class Replicas:
         self._monitor = monitor
         self._metrics = metrics
         self._config = config
-        self._replicas = dict()  # type: Dict[int, Replica]
+        self._replicas = SortedDict()  # type: SortedDict[int, Replica]
         self._messages_to_replicas = dict()  # type: Dict[deque]
         self.register_monitor_handler()
 
