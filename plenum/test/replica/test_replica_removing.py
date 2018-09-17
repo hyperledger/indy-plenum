@@ -1,5 +1,8 @@
+import sys
+
 import pytest
 
+from plenum.common.request import Request
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
@@ -93,9 +96,9 @@ def test_replica_removing_before_ordering(looper,
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
+    _check_replica_removed(node, start_replicas_count, instance_id)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
-    _check_replica_removed(node, start_replicas_count, instance_id)
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
 
@@ -115,14 +118,20 @@ def test_replica_removing_in_ordering(looper,
     node = txnPoolNodeSet[0]
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
-
-    slow_stasher = node.nodeIbStasher
-    with delay_rules(slow_stasher, cDelay()):
+    stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
+    with delay_rules(stashers, cDelay(delay=sys.maxsize)):
         req = sdk_send_random_requests(looper,
                                        sdk_pool_handle,
                                        sdk_wallet_client,
                                        1)
+
+        def chk():
+            assert len(node.requests) > 0
+        looper.run(eventually(chk))
+        digest = Request(**req[0][0]).digest
+        old_forwarded_to = node.requests[digest].forwardedTo
         node.replicas.remove_replica(instance_id)
+        assert old_forwarded_to - 1 == node.requests[digest].forwardedTo
     sdk_get_replies(looper, req)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     _check_replica_removed(node, start_replicas_count, instance_id)

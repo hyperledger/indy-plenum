@@ -5,7 +5,7 @@ INSTANCE_COUNT = 4
 
 
 def test_request_tracker_start_adds_request():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
 
@@ -19,7 +19,7 @@ def test_request_tracker_start_adds_request():
 
 
 def test_request_tracker_handle_makes_request_handled_unordered():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
 
@@ -33,7 +33,7 @@ def test_request_tracker_handle_makes_request_handled_unordered():
 
 
 def test_request_tracker_reset_clears_all_requests():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
 
@@ -48,7 +48,7 @@ def test_request_tracker_reset_clears_all_requests():
 
 
 def test_request_tracker_order_by_master_makes_request_ordered_and_returns_time_to_order():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
     req_tracker.start(digest, now)
@@ -62,7 +62,7 @@ def test_request_tracker_order_by_master_makes_request_ordered_and_returns_time_
 
 
 def test_request_tracker_order_by_master_makes_handled_request_ordered_and_returns_time_to_order():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
     req_tracker.start(digest, now)
@@ -77,7 +77,7 @@ def test_request_tracker_order_by_master_makes_handled_request_ordered_and_retur
 
 
 def test_request_tracker_order_by_backup_returns_time_to_order():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
     req_tracker.start(digest, now)
@@ -91,7 +91,7 @@ def test_request_tracker_order_by_backup_returns_time_to_order():
 
 
 def test_request_tracker_deletes_request_only_when_it_is_ordered_by_all_instances():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
     req_tracker.start(digest, now)
@@ -107,7 +107,7 @@ def test_request_tracker_deletes_request_only_when_it_is_ordered_by_all_instance
 
 
 def test_request_tracker_doesnt_wait_for_new_instances_on_old_requests():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
 
@@ -123,7 +123,7 @@ def test_request_tracker_doesnt_wait_for_new_instances_on_old_requests():
 
 
 def test_request_tracker_waits_for_new_instances_on_new_requests():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
 
@@ -141,7 +141,7 @@ def test_request_tracker_waits_for_new_instances_on_new_requests():
 
 
 def test_request_tracker_performs_garbage_collection_on_remove_instance():
-    req_tracker = RequestTimeTracker(set(range(INSTANCE_COUNT)))
+    req_tracker = _generate_request_time_tracker()
     digest = "digest"
     now = 1.0
     req_tracker.start(digest, now)
@@ -156,3 +156,10 @@ def test_request_tracker_performs_garbage_collection_on_remove_instance():
     assert digest not in req_tracker
     assert digest not in req_tracker.unordered()
     assert digest not in req_tracker.handled_unordered()
+
+
+def _generate_request_time_tracker():
+    instances = set(range(INSTANCE_COUNT))
+    removed_replica = int(INSTANCE_COUNT/2)
+    instances.remove(removed_replica)
+    return RequestTimeTracker(instances)
