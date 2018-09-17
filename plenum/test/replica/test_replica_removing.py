@@ -38,6 +38,8 @@ def test_replica_removing(looper,
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
     _check_replica_removed(node, start_replicas_count, instance_id)
+    assert not node.monitor.isMasterDegraded()
+    assert len(node.requests) == 0
 
 
 def test_replica_removing_before_vc_with_primary_disconnected(looper,
@@ -60,6 +62,8 @@ def test_replica_removing_before_vc_with_primary_disconnected(looper,
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
     _check_replica_removed(node, start_replicas_count, instance_id)
+    assert not node.monitor.isMasterDegraded()
+    assert len(node.requests) == 0
     # trigger view change on all nodes
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node)
     txnPoolNodeSet.remove(node)
@@ -92,6 +96,8 @@ def test_replica_removing_before_ordering(looper,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     _check_replica_removed(node, start_replicas_count, instance_id)
+    assert not node.monitor.isMasterDegraded()
+    assert len(node.requests) == 0
 
 
 def test_replica_removing_in_ordering(looper,
@@ -120,6 +126,8 @@ def test_replica_removing_in_ordering(looper,
     sdk_get_replies(looper, req)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     _check_replica_removed(node, start_replicas_count, instance_id)
+    assert not node.monitor.isMasterDegraded()
+    assert len(node.requests) == 0
 
 
 def test_replica_removing_after_ordering(looper,
@@ -140,6 +148,8 @@ def test_replica_removing_after_ordering(looper,
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
     _check_replica_removed(node, start_replicas_count, instance_id)
+    assert not node.monitor.isMasterDegraded()
+    assert len(node.requests) == 0
 
 
 def _check_replica_removed(node, start_replicas_count, instance_id):
@@ -156,8 +166,6 @@ def _check_replica_removed(node, start_replicas_count, instance_id):
     if node.monitor.acc_monitor is not None:
         assert node.monitor.acc_monitor == replicas_count
         assert instance_id not in node.replicas.keys()
-    assert not node.monitor.isMasterDegraded()
-    assert len(node.requests) == 0
 
 
 def check_checkpoint_finalize(nodes):
