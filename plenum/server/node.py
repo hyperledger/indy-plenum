@@ -515,6 +515,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def initConfigState(self):
         self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
                                  self.configLedger, self.configReqHandler)
+        logger.info(
+            "{} initialized config state: state root {}"
+            .format(self, state_roots_serializer.serialize(
+                bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     def getConfigReqHandler(self):
         return ConfigReqHandler(self.configLedger,
@@ -3017,6 +3021,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
                                  self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        logger.info(
+            "{} initialized domain state: state root {}"
+            .format(self, state_roots_serializer.serialize(
+                bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
