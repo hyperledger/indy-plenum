@@ -12,6 +12,7 @@ import psutil
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
@@ -1967,6 +1968,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
                 rh.ts_store.set(get_txn_time(txn),
                                 state.headHash)
+            logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
+                         .format(self, get_seq_no(txn), ledger_id,
+                                 state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
         self._clear_req_key_for_txn(ledger_id, txn)
 
