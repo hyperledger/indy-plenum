@@ -53,7 +53,7 @@ def test_master_primary_different_from_previous_view_for_itself(
     old_pr_node = pr.node
 
     def _get_undecided_inst_id(self):
-        undecideds = [i for i, r in enumerate(self.replicas)
+        undecideds = [i for i, r in self.replicas
                       if r.isPrimary is None]
         # Try to nominate for the master instance
         return undecideds, 0

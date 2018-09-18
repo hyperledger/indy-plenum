@@ -144,8 +144,8 @@ class TestNodeCore(StackedTester):
             nodeInfo=self.nodeInfo,
             notifierEventTriggeringConfig=notifierEventTriggeringConfig,
             pluginPaths=pluginPaths)
-        for i in range(len(self.replicas)):
-            self.monitor.addInstance()
+        for i in self.replicas.keys():
+            self.monitor.addInstance(i)
         self.replicas._monitor = self.monitor
         self.replicas.register_monitor_handler()
 
@@ -197,7 +197,7 @@ class TestNodeCore(StackedTester):
         logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             r.outBoxTestStasher.resetDelays()
 
     def resetDelaysClient(self):
@@ -209,7 +209,7 @@ class TestNodeCore(StackedTester):
     def force_process_delayeds(self, *names):
         c = self.nodestack.force_process_delayeds(*names)
         c += self.nodeIbStasher.force_unstash(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             c += r.outBoxTestStasher.force_unstash(*names)
         logger.debug("{} forced processing of delayed messages, "
                      "{} processed in total".format(self, c))
@@ -274,7 +274,7 @@ class TestNodeCore(StackedTester):
                      format(self.nodestack.name, msg, frm))
 
     def service_replicas_outbox(self, *args, **kwargs) -> int:
-        for r in self.replicas:  # type: TestReplica
+        for r in self.replicas.values():  # type: TestReplica
             r.outBoxTestStasher.process()
         return super().service_replicas_outbox(*args, **kwargs)
 
@@ -832,7 +832,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                                       retryWait: float = None,
                                       customTimeout: float = None):
     def checkAtMostOnePrim(node):
-        prims = [r for r in node.replicas if r.isPrimary]
+        prims = [r for r in node.replicas.values() if r.isPrimary]
         assert len(prims) <= 1
 
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
@@ -863,7 +863,7 @@ def checkProtocolInstanceSetup(looper: Looper,
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
-                       for replica in node.replicas if replica.isPrimary}
+                       for replica in node.replicas.values() if replica.isPrimary}
     return [r[1] for r in
             sorted(primaryReplicas.items(), key=operator.itemgetter(0))]
 
@@ -955,7 +955,7 @@ def timeThis(func, *args, **kwargs):
 def instances(nodes: Sequence[Node],
               numInstances: int = None) -> Dict[int, List[replica.Replica]]:
     numInstances = (getRequiredInstances(len(nodes))
-    if numInstances is None else numInstances)
+                    if numInstances is None else numInstances)
     for n in nodes:
         assert len(n.replicas) == numInstances
     return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}

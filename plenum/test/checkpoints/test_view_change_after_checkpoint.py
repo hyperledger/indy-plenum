@@ -45,7 +45,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
 
     # Check that after view change, proper clean up is done
     for node in txnPoolNodeSet:
-        for r in node.replicas:
+        for r in node.replicas.values():
             assert not r.checkpoints
             # No stashed checkpoint for previous view
             assert not [view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]

@@ -131,7 +131,7 @@ class PreprepareHandler(BaseHandler):
     }
 
     def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in range(len(self.node.replicas)) and \
+        return kwargs['inst_id'] in self.node.replicas.keys() and \
             kwargs['view_no'] == self.node.viewNo and \
             isinstance(kwargs['pp_seq_no'], int) and \
             kwargs['pp_seq_no'] > 0
@@ -163,7 +163,7 @@ class PrepareHandler(BaseHandler):
     }
 
     def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in range(len(self.node.replicas)) and \
+        return kwargs['inst_id'] in self.node.replicas.keys() and \
             kwargs['view_no'] == self.node.viewNo and \
             isinstance(kwargs['pp_seq_no'], int) and \
             kwargs['pp_seq_no'] > 0
@@ -195,7 +195,7 @@ class CommitHandler(BaseHandler):
     }
 
     def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in range(len(self.node.replicas)) and \
+        return kwargs['inst_id'] in self.node.replicas.keys() and \
             kwargs['view_no'] == self.node.viewNo and \
             isinstance(kwargs['pp_seq_no'], int) and \
             kwargs['pp_seq_no'] > 0

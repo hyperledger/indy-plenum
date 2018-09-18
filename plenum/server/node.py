@@ -313,7 +313,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
-        self.adjustReplicas()
+        self.adjustReplicas(0, self.requiredNumberOfInstances)
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -587,13 +587,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_changer.start_view_change_ts = self.utc_epoch()
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.on_view_change_start()
         logger.info("{} resetting monitor stats at view change start".format(self))
         self.monitor.reset()
         self.processStashedMsgsForView(self.viewNo)
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.primaryName = None
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
@@ -629,7 +629,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.master_replica.on_view_change_done()
         if self.view_changer.propagate_primary:  # TODO VCH
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
@@ -640,7 +640,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Test for this case in plenum/test/view_change/
         # test_no_propagate_request_on_different_last_ordered_before_vc.py
         if not self.view_changer.propagate_primary:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
 
@@ -1319,8 +1319,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeJoined(self, txn_data):
         logger.display("{} new node joined by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        new_replicas = self.adjustReplicas()
+        new_replicas = self.adjustReplicas(old_required_number_of_instances,
+                                           self.requiredNumberOfInstances)
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
         if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
                 ledgerInfo.state == LedgerState.synced:
@@ -1330,8 +1332,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeLeft(self, txn_data):
         logger.display("{} node left by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        self.adjustReplicas()
+        self.adjustReplicas(old_required_number_of_instances,
+                            self.requiredNumberOfInstances)
 
     @property
     def clientStackName(self):
@@ -1389,21 +1393,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} and nodes {}".
                      format(self, self.connectedNodeCount, self.nodestack.conns))
 
-    def adjustReplicas(self):
+    def adjustReplicas(self,
+                       old_required_number_of_instances: int,
+                       new_required_number_of_instances: int):
         """
         Add or remove replicas depending on `f`
         """
         # TODO: refactor this
         newReplicas = 0
-        while len(self.replicas) < self.requiredNumberOfInstances:
-            self.replicas.grow()
+        replica_num = old_required_number_of_instances
+        while replica_num < new_required_number_of_instances:
+            self.replicas.add_replica(replica_num)
             newReplicas += 1
-            self.processStashedMsgsForReplica(len(self.replicas) - 1)
-        while len(self.replicas) > self.requiredNumberOfInstances:
-            self.replicas.shrink()
+            self.processStashedMsgsForReplica(replica_num)
+            replica_num += 1
+
+        while replica_num > new_required_number_of_instances:
+            replica_num -= 1
+            self.replicas.remove_replica(replica_num)
             newReplicas -= 1
-        pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
+
+        pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
         return newReplicas
+
+    def restore_replicas(self):
+        for inst_id in range(0, self.requiredNumberOfInstances):
+            if inst_id not in self.replicas.keys():
+                self.replicas.add_replica(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -1571,7 +1587,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         instId = getattr(msg, f.INST_ID.nm, None)
         if not (isinstance(instId, int) and instId >= 0):
             return False
-        if instId >= self.replicas.num_replicas:
+        if instId >= self.requiredNumberOfInstances:
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
@@ -1993,7 +2009,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 if replica.isMaster:
                     replica.caught_up_till_3pc(last_caught_up_3PC)
                 else:
@@ -2444,7 +2460,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: whether executed
         """
 
-        if ordered.instId >= self.instances.count:
+        if ordered.instId not in self.instances.ids:
             logger.warning('{} got ordered request for instance {} which '
                            'does not exist'.format(self, ordered.instId))
             return False
@@ -2541,7 +2557,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if new ordered requests, False otherwise
         """
         last_num_ordered = self._last_performance_check_data.get('num_ordered')
-        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests.values())
         if num_ordered != last_num_ordered:
             self._last_performance_check_data['num_ordered'] = num_ordered
             return True
@@ -2677,7 +2693,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
                 primaries.add(name)
@@ -2688,7 +2704,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     primary_rank = self.get_rank_by_name(name, nodeReg)
 
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue

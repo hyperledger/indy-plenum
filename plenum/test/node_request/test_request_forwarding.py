@@ -29,7 +29,7 @@ def test_all_replicas_hold_request_keys(
         # All replicas have same amount of forwarded request keys and all keys
         # are finalised.
         for node in txnPoolNodeSet:
-            for r in node.replicas:
+            for r in node.replicas.values():
                 if r.isPrimary is False:
                     assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == count
                     for i in range(count):

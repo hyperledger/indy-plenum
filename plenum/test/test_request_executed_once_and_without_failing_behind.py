@@ -36,7 +36,7 @@ def test_request_executed_once_and_without_failing_behind(tconf, looper,
     tconf.CHK_FREQ = 1
 
     for node in txnPoolNodeSet:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             set_checkpoint_faking(replica)
 
     replies = sdk_send_random_and_check(looper, txnPoolNodeSet,

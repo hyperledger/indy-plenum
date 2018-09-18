@@ -25,7 +25,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
         assert node.view_changer.has_acceptable_view_change_quorum
         assert node.view_changer._primary_verified
         assert node.isParticipating
-        assert None not in {r.isPrimary for r in node.replicas}
+        assert None not in {r.isPrimary for r in node.replicas.values()}
 
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 5 * 4, 4)
@@ -44,7 +44,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     assert not slow_node.view_changer.has_acceptable_view_change_quorum
     assert not slow_node.view_changer._primary_verified
     assert not slow_node.isParticipating
-    assert {r.isPrimary for r in slow_node.replicas} == {None}
+    assert {r.isPrimary for r in slow_node.replicas.values()} == {None}
 
     # Send requests to make sure pool is functional
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
