@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import List
 
 from common.exceptions import LogicError
+from common.serializers.serialization import state_roots_serializer
 from storage.helper import initKeyValueStorage
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
@@ -145,6 +146,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
+        logger.info(
+            "{} initialized pool state: state root {}"
+            .format(self, state_roots_serializer.serialize(
+                bytes(self.state.committedHeadHash))))
 
     @property
     def hasLedger(self):
