@@ -2707,6 +2707,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _schedule_backup_primary_disconnected(self, inst_id):
         if not self.disconnected_primaries:
             self._schedule(self.propose_replica_remove, self.config.TolerateBackupPrimaryDisconnection)
+        if inst_id not in self.disconnected_primaries:
             self.disconnected_primaries[inst_id] = 0
 
     # TODO: consider moving this to pool manager
