@@ -455,6 +455,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
+        # Dict to store time which backup primaries were disconnected
+        self.disconnected_primaries = dict()
+
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
         self.init_config_state()
@@ -1265,6 +1268,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.master_primary_name in joined:
             self.lost_primary_at = None
+
+        for inst_id, replica in self.replicas:
+            if replica.primaryName is not None and \
+                    replica.primaryName.replace(":" + str(inst_id), "") in left:
+                self._schedule_backup_primary_disconnected(inst_id)
         if self.master_primary_name in left:
             logger.display('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
@@ -1417,6 +1425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return newReplicas
 
     def restore_replicas(self):
+        self.disconnected_primaries.clear()
         for inst_id in range(0, self.requiredNumberOfInstances):
             if inst_id not in self.replicas.keys():
                 self.replicas.add_replica(inst_id)
@@ -2672,10 +2681,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.view_changer.on_primary_loss()
 
+    def propose_replica_remove(self):
+        if not self.disconnected_primaries:
+            self._cancel(self.propose_replica_remove)
+            return
+        for inst_id in dict(self.disconnected_primaries).keys():
+            if self.replicas[inst_id].primaryName is None:
+                continue
+            primary_name = self.replicas[inst_id].primaryName.replace(":" + str(inst_id), "")
+            if primary_name not in self.nodestack.remotes.keys():
+                del self.disconnected_primaries[inst_id]
+            elif self.disconnected_primaries[inst_id] > self.config.TimePrimaryBackupDisconnection:
+                self.replicas.remove_replica(inst_id)
+                del self.disconnected_primaries[inst_id]
+            else:
+                self.disconnected_primaries[inst_id] += 1
+        self._schedule(self.propose_replica_remove,
+                       self.config.TolerateBackupPrimaryDisconnection)
+
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
+
+    def _schedule_backup_primary_disconnected(self, inst_id):
+        if not self.disconnected_primaries:
+            self._schedule(self.propose_replica_remove, self.config.TolerateBackupPrimaryDisconnection)
+            self.disconnected_primaries[inst_id] = 0
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
