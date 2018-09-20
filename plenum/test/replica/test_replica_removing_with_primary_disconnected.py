@@ -11,7 +11,7 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_time = tconf.TimePrimaryBackupDisconnection
-    tconf.TimePrimaryBackupDisconnection = 2
+    tconf.TimePrimaryBackupDisconnection = 5
     yield tconf
     tconf.TimePrimaryBackupDisconnection = old_time
 
@@ -45,8 +45,7 @@ def test_replica_removing_with_primary_disconnected(looper,
                                   start_replicas_count,
                                   instance_to_remove)
     looper.run(eventually(check_replica_removed_on_all_nodes,
-                          timeout=tconf.TimePrimaryBackupDisconnection *
-                                  tconf.TolerateBackupPrimaryDisconnection * 4))
+                          timeout=tconf.TimePrimaryBackupDisconnection * 4))
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
 

@@ -646,6 +646,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
+        for inst_id, replica in self.replicas:
+            if not replica.isMaster and replica.primaryName is not None and \
+                    replica.primaryName.replace(":" + str(inst_id), "") \
+                    in self.nodestack.remotes.keys():
+                self._schedule_backup_primary_disconnected(inst_id)
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -1270,7 +1275,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.lost_primary_at = None
 
         for inst_id, replica in self.replicas:
-            if replica.primaryName is not None and \
+            if not replica.isMaster and replica.primaryName is not None and \
                     replica.primaryName.replace(":" + str(inst_id), "") in left:
                 self._schedule_backup_primary_disconnected(inst_id)
         if self.master_primary_name in left:
@@ -2691,11 +2696,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             primary_name = self.replicas[inst_id].primaryName.replace(":" + str(inst_id), "")
             if primary_name not in self.nodestack.remotes.keys():
                 del self.disconnected_primaries[inst_id]
-            elif self.disconnected_primaries[inst_id] > self.config.TimePrimaryBackupDisconnection:
+            elif time.perf_counter() - self.disconnected_primaries[inst_id] > \
+                    self.config.TimePrimaryBackupDisconnection:
                 self.replicas.remove_replica(inst_id)
                 del self.disconnected_primaries[inst_id]
-            else:
-                self.disconnected_primaries[inst_id] += 1
         self._schedule(self.propose_replica_remove,
                        self.config.TolerateBackupPrimaryDisconnection)
 
@@ -2708,7 +2712,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.disconnected_primaries:
             self._schedule(self.propose_replica_remove, self.config.TolerateBackupPrimaryDisconnection)
         if inst_id not in self.disconnected_primaries:
-            self.disconnected_primaries[inst_id] = 0
+            self.disconnected_primaries[inst_id] = time.perf_counter()
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):

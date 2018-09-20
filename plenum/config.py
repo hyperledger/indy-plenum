@@ -193,8 +193,8 @@ ToleratePrimaryDisconnection = 2
 TolerateBackupPrimaryDisconnection = 5
 
 # A node if finds itself disconnected from primary of the backup instance will
-# wait for `TimePrimaryBackupDisconnection` periods before remove the backup replica
-TimePrimaryBackupDisconnection = 6
+# wait for `TimePrimaryBackupDisconnection` seconds before remove the backup replica
+TimePrimaryBackupDisconnection = 60
 
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
