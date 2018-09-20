@@ -1688,6 +1688,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
             try:
                 message = node_message_factory.get_instance(**msg)
+                if isinstance(message, Propagate):
+                    message.request = self.client_request_class(**message.request)
             except (MissingNodeOp, InvalidNodeOp) as ex:
                 raise ex
             except Exception as ex:
@@ -2347,8 +2349,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        reqDict = msg.request
-        request = self.client_request_class(**reqDict)
+        request = msg.request
 
         clientName = msg.senderClient
 
@@ -2773,22 +2774,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Propagate):
             typ = 'propagate'
             req = msg.request
-
-            request = self.client_request_class(**req)
-            if request.key in self.requests:
-                if req["signature"] == self.requests[request.key].request.signature:
-                    return
-                else:
-                    raise InsufficientCorrectSignatures(0, 1)
         else:
             typ = ''
             req = msg
 
+        key = None
+
+        if isinstance(req, Request):
+            key = req.key
+
         if not isinstance(req, Mapping):
-            req = msg.as_dict
+            req = req.as_dict
 
         with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
-            identifiers = self.authNr(req).authenticate(req)
+            identifiers = self.authNr(req).authenticate(req, key=key)
 
         logger.debug("{} authenticated {} signature on {} request {}".
                      format(self, identifiers, typ, req['reqId']),
@@ -2849,7 +2848,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible to get len(committedTxns) != len(reqs)
         # someday
         for request in reqs:
-            self.requests.mark_as_executed(request)
+            self.mark_request_as_executed(request)
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
                      format(self, view_no, pp_seq_no, ledger_id, state_root,
@@ -3338,3 +3337,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self.authNr(request).clean_from_verified(request.key)

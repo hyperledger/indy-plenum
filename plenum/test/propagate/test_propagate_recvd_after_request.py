@@ -2,7 +2,8 @@ import types
 import pytest
 
 from plenum.common.constants import PROPAGATE
-from plenum.test.helper import sdk_json_to_request_object, sdk_send_random_requests
+from plenum.test.helper import sdk_json_to_request_object, sdk_send_random_requests, sdk_send_random_and_check
+from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay, msg_rep_delay
@@ -62,3 +63,8 @@ def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet):
 
     timeout = howlong + 2
     looper.run(eventually(y, retryWait=.5, timeout=timeout))
+
+    for node in txnPoolNodeSet:
+        assert get_count(node, node.processPropagate) == 3
+        auth = node.authNr(sent1).core_authenticator
+        assert get_count(auth, auth.authenticate) == 1
