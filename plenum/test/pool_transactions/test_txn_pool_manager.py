@@ -59,8 +59,8 @@ def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
         assert node_nym == expected_data
 
 
-def test_demoted_node_dont_write_txns(txnPoolNodeSet,
-                                      looper, sdk_wallet_stewards, sdk_pool_handle):
+def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
+                                            looper, sdk_wallet_stewards, sdk_pool_handle):
     request_count = 5
     demoted_node = txnPoolNodeSet[2]
 
