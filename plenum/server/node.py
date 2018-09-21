@@ -2477,6 +2477,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                       for request_id in ordered.valid_reqIdr
                       if request_id in self.requests and
                       self.requests[request_id].finalised]
+        invalid_reqs = [self.requests[request_id].finalised
+                        for request_id in ordered.invalid_reqIdr
+                        if request_id in self.requests and
+                        self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
@@ -2507,6 +2511,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.ppSeqNo,
                           ordered.ppTime,
                           valid_reqs,
+                          invalid_reqs,
                           ordered.ledgerId,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
@@ -2823,26 +2828,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
-                     reqs: List[Request], ledger_id, state_root,
-                     txn_root) -> None:
+                     valid_reqs: List[Request], invalid_reqs: List[Request],
+                     ledger_id, state_root, txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param view_no: the view number (See glossary)
         :param pp_time: the time at which PRE-PREPARE was sent
-        :param reqs: list of client REQUESTs
+        :param valid_reqs: list of valid client REQUESTs
+        :param valid_reqs: list of invalid client REQUESTs
         """
-        for req in reqs:
+        for req in valid_reqs:
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
 
         self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, reqs=reqs, state_root=state_root,
+                          pp_time=pp_time, reqs=valid_reqs, state_root=state_root,
                           txn_root=txn_root)
 
         try:
-            committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
+            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs,
                                                          state_root, txn_root)
         except Exception as exc:
             logger.error(
@@ -2850,22 +2856,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [req.digest for req in reqs]
+                    txn_root, [req.digest for req in valid_reqs]
                 )
             )
             raise
 
+        for request in valid_reqs + invalid_reqs:
+            self.requests.mark_as_executed(request)
+
+        # TODO is it possible to get len(committedTxns) != len(valid_reqs)
+        # someday
         if not committedTxns:
             return
 
-        # TODO is it possible to get len(committedTxns) != len(reqs)
-        # someday
-        for request in reqs:
-            self.requests.mark_as_executed(request)
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
                      format(self, view_no, pp_seq_no, ledger_id, state_root,
-                            txn_root, [req.digest for req in reqs]))
+                            txn_root, [req.digest for req in valid_reqs]))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
@@ -2879,7 +2886,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              ledger_id,
                                              view_no, pp_seq_no)
 
-        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+        batch_committed_msg = BatchCommitted([req.as_dict for req in valid_reqs],
                                              ledger_id,
                                              pp_time,
                                              state_root,
