@@ -212,6 +212,7 @@ class CoreAuthMixin:
         if not msg[f.IDENTIFIER.nm]:
             raise EmptyIdentifier
         return msg[f.IDENTIFIER.nm]
+
     def authenticate(self, req_data, identifier: Optional[str]=None,
                      signature: Optional[str]=None, threshold: Optional[int] = None,
                      verifier: Verifier=DidVerifier):
