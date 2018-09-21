@@ -1688,8 +1688,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
             try:
                 message = node_message_factory.get_instance(**msg)
-                if isinstance(message, Propagate):
-                    message.request = self.client_request_class(**message.request)
             except (MissingNodeOp, InvalidNodeOp) as ex:
                 raise ex
             except Exception as ex:
@@ -2349,7 +2347,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        request = msg.request
+        request = self.client_request_class(**msg.request)
 
         clientName = msg.senderClient
 
