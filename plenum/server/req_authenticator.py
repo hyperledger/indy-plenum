@@ -69,4 +69,5 @@ class ReqAuthenticator:
                 return authnr
 
     def clean_from_verified(self, key):
-        self._verified_reqs.pop(key)
+        if key in self._verified_reqs:
+            self._verified_reqs.pop(key)
