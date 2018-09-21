@@ -33,7 +33,7 @@ class ClientAuthNr:
                      identifier: Optional[str] = None,
                      signature: Optional[str] = None,
                      threshold: Optional[int] = None,
-                     key=None) -> str:
+                     key: Optional[str] = None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
