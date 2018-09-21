@@ -92,7 +92,6 @@ def waitNodeDataInequality(looper,
                           retryWait=1, timeout=timeout))
 
 
-
 def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
                                     exclude_from_check=None):
     node = next(iter(nodes))
