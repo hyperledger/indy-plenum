@@ -68,6 +68,9 @@ class RequestTimeTracker:
         self._unordered = set()
         self._handled_unordered = set()
 
+    def __len__(self):
+        return len(self._requests)
+
     def __contains__(self, item):
         return item in self._requests
 

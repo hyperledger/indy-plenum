@@ -2579,6 +2579,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
+        self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
+        self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
+        self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
+                               len(self.monitor.requestTracker.unordered()))
 
         self.metrics.flush_accumulated()
 
