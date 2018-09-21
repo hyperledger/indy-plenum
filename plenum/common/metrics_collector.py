@@ -57,6 +57,9 @@ class MetricsName(IntEnum):
 
     # Node incoming request queue size
     REQUEST_QUEUE_SIZE = 30
+    FINALISED_REQUEST_QUEUE_SIZE = 31
+    MONITOR_REQUEST_QUEUE_SIZE = 32
+    MONITOR_UNORDERED_REQUEST_QUEUE_SIZE = 33
 
     # System statistics
     AVAILABLE_RAM_SIZE = 50
