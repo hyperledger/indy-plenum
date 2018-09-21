@@ -272,7 +272,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.setPoolParams()
 
-
         self.network_i3pc_watcher.connect(self.name)
 
         self.clientBlacklister = SimpleBlacklister(
@@ -459,7 +458,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
-
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
         self.init_config_state()
@@ -626,8 +624,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
-                "{} Not all replicas have primaries: {}"
-                    .format(self, self.replicas.primaries)
+                "{} Not all replicas have "
+                "primaries: {}".format(self, self.replicas.primaries)
             )
 
         self._cancel(self._check_view_change_completed)
@@ -954,8 +952,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def ledger_id_for_request(self, request: Request):
         if request.operation.get(TXN_TYPE) is None:
             raise ValueError(
-                "{} TXN_TYPE is not defined for request {}"
-                    .format(self, request)
+                "{} TXN_TYPE is not defined for request {}".format(self, request)
             )
 
         typ = request.operation[TXN_TYPE]
@@ -2054,8 +2051,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
         logger.info(
-            "{} is updating txn to batch seqNo map after catchup to {} for ledger_id {} "
-                .format(self.name, str(last_caughtup_3pc), str(ledger_id)))
+            "{} is updating txn to batch seqNo map after catchup to {} "
+            "for ledger_id {} ".format(self.name, str(last_caughtup_3pc), str(ledger_id)))
         if not last_caughtup_3pc:
             return
         # do not set if this is a 'fake' one, see replica.on_view_change_start
