@@ -23,7 +23,7 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
     # Check that view changes
     ensure_view_change(looper, active)
     ensureElectionsDone(looper=looper, nodes=active,
-                        numInstances=2, customTimeout=60)
+                        instances_list=range(2), customTimeout=60)
     ensure_all_nodes_have_same_data(looper, nodes=active)
 
     # Switching another node off to make sure that this time the quorum is not

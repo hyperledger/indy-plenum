@@ -9,6 +9,7 @@ from plenum.server.quorums import Quorums
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.conftest import getValueFromModule
 from plenum.test.primary_selection.test_primary_selector import FakeNode
+from plenum.test.test_node import getRequiredInstances
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -35,6 +36,7 @@ def perf_chk_patched(tconf, request):
 
 @pytest.fixture(scope='function', params=[0, 10])
 def fake_view_changer(request, tconf):
+    node_count = 4
     node_stack = FakeSomething(
         name="fake stack",
         connecteds={"Alpha", "Beta", "Gamma", "Delta"},
@@ -47,14 +49,15 @@ def fake_view_changer(request, tconf):
     node = FakeSomething(
         name="SomeNode",
         viewNo=request.param,
-        quorums=Quorums(getValueFromModule(request, 'nodeCount', default=4)),
+        quorums=Quorums(getValueFromModule(request, 'nodeCount', default=node_count)),
         nodestack=node_stack,
         utc_epoch=lambda *args: get_utc_epoch(),
         config=tconf,
         monitor=monitor,
         discard=lambda a, b, c: print(b),
-        lost_primary_at=None,
-        master_primary_name='Alpha'
+        primaries_disconnection_times=[None] * getRequiredInstances(node_count),
+        master_primary_name='Alpha',
+        master_replica=FakeSomething(instId=0)
     )
     view_changer = ViewChanger(node)
     return view_changer

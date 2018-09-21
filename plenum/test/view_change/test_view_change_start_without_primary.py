@@ -20,7 +20,7 @@ def test_view_change_without_primary(txnPoolNodeSet, looper,
 
     checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
                                customTimeout=timeout,
-                               numInstances=getRequiredInstances(len(txnPoolNodeSet)))
+                               instances=range(getRequiredInstances(len(txnPoolNodeSet))))
 
 
 def stop_nodes_and_remove_first(looper, nodes):
