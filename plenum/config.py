@@ -188,6 +188,14 @@ ViewChangeWindowSize = 60
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
 ToleratePrimaryDisconnection = 2
 
+# A node if finds itself disconnected from primary of the backup instance will
+# wait for `TolerateBackupPrimaryDisconnection` before remove the backup replica
+TolerateBackupPrimaryDisconnection = 5
+
+# A node if finds itself disconnected from primary of the backup instance will
+# wait for `TimePrimaryBackupDisconnection` seconds before remove the backup replica
+TimePrimaryBackupDisconnection = 60
+
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
 ConsistencyProofsTimeout = 5

@@ -56,7 +56,7 @@ def test_recover_stop_primaries_no_view_change(looper, checkpoint_size, txnPoolN
 
     logger.info("Check that primary selected")
     ensureElectionsDone(looper=looper, nodes=active_nodes,
-                        numInstances=2, customTimeout=30)
+                        instances_list=range(2), customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=0)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 

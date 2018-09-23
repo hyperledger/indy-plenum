@@ -21,7 +21,7 @@ def fake_view_changer(fake_view_changer):
 
 def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tconf):
     # Primary was disconnected
-    fake_view_changer.node.lost_primary_at = time.perf_counter()
+    fake_view_changer.node.primaries_disconnection_times[0] = time.perf_counter()
     fake_view_changer.node.nodestack.conns.remove('Alpha')
     fake_view_changer.on_primary_loss()
 
@@ -38,7 +38,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
     assert fake_view_changer.instance_change_rounds == times
 
     # Primary connected
-    fake_view_changer.node.lost_primary_at = None
+    fake_view_changer.node.primaries_disconnection_times[0] = None
     fake_view_changer.node.nodestack.conns.add('Alpha')
 
     for _ in range(times):
