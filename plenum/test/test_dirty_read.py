@@ -14,7 +14,7 @@ def make_node_slow(node):
     old = node.serviceReplicas
 
     async def serviceReplicas(limit):
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             for index, message in enumerate(list(replica.outBox)):
                 if isinstance(message, Ordered):
                     del replica.outBox[index]

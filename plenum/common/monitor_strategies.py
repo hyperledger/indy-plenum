@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from typing import Sequence
 
 from plenum.common.moving_average import EMAEventFrequencyEstimator
 
 
 class MonitorStrategy(ABC):
     @abstractmethod
-    def add_instance(self):
+    def add_instance(self, inst_id):
         pass
 
     @abstractmethod
-    def remove_instance(self):
+    def remove_instance(self, inst_id):
         pass
 
     @abstractmethod
@@ -35,7 +36,7 @@ class MonitorStrategy(ABC):
 
 
 class AccumulatingMonitorStrategy(MonitorStrategy):
-    def __init__(self, start_time: float, instances: int, txn_delta_k: int, timeout: float,
+    def __init__(self, start_time: float, instances: set, txn_delta_k: int, timeout: float,
                  input_rate_reaction_half_time: float):
         self._instances = instances
         self._txn_delta_k = txn_delta_k
@@ -45,11 +46,11 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._alert_timestamp = None
         self._input_txn_rate = EMAEventFrequencyEstimator(start_time, input_rate_reaction_half_time)
 
-    def add_instance(self):
-        self._instances += 1
+    def add_instance(self, inst_id):
+        self._instances.add(inst_id)
 
-    def remove_instance(self):
-        self._instances -= 1
+    def remove_instance(self, inst_id):
+        self._instances.remove(inst_id)
 
     def reset(self):
         self._alert_timestamp = None
@@ -75,8 +76,8 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         return self._timestamp - self._alert_timestamp > self._timeout
 
     def _is_degraded(self):
-        if self._instances < 2:
+        if len(self._instances) < 2:
             return False
         master_ordered = self._ordered[0]
-        max_ordered = max(self._ordered[i] for i in range(1, self._instances))
+        max_ordered = max(self._ordered[i] for i in self._instances if i != 0)
         return (max_ordered - master_ordered) > self._txn_delta_k * self._input_txn_rate.value

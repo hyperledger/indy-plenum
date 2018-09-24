@@ -16,7 +16,7 @@ def compare_last_ordered_3pc(node):
     last_ordered_by_master = node.replicas._master_replica.last_ordered_3pc
     comparison_results = {
         compare_3PC_keys(replica.last_ordered_3pc, last_ordered_by_master)
-        for replica in node.replicas if not replica.isMaster
+        for replica in node.replicas.values() if not replica.isMaster
     }
     assert len(comparison_results) == 1
     return comparison_results.pop()
@@ -44,7 +44,7 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(replicas_synced, new_node))
     for node in txnPoolNodeSet:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             assert replica.last_ordered_3pc == (0, 4)
             if not replica.isMaster:
                 assert get_count(replica, replica._request_three_phase_msg) == 0

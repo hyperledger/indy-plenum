@@ -37,7 +37,7 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
         looper.runFor(1)
 
     for node in txnPoolNodeSet:
-        for r in node.replicas:
+        for r in node.replicas.values():
             rec_prps = defaultdict(list)
             for p in recvd_prepares(r):
                 rec_prps[(p.viewNo, p.ppSeqNo)].append(p)

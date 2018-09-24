@@ -77,7 +77,7 @@ def stop_primary(looper, active_nodes):
 
 def primary_replicas_iter(*nodes):
     for node in nodes:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             if replica.isPrimary:
                 yield replica
 

@@ -125,7 +125,7 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                         node,
                         print_detailed_memory_usage,
                         get_only_non_empty=True))
-                for r in node.replicas:
+                for r in node.replicas.values():
                     print('---Replica {}-----'.format(r))
                     print(
                         get_memory_usage(

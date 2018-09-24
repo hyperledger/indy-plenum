@@ -166,7 +166,7 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int = None):
     if instId is not None:
         malignMethod(replica=node.replicas[instId])
     else:
-        for r in node.replicas:
+        for r in node.replicas.values():
             malignMethod(replica=r)
 
     return node

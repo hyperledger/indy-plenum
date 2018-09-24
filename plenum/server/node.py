@@ -12,6 +12,7 @@ import psutil
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
@@ -313,7 +314,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
-        self.adjustReplicas()
+        self.adjustReplicas(0, self.requiredNumberOfInstances)
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -514,6 +515,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def initConfigState(self):
         self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
                                  self.configLedger, self.configReqHandler)
+        logger.info(
+            "{} initialized config state: state root {}"
+            .format(self, state_roots_serializer.serialize(
+                bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     def getConfigReqHandler(self):
         return ConfigReqHandler(self.configLedger,
@@ -587,13 +592,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_changer.start_view_change_ts = self.utc_epoch()
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.on_view_change_start()
         logger.info("{} resetting monitor stats at view change start".format(self))
         self.monitor.reset()
         self.processStashedMsgsForView(self.viewNo)
 
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.primaryName = None
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
@@ -629,7 +634,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.master_replica.on_view_change_done()
         if self.view_changer.propagate_primary:  # TODO VCH
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
@@ -640,7 +645,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Test for this case in plenum/test/view_change/
         # test_no_propagate_request_on_different_last_ordered_before_vc.py
         if not self.view_changer.propagate_primary:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
 
@@ -1319,8 +1324,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeJoined(self, txn_data):
         logger.display("{} new node joined by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        new_replicas = self.adjustReplicas()
+        new_replicas = self.adjustReplicas(old_required_number_of_instances,
+                                           self.requiredNumberOfInstances)
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
         if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
                 ledgerInfo.state == LedgerState.synced:
@@ -1330,8 +1337,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def nodeLeft(self, txn_data):
         logger.display("{} node left by txn {}".format(self, txn_data))
+        old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        self.adjustReplicas()
+        self.adjustReplicas(old_required_number_of_instances,
+                            self.requiredNumberOfInstances)
 
     @property
     def clientStackName(self):
@@ -1389,21 +1398,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} and nodes {}".
                      format(self, self.connectedNodeCount, self.nodestack.conns))
 
-    def adjustReplicas(self):
+    def adjustReplicas(self,
+                       old_required_number_of_instances: int,
+                       new_required_number_of_instances: int):
         """
         Add or remove replicas depending on `f`
         """
         # TODO: refactor this
         newReplicas = 0
-        while len(self.replicas) < self.requiredNumberOfInstances:
-            self.replicas.grow()
+        replica_num = old_required_number_of_instances
+        while replica_num < new_required_number_of_instances:
+            self.replicas.add_replica(replica_num)
             newReplicas += 1
-            self.processStashedMsgsForReplica(len(self.replicas) - 1)
-        while len(self.replicas) > self.requiredNumberOfInstances:
-            self.replicas.shrink()
+            self.processStashedMsgsForReplica(replica_num)
+            replica_num += 1
+
+        while replica_num > new_required_number_of_instances:
+            replica_num -= 1
+            self.replicas.remove_replica(replica_num)
             newReplicas -= 1
-        pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
+
+        pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
         return newReplicas
+
+    def restore_replicas(self):
+        for inst_id in range(0, self.requiredNumberOfInstances):
+            if inst_id not in self.replicas.keys():
+                self.replicas.add_replica(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -1571,7 +1592,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         instId = getattr(msg, f.INST_ID.nm, None)
         if not (isinstance(instId, int) and instId >= 0):
             return False
-        if instId >= self.replicas.num_replicas:
+        if instId >= self.requiredNumberOfInstances:
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
             self.msgsForFutureReplicas[instId].append((msg, frm))
@@ -1967,6 +1988,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
                 rh.ts_store.set(get_txn_time(txn),
                                 state.headHash)
+            logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
+                         .format(self, get_seq_no(txn), ledger_id,
+                                 state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
         self._clear_req_key_for_txn(ledger_id, txn)
 
@@ -1993,7 +2017,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            for replica in self.replicas:
+            for replica in self.replicas.values():
                 if replica.isMaster:
                     replica.caught_up_till_3pc(last_caught_up_3PC)
                 else:
@@ -2443,7 +2467,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: whether executed
         """
 
-        if ordered.instId >= self.instances.count:
+        if ordered.instId not in self.instances.ids:
             logger.warning('{} got ordered request for instance {} which '
                            'does not exist'.format(self, ordered.instId))
             return False
@@ -2452,6 +2476,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                       for request_id in ordered.valid_reqIdr
                       if request_id in self.requests and
                       self.requests[request_id].finalised]
+        invalid_reqs = [self.requests[request_id].finalised
+                        for request_id in ordered.invalid_reqIdr
+                        if request_id in self.requests and
+                        self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
@@ -2482,6 +2510,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.ppSeqNo,
                           ordered.ppTime,
                           valid_reqs,
+                          invalid_reqs,
                           ordered.ledgerId,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
@@ -2540,7 +2569,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if new ordered requests, False otherwise
         """
         last_num_ordered = self._last_performance_check_data.get('num_ordered')
-        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests)
+        num_ordered = sum(num for num, _ in self.monitor.numOrderedRequests.values())
         if num_ordered != last_num_ordered:
             self._last_performance_check_data['num_ordered'] = num_ordered
             return True
@@ -2554,6 +2583,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
+        self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
+        self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
+        self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
+                               len(self.monitor.requestTracker.unordered()))
 
         self.metrics.flush_accumulated()
 
@@ -2587,17 +2620,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if backup_throughput is not None:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
 
-            master_latencies = self.monitor.getLatencies(self.instances.masterId).values()
-            if len(master_latencies) > 0:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, mean(master_latencies))
+            avg_lat_master, avg_lat_backup = self.monitor.getLatencies()
+            if avg_lat_master:
+                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, avg_lat_master)
 
-            backup_latencies = {}
-            for lat_item in [self.monitor.getLatencies(instId) for instId in self.instances.backupIds]:
-                for cid, lat in lat_item.items():
-                    backup_latencies.setdefault(cid, []).append(lat)
-            backup_latencies = [mean(lat) for cid, lat in backup_latencies.items()]
-            if len(backup_latencies) > 0:
-                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, mean(backup_latencies))
+            if avg_lat_backup:
+                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
@@ -2681,7 +2709,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
                 primaries.add(name)
@@ -2692,7 +2720,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     primary_rank = self.get_rank_by_name(name, nodeReg)
 
-        for instance_id, replica in enumerate(self.replicas):
+        for instance_id, replica in self.replicas:
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
@@ -2808,26 +2836,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
-                     reqs: List[Request], ledger_id, state_root,
-                     txn_root) -> None:
+                     valid_reqs: List[Request], invalid_reqs: List[Request],
+                     ledger_id, state_root, txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param view_no: the view number (See glossary)
         :param pp_time: the time at which PRE-PREPARE was sent
-        :param reqs: list of client REQUESTs
+        :param valid_reqs: list of valid client REQUESTs
+        :param valid_reqs: list of invalid client REQUESTs
         """
-        for req in reqs:
+        for req in valid_reqs:
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
 
         self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, reqs=reqs, state_root=state_root,
+                          pp_time=pp_time, reqs=valid_reqs, state_root=state_root,
                           txn_root=txn_root)
 
         try:
-            committedTxns = self.get_executer(ledger_id)(pp_time, reqs,
+            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs,
                                                          state_root, txn_root)
         except Exception as exc:
             logger.error(
@@ -2835,22 +2864,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [req.digest for req in reqs]
+                    txn_root, [req.digest for req in valid_reqs]
                 )
             )
             raise
 
+        for request in valid_reqs + invalid_reqs:
+            self.mark_request_as_executed(request)
+
+        # TODO is it possible to get len(committedTxns) != len(valid_reqs)
+        # someday
         if not committedTxns:
             return
 
-        # TODO is it possible to get len(committedTxns) != len(reqs)
-        # someday
-        for request in reqs:
-            self.mark_request_as_executed(request)
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
                      format(self, view_no, pp_seq_no, ledger_id, state_root,
-                            txn_root, [req.digest for req in reqs]))
+                            txn_root, [req.digest for req in valid_reqs]))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
@@ -2864,7 +2894,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              ledger_id,
                                              view_no, pp_seq_no)
 
-        batch_committed_msg = BatchCommitted([req.as_dict for req in reqs],
+        batch_committed_msg = BatchCommitted([req.as_dict for req in valid_reqs],
                                              ledger_id,
                                              pp_time,
                                              state_root,
@@ -2905,13 +2935,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           state_root=stateRoot, txn_root=txnRoot)
         self.updateSeqNoMap(committedTxns, ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
-        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=updated_committed_txns,
-                          pp_time=ppTime)
+        self.hook_pre_send_reply(updated_committed_txns, ppTime)
         self.sendRepliesToClients(updated_committed_txns, ppTime)
-        self.execute_hook(NodeHooks.POST_SEND_REPLY,
-                          committed_txns=updated_committed_txns,
-                          pp_time=ppTime)
+        self.hook_post_send_reply(updated_committed_txns, ppTime)
         return committedTxns
+
+    def hook_pre_send_reply(self, txns, pp_time):
+        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
+
+    def hook_post_send_reply(self, txns, pp_time):
+        self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
     def default_executer(self, ledger_id, pp_time, reqs: List[Request],
                          state_root, txn_root):
@@ -3022,6 +3055,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
                                  self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        logger.info(
+            "{} initialized domain state: state root {}"
+            .format(self, state_roots_serializer.serialize(
+                bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
@@ -3234,6 +3271,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
             txn.update(ledger.merkleInfo(seq_no))
+            self.hook_pre_send_reply([txn], None)
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:

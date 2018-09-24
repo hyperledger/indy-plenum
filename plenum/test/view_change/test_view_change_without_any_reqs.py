@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test import waits
 from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually

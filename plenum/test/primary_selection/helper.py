@@ -47,7 +47,7 @@ def check_newly_added_nodes(looper, all_nodes, new_nodes):
 
 def getPrimaryNodesIdxs(nodes: Sequence[TestNode]) -> List[TestNode]:
     primariesIdxs = []
-    for instId in range(len(nodes[0].replicas)):
+    for instId in nodes[0].replicas.keys():
         for idx, node in enumerate(nodes):
             if node.replicas[instId].isPrimary:
                 assert instId == len(primariesIdxs)

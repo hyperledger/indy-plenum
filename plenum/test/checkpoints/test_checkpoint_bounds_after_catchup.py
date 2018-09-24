@@ -28,6 +28,6 @@ def test_upper_bound_of_checkpoint_after_catchup_is_divisible_by_chk_freq(
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 1
         assert next(iter(replica.checkpoints)) == (7, 10)
