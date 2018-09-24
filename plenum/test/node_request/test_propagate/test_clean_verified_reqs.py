@@ -37,4 +37,4 @@ def test_clean_verified_reqs(looper,
     looper.run(eventually(checkpoint_check, txnPoolNodeSet))
     for node in txnPoolNodeSet:
         assert len(node.requests) == 0
-        assert len(node.verified_reqs) == 0
+        assert len(node.clientAuthNr._verified_reqs) == 0
