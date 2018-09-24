@@ -37,7 +37,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     looper.removeProdable(primary)
     ensure_node_disconnected(looper, primary, txnPoolNodeSet)
     waitForViewChange(looper, alive_nodes, 1, customTimeout=VIEW_CHANGE_TIMEOUT)
-    ensureElectionsDone(looper, alive_nodes, numInstances=3)
+    ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Add transaction to ledger
     sdk_send_random_and_check(looper, alive_nodes, sdk_pool_handle, sdk_wallet_client, 1)
@@ -47,7 +47,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     restart_nodes(looper, alive_nodes, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=restart_timeout, start_one_by_one=False, wait_for_elections=False)
     waitForViewChange(looper, majority, 1, customTimeout=2.1 * VIEW_CHANGE_TIMEOUT)
-    ensureElectionsDone(looper, majority, numInstances=3)
+    ensureElectionsDone(looper, majority, instances_list=range(3))
 
     # Check that nodes in minority group are aware that they might have inconsistent 3PC state
     for node in minority:
@@ -64,7 +64,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     # Restart minority group
     restart_nodes(looper, alive_nodes, minority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=restart_timeout, start_one_by_one=False, wait_for_elections=False)
-    ensureElectionsDone(looper, alive_nodes, numInstances=3)
+    ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Check that all nodes are still functional
     sdk_ensure_pool_functional(looper, alive_nodes, sdk_wallet_client, sdk_pool_handle)

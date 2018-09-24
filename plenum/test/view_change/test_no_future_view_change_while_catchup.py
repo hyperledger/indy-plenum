@@ -50,7 +50,7 @@ def test_no_propagated_future_view_change_until_synced(txnPoolNodeSet, looper, m
     with delay_rules(lagged_node.nodeIbStasher, icDelay()):
         # make sure that View Change happened on all nodes but the lagging one
         ensure_view_change(looper, other_nodes)
-        checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, numInstances=2)
+        checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, instances=range(2))
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
         check_no_view_change(looper, lagged_node)

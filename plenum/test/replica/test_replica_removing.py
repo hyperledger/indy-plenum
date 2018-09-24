@@ -6,6 +6,7 @@ from plenum.common.request import Request
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.replica.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -40,7 +41,7 @@ def test_replica_removing(looper,
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
+    check_replica_removed(node, start_replicas_count, instance_id)
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
 
@@ -64,7 +65,7 @@ def test_replica_removing_before_vc_with_primary_disconnected(looper,
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
+    check_replica_removed(node, start_replicas_count, instance_id)
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
     # trigger view change on all nodes
@@ -96,7 +97,7 @@ def test_replica_removing_before_ordering(looper,
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
+    check_replica_removed(node, start_replicas_count, instance_id)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     assert not node.monitor.isMasterDegraded()
@@ -134,7 +135,7 @@ def test_replica_removing_in_ordering(looper,
         assert old_forwarded_to - 1 == node.requests[digest].forwardedTo
     sdk_get_replies(looper, req)
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
-    _check_replica_removed(node, start_replicas_count, instance_id)
+    check_replica_removed(node, start_replicas_count, instance_id)
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
 
@@ -156,25 +157,9 @@ def test_replica_removing_after_ordering(looper,
     looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
+    check_replica_removed(node, start_replicas_count, instance_id)
     assert not node.monitor.isMasterDegraded()
     assert len(node.requests) == 0
-
-
-def _check_replica_removed(node, start_replicas_count, instance_id):
-    replicas_count = start_replicas_count - 1
-    assert node.replicas.num_replicas == replicas_count
-    replicas_lists = [node.replicas.keys(),
-                      node.replicas._messages_to_replicas.keys(),
-                      node.monitor.numOrderedRequests.keys(),
-                      node.monitor.clientAvgReqLatencies.keys(),
-                      node.monitor.throughputs.keys(),
-                      node.monitor.requestTracker.instances_ids,
-                      node.monitor.instances.ids]
-    assert all(instance_id not in replicas for replicas in replicas_lists)
-    if node.monitor.acc_monitor is not None:
-        assert node.monitor.acc_monitor == replicas_count
-        assert instance_id not in node.replicas.keys()
 
 
 def check_checkpoint_finalize(nodes):

@@ -706,5 +706,5 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def is_primary_disconnected(self):
         return \
-            self.node.lost_primary_at and self.node.master_primary_name and \
+            self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
             self.node.master_primary_name not in self.node.nodestack.conns
