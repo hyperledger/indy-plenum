@@ -147,8 +147,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
         logger.info(
-            "{} initialized pool state: state root {}"
-                .format(self, state_roots_serializer.serialize(
+            "{} initialized pool state: state root {}".format(self, state_roots_serializer.serialize(
                 bytes(self.state.committedHeadHash))))
 
     @property
