@@ -2371,6 +2371,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
+        # ToDo: During verifySignature procedure was already created request object.
+        # Need to avoid request object recreating
         request = self.client_request_class(**msg.request)
 
         clientName = msg.senderClient
