@@ -57,6 +57,7 @@ from plenum.common.messages.node_messages import Reply
 logger = getlogger()
 
 
+@spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
     write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
     query_types = CoreAuthNr.query_types.union({'get_buy', })
@@ -478,6 +479,7 @@ replica_spyables = [
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
+    replica.Replica.markCheckPointStable,
 ]
 
 
