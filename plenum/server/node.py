@@ -3378,4 +3378,4 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def mark_request_as_executed(self, request: Request):
         self.requests.mark_as_executed(request)
-        self.authNr(request).clean_from_verified(request.key)
+        self.authNr(request.as_dict).clean_from_verified(request.key)
