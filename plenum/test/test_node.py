@@ -57,6 +57,7 @@ from plenum.common.messages.node_messages import Reply
 logger = getlogger()
 
 
+@spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
     write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
     query_types = CoreAuthNr.query_types.union({'get_buy', })
