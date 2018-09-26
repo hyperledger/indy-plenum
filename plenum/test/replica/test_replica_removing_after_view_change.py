@@ -13,19 +13,19 @@ nodeCount = 7
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_time = tconf.TimePrimaryBackupDisconnection
-    tconf.TimePrimaryBackupDisconnection = 5
+    old_time = tconf.TolerateBackupPrimaryDisconnection
+    tconf.TolerateBackupPrimaryDisconnection = 5
     yield tconf
-    tconf.TimePrimaryBackupDisconnection = old_time
+    tconf.TolerateBackupPrimaryDisconnection = old_time
 
 
-def test_replica_removing_with_primary_disconnected(looper,
-                                                    txnPoolNodeSet,
-                                                    sdk_pool_handle,
-                                                    sdk_wallet_client,
-                                                    tconf,
-                                                    tdir,
-                                                    allPluginsPath):
+def test_replica_removing_after_view_change(looper,
+                                            txnPoolNodeSet,
+                                            sdk_pool_handle,
+                                            sdk_wallet_client,
+                                            tconf,
+                                            tdir,
+                                            allPluginsPath):
     """
     1. Remove backup primary node.
     2. Check that replicas with the disconnected primary were removed.
@@ -54,7 +54,7 @@ def test_replica_removing_with_primary_disconnected(looper,
             assert len(n.requests) == 0
 
     looper.run(eventually(check_replica_removed_on_all_nodes,
-                          timeout=tconf.TimePrimaryBackupDisconnection * 2))
+                          timeout=tconf.TolerateBackupPrimaryDisconnection * 2))
 
     # start View Change
     for node in txnPoolNodeSet:
@@ -66,11 +66,11 @@ def test_replica_removing_with_primary_disconnected(looper,
     instances.remove(instance_to_remove)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=instances,
-                        customTimeout=tconf.TimePrimaryBackupDisconnection * 4)
+                        customTimeout=tconf.TolerateBackupPrimaryDisconnection * 4)
     # check that all replicas were restored
     looper.run(eventually(check_replica_removed_on_all_nodes,
                           instance_to_remove,
-                          timeout=tconf.TimePrimaryBackupDisconnection * 2))
+                          timeout=tconf.TolerateBackupPrimaryDisconnection * 2))
 
     # recover the removed node
     removed_node = start_stopped_node(removed_node, looper, tconf,
@@ -82,5 +82,5 @@ def test_replica_removing_with_primary_disconnected(looper,
         node.view_changer.on_master_degradation()
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=range(txnPoolNodeSet[0].requiredNumberOfInstances),
-                        customTimeout=tconf.TimePrimaryBackupDisconnection * 2)
+                        customTimeout=tconf.TolerateBackupPrimaryDisconnection * 2)
     assert start_replicas_count == removed_node.replicas.num_replicas

@@ -13,10 +13,10 @@ nodeCount = 7
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_time = tconf.TimePrimaryBackupDisconnection
-    tconf.TimePrimaryBackupDisconnection = 5
+    old_time = tconf.TolerateBackupPrimaryDisconnection
+    tconf.TolerateBackupPrimaryDisconnection = 5
     yield tconf
-    tconf.TimePrimaryBackupDisconnection = old_time
+    tconf.TolerateBackupPrimaryDisconnection = old_time
 
 
 def test_replica_removing_after_node_started(looper,
@@ -54,7 +54,7 @@ def test_replica_removing_after_node_started(looper,
             assert len(node.requests) == 0
 
     looper.run(eventually(check_replica_removed_on_all_nodes,
-                          timeout=tconf.TimePrimaryBackupDisconnection * 2))
+                          timeout=tconf.TolerateBackupPrimaryDisconnection * 2))
 
     new_steward_wallet, new_node = sdk_add_new_steward_and_node(looper,
                                                                 sdk_pool_handle,
@@ -83,5 +83,5 @@ def test_replica_removing_after_node_started(looper,
         node.view_changer.on_master_degradation()
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=range(txnPoolNodeSet[0].requiredNumberOfInstances),
-                        customTimeout=tconf.TimePrimaryBackupDisconnection * 2)
+                        customTimeout=tconf.TolerateBackupPrimaryDisconnection * 2)
     assert start_replicas_count == removed_primary_node.replicas.num_replicas
