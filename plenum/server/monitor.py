@@ -362,7 +362,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 started = self.requestTracker.started(key)
                 logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
                             .format(key, self.name, instId, now - started))
-                continue
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:
