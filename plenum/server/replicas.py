@@ -45,19 +45,16 @@ class Replicas:
                                instance_id,
                                description),
                        extra={"tags": ["node-replica"]})
-        return self.num_replicas
 
-    def remove_replica(self, index: int=None):
-        if index >= self.num_replicas:
+    def remove_replica(self, inst_id: int):
+        if inst_id not in self._replicas:
             return
-        if index is None:
-            index = self.num_replicas - 1
-        replica = self._replicas.pop(index)
+        replica = self._replicas.pop(inst_id)
         for request_list in replica.requestQueues.values():
             for request_key in request_list:
                 replica.requests.free(request_key)
-        self._messages_to_replicas.pop(index, None)
-        self._monitor.removeInstance(index)
+        self._messages_to_replicas.pop(inst_id, None)
+        self._monitor.removeInstance(inst_id)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
