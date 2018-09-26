@@ -2383,8 +2383,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        reqDict = msg.request
-        request = self.client_request_class(**reqDict)
+        # ToDo: During verifySignature procedure was already created request object.
+        # Need to avoid request object recreating
+        request = self.client_request_class(**msg.request)
 
         clientName = msg.senderClient
 
@@ -2833,16 +2834,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if isinstance(msg, Propagate):
             typ = 'propagate'
-            req = msg.request
+            req = self.client_request_class(**msg.request)
         else:
             typ = ''
             req = msg
 
+        key = None
+
+        if isinstance(req, Request):
+            key = req.key
+
         if not isinstance(req, Mapping):
-            req = msg.as_dict
+            req = req.as_dict
 
         with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
-            identifiers = self.authNr(req).authenticate(req)
+            identifiers = self.authNr(req).authenticate(req, key=key)
 
         logger.debug("{} authenticated {} signature on {} request {}".
                      format(self, identifiers, typ, req['reqId']),
@@ -2899,7 +2905,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise
 
         for request in valid_reqs + invalid_reqs:
-            self.requests.mark_as_executed(request)
+            self.mark_request_as_executed(request)
 
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday
@@ -3402,3 +3408,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self.authNr(request.as_dict).clean_from_verified(request.key)

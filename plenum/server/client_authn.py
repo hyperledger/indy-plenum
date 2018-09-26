@@ -32,7 +32,8 @@ class ClientAuthNr:
                      msg: Dict,
                      identifier: Optional[str] = None,
                      signature: Optional[str] = None,
-                     threshold: Optional[int] = None) -> str:
+                     threshold: Optional[int] = None,
+                     key: Optional[str] = None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
@@ -41,6 +42,7 @@ class ClientAuthNr:
         :param signature: a utf-8 and base58 encoded signature
         :param msg: the message to authenticate
         :param threshold: The number of successful signature verification
+        :param key: The key of request for storing in internal maps
         required. By default all signatures are required to be verified.
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
