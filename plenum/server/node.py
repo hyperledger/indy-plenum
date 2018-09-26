@@ -2719,7 +2719,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if inst_id < len(self.primaries_disconnection_times) \
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
-                        self.config.TolerateBackupPrimaryDisconnection:
+                self.config.TolerateBackupPrimaryDisconnection:
             self.replicas.remove_replica(inst_id)
 
     def _schedule_view_change(self):
