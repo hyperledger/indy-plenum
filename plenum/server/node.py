@@ -1434,7 +1434,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
 
     def restore_replicas(self):
-        for inst_id in range(0, self.requiredNumberOfInstances):
+        for inst_id in range(self.requiredNumberOfInstances):
             if inst_id not in self.replicas.keys():
                 self.replicas.add_replica(inst_id)
 
