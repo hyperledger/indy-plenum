@@ -76,6 +76,7 @@ class Suspicions:
     PR_PLUGIN_EXCEPTION = Suspicion(36, "Prepare message has error in plugin field")
     PPR_SUB_SEQ_NO_WRONG = Suspicion(37, "Pre-Prepare message has wrong sub_seq_no")
     PPR_NOT_FINAL = Suspicion(38, "Pre-Prepare message is not final")
+    PPR_REPEATED_REQUEST = Suspicion(39, "Pre-prepare contain already ordered request")
 
     @classmethod
     def get_list(cls):

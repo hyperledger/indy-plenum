@@ -107,6 +107,7 @@ PP_APPLY_ROOT_HASH_MISMATCH = 10
 PP_APPLY_HOOK_ERROR = 11
 PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
+PP_REPEATED_REQUEST = 14
 
 
 def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
@@ -1024,6 +1025,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     report_suspicious(Suspicions.PPR_SUB_SEQ_NO_WRONG)
                 elif why_not_applied == PP_NOT_FINAL:
                     report_suspicious(Suspicions.PPR_NOT_FINAL)
+                elif why_not_applied == PP_REPEATED_REQUEST:
+                    report_suspicious(Suspicions.PPR_REPEATED_REQUEST)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1281,6 +1284,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 pre_prepare,
                 old_state_root,
                 old_txn_root))
+
+        for req_key in pre_prepare.reqIdr:
+            ledger_id, seq_no = self.node.seqNoDB.get(req_key)
+            if ledger_id is not None and seq_no is not None:
+                return PP_REPEATED_REQUEST
 
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
