@@ -2611,12 +2611,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                len(self.view_changer._next_view_indications))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
 
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE, len(self.primaryDecider.actionQueue))
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_AQ_STASH, len(self.primaryDecider.aqStash))
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_REPEATIN_ACTIONS, len(self.primaryDecider.repeatingActions))
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
-        self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
+        if self.primaryDecider:
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE, len(self.primaryDecider.actionQueue))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_AQ_STASH, len(self.primaryDecider.aqStash))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_REPEATING_ACTIONS, len(self.primaryDecider.repeatingActions))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
 
         self.metrics.add_event(MetricsName.MONITOR_NUM_ORDERED_REQUESTS, len(self.monitor.numOrderedRequests))
         self.metrics.add_event(MetricsName.MONITOR_THROUGHPUTS, len(self.monitor.throughputs))
@@ -2681,7 +2682,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_MASTER, len(self.master_replica.scheduled))
 
         def sum_for_backups(field):
-            return sum([len(getattr(r, field)) for r in self.replicas._replicas if r is not self.master_replica])
+            return sum([len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica])
 
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
