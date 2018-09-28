@@ -298,6 +298,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.replicas = self.create_replicas()
 
+        # Need to keep track of the time when lost connection with primary,
+        # help in voting for/against a view change on the master and removing
+        # replica on a backup instance
+        self.primaries_disconnection_times = []
+
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
         # majority of nodes due to joining of a new node, but some slow nodes
@@ -414,11 +419,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Any messages that are intended for view numbers higher than the
         # current view.
         self.msgsForFutureViews = {}
-
-        # Need to keep track of the time when lost connection with primary,
-        # help in voting for/against a view change. It is supposed that a primary
-        # is lost until the primary is connected.
-        self.lost_primary_at = time.perf_counter()
 
         plugins_to_load = self.config.PluginsToLoad if hasattr(self.config, "PluginsToLoad") else None
         tp = loadPlugins(self.plugins_dir, plugins_to_load)
@@ -626,8 +626,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
-                "{} Not all replicas have primaries: {}"
-                .format(self, self.replicas.primaries)
+                "{} Not all replicas have "
+                "primaries: {}".format(self, self.replicas.primaries)
             )
 
         self._cancel(self._check_view_change_completed)
@@ -948,8 +948,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def ledger_id_for_request(self, request: Request):
         if request.operation.get(TXN_TYPE) is None:
             raise ValueError(
-                "{} TXN_TYPE is not defined for request {}"
-                .format(self, request)
+                "{} TXN_TYPE is not defined for request {}".format(self, request)
             )
 
         typ = request.operation[TXN_TYPE]
@@ -992,7 +991,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
 
     def schedule_initial_propose_view_change(self):
-        self.lost_primary_at = time.perf_counter()
+        # It is supposed that master's primary is lost until it is connected
+        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule(action=self.propose_view_change,
                        seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
@@ -1269,18 +1269,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.elector.nodeCount = self.connectedNodeCount
 
         if self.master_primary_name in joined:
-            self.lost_primary_at = None
+            self.primaries_disconnection_times[self.master_replica.instId] = None
         if self.master_primary_name in left:
             logger.display('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
         elif _prev_status == Status.starting and self.status == Status.started_hungry \
-                and self.lost_primary_at is not None \
+                and self.primaries_disconnection_times[self.master_replica.instId] is not None \
                 and self.master_primary_name is not None:
             """
             Such situation may occur if the pool has come back to reachable consensus but
             primary is still disconnected, so view change proposal makes sense now.
             """
             self._schedule_view_change()
+
+        for inst_id, replica in self.replicas:
+            if not replica.isMaster and replica.primaryName is not None:
+                primary_node_name = replica.primaryName.split(':')[0]
+                if primary_node_name in joined:
+                    self.primaries_disconnection_times[inst_id] = None
+                elif primary_node_name in left:
+                    self.primaries_disconnection_times[inst_id] = time.perf_counter()
+                    self._schedule_replica_removal(inst_id)
 
         if self.isReady():
             self.checkInstances()
@@ -1326,11 +1335,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.display("{} new node joined by txn {}".format(self, txn_data))
         old_required_number_of_instances = self.requiredNumberOfInstances
         self.setPoolParams()
-        new_replicas = self.adjustReplicas(old_required_number_of_instances,
-                                           self.requiredNumberOfInstances)
+        self.adjustReplicas(old_required_number_of_instances,
+                            self.requiredNumberOfInstances)
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
-        if new_replicas > 0 and not self.view_changer.view_change_in_progress and \
-                ledgerInfo.state == LedgerState.synced:
+        if self.requiredNumberOfInstances > old_required_number_of_instances \
+                and not self.view_changer.view_change_in_progress \
+                and ledgerInfo.state == LedgerState.synced:
             # Select primaries must be only after pool ledger catchup
             # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
@@ -1405,24 +1415,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Add or remove replicas depending on `f`
         """
         # TODO: refactor this
-        newReplicas = 0
         replica_num = old_required_number_of_instances
         while replica_num < new_required_number_of_instances:
             self.replicas.add_replica(replica_num)
-            newReplicas += 1
             self.processStashedMsgsForReplica(replica_num)
             replica_num += 1
 
         while replica_num > new_required_number_of_instances:
             replica_num -= 1
             self.replicas.remove_replica(replica_num)
-            newReplicas -= 1
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
-        return newReplicas
+
+        if len(self.primaries_disconnection_times) < new_required_number_of_instances:
+            self.primaries_disconnection_times.extend(
+                [None] * (new_required_number_of_instances - len(self.primaries_disconnection_times)))
+        elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
+            self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
 
     def restore_replicas(self):
-        for inst_id in range(0, self.requiredNumberOfInstances):
+        for inst_id in range(self.requiredNumberOfInstances):
             if inst_id not in self.replicas.keys():
                 self.replicas.add_replica(inst_id)
 
@@ -2046,8 +2058,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
         logger.info(
-            "{} is updating txn to batch seqNo map after catchup to {} for ledger_id {} "
-            .format(self.name, str(last_caughtup_3pc), str(ledger_id)))
+            "{} is updating txn to batch seqNo map after catchup to {} "
+            "for ledger_id {} ".format(self.name, str(last_caughtup_3pc), str(ledger_id)))
         if not last_caughtup_3pc:
             return
         # do not set if this is a 'fake' one, see replica.on_view_change_start
@@ -2794,20 +2806,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
-        if instance_id == 0:
+        if instance_id == self.master_replica.instId:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
-        if not self.lost_primary_at:
-            return
-        if self.nodestack.isConnectedTo(self.master_primary_name) or \
-                self.master_primary_name == self.name:
-            self.lost_primary_at = None
+            if not self.primaries_disconnection_times[self.master_replica.instId]:
+                return
+            if self.nodestack.isConnectedTo(self.master_primary_name) \
+                    or self.master_primary_name == self.name:
+                self.primaries_disconnection_times[self.master_replica.instId] = None
+        else:
+            primary_node_name = self.replicas[instance_id].primaryName.split(':')[0]
+            if self.nodestack.isConnectedTo(primary_node_name) \
+                    or primary_node_name == self.name:
+                self.primaries_disconnection_times[instance_id] = None
+            else:
+                self.primaries_disconnection_times[instance_id] = time.perf_counter()
+                self._schedule_replica_removal(instance_id)
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
         # disconnected for long enough
         self._cancel(self.propose_view_change)
-        if not self.lost_primary_at:
+        if not self.primaries_disconnection_times[self.master_replica.instId]:
             logger.info('{} The primary is already connected '
                         'so view change will not be proposed'.format(self))
             return
@@ -2822,6 +2842,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.view_changer.on_primary_loss()
 
+    def _schedule_replica_removal(self, inst_id):
+        logger.info('{} scheduling replica removal for instance {} in {} sec'
+                    .format(self, inst_id, self.config.TolerateBackupPrimaryDisconnection))
+        self._schedule(partial(self._remove_replica_if_primary_lost, inst_id),
+                       self.config.TolerateBackupPrimaryDisconnection)
+
+    def _remove_replica_if_primary_lost(self, inst_id):
+        if inst_id < len(self.primaries_disconnection_times) \
+                and self.primaries_disconnection_times[inst_id] is not None \
+                and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
+                self.config.TolerateBackupPrimaryDisconnection:
+            self.replicas.remove_replica(inst_id)
+
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(self.propose_view_change,
@@ -2833,7 +2866,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Schedule an primary connection check which in turn can send a view
         change message
         """
-        self.lost_primary_at = time.perf_counter()
+        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule_view_change()
 
     def select_primaries(self, nodeReg: Dict[str, HA]=None):
@@ -2859,7 +2892,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             if instance_id == 0:
-                new_primary_name, new_primary_instance_name =\
+                new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_master(nodeReg=nodeReg)
                 primary_rank = self.get_rank_by_name(
                     new_primary_name, nodeReg)
@@ -2867,7 +2900,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # to return name and rank at once and remove assert
                 assert primary_rank is not None
             else:
-                new_primary_name, new_primary_instance_name =\
+                new_primary_name, new_primary_instance_name = \
                     self.elector.next_primary_replica_name_for_backup(
                         instance_id, primary_rank, primaries, nodeReg=nodeReg)
             primaries.add(new_primary_name)
@@ -3424,7 +3457,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def transform_txn_for_ledger(self, txn):
         txn_type = get_type(txn)
-        return self.get_req_handler(txn_type=txn_type).\
+        return self.get_req_handler(txn_type=txn_type). \
             transform_txn_for_ledger(txn)
 
     def __enter__(self):

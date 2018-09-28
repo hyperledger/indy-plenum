@@ -26,3 +26,19 @@ def create_preprepare(replica, sdk_wallet_steward, req_count):
     replica.last_accepted_pre_prepare_time = int(time.time())
     pp = replica.create3PCBatch(DOMAIN_LEDGER_ID)
     return reqs, pp
+
+
+def check_replica_removed(node, start_replicas_count, instance_id):
+    replicas_count = start_replicas_count - 1
+    assert node.replicas.num_replicas == replicas_count
+    replicas_lists = [node.replicas.keys(),
+                      node.replicas._messages_to_replicas.keys(),
+                      node.monitor.numOrderedRequests.keys(),
+                      node.monitor.clientAvgReqLatencies.keys(),
+                      node.monitor.throughputs.keys(),
+                      node.monitor.requestTracker.instances_ids,
+                      node.monitor.instances.ids]
+    assert all(instance_id not in replicas for replicas in replicas_lists)
+    if node.monitor.acc_monitor is not None:
+        assert node.monitor.acc_monitor == replicas_count
+        assert instance_id not in node.replicas.keys()
