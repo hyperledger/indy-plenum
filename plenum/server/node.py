@@ -2843,8 +2843,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_primary_loss()
 
     def _schedule_replica_removal(self, inst_id):
-        logger.debug('{} scheduling replica removal for instance {} in {} sec'
-                     .format(self, inst_id, self.config.TolerateBackupPrimaryDisconnection))
+        logger.info('{} scheduling replica removal for instance {} in {} sec'
+                    .format(self, inst_id, self.config.TolerateBackupPrimaryDisconnection))
         self._schedule(partial(self._remove_replica_if_primary_lost, inst_id),
                        self.config.TolerateBackupPrimaryDisconnection)
 
