@@ -2590,6 +2590,138 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
 
+        # Collections metrics
+        self.metrics.add_event(MetricsName.NODE_STACK_RX_MSGS, len(self.nodestack.rxMsgs))
+        self.metrics.add_event(MetricsName.CLIENT_STACK_RX_MSGS, len(self.clientstack.rxMsgs))
+
+        self.metrics.add_event(MetricsName.NODE_ACTION_QUEUE, len(self.actionQueue))
+        self.metrics.add_event(MetricsName.NODE_AQ_STASH, len(self.aqStash))
+        self.metrics.add_event(MetricsName.NODE_REPEATING_ACTIONS, len(self.repeatingActions))
+        self.metrics.add_event(MetricsName.NODE_SCHEDULED, len(self.scheduled))
+
+        self.metrics.add_event(MetricsName.NODE_REQUESTED_PROPAGATES_FOR, len(self.requested_propagates_for))
+
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_ACTION_QUEUE, len(self.view_changer.actionQueue))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_AQ_STASH, len(self.view_changer.aqStash))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_REPEATING_ACTIONS, len(self.view_changer.repeatingActions))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_SCHEDULED, len(self.view_changer.scheduled))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
+                               len(self.view_changer._next_view_indications))
+        self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
+
+        if self.primaryDecider:
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE, len(self.primaryDecider.actionQueue))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_AQ_STASH, len(self.primaryDecider.aqStash))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_REPEATING_ACTIONS, len(self.primaryDecider.repeatingActions))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
+            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
+
+        self.metrics.add_event(MetricsName.MONITOR_NUM_ORDERED_REQUESTS, len(self.monitor.numOrderedRequests))
+        self.metrics.add_event(MetricsName.MONITOR_THROUGHPUTS, len(self.monitor.throughputs))
+        self.metrics.add_event(MetricsName.MONITOR_ORDERED_REQUESTS_IN_LAST, len(self.monitor.orderedRequestsInLast))
+
+        self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
+        self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
+        self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
+        self.metrics.add_event(MetricsName.STASHED_ORDERED_REQS, len(self.stashedOrderedReqs))
+
+        self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
+        self.metrics.add_event(MetricsName.TXN_SEQ_RANGE_TO_3PHASE_KEY, len(self.txn_seq_range_to_3phase_key))
+        self.metrics.add_event(MetricsName.LAST_PERFORMANCE_CHECK_DATA, len(self._last_performance_check_data))
+
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(
+            self.ledgerManager.getLedgerInfoByType(0).ledger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_DOMAIN_UNCOMMITEDS, len(
+            self.ledgerManager.getLedgerInfoByType(1).ledger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_CONFIG_UNCOMMITEDS, len(
+            self.ledgerManager.getLedgerInfoByType(2).ledger.uncommittedTxns))
+
+        # REPLICAS
+        self.metrics.add_event(MetricsName.REPLICA_OUTBOX_MASTER, len(self.master_replica.outBox))
+        self.metrics.add_event(MetricsName.REPLICA_INBOX_MASTER, len(self.master_replica.inBox))
+        self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_MASTER, len(self.master_replica.inBoxStash))
+        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_MASTER,
+                               len(self.master_replica.postElectionMsgs))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_MASTER,
+                               len(self.master_replica.prePreparesPendingFinReqs))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_MASTER,
+                               len(self.master_replica.prePreparesPendingPrevPP))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_MASTER,
+                               len(self.master_replica.preparesWaitingForPrePrepare))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_MASTER,
+                               len(self.master_replica.commitsWaitingForPrepare))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica.sentPrePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica.prePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica.prepares))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica.commits))
+        self.metrics.add_event(MetricsName.REPLICA_ORDERED_MASTER, len(self.master_replica.ordered))
+        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
+                               len(self.master_replica.stashed_out_of_order_commits))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER, len(self.master_replica.checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
+                               len(self.master_replica.stashedRecvdCheckpoints))
+        self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
+                               len(self.master_replica.stashingWhileOutsideWaterMarks))
+        self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER, len(self.master_replica.requestQueues))
+        self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica.batches))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_MASTER,
+                               len(self.master_replica.requested_pre_prepares))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
+                               len(self.master_replica.requested_prepares))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
+        self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_MASTER,
+                               len(self.master_replica.pre_prepares_stashed_for_incorrect_time))
+
+        self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_MASTER, len(self.master_replica.actionQueue))
+        self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_MASTER, len(self.master_replica.aqStash))
+        self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_MASTER, len(self.master_replica.repeatingActions))
+        self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_MASTER, len(self.master_replica.scheduled))
+
+        def sum_for_backups(field):
+            return sum([len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica])
+
+        self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
+        self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
+        self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_BACKUP, sum_for_backups('inBoxStash'))
+        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_BACKUP, sum_for_backups('postElectionMsgs'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_BACKUP,
+                               sum_for_backups('prePreparesPendingFinReqs'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_BACKUP,
+                               sum_for_backups('prePreparesPendingPrevPP'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_BACKUP,
+                               sum_for_backups('preparesWaitingForPrePrepare'))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_BACKUP,
+                               sum_for_backups('commitsWaitingForPrepare'))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP, sum_for_backups('sentPrePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
+        self.metrics.add_event(MetricsName.REPLICA_ORDERED_BACKUP, sum_for_backups('ordered'))
+        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
+                               sum_for_backups('stashed_out_of_order_commits'))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups('checkpoints'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
+                               sum_for_backups('stashedRecvdCheckpoints'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
+                               sum_for_backups('stashingWhileOutsideWaterMarks'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP, sum_for_backups('requestQueues'))
+        self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
+                               sum_for_backups('requested_pre_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP, sum_for_backups('requested_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP, sum_for_backups('requested_commits'))
+        self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_BACKUP,
+                               sum_for_backups('pre_prepares_stashed_for_incorrect_time'))
+        self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_BACKUP, sum_for_backups('actionQueue'))
+        self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
+        self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
+        self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
+
         self.metrics.flush_accumulated()
 
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
