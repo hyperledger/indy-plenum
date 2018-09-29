@@ -238,22 +238,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if BLS_KEY in txn_data[DATA]:
                 self.node_blskey_changed(txn_data)
 
-        if nodeName in self.nodeReg:
-            # The node was already part of the pool so update
-            _updateNode(txn_data)
+        seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+        if len(seqNos) == 1:
+            # Since only one transaction has been made, this is a new
+            # node transaction
+            if VALIDATOR in txn_data[DATA].get(SERVICES, []):
+                self.addNewNodeAndConnect(txn_data)
         else:
-            seqNos, info = self.getNodeInfoFromLedger(nodeNym)
-            if len(seqNos) == 1:
-                # Since only one transaction has been made, this is a new
-                # node transaction
-                if VALIDATOR in txn_data[DATA].get(SERVICES, []):
-                    self.addNewNodeAndConnect(txn_data)
-            else:
-                self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
-                                                 info[DATA][NODE_PORT])
-                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
-                    info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                _updateNode(txn_data)
+            _updateNode(txn_data)
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -348,6 +340,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if self.name != nodeName:
                 if VALIDATOR in newServices.difference(oldServices):
                     # If validator service is enabled
+                    self.node.nodeReg[nodeName] = HA(nodeInfo[DATA][NODE_IP],
+                                                     nodeInfo[DATA][NODE_PORT])
+                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
+                        nodeInfo[DATA][CLIENT_IP], nodeInfo[DATA][CLIENT_PORT])
                     self.updateNodeTxns(nodeInfo, txn_data)
                     self.connectNewRemote(nodeInfo, nodeName, self.node)
                     self.node.nodeJoined(txn_data)
