@@ -100,13 +100,13 @@ class LedgerManager(HasActionQueue):
             self._cancel(aid=action_id)
 
     def reask_for_ledger_status(self, ledger_id):
-        self.request_ledger_status_action_ids.pop(ledger_id)
+        self.request_ledger_status_action_ids.pop(ledger_id, None)
         ledgerInfo = self.getLedgerInfoByType(ledger_id)
         nodes = [node for node in self.owner.nodeReg if node not in ledgerInfo.ledgerStatusOk]
         self.owner.request_ledger_status_from_nodes(ledger_id, nodes)
 
     def reask_for_last_consistency_proof(self, ledger_id):
-        self.request_consistency_proof_action_ids.pop(ledger_id)
+        self.request_consistency_proof_action_ids.pop(ledger_id, None)
         ledgerInfo = self.getLedgerInfoByType(ledger_id)
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         ledger_status = self.owner.build_ledger_status(ledger_id)
