@@ -56,6 +56,9 @@ class Requests(OrderedDict):
     by the node and returned to the transaction store, the key for that
     request is popped out
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        self.finalised_count = 0
 
     def add(self, req: Request):
         """
@@ -110,6 +113,8 @@ class Requests(OrderedDict):
 
     def set_finalised(self, req: Request):
         state = self[req.key]
+        if not state.finalised:
+            self.finalised_count += 1
         state.set_finalised(req)
 
     def mark_as_executed(self, req: Request):
@@ -139,6 +144,8 @@ class Requests(OrderedDict):
 
     def _clean(self, state):
         if state.executed and state.forwardedTo <= 0:
+            if state.finalised:
+                self.finalised_count -= 1
             self.pop(state.request.key, None)
 
     def has_propagated(self, req: Request, sender: str) -> bool:

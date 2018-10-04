@@ -7,6 +7,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import BLS_PREFIX
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
+from plenum.common.request import ReqKey
 from plenum.common.util import SortedDict
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
@@ -45,19 +46,32 @@ class Replicas:
                                instance_id,
                                description),
                        extra={"tags": ["node-replica"]})
-        return self.num_replicas
 
-    def remove_replica(self, index: int=None):
-        if index >= self.num_replicas:
+    def remove_replica(self, inst_id: int):
+        if inst_id not in self._replicas:
             return
-        if index is None:
-            index = self.num_replicas - 1
-        replica = self._replicas.pop(index)
-        for request_list in replica.requestQueues.values():
-            for request_key in request_list:
-                replica.requests.free(request_key)
-        self._messages_to_replicas.pop(index, None)
-        self._monitor.removeInstance(index)
+        replica = self._replicas.pop(inst_id)
+
+        # Aggregate all the currently forwarded requests
+        req_keys = set()
+        for msg in replica.inBox:
+            if isinstance(msg, ReqKey):
+                req_keys.add(msg.digest)
+        for req_queue in replica.requestQueues.values():
+            for req_key in req_queue:
+                req_keys.add(req_key)
+        for pp in replica.sentPrePrepares.values():
+            for req_key in pp.reqIdr:
+                req_keys.add(req_key)
+        for pp in replica.prePrepares.values():
+            for req_key in pp.reqIdr:
+                req_keys.add(req_key)
+
+        for req_key in req_keys:
+            replica.requests.free(req_key)
+
+        self._messages_to_replicas.pop(inst_id, None)
+        self._monitor.removeInstance(inst_id)
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})

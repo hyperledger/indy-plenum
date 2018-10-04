@@ -56,7 +56,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
 
     ensure_view_change(looper, other_nodes)
     ensureElectionsDone(looper, other_nodes,
-                        numInstances=getRequiredInstances(len(txnPoolNodeSet)))
+                        instances_list=range(getRequiredInstances(len(txnPoolNodeSet))))
     ensure_all_nodes_have_same_data(looper, other_nodes)
     checkViewNoForNodes(other_nodes, 2)
     checkViewNoForNodes([lagged_node], 1)
@@ -66,7 +66,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
 
     ensure_view_change(looper, other_nodes)
     ensureElectionsDone(looper, other_nodes,
-                        numInstances=getRequiredInstances(len(txnPoolNodeSet)))
+                        instances_list=range(getRequiredInstances(len(txnPoolNodeSet))))
     ensure_all_nodes_have_same_data(looper, other_nodes)
     checkViewNoForNodes(other_nodes, 3)
     checkViewNoForNodes([lagged_node], 1)

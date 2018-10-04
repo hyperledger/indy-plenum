@@ -68,6 +68,9 @@ class RequestTimeTracker:
         self._unordered = set()
         self._handled_unordered = set()
 
+    def __len__(self):
+        return len(self._requests)
+
     def __contains__(self, item):
         return item in self._requests
 
@@ -359,7 +362,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 started = self.requestTracker.started(key)
                 logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
                             .format(key, self.name, instId, now - started))
-                continue
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:

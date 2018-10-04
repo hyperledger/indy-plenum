@@ -13,10 +13,10 @@ def chkChkpoints(nodes, total: int, stableIndex: int = None):
                     assert not state.isStable
 
 
-def checkRequestCounts(nodes, req_count, cons_count, batches_count):
+def checkRequestCounts(nodes, req_count, batches_count):
     for node in nodes:
         assertEquality(len(node.requests), req_count)
         for r in node.replicas.values():
-            assertEquality(len(r.commits), cons_count)
-            assertEquality(len(r.prepares), cons_count)
+            assertEquality(len(r.commits), batches_count)
+            assertEquality(len(r.prepares), batches_count)
             assertEquality(len(r.batches), batches_count)

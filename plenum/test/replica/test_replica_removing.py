@@ -2,20 +2,23 @@ import sys
 
 import pytest
 
-from plenum.common.request import Request
+from plenum.test import waits
+from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.replica.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange
-from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
+from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
+    get_master_primary_node, get_last_master_non_primary_node
 
 from plenum.test.checkpoints.conftest import chkFreqPatched
 
 logger = getlogger()
-CHK_FREQ = 1
+CHK_FREQ = 2
 
 
 @pytest.fixture(scope="function")
@@ -26,161 +29,135 @@ def view_change(txnPoolNodeSet, looper):
         assert n.requiredNumberOfInstances == n.replicas.num_replicas
 
 
-def test_replica_removing(looper,
-                          txnPoolNodeSet,
-                          sdk_pool_handle,
-                          sdk_wallet_client,
-                          view_change):
-    """
-    1. Remove replica
-    2. Ordering
-    3. Check monitor and replicas count
-    """
+def test_replica_removal(looper,
+                         txnPoolNodeSet,
+                         sdk_pool_handle,
+                         sdk_wallet_client,
+                         chkFreqPatched,
+                         view_change):
+
     node = txnPoolNodeSet[0]
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
+
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
+
+    check_replica_removed(node, start_replicas_count, instance_id)
+
+
+def test_replica_removal_does_not_cause_master_degradation(
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+        chkFreqPatched, view_change):
+
+    node = txnPoolNodeSet[0]
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    node.replicas.remove_replica(node.replicas.num_replicas - 1)
+
     assert not node.monitor.isMasterDegraded()
-    assert len(node.requests) == 0
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+
+    assert not node.monitor.isMasterDegraded()
 
 
-def test_replica_removing_before_vc_with_primary_disconnected(looper,
-                                                              txnPoolNodeSet,
-                                                              sdk_pool_handle,
-                                                              sdk_wallet_client,
-                                                              tconf,
-                                                              tdir,
-                                                              allPluginsPath,
-                                                              chkFreqPatched,
-                                                              view_change):
+def test_removed_replica_restored_on_view_change(
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+        tconf, tdir, allPluginsPath, chkFreqPatched, view_change):
     """
-    1. Remove replica
-    2. Reconnect master primary
+    1. Remove replica on some node which is not master primary
+    2. Reconnect the node which was master primary so far
     3. Check that nodes and replicas correctly added
     """
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
-    node = txnPoolNodeSet[0]
+    node = get_last_master_non_primary_node(txnPoolNodeSet)
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
+
     node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
-    assert not node.monitor.isMasterDegraded()
-    assert len(node.requests) == 0
+    check_replica_removed(node, start_replicas_count, instance_id)
+
     # trigger view change on all nodes
-    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node)
-    txnPoolNodeSet.remove(node)
-    looper.removeProdable(node)
-    node = start_stopped_node(node, looper, tconf,
-                              tdir, allPluginsPath)
-    txnPoolNodeSet.append(node)
+    master_primary = get_master_primary_node(txnPoolNodeSet)
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, master_primary)
+    txnPoolNodeSet.remove(master_primary)
+    looper.removeProdable(master_primary)
+    looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
+
+    restarted_node = start_stopped_node(master_primary, looper, tconf, tdir, allPluginsPath)
+    txnPoolNodeSet.append(restarted_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
+
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
                       customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+
     assert start_replicas_count == node.replicas.num_replicas
 
 
-def test_replica_removing_before_ordering(looper,
-                                          txnPoolNodeSet,
-                                          sdk_pool_handle,
-                                          sdk_wallet_client,
-                                          chkFreqPatched,
-                                          view_change):
-    """
-    1. Remove replica
-    2. Ordering
-    3. Check monitor and replicas count
-    """
+def test_ordered_request_freed_on_replica_removal(looper,
+                                                  txnPoolNodeSet,
+                                                  sdk_pool_handle,
+                                                  sdk_wallet_client,
+                                                  chkFreqPatched,
+                                                  view_change):
     node = txnPoolNodeSet[0]
-    start_replicas_count = node.replicas.num_replicas
-    instance_id = start_replicas_count - 1
-    node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
-    looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
-    assert not node.monitor.isMasterDegraded()
+
+    assert len(node.requests) == 1
+
+    forwardedToBefore = next(iter(node.requests.values())).forwardedTo
+    node.replicas.remove_replica(node.replicas.num_replicas - 1)
+
+    assert len(node.requests) == 1
+    forwardedToAfter = next(iter(node.requests.values())).forwardedTo
+    assert forwardedToAfter == forwardedToBefore - 1
+    chkChkpoints(txnPoolNodeSet, 1)
+
+    # Send one more request to stabilize checkpoint
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0))
     assert len(node.requests) == 0
 
 
-def test_replica_removing_in_ordering(looper,
-                                      txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client,
-                                      chkFreqPatched,
-                                      view_change):
-    """
-    1. Start ordering (send pre-prepares on backup)
-    2. Remove replica
-    3. Finish ordering
-    4. Check monitor and replicas count
-    """
+def test_unordered_request_freed_on_replica_removal(looper,
+                                                    txnPoolNodeSet,
+                                                    sdk_pool_handle,
+                                                    sdk_wallet_client,
+                                                    chkFreqPatched,
+                                                    view_change):
     node = txnPoolNodeSet[0]
-    start_replicas_count = node.replicas.num_replicas
-    instance_id = start_replicas_count - 1
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
+
     with delay_rules(stashers, cDelay(delay=sys.maxsize)):
         req = sdk_send_random_requests(looper,
                                        sdk_pool_handle,
                                        sdk_wallet_client,
                                        1)
+        looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
+                      waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
+                      waits.expectedPrepareTime(len(txnPoolNodeSet)) +
+                      waits.expectedCommittedTime(len(txnPoolNodeSet)))
 
-        def chk():
-            assert len(node.requests) > 0
-        looper.run(eventually(chk))
-        digest = Request(**req[0][0]).digest
-        old_forwarded_to = node.requests[digest].forwardedTo
-        node.replicas.remove_replica(instance_id)
-        assert old_forwarded_to - 1 == node.requests[digest].forwardedTo
+        assert len(node.requests) == 1
+
+        forwardedToBefore = next(iter(node.requests.values())).forwardedTo
+        node.replicas.remove_replica(node.replicas.num_replicas - 1)
+
+        assert len(node.requests) == 1
+        forwardedToAfter = next(iter(node.requests.values())).forwardedTo
+        assert forwardedToAfter == forwardedToBefore - 1
+        chkChkpoints(txnPoolNodeSet, 0)
+
     sdk_get_replies(looper, req)
-    looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
-    _check_replica_removed(node, start_replicas_count, instance_id)
-    assert not node.monitor.isMasterDegraded()
-    assert len(node.requests) == 0
+    chkChkpoints(txnPoolNodeSet, 1)
 
-
-def test_replica_removing_after_ordering(looper,
-                                         txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
-                                         view_change,
-                                         chkFreqPatched):
-    """
-    1. Ordering
-    2. Remove replica
-    3. Check monitor and replicas count
-    """
-    node = txnPoolNodeSet[0]
-    start_replicas_count = node.replicas.num_replicas
+    # Send one more request to stabilize checkpoint
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
-    looper.run(eventually(check_checkpoint_finalize, txnPoolNodeSet))
-    instance_id = start_replicas_count - 1
-    node.replicas.remove_replica(instance_id)
-    _check_replica_removed(node, start_replicas_count, instance_id)
-    assert not node.monitor.isMasterDegraded()
+
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0))
     assert len(node.requests) == 0
-
-
-def _check_replica_removed(node, start_replicas_count, instance_id):
-    replicas_count = start_replicas_count - 1
-    assert node.replicas.num_replicas == replicas_count
-    replicas_lists = [node.replicas.keys(),
-                      node.replicas._messages_to_replicas.keys(),
-                      node.monitor.numOrderedRequests.keys(),
-                      node.monitor.clientAvgReqLatencies.keys(),
-                      node.monitor.throughputs.keys(),
-                      node.monitor.requestTracker.instances_ids,
-                      node.monitor.instances.ids]
-    assert all(instance_id not in replicas for replicas in replicas_lists)
-    if node.monitor.acc_monitor is not None:
-        assert node.monitor.acc_monitor == replicas_count
-        assert instance_id not in node.replicas.keys()
-
-
-def check_checkpoint_finalize(nodes):
-    for n in nodes:
-        for checkpoint in n.master_replica.checkpoints.values():
-            assert checkpoint.isStable
 
 
 def do_view_change(txnPoolNodeSet, looper):

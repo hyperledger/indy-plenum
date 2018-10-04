@@ -89,9 +89,9 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
         def adjustReplicas(self,
                            old_required_number_of_instances: int,
                            new_required_number_of_instances: int):
-            r = super().adjustReplicas(old_required_number_of_instances,
-                                       new_required_number_of_instances)
-            if r > 0:
+            super().adjustReplicas(old_required_number_of_instances,
+                                   new_required_number_of_instances)
+            if new_required_number_of_instances > old_required_number_of_instances:
                 if hasattr(self, 'sent_pps'):
                     new_replicas = [r for inst_id, r in self.replicas
                                     if old_required_number_of_instances <=
@@ -99,7 +99,6 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
                     for r in new_replicas:
                         if not hasattr(r, 'sent_pps'):
                             r.sent_pps = self.sent_pps.pop(r.instId, {})
-            return r
 
     return ReplayableNode
 
