@@ -238,9 +238,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.node_blskey_changed(txn_data)
 
         seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+
+        # `onPoolMembershipChange` method can be called only after txn added to ledger
+        if len(seqNos) == 0:
+            raise LogicError("There are no txns in ledger for nym {}".format(nodeNym))
+
+        # If there is only one transaction has been made to this nym,
+        # that means, that this is a new node transaction
         if len(seqNos) == 1:
-            # Since only one transaction has been made, this is a new
-            # node transaction
             if VALIDATOR in txn_data[DATA].get(SERVICES, []):
                 self.addNewNodeAndConnect(txn_data)
         else:
