@@ -32,7 +32,7 @@ def test_restart_majority_to_same_view(looper, txnPoolNodeSet, tconf, tdir, allP
     majority_before_restart = majority.copy()
     restart_nodes(looper, txnPoolNodeSet, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
-    ensureElectionsDone(looper, majority, numInstances=2)
+    ensureElectionsDone(looper, majority, instances_list=range(2))
 
     # Check that nodes in minority group are aware that they might have inconsistent 3PC state
     for node in minority:
@@ -70,7 +70,7 @@ def test_restart_majority_to_lower_view(looper, txnPoolNodeSet, tconf, tdir, all
     majority_before_restart = majority.copy()
     restart_nodes(looper, txnPoolNodeSet, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=tm, start_one_by_one=False, wait_for_elections=False)
-    ensureElectionsDone(looper, majority, numInstances=2)
+    ensureElectionsDone(looper, majority, instances_list=range(2))
 
     # Check that nodes in minority group are aware that they might have inconsistent 3PC state
     for node in minority:

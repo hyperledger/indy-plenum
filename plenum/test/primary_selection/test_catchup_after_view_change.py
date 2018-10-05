@@ -76,7 +76,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     ensure_view_change(looper, txnPoolNodeSet)
     # `slow_node` will not have elections done but others will.
     checkProtocolInstanceSetup(looper, fast_nodes,
-                               numInstances=len(slow_node.replicas),
+                               instances=list(slow_node.replicas.keys()),
                                retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 

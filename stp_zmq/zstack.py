@@ -15,7 +15,7 @@ import sys
 import time
 from binascii import hexlify, unhexlify
 from collections import deque
-from typing import Mapping, Tuple, Any, Union, Optional
+from typing import Mapping, Tuple, Any, Union, Optional, NamedTuple
 
 from common.exceptions import PlenumTypeError, PlenumValueError
 
@@ -38,6 +38,9 @@ from plenum.common.exceptions import InvalidMessageExceedingSizeException
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 logger = getlogger()
+
+
+Quota = NamedTuple("Quota", [("count", int), ("size", int)])
 
 
 # TODO: Use Async io
@@ -438,7 +441,7 @@ class ZStack(NetworkInterface):
             return None
         return super().getHa(name)
 
-    async def service(self, limit=None) -> int:
+    async def service(self, limit=None, quota: Optional[Quota] = None) -> int:
         """
         Service `limit` number of received messages in this stack.
 
@@ -447,7 +450,7 @@ class ZStack(NetworkInterface):
         :return: the number of messages processed.
         """
         if self.listener:
-            await self._serviceStack(self.age)
+            await self._serviceStack(self.age, quota)
         else:
             logger.info("{} is stopped".format(self))
 
@@ -471,17 +474,15 @@ class ZStack(NetworkInterface):
         self.rxMsgs.append((decoded, ident))
         return True
 
-    def _receiveFromListener(self, quota, size) -> int:
+    def _receiveFromListener(self, quota: Quota) -> int:
         """
         Receives messages from listener
         :param quota: number of messages to receive
         :return: number of received messages
         """
-        assert quota
-        assert size
         i = 0
         incoming_size = 0
-        while i < quota and incoming_size < size:
+        while i < quota.count and incoming_size < quota.size:
             try:
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
                 if not msg:
@@ -527,7 +528,7 @@ class ZStack(NetworkInterface):
             totalReceived += i
         return totalReceived
 
-    async def _serviceStack(self, age):
+    async def _serviceStack(self, age, quota: Optional[Quota] = None):
         # TODO: age is unused
 
         # These checks are kept here and not moved to a function since
@@ -538,7 +539,10 @@ class ZStack(NetworkInterface):
                 self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
-        self._receiveFromListener(quota=self.listenerQuota, size=self.listenerSize)
+        if quota is None:
+            quota = Quota(count=self.listenerQuota, size=self.listenerSize)
+
+        self._receiveFromListener(quota)
         self._receiveFromRemotes(quotaPerRemote=self.senderQuota)
         return len(self.rxMsgs)
 

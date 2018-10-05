@@ -54,7 +54,7 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
         # Make `Delta` small enough so throughput check passes.
         node.monitor.Delta = .001
         node.monitor.Lambda = testLambda
-        for r in node.replicas:
+        for r in node.replicas.values():
             r.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS += delay_by
 
     # make P (primary replica on master) faulty, i.e., slow to send

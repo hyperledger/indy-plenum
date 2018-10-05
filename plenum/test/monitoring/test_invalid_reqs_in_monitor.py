@@ -17,7 +17,7 @@ def randomDynamicValidation(self, req):
 
 def check_count_reqs(nodes):
     for node in nodes:
-        reqs_count = set([c for c, _ in node.monitor.numOrderedRequests if c == COUNT_VALID_REQS + COUNT_INVALID_REQS])
+        reqs_count = set([c for c, _ in node.monitor.numOrderedRequests.values() if c == COUNT_VALID_REQS + COUNT_INVALID_REQS])
         assert len(reqs_count) == 1
 
 

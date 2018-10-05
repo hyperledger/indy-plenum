@@ -1,23 +1,12 @@
-import sys
-import types
-
 import pytest
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF
-from plenum.common.ledger_manager import LedgerManager
-from plenum.common.messages.node_messages import LedgerStatus
-from plenum.common.txn_util import get_req_id, get_from, get_txn_time, \
-    get_payload_data
-from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
-from plenum.test.delayers import lsDelay, msg_rep_delay, cpDelay
+from plenum.common.util import getCallableName
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test.view_change.helper import start_stopped_node
-from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 
 call_count = 0
@@ -165,10 +154,15 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+
     # check cancel of schedule with requesting ledger statuses and consistency proofs
-    for ledger_id in range(0, 3):
-        scheduled_ls = node_to_disconnect.ledgerManager.request_ledger_status_action_ids
-        assert ledger_id not in scheduled_ls
-    for ledger_id in range(0, 3):
-        scheduled_cp = node_to_disconnect.ledgerManager.request_consistency_proof_action_ids
-        assert ledger_id not in scheduled_cp
+
+    assert len(node_to_disconnect.ledgerManager.request_ledger_status_action_ids) == 0
+    for action, aids in node_to_disconnect.ledgerManager.scheduled.items():
+        if getCallableName(action) == 'reask_for_ledger_status':
+            assert len(aids) == 0
+
+    assert len(node_to_disconnect.ledgerManager.request_consistency_proof_action_ids) == 0
+    for action, aids in node_to_disconnect.ledgerManager.scheduled.items():
+        if getCallableName(action) == 'reask_for_last_consistency_proof':
+            assert len(aids) == 0

@@ -23,7 +23,7 @@ def test_no_propagated_future_view_change_while_view_change(txnPoolNodeSet, loop
     with delay_rules(lagged_node.nodeIbStasher, icDelay()):
         # make sure that View Change happened on all nodes but the lagging one
         ensure_view_change(looper, other_nodes)
-        checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, numInstances=2)
+        checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, instances=range(2))
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
         # check that lagged node recived 3 Future VCD, but didn't start new view change

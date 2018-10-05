@@ -3,9 +3,10 @@ import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
     KeyValueStorageType
+from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
+from plenum.common.latency_measurements import EMALatencyMeasurementForAllClient
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -108,7 +109,6 @@ db_seq_no_db_config = rocksdb_seq_no_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
 
-
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
     #  if not given, by default it will pickup plenum/server/plugin path>",
@@ -130,24 +130,24 @@ DELTA = 0.1
 LAMBDA = 240
 OMEGA = 20
 SendMonitorStats = False
-ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
-LatencyWindowSize = 30
 LatencyGraphDuration = 240
 
-# This parameter defines minimal count of accumulated latencies for each client
-MIN_LATENCY_COUNT = 10
-
-latency_averaging_strategy_class = MedianHighStrategy
-throughput_averaging_strategy_class = MedianLowStrategy
-
+# Throughput strategy
 throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
-
+throughput_averaging_strategy_class = MedianLowStrategy
 throughput_measurement_params = {
     'window_size': 15,
     'min_cnt': 16
 }
+
+# Latency strategy
+# This parameter defines minimal count of accumulated latencies for each client
+LatencyMeasurementCls = EMALatencyMeasurementForAllClient
+LatencyAveragingStrategyClass = MedianHighStrategy
+LatencyAvgStrategyForClients = MedianHighStrategy
+MIN_LATENCY_COUNT = 20
 
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
@@ -187,6 +187,11 @@ ViewChangeWindowSize = 60
 # A node if finds itself disconnected from primary of the master instance will
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
 ToleratePrimaryDisconnection = 2
+
+# A node if finds itself disconnected from primary of some backup instance will
+# wait for `TolerateBackupPrimaryDisconnection` before remove its replica
+# in this backup instance
+TolerateBackupPrimaryDisconnection = 60
 
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
@@ -325,7 +330,6 @@ METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()
 
-
 # Accumulating performance monitor controls
 #
 # If number of txns ordered by any instance is more than ordered by master
@@ -339,3 +343,7 @@ ACC_MONITOR_ENABLED = False
 ACC_MONITOR_TXN_DELTA_K = 100
 ACC_MONITOR_TIMEOUT = 300
 ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
+
+VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
+
+VALIDATOR_INFO_USE_DB = False

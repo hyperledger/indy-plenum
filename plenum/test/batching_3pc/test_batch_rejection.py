@@ -54,7 +54,7 @@ def viewChanged(reverted, looper, txnPoolNodeSet):
     def chk():
         for n in txnPoolNodeSet:
             assert n.viewNo == 1
-            assert all([r.primaryName for r in n.replicas])
+            assert all([r.primaryName for r in n.replicas.values()])
 
     looper.run(eventually(chk, retryWait=1, timeout=15))
 

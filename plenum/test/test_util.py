@@ -111,7 +111,7 @@ def test_utc_epoch():
     t1 = get_utc_epoch()
     time.sleep(1)
     t2 = get_utc_epoch()
-    assert 1 <= t2 - t1 < 2
+    assert 1 <= t2 - t1 <= 2
 
     old_tz = os.environ.get('TZ')
 
@@ -120,14 +120,14 @@ def test_utc_epoch():
     time.tzset()
     time.sleep(1)
     t4 = get_utc_epoch()
-    assert 1 <= t4 - t3 < 2
+    assert 1 <= t4 - t3 <= 2
 
     t5 = get_utc_epoch()
     os.environ['TZ'] = 'America/St_Johns'
     time.tzset()
     time.sleep(1)
     t6 = get_utc_epoch()
-    assert 1 <= t6 - t5 < 2
+    assert 1 <= t6 - t5 <= 2
 
     if old_tz is None:
         del os.environ['TZ']
